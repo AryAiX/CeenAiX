@@ -105,16 +105,20 @@ export const Login = () => {
   const requestedRole = searchParams.get('role');
   const selectedRole: LoginRole | null = isLoginRole(requestedRole) ? requestedRole : null;
   const rolePreset = selectedRole ? rolePresets[selectedRole] : null;
+  const accountCreated = searchParams.get('created') === '1';
+  const emailFromSignup = searchParams.get('email') ?? '';
 
   const [mode, setMode] = useState<LoginMode>('password');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(emailFromSignup);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(
+    accountCreated ? t('auth.login.accountCreatedCheckEmail') : null
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isRecoveryMode = useMemo(() => {
@@ -553,17 +557,23 @@ export const Login = () => {
                 )}
 
                 <div className="mt-5 border-t border-slate-100 pt-5 text-center text-sm text-slate-500">
-                  <span>{t('auth.login.needAccount')}</span>{' '}
-                  <Link
-                    to={
-                      selectedRole
-                        ? `/auth/register?role=${selectedRole}`
-                        : '/auth/register'
-                    }
-                    className="font-semibold text-teal-700 transition-colors hover:text-teal-800"
-                  >
-                    {t('auth.login.createAccount')}
-                  </Link>
+                  {selectedRole === 'admin' ? (
+                    <span>{t('auth.login.adminInviteOnly')}</span>
+                  ) : (
+                    <>
+                      <span>{t('auth.login.needAccount')}</span>{' '}
+                      <Link
+                        to={
+                          selectedRole
+                            ? `/auth/register?role=${selectedRole}`
+                            : '/auth/register'
+                        }
+                        className="font-semibold text-teal-700 transition-colors hover:text-teal-800"
+                      >
+                        {t('auth.login.createAccount')}
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </>

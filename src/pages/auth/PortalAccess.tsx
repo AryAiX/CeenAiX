@@ -109,6 +109,11 @@ export const PortalAccess = () => {
       return;
     }
 
+    if (role === 'admin') {
+      navigate('/auth/login?role=admin');
+      return;
+    }
+
     navigate(`/auth/register?role=${role}`);
   };
 
@@ -181,7 +186,7 @@ export const PortalAccess = () => {
             <p className="mt-1 text-sm text-slate-500">{t('auth.roleAccess.description')}</p>
           </div>
 
-          <div className="mb-6 grid gap-3 sm:grid-cols-2">
+          <div className="mb-6 grid grid-cols-2 gap-3">
             {roleOptions.map((role) => {
               const Icon = role.icon;
 

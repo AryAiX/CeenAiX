@@ -51,17 +51,42 @@ import { DoctorSettings } from '../pages/doctor/Settings';
 import { DoctorImaging } from '../pages/doctor/Imaging';
 import { DoctorEarnings } from '../pages/doctor/Earnings';
 import { DoctorPortal } from '../pages/doctor/Portal';
-import { AdminDashboard } from '../pages/admin/Dashboard';
-import { AdminCompliance } from '../pages/admin/Compliance';
-import { AdminSystemHealth } from '../pages/admin/SystemHealth';
-import { AdminOrganizations } from '../pages/admin/Organizations';
-import { AdminUsers } from '../pages/admin/Users';
-import { AdminDiagnostics } from '../pages/admin/Diagnostics';
-import { AdminAiAnalytics } from '../pages/admin/AIAnalytics';
-import { LabDashboard } from '../pages/lab/Dashboard';
-import { LabReferrals } from '../pages/lab/Referrals';
-import { LabResultEntry } from '../pages/lab/ResultEntry';
-import { LabRadiology } from '../pages/lab/Radiology';
+import {
+  AdminAiAnalytics,
+  AdminAudit,
+  AdminCompliance,
+  AdminDashboard,
+  AdminDiagnostics,
+  AdminDoctors,
+  AdminInsurance,
+  AdminIntegrations,
+  AdminNabidh,
+  AdminOrganizations,
+  AdminPatients,
+  AdminPlatformSettings,
+  AdminRevenue,
+  AdminSecurity,
+  AdminSystemHealth,
+  AdminUsers,
+} from '../pages/admin/Portal';
+import {
+  LabAnalytics,
+  LabDashboard,
+  LabEquipment,
+  LabImagingEquipment,
+  LabImagingOrders,
+  LabImagingQueue,
+  LabNabidhSync,
+  LabOrders,
+  LabProfile,
+  LabQualityControl,
+  LabRadiology,
+  LabRadiologyReports,
+  LabReferrals,
+  LabResultEntry,
+  LabResults,
+  LabSettings,
+} from '../pages/lab/Portal';
 import { PharmacyDashboard } from '../pages/pharmacy/Dashboard';
 import { PharmacyDispensing } from '../pages/pharmacy/Dispensing';
 import { PharmacyInventory } from '../pages/pharmacy/Inventory';
@@ -344,6 +369,60 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/admin/patients',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminPatients />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/doctors',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminDoctors />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/insurance',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminInsurance />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/integrations',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminIntegrations />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/revenue',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminRevenue />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/nabidh',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminNabidh />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/audit',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminAudit />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/security',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminSecurity />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/platform-settings',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminPlatformSettings />)}</ProtectedRoute>
+    ),
+  },
+  {
     path: '/admin/system-health',
     element: (
       <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminSystemHealth />)}</ProtectedRoute>
@@ -382,12 +461,64 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabReferrals />)}</ProtectedRoute>,
   },
   {
+    path: '/lab/queue',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabReferrals />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/orders',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabOrders />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/results',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabResults />)}</ProtectedRoute>,
+  },
+  {
     path: '/lab/results/entry',
     element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabResultEntry />)}</ProtectedRoute>,
   },
   {
+    path: '/lab/qc',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabQualityControl />)}</ProtectedRoute>,
+  },
+  {
     path: '/lab/radiology',
     element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabRadiology />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/imaging/queue',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabImagingQueue />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/imaging/orders',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabImagingOrders />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/imaging/reports',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabRadiologyReports />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/imaging/equipment',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabImagingEquipment />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/equipment',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabEquipment />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/nabidh',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabNabidhSync />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/analytics',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabAnalytics />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/profile',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabProfile />)}</ProtectedRoute>,
+  },
+  {
+    path: '/lab/settings',
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabSettings />)}</ProtectedRoute>,
   },
   {
     path: '/pharmacy/dashboard',

@@ -34,6 +34,22 @@ export { useSpecializations, useDoctorSpecializationIds } from './use-specializa
 export { useDoctorPreVisitTemplates, usePatientPreVisitAssessments, usePreVisitAssessment } from './use-pre-visit';
 export { useLabDashboard, useLabOrderActions, useLabOrderDetail } from './use-lab-dashboard';
 export type { LabDashboardData, LabWorklistItem, LabOrderActions, LabOrderDetail } from './use-lab-dashboard';
+export { useLabOpsActions, useLabOpsPortal } from './use-lab-ops-portal';
+export type {
+  EquipmentStatus,
+  ImagingStatus,
+  LabDepartment,
+  LabFacilityProfile,
+  LabPortalData,
+  LabPortalEquipment,
+  LabPortalImagingStudy,
+  LabPortalNabidhEvent,
+  LabPortalQcRun,
+  LabPortalSample,
+  LabPortalSetting,
+  LabPriority,
+  NabidhStatus,
+} from './use-lab-ops-portal';
 export { usePharmacyPrescriptionQueue } from './use-pharmacy-prescription-queue';
 export type {
   PharmacyClaimLedgerItem,

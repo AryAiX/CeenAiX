@@ -216,7 +216,7 @@ export const Register = () => {
     setIsSubmitting(true);
 
     if (mode === 'email-password') {
-      const { error } = await signUpWithPassword({
+      const { error, session } = await signUpWithPassword({
         email: normalizedEmail,
         password,
         phone: phone.trim() || undefined,
@@ -236,8 +236,16 @@ export const Register = () => {
         return;
       }
 
-      setSuccessMessage(t('auth.register.successAccountCreated'));
       setIsSubmitting(false);
+      if (session) {
+        navigate('/auth/onboarding', { replace: true });
+        return;
+      }
+
+      navigate(
+        `/auth/login?role=${selectedRole}&created=1&email=${encodeURIComponent(normalizedEmail)}`,
+        { replace: true }
+      );
       return;
     }
 

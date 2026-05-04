@@ -641,6 +641,8 @@
       "roleAccessBadge": "الدخول إلى البوابة",
       "needAccount": "ليس لديك حساب؟",
       "createAccount": "أنشئ حساباً الآن",
+      "accountCreatedCheckEmail": "تم إنشاء الحساب. تحقق من بريدك لتأكيده، ثم سجّل الدخول لإكمال الإعداد.",
+      "adminInviteOnly": "حسابات المشرفين تُنشأ بالدعوة. سجّل الدخول ببياناتك المخصصة.",
       "newPassword": "كلمة المرور الجديدة",
       "confirmNewPassword": "تأكيد كلمة المرور الجديدة",
       "newPasswordPlaceholder": "أنشئ كلمة مرور قوية",

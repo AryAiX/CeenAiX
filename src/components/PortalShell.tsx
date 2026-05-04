@@ -154,10 +154,10 @@ export const PortalShell = ({
     const portalItems: PortalNavItem[] = [
       { id: 'patient', label: t('nav.patientPortal'), icon: UserCircle2, href: '/patient/dashboard' },
       { id: 'doctor', label: t('nav.doctorPortal'), icon: Stethoscope, href: '/doctor/dashboard' },
-      { id: 'pharmacy', label: t('header.pharmacy'), icon: Pill, disabled: true },
-      { id: 'lab', label: t('header.laboratories'), icon: FlaskConical, disabled: true },
-      { id: 'insurance', label: t('header.insurance'), icon: ShieldCheck, disabled: true },
-      { id: 'admin', label: t('auth.roleAccess.roles.admin.title'), icon: Settings, disabled: true },
+      { id: 'pharmacy', label: t('header.pharmacy'), icon: Pill, href: '/pharmacy/dashboard' },
+      { id: 'lab', label: t('header.laboratories'), icon: FlaskConical, href: '/lab/dashboard' },
+      { id: 'insurance', label: t('header.insurance'), icon: ShieldCheck, href: '/insurance/dashboard' },
+      { id: 'admin', label: t('auth.roleAccess.roles.admin.title'), icon: Settings, href: '/admin/dashboard' },
     ];
 
     const renderPatientNavItem = (item: PortalNavItem, compact = false) => {
@@ -438,15 +438,17 @@ export const PortalShell = ({
         { href: '/doctor/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, badge: doctorChromeData?.todayAppointmentsCount ?? undefined, badgeTone: 'red' },
         { href: '/doctor/today', label: "Today's Appointments", icon: CalendarCheck, badge: doctorChromeData?.todayAppointmentsCount ?? undefined, badgeTone: 'amber' },
         { href: '/doctor/appointments', label: t('nav.appointments'), icon: CalendarDays },
+        { href: '/doctor/schedule', label: 'Schedule', icon: Calendar },
         { href: '/doctor/patients', label: 'Patient Records', icon: Users },
       ],
     },
     {
       id: 'workflow',
       items: [
-        { href: '/doctor/prescribe', label: 'Write Prescription', icon: PenLine, badge: 1, badgeTone: 'amber' },
-        { href: '/doctor/labs', label: 'Lab Referrals', icon: FlaskConical, badge: doctorChromeData?.criticalResultsCount ?? undefined, badgeTone: 'red' },
-        { href: '/doctor/imaging', label: 'Imaging Center', icon: Scan, badge: 1, badgeTone: 'amber' },
+        { href: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill },
+        { href: '/doctor/prescriptions/new', label: 'Write Prescription', icon: PenLine },
+        { href: '/doctor/lab-orders', label: 'Lab Referrals', icon: FlaskConical, badge: doctorChromeData?.criticalResultsCount ?? undefined, badgeTone: 'red' },
+        { href: '/doctor/imaging', label: 'Imaging Center', icon: Scan },
         { href: '/doctor/messages', label: t('nav.messages'), icon: MessageSquare, badge: doctorChromeData?.unreadMessagesCount ?? undefined, badgeTone: 'blue' },
       ],
     },
@@ -458,7 +460,11 @@ export const PortalShell = ({
     {
       id: 'account',
       title: 'ACCOUNT',
-      items: [{ href: '/doctor/profile', label: 'My Profile', icon: UserCircle2 }],
+      items: [
+        { href: '/doctor/notifications', label: 'Notifications', icon: Bell },
+        { href: '/doctor/profile', label: 'My Profile', icon: UserCircle2 },
+        { href: '/doctor/settings', label: 'Settings', icon: Settings },
+      ],
     },
   ];
 
@@ -752,7 +758,7 @@ export const PortalShell = ({
               onClick={() => navigate('/doctor/notifications')}
               className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700"
             >
-              <MessageSquare className="h-4 w-4" />
+              <Bell className="h-4 w-4" />
               {(doctorChromeData?.unreadMessagesCount ?? 0) > 0 ? (
                 <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
                   {doctorChromeData?.unreadMessagesCount}

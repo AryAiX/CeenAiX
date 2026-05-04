@@ -52,6 +52,10 @@ interface AuthActionResult {
   error: Error | null;
 }
 
+interface SignUpActionResult extends AuthActionResult {
+  session: Session | null;
+}
+
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
@@ -62,7 +66,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   signInWithPassword: (input: PasswordSignInInput) => Promise<AuthActionResult>;
-  signUpWithPassword: (input: PasswordSignUpInput) => Promise<AuthActionResult>;
+  signUpWithPassword: (input: PasswordSignUpInput) => Promise<SignUpActionResult>;
   resendSignupConfirmation: (email: string) => Promise<AuthActionResult>;
   requestOtp: (input: OtpRequestInput) => Promise<AuthActionResult>;
   verifyOtp: (input: VerifyOtpInput) => Promise<AuthActionResult>;
@@ -447,7 +451,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }: PasswordSignUpInput) => {
       try {
         const parsedName = splitFullName(fullName);
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -463,9 +467,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           },
         });
 
-        return { error };
+        if (!error && data.user && data.user.identities?.length === 0) {
+          return { error: new Error('User already registered'), session: null };
+        }
+
+        return { error, session: data.session };
       } catch (error) {
-        return { error: toError(error) };
+        return { error: toError(error), session: null };
       }
     },
     []

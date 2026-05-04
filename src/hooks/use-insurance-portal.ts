@@ -119,6 +119,10 @@ interface OrganizationRow {
   city: string | null;
 }
 
+interface OrganizationMemberRow {
+  organization_id: string;
+}
+
 interface PayerProfileRow {
   display_name: string;
   regulator_name: string;
@@ -231,14 +235,31 @@ const emptyData = (): InsurancePortalData => ({
 
 export function useInsurancePortal() {
   return useQuery<InsurancePortalData>(async () => {
-    const { data: organization, error: orgError } = await supabase
+    const { data: userResult, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+
+    let memberOrganizationId: string | null = null;
+    if (userResult.user) {
+      const { data: membershipRows, error: membershipError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', userResult.user.id)
+        .eq('is_active', true)
+        .limit(1);
+      if (membershipError) throw membershipError;
+      memberOrganizationId = ((membershipRows ?? []) as OrganizationMemberRow[])[0]?.organization_id ?? null;
+    }
+
+    const organizationQuery = supabase
       .from('organizations')
       .select('id, name, slug, city')
       .eq('kind', 'insurance')
       .eq('status', 'active')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order('created_at', { ascending: true });
+
+    const { data: organization, error: orgError } = memberOrganizationId
+      ? await organizationQuery.eq('id', memberOrganizationId).maybeSingle()
+      : await organizationQuery.limit(1).maybeSingle();
 
     if (orgError) throw orgError;
     if (!organization) return emptyData();

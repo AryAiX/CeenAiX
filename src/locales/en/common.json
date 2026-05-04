@@ -641,6 +641,8 @@
       "roleAccessBadge": "Portal access",
       "needAccount": "Need an account?",
       "createAccount": "Create one now",
+      "accountCreatedCheckEmail": "Account created. Check your email to confirm it, then sign in to finish onboarding.",
+      "adminInviteOnly": "Admin accounts are provisioned by invitation. Sign in with your assigned credentials.",
       "newPassword": "New password",
       "confirmNewPassword": "Confirm new password",
       "newPasswordPlaceholder": "Create a strong password",
