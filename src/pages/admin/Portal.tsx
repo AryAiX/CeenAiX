@@ -12,5 +12,5 @@ export { default as AdminSecurity } from '../SecurityPage';
 export { default as AdminNabidh } from '../NabidhPage';
 export { default as AdminPlatformSettings } from '../PlatformSettings/PlatformSettingsPage';
 export { default as AdminSystemHealth } from '../systemHealth/AdminSystemStatus';
-export { AdminDiagnostics } from './Diagnostics';
+export { default as AdminDiagnostics } from '../DiagnosticsPortal';
 export { default as AdminAiAnalytics } from '../AdminAIAnalytics';
