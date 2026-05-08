@@ -168,6 +168,7 @@ export const PatientRecords: React.FC = () => {
   const [allergyForm, setAllergyForm] = useState<AllergyFormState>(initialAllergyForm);
   const [vaccinationForm, setVaccinationForm] = useState<VaccinationFormState>(initialVaccinationForm);
   const [submittingForm, setSubmittingForm] = useState<RecordCategory | null>(null);
+  const [conditionSubmitAttempted, setConditionSubmitAttempted] = useState(false);
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -337,11 +338,18 @@ export const PatientRecords: React.FC = () => {
     setConditionForm(initialConditionForm);
     setAllergyForm(initialAllergyForm);
     setVaccinationForm(initialVaccinationForm);
+    setConditionSubmitAttempted(false);
     setActiveForm(null);
   };
 
   const handleCreateCondition = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    setConditionSubmitAttempted(true);
+
+    if (!conditionForm.conditionName.trim()) {
+      return;
+    }
 
     if (!user?.id) {
       return;
@@ -624,14 +632,20 @@ export const PatientRecords: React.FC = () => {
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.conditionName')}</span>
                 <input
-                  required
                   type="text"
                   value={conditionForm.conditionName}
                   onChange={(event) =>
                     setConditionForm((current) => ({ ...current, conditionName: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    conditionSubmitAttempted && !conditionForm.conditionName.trim()
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-cyan-500 focus:ring-cyan-500/10'
+                  }`}
                 />
+                {conditionSubmitAttempted && !conditionForm.conditionName.trim() ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')}</span>
