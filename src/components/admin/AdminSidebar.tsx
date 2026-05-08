@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LayoutDashboard, Users, Stethoscope, Building2, Shield, Bot, Link2, TrendingUp, Activity, ShieldCheck, FileText, Lock, Server, Settings, LogOut, ChevronLeft, ChevronRight, CircleUser as UserCircle, Bell, Key, Globe, ScrollText, LifeBuoy, Layers } from 'lucide-react';
 import { SUPER_ADMIN_USER, PLATFORM_INFO } from '../../data/superAdminData';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 interface NavItem {
   id: string;
@@ -79,7 +79,8 @@ interface Props {
 
 const AdminSidebar: React.FC<Props> = ({ activeSection, onSectionChange }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const { t, isRTL } = useLanguage();
+  const { t, i18n } = useTranslation('common');
+  const isRTL = i18n.language === 'ar';
 
   return (
     <div
