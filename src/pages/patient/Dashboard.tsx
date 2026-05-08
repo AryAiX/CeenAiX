@@ -233,7 +233,7 @@ export const PatientDashboard: React.FC = () => {
         icon: FlaskConical,
         label: localCopy.labsShort,
         colorClass: 'text-violet-600 bg-violet-50 hover:bg-violet-100',
-        action: () => navigate('/patient/records'),
+        action: () => navigate('/patient/lab-results'),
       },
       {
         icon: Bot,
@@ -506,9 +506,8 @@ export const PatientDashboard: React.FC = () => {
                     ) : (
                       <button
                         type="button"
-                        disabled
-                        title={localCopy.unavailable}
-                        className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white opacity-50 transition-colors disabled:cursor-not-allowed"
+                        onClick={() => navigate('/patient/prescriptions')}
+                        className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
                       >
                         <CheckCircle2 className="h-3 w-3" />
                         {isArabic ? 'تأكيد' : 'Mark Taken'}
@@ -608,9 +607,8 @@ export const PatientDashboard: React.FC = () => {
               </span>
               <button
                 type="button"
-                disabled
-                title={localCopy.unavailable}
-                className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-600 opacity-50 transition-colors disabled:cursor-not-allowed"
+                onClick={() => navigate('/patient/records')}
+                className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-600 transition-colors hover:bg-teal-50"
               >
                 {isArabic ? '+ إضافة قراءة' : '+ Add Reading'}
               </button>
@@ -920,12 +918,8 @@ export const PatientDashboard: React.FC = () => {
                 <button
                   key={action.label}
                   type="button"
-                  onClick={action.label === localCopy.labsShort ? undefined : action.action}
-                  disabled={action.label === localCopy.labsShort}
-                  title={action.label === localCopy.labsShort ? localCopy.unavailable : undefined}
-                  className={`flex flex-col items-center gap-2 rounded-xl py-4 text-xs font-semibold transition-colors ${
-                    action.label === localCopy.labsShort ? 'cursor-not-allowed opacity-50' : ''
-                  } ${action.colorClass}`}
+                  onClick={action.action}
+                  className={`flex flex-col items-center gap-2 rounded-xl py-4 text-xs font-semibold transition-colors ${action.colorClass}`}
                 >
                   <action.icon className="h-5 w-5" />
                   {action.label}
@@ -952,9 +946,8 @@ export const PatientDashboard: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title={localCopy.unavailable}
-                    className="rounded-lg p-1.5 text-slate-400 opacity-50 transition-colors disabled:cursor-not-allowed"
+                    onClick={() => navigate('/patient/ai-chat')}
+                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                   </button>
