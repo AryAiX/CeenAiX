@@ -506,11 +506,28 @@ const rpcPayload = (rpcName: string): JsonRecord | JsonRecord[] | null => {
   switch (rpcName) {
     case 'admin_get_metrics':
       return {
-        users: { total: 1842, patients: 1220, doctors: 214, labs: 18, activeToday: 346 },
-        appointments: { total: 482, today: 42, completed: 316, cancelled: 8 },
-        revenue: { monthToDateAed: 812450, outstandingAed: 42400, claimApprovalRate: 0.92 },
-        compliance: { auditEvents30d: 128, openIncidents: 2, highRiskEvents: 1 },
-        ai: { conversations30d: 3200, escalations30d: 17, safeCompletionRate: 0.997 },
+        generatedAt: now.toISOString(),
+        totals: {
+          users: 1842,
+          appointmentsToday: 42,
+          completedConsultsThisMonth: 316,
+          pendingApprovals: 7,
+          activeIncidents: 2,
+        },
+        usersByRole: {
+          patient: 1220,
+          doctor: 214,
+          lab: 18,
+          super_admin: 4,
+        },
+        ai: {
+          sessions30d: 3200,
+          flaggedOutputs30d: 2,
+        },
+        compliance: {
+          auditEvents30d: 128,
+          activeIncidents: 2,
+        },
       };
     case 'admin_list_users':
       return Object.values(e2eUsers).map((user) => ({
@@ -526,51 +543,129 @@ const rpcPayload = (rpcName: string): JsonRecord | JsonRecord[] | null => {
       return [
         {
           id: 'org-e2e',
+          slug: 'ceenaix-clinic',
           name: 'CeenAiX Clinic',
-          type: 'clinic',
-          emirate: 'Dubai',
+          kind: 'clinic',
+          city: 'Dubai',
+          country: 'UAE',
+          primary_contact_name: 'Maya Admin',
+          primary_contact_email: e2eUsers.super_admin.email,
+          baa_signed_at: yesterday,
+          contract_started_at: yesterday,
+          contract_ends_at: null,
+          seats_allocated: 100,
+          seats_used: 42,
           status: 'active',
+          notes: 'E2E organization fixture',
           created_at: yesterday,
+          updated_at: yesterday,
         },
       ];
     case 'admin_list_incidents':
       return [
         {
           id: 'incident-e2e',
+          title: 'RLS audit review',
+          summary: 'Reviewing access policy telemetry from the E2E fixture.',
           severity: 'medium',
           status: 'investigating',
-          title: 'RLS audit review',
+          detected_at: yesterday,
+          resolved_at: null,
+          owner_user_id: adminId,
+          affected_records: 0,
+          regulator_reported: false,
+          metadata: {},
           created_at: yesterday,
+          updated_at: yesterday,
         },
       ];
     case 'admin_list_audit_events':
       return [
         {
           id: 'audit-event-e2e',
-          actor_id: adminId,
+          user_id: adminId,
           actor_name: e2eUsers.super_admin.fullName,
           action: 'viewed_dashboard',
-          resource_type: 'admin_dashboard',
+          table_name: 'admin_dashboard',
+          record_id: 'dashboard',
           created_at: yesterday,
         },
       ];
     case 'admin_get_system_health':
       return {
+        generatedAt: now.toISOString(),
         services: [
-          { name: 'Supabase', category: 'database', status: 'operational', latencyMs: 42 },
-          { name: 'Edge Functions', category: 'ai', status: 'operational', latencyMs: 88 },
+          {
+            id: 'service-supabase',
+            service_key: 'supabase',
+            service_name: 'Supabase',
+            category: 'core',
+            status: 'healthy',
+            latency_ms: 42,
+            region: 'me-central-1',
+            message: 'Operational',
+            observed_at: yesterday,
+            created_at: yesterday,
+          },
         ],
-        incidents: [],
+        integrations: [
+          {
+            id: 'service-nabidh',
+            service_key: 'nabidh',
+            service_name: 'NABIDH Gateway',
+            category: 'integration',
+            status: 'healthy',
+            latency_ms: 71,
+            region: 'Dubai',
+            message: 'Mocked E2E integration check',
+            observed_at: yesterday,
+            created_at: yesterday,
+          },
+        ],
+        aiServices: [
+          {
+            id: 'service-ai-chat',
+            service_key: 'ai-chat',
+            service_name: 'AI Chat Edge Function',
+            category: 'ai',
+            status: 'healthy',
+            latency_ms: 88,
+            region: 'global',
+            message: 'Operational',
+            observed_at: yesterday,
+            created_at: yesterday,
+          },
+        ],
       };
     case 'admin_get_ai_analytics':
       return {
-        usage: { conversations30d: 3200, documents30d: 84, averageLatencyMs: 920 },
-        safety: { escalations30d: 17, blockedOutputs30d: 2, safeCompletionRate: 0.997 },
-        trends: [{ date: yesterday.slice(0, 10), conversations: 120, escalations: 1 }],
+        generatedAt: now.toISOString(),
+        sessions: {
+          last7Days: 820,
+          last30Days: 3200,
+          guestLast30Days: 410,
+        },
+        messages: {
+          last30Days: 12800,
+        },
+        safety: {
+          flaggedLast30Days: 2,
+        },
       };
     case 'admin_list_feature_flags':
       return [
-        { id: 'flag-e2e', key: 'patient_ai_chat', enabled: true, description: 'Patient AI chat' },
+        {
+          id: 'flag-e2e',
+          key: 'patient_ai_chat',
+          name: 'Patient AI Chat',
+          description: 'Patient AI chat',
+          environment: 'production',
+          is_enabled: true,
+          rollout_percent: 100,
+          updated_by: adminId,
+          created_at: yesterday,
+          updated_at: yesterday,
+        },
       ];
     case 'get_bookable_doctors':
       return [
