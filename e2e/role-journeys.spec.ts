@@ -141,14 +141,14 @@ async function expectUsablePage(page: Page, expectedPath: string) {
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(expectedPath)}(?:[?#].*)?$`));
   await expect(page.locator('body')).toBeVisible();
 
-  const bodyText = await page.locator('body').innerText();
+  const bodyText = (await page.locator('body').textContent()) ?? '';
   expect(bodyText.trim().length).toBeGreaterThan(20);
   expect(bodyText).not.toMatch(/Application error|Unhandled Runtime Error|Cannot read properties/i);
 }
 
 async function expectProtectedPage(page: Page, expectedPath: string) {
   await expectUsablePage(page, expectedPath);
-  const bodyText = await page.locator('body').innerText();
+  const bodyText = (await page.locator('body').textContent()) ?? '';
   expect(bodyText).not.toMatch(/Sign in|Access denied/i);
 }
 
@@ -180,8 +180,8 @@ test.describe('public and auth journeys', () => {
     await seedUnauthenticated(page);
 
     await page.goto('/auth/login');
-    await page.getByLabel(/email/i).fill(e2eUsers.patient.email);
-    await page.getByLabel(/password/i).fill('CorrectHorseBatteryStaple1!');
+    await page.locator('input[type="email"]').fill(e2eUsers.patient.email);
+    await page.locator('input[type="password"]').fill('CorrectHorseBatteryStaple1!');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/patient\/dashboard$/);
