@@ -449,11 +449,22 @@ const tableRows = (
       return [
         {
           id: 'lab-test-catalog-e2e',
-          test_name: 'Complete Blood Count',
-          test_name_ar: 'Complete Blood Count',
+          source: 'loinc',
+          source_code: '58410-2',
+          loinc_class: 'HEM/BC',
           category: 'Hematology',
-          loinc_code: '58410-2',
+          display_name_en: 'Complete Blood Count',
+          display_name_ar: 'Complete Blood Count',
+          short_name_en: 'CBC',
+          specimen: 'Blood',
+          property: 'Panel',
+          is_panel: true,
           is_active: true,
+          is_custom: false,
+          source_updated_at: null,
+          last_synced_at: yesterday,
+          created_at: yesterday,
+          updated_at: yesterday,
         },
       ];
     case 'lab_test_catalog_suggestions':
