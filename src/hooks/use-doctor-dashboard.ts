@@ -1,8 +1,11 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { CLINIC_TIME_ZONE, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
 import { getMessagePreviewText } from '../lib/messaging';
 import type { AppointmentStatus, AppointmentType, LabOrderStatus, PreVisitAssessmentStatus } from '../types';
 import { useQuery } from './use-query';
+
+const patientFallback = () => i18n.t('shared.patient', { defaultValue: 'Patient' });
 
 interface DoctorNextAppointment {
   id: string;
@@ -349,7 +352,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     if (preVisitAssessmentsError) throw preVisitAssessmentsError;
 
     const patientNameById = new Map(
-      ((patientProfiles ?? []) as PatientProfileRow[]).map((profile) => [profile.user_id, profile.full_name ?? 'Patient'])
+      ((patientProfiles ?? []) as PatientProfileRow[]).map((profile) => [profile.user_id, profile.full_name ?? patientFallback()])
     );
     const patientProfileById = new Map(
       ((patientProfiles ?? []) as PatientProfileRow[]).map((profile) => [profile.user_id, profile])
@@ -419,7 +422,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       return {
         id: appointment.id,
         patientId: appointment.patient_id,
-        patientName: patientNameById.get(appointment.patient_id) ?? 'Patient',
+        patientName: patientNameById.get(appointment.patient_id) ?? patientFallback(),
         scheduledAt: appointment.scheduled_at,
         durationMinutes: appointment.duration_minutes,
         type: appointment.type,
@@ -473,7 +476,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       .map((appointment) => ({
         id: appointment.id,
         patientId: appointment.patient_id,
-        patientName: patientNameById.get(appointment.patient_id) ?? 'Patient',
+        patientName: patientNameById.get(appointment.patient_id) ?? patientFallback(),
         scheduledAt: appointment.scheduled_at,
         durationMinutes: appointment.duration_minutes,
         type: appointment.type,
@@ -497,7 +500,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       .map((appointment) => ({
         id: appointment.id,
         patientId: appointment.patient_id,
-        patientName: patientNameById.get(appointment.patient_id) ?? 'Patient',
+        patientName: patientNameById.get(appointment.patient_id) ?? patientFallback(),
         scheduledAt: appointment.scheduled_at,
         durationMinutes: appointment.duration_minutes,
         type: appointment.type,
@@ -559,7 +562,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
             id: message.id,
             conversationId: message.conversation_id,
             patientId,
-            patientName: patientNameById.get(patientId) ?? 'Patient',
+            patientName: patientNameById.get(patientId) ?? patientFallback(),
             subject: conversation?.subject ?? null,
             body: getMessagePreviewText(message.body).trim() || message.body,
             sentAt: message.sent_at,
@@ -607,7 +610,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
             id: item.id,
             labOrderId: item.lab_order_id,
             patientId,
-            patientName: patientNameById.get(patientId) ?? 'Patient',
+            patientName: patientNameById.get(patientId) ?? patientFallback(),
             testName: item.test_name,
             resultValue: item.result_value,
             resultUnit: item.result_unit,

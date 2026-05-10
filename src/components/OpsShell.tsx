@@ -58,7 +58,7 @@ export const OpsShell = ({
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { i18n } = useTranslation('common');
+  const { i18n, t } = useTranslation('common');
   const isArabic = i18n.language.startsWith('ar');
   const [pharmacyCollapsed, setPharmacyCollapsed] = useState(false);
 
@@ -233,7 +233,9 @@ export const OpsShell = ({
             }`}
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            {!pharmacyCollapsed ? <span className="ml-3 text-[13px]">Sign Out</span> : null}
+            {!pharmacyCollapsed ? (
+              <span className="ml-3 text-[13px]">{t('portalShell.signOut', { defaultValue: 'Sign Out' })}</span>
+            ) : null}
           </button>
         </aside>
 
@@ -242,32 +244,40 @@ export const OpsShell = ({
             <div className="flex h-16 items-center gap-4 px-6">
               <div className="shrink-0">
                 <h1 className="text-[18px] font-bold text-slate-900">{title}</h1>
-                <div className="text-[12px] text-slate-400">{subtitle ?? 'Al Shifa Pharmacy · Live operations'}</div>
+                <div className="text-[12px] text-slate-400">
+                  {subtitle ?? t('opsShell.defaultSubtitle', { defaultValue: 'Live operations' })}
+                </div>
               </div>
               <div className="hidden flex-1 justify-center xl:flex">
                 <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[13px]">
                   <span className="h-2 w-2 rounded-full bg-blue-500" />
-                  <span className="font-medium text-blue-700">New prescription queue synced from Supabase</span>
+                  <span className="font-medium text-blue-700">
+                    {t('opsShell.rxSync', { defaultValue: 'New prescription queue synced from Supabase' })}
+                  </span>
                   <button
                     type="button"
                     onClick={() => navigate('/pharmacy/dispensing')}
                     className="rounded bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-700"
                   >
-                    View
+                    {t('opsShell.viewCta', { defaultValue: 'View' })}
                   </button>
                 </div>
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-2">
-                <button className="hidden items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-900 transition hover:bg-emerald-100 sm:flex">
+                <button
+                  type="button"
+                  className="hidden items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-900 transition hover:bg-emerald-100 sm:flex"
+                >
                   <ScanBarcode className="h-4 w-4" />
-                  <span>Scan Barcode</span>
+                  <span>{t('opsShell.scanBarcode', { defaultValue: 'Scan Barcode' })}</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => navigate('/pharmacy/dispensing')}
                   className="hidden items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-[13px] font-medium text-white transition hover:bg-emerald-700 sm:flex"
                 >
                   <ClipboardPlus className="h-4 w-4" />
-                  <span>New Manual Rx</span>
+                  <span>{t('opsShell.newManualRx', { defaultValue: 'New Manual Rx' })}</span>
                 </button>
                 <button className="relative rounded-lg p-2 transition hover:bg-slate-100">
                   <Bell className="h-5 w-5 text-slate-500" />
@@ -305,7 +315,7 @@ export const OpsShell = ({
                 type="button"
                 onClick={() => navigate(-1)}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white/90 transition hover:bg-white/20"
-                aria-label="Back"
+                aria-label={t('pageHeader.goBack', { defaultValue: 'Go back' })}
               >
                 <ArrowLeft className={`h-4 w-4 ${isArabic ? 'rotate-180' : ''}`} />
               </button>
@@ -330,7 +340,7 @@ export const OpsShell = ({
                 className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                <span>Sign out</span>
+                <span>{t('portalShell.signOut', { defaultValue: 'Sign out' })}</span>
               </button>
               {actions}
             </div>

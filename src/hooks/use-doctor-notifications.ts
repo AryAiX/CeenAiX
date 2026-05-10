@@ -1,6 +1,37 @@
+import i18n from 'i18next';
 import type { Notification } from '../types';
 import { useQuery } from './use-query';
 import { supabase } from '../lib/supabase';
+
+const patientFallback = () => i18n.t('shared.patient', { defaultValue: 'Patient' });
+const newMessageFrom = (name: string) =>
+  i18n.t('doctor.notifications.newMessageFrom', {
+    name,
+    defaultValue: 'New message from {{name}}',
+  });
+const openThreadFallback = () =>
+  i18n.t('doctor.notifications.openThreadFallback', {
+    defaultValue: 'Open the thread to review the latest care message.',
+  });
+const preVisitTitle = (name: string) =>
+  i18n.t('doctor.notifications.preVisitCompleted', {
+    name,
+    defaultValue: '{{name}} completed pre-visit intake',
+  });
+const preVisitBody = () =>
+  i18n.t('doctor.notifications.preVisitBody', {
+    defaultValue: 'Review the appointment detail to see the patient summary and intake answers.',
+  });
+const chartUpdateTitle = (name: string) =>
+  i18n.t('doctor.notifications.chartUpdated', {
+    name,
+    defaultValue: '{{name}} updated chart information',
+  });
+const chartUpdateBody = (label: string) =>
+  i18n.t('doctor.notifications.chartUpdateBody', {
+    label,
+    defaultValue: 'Review {{label}} in the patient detail workspace.',
+  });
 
 export interface DoctorDerivedNotification {
   id: string;
@@ -86,15 +117,15 @@ export function useDoctorNotifications(userId: string | null | undefined) {
       }
 
       const senderNameById = new Map(
-        (senderProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? 'Patient'])
+        (senderProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? patientFallback()])
       );
 
       for (const message of unreadMessages ?? []) {
         derivedNotifications.push({
           id: `message-${message.id}`,
           kind: 'message',
-          title: `New message from ${senderNameById.get(message.sender_id) ?? 'Patient'}`,
-          body: message.body?.trim() || 'Open the thread to review the latest care message.',
+          title: newMessageFrom(senderNameById.get(message.sender_id) ?? patientFallback()),
+          body: message.body?.trim() || openThreadFallback(),
           createdAt: message.sent_at,
           actionUrl: `/doctor/messages/${message.conversation_id}`,
         });
@@ -128,7 +159,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
     if (assessmentAppointmentsError) throw assessmentAppointmentsError;
 
     const assessmentPatientNameById = new Map(
-      (assessmentPatientProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? 'Patient'])
+      (assessmentPatientProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? patientFallback()])
     );
     const assessmentAppointmentById = new Map(
       (assessmentAppointments ?? []).map((appointment) => [appointment.id, appointment])
@@ -139,10 +170,8 @@ export function useDoctorNotifications(userId: string | null | undefined) {
       derivedNotifications.push({
         id: `previsit-${assessment.id}`,
         kind: 'pre_visit',
-        title: `${assessmentPatientNameById.get(assessment.patient_id) ?? 'Patient'} completed pre-visit intake`,
-        body:
-          appointment?.chief_complaint?.trim() ||
-          'Review the appointment detail to see the patient summary and intake answers.',
+        title: preVisitTitle(assessmentPatientNameById.get(assessment.patient_id) ?? patientFallback()),
+        body: appointment?.chief_complaint?.trim() || preVisitBody(),
         createdAt: assessment.completed_at ?? assessment.updated_at,
         actionUrl: `/doctor/appointments/${assessment.appointment_id}`,
       });
@@ -160,15 +189,15 @@ export function useDoctorNotifications(userId: string | null | undefined) {
     }
 
     const reviewPatientNameById = new Map(
-      (reviewPatientProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? 'Patient'])
+      (reviewPatientProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? patientFallback()])
     );
 
     for (const update of doctorReviewUpdates ?? []) {
       derivedNotifications.push({
         id: `patient-update-${update.id}`,
         kind: 'patient_update',
-        title: `${reviewPatientNameById.get(update.patient_id) ?? 'Patient'} updated chart information`,
-        body: `Review ${update.display_label.toLowerCase()} in the patient detail workspace.`,
+        title: chartUpdateTitle(reviewPatientNameById.get(update.patient_id) ?? patientFallback()),
+        body: chartUpdateBody(update.display_label.toLowerCase()),
         createdAt: update.updated_at ?? update.created_at,
         actionUrl: `/doctor/patients/${update.patient_id}`,
       });

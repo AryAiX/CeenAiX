@@ -83,6 +83,11 @@ export {
   useAdminSystemHealth,
   useAdminAiAnalytics,
   useAdminDiagnostics,
+  useAdminDashboard,
+  useAdminDoctorDirectory,
+  useAdminPatientDirectory,
+  useAdminInsurancePartners,
+  useAdminAiDashboard,
 } from './use-admin-dashboard';
 export type { AdminComplianceData, AdminDiagnosticsData } from './use-admin-dashboard';
 export {

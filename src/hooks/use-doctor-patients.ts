@@ -1,6 +1,11 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import type { AppointmentStatus } from '../types';
 import { useQuery } from './use-query';
+
+const insuranceFallback = () =>
+  i18n.t('doctor.patients.insuranceOnFile', { defaultValue: 'Insurance on file' });
+const patientFallback = () => i18n.t('shared.patient', { defaultValue: 'Patient' });
 
 const UPCOMING_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 'in_progress']);
 
@@ -195,7 +200,7 @@ export function useDoctorPatients(userId: string | null | undefined) {
       const plan = firstRelation(row.insurance_plans);
       insuranceByPatientId.set(
         row.patient_id,
-        plan?.name ?? plan?.provider_company ?? plan?.coverage_type ?? 'Insurance on file'
+        plan?.name ?? plan?.provider_company ?? plan?.coverage_type ?? insuranceFallback()
       );
     }
     const conditionsByPatientId = new Map<string, string[]>();
@@ -264,7 +269,7 @@ export function useDoctorPatients(userId: string | null | undefined) {
 
       return {
         id: patientId,
-        name: profile?.full_name?.trim() || 'Patient',
+        name: profile?.full_name?.trim() || patientFallback(),
         email: profile?.email ?? null,
         phone: profile?.phone ?? null,
         dateOfBirth: profile?.date_of_birth ?? null,

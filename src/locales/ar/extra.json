@@ -3,6 +3,13 @@
     "goBack": "رجوع"
   },
   "shared": {
+    "yes": "نعم",
+    "no": "لا",
+    "previousMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "errors": {
+      "unknown": "حدث خطأ غير معروف"
+    },
     "time": {
       "minutesAgo": "منذ {{count}} د",
       "hoursAgo": "منذ {{count}} س",
@@ -38,6 +45,14 @@
       "resulted": "صدرت النتيجة",
       "reviewed": "تمت المراجعة"
     },
+    "labOrderItemStatus": {
+      "pending": "قيد الانتظار",
+      "ordered": "تم الطلب",
+      "collected": "تم الجمع",
+      "processing": "قيد المعالجة",
+      "resulted": "صدرت النتيجة",
+      "reviewed": "تمت المراجعة"
+    },
     "weekdays": {
       "sun": "أحد",
       "mon": "إثنين",
@@ -51,6 +66,9 @@
     "scheduledConsultation": "استشارة مجدولة",
     "doctor": "طبيب",
     "patient": "مريض",
+    "hourShort": "س",
+    "minuteShort": "د",
+    "secondShort": "ث",
     "clinicPending": "تأكيد تفاصيل العيادة بعد الحجز",
     "clinicTbd": "موقع العيادة سيُؤكد لاحقاً",
     "clinicAfterBooking": "تأكيد تفاصيل العيادة بعد الحجز",
@@ -82,6 +100,12 @@
   },
   "patient": {
     "dashboard": {
+      "careTeamClinicianFallback": "طبيب فريق الرعاية",
+      "activePrescriptionFallback": "وصفة فعّالة",
+      "insuranceProviderFallback": "مزوّد التأمين",
+      "patientPlanFallback": "خطة المريض",
+      "upcomingAppointmentScheduled": "تم جدولة موعد قادم",
+      "nextWith": "التالي مع {{name}}",
       "welcome": "مرحباً بعودتك، {{name}}!",
       "careOverview": "إليك نظرة على رعايتك اليوم.",
       "profileStatus": "حالة الملف",
@@ -192,6 +216,7 @@
       "joinCallDisabled": "الانضمام (متاح قبل 10 دقائق)",
       "getDirections": "الاتجاهات",
       "addToCalendar": "إضافة للتقويم",
+      "icsSummary": "موعد مع {doctor}",
       "preparationNotes": "ملاحظات التحضير",
       "teleconsultBannerTitle": "استشارتك عن بُعد مع {{doctor}}",
       "teleconsultBannerStartsIn": "تبدأ خلال {{time}}",
@@ -486,6 +511,7 @@
       "administeredBy": "أعطى بواسطة",
       "nextDose": "الجرعة التالية",
       "saveVax": "حفظ التطعيم",
+      "errDoseNumber": "يجب أن يكون رقم الجرعة عدداً صحيحاً موجباً.",
       "noMatchTitle": "لا سجلات مطابقة",
       "noMatchBody": "جرّب بحثاً آخر أو أضف سجلاً جديداً بالنماذج أدناه.",
       "severitySevere": "شديد",
@@ -708,7 +734,9 @@
       "saving": "جاري الحفظ...",
       "complete": "إكمال الاستقبال",
       "completing": "جاري الإكمال...",
-      "requiredHint": "يرجى إكمال الأسئلة المطلوبة أدناه."
+      "requiredHint": "يرجى إكمال الأسئلة المطلوبة أدناه.",
+      "autofilled": "ملأ تلقائياً من سجلك",
+      "typeAnswerPh": "اكتب إجابتك"
     },
     "labResults": {
       "title": "نتائج مختبري",
@@ -878,7 +906,14 @@
       "unreadBadge": "غير مقروء",
       "open": "فتح",
       "markRead": "تعليم كمقروء",
-      "loadError": "تعذّر تحميل الإشعارات الآن."
+      "loadError": "تعذّر تحميل الإشعارات الآن.",
+      "yourCareTeam": "فريق الرعاية الخاص بك",
+      "newMessageFrom": "رسالة جديدة من {{name}}",
+      "upcomingVisitWith": "زيارة قادمة مع {{name}}",
+      "upcomingBody": "راجع تفاصيل الموعد للاستعداد.",
+      "newLabsFrom": "نتائج مختبر جديدة من {{name}}",
+      "labsBody": "افتح نتائج المختبر للاطلاع على التفاصيل واطلب من المساعد الذكي تفسيراً مبسطاً.",
+      "openThreadFallback": "افتح المحادثة لمراجعة آخر رسائل الرعاية."
     },
     "telemedicine": {
       "title": "الاستشارة الافتراضية",
@@ -1124,10 +1159,24 @@
       }
     }
   },
+  "ai": {
+    "errors": {
+      "invalidChatResponse": "أعاد المساعد الذكي ردًا غير صالح.",
+      "invalidDocResponse": "أعاد تحليل المستندات بالذكاء الاصطناعي ردًا غير صالح.",
+      "invalidMedEnrichment": "أعاد إثراء معلومات الدواء ردًا غير صالح."
+    }
+  },
+  "records": {
+    "errors": {
+      "applyUpdates": "تعذّر تطبيق تحديثات السجل الآن.",
+      "dismissUpdates": "تعذّر تجاهل تلك التحديثات الآن."
+    }
+  },
   "doctor": {
     "messages": {
       "title": "الرسائل",
       "subtitle": "ابقَ على تواصل مع المرضى عبر محادثات رعاية آمنة.",
+      "encrypted": "مشفّر",
       "conversations": "محادثات المرضى",
       "conversationCount_one": "{{count}} محادثة",
       "conversationCount_other": "{{count}} محادثات",
@@ -1192,7 +1241,28 @@
     "patients": {
       "title": "المرضى",
       "subtitle": "راجع قائمة مرضاك الحقيقية من المواعيد المكتملة والقادمة.",
+      "insuranceOnFile": "تأمين مسجّل",
       "searchPlaceholder": "ابحث بالاسم أو البريد أو الهاتف أو فصيلة الدم أو الشكوى...",
+      "searchPh": "ابحث بالاسم أو الهوية الإماراتية أو الحالة أو الدواء...",
+      "unknown": "غير معروف",
+      "noInsurance": "لا يوجد تأمين",
+      "insuranceOnFile": "التأمين المسجّل",
+      "noConditions": "لا توجد حالات نشطة",
+      "noVisits": "لا توجد زيارات",
+      "today": "اليوم",
+      "notScheduled": "غير محدّد",
+      "acknowledge": "تأكيد الاطلاع",
+      "openRecord": "فتح السجل",
+      "lastVisit": "آخر زيارة",
+      "nextAppt": "الموعد القادم",
+      "sortLastVisit": "آخر زيارة",
+      "sortRisk": "المخاطر",
+      "sortName": "الاسم أ–ي",
+      "sortNextAppointment": "الموعد القادم",
+      "sortedBy": "ترتيب حسب",
+      "listView": "عرض قائمة",
+      "cardView": "عرض بطاقات",
+      "showingOf": "عرض {{shown}} من {{total}} مريض",
       "count_one": "{{count}} مريض",
       "count_other": "{{count}} مرضى",
       "loadError": "تعذّر تحميل مرضى الطبيب بعد.",
@@ -1284,6 +1354,23 @@
       "cancelSuccess": "تم إلغاء الموعد بنجاح.",
       "footerHint": "ستُفتح تفاصيل المريض من هذه القائمة عند ربط مسار تفاصيل المريض."
     },
+    "schedule": {
+      "reasonLabel": "السبب",
+      "reasonPh": "ملاحظة اختيارية لاستخدامك الشخصي",
+      "errAuthAvailability": "يجب تسجيل الدخول كطبيب لإدارة أوقات التوفر.",
+      "errEndAfterStart": "يجب أن يكون وقت نهاية التوفر بعد وقت البداية.",
+      "errSlotDuration": "اختر مدة فترة صحيحة.",
+      "succAvailabilityAdded": "تمت إضافة نافذة التوفر الأسبوعية.",
+      "succAvailabilityActivated": "تم تفعيل التوفر.",
+      "succAvailabilityPaused": "تم إيقاف التوفر مؤقتاً.",
+      "succAvailabilityRemoved": "تمت إزالة نافذة التوفر.",
+      "confirmDeleteAvailability": "هل تريد حذف نافذة التوفر المتكررة هذه؟",
+      "errAuthBlock": "يجب تسجيل الدخول كطبيب لحجز الوقت.",
+      "errBlockEndAfterStart": "يجب أن يكون وقت نهاية الفترة المحجوزة بعد وقت البداية.",
+      "succBlockAdded": "تمت إضافة الوقت المحجوز إلى جدولك.",
+      "confirmRemoveBlock": "هل تريد إزالة هذا الوقت المحجوز من جدولك؟",
+      "succBlockRemoved": "تمت إزالة الوقت المحجوز."
+    },
     "patientDetail": {
       "titleFallback": "تفاصيل المريض",
       "loadError": "تعذّر تحميل مساحة عمل هذا المريض حالياً.",
@@ -1356,6 +1443,7 @@
     "createPrescription": {
       "title": "إنشاء وصفة",
       "subtitle": "أصدر خطة دوائية لمريض مرتبط ويمكن ربطها بموعد عند الحاجة.",
+      "changePatient": "تغيير المريض",
       "create": "وصفة جديدة",
       "patientRequired": "اختر مريضاً قبل حفظ هذه الوصفة.",
       "itemRequired": "أضف دواءً واحداً على الأقل قبل الحفظ.",
@@ -1477,7 +1565,13 @@
       "emptyLog": "لا توجد إشعارات محفوظة بعد.",
       "unreadBadge": "غير مقروء",
       "open": "فتح",
-      "markRead": "تحديد كمقروء"
+      "markRead": "تحديد كمقروء",
+      "newMessageFrom": "رسالة جديدة من {{name}}",
+      "openThreadFallback": "افتح المحادثة لمراجعة آخر رسائل الرعاية.",
+      "preVisitCompleted": "أكمل {{name}} استبيان ما قبل الزيارة",
+      "preVisitBody": "راجع تفاصيل الموعد لعرض ملخص المريض وإجاباته.",
+      "chartUpdated": "حدّث {{name}} معلومات السجل الصحي",
+      "chartUpdateBody": "راجع {{label}} في مساحة المريض."
     },
     "consultationWorkspace": {
       "title": "مساحة الاستشارة",
@@ -1494,6 +1588,32 @@
     "settings": {
       "title": "الإعدادات",
       "subtitle": "إدارة التوفر والإعدادات السريرية الافتراضية والإشعارات والتكاملات.",
+      "availabilityWindows": "نوافذ التوفر",
+      "clinicalSpecialty": "التخصص السريري",
+      "dhaLicense": "ترخيص هيئة الصحة بدبي",
+      "verified": "موثّق",
+      "pending": "قيد التحقق",
+      "saving": "جاري الحفظ...",
+      "sections": {
+        "general": "عام",
+        "notifications": "الإشعارات",
+        "appearance": "المظهر",
+        "language": "اللغة",
+        "privacy": "الخصوصية",
+        "security": "الأمان",
+        "labImaging": "المختبر والأشعة",
+        "integrations": "التكاملات",
+        "clinicalTools": "أدوات سريرية",
+        "dashboard": "اللوحة",
+        "help": "المساعدة"
+      },
+      "toggles": {
+        "emailTitle": "تنبيهات البريد الإلكتروني",
+        "smsTitle": "تنبيهات الرسائل القصيرة",
+        "pushTitle": "إشعارات الدفع",
+        "autoFollowTitle": "متابعة المواعيد الجديدة تلقائياً",
+        "shareCalTitle": "مشاركة التقويم مع الفريق"
+      },
       "featureAvailabilityTitle": "نوافذ التوفر",
       "featureAvailabilityBody": "حدد متى يمكن للمرضى الحجز، بما في ذلك مواعيد الطب عن بُعد.",
       "featureClinicalTitle": "الإعدادات السريرية",
@@ -1511,11 +1631,26 @@
       "featureViewerBody": "سلاسل MRI وCT والأشعة السينية بدقة كاملة مع تمييز بالذكاء الاصطناعي.",
       "featureHandoffTitle": "تسليم الطلب",
       "featureHandoffBody": "أرسل نتائج الدراسة مباشرة إلى الموعد الأصلي.",
-      "actionBackPatients": "العودة إلى المرضى"
+      "actionBackPatients": "العودة إلى المرضى",
+      "worklist": "قائمة الأشعة",
+      "cardStudies": "الدراسات",
+      "openLabOrders": "فتح طلبات المختبر",
+      "tabAll": "الكل",
+      "tabPending": "قيد الانتظار",
+      "tabReported": "مكتمل التقرير",
+      "tabAbnormal": "غير طبيعي",
+      "allModalities": "جميع الطرائق",
+      "loadError": "تعذّر تحميل دراسات الأشعة حالياً."
     },
     "earnings": {
       "title": "الأرباح",
       "subtitle": "رؤية واضحة لدخل الاستشارات وتعويضات التأمين ونشاط التعليم المستمر.",
+      "todayProjection": "توقّع اليوم",
+      "completedToday": "اكتمل اليوم",
+      "pendingReviews": "قيد المراجعة",
+      "consultationFee": "رسوم الاستشارة",
+      "todayEventsHeading": "أحداث إيرادات اليوم",
+      "noAppointmentsToday": "لا توجد مواعيد اليوم بعد.",
       "featureSummaryTitle": "ملخص الدفع",
       "featureSummaryBody": "الإجماليات الشهرية والاتجاه والخصومات من العيادة.",
       "featureClaimsTitle": "مطالبات التأمين",
@@ -1739,6 +1874,9 @@
     }
   },
   "pharmacy": {
+    "queue": {
+      "linkedDispensingTask": "مهمة صرف مرتبطة"
+    },
     "dashboard": {
       "title": "لوحة تحكم الصيدلية",
       "subtitle": "الصرف والمخزون ومطالبات التأمين لمشغلي الصيدلية.",
@@ -1782,6 +1920,7 @@
       "featureHandoverTitle": "تسليم آمن",
       "featureHandoverBody": "تسليم موقّع برمز OTP للمريض أو مفوّض موثوق.",
       "actionBack": "العودة إلى الصيدلية",
+      "searchPh": "اسم المريض، رقم الوصفة، الطبيب...",
       "kpiVerification": "قيد التحقق",
       "kpiCounseling": "جاهزة للإرشاد",
       "kpiHandover": "تسليمات اليوم",
@@ -1805,6 +1944,7 @@
       "featurePurchaseTitle": "الشراء",
       "featurePurchaseBody": "دمج الموردين ودورة حياة أمر الشراء.",
       "actionBack": "العودة إلى الصيدلية",
+      "searchPh": "اسم الدواء، العلامة، رمز ATC، الفئة...",
       "kpiTotal": "إجمالي الأصناف",
       "kpiNearExpiry": "قريبة الانتهاء",
       "kpiOutOfStock": "نفد المخزون",
@@ -1822,6 +1962,141 @@
         "near_expiry": "قرب الانتهاء",
         "out": "نافد"
       }
+    },
+    "messages": {
+      "title": "الرسائل",
+      "communicationsSuffix": "اتصالات",
+      "sidebarSubtitle": "اتصالات الصيدلية",
+      "fallbackName": "الصيدلية",
+      "responsePlaceholder": "اكتب ردًا آمنًا من الصيدلية...",
+      "emptyState": "لا توجد رسائل بعد.",
+      "status": {
+        "awaiting": "بانتظار الردّ",
+        "sent": "أُرسلت",
+        "resolved": "تمّ الحل",
+        "info": "معلومات"
+      },
+      "kind": {
+        "query": "استفسار",
+        "approval": "موافقة",
+        "info": "معلومات",
+        "response": "ردّ"
+      }
+    },
+    "profile": {
+      "title": "صيدليتي",
+      "subtitleSuffix": "الملف الشخصي",
+      "fallbackName": "الصيدلية",
+      "fallbackLocation": "الإمارات",
+      "fallbackPending": "قيد الانتظار",
+      "dhaLicensed": "مرخّصة من DHA",
+      "nabidhConnected": "متصل بـ NABIDH",
+      "nabidhPending": "NABIDH قيد الانتظار",
+      "fieldLicense": "ترخيص DHA",
+      "fieldLicenseValid": "صلاحية الترخيص حتى",
+      "fieldLocation": "الموقع",
+      "fieldHours": "ساعات العمل",
+      "fieldPicName": "الصيدلي المسؤول",
+      "fieldEprescription": "وصفات CeenAiX الإلكترونية",
+      "connected": "متصل",
+      "notConnected": "غير متصل",
+      "staffHeading": "الفريق",
+      "credentialPending": "الاعتماد قيد الانتظار",
+      "shiftOn": "في الوردية",
+      "shiftOff": "خارج الوردية",
+      "operationsHeading": "حالة العمليات",
+      "operationsSubtitle": "مباشر من طابور الصيدلية",
+      "opPending": "وصفات قيد الانتظار",
+      "opAlerts": "تنبيهات المخزون",
+      "opDhaSync": "مزامنة DHA",
+      "ready": "جاهز",
+      "needsSetup": "يحتاج إعداد"
+    },
+    "settings": {
+      "title": "الإعدادات",
+      "subtitle": "تفضيلات الإشعارات والامتثال والمزامنة",
+      "portalPreferences": "تفضيلات البوابة",
+      "fallbackName": "الصيدلية",
+      "cardNotifications": "الإشعارات",
+      "cardNotificationsValue": "مفعّلة",
+      "cardCompliance": "الامتثال لـ DHA",
+      "cardComplianceValue": "مفعّل",
+      "cardSync": "مزامنة NABIDH",
+      "cardSyncValue": "جاهزة",
+      "toggleOn": "مفعّل",
+      "toggleOff": "متوقف"
+    },
+    "revenue": {
+      "title": "الإيرادات",
+      "subtitle": "إيرادات المطالبات والصرف",
+      "heading": "الإيرادات",
+      "caption": "المطالبات والمدفوعات",
+      "exportReport": "تصدير تقرير الإيرادات",
+      "kpiToday": "إيرادات اليوم",
+      "kpiTodayHelper_zero": "لا وصفات مدفوعة",
+      "kpiTodayHelper_one": "وصفة مدفوعة واحدة",
+      "kpiTodayHelper_two": "وصفتان مدفوعتان",
+      "kpiTodayHelper_few": "{{count}} وصفات مدفوعة",
+      "kpiTodayHelper_many": "{{count}} وصفة مدفوعة",
+      "kpiTodayHelper_other": "{{count}} وصفة مدفوعة",
+      "kpiProjected": "قيمة الطابور المتوقعة",
+      "kpiProjectedHelper_zero": "لا وصفات",
+      "kpiProjectedHelper_one": "وصفة واحدة",
+      "kpiProjectedHelper_two": "وصفتان",
+      "kpiProjectedHelper_few": "{{count}} وصفات",
+      "kpiProjectedHelper_many": "{{count}} وصفة",
+      "kpiProjectedHelper_other": "{{count}} وصفة",
+      "kpiReview": "مطالبات قيد المراجعة",
+      "kpiReviewHelper": "تحتاج إلى متابعة التأمين",
+      "kpiAvg": "متوسط قيمة الوصفة",
+      "kpiAvgHelper_zero": "لا مدفوعات معلّقة",
+      "kpiAvgHelper_one": "دفعة معلّقة واحدة",
+      "kpiAvgHelper_two": "دفعتان معلّقتان",
+      "kpiAvgHelper_few": "{{count}} مدفوعات معلّقة",
+      "kpiAvgHelper_many": "{{count}} دفعة معلّقة",
+      "kpiAvgHelper_other": "{{count}} دفعة معلّقة",
+      "byPayerHeading": "الإيرادات حسب الدافع",
+      "ledgerHeading": "سجل الإيرادات الأخير",
+      "ledgerSubtitle": "مولد من سجلات pharmacy_claims",
+      "view": "عرض",
+      "status": {
+        "paid": "مدفوع",
+        "review": "مراجعة",
+        "pending": "قيد الانتظار",
+        "denied": "مرفوض"
+      },
+      "fallbackName": "الصيدلية"
+    },
+    "reports": {
+      "title": "التقارير",
+      "heading": "التقارير والتحليلات",
+      "liveAnalytics": "تحليلات مباشرة",
+      "fallbackName": "الصيدلية",
+      "exportLedger": "تصدير سجلّ الصرف",
+      "dhaMonthly": "تقرير DHA الشهري",
+      "kpiPrescriptions": "الوصفات هذا الشهر",
+      "kpiAccuracy": "دقة الصرف",
+      "kpiAccuracySub": "محسوبة من مهام صرف الصيدلية",
+      "kpiApproval": "نسبة موافقة التأمين",
+      "kpiCompliance": "الالتزام بالمواد الخاضعة للرقابة",
+      "volumeHeading": "حجم الصرف — الطابور الحالي",
+      "volumeDispensed": "تم الصرف",
+      "volumeQueue": "في الانتظار",
+      "volumeClaims": "مطالبات قيد المراجعة",
+      "riskHeading": "تحليل مخاطر المخزون",
+      "riskHealthy": "أصناف بحالة جيدة",
+      "riskLow": "مخزون منخفض",
+      "riskOut": "نفد المخزون",
+      "riskExpiring": "قرب الانتهاء",
+      "topDrugsHeading": "أكثر الأدوية صرفاً — بيانات الوصفات المباشرة",
+      "dhaHeading": "تقرير DHA الشهري للصرف",
+      "licensePending": "الترخيص قيد الإصدار",
+      "compliant": "ملتزم",
+      "totalRecords": "إجمالي سجلات الصرف",
+      "submittedDha": "المُرسل إلى DHA",
+      "controlledRecords": "سجلات المواد الخاضعة للرقابة",
+      "lastSubmitted": "آخر إرسال",
+      "noSubmissions": "لا توجد إرسالات"
     }
   },
   "insurance": {

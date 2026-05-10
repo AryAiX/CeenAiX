@@ -11,15 +11,20 @@ export function useCounter(target: number, active: boolean, duration = 2000) {
 
   useEffect(() => {
     if (!active) return;
-    let start = 0;
-    const step = target / (duration / 16);
+    if (!Number.isFinite(target) || target <= 0) {
+      setCount(Math.max(0, Math.floor(target)));
+      return;
+    }
+    let current = 0;
+    const stepsCount = Math.max(1, Math.round(duration / 16));
+    const step = target / stepsCount;
     const timer = setInterval(() => {
-      start += step;
-      if (start >= target) {
+      current += step;
+      if (current >= target) {
         setCount(target);
         clearInterval(timer);
       } else {
-        setCount(Math.floor(start));
+        setCount(Math.floor(current));
       }
     }, 16);
     return () => clearInterval(timer);

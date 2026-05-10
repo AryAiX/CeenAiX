@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { resolveClinicalVocabLabel, type PrescriptionClinicalVocabRow } from '../lib/prescription-vocab';
 import {
@@ -6,6 +7,26 @@ import {
 } from '../lib/medication-catalog';
 import { useQuery } from './use-query';
 import type { NotificationType, PrescriptionItem } from '../types';
+
+const careTeamClinicianFallback = () =>
+  i18n.t('patient.dashboard.careTeamClinicianFallback', { defaultValue: 'Care team clinician' });
+const careTeamFallback = () =>
+  i18n.t('messaging.careTeamFallback', { defaultValue: 'Care team' });
+const activeRxFallback = () =>
+  i18n.t('patient.dashboard.activePrescriptionFallback', { defaultValue: 'Active prescription' });
+const insuranceProviderFallback = () =>
+  i18n.t('patient.dashboard.insuranceProviderFallback', { defaultValue: 'Insurance provider' });
+const patientPlanFallback = () =>
+  i18n.t('patient.dashboard.patientPlanFallback', { defaultValue: 'Patient plan' });
+const upcomingAppointmentTitle = () =>
+  i18n.t('patient.dashboard.upcomingAppointmentScheduled', {
+    defaultValue: 'Upcoming appointment scheduled',
+  });
+const nextWithDetail = (name: string) =>
+  i18n.t('patient.dashboard.nextWith', {
+    name,
+    defaultValue: 'Next with {{name}}',
+  });
 
 interface DashboardAppointment {
   id: string;
@@ -353,7 +374,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
 
       (doctorUserProfiles ?? []).forEach((profile) => {
         doctorProfilesById.set(profile.user_id, {
-          fullName: profile.full_name?.trim() || 'Care Team Clinician',
+          fullName: profile.full_name?.trim() || careTeamClinicianFallback(),
           city: profile.city?.trim() || null,
           specialty: specialtyByDoctorId.get(profile.user_id) ?? null,
         });
@@ -369,7 +390,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
 
       nextAppointment = {
         id: nextAppointmentBase.id,
-        doctorName: doctorProfile?.fullName ?? 'Care Team Clinician',
+        doctorName: doctorProfile?.fullName ?? careTeamClinicianFallback(),
         specialty: doctorProfile?.specialty ?? null,
         doctorCity: doctorProfile?.city ?? null,
         scheduledAt: nextAppointmentBase.scheduled_at,
@@ -392,7 +413,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
 
         return {
           doctorId,
-          doctorName: doctorProfile?.fullName ?? 'Care Team Clinician',
+          doctorName: doctorProfile?.fullName ?? careTeamClinicianFallback(),
           specialty: doctorProfile?.specialty ?? null,
           doctorCity: doctorProfile?.city ?? null,
           nextAppointmentAt: nextDoctorAppointment?.scheduled_at ?? null,
@@ -467,7 +488,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
             dosage,
             frequency,
             duration,
-            detail: joined || 'Active prescription',
+            detail: joined || activeRxFallback(),
             frequencyFromVocab,
             durationFromVocab,
             isDispensed: item.is_dispensed,
@@ -529,7 +550,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
         senderNameById = new Map(
           (senderProfiles ?? []).map((profile) => [
             profile.user_id,
-            profile.full_name?.trim() || 'Care Team',
+            profile.full_name?.trim() || careTeamFallback(),
           ])
         );
       }
@@ -537,7 +558,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
       recentMessages = (recentMessageRows ?? []).map((message) => ({
         id: message.id,
         conversationId: message.conversation_id,
-        senderName: senderNameById.get(message.sender_id) ?? 'Care Team',
+        senderName: senderNameById.get(message.sender_id) ?? careTeamFallback(),
         body: message.body,
         sentAt: message.sent_at,
         subject: conversationSubjectById.get(message.conversation_id) ?? null,
@@ -561,12 +582,12 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
       const annualLimit = planRow?.annual_limit ?? null;
       const annualLimitUsed = Number(primaryInsurance.annual_limit_used ?? 0);
       const remainingAmount = annualLimit !== null ? Math.max(annualLimit - annualLimitUsed, 0) : null;
-      const nowDateKey = now.toISOString().slice(0, 10);
+      const nowDateKey = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
       const validUntil = primaryInsurance.valid_until;
 
       insurance = {
-        providerCompany: planRow?.provider_company ?? 'Insurance Provider',
-        planName: planRow?.name ?? 'Patient Plan',
+        providerCompany: planRow?.provider_company ?? insuranceProviderFallback(),
+        planName: planRow?.name ?? patientPlanFallback(),
         coverageType: planRow?.coverage_type ?? null,
         networkType: planRow?.network_type ?? null,
         policyNumber: primaryInsurance.policy_number ?? null,
@@ -681,8 +702,8 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
       recentActivity.push({
         id: `appointment-${nextAppointment.id}`,
         type: 'appointment',
-        title: 'Upcoming appointment scheduled',
-        detail: `Next with ${nextAppointment.doctorName}`,
+        title: upcomingAppointmentTitle(),
+        detail: nextWithDetail(nextAppointment.doctorName),
         createdAt: nextAppointment.scheduledAt,
         actionUrl: '/patient/appointments',
       });

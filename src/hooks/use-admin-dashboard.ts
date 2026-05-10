@@ -2,9 +2,14 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
 import type {
   AdminAiAnalyticsPayload,
+  AdminAiDashboardPayload,
   AdminAuditEventRow,
+  AdminDashboardPayload,
+  AdminDoctorRow,
   AdminIncident,
+  AdminInsurancePartnerRow,
   AdminMetricsPayload,
+  AdminPatientRow,
   AdminSystemHealthPayload,
   AdminUserRow,
   FeatureFlag,
@@ -155,5 +160,76 @@ export function useAdminDiagnostics() {
       platformSettings: (settings as PlatformSetting[]) ?? [],
       metrics: (metrics as AdminMetricsPayload | null) ?? null,
     };
+  }, []);
+}
+
+/**
+ * Comprehensive admin dashboard payload — issues banner, KPIs, portals,
+ * live activity, compliance checklist, license alerts, revenue series.
+ * Powers /admin/dashboard.
+ */
+export function useAdminDashboard() {
+  return useQuery<AdminDashboardPayload | null>(async () => {
+    const { data, error } = await supabase.rpc('admin_get_dashboard');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminDashboardPayload | null) ?? null;
+  }, []);
+}
+
+/**
+ * Rich seeded doctor directory — DHA license states, ratings, expiry, flags.
+ * Powers /admin/doctors.
+ */
+export function useAdminDoctorDirectory() {
+  return useQuery<AdminDoctorRow[]>(async () => {
+    const { data, error } = await supabase.rpc('admin_get_doctor_directory');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminDoctorRow[]) ?? [];
+  }, []);
+}
+
+/**
+ * Rich seeded patient directory — insurance, location, risk, flags.
+ * Powers /admin/patients.
+ */
+export function useAdminPatientDirectory() {
+  return useQuery<AdminPatientRow[]>(async () => {
+    const { data, error } = await supabase.rpc('admin_get_patient_directory');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminPatientRow[]) ?? [];
+  }, []);
+}
+
+/**
+ * Insurance partner cards — API health, members, claims, fraud alerts.
+ * Powers /admin/insurance.
+ */
+export function useAdminInsurancePartners() {
+  return useQuery<AdminInsurancePartnerRow[]>(async () => {
+    const { data, error } = await supabase.rpc('admin_get_insurance_partners');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminInsurancePartnerRow[]) ?? [];
+  }, []);
+}
+
+/**
+ * Rich AI analytics payload — usage by language, topic, portal.
+ * Powers /admin/ai.
+ */
+export function useAdminAiDashboard() {
+  return useQuery<AdminAiDashboardPayload | null>(async () => {
+    const { data, error } = await supabase.rpc('admin_get_ai_dashboard');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminAiDashboardPayload | null) ?? null;
   }, []);
 }

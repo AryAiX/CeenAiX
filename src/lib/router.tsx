@@ -453,6 +453,12 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/admin/ai',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminAiAnalytics />)}</ProtectedRoute>
+    ),
+  },
+  {
     path: '/lab/dashboard',
     element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabDashboard />)}</ProtectedRoute>,
   },

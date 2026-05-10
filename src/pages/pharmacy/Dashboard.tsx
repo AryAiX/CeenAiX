@@ -17,10 +17,11 @@ import {
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks/use-pharmacy-prescription-queue';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
-const formatNumber = (value: number | null | undefined) =>
-  typeof value === 'number' ? value.toLocaleString() : '—';
+const formatNumber = (value: number | null | undefined, language: string) =>
+  typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
 
 const avatarClasses = [
   'bg-rose-500',
@@ -133,7 +134,8 @@ const groupPrescriptionItems = (items: PharmacyQueuePrescriptionItem[]): Pharmac
 };
 
 export const PharmacyDashboard = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const uiLang = i18n.language ?? 'en';
   const { data, loading } = usePharmacyPrescriptionQueue();
   const [showDispensed, setShowDispensed] = useState(false);
 
@@ -206,7 +208,7 @@ export const PharmacyDashboard = () => {
       {
         label: 'Prescriptions Today',
         value: prescriptionsToday,
-        helper: `${formatNumber(dispensedPrescriptions.length)} dispensed · ${formatNumber(inQueue.length)} in queue · ${formatNumber(onHold)} on hold`,
+        helper: `${formatNumber(dispensedPrescriptions.length, uiLang)} dispensed · ${formatNumber(inQueue.length, uiLang)} in queue · ${formatNumber(onHold, uiLang)} on hold`,
         icon: Pill,
         tone: 'emerald',
       },
@@ -228,20 +230,20 @@ export const PharmacyDashboard = () => {
       },
       {
         label: 'Revenue Today',
-        value: `AED ${formatNumber(paidRevenue)}`,
-        helper: `${formatNumber(data?.claims.filter((claim) => claim.status === 'paid').length ?? 0)} paid claims from pharmacy_claims`,
+        value: `AED ${formatNumber(paidRevenue, uiLang)}`,
+        helper: `${formatNumber(data?.claims.filter((claim) => claim.status === 'paid').length ?? 0, uiLang)} paid claims from pharmacy_claims`,
         icon: CircleDollarSign,
         tone: 'emerald',
       },
       {
         label: 'DHA Status',
         value: data?.profile?.dhaConnected ? 'Compliant ✅' : 'Needs review',
-        helper: `${formatNumber(data?.reportMetrics.dhaSubmittedCount ?? 0)} dispensing records ready for DHA reporting`,
+        helper: `${formatNumber(data?.reportMetrics.dhaSubmittedCount ?? 0, uiLang)} dispensing records ready for DHA reporting`,
         icon: ShieldCheck,
         tone: 'emerald',
       },
     ],
-    [data?.claims, data?.profile?.dhaConnected, data?.reportMetrics.dhaSubmittedCount, dispensedPrescriptions.length, inQueue.length, oldestQueueItem, onHold, paidRevenue, prescriptionsToday, stockAlerts]
+    [data?.claims, data?.profile?.dhaConnected, data?.reportMetrics.dhaSubmittedCount, dispensedPrescriptions.length, inQueue.length, oldestQueueItem, onHold, paidRevenue, prescriptionsToday, stockAlerts, uiLang]
   );
 
   return (
@@ -262,7 +264,7 @@ export const PharmacyDashboard = () => {
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
           <div className="min-w-0 flex-1">
             <span className="text-[13px] font-semibold text-amber-800">
-              {formatNumber(stockAlerts.length)} stock alerts require attention:{' '}
+              {formatNumber(stockAlerts.length, uiLang)} stock alerts require attention:{' '}
             </span>
             <span className="text-[12px] text-amber-700">{stockAlertSummary}</span>
           </div>
@@ -308,7 +310,7 @@ export const PharmacyDashboard = () => {
                         : 'text-slate-900'
                   } ${typeof kpi.value === 'string' && kpi.value.length > 8 ? 'text-[16px]' : 'text-[30px]'}`}
                 >
-                  {loading ? '…' : typeof kpi.value === 'number' ? formatNumber(kpi.value) : kpi.value}
+                  {loading ? '…' : typeof kpi.value === 'number' ? formatNumber(kpi.value, uiLang) : kpi.value}
                 </div>
                 <div className="mb-1 text-[10px] uppercase tracking-[0.3em] text-slate-400">{kpi.label}</div>
                 <div className="text-[11px] text-slate-400">{kpi.helper}</div>
@@ -394,7 +396,7 @@ export const PharmacyDashboard = () => {
             onClick={() => setShowDispensed((current) => !current)}
             className="flex w-full items-center justify-between border-t border-slate-100 px-5 py-3 text-left transition hover:bg-slate-50"
           >
-            <span className="text-[13px] font-medium text-slate-500">{formatNumber(dispensedPrescriptions.length)} dispensed prescriptions today</span>
+            <span className="text-[13px] font-medium text-slate-500">{formatNumber(dispensedPrescriptions.length, uiLang)} dispensed prescriptions today</span>
             {showDispensed ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
           </button>
 
@@ -444,7 +446,7 @@ export const PharmacyDashboard = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-semibold text-slate-800">{alert.item}</div>
-                      <div className="mt-0.5 text-[11px] text-slate-500">{alert.sku} · {formatNumber(alert.quantity)} units tracked</div>
+                      <div className="mt-0.5 text-[11px] text-slate-500">{alert.sku} · {formatNumber(alert.quantity, uiLang)} units tracked</div>
                       <div className={`mt-0.5 text-[11px] ${alert.severity === 'out' ? 'text-red-600' : 'text-amber-700'}`}>
                         {alert.severity === 'out' ? 'Out of stock based on live queue demand' : 'Below reorder threshold'}
                       </div>

@@ -770,3 +770,239 @@ export interface AdminAuditEventRow {
   record_id: string | null;
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Admin parity (rich seeded directories + dashboard context)
+// ---------------------------------------------------------------------------
+
+export interface AdminPortalContext {
+  total_patients: number;
+  patients_30d_active: number;
+  patients_new_month: number;
+  patients_flagged: number;
+  patients_suspended: number;
+  patient_change_pct: number;
+  verified_doctors: number;
+  pending_doctors: number;
+  doctors_added_this_month: number;
+  doctors_active_now: number;
+  doctor_license_alerts: number;
+  doctor_avg_rating: number;
+  doctor_fees_mtd_aed: number;
+  connected_orgs: number;
+  orgs_clinics: number;
+  orgs_hospitals: number;
+  orgs_pharmacies: number;
+  orgs_labs: number;
+  orgs_added_this_month: number;
+  ai_sessions_today: number;
+  ai_sessions_month: number;
+  ai_sessions_alltime: number;
+  ai_active_now: number;
+  ai_avg_response_sec: number;
+  ai_uptime_pct: number;
+  ai_satisfaction: number;
+  ai_satisfaction_count: number;
+  ai_to_booking_pct: number;
+  ai_to_booking_count: number;
+  ai_safety_flags_today: number;
+  ai_safety_escalated: number;
+  ai_safety_resolved: number;
+  ai_revenue_today_aed: number;
+  ai_revenue_net_aed: number;
+  ai_revenue_margin_pct: number;
+  revenue_today_aed: number;
+  revenue_target_aed: number;
+  revenue_change_pct: number;
+  uptime_pct: number;
+  uptime_incidents_month: number;
+  dha_score: number;
+  dha_license: string | null;
+  dha_license_expires: string | null;
+  active_sessions: number;
+  open_issues: number;
+  super_admin_name: string | null;
+  super_admin_role_label: string | null;
+  super_admin_organization: string | null;
+  platform_version: string;
+  environment_label: string;
+  updated_at: string;
+}
+
+export interface AdminDashboardIssue {
+  id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  title: string;
+  detail: string | null;
+  cta_label: string | null;
+  cta_kind: string | null;
+}
+
+export interface AdminPortalStatus {
+  id: string;
+  portal_key: string;
+  portal_name: string;
+  active_users: number;
+  latency_ms: number;
+  status: 'online' | 'degraded' | 'offline';
+  observed_at: string;
+}
+
+export interface AdminLiveActivityEvent {
+  id: string;
+  category: string;
+  title: string;
+  detail: string | null;
+  occurred_at: string;
+  ago_label: string | null;
+}
+
+export interface AdminComplianceChecklistItem {
+  id: string;
+  label: string;
+  detail: string | null;
+  is_compliant: boolean;
+}
+
+export interface AdminLicenseAlert {
+  id: string;
+  doctor_name: string;
+  doctor_initials: string | null;
+  days_remaining: number;
+  severity: 'high' | 'medium' | 'low';
+}
+
+export interface AdminRevenueDay {
+  id: string;
+  day_label: string;
+  day_index: number;
+  total_aed: number;
+  consults_aed: number;
+  ai_aed: number;
+  lab_aed: number;
+  target_aed: number;
+}
+
+export interface AdminOrgsSummary {
+  total: number;
+  hospitals: number;
+  clinics: number;
+  pharmacies: number;
+  labs: number;
+  insurance: number;
+}
+
+export interface AdminDashboardPayload {
+  generatedAt: string;
+  context: AdminPortalContext | null;
+  issues: AdminDashboardIssue[];
+  portals: AdminPortalStatus[];
+  liveActivity: AdminLiveActivityEvent[];
+  complianceChecklist: AdminComplianceChecklistItem[];
+  licenseAlerts: AdminLicenseAlert[];
+  revenueDaily: AdminRevenueDay[];
+  orgsSummary: AdminOrgsSummary;
+}
+
+export interface AdminDoctorRow {
+  id: string;
+  initials: string;
+  full_name: string;
+  age: number | null;
+  gender: string | null;
+  nationality: string | null;
+  dha_license: string | null;
+  dha_verified: boolean;
+  specialty: string | null;
+  specialty_sub: string | null;
+  clinic_name: string | null;
+  city: string | null;
+  consults_lifetime: number;
+  consults_recent_label: string | null;
+  rating: number | null;
+  rating_count: number;
+  license_expires_at: string | null;
+  license_expires_label: string | null;
+  reminder_status: string | null;
+  status_label: 'verified' | 'expiring' | 'flagged' | 'suspended' | 'pending' | string;
+  status_flag: string | null;
+  badge_emoji: string | null;
+  badge_label: string | null;
+  sort_order: number;
+}
+
+export interface AdminPatientRow {
+  id: string;
+  initials: string;
+  full_name: string;
+  age: number | null;
+  gender: string | null;
+  blood_type: string | null;
+  patient_code: string;
+  emirates_id_masked: string | null;
+  insurance_plan: string | null;
+  insurance_member_id_masked: string | null;
+  city: string | null;
+  joined_label: string | null;
+  last_active_label: string | null;
+  risk_level: 'low' | 'medium' | 'high' | 'critical' | string;
+  status_label: 'active' | 'inactive' | 'flagged' | 'suspended' | string;
+  status_flag: string | null;
+  badge_emoji: string | null;
+  badge_label: string | null;
+  sort_order: number;
+}
+
+export interface AdminInsurancePartnerRow {
+  id: string;
+  initials: string;
+  insurer_name: string;
+  cbuae_license: string;
+  partner_tier: 'premium' | 'standard' | string;
+  is_government: boolean;
+  is_new_partner: boolean;
+  api_status: 'healthy' | 'degraded' | 'down' | string;
+  api_latency_ms: number | null;
+  members: number;
+  claims_today: number;
+  claim_value_today_aed: number;
+  auto_approval_pct: number;
+  plan_pills: string[];
+  partner_since: string | null;
+  platform_revenue_label: string | null;
+  sla_status: string | null;
+  breach_label: string | null;
+  fraud_alert_count: number;
+  fraud_alert_severity: string | null;
+  api_warning_label: string | null;
+  sla_breach_label: string | null;
+  notes: string | null;
+  sort_order: number;
+}
+
+export interface AdminAiBreakdownRow {
+  id: string;
+  bucket: 'language' | 'topic' | 'portal';
+  label: string;
+  sub_label: string | null;
+  sessions: number;
+  percent: number;
+  metric_1_label: string | null;
+  metric_1_value: string | null;
+  metric_2_label: string | null;
+  metric_2_value: string | null;
+  metric_3_label: string | null;
+  metric_3_value: string | null;
+  metric_4_label: string | null;
+  metric_4_value: string | null;
+  sort_order: number;
+}
+
+export interface AdminAiDashboardPayload {
+  generatedAt: string;
+  context: AdminPortalContext | null;
+  languages: AdminAiBreakdownRow[];
+  topics: AdminAiBreakdownRow[];
+  portals: AdminAiBreakdownRow[];
+}

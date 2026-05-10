@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import i18n from 'i18next';
 
 interface UseQueryResult<T> {
   data: T | null;
@@ -21,17 +22,37 @@ export function useQuery<T>(
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const execute = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const result = await fetcher();
-      setData(result);
+      if (mountedRef.current && currentRequestId === requestIdRef.current) {
+        setData(result);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      if (mountedRef.current && currentRequestId === requestIdRef.current) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : i18n.t('shared.errors.unknown', { defaultValue: 'An unknown error occurred' })
+        );
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current && currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

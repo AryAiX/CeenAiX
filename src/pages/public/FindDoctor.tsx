@@ -76,9 +76,21 @@ export const FindDoctor: React.FC = () => {
 
       if (error) throw error;
 
+      // Generate a stable pseudo-rating per doctor so cards don't change on
+      // every re-render. Uses the doctor id as the seed so reloads stay
+      // consistent until a real rating column is wired up.
+      const stableRating = (id: string) => {
+        let hash = 0;
+        for (let i = 0; i < id.length; i += 1) {
+          hash = (hash * 31 + id.charCodeAt(i)) | 0;
+        }
+        const normalized = Math.abs(hash % 800) / 1000;
+        return Number((4.2 + normalized).toFixed(1));
+      };
+
       const doctorsWithRatings = (data as DoctorRow[] | null)?.map((doc, index) => ({
         ...doc,
-        rating: 4.2 + Math.random() * 0.8,
+        rating: stableRating(doc.id),
         image_url: doc.image_url || doctorImages[index % doctorImages.length],
       })) || [];
 

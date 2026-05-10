@@ -1,6 +1,9 @@
+import i18n from 'i18next';
 import type { AiChatStoredAttachment } from '../lib/ai';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
+
+const doctorFallback = () => i18n.t('shared.doctor', { defaultValue: 'Doctor' });
 
 export interface PatientAiChatMessage {
   id: string;
@@ -215,7 +218,7 @@ export function usePatientAiChat(userId: string | null | undefined, activeSessio
         id: nextAppointmentRecord.id,
         scheduledAt: nextAppointmentRecord.scheduled_at,
         chiefComplaint: nextAppointmentRecord.chief_complaint,
-        doctorName: doctorProfile?.full_name ?? 'Doctor',
+        doctorName: doctorProfile?.full_name ?? doctorFallback(),
       };
     }
 

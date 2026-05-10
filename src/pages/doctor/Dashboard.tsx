@@ -55,6 +55,9 @@ export const DoctorDashboard: React.FC = () => {
   const doctorFacility = profile?.address?.trim() || doctorLocation;
   const doctorLicense = doctorProfile?.license_number?.trim() || (uiLang.startsWith('ar') ? 'الترخيص قيد الإضافة' : 'License pending');
   const isArabic = uiLang.startsWith('ar');
+  const hour = new Date().getHours();
+  const greetingEn = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greetingAr = hour < 12 ? 'صباح الخير' : 'مساء الخير';
   const localCopy = useMemo(
     () =>
       isArabic
@@ -68,7 +71,7 @@ export const DoctorDashboard: React.FC = () => {
             openLabResults: 'فتح طلبات المختبر',
             acknowledgeResult: 'اعتماد النتيجة',
             unavailable: 'غير متاح حالياً',
-            greeting: 'مساء الخير',
+            greeting: greetingAr,
             daySummary: 'تم إنجاز {{done}} من {{total}} مواعيد',
             finishEstimate: 'الانتهاء المتوقع: {{time}}',
             activeConsultation: 'استشارة جارية',
@@ -114,7 +117,7 @@ export const DoctorDashboard: React.FC = () => {
             openLabResults: 'Open lab orders',
             acknowledgeResult: 'Acknowledge result',
             unavailable: 'Not available yet',
-            greeting: 'Good afternoon',
+            greeting: greetingEn,
             daySummary: '{{done}} of {{total}} appointments done',
             finishEstimate: 'Finish est.: {{time}}',
             activeConsultation: 'Live Consultation',
@@ -150,7 +153,7 @@ export const DoctorDashboard: React.FC = () => {
             statusOk: 'Valid',
             statusPending: 'Pending',
           },
-    [isArabic]
+    [isArabic, greetingAr, greetingEn]
   );
   const completedTodayAppointments = data?.completedTodayAppointments ?? 0;
   const todayAppointments = data?.todayAppointments ?? 0;
@@ -263,7 +266,9 @@ export const DoctorDashboard: React.FC = () => {
     return fallbackMinutes ? `${fallbackMinutes} min` : '--';
   };
   const lastTodayAppointment = todaySchedule.length > 0 ? todaySchedule[todaySchedule.length - 1] : null;
-  const finishEstimate = lastTodayAppointment ? `~${formatDoctorTime(lastTodayAppointment.scheduledAt)}` : '~4:00 PM';
+  // Avoid the hard-coded "~4:00 PM" fallback that misled doctors when their
+  // schedule was empty for the day. Render an em-dash instead.
+  const finishEstimate = lastTodayAppointment ? `~${formatDoctorTime(lastTodayAppointment.scheduledAt)}` : '—';
   const cardColorClasses = {
     teal: { bg: 'bg-teal-100', icon: 'text-teal-600', text: 'text-teal-600', bar: 'bg-teal-600' },
     purple: { bg: 'bg-purple-100', icon: 'text-purple-600', text: 'text-purple-600', bar: 'bg-purple-600' },
@@ -663,11 +668,17 @@ export const DoctorDashboard: React.FC = () => {
                       </p>
                     </div>
                     {result.labOrderStatus === 'resulted' ? (
-                      <button className="rounded bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-red-700">
-                        Acknowledge
+                      <button
+                        type="button"
+                        onClick={() => navigate('/doctor/labs')}
+                        className="rounded bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-red-700"
+                      >
+                        {t('doctor.patients.acknowledge', { defaultValue: 'Acknowledge' })}
                       </button>
                     ) : (
-                      <span className="rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-700">✅ Reviewed</span>
+                      <span className="rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-700">
+                        ✅ {t('shared.labOrderStatus.reviewed', { defaultValue: 'Reviewed' })}
+                      </span>
                     )}
                   </div>
                 </div>

@@ -31,7 +31,7 @@ export const Footer: React.FC = () => {
           <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-600 shadow-lg shadow-cyan-500/20">
-                <img src="/favicon.svg" alt="CeenAiX" className="h-8 w-8 rounded-xl" />
+                <img src="/favicon.svg" alt="" aria-hidden className="h-8 w-8 rounded-xl" />
               </div>
               <div>
                 <span className="block text-xl font-bold text-white">CeenAiX</span>
@@ -49,17 +49,17 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2">
               <li>
-                <button onClick={() => navigate('/find-doctor')} className="transition-colors hover:text-ceenai-cyan">
+                <button type="button" onClick={() => navigate('/find-doctor')} className="transition-colors hover:text-ceenai-cyan">
                   {t('footer.findDoctors')}
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('/find-clinic')} className="transition-colors hover:text-ceenai-cyan">
+                <button type="button" onClick={() => navigate('/find-clinic')} className="transition-colors hover:text-ceenai-cyan">
                   {t('footer.findClinics')}
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('/ai-chat')} className="transition-colors hover:text-ceenai-cyan">
+                <button type="button" onClick={() => navigate('/ai-chat')} className="transition-colors hover:text-ceenai-cyan">
                   {t('footer.aiHealthChat')}
                 </button>
               </li>
@@ -73,6 +73,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2">
               <li>
                 <button
+                  type="button"
                   onClick={() => navigate('/health-education')}
                   className="transition-colors hover:text-ceenai-cyan"
                 >
@@ -80,12 +81,12 @@ export const Footer: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('/insurance')} className="transition-colors hover:text-ceenai-cyan">
+                <button type="button" onClick={() => navigate('/insurance')} className="transition-colors hover:text-ceenai-cyan">
                   {t('header.insurance')}
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('/auth/login')} className="transition-colors hover:text-ceenai-cyan">
+                <button type="button" onClick={() => navigate('/auth/login')} className="transition-colors hover:text-ceenai-cyan">
                   {t('footer.signIn')}
                 </button>
               </li>

@@ -63,10 +63,34 @@ export const DoctorEarnings = () => {
 
       <div className="grid gap-4 md:grid-cols-4">
         {[
-          { label: 'Completed today', value: `${currency} ${formatLocaleDigits(estimatedToday, uiLang)}`, icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-100' },
-          { label: "Today's projection", value: `${currency} ${formatLocaleDigits(projectedToday, uiLang)}`, icon: Calendar, color: 'text-teal-600', bg: 'bg-teal-100' },
-          { label: 'Consultation fee', value: fee > 0 ? `${currency} ${formatLocaleDigits(fee, uiLang)}` : '—', icon: Receipt, color: 'text-blue-600', bg: 'bg-blue-100' },
-          { label: 'Pending reviews', value: formatLocaleDigits(pendingClinicalReviews, uiLang), icon: FileSpreadsheet, color: 'text-amber-600', bg: 'bg-amber-100' },
+          {
+            label: t('doctor.earnings.completedToday', { defaultValue: 'Completed today' }),
+            value: `${currency} ${formatLocaleDigits(estimatedToday, uiLang)}`,
+            icon: Wallet,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-100',
+          },
+          {
+            label: t('doctor.earnings.todayProjection', { defaultValue: "Today's projection" }),
+            value: `${currency} ${formatLocaleDigits(projectedToday, uiLang)}`,
+            icon: Calendar,
+            color: 'text-teal-600',
+            bg: 'bg-teal-100',
+          },
+          {
+            label: t('doctor.earnings.consultationFee', { defaultValue: 'Consultation fee' }),
+            value: fee > 0 ? `${currency} ${formatLocaleDigits(fee, uiLang)}` : '—',
+            icon: Receipt,
+            color: 'text-blue-600',
+            bg: 'bg-blue-100',
+          },
+          {
+            label: t('doctor.earnings.pendingReviews', { defaultValue: 'Pending reviews' }),
+            value: formatLocaleDigits(pendingClinicalReviews, uiLang),
+            icon: FileSpreadsheet,
+            color: 'text-amber-600',
+            bg: 'bg-amber-100',
+          },
         ].map((card) => {
           const Icon = card.icon;
           return (
@@ -92,24 +116,28 @@ export const DoctorEarnings = () => {
                 activeTab === tab ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
-              {tab}
+              {t(`doctor.earnings.tab.${tab}`, { defaultValue: tab[0].toUpperCase() + tab.slice(1) })}
             </button>
           ))}
         </div>
         {activeTab !== 'overview' ? (
           <div className="p-6">
             <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-              {activeTab[0].toUpperCase() + activeTab.slice(1)} will use the billing, claims, and payout tables once that data model is available. Current revenue values stay bound to live appointments and doctor profile fees.
+              {t(`doctor.earnings.placeholder.${activeTab}`, {
+                defaultValue: `${activeTab[0].toUpperCase() + activeTab.slice(1)} will use the billing, claims, and payout tables once that data model is available. Current revenue values stay bound to live appointments and doctor profile fees.`,
+              })}
             </div>
           </div>
         ) : null}
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-slate-900">Today's revenue events</h2>
+        <h2 className="mb-4 text-lg font-bold text-slate-900">
+          {t('doctor.earnings.todayEventsHeading', { defaultValue: "Today's revenue events" })}
+        </h2>
         {(data?.todaySchedule ?? []).length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-            No appointments on today's schedule.
+            {t('doctor.earnings.noAppointmentsToday', { defaultValue: "No appointments on today's schedule." })}
           </div>
         ) : (
           <div className="space-y-3">
@@ -123,7 +151,9 @@ export const DoctorEarnings = () => {
                   <div className="font-mono font-bold text-slate-900">
                     {appointment.status === 'completed' && fee > 0 ? `${currency} ${formatLocaleDigits(fee, uiLang)}` : '—'}
                   </div>
-                  <div className="text-xs text-slate-400">{appointment.status}</div>
+                  <div className="text-xs text-slate-400">
+                    {t(`shared.appointmentStatus.${appointment.status}`, { defaultValue: appointment.status })}
+                  </div>
                 </div>
               </div>
             ))}
@@ -132,7 +162,10 @@ export const DoctorEarnings = () => {
       </div>
 
       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-        Earnings are estimated from completed appointments and the doctor profile consultation fee. Claims, payouts, VAT, and remittance reports need a dedicated billing model.
+        {t('doctor.earnings.estimateNote', {
+          defaultValue:
+            'Earnings are estimated from completed appointments and the doctor profile consultation fee. Claims, payouts, VAT, and remittance reports need a dedicated billing model.',
+        })}
       </div>
     </div>
   );

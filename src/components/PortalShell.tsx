@@ -602,8 +602,8 @@ export const PortalShell = ({
                 type="button"
                 onClick={() => setDoctorSidebarCollapsed(true)}
                 className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Collapse doctor sidebar"
-                title="Collapse"
+                aria-label={t('portalShell.collapseSidebar', { defaultValue: 'Collapse sidebar' })}
+                title={t('portalShell.collapse', { defaultValue: 'Collapse' })}
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -613,8 +613,8 @@ export const PortalShell = ({
               type="button"
               onClick={() => setDoctorSidebarCollapsed(false)}
               className="mx-auto rounded-lg p-2 transition-colors hover:bg-white/10"
-              aria-label="Expand doctor sidebar"
-              title="Expand"
+              aria-label={t('portalShell.expandSidebar', { defaultValue: 'Expand sidebar' })}
+              title={t('portalShell.expand', { defaultValue: 'Expand' })}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-sm font-bold text-white">
                 C
@@ -691,7 +691,9 @@ export const PortalShell = ({
                 <span>Revenue today</span>
               </div>
               <span className="font-mono text-[12px] font-semibold text-emerald-400">
-                {estimatedRevenueToday !== null ? `AED ${estimatedRevenueToday.toLocaleString()}` : 'AED --'}
+                {estimatedRevenueToday !== null
+                  ? `AED ${estimatedRevenueToday.toLocaleString(i18n.language)}`
+                  : 'AED --'}
               </span>
             </div>
             <div className="flex items-center justify-between px-2">
@@ -723,8 +725,8 @@ export const PortalShell = ({
             type="button"
             onClick={() => setDoctorSidebarCollapsed(false)}
             className="border-t border-white/[0.06] p-4 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
-            aria-label="Expand doctor sidebar"
-            title="Expand"
+            aria-label={t('portalShell.expandSidebar', { defaultValue: 'Expand sidebar' })}
+            title={t('portalShell.expand', { defaultValue: 'Expand' })}
           >
             <ChevronRight className="mx-auto h-5 w-5" />
           </button>

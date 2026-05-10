@@ -36,7 +36,11 @@ export const LanguageSwitcher = ({
     variant === 'dark' ? 'bg-white text-slate-900 shadow-sm' : 'bg-slate-900 text-white shadow-sm';
 
   return (
-    <div className={`inline-flex rounded-full p-0.5 ${shell} ${className}`} role="group" aria-label="Language">
+    <div
+      className={`inline-flex rounded-full p-0.5 ${shell} ${className}`}
+      role="group"
+      aria-label={t('language.switcherAriaLabel', { defaultValue: 'Language' })}
+    >
       <button
         type="button"
         onClick={() => setLang('en')}

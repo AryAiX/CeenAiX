@@ -221,13 +221,17 @@ export const DoctorAppointments: React.FC = () => {
       }),
     [appointments, endOfWeek, startOfWeek]
   );
-  const monthNoShows = useMemo(
+  const monthAppointments = useMemo(
     () =>
       appointments.filter((appointment) => {
         const scheduledAt = new Date(appointment.scheduled_at);
-        return scheduledAt >= startOfMonth && scheduledAt < endOfMonth && ['no_show', 'cancelled'].includes(appointment.status);
-      }).length,
+        return scheduledAt >= startOfMonth && scheduledAt < endOfMonth;
+      }),
     [appointments, endOfMonth, startOfMonth]
+  );
+  const monthNoShows = useMemo(
+    () => monthAppointments.filter((appointment) => ['no_show', 'cancelled'].includes(appointment.status)).length,
+    [monthAppointments]
   );
   const todayDone = todayAppointmentsForStats.filter((appointment) => appointment.status === 'completed').length;
   const todayActive = todayAppointmentsForStats.filter((appointment) => ['in_progress', 'checked_in'].includes(appointment.status)).length;
@@ -302,8 +306,10 @@ export const DoctorAppointments: React.FC = () => {
         <div className="-mx-6 -mt-5 mb-5 border-b border-slate-200 bg-white px-6 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-[22px] font-bold text-slate-900">Appointments</h1>
-              <p className="text-[13px] text-slate-400">Al Noor Medical Center — Cardiology Suite</p>
+              <h1 className="text-[22px] font-bold text-slate-900">{t('doctor.appointments.title')}</h1>
+              <p className="text-[13px] text-slate-400">
+                {doctorProfile?.specialization ?? t('doctor.appointments.subtitle')}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -401,7 +407,7 @@ export const DoctorAppointments: React.FC = () => {
               {
                 label: 'No-Shows This Month',
                 value: monthNoShows,
-                sub: `${appointments.length > 0 ? formatLocaleDigits(Math.round((monthNoShows / appointments.length) * 1000) / 10, uiLang) : '0'}% rate · Live status`,
+                sub: `${monthAppointments.length > 0 ? formatLocaleDigits(Math.round((monthNoShows / monthAppointments.length) * 1000) / 10, uiLang) : '0'}% rate · Live status`,
                 icon: UserX,
                 iconClass: 'bg-red-100 text-red-500',
                 valueClass: 'text-red-500',

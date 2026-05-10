@@ -87,7 +87,12 @@ export const AuthShell = ({
           </div>
         </div>
 
-        <div className="relative text-xs text-slate-500">© 2026 CeenAiX Healthcare Technologies, Dubai, UAE</div>
+        <div className="relative text-xs text-slate-500">
+          {t('auth.shell.copyright', {
+            year: new Date().getFullYear(),
+            defaultValue: '© {{year}} CeenAiX Healthcare Technologies, Dubai, UAE',
+          })}
+        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-slate-50 p-8">

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth-context';
 
 export const ChatbotButton: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { role } = useAuth();
+  const { t } = useTranslation('common');
   const [showTooltip, setShowTooltip] = useState(false);
   const targetRoute = role === 'patient' ? '/patient/ai-chat' : '/ai-chat';
 
@@ -27,18 +29,19 @@ export const ChatbotButton: React.FC = () => {
           {/* Tooltip */}
           {showTooltip && (
             <div className="absolute bottom-full right-0 mb-2 px-4 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg whitespace-nowrap animate-fade-in">
-              Chat with AI Health Assistant
+              {t('chatbot.tooltip', { defaultValue: 'Chat with AI Health Assistant' })}
               <div className="absolute bottom-0 right-6 transform translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
             </div>
           )}
 
           {/* Main button */}
           <button
+            type="button"
             onClick={handleClick}
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
             className="group relative bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-full p-4 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300"
-            aria-label="Open AI Health Assistant"
+            aria-label={t('chatbot.ariaOpen', { defaultValue: 'Open AI Health Assistant' })}
           >
             {/* Pulse animation ring */}
             <div className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20"></div>

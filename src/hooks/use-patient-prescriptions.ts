@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import {
   hydratePrescriptionItemsWithCatalog,
@@ -5,6 +6,8 @@ import {
 } from '../lib/medication-catalog';
 import type { Prescription, PrescriptionItem } from '../types';
 import { useQuery } from './use-query';
+
+const doctorFallback = () => i18n.t('shared.doctor', { defaultValue: 'Doctor' });
 
 interface DoctorPrescriptionProfile {
   fullName: string;
@@ -90,7 +93,7 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
       (userProfiles ?? []).map((userProfile) => [
         userProfile.user_id,
         {
-          fullName: userProfile.full_name ?? 'Doctor',
+          fullName: userProfile.full_name ?? doctorFallback(),
           specialty: doctorSpecialtyById.get(userProfile.user_id) ?? null,
         },
       ])
@@ -101,7 +104,7 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
 
       return {
         ...prescription,
-        doctorName: doctorProfile?.fullName ?? 'Doctor',
+        doctorName: doctorProfile?.fullName ?? doctorFallback(),
         doctorSpecialty: doctorProfile?.specialty ?? null,
         items: itemsByPrescriptionId.get(prescription.id) ?? [],
       };

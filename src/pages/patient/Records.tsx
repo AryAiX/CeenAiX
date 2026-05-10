@@ -415,10 +415,19 @@ export const PatientRecords: React.FC = () => {
       ? Number(vaccinationForm.doseNumber)
       : null;
 
+    if (parsedDoseNumber !== null && (!Number.isFinite(parsedDoseNumber) || parsedDoseNumber <= 0)) {
+      setSubmittingForm(null);
+      setFeedback({
+        type: 'error',
+        message: t('patient.records.errDoseNumber', { defaultValue: 'Dose number must be a positive whole number.' }),
+      });
+      return;
+    }
+
     const { error: insertError } = await supabase.from('vaccinations').insert({
       patient_id: user.id,
       vaccine_name: vaccinationForm.vaccineName.trim(),
-      dose_number: Number.isFinite(parsedDoseNumber) ? parsedDoseNumber : null,
+      dose_number: parsedDoseNumber !== null && Number.isFinite(parsedDoseNumber) ? parsedDoseNumber : null,
       administered_date: vaccinationForm.administeredDate || null,
       administered_by: vaccinationForm.administeredBy.trim() || null,
       next_dose_due: vaccinationForm.nextDoseDue || null,
@@ -516,7 +525,7 @@ export const PatientRecords: React.FC = () => {
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 rtl:left-auto rtl:right-4" />
               <input
                 type="text"
                 placeholder={t('patient.records.searchPh')}
@@ -528,7 +537,7 @@ export const PatientRecords: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
               <div className="relative">
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 rtl:left-auto rtl:right-3" />
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as RecordCategoryFilter)}

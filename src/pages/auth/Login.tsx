@@ -110,6 +110,15 @@ export const Login = () => {
 
   const [mode, setMode] = useState<LoginMode>('password');
   const [email, setEmail] = useState(emailFromSignup);
+
+  // Keep the email field in sync when the user arrives with a different
+  // ?email= query param (e.g. they were redirected back from signup).
+  useEffect(() => {
+    if (emailFromSignup && emailFromSignup !== email) {
+      setEmail(emailFromSignup);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emailFromSignup]);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
@@ -192,12 +201,12 @@ export const Login = () => {
     resetFeedback();
 
     if (newPassword.length < 8) {
-      setErrorMessage('Use at least 8 characters for your new password.');
+      setErrorMessage(t('auth.login.errors.passwordShort'));
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setErrorMessage('The new password and confirmation do not match.');
+      setErrorMessage(t('auth.login.errors.passwordMismatch'));
       return;
     }
 
@@ -211,9 +220,12 @@ export const Login = () => {
       return;
     }
 
-    setSuccessMessage('Password updated successfully. Redirecting to your account...');
+    setSuccessMessage(t('auth.login.passwordUpdatedRedirecting'));
     setIsSubmitting(false);
-    navigate(getDefaultRouteForRole(role), { replace: true });
+    // Give the user a beat to read the success banner before redirecting.
+    window.setTimeout(() => {
+      navigate(getDefaultRouteForRole(role), { replace: true });
+    }, 600);
   };
 
   const RoleIcon = rolePreset?.icon ?? UserRound;

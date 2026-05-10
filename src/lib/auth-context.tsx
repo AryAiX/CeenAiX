@@ -278,7 +278,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (userProfileInsertError) {
       const duplicateProfileError =
         userProfileInsertError.code === '23505' ||
-        userProfileInsertError.message.toLowerCase().includes('duplicate');
+        (userProfileInsertError.message?.toLowerCase().includes('duplicate') ?? false);
 
       if (!duplicateProfileError) {
         console.error('Failed to create user profile', userProfileInsertError);

@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
 
@@ -35,7 +36,7 @@ export function useBookableDoctors() {
 
     return ((data ?? []) as BookableDoctorRpcRow[]).map((row) => ({
       userId: row.user_id,
-      fullName: row.full_name ?? 'Doctor',
+      fullName: row.full_name ?? i18n.t('shared.doctor', { defaultValue: 'Doctor' }),
       specialty: row.specialty,
       specializationIds: row.specialization_ids ?? [],
       city: row.city,

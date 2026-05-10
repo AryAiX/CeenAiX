@@ -43,18 +43,18 @@ export const DoctorSettings = () => {
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState('notifications');
-  const settingsSections = [
-    'General',
-    'Appearance',
-    'Notifications',
-    'Dashboard',
-    'Clinical Tools',
-    'Lab & Imaging',
-    'Privacy',
-    'Security',
-    'Language',
-    'Integrations',
-    'Help',
+  const settingsSections: Array<{ key: string; label: string }> = [
+    { key: 'general', label: t('doctor.settings.sections.general', { defaultValue: 'General' }) },
+    { key: 'appearance', label: t('doctor.settings.sections.appearance', { defaultValue: 'Appearance' }) },
+    { key: 'notifications', label: t('doctor.settings.sections.notifications', { defaultValue: 'Notifications' }) },
+    { key: 'dashboard', label: t('doctor.settings.sections.dashboard', { defaultValue: 'Dashboard' }) },
+    { key: 'clinical-tools', label: t('doctor.settings.sections.clinicalTools', { defaultValue: 'Clinical Tools' }) },
+    { key: 'lab-and-imaging', label: t('doctor.settings.sections.labImaging', { defaultValue: 'Lab & Imaging' }) },
+    { key: 'privacy', label: t('doctor.settings.sections.privacy', { defaultValue: 'Privacy' }) },
+    { key: 'security', label: t('doctor.settings.sections.security', { defaultValue: 'Security' }) },
+    { key: 'language', label: t('doctor.settings.sections.language', { defaultValue: 'Language' }) },
+    { key: 'integrations', label: t('doctor.settings.sections.integrations', { defaultValue: 'Integrations' }) },
+    { key: 'help', label: t('doctor.settings.sections.help', { defaultValue: 'Help' }) },
   ];
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export const DoctorSettings = () => {
         className={`relative h-7 w-12 rounded-full transition ${prefs[prefKey] ? 'bg-cyan-600' : 'bg-slate-300'}`}
         aria-pressed={prefs[prefKey]}
       >
-        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${prefs[prefKey] ? 'left-6' : 'left-1'}`} />
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${prefs[prefKey] ? 'start-6' : 'start-1'}`} />
       </button>
     </div>
   );
@@ -129,17 +129,27 @@ export const DoctorSettings = () => {
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <CalendarRange className="mb-3 h-7 w-7 text-cyan-600" />
           <div className="text-2xl font-bold text-slate-900">{schedule?.availabilities.length ?? 0}</div>
-          <div className="text-sm text-slate-500">Availability windows</div>
+          <div className="text-sm text-slate-500">
+            {t('doctor.settings.availabilityWindows', { defaultValue: 'Availability windows' })}
+          </div>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <Stethoscope className="mb-3 h-7 w-7 text-blue-600" />
           <div className="text-2xl font-bold text-slate-900">{doctorProfile?.specialization ?? '—'}</div>
-          <div className="text-sm text-slate-500">Clinical specialty</div>
+          <div className="text-sm text-slate-500">
+            {t('doctor.settings.clinicalSpecialty', { defaultValue: 'Clinical specialty' })}
+          </div>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <ShieldCheck className="mb-3 h-7 w-7 text-emerald-600" />
-          <div className="text-2xl font-bold text-slate-900">{doctorProfile?.dha_license_verified ? 'Verified' : 'Pending'}</div>
-          <div className="text-sm text-slate-500">DHA license</div>
+          <div className="text-2xl font-bold text-slate-900">
+            {doctorProfile?.dha_license_verified
+              ? t('doctor.settings.verified', { defaultValue: 'Verified' })
+              : t('doctor.settings.pending', { defaultValue: 'Pending' })}
+          </div>
+          <div className="text-sm text-slate-500">
+            {t('doctor.settings.dhaLicense', { defaultValue: 'DHA license' })}
+          </div>
         </div>
       </div>
 
@@ -147,18 +157,18 @@ export const DoctorSettings = () => {
         <aside className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="space-y-1">
             {settingsSections.map((section) => {
-              const key = section.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '-');
-              const active = activeSection === key || (section === 'Notifications' && activeSection === 'notifications');
+              const active = activeSection === section.key;
               return (
                 <button
-                  key={section}
+                  key={section.key}
                   type="button"
-                  onClick={() => setActiveSection(key)}
+                  onClick={() => setActiveSection(section.key)}
+                  aria-current={active ? 'page' : undefined}
                   className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
                     active ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {section}
+                  {section.label}
                 </button>
               );
             })}
@@ -168,7 +178,10 @@ export const DoctorSettings = () => {
         <div className="space-y-6">
           {activeSection !== 'notifications' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
-              This section is reserved for real profile, security, device, integration, and clinical workspace settings as those tables become available. Notifications below remain fully persisted.
+              {t('doctor.settings.placeholderSection', {
+                defaultValue:
+                  'This section is reserved for real profile, security, device, integration, and clinical workspace settings as those tables become available. Notifications below remain fully persisted.',
+              })}
             </div>
           ) : null}
 
@@ -177,15 +190,49 @@ export const DoctorSettings = () => {
               <Bell className="h-6 w-6 text-cyan-600" />
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{t('doctor.settings.featureNotificationsTitle')}</h2>
-                <p className="text-sm text-slate-500">{saving ? 'Saving...' : t('doctor.settings.featureNotificationsBody')}</p>
+                <p className="text-sm text-slate-500">
+                  {saving
+                    ? t('doctor.settings.saving', { defaultValue: 'Saving…' })
+                    : t('doctor.settings.featureNotificationsBody')}
+                </p>
               </div>
             </div>
             <div className="space-y-4">
-              <ToggleRow prefKey="email" title="Email notifications" body="Appointment, lab, and patient message updates." />
-              <ToggleRow prefKey="sms" title="SMS alerts" body="Urgent schedule changes and critical-result notifications." />
-              <ToggleRow prefKey="push" title="Portal notifications" body="In-app updates while you are using CeenAiX." />
-              <ToggleRow prefKey="autoConfirmFollowUps" title="Auto-confirm follow-ups" body="Reserve follow-up workflow preference for future scheduling automation." />
-              <ToggleRow prefKey="shareCalendar" title="Share calendar availability" body="Expose active availability slots to patient booking surfaces." />
+              <ToggleRow
+                prefKey="email"
+                title={t('doctor.settings.toggles.emailTitle', { defaultValue: 'Email notifications' })}
+                body={t('doctor.settings.toggles.emailBody', {
+                  defaultValue: 'Appointment, lab, and patient message updates.',
+                })}
+              />
+              <ToggleRow
+                prefKey="sms"
+                title={t('doctor.settings.toggles.smsTitle', { defaultValue: 'SMS alerts' })}
+                body={t('doctor.settings.toggles.smsBody', {
+                  defaultValue: 'Urgent schedule changes and critical-result notifications.',
+                })}
+              />
+              <ToggleRow
+                prefKey="push"
+                title={t('doctor.settings.toggles.pushTitle', { defaultValue: 'Portal notifications' })}
+                body={t('doctor.settings.toggles.pushBody', {
+                  defaultValue: 'In-app updates while you are using CeenAiX.',
+                })}
+              />
+              <ToggleRow
+                prefKey="autoConfirmFollowUps"
+                title={t('doctor.settings.toggles.autoFollowTitle', { defaultValue: 'Auto-confirm follow-ups' })}
+                body={t('doctor.settings.toggles.autoFollowBody', {
+                  defaultValue: 'Reserve follow-up workflow preference for future scheduling automation.',
+                })}
+              />
+              <ToggleRow
+                prefKey="shareCalendar"
+                title={t('doctor.settings.toggles.shareCalTitle', { defaultValue: 'Share calendar availability' })}
+                body={t('doctor.settings.toggles.shareCalBody', {
+                  defaultValue: 'Expose active availability slots to patient booking surfaces.',
+                })}
+              />
             </div>
           </div>
         </div>
