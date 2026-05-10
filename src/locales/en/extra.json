@@ -1323,6 +1323,23 @@
       "cancelSuccess": "Appointment cancelled successfully.",
       "footerHint": "Patient detail flows will open from this list once the doctor patient detail route is wired."
     },
+    "schedule": {
+      "reasonLabel": "Reason",
+      "reasonPh": "Optional note for your own reference",
+      "errAuthAvailability": "You need to be signed in as a doctor to manage availability.",
+      "errEndAfterStart": "Availability end time must be later than the start time.",
+      "errSlotDuration": "Choose a valid slot duration.",
+      "succAvailabilityAdded": "Weekly availability window added.",
+      "succAvailabilityActivated": "Availability activated.",
+      "succAvailabilityPaused": "Availability paused.",
+      "succAvailabilityRemoved": "Availability window removed.",
+      "confirmDeleteAvailability": "Delete this recurring availability window?",
+      "errAuthBlock": "You need to be signed in as a doctor to block time.",
+      "errBlockEndAfterStart": "Blocked slot end time must be later than the start time.",
+      "succBlockAdded": "Blocked time added to your schedule.",
+      "confirmRemoveBlock": "Remove this blocked time from your schedule?",
+      "succBlockRemoved": "Blocked time removed."
+    },
     "patientDetail": {
       "titleFallback": "Patient detail",
       "loadError": "This patient workspace could not be loaded right now.",

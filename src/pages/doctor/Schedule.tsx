@@ -567,7 +567,9 @@ export const DoctorSchedule: React.FC = () => {
                 </div>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Reason</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {t('doctor.schedule.reasonLabel', { defaultValue: 'Reason' })}
+                  </span>
                   <textarea
                     value={blockedSlotForm.reason}
                     onChange={(event) =>
@@ -575,7 +577,9 @@ export const DoctorSchedule: React.FC = () => {
                     }
                     rows={3}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                    placeholder="Optional note for your own reference"
+                    placeholder={t('doctor.schedule.reasonPh', {
+                      defaultValue: 'Optional note for your own reference',
+                    })}
                   />
                 </label>
 

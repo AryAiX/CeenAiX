@@ -1323,6 +1323,23 @@
       "cancelSuccess": "تم إلغاء الموعد بنجاح.",
       "footerHint": "ستُفتح تفاصيل المريض من هذه القائمة عند ربط مسار تفاصيل المريض."
     },
+    "schedule": {
+      "reasonLabel": "السبب",
+      "reasonPh": "ملاحظة اختيارية لاستخدامك الشخصي",
+      "errAuthAvailability": "يجب تسجيل الدخول كطبيب لإدارة أوقات التوفر.",
+      "errEndAfterStart": "يجب أن يكون وقت نهاية التوفر بعد وقت البداية.",
+      "errSlotDuration": "اختر مدة فترة صحيحة.",
+      "succAvailabilityAdded": "تمت إضافة نافذة التوفر الأسبوعية.",
+      "succAvailabilityActivated": "تم تفعيل التوفر.",
+      "succAvailabilityPaused": "تم إيقاف التوفر مؤقتاً.",
+      "succAvailabilityRemoved": "تمت إزالة نافذة التوفر.",
+      "confirmDeleteAvailability": "هل تريد حذف نافذة التوفر المتكررة هذه؟",
+      "errAuthBlock": "يجب تسجيل الدخول كطبيب لحجز الوقت.",
+      "errBlockEndAfterStart": "يجب أن يكون وقت نهاية الفترة المحجوزة بعد وقت البداية.",
+      "succBlockAdded": "تمت إضافة الوقت المحجوز إلى جدولك.",
+      "confirmRemoveBlock": "هل تريد إزالة هذا الوقت المحجوز من جدولك؟",
+      "succBlockRemoved": "تمت إزالة الوقت المحجوز."
+    },
     "patientDetail": {
       "titleFallback": "تفاصيل المريض",
       "loadError": "تعذّر تحميل مساحة عمل هذا المريض حالياً.",

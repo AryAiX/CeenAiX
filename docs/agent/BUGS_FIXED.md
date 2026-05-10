@@ -238,3 +238,4 @@ Each bug includes a short identifier, the file affected, a description, and the 
 ### Area 3 — Doctor portal follow-up
 
 108. **CreatePrescription: 'Change Patient' button label + select `aria-label` were hard-coded English.** Routed both through a new `doctor.createPrescription.changePatient` key (EN + AR).
+109. **DoctorSchedule: form-submit/error/success/confirm strings only had `defaultValue` fallbacks** — so even Arabic users would see the English copy because the keys weren't materialized in `extra.json`. Added a full `doctor.schedule.*` namespace (EN + AR) covering availability + blocked-time auth errors, validation errors, success banners, and `window.confirm` prompts, plus the Reason label + textarea placeholder. Arabic users now get translated copy.
