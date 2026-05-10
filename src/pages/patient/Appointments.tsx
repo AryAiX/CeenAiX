@@ -679,7 +679,7 @@ export const PatientAppointments: React.FC = () => {
                 )
               }
               className="p-1 hover:bg-gray-200 rounded"
-              aria-label="Previous month"
+              aria-label={t('shared.previousMonth', { defaultValue: 'Previous month' })}
             >
               <ChevronLeft className="w-4 h-4 text-gray-600" />
             </button>
@@ -694,7 +694,7 @@ export const PatientAppointments: React.FC = () => {
                 )
               }
               className="p-1 hover:bg-gray-200 rounded"
-              aria-label="Next month"
+              aria-label={t('shared.nextMonth', { defaultValue: 'Next month' })}
             >
               <ChevronRight className="w-4 h-4 text-gray-600" />
             </button>

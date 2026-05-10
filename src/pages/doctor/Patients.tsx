@@ -258,7 +258,8 @@ export const DoctorPatients: React.FC = () => {
                 type="button"
                 onClick={() => setViewMode('list')}
                 className={`rounded px-2 py-1 ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                aria-label="List view"
+                aria-label={t('doctor.patients.listView', { defaultValue: 'List view' })}
+                aria-pressed={viewMode === 'list'}
               >
                 ☰
               </button>
@@ -266,7 +267,8 @@ export const DoctorPatients: React.FC = () => {
                 type="button"
                 onClick={() => setViewMode('card')}
                 className={`rounded px-2 py-1 ${viewMode === 'card' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                aria-label="Card view"
+                aria-label={t('doctor.patients.cardView', { defaultValue: 'Card view' })}
+                aria-pressed={viewMode === 'card'}
               >
                 ⊞
               </button>

@@ -3,6 +3,10 @@
     "goBack": "Go back"
   },
   "shared": {
+    "yes": "Yes",
+    "no": "No",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
     "time": {
       "minutesAgo": "{{count}}m ago",
       "hoursAgo": "{{count}}h ago",
@@ -1845,6 +1849,26 @@
         "low": "Low",
         "near_expiry": "Near expiry",
         "out": "Out"
+      }
+    },
+    "messages": {
+      "title": "Messages",
+      "communicationsSuffix": "communications",
+      "sidebarSubtitle": "Pharmacy communications",
+      "fallbackName": "Pharmacy",
+      "responsePlaceholder": "Type a secure pharmacy response...",
+      "emptyState": "No messages yet.",
+      "status": {
+        "awaiting": "Awaiting",
+        "sent": "Sent",
+        "resolved": "Resolved",
+        "info": "Info"
+      },
+      "kind": {
+        "query": "Query",
+        "approval": "Approval",
+        "info": "Info",
+        "response": "Response"
       }
     },
     "profile": {

@@ -58,7 +58,7 @@ export const OpsShell = ({
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { i18n } = useTranslation('common');
+  const { i18n, t } = useTranslation('common');
   const isArabic = i18n.language.startsWith('ar');
   const [pharmacyCollapsed, setPharmacyCollapsed] = useState(false);
 
@@ -305,7 +305,7 @@ export const OpsShell = ({
                 type="button"
                 onClick={() => navigate(-1)}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white/90 transition hover:bg-white/20"
-                aria-label="Back"
+                aria-label={t('pageHeader.goBack', { defaultValue: 'Go back' })}
               >
                 <ArrowLeft className={`h-4 w-4 ${isArabic ? 'rotate-180' : ''}`} />
               </button>

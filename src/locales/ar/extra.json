@@ -3,6 +3,10 @@
     "goBack": "رجوع"
   },
   "shared": {
+    "yes": "نعم",
+    "no": "لا",
+    "previousMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
     "time": {
       "minutesAgo": "منذ {{count}} د",
       "hoursAgo": "منذ {{count}} س",
@@ -1845,6 +1849,26 @@
         "low": "منخفض",
         "near_expiry": "قرب الانتهاء",
         "out": "نافد"
+      }
+    },
+    "messages": {
+      "title": "الرسائل",
+      "communicationsSuffix": "اتصالات",
+      "sidebarSubtitle": "اتصالات الصيدلية",
+      "fallbackName": "الصيدلية",
+      "responsePlaceholder": "اكتب ردًا آمنًا من الصيدلية...",
+      "emptyState": "لا توجد رسائل بعد.",
+      "status": {
+        "awaiting": "بانتظار الردّ",
+        "sent": "أُرسلت",
+        "resolved": "تمّ الحل",
+        "info": "معلومات"
+      },
+      "kind": {
+        "query": "استفسار",
+        "approval": "موافقة",
+        "info": "معلومات",
+        "response": "ردّ"
       }
     },
     "profile": {
