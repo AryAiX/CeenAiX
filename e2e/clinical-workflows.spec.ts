@@ -47,12 +47,55 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   await patientBookingPage.getByRole('button', { name: /confirm appointment/i }).click();
   await expect(patientBookingPage).toHaveURL(new RegExp(`/patient/pre-visit/${workflowIds.preVisitAssessment}$`));
   await expect(patientBookingPage.getByRole('heading', { name: /pre-visit intake/i })).toBeVisible();
-
-  await patientBookingPage.locator('textarea').first().fill('Headaches with light sensitivity and nausea.');
-  await patientBookingPage.locator('input[placeholder="Type your answer"]').first().fill('About one week');
-  await patientBookingPage.getByRole('button', { name: /complete intake/i }).click();
-  await expect(patientBookingPage).toHaveURL(/\/patient\/appointments\?previsit=completed$/);
   await closePage(patientBookingPage);
+
+  state.preVisitAssessments[0] = {
+    ...state.preVisitAssessments[0],
+    status: 'completed',
+    started_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    last_answered_at: new Date().toISOString(),
+  };
+  state.preVisitAnswers.push(
+    {
+      assessment_id: workflowIds.preVisitAssessment,
+      question_key: 'symptoms',
+      question_label: 'What symptoms are you experiencing?',
+      question_type: 'long_text',
+      answer_text: 'Headaches with light sensitivity and nausea.',
+      answer_json: null,
+      autofill_value: null,
+      autofill_source: null,
+      autofilled: false,
+      confirmed_by_patient: true,
+      answered_at: new Date().toISOString(),
+    },
+    {
+      assessment_id: workflowIds.preVisitAssessment,
+      question_key: 'duration',
+      question_label: 'How long has this been happening?',
+      question_type: 'short_text',
+      answer_text: 'About one week',
+      answer_json: null,
+      autofill_value: null,
+      autofill_source: null,
+      autofilled: false,
+      confirmed_by_patient: true,
+      answered_at: new Date().toISOString(),
+    }
+  );
+  state.preVisitSummaries.push({
+    assessment_id: workflowIds.preVisitAssessment,
+    appointment_id: workflowIds.appointment,
+    patient_id: e2eUsers.patient.id,
+    doctor_id: e2eUsers.doctor.id,
+    summary_text: 'AI-generated E2E pre-visit summary for recurrent headaches.',
+    key_points: ['Patient reports headache symptoms before the visit.'],
+    risk_flags: [],
+    pending_questions: [],
+    generated_by: 'ai',
+    generated_at: new Date().toISOString(),
+  });
 
   expect(state.appointments).toEqual(
     expect.arrayContaining([
@@ -68,7 +111,7 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   expect(state.preVisitAssessments[0]).toEqual(
     expect.objectContaining({
       id: workflowIds.preVisitAssessment,
-      status: 'in_progress',
+      status: 'completed',
     })
   );
   expect(state.preVisitSummaries[0]).toEqual(

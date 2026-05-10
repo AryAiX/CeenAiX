@@ -85,6 +85,35 @@ export interface E2EWorkflowState {
 
 const cloneRows = (rows: JsonRecord[]) => rows.map((row) => ({ ...row }));
 
+const normalizeLabItemRows = (rows: JsonRecord[]) =>
+  rows.map((row, index) => ({
+    lab_test_catalog_id: null,
+    lab_test_catalog_suggestion_id: null,
+    parent_item_id: null,
+    sort_order: index + 1,
+    test_code: null,
+    loinc_code: null,
+    display_name_long: row.test_name ?? null,
+    description: null,
+    status_category: row.result_value == null ? 'pending' : 'normal',
+    flag: row.result_value == null ? null : 'N',
+    numeric_value: row.result_value == null ? null : Number(row.result_value),
+    reference_text: null,
+    doctor_comment: null,
+    patient_explanation: null,
+    retest_due_date: null,
+    fasting_required: false,
+    unit_cost_aed: null,
+    insurance_coverage_aed: null,
+    patient_cost_aed: null,
+    status_label: row.result_value == null ? 'Pending' : 'Normal',
+    category_color: '#10b981',
+    trend_direction: null,
+    reference_zones: null,
+    updated_at: row.created_at ?? now.toISOString(),
+    ...row,
+  }));
+
 export const createE2EWorkflowState = (
   options: { includeBaselineData?: boolean } = {}
 ): E2EWorkflowState => ({
@@ -415,7 +444,7 @@ const tableRows = (
     case 'lab_orders':
       return state ? state.labOrders : labOrderRows;
     case 'lab_order_items':
-      return state ? state.labOrderItems : labOrderItemRows;
+      return normalizeLabItemRows(state ? state.labOrderItems : labOrderItemRows);
     case 'lab_test_catalog':
       return [
         {
