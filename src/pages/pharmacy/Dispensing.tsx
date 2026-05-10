@@ -257,7 +257,7 @@ export const PharmacyDispensing = () => {
 
         <div className="mx-6 mb-4 flex shrink-0 flex-wrap items-center gap-3">
           <div className="relative min-w-[240px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3" />
             <input
               type="text"
               value={search}

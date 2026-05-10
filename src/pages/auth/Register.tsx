@@ -226,11 +226,12 @@ export const Register = () => {
       });
 
       if (error) {
-        if (error.message.trim().toLowerCase().includes('already registered')) {
+        const errMessage = error.message ?? '';
+        if (errMessage.trim().toLowerCase().includes('already registered')) {
           setDuplicateEmailConflict(true);
           setErrorMessage(t('auth.register.errors.emailAlreadyRegistered'));
         } else {
-          setErrorMessage(error.message);
+          setErrorMessage(errMessage || t('auth.register.errors.signupFailed', { defaultValue: 'Sign up failed. Please try again.' }));
         }
         setIsSubmitting(false);
         return;
@@ -472,12 +473,12 @@ export const Register = () => {
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-slate-600">{t('auth.register.fullNameShort')}</label>
               <div className="relative">
-                <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <UserRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                   placeholder={t('auth.register.fullNamePlaceholder')}
                   autoComplete="name"
                   required
@@ -494,12 +495,12 @@ export const Register = () => {
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-slate-600">{t('auth.register.emailShort')}</label>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.emailPlaceholder')}
                       autoComplete="email"
                       required
@@ -510,12 +511,12 @@ export const Register = () => {
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-slate-600">{t('auth.register.mobileShortOptional')}</label>
                   <div className="relative">
-                    <Smartphone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Smartphone className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="tel"
                       value={phone}
                       onChange={(event) => setPhone(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.mobilePlaceholder')}
                       autoComplete="tel"
                     />
@@ -525,12 +526,12 @@ export const Register = () => {
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-slate-600">{t('auth.register.passwordShort')}</label>
                   <div className="relative">
-                    <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <KeyRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.passwordPlaceholder')}
                       autoComplete="new-password"
                       required
@@ -541,12 +542,12 @@ export const Register = () => {
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-slate-600">{t('auth.register.confirmPasswordShort')}</label>
                   <div className="relative">
-                    <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <KeyRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="password"
                       value={confirmPassword}
                       onChange={(event) => setConfirmPassword(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.confirmPasswordPlaceholder')}
                       autoComplete="new-password"
                       required
@@ -559,12 +560,12 @@ export const Register = () => {
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-slate-600">{t('auth.register.mobileShort')}</label>
                   <div className="relative">
-                    <Smartphone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Smartphone className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="tel"
                       value={phone}
                       onChange={(event) => setPhone(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.mobilePlaceholder')}
                       autoComplete="tel"
                       required
@@ -599,7 +600,7 @@ export const Register = () => {
             disabled={step === 0 || isSubmitting || isResettingSession}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:border-teal-500 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
             <span>{t('auth.register.btnBack')}</span>
           </button>
 
@@ -617,7 +618,7 @@ export const Register = () => {
                     ? t('auth.register.btnCreateAccount')
                     : t('auth.register.btnSendCode')}
             </span>
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
           </button>
         </div>
       </form>

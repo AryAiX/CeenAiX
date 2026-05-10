@@ -428,7 +428,7 @@ export const Home = () => {
                 className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-bold text-base hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-300 flex items-center gap-2"
               >
                 {t('home.landing.hero.ctaPrimary')}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform rtl:rotate-180 rtl:group-hover:-translate-x-1" />
               </button>
               <button
                 type="button"
@@ -674,7 +674,7 @@ export const Home = () => {
                     <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
                     <p className="text-slate-500 text-sm leading-relaxed">{description}</p>
                     <div className="mt-4 flex items-center gap-1 text-cyan-600 text-sm font-semibold group-hover:gap-2 transition-all">
-                      {t('home.landing.features.learnMore')} <ArrowRight className="w-4 h-4" />
+                      {t('home.landing.features.learnMore')} <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                     </div>
                   </div>
                 </div>
@@ -727,7 +727,7 @@ export const Home = () => {
                 >
                   {i < steps.length - 1 ? (
                     <div className="hidden md:block absolute top-24 left-full w-8 z-10 -translate-x-4">
-                      <ArrowRight className="w-6 h-6 text-cyan-400/40" />
+                      <ArrowRight className="w-6 h-6 text-cyan-400/40 rtl:rotate-180" />
                     </div>
                   ) : null}
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl overflow-hidden hover:bg-white/10 transition-all duration-500 hover:border-cyan-400/30">

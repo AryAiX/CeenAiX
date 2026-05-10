@@ -127,3 +127,42 @@ Each bug includes a short identifier, the file affected, a description, and the 
 55. **useDoctorSchedule: today filter for `blocked_date` used UTC ISO date.** Same UAE timezone shift as above — late-night users could see yesterday's blocks treated as past. Now formats `today` from local `getFullYear`/`getMonth`/`getDate`.
 56. **useDoctorBookingAvailability: blocked-slot range filter used UTC ISO date** for `gte` / `lte`. Same fix — local date formatting helper added.
 57. **usePatientDashboard: insurance "today" key computed in UTC.** Could shift policy validity comparisons by ~4h. Now uses local-date formatting.
+
+### Area 9 — Shared components (continued)
+
+58. **AccountSecurityPanel: Update / Delete buttons missing `type="button"`.** Defaulted to "submit" if nested under any form. Added explicit types.
+
+### Area 1 — Auth flows (continued)
+
+59. **Register: input icons and padding used physical `left-3` / `pl-9 pr-3`, breaking layout in Arabic RTL.** All six form fields now use logical Tailwind classes (`start-3` / `ps-9 pe-3`) so the icon and content properly mirror.
+60. **Register: Back / Continue arrows did not flip in RTL.** Added `rtl:rotate-180` to `<ArrowLeft />` / `<ArrowRight />`.
+61. **Register: signup error handler crashed on null `error.message`.** `error.message.trim()` would throw if Supabase ever returned an error without a `message`. Now reads through `?? ''` and falls back to a localized generic error.
+
+### Area 2 — Patient portal pages (continued)
+
+62. **Records: vaccination "dose number" field accepted negative numbers and silently inserted them.** `Number("-3")` is finite but invalid. Added validation; surfaces a localized error before insert.
+63. **Records: Search/Filter icons not mirrored in RTL.** Added `rtl:` overrides.
+64. **TelemedicineConsultation: header `<ArrowLeft />` didn't flip in RTL.** Added `rtl:rotate-180`.
+
+### Area 3 — Doctor portal pages (continued)
+
+65. **ConsultationWorkspace: header `<ArrowLeft />` didn't flip in RTL.** Added `rtl:rotate-180`.
+66. **Imaging: search icon not mirrored.** Added `rtl:left-auto rtl:right-3`.
+
+### Area 5 — Pharmacy portal pages
+
+67. **Inventory: search icon not mirrored.** Added `rtl:` overrides.
+68. **Dispensing: search icon not mirrored.** Added `rtl:` overrides.
+
+### Area 7 — Public pages (continued)
+
+69. **Home: hero / feature / portal carousel `<ArrowRight />` icons didn't flip in RTL.** Added `rtl:rotate-180` (and inverted the hover translate so the icon still slides toward the page-end direction in Arabic).
+70. **HealthEducation: article CTA `<ArrowRight />` didn't flip in RTL.** Added `rtl:rotate-180`.
+
+### Area 8 — Hooks and data-fetching layer (continued)
+
+71. **useDoctorPatients: hard-coded English "Patient" fallback.** Routed through `shared.patient`.
+
+### Area 2 — Patient portal pages (continued)
+
+72. **BookAppointment: doctor-search input + icon not mirrored in RTL.** Added `rtl:` overrides for padding and the magnifier icon position.

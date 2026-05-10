@@ -41,7 +41,7 @@ export const PatientTelemedicineConsultation = () => {
             onClick={() => navigate(`/patient/appointments/${data.appointmentId}`)}
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
             <span>{t('patient.telemedicine.actionViewAppointment')}</span>
           </button>
         ) : (

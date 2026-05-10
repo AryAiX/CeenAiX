@@ -134,7 +134,7 @@ export const DoctorImaging = () => {
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative md:min-w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3" />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
