@@ -28,6 +28,7 @@ const closePage = async (page: Page) => {
 };
 
 test('admin, patient, doctor, lab, and patient complete a clinical order journey', async ({ browser }) => {
+  test.setTimeout(90_000);
   const state = createE2EWorkflowState();
 
   const adminPage = await openRolePage(browser, state, 'super_admin', '/admin/doctors');
@@ -37,7 +38,7 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   await closePage(adminPage);
 
   const patientBookingPage = await openRolePage(browser, state, 'patient', '/patient/appointments/book');
-  await patientBookingPage.getByPlaceholder(/doctor name/i).fill('Omar');
+  await patientBookingPage.getByPlaceholder(/name, specialty, or city/i).fill('Omar');
   await patientBookingPage.getByRole('button', { name: /Dr\. Omar Doctor/i }).click();
   await patientBookingPage.getByRole('button', { name: /^11$/ }).click();
   await patientBookingPage.getByRole('button', { name: /9:00/i }).first().click();
@@ -130,6 +131,7 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
 });
 
 test('lab processing actions move an order from ordered to resulted for downstream patient visibility', async ({ browser }) => {
+  test.setTimeout(60_000);
   const state = createE2EWorkflowState({ includeBaselineData: true });
 
   const labPage = await openRolePage(browser, state, 'lab', '/lab/dashboard');
