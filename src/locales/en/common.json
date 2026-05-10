@@ -27,7 +27,15 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "signOut": "Sign out"
+  },
+  "opsShell": {
+    "defaultSubtitle": "Live operations",
+    "rxSync": "New prescription queue synced from Supabase",
+    "viewCta": "View",
+    "scanBarcode": "Scan Barcode",
+    "newManualRx": "New Manual Rx"
   },
   "header": {
     "doctors": "Doctors",

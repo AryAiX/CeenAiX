@@ -27,7 +27,15 @@
     "collapseSidebar": "طي الشريط الجانبي",
     "expandSidebar": "توسيع الشريط الجانبي",
     "collapse": "طي",
-    "expand": "توسيع"
+    "expand": "توسيع",
+    "signOut": "تسجيل الخروج"
+  },
+  "opsShell": {
+    "defaultSubtitle": "العمليات المباشرة",
+    "rxSync": "تمت مزامنة قائمة الوصفات الجديدة من Supabase",
+    "viewCta": "عرض",
+    "scanBarcode": "مسح الباركود",
+    "newManualRx": "وصفة يدوية جديدة"
   },
   "header": {
     "doctors": "الأطباء",

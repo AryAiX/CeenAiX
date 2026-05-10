@@ -230,3 +230,7 @@ Each bug includes a short identifier, the file affected, a description, and the 
 ### Area 3/5 — Doctor & Pharmacy search placeholders
 
 106. **DoctorPatients/PharmacyInventory/PharmacyDispensing: search input placeholders were hard-coded English.** Routed through `doctor.patients.searchPh`, `pharmacy.inventory.searchPh`, and `pharmacy.dispensing.searchPh` keys with Arabic translations so the placeholder reads naturally in both locales.
+
+### Area 9 — OpsShell follow-up
+
+107. **OpsShell: pharmacy header had several hard-coded English strings.** 'Sign Out' / 'Sign out' on both layouts, the brand subtitle fallback 'Al Shifa Pharmacy · Live operations' (which surfaced a fake pharmacy name to all tenants!), the in-header 'New prescription queue synced from Supabase' banner with its 'View' button, plus 'Scan Barcode' and 'New Manual Rx' buttons were all hard-coded. Localized via new `portalShell.signOut` + `opsShell.*` keys (EN + AR) and removed the fake "Al Shifa Pharmacy" branding from the default subtitle. Also added `type="button"` to the two action buttons that lacked one.
