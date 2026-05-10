@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { CLINIC_TIME_ZONE, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
 import type { AppointmentStatus } from '../types';
@@ -70,7 +71,9 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
         throw patientProfileError;
       }
 
-      activeConsultationPatientName = patientProfile?.full_name?.trim() || 'Patient';
+      activeConsultationPatientName =
+        patientProfile?.full_name?.trim() ||
+        i18n.t('shared.patient', { defaultValue: 'Patient' });
     }
 
     const conversationIds = (conversations ?? []).map((conversation) => conversation.id);

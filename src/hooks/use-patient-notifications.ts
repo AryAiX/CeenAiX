@@ -1,6 +1,39 @@
+import i18n from 'i18next';
 import type { Notification } from '../types';
 import { useQuery } from './use-query';
 import { supabase } from '../lib/supabase';
+
+const careTeamFallback = () => i18n.t('messaging.careTeamFallback', { defaultValue: 'Care team' });
+const careTeamLong = () =>
+  i18n.t('patient.notifications.yourCareTeam', { defaultValue: 'Your care team' });
+const newMessageTitle = (name: string) =>
+  i18n.t('patient.notifications.newMessageFrom', {
+    name,
+    defaultValue: 'New message from {{name}}',
+  });
+const upcomingVisitTitle = (name: string) =>
+  i18n.t('patient.notifications.upcomingVisitWith', {
+    name,
+    defaultValue: 'Upcoming visit with {{name}}',
+  });
+const newLabsTitle = (name: string) =>
+  i18n.t('patient.notifications.newLabsFrom', {
+    name,
+    defaultValue: 'New lab results from {{name}}',
+  });
+const labsBody = () =>
+  i18n.t('patient.notifications.labsBody', {
+    defaultValue:
+      'Open your lab results to see details and ask the AI assistant for a plain-language explanation.',
+  });
+const appointmentBody = () =>
+  i18n.t('patient.notifications.upcomingBody', {
+    defaultValue: 'Review the appointment detail for preparation guidance.',
+  });
+const openThreadFallback = () =>
+  i18n.t('patient.notifications.openThreadFallback', {
+    defaultValue: 'Open the thread to review the latest care message.',
+  });
 
 export interface PatientDerivedNotification {
   id: string;
@@ -90,28 +123,28 @@ export function usePatientNotifications(userId: string | null | undefined) {
     }
 
     const doctorNameById = new Map(
-      (doctorProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? 'Your care team'])
+      (doctorProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? careTeamLong()])
     );
 
     for (const appointment of upcomingAppointments ?? []) {
-      const doctorName = doctorNameById.get(appointment.doctor_id) ?? 'Your care team';
+      const doctorName = doctorNameById.get(appointment.doctor_id) ?? careTeamLong();
       derivedNotifications.push({
         id: `upcoming-${appointment.id}`,
         kind: 'upcoming_appointment',
-        title: `Upcoming visit with ${doctorName}`,
-        body: appointment.chief_complaint?.trim() || 'Review the appointment detail for preparation guidance.',
+        title: upcomingVisitTitle(doctorName),
+        body: appointment.chief_complaint?.trim() || appointmentBody(),
         createdAt: appointment.scheduled_at,
         actionUrl: `/patient/appointments/${appointment.id}`,
       });
     }
 
     for (const labOrder of recentlyResulted ?? []) {
-      const doctorName = doctorNameById.get(labOrder.doctor_id) ?? 'Your care team';
+      const doctorName = doctorNameById.get(labOrder.doctor_id) ?? careTeamLong();
       derivedNotifications.push({
         id: `lab-${labOrder.id}`,
         kind: 'lab_result',
-        title: `New lab results from ${doctorName}`,
-        body: 'Open your lab results to see details and ask the AI assistant for a plain-language explanation.',
+        title: newLabsTitle(doctorName),
+        body: labsBody(),
         createdAt: labOrder.updated_at ?? labOrder.ordered_at,
         actionUrl: `/patient/lab-results`,
       });
@@ -151,15 +184,15 @@ export function usePatientNotifications(userId: string | null | undefined) {
       }
 
       const senderNameById = new Map(
-        (senderProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? 'Care team'])
+        (senderProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? careTeamFallback()])
       );
 
       for (const message of unreadMessages ?? []) {
         derivedNotifications.push({
           id: `message-${message.id}`,
           kind: 'message',
-          title: `New message from ${senderNameById.get(message.sender_id) ?? 'Care team'}`,
-          body: message.body?.trim() || 'Open the thread to review the latest care message.',
+          title: newMessageTitle(senderNameById.get(message.sender_id) ?? careTeamFallback()),
+          body: message.body?.trim() || openThreadFallback(),
           createdAt: message.sent_at,
           actionUrl: `/patient/messages/${message.conversation_id}`,
         });

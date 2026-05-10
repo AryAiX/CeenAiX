@@ -452,7 +452,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               key={`${lineIndex}-${segmentIndex}-${segment}`}
               href={segment}
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className={linkClassName}
             >
               {segment}
@@ -513,7 +513,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         key={`${action.kind}-${action.href}`}
         href={action.href}
         target="_blank"
-        rel="noreferrer"
+        rel="noreferrer noopener"
         className={`${spacingClassName} inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${actionClassName}`}
       >
         {content}

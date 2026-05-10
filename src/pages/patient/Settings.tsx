@@ -121,7 +121,7 @@ export const PatientSettings = () => {
       >
         <span
           className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-            prefs[key] ? 'left-6' : 'left-1'
+            prefs[key] ? 'start-6' : 'start-1'
           }`}
         />
       </button>

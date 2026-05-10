@@ -1076,11 +1076,11 @@ export const CreatePrescription: React.FC = () => {
                   </div>
                   <div className="relative">
                     <div className="flex w-full items-center justify-center space-x-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
-                      <span>Change Patient</span>
+                      <span>{t('doctor.createPrescription.changePatient', { defaultValue: 'Change Patient' })}</span>
                       <ChevronDown className="h-3 w-3" />
                     </div>
                     <select
-                      aria-label="Change patient"
+                      aria-label={t('doctor.createPrescription.changePatient', { defaultValue: 'Change Patient' })}
                       value={patientId}
                       onChange={(event) => {
                         setPatientId(event.target.value);
@@ -1185,11 +1185,11 @@ export const CreatePrescription: React.FC = () => {
                 <p className="text-[12px] text-slate-400">UAE medication catalog · canonical ePrescription</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button className="flex items-center space-x-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                <button type="button" className="flex items-center space-x-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                   <RefreshCw className="h-4 w-4" />
                   <span>Renew Existing</span>
                 </button>
-                <button className="flex items-center space-x-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                <button type="button" className="flex items-center space-x-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                   <ClipboardList className="h-4 w-4" />
                   <span>History</span>
                 </button>

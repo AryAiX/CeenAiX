@@ -34,7 +34,8 @@ export function useDoctorSchedule(userId: string | null | undefined) {
         };
       }
 
-      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const today = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
 
       const [
         { data: availabilities, error: availabilityError },

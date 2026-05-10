@@ -4,6 +4,7 @@ import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'cancelled';
@@ -90,8 +91,8 @@ const statusSortOrder: Record<Exclude<FilterType, 'all'>, number> = {
   cancelled: 4,
 };
 
-const formatNumber = (value: number | null | undefined) =>
-  typeof value === 'number' ? value.toLocaleString() : '—';
+const formatNumber = (value: number | null | undefined, language: string) =>
+  typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
 
 const avatarClasses = [
   'bg-rose-500',
@@ -181,7 +182,8 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
 };
 
 export const PharmacyDispensing = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const uiLang = i18n.language ?? 'en';
   const { data, loading } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -257,12 +259,14 @@ export const PharmacyDispensing = () => {
 
         <div className="mx-6 mb-4 flex shrink-0 flex-wrap items-center gap-3">
           <div className="relative min-w-[240px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3" />
             <input
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Patient name, Rx number, doctor..."
+              placeholder={t('pharmacy.dispensing.searchPh', {
+                defaultValue: 'Patient name, Rx number, doctor...',
+              })}
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
           </div>
@@ -279,7 +283,7 @@ export const PharmacyDispensing = () => {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {filterLabels[key]} ({formatNumber(counts[key])})
+                {filterLabels[key]} ({formatNumber(counts[key], uiLang)})
               </button>
             ))}
           </div>
@@ -377,7 +381,7 @@ export const PharmacyDispensing = () => {
 
                     <div>
                       <div className="truncate text-[11px] text-slate-600">{row.insurance}</div>
-                      <div className="font-mono text-[11px] font-bold text-emerald-600">AED {formatNumber(row.copay)}</div>
+                      <div className="font-mono text-[11px] font-bold text-emerald-600">AED {formatNumber(row.copay, uiLang)}</div>
                     </div>
 
                     <div>

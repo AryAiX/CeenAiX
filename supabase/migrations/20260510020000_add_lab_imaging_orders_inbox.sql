@@ -1,8 +1,10 @@
--- Add a small set of "newly arrived" imaging orders (status='ordered') so the
--- Imaging Orders > New (X) tab matches the hosted reference. The hosted UI
--- shows 3 inbound orders awaiting acceptance/scheduling: ECHO 2D TTE,
--- PET-CT Full Body, and Chest X-Ray.
+-- Adds 3 imaging studies with status='ordered' so the Imaging Orders "New" tab
+-- in the lab portal matches hosted reference (which shows 3 pending orders).
+-- Idempotent via NOT EXISTS check on accession.
 
+WITH lab AS (
+  SELECT id FROM public.lab_profiles WHERE slug = 'dubai-medical-imaging-centre'
+)
 INSERT INTO public.lab_portal_imaging_studies (
   lab_id, accession, patient_name, patient_age, patient_gender,
   doctor_name, clinic_name, modality, study_name, priority, status,
@@ -11,47 +13,33 @@ INSERT INTO public.lab_portal_imaging_studies (
   rooms_available_summary, suggested_slot, preauth_status, preauth_coverage, insurance_plan,
   doctor_dha_license, doctor_specialty, source_label
 )
-SELECT lp.id, s.accession, s.patient, s.age, s.gender, s.doctor, s.clinic, s.modality,
+SELECT lab.id, s.accession, s.patient, s.age, s.gender, s.doctor, s.clinic, s.modality,
        s.study, s.priority, s.status, s.room, s.scheduled_at, s.progress, s.tat,
        s.report_status, s.nabidh_status, s.alerts,
        s.icd10, s.icd10_desc, s.cpt, s.indication, s.contrast, s.prep,
        s.rooms_avail, s.slot, s.preauth, s.coverage, s.insurance,
        s.dha, s.specialty, s.source
-FROM public.lab_profiles lp
-CROSS JOIN (VALUES
-  ('IORD-20260407-001', 'Aisha Mohammed Al Reem', 42, 'female', 'Dr. Ahmed Al Rashidi', 'Al Noor Medical Center',
-   'ECHO', '2D TTE Echocardiogram', 'Routine', 'ordered',
-   NULL, now() - interval '5 minutes', 0, NULL::integer, 'Awaiting acceptance', 'pending', ARRAY[]::text[],
-   'I50.9', 'Heart Failure', '93306',
-   'Assess cardiac function in HFrEF. Previous echo Oct 2025 showed EF 38%.',
-   'No', 'Fasting not required',
-   '4 of 6 rooms available', 'Today 4:00 PM or Tomorrow 9:00 AM',
-   'Pre-auth required', '80% covered pending pre-auth', 'AXA Gulf Standard',
-   'DHA-PRAC-2018-047821', 'Cardiologist', 'CeenAiX ePrescription'),
-  ('IORD-20260407-002', 'Mohammed Al Rasheed', 63, 'male', 'Dr. Amira Al Nabulsi', 'Dubai Hospital',
-   'PET', 'PET-CT Full Body', 'Urgent', 'ordered',
-   NULL, now() - interval '20 minutes', 0, NULL::integer, 'Awaiting acceptance', 'pending', ARRAY[]::text[],
-   'C34.9', 'Malignant neoplasm of bronchus and lung', '78816',
-   'Staging PET-CT for newly diagnosed lung malignancy. Recent biopsy: NSCLC adenocarcinoma.',
-   'FDG (radiopharmaceutical)', 'Fasting 4–6 hours. Blood glucose < 11 mmol/L required.',
-   'PET-CT scheduled 3:30 PM', 'Today 3:30 PM',
-   'Pre-auth required', '100% covered subject to approval', 'Thiqa',
-   'DHA-PRAC-2017-019234', 'Oncologist', 'CeenAiX ePrescription'),
-  ('IORD-20260407-003', 'Salem Al Mazrouei', 29, 'male', 'Dr. Hassan Al Ali', 'Walk-in',
-   'X-Ray', 'Chest X-Ray (PA + Lateral)', 'Routine', 'ordered',
-   NULL, now() - interval '35 minutes', 0, NULL::integer, 'Awaiting acceptance', 'pending', ARRAY[]::text[],
-   'R05', 'Cough', '71046',
-   'Productive cough 2 weeks. Rule out pneumonia or TB.',
-   'No', 'Remove metal objects from chest',
-   '2 of 3 X-Ray rooms available', 'Today 2:30 PM or Today 2:45 PM',
-   'Not required', 'Covered by Daman', 'Daman',
-   'DHA-PRAC-2022-062811', 'GP', 'Walk-in')
+FROM lab CROSS JOIN (VALUES
+  ('MRI-20260510-IN01', 'Khalid Al Suwaidi', 44, 'male', 'Dr. Mariam Al Farsi', 'Saudi German Hospital', 'MRI', 'Brain MRI w/wo contrast', 'STAT', 'ordered',
+   NULL::text, now() + interval '2 hours', 0, NULL::integer, 'Awaiting scheduling', 'pending', ARRAY['New order — STAT']::text[],
+   'G45.9', 'TIA, unspecified', '70553', 'Acute focal weakness 2h ago. Rule out stroke vs TIA.', 'Gadolinium', 'No metal items',
+   '4 of 6 rooms available', 'Today 4:00 PM', 'Not required', 'Covered by Daman', 'Daman',
+   'DHA-PRAC-2018-022345', 'Neurology', 'CeenAiX ePrescription'),
+  ('USS-20260510-IN02', 'Layla Al Falasi', 36, 'female', 'Dr. Hana Al Farsi', 'Saudi German Hospital', 'USS', 'Abdomen Ultrasound', 'Urgent', 'ordered',
+   NULL::text, now() + interval '3 hours', 0, NULL::integer, 'Awaiting scheduling', 'pending', ARRAY['Fasting required']::text[],
+   'R10.13', 'Epigastric pain', '76700', 'Epigastric pain 1 week. Rule out cholelithiasis.', 'No', 'Fasting 6 hours',
+   '5 of 6 rooms available', 'Today 5:00 PM', 'Not required', 'Covered by AXA Gulf', 'AXA Gulf',
+   'DHA-PRAC-2019-031042', 'Internal Medicine', 'CeenAiX ePrescription'),
+  ('CT-20260510-IN03', 'Mohammed Al Habsi', 58, 'male', 'Dr. Khalid Al Nasser', 'Burjeel Hospital', 'CT', 'CT Chest w/ contrast', 'Urgent', 'ordered',
+   NULL::text, now() + interval '90 minutes', 0, NULL::integer, 'Awaiting scheduling', 'pending', ARRAY['Iodine consent on file']::text[],
+   'R91.8', 'Lung lesion', '71250', 'Smoker, surveillance of RLL nodule.', 'Iodine 80mL IV', 'Remove metal',
+   '3 of 4 rooms available', 'Today 4:30 PM', 'Pre-auth required', '80% covered pending pre-auth', 'Daman',
+   'DHA-PRAC-2017-019234', 'Pulmonology', 'CeenAiX ePrescription')
 ) AS s(accession, patient, age, gender, doctor, clinic, modality, study, priority, status,
        room, scheduled_at, progress, tat, report_status, nabidh_status, alerts,
        icd10, icd10_desc, cpt, indication, contrast, prep,
        rooms_avail, slot, preauth, coverage, insurance, dha, specialty, source)
-WHERE lp.slug = 'dubai-medical-imaging-centre'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.lab_portal_imaging_studies x
-    WHERE x.lab_id = lp.id AND x.accession = s.accession
-  );
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.lab_portal_imaging_studies x
+  WHERE x.lab_id = lab.id AND x.accession = s.accession
+);

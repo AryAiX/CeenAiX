@@ -3,6 +3,7 @@ import {
   FunctionsHttpError,
   FunctionsRelayError,
 } from '@supabase/supabase-js';
+import i18n from 'i18next';
 import type { MedicationCatalog } from '../types';
 import { supabase } from './supabase';
 
@@ -50,7 +51,11 @@ export async function enrichMedicationCatalogEntry(catalogId: string): Promise<M
   }
 
   if (!data || typeof data !== 'object' || !('medication' in data) || !data.medication) {
-    throw new Error('Medication enrichment returned an invalid response.');
+    throw new Error(
+      i18n.t('ai.errors.invalidMedEnrichment', {
+        defaultValue: 'Medication enrichment returned an invalid response.',
+      })
+    );
   }
 
   return (data as MedicationEnrichmentResponse).medication;

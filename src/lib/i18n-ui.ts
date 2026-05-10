@@ -23,19 +23,24 @@ export const isSameCalendarDayInTimeZone = (value: Date | string, reference: Dat
 
 export const formatRelativeTime = (t: TFunction, value: string) => {
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
   const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+  // For future timestamps (notifications scheduled ahead, etc.) clamp to "1m ago"
+  // rather than reporting nonsense like "-5h ago"
+  const diffMinutes = Math.max(1, Math.round(Math.abs(diffMs) / 60000));
 
   if (diffMinutes < 60) {
     return t('shared.time.minutesAgo', { count: diffMinutes });
   }
 
-  const diffHours = Math.round(diffMinutes / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) {
     return t('shared.time.hoursAgo', { count: diffHours });
   }
 
-  const diffDays = Math.round(diffHours / 24);
+  const diffDays = Math.floor(diffHours / 24);
   return t('shared.time.daysAgo', { count: diffDays });
 };
 

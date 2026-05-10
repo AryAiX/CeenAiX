@@ -23,7 +23,9 @@ import { useAppointments, usePatientPreVisitAssessments, useQuery } from '../../
 import { useAuth } from '../../lib/auth-context';
 import {
   appointmentStatusLabel,
+  calendarWeekdayShort,
   dateTimeFormatWithNumerals,
+  formatLocaleDigits,
   preVisitStatusLabel,
   resolveLocale,
 } from '../../lib/i18n-ui';
@@ -45,7 +47,12 @@ const UPCOMING_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 
 const COMPLETED_STATUSES = new Set<AppointmentStatus>(['completed']);
 const CANCELLED_STATUSES = new Set<AppointmentStatus>(['cancelled', 'no_show']);
 
-function buildIcsFile(appointment: Appointment, doctorName: string, location: string): string {
+function buildIcsFile(
+  appointment: Appointment,
+  doctorName: string,
+  location: string,
+  labels: { summary: string; description: string }
+): string {
   const start = new Date(appointment.scheduled_at);
   const end = new Date(start.getTime() + appointment.duration_minutes * 60_000);
   const toIcs = (d: Date) =>
@@ -60,16 +67,21 @@ function buildIcsFile(appointment: Appointment, doctorName: string, location: st
     `DTSTAMP:${toIcs(new Date())}`,
     `DTSTART:${toIcs(start)}`,
     `DTEND:${toIcs(end)}`,
-    `SUMMARY:${escape(`Appointment with ${doctorName}`)}`,
+    `SUMMARY:${escape(labels.summary.replace('{doctor}', doctorName))}`,
     `LOCATION:${escape(location)}`,
-    `DESCRIPTION:${escape(appointment.chief_complaint ?? 'Scheduled consultation')}`,
+    `DESCRIPTION:${escape(appointment.chief_complaint ?? labels.description)}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
 }
 
-function downloadIcs(appointment: Appointment, doctorName: string, location: string) {
-  const blob = new Blob([buildIcsFile(appointment, doctorName, location)], {
+function downloadIcs(
+  appointment: Appointment,
+  doctorName: string,
+  location: string,
+  labels: { summary: string; description: string }
+) {
+  const blob = new Blob([buildIcsFile(appointment, doctorName, location, labels)], {
     type: 'text/calendar;charset=utf-8',
   });
   const url = URL.createObjectURL(blob);
@@ -178,8 +190,19 @@ export const PatientAppointments: React.FC = () => {
   const filteredAppointments = useMemo(() => {
     const normalizedSpecialty = specialtyQuery.trim().toLowerCase();
     const normalizedProvider = providerQuery.trim().toLowerCase();
-    const fromTs = dateFrom ? new Date(dateFrom).getTime() : null;
-    const toTs = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1 : null;
+    // Parse the date strings as local-time so users in UAE don't see filter
+    // boundaries shifted by 4h. `new Date('2025-01-01')` parses as UTC midnight.
+    const parseLocal = (value: string) => {
+      const [y, m, d] = value.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d, 0, 0, 0, 0);
+    };
+    const fromTs = dateFrom ? parseLocal(dateFrom)?.getTime() ?? null : null;
+    const toTs = dateTo
+      ? (parseLocal(dateTo)?.getTime() ?? null) !== null
+        ? parseLocal(dateTo)!.getTime() + 24 * 60 * 60 * 1000 - 1
+        : null
+      : null;
 
     return appointments.filter((appointment) => {
       const scheduledTs = new Date(appointment.scheduled_at).getTime();
@@ -259,18 +282,23 @@ export const PatientAppointments: React.FC = () => {
       }
       const totalMinutes = Math.floor(diff / 60_000);
       const seconds = Math.floor((diff % 60_000) / 1000);
+      const lang = i18n.language;
       if (totalMinutes >= 60) {
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
-        setTeleconsultCountdown(`${hours}h ${minutes}m`);
+        setTeleconsultCountdown(
+          `${formatLocaleDigits(hours, lang)}${t('shared.hourShort', { defaultValue: 'h' })} ${formatLocaleDigits(minutes, lang)}${t('shared.minuteShort', { defaultValue: 'm' })}`
+        );
       } else {
-        setTeleconsultCountdown(`${totalMinutes}m ${seconds}s`);
+        setTeleconsultCountdown(
+          `${formatLocaleDigits(totalMinutes, lang)}${t('shared.minuteShort', { defaultValue: 'm' })} ${formatLocaleDigits(seconds, lang)}${t('shared.secondShort', { defaultValue: 's' })}`
+        );
       }
     };
     update();
     const interval = window.setInterval(update, 1000);
     return () => window.clearInterval(interval);
-  }, [nextTeleconsult, t]);
+  }, [nextTeleconsult, t, i18n.language]);
 
   const handleCancelAppointment = async (appointmentId: string) => {
     setFeedback(null);
@@ -500,7 +528,11 @@ export const PatientAppointments: React.FC = () => {
                   downloadIcs(
                     appointment,
                     doctorProfile?.fullName ?? t('shared.doctor'),
-                    [clinicName, clinicAddress].filter(Boolean).join(', ')
+                    [clinicName, clinicAddress].filter(Boolean).join(', '),
+                    {
+                      summary: t('patient.appointments.icsSummary', { doctor: '{doctor}' }),
+                      description: t('shared.scheduledConsultation'),
+                    }
                   )
                 }
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
@@ -558,7 +590,7 @@ export const PatientAppointments: React.FC = () => {
     1
   ).getDay();
 
-  const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const weekdays = calendarWeekdayShort(t).map((label) => label.charAt(0));
   const today = new Date();
   const isTodayVisible =
     today.getFullYear() === calendarMonth.getFullYear() &&
@@ -647,7 +679,7 @@ export const PatientAppointments: React.FC = () => {
                 )
               }
               className="p-1 hover:bg-gray-200 rounded"
-              aria-label="Previous month"
+              aria-label={t('shared.previousMonth', { defaultValue: 'Previous month' })}
             >
               <ChevronLeft className="w-4 h-4 text-gray-600" />
             </button>
@@ -662,7 +694,7 @@ export const PatientAppointments: React.FC = () => {
                 )
               }
               className="p-1 hover:bg-gray-200 rounded"
-              aria-label="Next month"
+              aria-label={t('shared.nextMonth', { defaultValue: 'Next month' })}
             >
               <ChevronRight className="w-4 h-4 text-gray-600" />
             </button>
@@ -686,12 +718,14 @@ export const PatientAppointments: React.FC = () => {
                   type="button"
                   key={day}
                   onClick={() => {
-                    const selected = new Date(
-                      calendarMonth.getFullYear(),
-                      calendarMonth.getMonth(),
-                      day
-                    );
-                    const iso = selected.toISOString().slice(0, 10);
+                    // Build a local-date "YYYY-MM-DD" string to avoid the UTC
+                    // shift that `Date#toISOString` introduces for users east
+                    // of UTC (e.g. UAE +04:00 would otherwise pick the prior
+                    // calendar day).
+                    const year = calendarMonth.getFullYear();
+                    const month = String(calendarMonth.getMonth() + 1).padStart(2, '0');
+                    const dayStr = String(day).padStart(2, '0');
+                    const iso = `${year}-${month}-${dayStr}`;
                     setDateFrom(iso);
                     setDateTo(iso);
                   }}

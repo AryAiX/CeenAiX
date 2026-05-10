@@ -1,7 +1,14 @@
+import i18n from 'i18next';
 import type { Conversation } from '../types';
 
 export const MESSAGE_DRAFT_MAX_LENGTH = 2000;
-export const DEFAULT_CARE_CONVERSATION_SUBJECT = 'Care conversation';
+export const DEFAULT_CARE_CONVERSATION_SUBJECT_KEY = 'messaging.defaultCareSubject';
+export const DEFAULT_CARE_CONVERSATION_SUBJECT_FALLBACK = 'Care conversation';
+export const DEFAULT_CARE_CONVERSATION_SUBJECT = DEFAULT_CARE_CONVERSATION_SUBJECT_FALLBACK;
+export const getDefaultCareConversationSubject = () =>
+  i18n.t(DEFAULT_CARE_CONVERSATION_SUBJECT_KEY, { defaultValue: DEFAULT_CARE_CONVERSATION_SUBJECT_FALLBACK });
+
+const careActionFallbackLabel = () => i18n.t('messaging.actionCareDefault', { defaultValue: 'Care action' });
 const MESSAGE_ACTION_PREFIX = '[[ceenaix-action:';
 const MESSAGE_ACTION_SUFFIX = ']]';
 
@@ -139,13 +146,13 @@ export const serializeMessageBodyParts = (parts: MessageBodyPart[]) =>
 export const getMessageActionFallbackLabel = (kind: MessageActionKind) => {
   switch (kind) {
     case 'booking_link':
-      return 'Appointment link';
+      return i18n.t('messaging.actionBookingLink', { defaultValue: 'Appointment link' });
     case 'appointments_link':
-      return 'Appointments reminder';
+      return i18n.t('messaging.actionAppointmentsLink', { defaultValue: 'Appointments reminder' });
     case 'records_link':
-      return 'Records reminder';
+      return i18n.t('messaging.actionRecordsLink', { defaultValue: 'Records reminder' });
     default:
-      return 'Care action';
+      return careActionFallbackLabel();
   }
 };
 

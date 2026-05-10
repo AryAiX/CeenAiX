@@ -522,13 +522,13 @@ export const BookAppointment: React.FC = () => {
                   <label className="block space-y-2">
                     <span className="text-sm font-semibold text-gray-700">{t('patient.book.search')}</span>
                     <div className="relative">
-                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 rtl:left-auto rtl:right-4" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
                         placeholder={t('patient.book.searchPh')}
-                        className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
+                        className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 rtl:pl-4 rtl:pr-11"
                       />
                     </div>
                   </label>

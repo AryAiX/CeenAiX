@@ -51,7 +51,13 @@ const INITIAL_AVAILABILITY_FORM: AvailabilityFormState = {
   slotDurationMinutes: '30',
 };
 
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
+const getTodayDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, '0');
+  const day = `${now.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const INITIAL_BLOCKED_SLOT_FORM = (): BlockedSlotFormState => ({
   blockedDate: getTodayDate(),
@@ -75,7 +81,7 @@ const formatTimeLabel = (value: string, language: string) => {
 };
 
 export const DoctorSchedule: React.FC = () => {
-  const { i18n } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const locale = resolveLocale(i18n.language);
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(i18n.language, options);
   const { user } = useAuth();
@@ -111,18 +117,18 @@ export const DoctorSchedule: React.FC = () => {
     setFeedback(null);
 
     if (!user) {
-      setError('You need to be signed in as a doctor to manage availability.');
+      setError(t('doctor.schedule.errAuthAvailability', { defaultValue: 'You need to be signed in as a doctor to manage availability.' }));
       return;
     }
 
     if (availabilityForm.startTime >= availabilityForm.endTime) {
-      setError('Availability end time must be later than the start time.');
+      setError(t('doctor.schedule.errEndAfterStart', { defaultValue: 'Availability end time must be later than the start time.' }));
       return;
     }
 
     const slotDurationMinutes = Number(availabilityForm.slotDurationMinutes);
     if (!Number.isFinite(slotDurationMinutes) || slotDurationMinutes <= 0) {
-      setError('Choose a valid slot duration.');
+      setError(t('doctor.schedule.errSlotDuration', { defaultValue: 'Choose a valid slot duration.' }));
       return;
     }
 
@@ -146,7 +152,7 @@ export const DoctorSchedule: React.FC = () => {
     }
 
     setAvailabilityForm(INITIAL_AVAILABILITY_FORM);
-    setSuccess('Weekly availability window added.');
+    setSuccess(t('doctor.schedule.succAvailabilityAdded', { defaultValue: 'Weekly availability window added.' }));
     refetch();
   };
 
@@ -166,12 +172,22 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
-    setSuccess(nextIsActive ? 'Availability activated.' : 'Availability paused.');
+    setSuccess(
+      nextIsActive
+        ? t('doctor.schedule.succAvailabilityActivated', { defaultValue: 'Availability activated.' })
+        : t('doctor.schedule.succAvailabilityPaused', { defaultValue: 'Availability paused.' })
+    );
     refetch();
   };
 
   const handleAvailabilityDelete = async (availabilityId: string) => {
-    if (!window.confirm('Delete this recurring availability window?')) {
+    if (
+      !window.confirm(
+        t('doctor.schedule.confirmDeleteAvailability', {
+          defaultValue: 'Delete this recurring availability window?',
+        })
+      )
+    ) {
       return;
     }
 
@@ -190,7 +206,7 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
-    setSuccess('Availability window removed.');
+    setSuccess(t('doctor.schedule.succAvailabilityRemoved', { defaultValue: 'Availability window removed.' }));
     refetch();
   };
 
@@ -199,12 +215,12 @@ export const DoctorSchedule: React.FC = () => {
     setFeedback(null);
 
     if (!user) {
-      setError('You need to be signed in as a doctor to block time.');
+      setError(t('doctor.schedule.errAuthBlock', { defaultValue: 'You need to be signed in as a doctor to block time.' }));
       return;
     }
 
     if (blockedSlotForm.startTime >= blockedSlotForm.endTime) {
-      setError('Blocked slot end time must be later than the start time.');
+      setError(t('doctor.schedule.errBlockEndAfterStart', { defaultValue: 'Blocked slot end time must be later than the start time.' }));
       return;
     }
 
@@ -226,12 +242,18 @@ export const DoctorSchedule: React.FC = () => {
     }
 
     setBlockedSlotForm(INITIAL_BLOCKED_SLOT_FORM());
-    setSuccess('Blocked time added to your schedule.');
+    setSuccess(t('doctor.schedule.succBlockAdded', { defaultValue: 'Blocked time added to your schedule.' }));
     refetch();
   };
 
   const handleBlockedSlotDelete = async (blockedSlotId: string) => {
-    if (!window.confirm('Remove this blocked time from your schedule?')) {
+    if (
+      !window.confirm(
+        t('doctor.schedule.confirmRemoveBlock', {
+          defaultValue: 'Remove this blocked time from your schedule?',
+        })
+      )
+    ) {
       return;
     }
 
@@ -247,7 +269,7 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
-    setSuccess('Blocked time removed.');
+    setSuccess(t('doctor.schedule.succBlockRemoved', { defaultValue: 'Blocked time removed.' }));
     refetch();
   };
 
@@ -545,7 +567,9 @@ export const DoctorSchedule: React.FC = () => {
                 </div>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Reason</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {t('doctor.schedule.reasonLabel', { defaultValue: 'Reason' })}
+                  </span>
                   <textarea
                     value={blockedSlotForm.reason}
                     onChange={(event) =>
@@ -553,7 +577,9 @@ export const DoctorSchedule: React.FC = () => {
                     }
                     rows={3}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                    placeholder="Optional note for your own reference"
+                    placeholder={t('doctor.schedule.reasonPh', {
+                      defaultValue: 'Optional note for your own reference',
+                    })}
                   />
                 </label>
 

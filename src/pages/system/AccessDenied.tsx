@@ -55,13 +55,23 @@ export const AccessDenied = () => {
               </button>
             ) : null}
 
-            <Link
-              to={dashboardPath}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ceenai-cyan to-ceenai-blue px-5 py-3 font-semibold text-white shadow-lg transition hover:scale-[1.01]"
-            >
-              <span>{t('system.accessDenied.dashboard')}</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to={dashboardPath}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ceenai-cyan to-ceenai-blue px-5 py-3 font-semibold text-white shadow-lg transition hover:scale-[1.01]"
+              >
+                <span>{t('system.accessDenied.dashboard')}</span>
+                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+              </Link>
+            ) : (
+              <Link
+                to="/auth/login"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ceenai-cyan to-ceenai-blue px-5 py-3 font-semibold text-white shadow-lg transition hover:scale-[1.01]"
+              >
+                <span>{t('system.accessDenied.signIn', 'Sign in')}</span>
+                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+              </Link>
+            )}
           </div>
         </div>
       </div>

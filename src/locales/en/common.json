@@ -2,6 +2,42 @@
   "brand": {
     "tagline": "Healthcare Platform"
   },
+  "messaging": {
+    "careTeamFallback": "Care team",
+    "errStartConversation": "Unable to start this conversation.",
+    "errSendMessage": "Unable to send message.",
+    "errLoadConversations": "Unable to load conversations.",
+    "errLoadMessages": "Unable to load messages.",
+    "actionBookingLink": "Appointment link",
+    "actionAppointmentsLink": "Appointments reminder",
+    "actionRecordsLink": "Records reminder",
+    "actionCareDefault": "Care action",
+    "defaultCareSubject": "Care conversation",
+    "sendMessage": "Send message"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred.",
+    "retry": "Try again"
+  },
+  "chatbot": {
+    "tooltip": "Chat with AI Health Assistant",
+    "ariaOpen": "Open AI Health Assistant"
+  },
+  "portalShell": {
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "signOut": "Sign out"
+  },
+  "opsShell": {
+    "defaultSubtitle": "Live operations",
+    "rxSync": "New prescription queue synced from Supabase",
+    "viewCta": "View",
+    "scanBarcode": "Scan Barcode",
+    "newManualRx": "New Manual Rx"
+  },
   "header": {
     "doctors": "Doctors",
     "clinics": "Clinics",
@@ -9,7 +45,8 @@
     "laboratories": "Laboratories",
     "insurance": "Insurance",
     "patient": "Patient",
-    "doctor": "Doctor"
+    "doctor": "Doctor",
+    "home": "Home"
   },
   "footer": {
     "services": "Services",
@@ -56,7 +93,8 @@
   },
   "language": {
     "enShort": "EN",
-    "arShort": "عربي"
+    "arShort": "عربي",
+    "switcherAriaLabel": "Language"
   },
   "home": {
     "features": "Features",
@@ -610,7 +648,8 @@
       "cardDoctor": "AI-powered operations",
       "cardDoctorDesc": "Clinical and operational workflows stay connected.",
       "cardSecure": "Secure by default",
-      "cardSecureDesc": "Supabase auth with guarded routes."
+      "cardSecureDesc": "Supabase auth with guarded routes.",
+      "copyright": "© {{year}} CeenAiX Healthcare Technologies, Dubai, UAE"
     },
     "login": {
       "badge": "Secure Sign In",
@@ -672,7 +711,12 @@
       "hidePassword": "Hide password",
       "trustDha": "DHA Certified",
       "trustNabidh": "NABIDH Compliant",
-      "trustSsl": "256-bit SSL"
+      "trustSsl": "256-bit SSL",
+      "passwordUpdatedRedirecting": "Password updated successfully. Redirecting to your account...",
+      "errors": {
+        "passwordShort": "Use at least 8 characters for your new password.",
+        "passwordMismatch": "The new password and confirmation do not match."
+      }
     },
     "register": {
       "badge": "Healthcare Platform",
@@ -730,7 +774,8 @@
         "passwordMismatch": "Password confirmation does not match.",
         "phoneRequired": "Phone number is required for phone OTP registration.",
         "termsRequired": "You must accept the terms to continue.",
-        "emailAlreadyRegistered": "This email is already registered. If you did not receive the confirmation email yet, resend it below. Otherwise sign in or reset your password."
+        "emailAlreadyRegistered": "This email is already registered. If you did not receive the confirmation email yet, resend it below. Otherwise sign in or reset your password.",
+        "signupFailed": "Sign-up failed. Please try again."
       },
       "successAccountCreated": "Account created. Check your email to confirm your account, then continue to onboarding. If you do not see it soon, use the resend button below.",
       "resendSuccess": "We sent a fresh confirmation email. Check your inbox and spam folder, then open the link to continue."
@@ -796,7 +841,9 @@
       "updating": "Updating...",
       "sendReset": "Send reset link",
       "sending": "Sending...",
-      "resetInfo": "We'll send a secure reset link to this email. The link routes back into CeenAiX so you can create a new password safely."
+      "resetInfo": "We'll send a secure reset link to this email. The link routes back into CeenAiX so you can create a new password safely.",
+      "resetSent": "Password reset instructions have been sent to your email.",
+      "passwordUpdated": "Password updated successfully. Redirecting to your dashboard..."
     },
     "otp": {
       "badge": "OTP Verification",
@@ -812,7 +859,12 @@
       "resending": "Resending...",
       "verify": "Verify code",
       "verifying": "Verifying...",
-      "resentOk": "A new verification code has been sent."
+      "resentOk": "A new verification code has been sent.",
+      "verifySuccess": "Verification successful. Redirecting...",
+      "errors": {
+        "noDestination": "We could not identify your verification destination. Please request a new code.",
+        "requestNew": "Please go back and request a new verification code."
+      }
     },
     "onboarding": {
       "badge": "Profile Setup",

@@ -159,6 +159,7 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
           ) : null}
 
           <button
+            type="button"
             onClick={handlePasswordUpdate}
             disabled={isUpdatingPassword}
             className={`mt-5 inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
@@ -209,6 +210,7 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
           ) : null}
 
           <button
+            type="button"
             onClick={handleDeleteAccount}
             disabled={isDeletingAccount}
             className="mt-5 inline-flex items-center justify-center rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"

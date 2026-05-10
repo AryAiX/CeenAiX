@@ -54,7 +54,7 @@ export const ForgotPassword = () => {
       return;
     }
 
-    setSuccessMessage('Password reset instructions have been sent to your email.');
+    setSuccessMessage(t('auth.forgot.resetSent'));
     setIsSubmitting(false);
   };
 
@@ -63,12 +63,12 @@ export const ForgotPassword = () => {
     resetFeedback();
 
     if (password.length < 8) {
-      setErrorMessage('Use at least 8 characters for your new password.');
+      setErrorMessage(t('auth.login.errors.passwordShort'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage('The new password and confirmation do not match.');
+      setErrorMessage(t('auth.login.errors.passwordMismatch'));
       return;
     }
 
@@ -82,7 +82,7 @@ export const ForgotPassword = () => {
       return;
     }
 
-    setSuccessMessage('Password updated successfully. Redirecting to your dashboard...');
+    setSuccessMessage(t('auth.forgot.passwordUpdated'));
     setIsSubmitting(false);
   };
 
@@ -126,7 +126,7 @@ export const ForgotPassword = () => {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15"
-              placeholder="Create a strong password"
+              placeholder={t('auth.login.newPasswordPlaceholder')}
               autoComplete="new-password"
               required
             />
@@ -139,7 +139,7 @@ export const ForgotPassword = () => {
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15"
-              placeholder="Repeat your new password"
+              placeholder={t('auth.login.repeatPasswordPlaceholder')}
               autoComplete="new-password"
               required
             />

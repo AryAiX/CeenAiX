@@ -3,6 +3,7 @@ import {
   FunctionsHttpError,
   FunctionsRelayError,
 } from '@supabase/supabase-js';
+import i18n from 'i18next';
 import { supabase } from './supabase';
 import type { PreVisitAnswerDraft, PreVisitTemplateQuestionDraft } from './pre-visit';
 
@@ -89,7 +90,9 @@ export async function invokeAiChat(input: {
   }
 
   if (!data || typeof data !== 'object') {
-    throw new Error('AI chat returned an invalid response.');
+    throw new Error(
+      i18n.t('ai.errors.invalidChatResponse', { defaultValue: 'AI chat returned an invalid response.' })
+    );
   }
 
   return data as AiChatResponsePayload;
@@ -156,7 +159,11 @@ async function invokeAiDocumentAnalyze<T>(input: Record<string, unknown>): Promi
   }
 
   if (!data || typeof data !== 'object') {
-    throw new Error('AI document analysis returned an invalid response.');
+    throw new Error(
+      i18n.t('ai.errors.invalidDocResponse', {
+        defaultValue: 'AI document analysis returned an invalid response.',
+      })
+    );
   }
 
   return data as T;
