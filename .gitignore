@@ -21,9 +21,12 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*
+!.env.example
 .cursor/mcp.json
 .vercel
 .env*.local
+supabase/.temp/
 docs/keys.local.md
 
 # Generated SQL chunks/bundles (scripts/split-migrations-for-remote.mjs)

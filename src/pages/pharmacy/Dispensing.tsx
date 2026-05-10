@@ -264,7 +264,9 @@ export const PharmacyDispensing = () => {
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Patient name, Rx number, doctor..."
+              placeholder={t('pharmacy.dispensing.searchPh', {
+                defaultValue: 'Patient name, Rx number, doctor...',
+              })}
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
           </div>

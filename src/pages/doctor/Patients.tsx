@@ -213,7 +213,9 @@ export const DoctorPatients: React.FC = () => {
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-4" />
           <input
             type="text"
-            placeholder="Search by name, Emirates ID, condition, or medication..."
+            placeholder={t('doctor.patients.searchPh', {
+              defaultValue: 'Search by name, Emirates ID, condition, or medication...',
+            })}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="h-12 w-full rounded-lg border border-slate-200 pl-12 pr-4 text-[14px] outline-none focus:ring-2 focus:ring-teal-500 rtl:pl-4 rtl:pr-12"

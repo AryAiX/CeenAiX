@@ -286,7 +286,9 @@ export const PharmacyInventory = () => {
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Drug name, brand, ATC code, category..."
+              placeholder={t('pharmacy.inventory.searchPh', {
+                defaultValue: 'Drug name, brand, ATC code, category...',
+              })}
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
           </div>

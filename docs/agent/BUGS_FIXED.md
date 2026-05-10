@@ -226,3 +226,7 @@ Each bug includes a short identifier, the file affected, a description, and the 
 ### Cross-cutting security
 
 105. **MessagesWorkspace + patient/AIChat: `target="_blank"` links used `rel="noreferrer"` without `noopener`.** Added `noopener` to all such links (defence in depth against `window.opener`-based tabnabbing).
+
+### Area 3/5 — Doctor & Pharmacy search placeholders
+
+106. **DoctorPatients/PharmacyInventory/PharmacyDispensing: search input placeholders were hard-coded English.** Routed through `doctor.patients.searchPh`, `pharmacy.inventory.searchPh`, and `pharmacy.dispensing.searchPh` keys with Arabic translations so the placeholder reads naturally in both locales.
