@@ -1395,6 +1395,7 @@
     "createPrescription": {
       "title": "Create prescription",
       "subtitle": "Issue a medication plan for a linked patient and optionally attach it to an appointment.",
+      "changePatient": "Change Patient",
       "create": "New prescription",
       "patientRequired": "Select a patient before saving this prescription.",
       "itemRequired": "Add at least one medication item before saving.",

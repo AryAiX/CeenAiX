@@ -1076,11 +1076,11 @@ export const CreatePrescription: React.FC = () => {
                   </div>
                   <div className="relative">
                     <div className="flex w-full items-center justify-center space-x-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
-                      <span>Change Patient</span>
+                      <span>{t('doctor.createPrescription.changePatient', { defaultValue: 'Change Patient' })}</span>
                       <ChevronDown className="h-3 w-3" />
                     </div>
                     <select
-                      aria-label="Change patient"
+                      aria-label={t('doctor.createPrescription.changePatient', { defaultValue: 'Change Patient' })}
                       value={patientId}
                       onChange={(event) => {
                         setPatientId(event.target.value);

@@ -234,3 +234,7 @@ Each bug includes a short identifier, the file affected, a description, and the 
 ### Area 9 — OpsShell follow-up
 
 107. **OpsShell: pharmacy header had several hard-coded English strings.** 'Sign Out' / 'Sign out' on both layouts, the brand subtitle fallback 'Al Shifa Pharmacy · Live operations' (which surfaced a fake pharmacy name to all tenants!), the in-header 'New prescription queue synced from Supabase' banner with its 'View' button, plus 'Scan Barcode' and 'New Manual Rx' buttons were all hard-coded. Localized via new `portalShell.signOut` + `opsShell.*` keys (EN + AR) and removed the fake "Al Shifa Pharmacy" branding from the default subtitle. Also added `type="button"` to the two action buttons that lacked one.
+
+### Area 3 — Doctor portal follow-up
+
+108. **CreatePrescription: 'Change Patient' button label + select `aria-label` were hard-coded English.** Routed both through a new `doctor.createPrescription.changePatient` key (EN + AR).
