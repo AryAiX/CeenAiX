@@ -172,12 +172,22 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
-    setSuccess(nextIsActive ? 'Availability activated.' : 'Availability paused.');
+    setSuccess(
+      nextIsActive
+        ? t('doctor.schedule.succAvailabilityActivated', { defaultValue: 'Availability activated.' })
+        : t('doctor.schedule.succAvailabilityPaused', { defaultValue: 'Availability paused.' })
+    );
     refetch();
   };
 
   const handleAvailabilityDelete = async (availabilityId: string) => {
-    if (!window.confirm('Delete this recurring availability window?')) {
+    if (
+      !window.confirm(
+        t('doctor.schedule.confirmDeleteAvailability', {
+          defaultValue: 'Delete this recurring availability window?',
+        })
+      )
+    ) {
       return;
     }
 
@@ -237,7 +247,13 @@ export const DoctorSchedule: React.FC = () => {
   };
 
   const handleBlockedSlotDelete = async (blockedSlotId: string) => {
-    if (!window.confirm('Remove this blocked time from your schedule?')) {
+    if (
+      !window.confirm(
+        t('doctor.schedule.confirmRemoveBlock', {
+          defaultValue: 'Remove this blocked time from your schedule?',
+        })
+      )
+    ) {
       return;
     }
 

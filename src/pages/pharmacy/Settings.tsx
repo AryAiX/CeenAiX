@@ -8,11 +8,14 @@ export const PharmacySettings = () => {
   const { t } = useTranslation('common');
   const { data } = usePharmacyPrescriptionQueue();
   const settings = data?.settings ?? [];
+  const fallbackName = t('pharmacy.settings.fallbackName', { defaultValue: 'Pharmacy' });
 
   return (
     <OpsShell
-      title="Settings"
-      subtitle="Notification, compliance, and sync preferences"
+      title={t('pharmacy.settings.title', { defaultValue: 'Settings' })}
+      subtitle={t('pharmacy.settings.subtitle', {
+        defaultValue: 'Notification, compliance, and sync preferences',
+      })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
       navItems={PHARMACY_NAV_ITEMS(t, {
         prescriptions: data?.pendingPrescriptions || undefined,
@@ -25,17 +28,32 @@ export const PharmacySettings = () => {
       <div className="min-h-full bg-slate-50 p-6">
         <div className="max-w-3xl">
           <div className="mb-5">
-            <h2 className="text-[20px] font-bold text-slate-900">Settings</h2>
+            <h2 className="text-[20px] font-bold text-slate-900">
+              {t('pharmacy.settings.title', { defaultValue: 'Settings' })}
+            </h2>
             <div className="text-[13px] text-slate-400">
-              {data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'} portal preferences
+              {data?.profile?.displayName ?? data?.organization?.name ?? fallbackName}{' '}
+              {t('pharmacy.settings.portalPreferences', { defaultValue: 'portal preferences' })}
             </div>
           </div>
 
           <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[
-              ['Notifications', 'Live', Bell],
-              ['DHA Compliance', 'Enabled', ShieldCheck],
-              ['NABIDH Sync', 'Ready', DatabaseZap],
+              [
+                t('pharmacy.settings.cardNotifications', { defaultValue: 'Notifications' }),
+                t('pharmacy.settings.cardNotificationsValue', { defaultValue: 'Live' }),
+                Bell,
+              ],
+              [
+                t('pharmacy.settings.cardCompliance', { defaultValue: 'DHA Compliance' }),
+                t('pharmacy.settings.cardComplianceValue', { defaultValue: 'Enabled' }),
+                ShieldCheck,
+              ],
+              [
+                t('pharmacy.settings.cardSync', { defaultValue: 'NABIDH Sync' }),
+                t('pharmacy.settings.cardSyncValue', { defaultValue: 'Ready' }),
+                DatabaseZap,
+              ],
             ].map(([label, value, Icon]) => (
               <div key={label as string} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
                 <Icon className="mb-3 h-5 w-5 text-emerald-600" />
@@ -66,6 +84,11 @@ export const PharmacySettings = () => {
                     setting.enabled ? 'bg-emerald-500' : 'bg-slate-200'
                   }`}
                   aria-pressed={setting.enabled}
+                  aria-label={
+                    setting.enabled
+                      ? t('pharmacy.settings.toggleOn', { defaultValue: 'On' })
+                      : t('pharmacy.settings.toggleOff', { defaultValue: 'Off' })
+                  }
                 >
                   <span
                     className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
