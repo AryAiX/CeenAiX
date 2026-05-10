@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import type { LabOrder, LabOrderItem } from '../types';
 import {
   hydrateLabOrderItemsWithCatalog,
@@ -6,6 +7,8 @@ import {
 } from '../lib/lab-test-catalog';
 import { useQuery } from './use-query';
 import { supabase } from '../lib/supabase';
+
+const patientFallback = () => i18n.t('shared.patient', { defaultValue: 'Patient' });
 
 export interface DoctorLabOrderRecord extends LabOrder {
   patientName: string;
@@ -69,7 +72,7 @@ export function useDoctorLabOrders(userId: string | null | undefined) {
       (patientProfiles ?? []).map((profile) => [
         profile.user_id,
         {
-          name: profile.full_name ?? 'Patient',
+          name: profile.full_name ?? patientFallback(),
           email: profile.email ?? null,
         },
       ])
@@ -87,7 +90,7 @@ export function useDoctorLabOrders(userId: string | null | undefined) {
 
       return {
         ...labOrder,
-        patientName: patientProfile?.name ?? 'Patient',
+        patientName: patientProfile?.name ?? patientFallback(),
         patientEmail: patientProfile?.email ?? null,
         items: itemsByLabOrderId.get(labOrder.id) ?? [],
       };

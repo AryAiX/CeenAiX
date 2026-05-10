@@ -3,6 +3,13 @@
     "goBack": "Go back"
   },
   "shared": {
+    "yes": "Yes",
+    "no": "No",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "errors": {
+      "unknown": "An unknown error occurred"
+    },
     "time": {
       "minutesAgo": "{{count}}m ago",
       "hoursAgo": "{{count}}h ago",
@@ -38,6 +45,14 @@
       "resulted": "Resulted",
       "reviewed": "Reviewed"
     },
+    "labOrderItemStatus": {
+      "pending": "Pending",
+      "ordered": "Ordered",
+      "collected": "Collected",
+      "processing": "Processing",
+      "resulted": "Resulted",
+      "reviewed": "Reviewed"
+    },
     "weekdays": {
       "sun": "Sun",
       "mon": "Mon",
@@ -51,6 +66,9 @@
     "scheduledConsultation": "Scheduled consultation",
     "doctor": "Doctor",
     "patient": "Patient",
+    "hourShort": "h",
+    "minuteShort": "m",
+    "secondShort": "s",
     "clinicPending": "Clinic details will be confirmed after booking",
     "clinicTbd": "Clinic location to be confirmed",
     "clinicAfterBooking": "Clinic details will be confirmed after booking",
@@ -82,6 +100,12 @@
   },
   "patient": {
     "dashboard": {
+      "careTeamClinicianFallback": "Care team clinician",
+      "activePrescriptionFallback": "Active prescription",
+      "insuranceProviderFallback": "Insurance provider",
+      "patientPlanFallback": "Patient plan",
+      "upcomingAppointmentScheduled": "Upcoming appointment scheduled",
+      "nextWith": "Next with {{name}}",
       "welcome": "Welcome back, {{name}}!",
       "careOverview": "Here is your care overview for today.",
       "profileStatus": "Profile Status",
@@ -192,6 +216,7 @@
       "joinCallDisabled": "Join Call (Available 10 min before)",
       "getDirections": "Get Directions",
       "addToCalendar": "Add to Calendar",
+      "icsSummary": "Appointment with {doctor}",
       "preparationNotes": "Preparation Notes",
       "teleconsultBannerTitle": "Your teleconsult with {{doctor}}",
       "teleconsultBannerStartsIn": "Starts in {{time}}",
@@ -486,6 +511,7 @@
       "administeredBy": "Administered by",
       "nextDose": "Next dose due",
       "saveVax": "Save vaccination",
+      "errDoseNumber": "Dose number must be a positive whole number.",
       "noMatchTitle": "No matching records yet",
       "noMatchBody": "Try another search term or add a new entry using the forms below.",
       "severitySevere": "Severe",
@@ -708,7 +734,9 @@
       "saving": "Saving...",
       "complete": "Complete intake",
       "completing": "Completing...",
-      "requiredHint": "Please complete required questions marked below."
+      "requiredHint": "Please complete required questions marked below.",
+      "autofilled": "Autofilled from your record",
+      "typeAnswerPh": "Type your answer"
     },
     "labResults": {
       "title": "My Lab Results",
@@ -878,7 +906,14 @@
       "unreadBadge": "Unread",
       "open": "Open",
       "markRead": "Mark read",
-      "loadError": "Your notifications could not be loaded right now."
+      "loadError": "Your notifications could not be loaded right now.",
+      "yourCareTeam": "Your care team",
+      "newMessageFrom": "New message from {{name}}",
+      "upcomingVisitWith": "Upcoming visit with {{name}}",
+      "upcomingBody": "Review the appointment detail for preparation guidance.",
+      "newLabsFrom": "New lab results from {{name}}",
+      "labsBody": "Open your lab results to see details and ask the AI assistant for a plain-language explanation.",
+      "openThreadFallback": "Open the thread to review the latest care message."
     },
     "telemedicine": {
       "title": "Virtual consultation",
@@ -1124,10 +1159,24 @@
       }
     }
   },
+  "ai": {
+    "errors": {
+      "invalidChatResponse": "AI chat returned an invalid response.",
+      "invalidDocResponse": "AI document analysis returned an invalid response.",
+      "invalidMedEnrichment": "Medication enrichment returned an invalid response."
+    }
+  },
+  "records": {
+    "errors": {
+      "applyUpdates": "Unable to apply those record updates right now.",
+      "dismissUpdates": "Unable to dismiss those updates right now."
+    }
+  },
   "doctor": {
     "messages": {
       "title": "Messages",
       "subtitle": "Stay in touch with patients through secure care conversations.",
+      "encrypted": "Encrypted",
       "conversations": "Patient conversations",
       "conversationCount_one": "{{count}} thread",
       "conversationCount_other": "{{count}} threads",
@@ -1193,6 +1242,7 @@
       "title": "Patients",
       "subtitle": "Review your real patient list from completed and upcoming appointments.",
       "searchPlaceholder": "Search patients by name, email, phone, blood type, or concern...",
+      "searchPh": "Search by name, Emirates ID, condition, or medication...",
       "count_one": "{{count}} patient",
       "count_other": "{{count}} patients",
       "loadError": "Doctor patients could not be loaded yet.",
@@ -1210,7 +1260,26 @@
       "recentConcern": "Recent concern",
       "noRecentConcern": "No chief complaint was captured on the latest linked visit.",
       "viewAppointments": "Open appointments",
-      "footerHint": "Patient detail and full chart routes can attach to this live patient list next."
+      "footerHint": "Patient detail and full chart routes can attach to this live patient list next.",
+      "unknown": "Unknown",
+      "noInsurance": "No insurance",
+      "insuranceOnFile": "Insurance on file",
+      "noConditions": "No active conditions",
+      "noVisits": "No visits",
+      "today": "Today",
+      "notScheduled": "Not scheduled",
+      "acknowledge": "Acknowledge",
+      "openRecord": "Open record",
+      "lastVisit": "Last visit",
+      "nextAppt": "Next appt",
+      "sortLastVisit": "Last visit",
+      "sortRisk": "Risk",
+      "sortName": "Name A–Z",
+      "sortNextAppointment": "Next appointment",
+      "sortedBy": "Sorted by",
+      "listView": "List view",
+      "cardView": "Card view",
+      "showingOf": "Showing {{shown}} of {{total}} patients"
     },
     "prescriptions": {
       "title": "Prescriptions",
@@ -1284,6 +1353,23 @@
       "cancelSuccess": "Appointment cancelled successfully.",
       "footerHint": "Patient detail flows will open from this list once the doctor patient detail route is wired."
     },
+    "schedule": {
+      "reasonLabel": "Reason",
+      "reasonPh": "Optional note for your own reference",
+      "errAuthAvailability": "You need to be signed in as a doctor to manage availability.",
+      "errEndAfterStart": "Availability end time must be later than the start time.",
+      "errSlotDuration": "Choose a valid slot duration.",
+      "succAvailabilityAdded": "Weekly availability window added.",
+      "succAvailabilityActivated": "Availability activated.",
+      "succAvailabilityPaused": "Availability paused.",
+      "succAvailabilityRemoved": "Availability window removed.",
+      "confirmDeleteAvailability": "Delete this recurring availability window?",
+      "errAuthBlock": "You need to be signed in as a doctor to block time.",
+      "errBlockEndAfterStart": "Blocked slot end time must be later than the start time.",
+      "succBlockAdded": "Blocked time added to your schedule.",
+      "confirmRemoveBlock": "Remove this blocked time from your schedule?",
+      "succBlockRemoved": "Blocked time removed."
+    },
     "patientDetail": {
       "titleFallback": "Patient detail",
       "loadError": "This patient workspace could not be loaded right now.",
@@ -1356,6 +1442,7 @@
     "createPrescription": {
       "title": "Create prescription",
       "subtitle": "Issue a medication plan for a linked patient and optionally attach it to an appointment.",
+      "changePatient": "Change Patient",
       "create": "New prescription",
       "patientRequired": "Select a patient before saving this prescription.",
       "itemRequired": "Add at least one medication item before saving.",
@@ -1477,7 +1564,13 @@
       "emptyLog": "No stored notifications yet.",
       "unreadBadge": "Unread",
       "open": "Open",
-      "markRead": "Mark read"
+      "markRead": "Mark read",
+      "newMessageFrom": "New message from {{name}}",
+      "openThreadFallback": "Open the thread to review the latest care message.",
+      "preVisitCompleted": "{{name}} completed pre-visit intake",
+      "preVisitBody": "Review the appointment detail to see the patient summary and intake answers.",
+      "chartUpdated": "{{name}} updated chart information",
+      "chartUpdateBody": "Review {{label}} in the patient detail workspace."
     },
     "consultationWorkspace": {
       "title": "Consultation workspace",
@@ -1500,7 +1593,33 @@
       "featureClinicalBody": "Preferred templates, prescribing chips, and lab panels.",
       "featureNotificationsTitle": "Notification routing",
       "featureNotificationsBody": "Decide how critical alerts reach you on web, mobile, and SMS.",
-      "actionOpenProfile": "Open my profile"
+      "actionOpenProfile": "Open my profile",
+      "availabilityWindows": "Availability windows",
+      "clinicalSpecialty": "Clinical specialty",
+      "dhaLicense": "DHA license",
+      "verified": "Verified",
+      "pending": "Pending",
+      "saving": "Saving...",
+      "sections": {
+        "general": "General",
+        "notifications": "Notifications",
+        "appearance": "Appearance",
+        "language": "Language",
+        "privacy": "Privacy",
+        "security": "Security",
+        "labImaging": "Labs & imaging",
+        "integrations": "Integrations",
+        "clinicalTools": "Clinical tools",
+        "dashboard": "Dashboard",
+        "help": "Help"
+      },
+      "toggles": {
+        "emailTitle": "Email alerts",
+        "smsTitle": "SMS alerts",
+        "pushTitle": "Push notifications",
+        "autoFollowTitle": "Auto-follow new appointments",
+        "shareCalTitle": "Share calendar with team"
+      }
     },
     "imaging": {
       "title": "Imaging center",
@@ -1511,7 +1630,16 @@
       "featureViewerBody": "Full-resolution MRI, CT, and X-ray series with AI overlays.",
       "featureHandoffTitle": "Order handoff",
       "featureHandoffBody": "Send study findings straight back into the originating appointment.",
-      "actionBackPatients": "Back to patients"
+      "actionBackPatients": "Back to patients",
+      "worklist": "Imaging worklist",
+      "cardStudies": "Studies",
+      "openLabOrders": "Open lab orders",
+      "tabAll": "All",
+      "tabPending": "Pending",
+      "tabReported": "Reported",
+      "tabAbnormal": "Abnormal",
+      "allModalities": "All modalities",
+      "loadError": "Imaging studies could not be loaded right now."
     },
     "earnings": {
       "title": "Earnings",
@@ -1522,7 +1650,13 @@
       "featureClaimsBody": "Claim status pipeline once payments integration is live.",
       "featureTaxTitle": "Tax-ready exports",
       "featureTaxBody": "Exportable CSV and PDF statements for your accountant.",
-      "actionOpenDashboard": "Open clinical dashboard"
+      "actionOpenDashboard": "Open clinical dashboard",
+      "todayProjection": "Today's projection",
+      "completedToday": "Completed today",
+      "pendingReviews": "Pending reviews",
+      "consultationFee": "Consultation fee",
+      "todayEventsHeading": "Today's revenue events",
+      "noAppointmentsToday": "No appointments today yet."
     },
     "portal": {
       "title": "Doctor portal hub",
@@ -1739,6 +1873,9 @@
     }
   },
   "pharmacy": {
+    "queue": {
+      "linkedDispensingTask": "Linked dispensing task"
+    },
     "dashboard": {
       "title": "Pharmacy dashboard",
       "subtitle": "Dispensing, inventory, and insurance claims for pharmacy operators.",
@@ -1782,6 +1919,7 @@
       "featureHandoverTitle": "Secure handover",
       "featureHandoverBody": "OTP-signed handover to the patient or a trusted delegate.",
       "actionBack": "Back to pharmacy",
+      "searchPh": "Patient name, Rx number, doctor...",
       "kpiVerification": "In verification",
       "kpiCounseling": "Ready for counseling",
       "kpiHandover": "Handovers today",
@@ -1805,6 +1943,7 @@
       "featurePurchaseTitle": "Procurement",
       "featurePurchaseBody": "Supplier onboarding and PO lifecycle.",
       "actionBack": "Back to pharmacy",
+      "searchPh": "Drug name, brand, ATC code, category...",
       "kpiTotal": "Total SKUs",
       "kpiNearExpiry": "Near expiry",
       "kpiOutOfStock": "Out of stock",
@@ -1822,6 +1961,129 @@
         "near_expiry": "Near expiry",
         "out": "Out"
       }
+    },
+    "messages": {
+      "title": "Messages",
+      "communicationsSuffix": "communications",
+      "sidebarSubtitle": "Pharmacy communications",
+      "fallbackName": "Pharmacy",
+      "responsePlaceholder": "Type a secure pharmacy response...",
+      "emptyState": "No messages yet.",
+      "status": {
+        "awaiting": "Awaiting",
+        "sent": "Sent",
+        "resolved": "Resolved",
+        "info": "Info"
+      },
+      "kind": {
+        "query": "Query",
+        "approval": "Approval",
+        "info": "Info",
+        "response": "Response"
+      }
+    },
+    "profile": {
+      "title": "My Pharmacy",
+      "subtitleSuffix": "profile",
+      "fallbackName": "Pharmacy",
+      "fallbackLocation": "UAE",
+      "fallbackPending": "Pending",
+      "dhaLicensed": "DHA Licensed",
+      "nabidhConnected": "NABIDH Connected",
+      "nabidhPending": "NABIDH Pending",
+      "fieldLicense": "DHA License",
+      "fieldLicenseValid": "License Valid Until",
+      "fieldLocation": "Location",
+      "fieldHours": "Operating Hours",
+      "fieldPicName": "Pharmacist-in-Charge",
+      "fieldEprescription": "CeenAiX ePrescription",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "staffHeading": "Staff",
+      "credentialPending": "Credential pending",
+      "shiftOn": "on shift",
+      "shiftOff": "off shift",
+      "operationsHeading": "Operations Status",
+      "operationsSubtitle": "Live from pharmacy queue",
+      "opPending": "Pending prescriptions",
+      "opAlerts": "Inventory alerts",
+      "opDhaSync": "DHA sync",
+      "ready": "Ready",
+      "needsSetup": "Needs setup"
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Notification, compliance, and sync preferences",
+      "portalPreferences": "portal preferences",
+      "fallbackName": "Pharmacy",
+      "cardNotifications": "Notifications",
+      "cardNotificationsValue": "Live",
+      "cardCompliance": "DHA Compliance",
+      "cardComplianceValue": "Enabled",
+      "cardSync": "NABIDH Sync",
+      "cardSyncValue": "Ready",
+      "toggleOn": "On",
+      "toggleOff": "Off"
+    },
+    "revenue": {
+      "title": "Revenue",
+      "subtitle": "Claims and dispensing revenue",
+      "heading": "Revenue",
+      "caption": "Claims and payments",
+      "exportReport": "Export Revenue Report",
+      "kpiToday": "Revenue Today",
+      "kpiTodayHelper_one": "{{count}} paid prescription",
+      "kpiTodayHelper_other": "{{count}} paid prescriptions",
+      "kpiProjected": "Projected Queue Value",
+      "kpiProjectedHelper_one": "{{count}} total prescription",
+      "kpiProjectedHelper_other": "{{count}} total prescriptions",
+      "kpiReview": "Claims In Review",
+      "kpiReviewHelper": "Insurance follow-up needed",
+      "kpiAvg": "Average Rx Value",
+      "kpiAvgHelper_one": "{{count}} pending payment",
+      "kpiAvgHelper_other": "{{count}} pending payments",
+      "byPayerHeading": "Revenue By Payer",
+      "ledgerHeading": "Recent Revenue Ledger",
+      "ledgerSubtitle": "Generated from pharmacy_claims records",
+      "view": "View",
+      "status": {
+        "paid": "Paid",
+        "review": "Review",
+        "pending": "Pending",
+        "denied": "Denied"
+      },
+      "fallbackName": "Pharmacy"
+    },
+    "reports": {
+      "title": "Reports",
+      "heading": "Reports & Analytics",
+      "liveAnalytics": "Live analytics",
+      "fallbackName": "Pharmacy",
+      "exportLedger": "Export Dispensing Ledger",
+      "dhaMonthly": "DHA Monthly Report",
+      "kpiPrescriptions": "Prescriptions this month",
+      "kpiAccuracy": "Dispensing accuracy",
+      "kpiAccuracySub": "Computed from pharmacy_dispensing_tasks",
+      "kpiApproval": "Insurance approval rate",
+      "kpiCompliance": "Controlled substance compliance",
+      "volumeHeading": "Dispensing Volume — Current Queue",
+      "volumeDispensed": "Dispensed",
+      "volumeQueue": "In queue",
+      "volumeClaims": "Claims in review",
+      "riskHeading": "Inventory Risk Breakdown",
+      "riskHealthy": "Healthy SKUs",
+      "riskLow": "Low stock",
+      "riskOut": "Out of stock",
+      "riskExpiring": "Expiring soon",
+      "topDrugsHeading": "Top Dispensed Drugs — Live Prescription Data",
+      "dhaHeading": "DHA Monthly Dispensing Report",
+      "licensePending": "License pending",
+      "compliant": "Compliant",
+      "totalRecords": "Total dispensing records",
+      "submittedDha": "Submitted to DHA",
+      "controlledRecords": "Controlled substance records",
+      "lastSubmitted": "Last submitted",
+      "noSubmissions": "No submissions"
     }
   },
   "insurance": {

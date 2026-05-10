@@ -9,8 +9,11 @@ import {
   createAutofilledAnswer,
   getAutofillLabel,
 } from '../lib/pre-visit';
+import i18n from 'i18next';
 import { resolvePatientMemoryFacts } from '../lib/patient-memory';
 import { useQuery } from './use-query';
+
+const doctorFallback = () => i18n.t('shared.doctor', { defaultValue: 'Doctor' });
 
 interface UsePreVisitAssessmentData {
   assessment: PatientPreVisitAssessmentRecord;
@@ -305,7 +308,7 @@ export function usePatientPreVisitAssessments(patientUserId: string | null | und
     }
 
     const appointmentById = new Map((appointments ?? []).map((appointment) => [appointment.id, appointment]));
-    const doctorNameById = new Map((doctorProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? 'Doctor']));
+    const doctorNameById = new Map((doctorProfiles ?? []).map((profile) => [profile.user_id, profile.full_name ?? doctorFallback()]));
     const summaryByAssessmentId = new Map((summaries ?? []).map((summary) => [summary.assessment_id, summary]));
 
     return (assessments ?? []).map((assessment) => {
@@ -328,7 +331,7 @@ export function usePatientPreVisitAssessments(patientUserId: string | null | und
         appointment: {
           scheduledAt: appointment?.scheduled_at ?? new Date().toISOString(),
           chiefComplaint: appointment?.chief_complaint ?? null,
-          doctorName: doctorNameById.get(assessment.doctor_id) ?? 'Doctor',
+          doctorName: doctorNameById.get(assessment.doctor_id) ?? doctorFallback(),
         },
         summary: summary
           ? {
@@ -477,7 +480,7 @@ export function usePreVisitAssessment(assessmentId: string | null | undefined) {
         appointment: {
           scheduledAt: appointment?.scheduled_at ?? new Date().toISOString(),
           chiefComplaint: appointment?.chief_complaint ?? null,
-          doctorName: doctorProfile?.full_name ?? 'Doctor',
+          doctorName: doctorProfile?.full_name ?? doctorFallback(),
         },
         summary: summary
           ? {

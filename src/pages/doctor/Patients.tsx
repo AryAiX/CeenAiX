@@ -213,7 +213,9 @@ export const DoctorPatients: React.FC = () => {
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-4" />
           <input
             type="text"
-            placeholder="Search by name, Emirates ID, condition, or medication..."
+            placeholder={t('doctor.patients.searchPh', {
+              defaultValue: 'Search by name, Emirates ID, condition, or medication...',
+            })}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="h-12 w-full rounded-lg border border-slate-200 pl-12 pr-4 text-[14px] outline-none focus:ring-2 focus:ring-teal-500 rtl:pl-4 rtl:pr-12"
@@ -258,7 +260,8 @@ export const DoctorPatients: React.FC = () => {
                 type="button"
                 onClick={() => setViewMode('list')}
                 className={`rounded px-2 py-1 ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                aria-label="List view"
+                aria-label={t('doctor.patients.listView', { defaultValue: 'List view' })}
+                aria-pressed={viewMode === 'list'}
               >
                 ☰
               </button>
@@ -266,7 +269,8 @@ export const DoctorPatients: React.FC = () => {
                 type="button"
                 onClick={() => setViewMode('card')}
                 className={`rounded px-2 py-1 ${viewMode === 'card' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                aria-label="Card view"
+                aria-label={t('doctor.patients.cardView', { defaultValue: 'Card view' })}
+                aria-pressed={viewMode === 'card'}
               >
                 ⊞
               </button>
@@ -318,8 +322,9 @@ export const DoctorPatients: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[14px] font-bold text-slate-900">{patient.name}</div>
                       <div className="font-mono text-[10px] text-slate-400">
-                        {patient.id.slice(0, 8)} · {calculateAgeGender(patient)} · {patient.bloodType ?? 'Unknown'} ·{' '}
-                        {patient.insuranceName ?? 'No insurance'}
+                        {patient.id.slice(0, 8)} · {calculateAgeGender(patient)} ·{' '}
+                        {patient.bloodType ?? t('doctor.patients.unknown', { defaultValue: 'Unknown' })} ·{' '}
+                        {patient.insuranceName ?? t('doctor.patients.noInsurance', { defaultValue: 'No insurance' })}
                       </div>
                       {patient.allergies.length > 0 ? (
                         <div className="mt-1">
@@ -339,7 +344,10 @@ export const DoctorPatients: React.FC = () => {
 
                   <div className="col-span-2">
                     <div className="line-clamp-2 text-[13px] text-slate-700">
-                      {patient.conditions.length > 0 ? patient.conditions.slice(0, 2).join(' · ') : patient.latestChiefComplaint ?? 'No active conditions'}
+                      {patient.conditions.length > 0
+                        ? patient.conditions.slice(0, 2).join(' · ')
+                        : (patient.latestChiefComplaint ??
+                          t('doctor.patients.noConditions', { defaultValue: 'No active conditions' }))}
                     </div>
                     {patient.conditions.length > 2 ? (
                       <div className="mt-0.5 text-[12px] italic text-slate-400">+{patient.conditions.length - 2} more</div>
@@ -359,16 +367,24 @@ export const DoctorPatients: React.FC = () => {
 
                   <div className="col-span-1">
                     <div className="font-mono text-[12px] text-slate-600">
-                      {formatPatientDate(patient.lastAppointment, 'No visits')}
+                      {formatPatientDate(
+                        patient.lastAppointment,
+                        t('doctor.patients.noVisits', { defaultValue: 'No visits' })
+                      )}
                     </div>
                     {isTodayDate(patient.lastAppointment) ? (
-                      <div className="text-[10px] font-bold text-emerald-600">Today ✅</div>
+                      <div className="text-[10px] font-bold text-emerald-600">
+                        {t('doctor.patients.today', { defaultValue: 'Today' })} ✅
+                      </div>
                     ) : null}
                   </div>
 
                   <div className="col-span-2">
                     <div className="font-mono text-[12px] text-slate-600">
-                      {formatPatientDate(patient.nextAppointment, 'Not scheduled')}
+                      {formatPatientDate(
+                        patient.nextAppointment,
+                        t('doctor.patients.notScheduled', { defaultValue: 'Not scheduled' })
+                      )}
                     </div>
                   </div>
 
@@ -379,7 +395,7 @@ export const DoctorPatients: React.FC = () => {
                         onClick={(event) => event.stopPropagation()}
                         className="rounded bg-red-600 px-2 py-1 text-[10px] font-bold text-white transition-colors hover:bg-red-700"
                       >
-                        ✅ Acknowledge
+                        ✅ {t('doctor.patients.acknowledge', { defaultValue: 'Acknowledge' })}
                       </button>
                     ) : null}
                     <button
@@ -391,7 +407,7 @@ export const DoctorPatients: React.FC = () => {
                       className="flex items-center space-x-1 rounded bg-teal-100 px-3 py-1.5 text-[11px] font-medium text-teal-700 opacity-0 transition-colors hover:bg-teal-200 group-hover:opacity-100"
                     >
                       <FileText className="h-3 w-3" />
-                      <span>Open Record</span>
+                      <span>{t('doctor.patients.openRecord', { defaultValue: 'Open Record' })}</span>
                     </button>
                     <button
                       type="button"
@@ -408,13 +424,26 @@ export const DoctorPatients: React.FC = () => {
 
           <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 text-[12px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              Showing {formatLocaleDigits(filteredPatients.length, uiLang)} of {formatLocaleDigits(rawPatients.length, uiLang)} patients · Sorted by:{' '}
-              {sortBy === 'lastVisit' ? 'Last Visit' : sortBy === 'risk' ? 'Risk' : sortBy === 'name' ? 'Name A-Z' : 'Next Appointment'}
+              {t('doctor.patients.showingOf', {
+                shown: formatLocaleDigits(filteredPatients.length, uiLang),
+                total: formatLocaleDigits(rawPatients.length, uiLang),
+                defaultValue: `Showing ${formatLocaleDigits(filteredPatients.length, uiLang)} of ${formatLocaleDigits(rawPatients.length, uiLang)} patients`,
+              })}{' '}
+              · {t('doctor.patients.sortedBy', { defaultValue: 'Sorted by' })}:{' '}
+              {sortBy === 'lastVisit'
+                ? t('doctor.patients.sortLastVisit', { defaultValue: 'Last Visit' })
+                : sortBy === 'risk'
+                  ? t('doctor.patients.sortRisk', { defaultValue: 'Risk' })
+                  : sortBy === 'name'
+                    ? t('doctor.patients.sortName', { defaultValue: 'Name A-Z' })
+                    : t('doctor.patients.sortNextAppointment', { defaultValue: 'Next Appointment' })}
             </div>
-            <div className="flex items-center space-x-2">
-              <button className="rounded border border-slate-300 px-3 py-1 transition-colors hover:bg-white">← 1</button>
-              <button className="rounded border border-slate-300 px-3 py-1 transition-colors hover:bg-white">2 →</button>
-            </div>
+            {/*
+              Pagination is intentionally omitted until the backend exposes
+              cursor-based paging for doctor patients. The previous "← 1" /
+              "2 →" buttons were visual-only and had no onClick handler,
+              which left users wondering why nothing happened.
+            */}
           </div>
         </div>
       ) : (
@@ -434,7 +463,9 @@ export const DoctorPatients: React.FC = () => {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-slate-900">{patient.name}</p>
                     <p className="font-mono text-[10px] text-slate-400">
-                      {calculateAgeGender(patient)} · {patient.bloodType ?? 'Unknown'} · {patient.insuranceName ?? 'No insurance'}
+                      {calculateAgeGender(patient)} ·{' '}
+                      {patient.bloodType ?? t('doctor.patients.unknown', { defaultValue: 'Unknown' })} ·{' '}
+                      {patient.insuranceName ?? t('doctor.patients.noInsurance', { defaultValue: 'No insurance' })}
                     </p>
                   </div>
                 </div>
@@ -443,7 +474,10 @@ export const DoctorPatients: React.FC = () => {
                 </span>
               </div>
               <p className="mt-4 line-clamp-2 text-[13px] text-slate-700">
-                {patient.conditions.length > 0 ? patient.conditions.join(' · ') : patient.latestChiefComplaint ?? 'No active conditions'}
+                {patient.conditions.length > 0
+                  ? patient.conditions.join(' · ')
+                  : (patient.latestChiefComplaint ??
+                    t('doctor.patients.noConditions', { defaultValue: 'No active conditions' }))}
               </p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {patient.flags.slice(0, 3).map((flag) => (
@@ -454,12 +488,26 @@ export const DoctorPatients: React.FC = () => {
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-[12px] text-slate-500">
                 <div>
-                  <p className="font-semibold uppercase tracking-wide text-slate-400">Last Visit</p>
-                  <p className="mt-1 font-mono">{formatPatientDate(patient.lastAppointment, 'No visits')}</p>
+                  <p className="font-semibold uppercase tracking-wide text-slate-400">
+                    {t('doctor.patients.lastVisit', { defaultValue: 'Last Visit' })}
+                  </p>
+                  <p className="mt-1 font-mono">
+                    {formatPatientDate(
+                      patient.lastAppointment,
+                      t('doctor.patients.noVisits', { defaultValue: 'No visits' })
+                    )}
+                  </p>
                 </div>
                 <div>
-                  <p className="font-semibold uppercase tracking-wide text-slate-400">Next Appt</p>
-                  <p className="mt-1 font-mono">{formatPatientDate(patient.nextAppointment, 'Not scheduled')}</p>
+                  <p className="font-semibold uppercase tracking-wide text-slate-400">
+                    {t('doctor.patients.nextAppt', { defaultValue: 'Next Appt' })}
+                  </p>
+                  <p className="mt-1 font-mono">
+                    {formatPatientDate(
+                      patient.nextAppointment,
+                      t('doctor.patients.notScheduled', { defaultValue: 'Not scheduled' })
+                    )}
+                  </p>
                 </div>
               </div>
             </button>

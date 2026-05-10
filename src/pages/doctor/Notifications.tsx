@@ -5,11 +5,12 @@ import { Bell, CheckCheck, Loader2, MessageSquare, RefreshCcw } from 'lucide-rea
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
-import { formatRelativeTime } from '../../lib/i18n-ui';
+import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 export const DoctorNotifications: React.FC = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const uiLang = i18n.language ?? 'en';
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, loading, error, refetch } = useDoctorNotifications(user?.id);
@@ -83,7 +84,7 @@ export const DoctorNotifications: React.FC = () => {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">{t('doctor.notifications.unreadCount')}</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">{unreadCount}</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(unreadCount, uiLang)}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button

@@ -133,9 +133,9 @@ const formatTimeShort = (value: string | null | undefined) => {
 const formatTat = (minutes: number | null | undefined) => {
   if (typeof minutes !== 'number') return '—';
   if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+  // Hosted uses decimal hour format (e.g. "2.5h", "4.8h") for TAT badges/labels
+  const decimal = Math.round((minutes / 60) * 10) / 10;
+  return `${decimal}h`;
 };
 
 const ageGenderLabel = (age: number | null, gender: string | null) => {
@@ -331,11 +331,16 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
             {meta?.arabicName ? (
               <div className="text-[11px] text-indigo-100" dir="rtl">{meta.arabicName}</div>
             ) : null}
+            {facility?.address || facility?.city ? (
+              <div className="text-[10px] text-indigo-200/90">
+                {[facility?.address, facility?.city].filter(Boolean).join(' · ')} · DHA Licensed ✅
+              </div>
+            ) : null}
             <div className="mt-1 flex flex-wrap gap-1.5">
               <span className="rounded bg-emerald-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">DHA Lab ✅</span>
               <span className="rounded bg-blue-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-100">DHA Radiology ✅</span>
             </div>
-            <div className="mt-2 text-[10px] text-indigo-200">{displayName} · Active shift</div>
+            <div className="mt-2 text-[10px] text-indigo-200">{displayName} · Day Shift</div>
           </div>
         ) : null}
 
@@ -382,10 +387,15 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
             <div className="mx-1 mb-3 rounded-xl border border-white/5 bg-black/20 p-3 text-[11px] text-indigo-100">
               <div>
                 <span className="font-['DM_Mono'] text-white">{formatNumber(context.data?.metrics.sampleCountToday)}</span> samples ·{' '}
-                <span className="font-['DM_Mono'] text-white">{formatNumber(context.data?.metrics.studyCountToday)}</span> studies
+                <span className="font-['DM_Mono'] text-white">{formatNumber(context.data?.metrics.completedToday)}</span> complete
+              </div>
+              <div>
+                <span className="font-['DM_Mono'] text-white">{formatNumber(context.data?.metrics.studyCountToday)}</span> studies ·{' '}
+                <span className="font-['DM_Mono'] text-white">{formatNumber(context.data?.metrics.radiologyReports)}</span> reported
               </div>
               <div className="text-red-200">{formatNumber(context.data?.metrics.criticalUnnotified)} critical unnotified</div>
               <div className="text-violet-200">{formatNumber(context.data?.metrics.nabidhPending)} NABIDH pending</div>
+              <div className="mt-1 text-[10px] text-indigo-300/70">v2.4.1 · Production</div>
             </div>
           ) : null}
           <button
@@ -2231,30 +2241,63 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
     item.status === 'maintenance' ? 'bg-amber-100 text-amber-800' :
     item.status === 'warning' ? 'bg-orange-100 text-orange-700' :
     'bg-rose-100 text-rose-700';
-  // Hosted shows "SCANNING" / "ONLINE" / "QA IN PROGRESS" / "SCHEDULED" - we map status to display
-  const displayLabel =
-    department === 'radiology' && item.activeUserLabel ? 'SCANNING' :
-    department === 'radiology' && item.status === 'warning' ? (item.alert?.includes('QA') ? 'QA IN PROGRESS' : 'SCHEDULED') :
-    department === 'radiology' && item.status === 'online' ? 'ONLINE' :
-    item.status === 'maintenance' ? 'MAINTENANCE' :
-    item.status.toUpperCase();
+  // Hosted display labels:
+  //   Radiology: SCANNING (active scan), ONLINE, SCHEDULED (next slot soon), QA IN PROGRESS, MAINTENANCE
+  //   Laboratory: RUNNING (active batch), ONLINE, MAINTENANCE, WARNING
+  const isActivelyRunning = !!item.activeRemainingLabel && /remaining|ongoing/i.test(item.activeRemainingLabel);
+  const displayLabel = (() => {
+    if (item.status === 'maintenance' && !isActivelyRunning) return 'MAINTENANCE';
+    if (department === 'radiology') {
+      if (isActivelyRunning) return 'SCANNING';
+      if (item.status === 'warning') return item.alert?.toUpperCase().includes('QA') ? 'QA IN PROGRESS' : 'SCHEDULED';
+      return 'ONLINE';
+    }
+    if (isActivelyRunning) return 'RUNNING';
+    if (item.status === 'warning') return 'WARNING';
+    return 'ONLINE';
+  })();
+  const labelToneClass =
+    displayLabel === 'SCANNING' || displayLabel === 'RUNNING'
+      ? 'bg-violet-100 text-violet-700'
+      : displayLabel === 'MAINTENANCE'
+      ? 'bg-amber-100 text-amber-800'
+      : displayLabel === 'QA IN PROGRESS' || displayLabel === 'WARNING'
+      ? 'bg-orange-100 text-orange-700'
+      : displayLabel === 'SCHEDULED'
+      ? 'bg-cyan-100 text-cyan-700'
+      : statusColor;
+
+  // Hosted layout differs per department:
+  //   Radiology: status pill / NAME / model (equipmentType) / type (subtitle) / activity panel
+  //   Laboratory: status pill / department (room) / NAME / equipmentType / activity description (subtitle)
+  const isLab = department === 'laboratory';
 
   return (
     <SectionCard>
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${statusColor}`}>
+        <div className="min-w-0">
+          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${labelToneClass}`}>
             {displayLabel}
           </span>
-          <h3 className="mt-2 font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">{item.name}</h3>
-          {item.subtitle ? <p className="text-xs text-slate-500">{item.subtitle}</p> : null}
-          {item.equipmentType && item.equipmentType !== item.subtitle ? (
-            <p className="text-xs text-slate-500">{item.equipmentType}</p>
+          {isLab && item.room ? (
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{item.room}</p>
+          ) : null}
+          <h3 className={`${isLab ? 'mt-1' : 'mt-2'} font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900`}>{item.name}</h3>
+          {!isLab && item.equipmentType && item.equipmentType !== item.subtitle ? (
+            <p className="text-sm font-semibold text-slate-700">{item.equipmentType}</p>
+          ) : null}
+          {!isLab && item.subtitle ? <p className="text-xs text-slate-500">{item.subtitle}</p> : null}
+          {isLab && item.equipmentType ? <p className="text-xs text-slate-500">{item.equipmentType}</p> : null}
+          {isLab && item.subtitle ? (
+            <p className="mt-2 text-xs font-semibold text-slate-700">{item.subtitle}</p>
+          ) : null}
+          {isLab && item.activeRemainingLabel ? (
+            <p className="mt-1 text-xs text-slate-500">{item.activeRemainingLabel}</p>
           ) : null}
         </div>
       </div>
 
-      {item.activeUserLabel ? (
+      {!isLab && item.activeUserLabel ? (
         <div className="mt-3 rounded-lg bg-slate-50 p-2.5 text-xs">
           <div className="font-semibold text-slate-700">{item.activeUserLabel}</div>
           {item.activeRemainingLabel ? <div className="text-slate-500">{item.activeRemainingLabel}</div> : null}
@@ -2302,10 +2345,10 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
 
       <div className="mt-3 flex gap-2">
         <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
-          📋 Schedule
+          {isLab ? '📊 Stats' : '📋 Schedule'}
         </button>
         <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
-          ⚙️ Maintenance
+          {isLab ? '⚙️ Log Maintenance' : '⚙️ Maintenance'}
         </button>
       </div>
     </SectionCard>

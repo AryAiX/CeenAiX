@@ -12,6 +12,7 @@ import {
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyInventoryDerivedItem } from '../../hooks';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType =
@@ -139,8 +140,8 @@ const statusForInventory = (item: PharmacyInventoryDerivedItem): InventoryRow['s
   return 'in_stock';
 };
 
-const formatNumber = (value: number | null | undefined) =>
-  typeof value === 'number' ? value.toLocaleString() : '—';
+const formatNumber = (value: number | null | undefined, language: string) =>
+  typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
 
 const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] =>
   items.map((item) => {
@@ -172,7 +173,8 @@ const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] 
   });
 
 export const PharmacyInventory = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const uiLang = i18n.language ?? 'en';
   const { data, loading } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -235,7 +237,11 @@ export const PharmacyInventory = () => {
           <div>
             <h2 className="text-[20px] font-bold text-slate-900">Inventory Management</h2>
             <div className="text-[13px] text-slate-400">
-              Stock levels · {data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'} · {new Date().toLocaleDateString()}
+              Stock levels ·{' '}
+              {data?.profile?.displayName ??
+                data?.organization?.name ??
+                t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' })}{' '}
+              · {new Date().toLocaleDateString(uiLang)}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +272,7 @@ export const PharmacyInventory = () => {
           ].map((stat) => (
             <div key={stat.label} className={`rounded-xl border border-slate-100 px-4 py-3 shadow-sm ${stat.bg}`}>
               <div className={`font-mono text-[22px] font-bold ${stat.color}`}>
-                {loading ? '…' : formatNumber(stat.value)}
+                {loading ? '…' : formatNumber(stat.value, uiLang)}
               </div>
               <div className="mt-0.5 text-[11px] text-slate-500">{stat.label}</div>
             </div>
@@ -275,12 +281,14 @@ export const PharmacyInventory = () => {
 
         <div className="mx-6 mb-4 flex shrink-0 flex-wrap items-center gap-3">
           <div className="relative min-w-[240px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3" />
             <input
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Drug name, brand, ATC code, category..."
+              placeholder={t('pharmacy.inventory.searchPh', {
+                defaultValue: 'Drug name, brand, ATC code, category...',
+              })}
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
           </div>
@@ -296,7 +304,7 @@ export const PharmacyInventory = () => {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {filterLabels[key]} ({formatNumber(counts[key])})
+                {filterLabels[key]} ({formatNumber(counts[key], uiLang)})
               </button>
             ))}
           </div>
@@ -375,7 +383,7 @@ export const PharmacyInventory = () => {
                               : 'text-slate-800'
                         }`}
                       >
-                        {formatNumber(item.stockQty)}{' '}
+                        {formatNumber(item.stockQty, uiLang)}{' '}
                         <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
                       </div>
                       <div className="mt-1 h-1.5 w-24 rounded-full bg-slate-200">
@@ -401,7 +409,7 @@ export const PharmacyInventory = () => {
                     </div>
 
                     <div className="font-mono text-[12px] text-slate-500">
-                      {formatNumber(item.reorderLevel)} {item.unit}
+                      {formatNumber(item.reorderLevel, uiLang)} {item.unit}
                     </div>
 
                     <div>

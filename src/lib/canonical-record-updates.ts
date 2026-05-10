@@ -3,6 +3,7 @@ import type {
   PatientCanonicalUpdateStatus,
   PatientCanonicalUpdateStrategy,
 } from '../types';
+import i18n from 'i18next';
 import type { PreVisitAnswerDraft, PreVisitAutofillContext } from './pre-visit';
 import { supabase } from './supabase';
 
@@ -536,7 +537,11 @@ export const applyCanonicalUpdateRequests = async (requestIds: string[]) => {
 
   if (error) {
     console.error('Unable to apply canonical update requests', error);
-    throw new Error('Unable to apply those record updates right now.');
+    throw new Error(
+      i18n.t('records.errors.applyUpdates', {
+        defaultValue: 'Unable to apply those record updates right now.',
+      })
+    );
   }
 
   return Array.isArray(data) ? data : [];
@@ -557,7 +562,11 @@ export const dismissCanonicalUpdateRequests = async (requestIds: string[]) => {
 
   if (error) {
     console.error('Unable to dismiss canonical update requests', error);
-    throw new Error('Unable to dismiss those updates right now.');
+    throw new Error(
+      i18n.t('records.errors.dismissUpdates', {
+        defaultValue: 'Unable to dismiss those updates right now.',
+      })
+    );
   }
 };
 

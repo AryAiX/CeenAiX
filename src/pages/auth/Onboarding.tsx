@@ -29,7 +29,13 @@ interface OnboardingFormState {
 
 const JAKARTA: CSSProperties = { fontFamily: 'Plus Jakarta Sans, sans-serif' };
 
-const safeString = (value: unknown) => (typeof value === 'string' ? value : '');
+const safeString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
 const onboardingRoles: readonly UserRole[] = ['patient', 'doctor', 'pharmacy', 'lab', 'insurance', 'super_admin'];
 
@@ -549,14 +555,10 @@ export const Onboarding = () => {
                 </span>
               </label>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-                <button
-                  type="button"
-                  onClick={() => navigate(getDefaultRouteForRole(activeRole), { replace: true })}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
-                >
-                  {t('auth.onboarding.buttons.skip')}
-                </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                {/* Skip is intentionally not offered because ProtectedRoute will
+                    immediately bounce the user back here until profile_completed
+                    is true. Removed to avoid a redirect loop. */}
 
                 <button
                   type="submit"

@@ -800,7 +800,7 @@ export const PatientAIChat: React.FC = () => {
                                         <a
                                           href={href}
                                           target="_blank"
-                                          rel="noreferrer"
+                                          rel="noreferrer noopener"
                                           className="font-medium text-teal-300 underline"
                                         >
                                           {children}

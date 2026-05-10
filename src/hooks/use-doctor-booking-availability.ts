@@ -24,6 +24,8 @@ export function useDoctorBookingAvailability(doctorId: string | null | undefined
       const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 90);
+      const formatLocalDate = (date: Date) =>
+        `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 
       const [
         { data: availabilities, error: availabilitiesError },
@@ -41,8 +43,8 @@ export function useDoctorBookingAvailability(doctorId: string | null | undefined
           .from('blocked_slots')
           .select('*')
           .eq('doctor_id', doctorId)
-          .gte('blocked_date', startDate.toISOString().slice(0, 10))
-          .lte('blocked_date', endDate.toISOString().slice(0, 10))
+          .gte('blocked_date', formatLocalDate(startDate))
+          .lte('blocked_date', formatLocalDate(endDate))
           .order('blocked_date', { ascending: true })
           .order('start_time', { ascending: true }),
         supabase.rpc('get_doctor_booked_appointments', {

@@ -65,7 +65,7 @@ const getRequiredQuestionIssues = (
 };
 
 export const PatientPreVisitAssessment: React.FC = () => {
-  const { i18n } = useTranslation('common');
+  const { i18n, t } = useTranslation('common');
   const locale = resolveLocale(i18n.language);
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(i18n.language, options);
   const navigate = useNavigate();
@@ -539,7 +539,8 @@ export const PatientPreVisitAssessment: React.FC = () => {
                       </div>
                       {showAutofillPrompt ? (
                         <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">
-                          {answer?.autofillLabel ?? 'Autofilled from your record'}
+                          {answer?.autofillLabel ??
+                            t('patient.preVisit.autofilled', { defaultValue: 'Autofilled from your record' })}
                         </span>
                       ) : null}
                     </div>
@@ -551,7 +552,7 @@ export const PatientPreVisitAssessment: React.FC = () => {
                           value={textValue}
                           onChange={(event) => updateAnswer(question, event.target.value)}
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-ceenai-cyan focus:ring-2 focus:ring-ceenai-cyan/20"
-                          placeholder="Type your answer"
+                          placeholder={t('patient.preVisit.typeAnswerPh', { defaultValue: 'Type your answer' })}
                         />
                       ) : null}
 
@@ -561,24 +562,27 @@ export const PatientPreVisitAssessment: React.FC = () => {
                           value={textValue}
                           onChange={(event) => updateAnswer(question, event.target.value)}
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-ceenai-cyan focus:ring-2 focus:ring-ceenai-cyan/20"
-                          placeholder="Type your answer"
+                          placeholder={t('patient.preVisit.typeAnswerPh', { defaultValue: 'Type your answer' })}
                         />
                       ) : null}
 
                       {question.type === 'boolean' ? (
                         <div className="grid gap-3 sm:grid-cols-2">
-                          {['Yes', 'No'].map((option) => (
+                          {[
+                            { value: 'Yes', label: t('shared.yes', { defaultValue: 'Yes' }) },
+                            { value: 'No', label: t('shared.no', { defaultValue: 'No' }) },
+                          ].map((option) => (
                             <button
-                              key={option}
+                              key={option.value}
                               type="button"
-                              onClick={() => updateAnswer(question, option)}
+                              onClick={() => updateAnswer(question, option.value)}
                               className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                                textValue === option
+                                textValue === option.value
                                   ? 'border-cyan-500 bg-cyan-50 text-cyan-800'
                                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                               }`}
                             >
-                              {option}
+                              {option.label}
                             </button>
                           ))}
                         </div>

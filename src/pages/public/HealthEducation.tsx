@@ -181,7 +181,7 @@ export const HealthEducation: React.FC = () => {
                   </p>
                   <button className="mt-4 flex items-center space-x-1 text-sm font-semibold text-ceenai-blue transition-colors hover:text-ceenai-blue-dark">
                     <span>Read more</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                   </button>
                 </div>
               </div>

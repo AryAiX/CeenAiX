@@ -63,10 +63,14 @@ export const DoctorImaging = () => {
     });
   }, [activeStatus, modalityFilter, searchQuery, studies]);
   const imagingTabs = [
-    { id: 'all' as const, label: 'All studies', count: studies.length },
-    { id: 'pending' as const, label: 'Pending', count: pending },
-    { id: 'reported' as const, label: 'Reported', count: studies.length - pending },
-    { id: 'abnormal' as const, label: 'Abnormal', count: abnormal },
+    { id: 'all' as const, label: t('doctor.imaging.tabAll', { defaultValue: 'All studies' }), count: studies.length },
+    { id: 'pending' as const, label: t('doctor.imaging.tabPending', { defaultValue: 'Pending' }), count: pending },
+    {
+      id: 'reported' as const,
+      label: t('doctor.imaging.tabReported', { defaultValue: 'Reported' }),
+      count: studies.length - pending,
+    },
+    { id: 'abnormal' as const, label: t('doctor.imaging.tabAbnormal', { defaultValue: 'Abnormal' }), count: abnormal },
   ];
 
   if (loading) {
@@ -82,7 +86,7 @@ export const DoctorImaging = () => {
     <div className="animate-fadeIn space-y-6">
       {error ? (
         <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Imaging queue could not be loaded right now.
+          {t('doctor.imaging.loadError', { defaultValue: 'Imaging queue could not be loaded right now.' })}
         </div>
       ) : null}
 
@@ -101,17 +105,41 @@ export const DoctorImaging = () => {
             onClick={() => navigate('/doctor/lab-orders')}
             className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
           >
-            Open lab orders
+            {t('doctor.imaging.openLabOrders', { defaultValue: 'Open lab orders' })}
           </button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         {[
-          { label: 'Studies', value: studies.length, icon: ListChecks, color: 'text-violet-600', bg: 'bg-violet-100' },
-          { label: 'Pending', value: pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
-          { label: 'Reported', value: studies.length - pending, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
-          { label: 'Abnormal', value: abnormal, icon: Workflow, color: 'text-red-600', bg: 'bg-red-100' },
+          {
+            label: t('doctor.imaging.cardStudies', { defaultValue: 'Studies' }),
+            value: studies.length,
+            icon: ListChecks,
+            color: 'text-violet-600',
+            bg: 'bg-violet-100',
+          },
+          {
+            label: t('doctor.imaging.tabPending', { defaultValue: 'Pending' }),
+            value: pending,
+            icon: Clock,
+            color: 'text-amber-600',
+            bg: 'bg-amber-100',
+          },
+          {
+            label: t('doctor.imaging.tabReported', { defaultValue: 'Reported' }),
+            value: studies.length - pending,
+            icon: CheckCircle,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-100',
+          },
+          {
+            label: t('doctor.imaging.tabAbnormal', { defaultValue: 'Abnormal' }),
+            value: abnormal,
+            icon: Workflow,
+            color: 'text-red-600',
+            bg: 'bg-red-100',
+          },
         ].map((card) => {
           const Icon = card.icon;
           return (
@@ -130,15 +158,19 @@ export const DoctorImaging = () => {
         <div className="flex flex-col gap-4 border-b border-slate-100 p-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
             <Layers className="h-6 w-6 text-violet-600" />
-            <h2 className="text-lg font-bold text-slate-900">Imaging worklist</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              {t('doctor.imaging.worklist', { defaultValue: 'Imaging worklist' })}
+            </h2>
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative md:min-w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3" />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search patient, modality, study..."
+                placeholder={t('doctor.imaging.searchPh', {
+                  defaultValue: 'Search patient, modality, study...',
+                })}
                 className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
@@ -147,7 +179,7 @@ export const DoctorImaging = () => {
               onChange={(event) => setModalityFilter(event.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             >
-              <option value="all">All modalities</option>
+              <option value="all">{t('doctor.imaging.allModalities', { defaultValue: 'All modalities' })}</option>
               {modalities.map((modality) => (
                 <option key={modality} value={modality}>
                   {modality}
@@ -175,7 +207,9 @@ export const DoctorImaging = () => {
         </div>
         {filteredStudies.length === 0 ? (
           <div className="m-5 rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500">
-            No radiology-style orders are assigned to you yet.
+            {t('doctor.imaging.emptyState', {
+              defaultValue: 'No radiology-style orders are assigned to you yet.',
+            })}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -192,9 +226,11 @@ export const DoctorImaging = () => {
                 </div>
                 <div className="text-right text-sm">
                   <div className={study.isAbnormal ? 'font-bold text-red-600' : 'font-bold text-slate-700'}>
-                    {study.result ?? 'Pending'}
+                    {study.result ?? t('shared.labOrderItemStatus.pending', { defaultValue: 'Pending' })}
                   </div>
-                  <div className="text-xs text-slate-400">{study.status}</div>
+                  <div className="text-xs text-slate-400">
+                    {t(`shared.labOrderItemStatus.${study.status}`, { defaultValue: study.status })}
+                  </div>
                 </div>
               </div>
             ))}
@@ -203,7 +239,10 @@ export const DoctorImaging = () => {
       </div>
 
       <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
-        Doctor Imaging is backed by lab order items that look like radiology studies. Dedicated imaging/DICOM tables are still needed for full viewer parity.
+        {t('doctor.imaging.footerNote', {
+          defaultValue:
+            'Doctor Imaging is backed by lab order items that look like radiology studies. Dedicated imaging/DICOM tables are still needed for full viewer parity.',
+        })}
       </div>
     </div>
   );

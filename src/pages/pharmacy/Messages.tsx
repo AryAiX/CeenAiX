@@ -72,12 +72,13 @@ export const PharmacyMessages = () => {
 
   const [selectedId, setSelectedId] = useState(messages[0]?.id ?? 'msg-doctor');
   const selected = messages.find((message) => message.id === selectedId) ?? messages[0];
-  const style = typeStyles[selected.type];
+  const style = selected ? typeStyles[selected.type] : null;
+  const fallbackName = t('pharmacy.messages.fallbackName', { defaultValue: 'Pharmacy' });
 
   return (
     <OpsShell
-      title="Messages"
-      subtitle={`${data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'} communications`}
+      title={t('pharmacy.messages.title', { defaultValue: 'Messages' })}
+      subtitle={`${data?.profile?.displayName ?? data?.organization?.name ?? fallbackName} ${t('pharmacy.messages.communicationsSuffix', { defaultValue: 'communications' })}`}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
       navItems={PHARMACY_NAV_ITEMS(t, {
         prescriptions: data?.pendingPrescriptions || undefined,
@@ -90,8 +91,12 @@ export const PharmacyMessages = () => {
       <div className="flex min-h-full bg-slate-50">
         <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white">
           <div className="shrink-0 border-b border-slate-100 px-4 py-4">
-            <h2 className="text-[16px] font-bold text-slate-900">Messages</h2>
-            <div className="text-xs text-slate-400">Pharmacy communications</div>
+            <h2 className="text-[16px] font-bold text-slate-900">
+              {t('pharmacy.messages.title', { defaultValue: 'Messages' })}
+            </h2>
+            <div className="text-xs text-slate-400">
+              {t('pharmacy.messages.sidebarSubtitle', { defaultValue: 'Pharmacy communications' })}
+            </div>
           </div>
           {messages.map((message) => {
             const itemStyle = typeStyles[message.type];
@@ -131,20 +136,22 @@ export const PharmacyMessages = () => {
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className={`shrink-0 border-b border-slate-200 px-6 py-4 ${style.bg}`}>
-            <div className="flex items-center gap-3">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${style.avatar}`}>
-                {initialsFor(selected.contact)}
+          {selected && style ? (
+            <>
+              <div className={`shrink-0 border-b border-slate-200 px-6 py-4 ${style.bg}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${style.avatar}`}>
+                    {initialsFor(selected.contact)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-slate-900">{selected.contact}</div>
+                    <div className="text-xs text-slate-500">{selected.specialty}</div>
+                  </div>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 shadow-sm">
+                    {t(`pharmacy.messages.status.${selected.status}`, { defaultValue: selected.status })}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-slate-900">{selected.contact}</div>
-                <div className="text-xs text-slate-500">{selected.specialty}</div>
-              </div>
-              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 shadow-sm">
-                {selected.status}
-              </span>
-            </div>
-          </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
             {selected.thread.map((entry, index) => {
@@ -166,7 +173,7 @@ export const PharmacyMessages = () => {
                     {!fromPharmacy ? (
                       <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                         <Icon className="h-3 w-3" />
-                        {entry.kind}
+                        {t(`pharmacy.messages.kind.${entry.kind}`, { defaultValue: entry.kind })}
                       </div>
                     ) : null}
                     <div className="leading-6">{entry.content}</div>
@@ -178,20 +185,28 @@ export const PharmacyMessages = () => {
               );
             })}
           </div>
+            </>
+          ) : (
+            <div className="flex flex-1 items-center justify-center px-6 py-10 text-sm text-slate-500">
+              {t('pharmacy.messages.emptyState', { defaultValue: 'No messages yet.' })}
+            </div>
+          )}
 
           <div className="shrink-0 border-t border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2">
               <input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Type a secure pharmacy response..."
+                placeholder={t('pharmacy.messages.responsePlaceholder', {
+                  defaultValue: 'Type a secure pharmacy response...',
+                })}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => setDraft('')}
                 className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-                aria-label="Send message"
+                aria-label={t('messaging.sendMessage', { defaultValue: 'Send message' })}
               >
                 <Send className="h-4 w-4" />
               </button>

@@ -53,7 +53,7 @@ export const VerifyOTP = () => {
     resetFeedback();
 
     if (!phone && !email) {
-      setErrorMessage('We could not identify your verification destination. Please request a new code.');
+      setErrorMessage(t('auth.otp.errors.noDestination'));
       return;
     }
 
@@ -66,13 +66,13 @@ export const VerifyOTP = () => {
             phone,
             type: 'sms',
           })
-        : email
+        : type === 'email' && email
           ? await verifyOtp({
               token: token.trim(),
               email,
               type: 'email',
             })
-          : { error: new Error('We could not identify your verification destination. Please request a new code.') };
+          : { error: new Error(t('auth.otp.errors.noDestination')) };
 
     if (verificationResult.error) {
       setErrorMessage(getOtpVerificationErrorMessage(verificationResult.error.message));
@@ -80,7 +80,7 @@ export const VerifyOTP = () => {
       return;
     }
 
-    setSuccessMessage('Verification successful. Redirecting...');
+    setSuccessMessage(t('auth.otp.verifySuccess'));
     setIsSubmitting(false);
   };
 
@@ -88,7 +88,7 @@ export const VerifyOTP = () => {
     resetFeedback();
 
     if (!phone) {
-      setErrorMessage('Please go back and request a new verification code.');
+      setErrorMessage(t('auth.otp.errors.requestNew'));
       return;
     }
 
