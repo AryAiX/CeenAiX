@@ -1,5 +1,9 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
+
+const linkedDispensingTaskFallback = () =>
+  i18n.t('pharmacy.queue.linkedDispensingTask', { defaultValue: 'Linked dispensing task' });
 
 export interface PharmacyOrganization {
   id: string;
@@ -423,7 +427,7 @@ export function usePharmacyPrescriptionQueue() {
         id: claim.id,
         dispensingTaskId: claim.dispensing_task_id,
         externalRef: claim.external_ref,
-        patientName: task?.patientName ?? 'Linked dispensing task',
+        patientName: task?.patientName ?? linkedDispensingTaskFallback(),
         medication: task?.medication ?? claim.external_ref,
         payerName: claim.payer_name,
         amountAed: toNumber(claim.amount_aed),

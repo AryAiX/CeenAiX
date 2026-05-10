@@ -1192,6 +1192,7 @@
     "patients": {
       "title": "Patients",
       "subtitle": "Review your real patient list from completed and upcoming appointments.",
+      "insuranceOnFile": "Insurance on file",
       "searchPlaceholder": "Search patients by name, email, phone, blood type, or concern...",
       "count_one": "{{count}} patient",
       "count_other": "{{count}} patients",
