@@ -82,11 +82,14 @@ export const PatientDashboard: React.FC = () => {
     latestRecordedAt: null,
   };
   const isArabic = i18n.language.startsWith('ar');
+  const hour = new Date().getHours();
+  const greetingEn = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greetingAr = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء الخير';
   const localCopy = useMemo(
     () =>
       isArabic
         ? {
-            greeting: 'مساء الخير',
+            greeting: greetingAr,
             dateLocation: 'دبي، الإمارات',
             healthScore: 'مؤشر الصحة',
             adherence: 'الالتزام',
@@ -138,7 +141,7 @@ export const PatientDashboard: React.FC = () => {
             unavailable: 'غير متاح حالياً',
           }
         : {
-            greeting: 'Good afternoon',
+            greeting: greetingEn,
             dateLocation: 'Dubai, UAE',
             healthScore: 'Health Score',
             adherence: 'Adherence',
@@ -189,7 +192,7 @@ export const PatientDashboard: React.FC = () => {
             locationPending: 'Location available in appointment details',
             unavailable: 'Not available yet',
           },
-    [isArabic]
+    [isArabic, greetingAr, greetingEn]
   );
   const todayLabel = new Date().toLocaleDateString(
     locale,
@@ -205,7 +208,7 @@ export const PatientDashboard: React.FC = () => {
   const takenCount = medications.filter((medication) => medication.isDispensed).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
-      ? Math.min(100, Math.round((insurance.annualLimitUsed / insurance.annualLimit) * 100))
+      ? Math.min(100, Math.round(((insurance.annualLimitUsed ?? 0) / insurance.annualLimit) * 100))
       : 0;
   const latestHba1cDelta =
     latestHba1c && previousHba1c ? Number((latestHba1c.value - previousHba1c.value).toFixed(1)) : null;
@@ -876,7 +879,11 @@ export const PatientDashboard: React.FC = () => {
             </div>
 
             <div className="mb-4 rounded-xl bg-gradient-to-br from-slate-800 to-teal-700 p-4">
-              <p className="text-sm font-bold text-white">{insurance?.providerCompany?.toUpperCase() ?? 'DAMAN'}</p>
+              <p className="text-sm font-bold text-white">
+                {insurance?.providerCompany
+                  ? insurance.providerCompany.toUpperCase()
+                  : (isArabic ? 'لا يوجد مزوّد تأمين' : 'No insurer on file')}
+              </p>
               <p className="mt-0.5 text-xs text-teal-200">{insurance?.planName ?? (isArabic ? 'لا توجد خطة مرتبطة' : 'No linked plan yet')}</p>
               <p className="mt-3 text-xs text-white/70">{profile?.full_name ?? user?.email ?? displayName}</p>
               <p className="text-xs text-white/50">{insurance?.policyNumber ?? (isArabic ? 'رقم الوثيقة سيظهر هنا' : 'Policy number will appear here')}</p>
@@ -887,9 +894,9 @@ export const PatientDashboard: React.FC = () => {
                 <span className="text-slate-500">{localCopy.annualLimitUsed}</span>
                 <span className="font-semibold text-slate-700">
                   {insurance && insurance.annualLimit !== null
-                    ? `AED ${Math.round(insurance.annualLimitUsed).toLocaleString()} / ${Math.round(
+                    ? `AED ${Math.round(insurance.annualLimitUsed ?? 0).toLocaleString(locale)} / ${Math.round(
                         insurance.annualLimit
-                      ).toLocaleString()}`
+                      ).toLocaleString(locale)}`
                     : (isArabic ? 'لا توجد بيانات حد سنوي' : 'No annual limit data')}
                 </span>
               </div>
@@ -898,7 +905,7 @@ export const PatientDashboard: React.FC = () => {
               </div>
               <p className="mt-1.5 text-xs font-medium text-emerald-600">
                 {insurance && insurance.remainingAmount !== null
-                  ? `AED ${Math.round(insurance.remainingAmount).toLocaleString()} ${localCopy.remaining}`
+                  ? `AED ${Math.round(insurance.remainingAmount).toLocaleString(locale)} ${localCopy.remaining}`
                   : (isArabic ? 'لا توجد قيمة متبقية متاحة' : 'No remaining value available')}
               </p>
             </div>

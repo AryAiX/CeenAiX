@@ -672,7 +672,12 @@
       "hidePassword": "Hide password",
       "trustDha": "DHA Certified",
       "trustNabidh": "NABIDH Compliant",
-      "trustSsl": "256-bit SSL"
+      "trustSsl": "256-bit SSL",
+      "passwordUpdatedRedirecting": "Password updated successfully. Redirecting to your account...",
+      "errors": {
+        "passwordShort": "Use at least 8 characters for your new password.",
+        "passwordMismatch": "The new password and confirmation do not match."
+      }
     },
     "register": {
       "badge": "Healthcare Platform",
@@ -796,7 +801,9 @@
       "updating": "Updating...",
       "sendReset": "Send reset link",
       "sending": "Sending...",
-      "resetInfo": "We'll send a secure reset link to this email. The link routes back into CeenAiX so you can create a new password safely."
+      "resetInfo": "We'll send a secure reset link to this email. The link routes back into CeenAiX so you can create a new password safely.",
+      "resetSent": "Password reset instructions have been sent to your email.",
+      "passwordUpdated": "Password updated successfully. Redirecting to your dashboard..."
     },
     "otp": {
       "badge": "OTP Verification",
@@ -812,7 +819,12 @@
       "resending": "Resending...",
       "verify": "Verify code",
       "verifying": "Verifying...",
-      "resentOk": "A new verification code has been sent."
+      "resentOk": "A new verification code has been sent.",
+      "verifySuccess": "Verification successful. Redirecting...",
+      "errors": {
+        "noDestination": "We could not identify your verification destination. Please request a new code.",
+        "requestNew": "Please go back and request a new verification code."
+      }
     },
     "onboarding": {
       "badge": "Profile Setup",

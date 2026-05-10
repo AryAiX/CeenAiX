@@ -192,6 +192,7 @@
       "joinCallDisabled": "Join Call (Available 10 min before)",
       "getDirections": "Get Directions",
       "addToCalendar": "Add to Calendar",
+      "icsSummary": "Appointment with {doctor}",
       "preparationNotes": "Preparation Notes",
       "teleconsultBannerTitle": "Your teleconsult with {{doctor}}",
       "teleconsultBannerStartsIn": "Starts in {{time}}",

@@ -192,6 +192,7 @@
       "joinCallDisabled": "الانضمام (متاح قبل 10 دقائق)",
       "getDirections": "الاتجاهات",
       "addToCalendar": "إضافة للتقويم",
+      "icsSummary": "موعد مع {doctor}",
       "preparationNotes": "ملاحظات التحضير",
       "teleconsultBannerTitle": "استشارتك عن بُعد مع {{doctor}}",
       "teleconsultBannerStartsIn": "تبدأ خلال {{time}}",
