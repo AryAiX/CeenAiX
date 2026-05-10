@@ -179,3 +179,50 @@ Each bug includes a short identifier, the file affected, a description, and the 
 77. **PharmacyDashboard: `formatNumber` called `value.toLocaleString()` without a locale.** Stat tiles and counts used the browser's default locale rather than the active UI language, so Arabic users saw Western digits. `formatNumber` now accepts `language` and delegates to `formatLocaleDigits`.
 78. **PharmacyDispensing: same `toLocaleString()` issue across queue/inventory metrics.** Same fix applied.
 79. **PharmacyInventory: same `toLocaleString()` issue across stat tiles, filter counts, and stock columns.** Same fix applied.
+80. **PharmacyReports: completely hard-coded English (headings, KPI labels, status badges, fallback "Pharmacy" name, date).** Routed all copy through `pharmacy.reports.*` keys with Arabic translations and added `type="button"` on the export buttons. Numeric values now go through `formatLocaleDigits`.
+81. **PharmacyRevenue: similar problem — every label was English, currency formatted with hard-coded `en-AE`.** Refactored into `pharmacy.revenue.*` keys (incl. CLDR plural forms for the helper counts), and the AED currency formatter now honours the active i18n locale (Arabic-Indic digits for `ar`).
+82. **PharmacyInventory: 'Pharmacy' fallback and date were English-only.** Now uses `pharmacy.reports.fallbackName` and `toLocaleDateString(uiLang)`.
+83. **PharmacyProfile: large block of hard-coded English copy (badges, field labels, staff/credentials, operations panel).** Migrated to `pharmacy.profile.*` keys with Arabic translations; counts now use `formatLocaleDigits` and dates use `toLocaleDateString(uiLang)`.
+84. **PharmacySettings: title, subtitle, 'Notifications/DHA Compliance/NABIDH Sync' status cards, and toggle button aria-label were hard-coded English.** Routed through `pharmacy.settings.*` keys.
+85. **PharmacyMessages: title/subtitle/sidebar copy + status/kind badges + placeholder + send-message aria-label were hard-coded English.** Localized via `pharmacy.messages.*` and fixed a potential null-deref crash when `messages` is empty (`selected.type` was accessed unguarded) — now renders an empty state.
+86. **PharmacySettings: toggle thumb used physical `translate-x` classes** so the position broke in Arabic RTL. Added `rtl:-translate-x-*` overrides so the thumb tracks correctly in both directions.
+
+### Area 3 — Doctor portal pages (continued)
+
+87. **DoctorEarnings: KPI tile labels, tab labels, placeholder body, today's-revenue heading + empty state, status badges, and footer note were hard-coded English.** All routed through `doctor.earnings.*` keys; appointment status now uses the shared `shared.appointmentStatus.*` translations.
+88. **DoctorSettings: 11-item left-side navigation labels were hard-coded English; settings placeholder body and 5 toggle rows (title/body) were hard-coded English.** Migrated to `doctor.settings.*` keys; navigation now also exposes `aria-current` for the active section.
+89. **DoctorSettings: toggle thumb positioning broken in Arabic RTL.** `left-6` / `left-1` swapped for logical `start-6` / `start-1`.
+90. **DoctorPatients: 'No insurance', 'No active conditions', 'No visits', 'Not scheduled', 'Unknown', 'Today', 'Acknowledge', 'Open Record', 'Last Visit', 'Next Appt', pagination caption + sort labels were hard-coded English.** Routed through new `doctor.patients.*` keys.
+91. **DoctorImaging: imaging-worklist heading, tabs, KPI tiles, search placeholder, 'All modalities' option, empty state, error banner, footer note, and status badges hard-coded.** Localized via `doctor.imaging.*` keys; status badges defer to `shared.labOrderItemStatus.*`.
+92. **DoctorSchedule: two `window.confirm()` dialogs ('Delete this recurring availability window?' and 'Remove this blocked time…') plus 'Availability activated/paused' success banners were hard-coded English.** Localized via `doctor.schedule.*` keys.
+
+### Area 2 — Patient portal pages (continued)
+
+93. **PreVisitAssessment: textarea/input placeholders 'Type your answer', 'Autofilled from your record' badge, and Yes/No boolean buttons were hard-coded English.** Localized via `patient.preVisit.*` + new `shared.yes` / `shared.no` keys.
+94. **PatientAppointments: calendar previous/next-month buttons had hard-coded English `aria-label`s.** Routed through new `shared.previousMonth` / `shared.nextMonth` keys.
+95. **PatientSettings: toggle thumb positioning broken in Arabic RTL.** Same physical-to-logical class fix.
+
+### Area 9 — Shared components (continued)
+
+96. **OpsShell: header back button had a hard-coded `aria-label="Back"`.** Routed through the shared `pageHeader.goBack` key.
+
+### Area 8 — Hooks and data-fetching layer (continued)
+
+97. **useQuery: error fallback string 'An unknown error occurred' was English-only.** Now uses `i18n.t('shared.errors.unknown', ...)` so Arabic users get translated copy when a thrown value isn't an Error.
+98. **useDoctorPortalChrome: 'Patient' fallback for the active-consultation patient name was English-only.** Routed through `shared.patient`.
+99. **useDoctorLabOrders: two `'Patient'` fallbacks rendered in the doctor portal were English-only.** Routed through `shared.patient`.
+
+### Area 10 — Libraries (continued)
+
+100. **lib/messaging.ts: `DEFAULT_CARE_CONVERSATION_SUBJECT` was a captured English literal.** Added `getDefaultCareConversationSubject()` resolved at call-time via i18n, and updated `useMessagingHub.startDirectConversationWith` to use it.
+101. **lib/ai.ts: 'AI chat returned an invalid response.' and 'AI document analysis returned an invalid response.' throw messages were English-only.** Routed through `ai.errors.*` keys.
+102. **lib/canonical-record-updates.ts: 'Unable to apply those record updates right now.' / 'Unable to dismiss those updates right now.' were English-only.** Routed through `records.errors.*` keys.
+103. **lib/medication-enrichment.ts: 'Medication enrichment returned an invalid response.' English-only.** Routed through `ai.errors.invalidMedEnrichment`.
+
+### Area 9 — Shared components (continued)
+
+104. **PortalShell: estimated revenue used `toLocaleString()` without a locale.** Doctor users in Arabic saw Western digits for AED revenue; now passes `i18n.language`.
+
+### Cross-cutting security
+
+105. **MessagesWorkspace + patient/AIChat: `target="_blank"` links used `rel="noreferrer"` without `noopener`.** Added `noopener` to all such links (defence in depth against `window.opener`-based tabnabbing).
