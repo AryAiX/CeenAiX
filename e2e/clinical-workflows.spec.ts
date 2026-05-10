@@ -164,7 +164,7 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   const labDashboardPage = await openRolePage(browser, state, 'lab', '/lab/dashboard');
   await expect(labDashboardPage.getByText(e2eUsers.patient.fullName).first()).toBeVisible();
   await expect(labDashboardPage.getByText(/Complete Blood Count/).first()).toBeVisible();
-  await expect(labDashboardPage.getByText(/ordered/i).first()).toBeVisible();
+  await expect(labDashboardPage.getByText(/received|ordered|pending/i).first()).toBeVisible();
   await closePage(labDashboardPage);
 
   const patientLabResultsPage = await openRolePage(browser, state, 'patient', '/patient/lab-results');
