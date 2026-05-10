@@ -1,11 +1,13 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertOctagon,
+  AlertTriangle,
   BarChart3,
   Bell,
   BookOpen,
   Building2,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,12 +18,17 @@ import {
   LogOut,
   Search,
   Settings,
+  Sparkles,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import {
   useInsurancePortal,
+  type InsuranceAiInsight,
   type InsuranceClaim,
+  type InsuranceFraudAlert,
+  type InsuranceMonthlyClaimsVolumePoint,
+  type InsuranceNetworkProvider,
   type InsurancePortalData,
   type InsurancePreAuthorization,
 } from '../../hooks';
@@ -387,50 +394,6 @@ const PreAuthAlert = ({ item }: { item: InsurancePreAuthorization | null }) => {
   );
 };
 
-const PreAuthTable = ({ rows }: { rows: InsurancePreAuthorization[] }) => (
-  <div className="overflow-hidden rounded-xl border border-slate-100">
-    <div className="overflow-x-auto">
-      <div className="min-w-[860px] divide-y divide-slate-100">
-        {rows.map((row) => (
-          <div key={row.id} className="grid grid-cols-[1.2fr_1.4fr_1fr_90px_120px_110px] items-center gap-4 px-4 py-3 text-sm">
-            <div>
-              <div className="font-mono text-xs font-bold text-slate-700">{row.externalRef}</div>
-              <div className="text-xs text-slate-400">{row.providerName}</div>
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">{row.procedureName}</div>
-              <div className="text-xs text-slate-500">{row.patientName}</div>
-            </div>
-            <div className="text-xs text-slate-500">{row.clinicianName}</div>
-            <StatusPill tone={statusTone(row.priority)}>{titleCase(row.priority)}</StatusPill>
-            <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(row.requestedAmountAed)}</div>
-            <div className={row.status === 'overdue' ? 'text-xs font-semibold text-red-700' : 'text-xs text-slate-500'}>{formatSla(row.slaDueAt)}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const ClaimsList = ({ claims }: { claims: InsuranceClaim[] }) => (
-  <div className="overflow-hidden rounded-xl border border-slate-100">
-    <div className="divide-y divide-slate-100">
-      {claims.map((claim) => (
-        <div key={claim.id} className="grid grid-cols-[minmax(0,1fr)_130px_120px] items-center gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900">{claim.patientName}</div>
-            <div className="truncate text-xs text-slate-500">
-              {claim.externalRef} · {claim.planName} · {claim.providerName}
-            </div>
-          </div>
-          <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(claim.amountAed)}</div>
-          <StatusPill tone={statusTone(claim.status)}>{titleCase(claim.status)}</StatusPill>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 const ClaimsTodayCard = ({ claims, activeMembers }: { claims: InsuranceClaim[]; activeMembers: number | null | undefined }) => {
   const groups = [
     {
@@ -554,6 +517,304 @@ const ClaimsTodayCard = ({ claims, activeMembers }: { claims: InsuranceClaim[]; 
   );
 };
 
+// ============================================================================
+// Hosted-style helpers (parity with bolt reference)
+// ============================================================================
+
+const KpiHostedCard = ({
+  label,
+  value,
+  caption,
+  tone,
+}: {
+  label: string;
+  value: string;
+  caption: ReactNode;
+  tone: 'amber' | 'blue' | 'emerald' | 'red' | 'violet' | 'slate';
+}) => {
+  const toneMap: Record<string, { ring: string; bg: string; text: string }> = {
+    amber: { ring: 'ring-amber-100', bg: 'bg-amber-50', text: 'text-amber-700' },
+    blue: { ring: 'ring-blue-100', bg: 'bg-blue-50', text: 'text-blue-700' },
+    emerald: { ring: 'ring-emerald-100', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+    red: { ring: 'ring-red-100', bg: 'bg-red-50', text: 'text-red-700' },
+    violet: { ring: 'ring-violet-100', bg: 'bg-violet-50', text: 'text-violet-700' },
+    slate: { ring: 'ring-slate-100', bg: 'bg-slate-50', text: 'text-slate-700' },
+  };
+  const t = toneMap[tone];
+  return (
+    <article className={`rounded-2xl bg-white p-4 shadow-sm ring-1 ${t.ring}`}>
+      <div className={`mb-2 inline-flex rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${t.bg} ${t.text}`}>
+        {label}
+      </div>
+      <div className="font-mono text-2xl font-bold leading-none text-slate-900">{value}</div>
+      <div className="mt-2 text-[11px] font-medium leading-tight text-slate-500">{caption}</div>
+    </article>
+  );
+};
+
+const aiRecBadge = (rec: InsurancePreAuthorization['aiRecommendation']) => {
+  if (rec === 'approve') return { label: '✓ AI: APPROVE', cls: 'bg-emerald-100 text-emerald-700 ring-emerald-200' };
+  if (rec === 'review') return { label: '⚠ AI: REVIEW', cls: 'bg-amber-100 text-amber-700 ring-amber-200' };
+  if (rec === 'deny') return { label: '✗ AI: DENY', cls: 'bg-rose-100 text-rose-700 ring-rose-200' };
+  return { label: '— AI: PENDING', cls: 'bg-slate-100 text-slate-600 ring-slate-200' };
+};
+
+const planTierTone = (label: string | null) => {
+  const v = (label ?? '').toLowerCase();
+  if (v.includes('gold')) return 'bg-amber-50 text-amber-700 ring-amber-200';
+  if (v.includes('silver')) return 'bg-slate-100 text-slate-700 ring-slate-200';
+  if (v.includes('basic')) return 'bg-blue-50 text-blue-700 ring-blue-200';
+  return 'bg-slate-50 text-slate-600 ring-slate-200';
+};
+
+const ageGenderShort = (age: number | null, gender: string | null) => {
+  if (age == null && !gender) return '';
+  const g = gender ? gender.charAt(0).toUpperCase() : '';
+  if (age == null) return g;
+  return `${age}${g}`;
+};
+
+const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; max?: number }) => {
+  const visible = max ? rows.slice(0, max) : rows;
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-100">
+      <div className="overflow-x-auto">
+        <table className="min-w-[1080px] w-full text-sm">
+          <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+            <tr>
+              <th className="px-3 py-2.5">PA Ref</th>
+              <th className="px-3 py-2.5">Patient</th>
+              <th className="px-3 py-2.5">Doctor / Clinic</th>
+              <th className="px-3 py-2.5">Procedure</th>
+              <th className="px-3 py-2.5">Est. Cost</th>
+              <th className="px-3 py-2.5">AI Rec</th>
+              <th className="px-3 py-2.5">SLA</th>
+              <th className="px-3 py-2.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {visible.map((row) => {
+              const overdue = row.status === 'overdue';
+              const ai = aiRecBadge(row.aiRecommendation);
+              const slaLabel = overdue ? 'OVERDUE' : formatSla(row.slaDueAt);
+              return (
+                <tr key={row.id} className={`align-top ${overdue ? 'bg-red-50/50' : ''}`}>
+                  <td className="px-3 py-3">
+                    <div className="font-mono text-xs font-bold text-slate-700">{row.externalRef.replace(/^PA-\d+-/, 'PA-')}</div>
+                    {overdue ? (
+                      <span className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 ring-1 ring-red-200">
+                        OVERDUE
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="text-sm font-semibold text-slate-900">{row.patientName}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                      {row.planLabel ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${planTierTone(row.planLabel)}`}>
+                          {row.planLabel}
+                        </span>
+                      ) : null}
+                      {ageGenderShort(row.patientAge, row.patientGender) ? (
+                        <span className="font-mono text-[10px] text-slate-500">{ageGenderShort(row.patientAge, row.patientGender)}</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="text-sm font-semibold text-slate-700">{row.clinicianName}</div>
+                    <div className="text-xs text-slate-500">{row.providerName}</div>
+                    {row.isCeenaixEprescribed ? (
+                      <div className="mt-0.5 text-[10px] font-semibold text-emerald-700">CeenAiX ✅</div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="text-sm font-semibold text-slate-900">{row.procedureName}</div>
+                    {row.procedureIcdCode ? (
+                      <div className="font-mono text-[10px] text-slate-500">{row.procedureIcdCode}</div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(row.requestedAmountAed)}</div>
+                    {row.coverageLabel ? (
+                      <div className={`text-[11px] font-semibold ${row.coverageLabel.toLowerCase().includes('not') ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {row.coverageLabel}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${ai.cls}`}>
+                      {ai.label}
+                    </span>
+                    {row.aiConfidencePercent != null ? (
+                      <div className="mt-0.5 font-mono text-[10px] text-slate-500">{row.aiConfidencePercent}% confidence</div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`text-xs font-bold ${overdue ? 'text-red-700' : 'text-slate-600'}`}>{slaLabel}</span>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <button className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700">Approve</button>
+                      <button className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">Review</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {visible.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-center text-sm text-slate-500">No pre-authorizations match this filter.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const AiInsightCard = ({ insight }: { insight: InsuranceAiInsight }) => {
+  const tone =
+    insight.insightType === 'preventive'
+      ? 'border-blue-200 bg-blue-50'
+      : insight.insightType === 'cluster_risk' || insight.insightType === 'cluster'
+        ? 'border-amber-200 bg-amber-50'
+        : 'border-emerald-200 bg-emerald-50';
+  return (
+    <div className={`rounded-xl border p-3 ${tone}`}>
+      <div className="text-sm font-bold text-slate-900">{insight.title}</div>
+      <p className="mt-1 text-xs leading-relaxed text-slate-700">{insight.description}</p>
+      {insight.savingsLabel ? (
+        <div className="mt-2 font-mono text-[11px] font-semibold text-slate-600">{insight.savingsLabel}</div>
+      ) : null}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {insight.primaryActionLabel ? (
+          <button className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f]">
+            {insight.primaryActionLabel}
+          </button>
+        ) : null}
+        {insight.secondaryActionLabel ? (
+          <button className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">
+            {insight.secondaryActionLabel}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+const FraudAlertCard = ({ alert }: { alert: InsuranceFraudAlert }) => {
+  const isHigh = alert.severity === 'high';
+  return (
+    <div className={`rounded-xl border p-3 ${isHigh ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+      <div className="flex items-center justify-between">
+        <span className={`text-[11px] font-bold uppercase ${isHigh ? 'text-red-700' : 'text-amber-700'}`}>
+          {isHigh ? '🔴 HIGH' : '🟡 MEDIUM'} ({alert.score}% confidence)
+        </span>
+      </div>
+      <div className="mt-1 text-sm font-bold text-slate-900">{alert.subjectName}</div>
+      <div className="mt-1 text-xs leading-relaxed text-slate-700">{alert.reason}</div>
+      <div className="mt-2 font-mono text-[11px] font-semibold text-slate-600">
+        Amount at risk: {formatCurrency(alert.exposureAmountAed)}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700">Investigate</button>
+        <button className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100">Freeze Claims</button>
+      </div>
+    </div>
+  );
+};
+
+const fraudScoreBadge = (score: 'low' | 'medium' | 'high' | null) => {
+  if (score === 'high') return { label: '🔴 HIGH', cls: 'text-red-700' };
+  if (score === 'medium') return { label: '🟡 Medium', cls: 'text-amber-700' };
+  if (score === 'low') return { label: '🟢 Low', cls: 'text-emerald-700' };
+  return { label: '—', cls: 'text-slate-500' };
+};
+
+const NetworkProvidersTable = ({ rows }: { rows: InsuranceNetworkProvider[] }) => (
+  <div className="overflow-hidden rounded-xl border border-slate-100">
+    <div className="overflow-x-auto">
+      <table className="min-w-[640px] w-full text-sm">
+        <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+          <tr>
+            <th className="px-3 py-2.5">Provider</th>
+            <th className="px-3 py-2.5 text-right">Claims</th>
+            <th className="px-3 py-2.5 text-right">Avg Value</th>
+            <th className="px-3 py-2.5 text-right">Denial %</th>
+            <th className="px-3 py-2.5">Fraud Score</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {rows.map((row) => {
+            const fraud = fraudScoreBadge(row.fraudScore);
+            const denialOk = row.denialRatePercent != null && row.denialRatePercent < 5;
+            return (
+              <tr key={row.id} className="align-top">
+                <td className="px-3 py-3">
+                  <div className="text-sm font-semibold text-slate-900">{row.providerName}</div>
+                  <div className="text-xs text-slate-500">{row.performanceFlag}</div>
+                </td>
+                <td className="px-3 py-3 text-right font-mono text-sm text-slate-700">{row.claimsCount}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm font-bold text-slate-800">{formatCurrency(row.averageCostAed)}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm font-bold">
+                  <span className={denialOk ? 'text-emerald-700' : 'text-amber-700'}>
+                    {row.denialRatePercent ?? row.approvalRatePercent}%{denialOk ? ' ✅' : ' ⚠'}
+                  </span>
+                </td>
+                <td className={`px-3 py-3 font-bold ${fraud.cls}`}>{fraud.label}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const MonthlyVolumeChart = ({ points }: { points: InsuranceMonthlyClaimsVolumePoint[] }) => {
+  const maxValue = Math.max(1, ...points.map((p) => p.claimsValueAed));
+  const maxCount = Math.max(1, ...points.map((p) => p.claimsCount));
+  const [mode, setMode] = useState<'volume' | 'value' | 'both'>('both');
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap gap-2">
+        {(['volume', 'value', 'both'] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`rounded-full px-3 py-1.5 text-[11px] font-bold capitalize ${
+              mode === m ? 'bg-[#1E3A5F] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {points.map((p) => {
+          const valueH = Math.round((p.claimsValueAed / maxValue) * 100);
+          const countH = Math.round((p.claimsCount / maxCount) * 100);
+          return (
+            <div key={p.id} className={`flex h-44 flex-col justify-end rounded-xl p-2 ${p.isCurrentMonth ? 'bg-blue-50 ring-1 ring-blue-200' : 'bg-slate-50'}`}>
+              <div className="flex flex-1 items-end gap-1">
+                {(mode === 'volume' || mode === 'both') ? (
+                  <div className="w-full rounded-t bg-blue-500" style={{ height: `${countH}%` }} />
+                ) : null}
+                {(mode === 'value' || mode === 'both') ? (
+                  <div className="w-full rounded-t bg-violet-500" style={{ height: `${valueH}%` }} />
+                ) : null}
+              </div>
+              <div className="mt-2 text-center font-mono text-[11px] text-slate-700">{p.monthLabel}</div>
+              <div className="text-center font-mono text-[10px] text-slate-500">{(p.claimsValueAed / 1_000_000).toFixed(1)}M</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const useInsurancePageData = () => {
   const query = useInsurancePortal();
   const data = query.data;
@@ -575,43 +836,269 @@ const useInsurancePageData = () => {
 };
 
 export const InsurancePortal = () => {
-  const { data, loading, pendingPreAuths, overduePreAuth, claimTotal, approvedClaims, openFraud } = useInsurancePageData();
+  const navigate = useNavigate();
+  const { data, loading, overduePreAuth, openFraud } = useInsurancePageData();
+  const profile = data?.profile ?? null;
+  const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
+  const fraudAlerts = data?.fraudAlerts ?? [];
+  const aiInsights = data?.aiInsights ?? [];
+  const monthlyVolume = data?.monthlyClaimsVolume ?? [];
+  const pendingPreAuths = preAuths.filter((p) => p.status === 'review' || p.status === 'overdue');
+  const urgentPending = preAuths.filter((p) => p.priority === 'urgent' && p.status !== 'approved' && p.status !== 'denied').length;
+  const standardPending = pendingPreAuths.length - urgentPending;
+  const aiHigh = fraudAlerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
+  const aiMedium = fraudAlerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
+  const aiBulkApproveCount = preAuths.filter((p) => p.aiRecommendation === 'approve' && p.aiConfidencePercent != null && p.aiConfidencePercent >= 95 && p.status !== 'approved').length;
+
+  const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue'>('all');
+  const filtered = useMemo(() => {
+    if (filter === 'urgent') return preAuths.filter((p) => p.priority === 'urgent');
+    if (filter === 'review') return preAuths.filter((p) => p.aiRecommendation === 'review');
+    if (filter === 'deny') return preAuths.filter((p) => p.aiRecommendation === 'deny');
+    if (filter === 'overdue') return preAuths.filter((p) => p.status === 'overdue');
+    return preAuths;
+  }, [preAuths, filter]);
+
+  const filterTabs: Array<{ id: typeof filter; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: preAuths.length },
+    { id: 'urgent', label: 'Urgent', count: preAuths.filter((p) => p.priority === 'urgent').length },
+    { id: 'review', label: 'AI: Review', count: preAuths.filter((p) => p.aiRecommendation === 'review').length },
+    { id: 'deny', label: 'AI: Deny', count: preAuths.filter((p) => p.aiRecommendation === 'deny').length },
+    { id: 'overdue', label: 'Overdue', count: preAuths.filter((p) => p.status === 'overdue').length },
+  ];
 
   return (
     <InsuranceShell data={data}>
       <PreAuthAlert item={overduePreAuth} />
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Active Members" value={loading ? '...' : formatNumber(data?.profile?.activeMembers ?? data?.members.length)} helper={`${formatNumber(data?.members.length ?? 0)} seeded member records`} tone="blue" />
-        <KpiCard label="Pre-Auth Pending" value={loading ? '...' : pendingPreAuths.length} helper={`${data?.preAuthorizations.filter((item) => item.status === 'overdue').length ?? 0} overdue`} tone="amber" />
-        <KpiCard label="Claims Value" value={loading ? '...' : formatCurrency(claimTotal)} helper={`${approvedClaims.length} approved claims`} tone="emerald" />
-        <KpiCard label="Fraud Alerts" value={loading ? '...' : openFraud.length} helper="Open fraud_alerts records" tone="red" />
+
+      {/* Hosted-style 6-tile KPI grid */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiHostedCard
+          label="Pending Pre-Authorizations"
+          value={loading ? '...' : formatNumber(pendingPreAuths.length)}
+          caption={
+            <>
+              <span className="font-bold text-amber-700">{urgentPending} urgent</span>
+              <span className="text-slate-400"> ({profile?.slaTargetUrgentHours ?? 4}h)</span>
+              <span className="text-slate-400"> · </span>
+              <span>{standardPending} standard</span>
+            </>
+          }
+          tone="amber"
+        />
+        <KpiHostedCard
+          label="Claims Submitted Today"
+          value={loading ? '...' : formatNumber(profile?.claimsTodayCount)}
+          caption={
+            <>
+              <div className="font-mono font-bold text-slate-700">{formatCurrency(profile?.claimsTodayTotalAed)}</div>
+              {profile?.aiAutoApprovalPercent != null ? (
+                <div>{profile.aiAutoApprovalPercent}% auto-approved</div>
+              ) : null}
+            </>
+          }
+          tone="blue"
+        />
+        <KpiHostedCard
+          label="AI Auto-Approval Rate"
+          value={loading ? '...' : `${profile?.aiAutoApprovalPercent ?? 0}%`}
+          caption={
+            <>
+              <div>
+                {formatNumber(profile?.claimsTodayApprovedCount)} of {formatNumber(profile?.claimsTodayCount)} claims today
+              </div>
+              {profile?.aiAutoApprovalChangePercent != null ? (
+                <div className="text-emerald-700">↑ +{profile.aiAutoApprovalChangePercent}% vs last week</div>
+              ) : null}
+            </>
+          }
+          tone="emerald"
+        />
+        <KpiHostedCard
+          label="Active Fraud Alerts"
+          value={loading ? '...' : formatNumber(openFraud.length)}
+          caption={
+            <>
+              <span className="font-bold text-red-700">{aiHigh} HIGH risk</span>
+              <span className="text-slate-400"> · </span>
+              <span>{aiMedium} medium</span>
+            </>
+          }
+          tone="red"
+        />
+        <KpiHostedCard
+          label="Avg Processing Time"
+          value={loading ? '...' : `${profile?.avgProcessingHours ?? 0}h`}
+          caption={
+            <>
+              <div>DHA target: {profile?.slaTargetStandardHours ?? 8}h standard ✅</div>
+              <div className="text-amber-700">{profile?.slaTargetUrgentHours ?? 4}h urgent ⚠️ ({preAuths.filter((p) => p.status === 'overdue').length} breach)</div>
+            </>
+          }
+          tone="violet"
+        />
+        <KpiHostedCard
+          label="Active Members on CeenAiX"
+          value={loading ? '...' : formatNumber(profile?.activeMembers)}
+          caption={
+            <>
+              Gold {formatNumber(profile?.membersGold)}
+              <span className="text-slate-400"> · </span>
+              Silver {formatNumber(profile?.membersSilver)}
+              <span className="text-slate-400"> · </span>
+              Basic {formatNumber(profile?.membersBasic)}
+            </>
+          }
+          tone="slate"
+        />
       </section>
+
+      {/* Pre-Auth Queue + Right-rail (Claims Today, AI Insights) */}
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        <div className="xl:col-span-3">
-          <SectionCard title="Urgent Pre-Authorization Queue" subtitle="DHA SLA monitored queue">
-            <PreAuthTable rows={pendingPreAuths} />
-          </SectionCard>
-        </div>
-        <div className="space-y-5 xl:col-span-2">
-          <ClaimsTodayCard claims={data?.claims ?? []} activeMembers={data?.profile?.activeMembers} />
-          <SectionCard title="AI Risk Insights" subtitle="Fraud alert records from Supabase">
-            <div className="space-y-3">
-              {(data?.fraudAlerts ?? []).slice(0, 3).map((alert) => (
-                <div key={alert.id} className="rounded-xl border border-red-100 bg-red-50 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-red-700">{alert.severity.toUpperCase()}</span>
-                    <span className="font-mono text-xs text-red-600">{alert.score}%</span>
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">{alert.subjectName}</div>
-                  <div className="mt-1 text-xs text-slate-500">{alert.reason}</div>
+        <div className="space-y-5 xl:col-span-3">
+          <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-[15px] font-bold text-slate-900">Pre-Authorization Queue</h2>
+                <p className="mt-0.5 text-xs text-slate-400">{pendingPreAuths.length} pending · DHA response required</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+                  Bulk Approve AI Recommended ({aiBulkApproveCount})
+                </button>
+                <button onClick={() => navigate('/insurance/preauth')} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                  View All →
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-slate-100 px-5 py-3">
+              <div className="flex flex-wrap gap-1.5">
+                {filterTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setFilter(tab.id)}
+                    className={`rounded-full px-3 py-1 text-[11px] font-bold ${filter === tab.id ? 'bg-[#1E3A5F] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    {tab.label} <span className="opacity-70">{tab.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-5">
+              <PreAuthHostedTable rows={filtered} max={5} />
+              {filtered.length > 5 ? (
+                <button onClick={() => navigate('/insurance/preauth')} className="mt-3 w-full rounded-lg bg-slate-50 px-4 py-2 text-xs font-bold text-[#1E3A5F] hover:bg-slate-100">
+                  Show {filtered.length - 5} more pre-auths →
+                </button>
+              ) : null}
+            </div>
+          </article>
+
+          {/* Claims Volume Chart */}
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[15px] font-bold text-slate-900">Claims Volume &amp; Value — {monthlyVolume[0]?.year ?? new Date().getFullYear()}</h2>
+                <p className="text-xs text-slate-400">Monthly claims trend</p>
+              </div>
+            </div>
+            <MonthlyVolumeChart points={monthlyVolume} />
+            {profile?.claimsMtdAed != null && profile?.claimsBudgetAed != null ? (
+              <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs">
+                <div className="text-slate-700">
+                  April on-track: <span className="font-mono font-bold">{formatCurrency(profile.claimsMtdAed)}</span> /{' '}
+                  <span className="font-mono font-bold">{formatCurrency(profile.claimsBudgetAed)} budget</span>{' '}
+                  ({profile.claimsBudgetPct ?? 0}%)
                 </div>
+                {profile.priorMonthGrowthPercent != null ? (
+                  <div className="mt-1 text-emerald-700">↑ March was {profile.priorMonthGrowthPercent}% over previous month</div>
+                ) : null}
+              </div>
+            ) : null}
+          </article>
+        </div>
+
+        <div className="space-y-5 xl:col-span-2">
+          <ClaimsTodayCard claims={data?.claims ?? []} activeMembers={profile?.activeMembers} />
+
+          <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="flex items-center gap-1.5 text-[15px] font-bold text-slate-900">
+                  <Sparkles className="h-4 w-4 text-violet-500" /> AI Risk Intelligence
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-400">Powered by CeenAiX AI · Risk management insights</p>
+              </div>
+            </div>
+            <div className="space-y-3 p-5">
+              {aiInsights.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs text-slate-500">
+                  No AI insights available.
+                </div>
+              ) : null}
+              {aiInsights.map((insight) => (
+                <AiInsightCard key={insight.id} insight={insight} />
               ))}
             </div>
-          </SectionCard>
-          <SectionCard title="Recent Claims">
-            <ClaimsList claims={data?.claims ?? []} />
-          </SectionCard>
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-[15px] font-bold text-slate-900">Fraud Alerts</h2>
+                <p className="mt-0.5 text-xs text-slate-400">{openFraud.length} active · AI-flagged</p>
+              </div>
+              <button onClick={() => navigate('/insurance/fraud')} className="text-xs font-bold text-[#1E3A5F] hover:text-[#27537f]">View All →</button>
+            </div>
+            <div className="space-y-3 p-5">
+              {openFraud.filter((a) => a.severity === 'high').slice(0, 2).map((alert) => (
+                <FraudAlertCard key={alert.id} alert={alert} />
+              ))}
+              {aiMedium > 0 ? (
+                <button onClick={() => navigate('/insurance/fraud')} className="block w-full rounded-lg bg-amber-50 px-3 py-2 text-left text-xs font-semibold text-amber-700 ring-1 ring-amber-100 hover:bg-amber-100">
+                  {aiMedium} medium risk alerts →
+                </button>
+              ) : null}
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-[15px] font-bold text-slate-900">Top Network Providers</h2>
+                <p className="mt-0.5 text-xs text-slate-400">By claims volume this month</p>
+              </div>
+              <button onClick={() => navigate('/insurance/network')} className="text-xs font-bold text-[#1E3A5F] hover:text-[#27537f]">View All →</button>
+            </div>
+            <div className="p-5">
+              <NetworkProvidersTable rows={data?.networkProviders ?? []} />
+            </div>
+          </article>
         </div>
+      </section>
+
+      {/* Bottom action button row */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {[
+          { label: 'Review Pre-Auths', icon: ClipboardList, href: '/insurance/preauth' },
+          { label: 'Bulk Approve', icon: CheckCircle2, href: '/insurance/preauth' },
+          { label: 'Review Fraud', icon: AlertTriangle, href: '/insurance/fraud' },
+          { label: 'Generate Report', icon: FileText, href: '/insurance/reports' },
+          { label: 'Member Search', icon: Users, href: '/insurance/members' },
+          { label: 'Provider Query', icon: Building2, href: '/insurance/network' },
+        ].map((btn) => {
+          const Icon = btn.icon;
+          return (
+            <button
+              key={btn.label}
+              onClick={() => navigate(btn.href)}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#1E3A5F] hover:bg-slate-50"
+            >
+              <Icon className="h-4 w-4 text-[#1E3A5F]" />
+              <span>{btn.label}</span>
+            </button>
+          );
+        })}
       </section>
     </InsuranceShell>
   );
@@ -619,94 +1106,356 @@ export const InsurancePortal = () => {
 
 export const InsurancePreAuthorizations = () => {
   const { data, overduePreAuth } = useInsurancePageData();
+  const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue' | 'approved'>('all');
+  const filtered = useMemo(() => {
+    let rows = preAuths;
+    if (filter === 'urgent') rows = rows.filter((p) => p.priority === 'urgent');
+    else if (filter === 'review') rows = rows.filter((p) => p.aiRecommendation === 'review');
+    else if (filter === 'deny') rows = rows.filter((p) => p.aiRecommendation === 'deny');
+    else if (filter === 'overdue') rows = rows.filter((p) => p.status === 'overdue');
+    else if (filter === 'approved') rows = rows.filter((p) => p.status === 'approved');
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (p) =>
+          p.externalRef.toLowerCase().includes(q) ||
+          p.patientName.toLowerCase().includes(q) ||
+          p.providerName.toLowerCase().includes(q) ||
+          p.procedureName.toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [preAuths, filter, search]);
+
+  const aiBulkApprove = preAuths.filter((p) => p.aiRecommendation === 'approve' && (p.aiConfidencePercent ?? 0) >= 95).length;
+
+  const filterTabs: Array<{ id: typeof filter; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: preAuths.length },
+    { id: 'urgent', label: 'Urgent', count: preAuths.filter((p) => p.priority === 'urgent').length },
+    { id: 'review', label: 'AI: Review', count: preAuths.filter((p) => p.aiRecommendation === 'review').length },
+    { id: 'deny', label: 'AI: Deny', count: preAuths.filter((p) => p.aiRecommendation === 'deny').length },
+    { id: 'overdue', label: 'Overdue', count: preAuths.filter((p) => p.status === 'overdue').length },
+    { id: 'approved', label: 'Approved', count: preAuths.filter((p) => p.status === 'approved').length },
+  ];
+
   return (
     <InsuranceShell data={data}>
       <PreAuthAlert item={overduePreAuth} />
-      <SectionCard title="Pre-Authorizations" subtitle="Review urgent, high, and routine authorization requests">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400" placeholder="Search request, member, provider..." />
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-slate-900">Pre-Authorizations</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Review urgent, high, and routine authorization requests</p>
           </div>
-          <button className="rounded-xl bg-[#1E3A5F] px-4 py-2.5 text-sm font-semibold text-white">Run AI triage</button>
+          <div className="flex flex-wrap gap-2">
+            <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+              Bulk Approve AI Recommended ({aiBulkApprove})
+            </button>
+            <button className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f]">
+              Run AI triage
+            </button>
+          </div>
         </div>
-        <PreAuthTable rows={data?.preAuthorizations ?? []} />
-      </SectionCard>
+        <div className="border-b border-slate-100 px-5 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+                placeholder="Search request, member, provider, procedure..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {filterTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilter(tab.id)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold ${filter === tab.id ? 'bg-[#1E3A5F] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {tab.label} <span className="opacity-70">{tab.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="p-5">
+          <PreAuthHostedTable rows={filtered} />
+        </div>
+      </article>
     </InsuranceShell>
   );
 };
 
 export const InsuranceClaims = () => {
-  const { data, loading } = useInsurancePageData();
-  const submitted = data?.claims.filter((claim) => claim.status === 'submitted').length ?? 0;
-  const review = data?.claims.filter((claim) => claim.status === 'under_review').length ?? 0;
-  const approved = data?.claims.filter((claim) => claim.status === 'approved').length ?? 0;
+  const { data, loading, claimTotal } = useInsurancePageData();
+  const claims = useMemo(() => data?.claims ?? [], [data?.claims]);
+  const profile = data?.profile;
+  const submitted = claims.filter((claim) => claim.status === 'submitted').length;
+  const review = claims.filter((claim) => claim.status === 'under_review').length;
+  const approved = claims.filter((claim) => claim.status === 'approved').length;
+  const denied = claims.filter((claim) => claim.status === 'denied').length;
+  const appealed = claims.filter((claim) => claim.status === 'appealed').length;
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | InsuranceClaim['status']>('all');
+  const filtered = useMemo(() => {
+    let rows = claims;
+    if (statusFilter !== 'all') rows = rows.filter((c) => c.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (c) =>
+          c.externalRef.toLowerCase().includes(q) ||
+          c.patientName.toLowerCase().includes(q) ||
+          c.providerName.toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [claims, statusFilter, search]);
+
+  const tabs: Array<{ id: typeof statusFilter; label: string; count: number; tone: string }> = [
+    { id: 'all', label: 'All', count: claims.length, tone: 'bg-slate-100 text-slate-700' },
+    { id: 'submitted', label: 'Submitted', count: submitted, tone: 'bg-blue-100 text-blue-700' },
+    { id: 'under_review', label: 'Under Review', count: review, tone: 'bg-amber-100 text-amber-700' },
+    { id: 'approved', label: 'Approved', count: approved, tone: 'bg-emerald-100 text-emerald-700' },
+    { id: 'denied', label: 'Denied', count: denied, tone: 'bg-rose-100 text-rose-700' },
+    { id: 'appealed', label: 'Appealed', count: appealed, tone: 'bg-violet-100 text-violet-700' },
+  ];
 
   return (
     <InsuranceShell data={data}>
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard label="Submitted" value={loading ? '...' : submitted} helper="Awaiting adjudication" tone="blue" />
-        <KpiCard label="Under Review" value={loading ? '...' : review} helper="Clinical review needed" tone="amber" />
-        <KpiCard label="Approved" value={loading ? '...' : approved} helper="Current seed period" tone="emerald" />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <KpiHostedCard label="Total Value" value={loading ? '...' : formatCurrency(claimTotal)} caption={`${formatNumber(claims.length)} claims this period`} tone="blue" />
+        <KpiHostedCard label="Auto-Approved" value={loading ? '...' : formatNumber(approved)} caption={profile?.aiAutoApprovalPercent != null ? `${profile.aiAutoApprovalPercent}% auto-rate` : 'AI auto-approved'} tone="emerald" />
+        <KpiHostedCard label="Pending" value={loading ? '...' : formatNumber(submitted + review)} caption={`${review} under review · ${submitted} submitted`} tone="amber" />
+        <KpiHostedCard label="Denied" value={loading ? '...' : formatNumber(denied)} caption="Awaiting appeal window" tone="red" />
+        <KpiHostedCard label="Appealed" value={loading ? '...' : formatNumber(appealed)} caption="Re-adjudication queue" tone="violet" />
       </section>
-      <SectionCard title="Claims Worklist" subtitle="Claims oversight and payment decisions">
-        <ClaimsList claims={data?.claims ?? []} />
-      </SectionCard>
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-slate-900">Claims Worklist</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Claims oversight and payment decisions</p>
+          </div>
+        </div>
+        <div className="border-b border-slate-100 px-5 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+                placeholder="Search claim ref, member, or provider..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold ${statusFilter === tab.id ? 'bg-[#1E3A5F] text-white' : `${tab.tone} hover:opacity-80`}`}
+                >
+                  {tab.label} <span className="opacity-70">{tab.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="p-5">
+          <div className="overflow-hidden rounded-xl border border-slate-100">
+            <div className="overflow-x-auto">
+              <table className="min-w-[840px] w-full text-sm">
+                <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2.5">Claim Ref</th>
+                    <th className="px-3 py-2.5">Member</th>
+                    <th className="px-3 py-2.5">Provider</th>
+                    <th className="px-3 py-2.5">Type</th>
+                    <th className="px-3 py-2.5 text-right">Amount</th>
+                    <th className="px-3 py-2.5">Status</th>
+                    <th className="px-3 py-2.5">Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filtered.map((claim) => (
+                    <tr key={claim.id}>
+                      <td className="px-3 py-3 font-mono text-xs font-bold text-slate-700">{claim.externalRef}</td>
+                      <td className="px-3 py-3">
+                        <div className="text-sm font-semibold text-slate-900">{claim.patientName}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {claim.planTier ? <span className={`mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ring-1 ${planTierTone(claim.planTier)}`}>{claim.planTier}</span> : null}
+                          {claim.planName}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-sm text-slate-700">{claim.providerName}</td>
+                      <td className="px-3 py-3 text-xs text-slate-500">{claim.claimType ?? '—'}</td>
+                      <td className="px-3 py-3 text-right font-mono text-sm font-bold text-slate-800">{formatCurrency(claim.amountAed)}</td>
+                      <td className="px-3 py-3">
+                        <StatusPill tone={statusTone(claim.status)}>{titleCase(claim.status.replace('_', ' '))}</StatusPill>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-slate-500">{formatDate(claim.submittedAt)}</td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-slate-500">No claims match this filter.</td></tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </article>
     </InsuranceShell>
   );
 };
 
 export const InsuranceMembers = () => {
-  const { data } = useInsurancePageData();
+  const { data, loading } = useInsurancePageData();
+  const members = useMemo(() => data?.members ?? [], [data?.members]);
+  const profile = data?.profile;
+  const [search, setSearch] = useState('');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+  const filtered = useMemo(() => {
+    let rows = members;
+    if (riskFilter !== 'all') rows = rows.filter((m) => m.riskLevel === riskFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (m) => m.patientName.toLowerCase().includes(q) || m.externalMemberId.toLowerCase().includes(q) || m.planName.toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [members, riskFilter, search]);
+
+  const tiers: Array<{ label: string; count: number | null; tone: string }> = [
+    { label: 'Gold Tier', count: profile?.membersGold ?? null, tone: 'bg-amber-50 text-amber-700 ring-amber-200' },
+    { label: 'Silver Tier', count: profile?.membersSilver ?? null, tone: 'bg-slate-50 text-slate-700 ring-slate-200' },
+    { label: 'Basic Tier', count: profile?.membersBasic ?? null, tone: 'bg-blue-50 text-blue-700 ring-blue-200' },
+  ];
+
   return (
     <InsuranceShell data={data}>
-      <SectionCard title="Members" subtitle="Active plan members and utilization risk">
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {(data?.members ?? []).map((member) => (
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiHostedCard label="Active Members" value={loading ? '...' : formatNumber(profile?.activeMembers ?? members.length)} caption="On CeenAiX platform" tone="blue" />
+        {tiers.map((tier) => (
+          <article key={tier.label} className={`rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100`}>
+            <div className={`mb-2 inline-flex rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase ring-1 ${tier.tone}`}>{tier.label}</div>
+            <div className="font-mono text-2xl font-bold text-slate-900">{tier.count != null ? formatNumber(tier.count) : '—'}</div>
+            <div className="mt-2 text-[11px] text-slate-500">members</div>
+          </article>
+        ))}
+      </section>
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-slate-900">Members</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Active plan members and utilization risk</p>
+          </div>
+        </div>
+        <div className="border-b border-slate-100 px-5 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+                placeholder="Search by name, member ID, or plan..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(['all', 'high', 'medium', 'low'] as const).map((tone) => (
+                <button
+                  key={tone}
+                  onClick={() => setRiskFilter(tone)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold capitalize ${riskFilter === tone ? 'bg-[#1E3A5F] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {tone === 'all' ? 'All' : `${tone} risk`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 p-5 xl:grid-cols-2">
+          {filtered.map((member) => (
             <div key={member.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-bold text-slate-900">{member.patientName}</div>
                   <div className="text-xs text-slate-500">
-                    {member.externalMemberId} · {member.planName}
+                    <span className="font-mono">{member.externalMemberId}</span> · {member.planName}
                   </div>
                 </div>
                 <StatusPill tone={statusTone(member.riskLevel)}>{member.riskLevel} risk</StatusPill>
               </div>
               <div className="mt-3 h-2 rounded-full bg-white">
-                <div className="h-2 rounded-full bg-blue-600" style={{ width: `${member.utilizationPercent}%` }} />
+                <div className={`h-2 rounded-full ${member.utilizationPercent >= 75 ? 'bg-red-500' : member.utilizationPercent >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, member.utilizationPercent)}%` }} />
               </div>
               <div className="mt-2 flex justify-between text-xs text-slate-500">
-                <span>{member.utilizationPercent}% utilization</span>
+                <span className="font-mono">{member.utilizationPercent}% utilization</span>
                 <span>{member.claimCount} claims YTD</span>
               </div>
             </div>
           ))}
+          {filtered.length === 0 ? (
+            <div className="col-span-full rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No members match.</div>
+          ) : null}
         </div>
-      </SectionCard>
+      </article>
     </InsuranceShell>
   );
 };
 
 export const InsuranceFraudDetection = () => {
-  const { data } = useInsurancePageData();
+  const { data, loading, openFraud } = useInsurancePageData();
+  const alerts = data?.fraudAlerts ?? [];
+  const high = alerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
+  const medium = alerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
+  const low = alerts.filter((a) => a.severity === 'low' && a.status !== 'resolved').length;
+  const exposure = openFraud.reduce((sum, a) => sum + a.exposureAmountAed, 0);
+  const [severityFilter, setSeverityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const filtered = severityFilter === 'all' ? alerts : alerts.filter((a) => a.severity === severityFilter);
+
   return (
     <InsuranceShell data={data}>
-      <SectionCard title="Fraud Detection" subtitle="AI flagged providers and claim patterns">
-        <div className="space-y-3">
-          {(data?.fraudAlerts ?? []).map((alert) => (
-            <div key={alert.id} className="grid grid-cols-[minmax(0,1fr)_90px_140px_110px] items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-              <div>
-                <div className="text-sm font-bold text-slate-900">{alert.subjectName}</div>
-                <div className="text-xs text-slate-500">{alert.reason}</div>
-              </div>
-              <StatusPill tone={statusTone(alert.severity)}>{alert.severity}</StatusPill>
-              <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(alert.exposureAmountAed)}</div>
-              <button className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Investigate</button>
-            </div>
-          ))}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiHostedCard label="High Risk" value={loading ? '...' : formatNumber(high)} caption="Investigation required" tone="red" />
+        <KpiHostedCard label="Medium Risk" value={loading ? '...' : formatNumber(medium)} caption="Watchlist" tone="amber" />
+        <KpiHostedCard label="Low Risk" value={loading ? '...' : formatNumber(low)} caption="Monitored only" tone="blue" />
+        <KpiHostedCard label="Total Exposure" value={loading ? '...' : formatCurrency(exposure)} caption="Open alert exposure" tone="violet" />
+      </section>
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-slate-900">Fraud Detection</h2>
+            <p className="mt-0.5 text-xs text-slate-400">AI flagged providers and claim patterns · {alerts.length} total alerts</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(['all', 'high', 'medium', 'low'] as const).map((tone) => (
+              <button
+                key={tone}
+                onClick={() => setSeverityFilter(tone)}
+                className={`rounded-full px-3 py-1 text-[11px] font-bold capitalize ${severityFilter === tone ? 'bg-[#1E3A5F] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                {tone === 'all' ? 'All' : tone}
+              </button>
+            ))}
+          </div>
         </div>
-      </SectionCard>
+        <div className="grid grid-cols-1 gap-3 p-5 lg:grid-cols-2">
+          {filtered.map((alert) => (
+            <FraudAlertCard key={alert.id} alert={alert} />
+          ))}
+          {filtered.length === 0 ? (
+            <div className="col-span-full rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No fraud alerts.</div>
+          ) : null}
+        </div>
+      </article>
     </InsuranceShell>
   );
 };
@@ -750,28 +1499,44 @@ export const InsuranceRiskAnalytics = () => {
 };
 
 export const InsuranceNetworkProviders = () => {
-  const { data } = useInsurancePageData();
+  const { data, loading } = useInsurancePageData();
+  const providers = data?.networkProviders ?? [];
+  const totalClaims = providers.reduce((sum, p) => sum + p.claimsCount, 0);
+  const avgApproval = providers.length ? Math.round(providers.reduce((sum, p) => sum + p.approvalRatePercent, 0) / providers.length) : 0;
+  const flaggedFraud = providers.filter((p) => p.fraudScore === 'high' || p.fraudScore === 'medium').length;
+  const [search, setSearch] = useState('');
+  const filtered = providers.filter(
+    (p) => !search.trim() || p.providerName.toLowerCase().includes(search.toLowerCase()) || p.specialty.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <InsuranceShell data={data}>
-      <SectionCard title="Network Providers" subtitle="Provider performance, approvals, and cost outliers">
-        <div className="overflow-hidden rounded-xl border border-slate-100">
-          <div className="divide-y divide-slate-100">
-            {(data?.networkProviders ?? []).map((provider) => (
-              <div key={provider.id} className="grid grid-cols-[minmax(0,1fr)_120px_100px_120px] items-center gap-4 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-slate-900">{provider.providerName}</div>
-                  <div className="truncate text-xs text-slate-500">
-                    {provider.specialty} · {provider.performanceFlag}
-                  </div>
-                </div>
-                <div className="font-mono text-sm text-slate-700">{provider.claimsCount} claims</div>
-                <StatusPill tone={provider.approvalRatePercent >= 94 ? 'emerald' : provider.approvalRatePercent >= 90 ? 'blue' : 'amber'}>{provider.approvalRatePercent}%</StatusPill>
-                <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(provider.averageCostAed)}</div>
-              </div>
-            ))}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiHostedCard label="In-Network Providers" value={loading ? '...' : formatNumber(providers.length)} caption="Contracted facilities" tone="blue" />
+        <KpiHostedCard label="Total Claims" value={loading ? '...' : formatNumber(totalClaims)} caption="This month" tone="emerald" />
+        <KpiHostedCard label="Avg Approval Rate" value={loading ? '...' : `${avgApproval}%`} caption="Across network" tone="violet" />
+        <KpiHostedCard label="Flagged for Review" value={loading ? '...' : formatNumber(flaggedFraud)} caption="Fraud / denial outliers" tone="red" />
+      </section>
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-slate-900">Network Providers</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Provider performance, approvals, and cost outliers</p>
+          </div>
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+              placeholder="Search provider or specialty..."
+            />
           </div>
         </div>
-      </SectionCard>
+        <div className="p-5">
+          <NetworkProvidersTable rows={filtered} />
+        </div>
+      </article>
     </InsuranceShell>
   );
 };
