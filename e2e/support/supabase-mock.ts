@@ -65,6 +65,39 @@ const conversationId = '00000000-0000-4000-8000-000000000701';
 const prescriptionId = '00000000-0000-4000-8000-000000000801';
 const labOrderId = '00000000-0000-4000-8000-000000000901';
 
+export const workflowIds = {
+  appointment: '00000000-0000-4000-8000-00000000f601',
+  preVisitAssessment: '00000000-0000-4000-8000-00000000f701',
+  labOrder: '00000000-0000-4000-8000-00000000f901',
+  labOrderItem: '00000000-0000-4000-8000-00000000f911',
+};
+
+export interface E2EWorkflowState {
+  appointments: JsonRecord[];
+  preVisitAssessments: JsonRecord[];
+  preVisitAnswers: JsonRecord[];
+  preVisitSummaries: JsonRecord[];
+  labOrders: JsonRecord[];
+  labOrderItems: JsonRecord[];
+  notifications: JsonRecord[];
+  labActionLog: string[];
+}
+
+const cloneRows = (rows: JsonRecord[]) => rows.map((row) => ({ ...row }));
+
+export const createE2EWorkflowState = (
+  options: { includeBaselineData?: boolean } = {}
+): E2EWorkflowState => ({
+  appointments: options.includeBaselineData ? cloneRows(appointmentRows) : [],
+  preVisitAssessments: [],
+  preVisitAnswers: [],
+  preVisitSummaries: [],
+  labOrders: options.includeBaselineData ? cloneRows(labOrderRows) : [],
+  labOrderItems: options.includeBaselineData ? cloneRows(labOrderItemRows) : [],
+  notifications: [],
+  labActionLog: [],
+});
+
 const asSupabaseUser = (user: E2EUser): JsonRecord => ({
   id: user.id,
   aud: 'authenticated',
@@ -215,7 +248,12 @@ const labOrderItemRows: JsonRecord[] = [
   },
 ];
 
-const tableRows = (table: string, role: E2ERole, profileCompleted: boolean): JsonRecord[] => {
+const tableRows = (
+  table: string,
+  role: E2ERole,
+  profileCompleted: boolean,
+  state?: E2EWorkflowState
+): JsonRecord[] => {
   switch (table) {
     case 'user_profiles':
       return userProfiles(profileCompleted);
@@ -261,7 +299,7 @@ const tableRows = (table: string, role: E2ERole, profileCompleted: boolean): Jso
         },
       ];
     case 'appointments':
-      return appointmentRows;
+      return state ? state.appointments : appointmentRows;
     case 'doctor_availability':
       return [
         {
@@ -327,9 +365,9 @@ const tableRows = (table: string, role: E2ERole, profileCompleted: boolean): Jso
     case 'medication_catalog_suggestions':
       return [];
     case 'lab_orders':
-      return labOrderRows;
+      return state ? state.labOrders : labOrderRows;
     case 'lab_order_items':
-      return labOrderItemRows;
+      return state ? state.labOrderItems : labOrderItemRows;
     case 'lab_test_catalog':
       return [
         {
@@ -368,7 +406,9 @@ const tableRows = (table: string, role: E2ERole, profileCompleted: boolean): Jso
         },
       ];
     case 'notifications':
-      return [
+      return state?.notifications.length
+        ? state.notifications
+        : [
         {
           id: 'notification-e2e',
           user_id: role === 'doctor' ? doctorId : patientId,
@@ -419,8 +459,11 @@ const tableRows = (table: string, role: E2ERole, profileCompleted: boolean): Jso
     case 'patient_memory_facts':
     case 'patient_canonical_update_requests':
     case 'appointment_pre_visit_assessments':
+      return state ? state.preVisitAssessments : [];
     case 'appointment_pre_visit_answers':
+      return state ? state.preVisitAnswers : [];
     case 'appointment_pre_visit_summaries':
+      return state ? state.preVisitSummaries : [];
     case 'pre_visit_templates':
     case 'pre_visit_template_questions':
       return [];
@@ -502,7 +545,72 @@ const tableRows = (table: string, role: E2ERole, profileCompleted: boolean): Jso
   }
 };
 
-const rpcPayload = (rpcName: string): JsonRecord | JsonRecord[] | null => {
+const createPreVisitAssessment = (appointment: JsonRecord): JsonRecord => ({
+  id: workflowIds.preVisitAssessment,
+  appointment_id: appointment.id,
+  patient_id: appointment.patient_id,
+  doctor_id: appointment.doctor_id,
+  template_id: 'template-workflow-e2e',
+  template_title: 'Headache pre-visit questionnaire',
+  template_snapshot: {
+    title: 'Headache pre-visit questionnaire',
+    description: 'Clinical intake generated for the E2E appointment workflow.',
+    questions: [
+      {
+        key: 'symptoms',
+        label: 'What symptoms are you experiencing?',
+        type: 'long_text',
+        required: true,
+        options: [],
+        helpText: 'Include severity, location, and associated symptoms.',
+        memoryKey: 'presenting_symptoms',
+      },
+      {
+        key: 'duration',
+        label: 'How long has this been happening?',
+        type: 'short_text',
+        required: true,
+        options: [],
+        helpText: null,
+        memoryKey: 'symptom_duration',
+      },
+    ],
+  },
+  status: 'not_started',
+  due_at: tomorrow,
+  started_at: null,
+  completed_at: null,
+  reviewed_at: null,
+  last_answered_at: null,
+  created_at: now.toISOString(),
+  updated_at: now.toISOString(),
+});
+
+const asArray = (payload: unknown): JsonRecord[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is JsonRecord => Boolean(item && typeof item === 'object'));
+  }
+
+  if (payload && typeof payload === 'object') {
+    return [payload as JsonRecord];
+  }
+
+  return [];
+};
+
+const parsePostData = (route: Route): unknown => {
+  try {
+    return route.request().postDataJSON();
+  } catch {
+    return null;
+  }
+};
+
+const rpcPayload = (
+  rpcName: string,
+  state?: E2EWorkflowState,
+  payload?: unknown
+): JsonRecord | JsonRecord[] | null => {
   switch (rpcName) {
     case 'admin_get_metrics':
       return {
@@ -670,18 +778,48 @@ const rpcPayload = (rpcName: string): JsonRecord | JsonRecord[] | null => {
     case 'get_bookable_doctors':
       return [
         {
-          doctor_id: doctorId,
+          user_id: doctorId,
           full_name: e2eUsers.doctor.fullName,
-          specialization: 'Family Medicine',
+          specialty: 'Family Medicine',
+          specialization_ids: ['specialization-e2e'],
           city: 'Dubai',
-          next_available_at: tomorrow,
+          address: 'Dubai Healthcare City',
+          bio: 'Board-certified family medicine doctor.',
           consultation_fee: 350,
+          active_availability_count: 1,
         },
       ];
     case 'lab_claim_order':
+      state?.labActionLog.push(`claim:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
+      return { ok: true };
     case 'lab_start_processing':
+      state?.labActionLog.push(`start:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
+      state?.labOrders.forEach((order) => {
+        if (order.id === (payload as JsonRecord | null)?.target_order_id) {
+          order.status = 'processing';
+        }
+      });
+      return { ok: true };
     case 'lab_save_item_result':
+      state?.labActionLog.push(`save:${(payload as JsonRecord | null)?.target_item_id ?? ''}`);
+      state?.labOrderItems.forEach((item) => {
+        if (item.id === (payload as JsonRecord | null)?.target_item_id) {
+          item.status = 'resulted';
+          item.result_value = (payload as JsonRecord | null)?.result_value ?? null;
+          item.result_unit = (payload as JsonRecord | null)?.result_unit ?? null;
+          item.reference_range = (payload as JsonRecord | null)?.reference_range ?? null;
+          item.is_abnormal = Boolean((payload as JsonRecord | null)?.is_abnormal);
+          item.resulted_at = now.toISOString();
+        }
+      });
+      return { ok: true };
     case 'lab_release_order':
+      state?.labActionLog.push(`release:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
+      state?.labOrders.forEach((order) => {
+        if (order.id === (payload as JsonRecord | null)?.target_order_id) {
+          order.status = 'resulted';
+        }
+      });
       return { ok: true };
     default:
       return null;
@@ -772,7 +910,8 @@ const handleAuthRoute = async (route: Route, fallbackRole: E2ERole) => {
 const handleRestRoute = async (
   route: Route,
   fallbackRole: E2ERole,
-  profileCompleted: boolean
+  profileCompleted: boolean,
+  state?: E2EWorkflowState
 ) => {
   const url = new URL(route.request().url());
   const method = route.request().method();
@@ -785,14 +924,111 @@ const handleRestRoute = async (
   }
 
   if (url.pathname.includes('/rest/v1/rpc/')) {
-    await json(route, rpcPayload(table));
+    await json(route, rpcPayload(table, state, parsePostData(route)));
     return;
   }
 
   const currentUser = userForRequest(route, fallbackRole);
-  const rows = tableRows(table, currentUser.role, profileCompleted);
+  const rows = tableRows(table, currentUser.role, profileCompleted, state);
 
   if (method !== 'GET' && method !== 'HEAD') {
+    const payload = parsePostData(route);
+
+    if (state && method === 'POST' && table === 'appointments') {
+      const [appointmentPayload] = asArray(payload);
+      const appointment = {
+        ...appointmentPayload,
+        id: workflowIds.appointment,
+        is_deleted: false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      state.appointments.push(appointment);
+      state.preVisitAssessments.push(createPreVisitAssessment(appointment));
+      await json(route, isObjectResponse(route) ? { id: appointment.id } : [appointment]);
+      return;
+    }
+
+    if (state && method === 'POST' && table === 'lab_orders') {
+      const [labOrderPayload] = asArray(payload);
+      const labOrder = {
+        ...labOrderPayload,
+        id: workflowIds.labOrder,
+        assigned_lab_id: labId,
+        ordered_at: now.toISOString(),
+        updated_at: now.toISOString(),
+        is_deleted: false,
+      };
+      state.labOrders.push(labOrder);
+      await json(route, isObjectResponse(route) ? { id: labOrder.id } : [labOrder]);
+      return;
+    }
+
+    if (state && method === 'POST' && table === 'lab_order_items') {
+      const insertedItems = asArray(payload).map((item, index) => ({
+        ...item,
+        id: index === 0 ? workflowIds.labOrderItem : `${workflowIds.labOrderItem}-${index + 1}`,
+        created_at: now.toISOString(),
+        resulted_at: null,
+      }));
+      state.labOrderItems.push(...insertedItems);
+      await json(route, isObjectResponse(route) ? insertedItems[0] ?? {} : insertedItems);
+      return;
+    }
+
+    if (state && method === 'POST' && table === 'notifications') {
+      const insertedNotifications = asArray(payload).map((notification, index) => ({
+        ...notification,
+        id: `notification-workflow-${state.notifications.length + index + 1}`,
+        created_at: now.toISOString(),
+        read_at: null,
+      }));
+      state.notifications.push(...insertedNotifications);
+      await json(route, isObjectResponse(route) ? insertedNotifications[0] ?? {} : insertedNotifications);
+      return;
+    }
+
+    if (state && (method === 'POST' || method === 'PATCH') && table === 'appointment_pre_visit_answers') {
+      const incomingAnswers = asArray(payload);
+      incomingAnswers.forEach((answer) => {
+        const index = state.preVisitAnswers.findIndex(
+          (current) =>
+            current.assessment_id === answer.assessment_id &&
+            current.question_key === answer.question_key
+        );
+        const nextAnswer = { ...answer, created_at: now.toISOString(), updated_at: now.toISOString() };
+        if (index >= 0) {
+          state.preVisitAnswers[index] = { ...state.preVisitAnswers[index], ...nextAnswer };
+        } else {
+          state.preVisitAnswers.push(nextAnswer);
+        }
+      });
+      await json(route, isObjectResponse(route) ? incomingAnswers[0] ?? {} : incomingAnswers);
+      return;
+    }
+
+    if (state && method === 'PATCH' && table === 'appointment_pre_visit_assessments') {
+      const [assessmentPatch] = asArray(payload);
+      state.preVisitAssessments.forEach((assessment) => {
+        Object.assign(assessment, assessmentPatch, { updated_at: now.toISOString() });
+      });
+      await json(route, isObjectResponse(route) ? state.preVisitAssessments[0] ?? {} : state.preVisitAssessments);
+      return;
+    }
+
+    if (state && (method === 'POST' || method === 'PATCH') && table === 'appointment_pre_visit_summaries') {
+      const [summaryPayload] = asArray(payload);
+      const summary = {
+        ...summaryPayload,
+        id: 'summary-workflow-e2e',
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      state.preVisitSummaries.splice(0, state.preVisitSummaries.length, summary);
+      await json(route, isObjectResponse(route) ? summary : [summary]);
+      return;
+    }
+
     const body = isObjectResponse(route) ? currentTableRow(table, rows, currentUser, profileCompleted) ?? {} : rows;
     await json(route, body);
     return;
@@ -819,23 +1055,34 @@ const handleRestRoute = async (
 
 export async function installSupabaseMocks(
   page: Page,
-  options: { role?: E2ERole; profileCompleted?: boolean } = {}
+  options: { role?: E2ERole; profileCompleted?: boolean; state?: E2EWorkflowState } = {}
 ) {
   const fallbackRole = options.role ?? 'patient';
   const profileCompleted = options.profileCompleted ?? true;
+  const state = options.state;
 
   await page.route(`${SUPABASE_URL}/auth/v1/**`, (route) => handleAuthRoute(route, fallbackRole));
   await page.route(`${SUPABASE_URL}/rest/v1/**`, (route) =>
-    handleRestRoute(route, fallbackRole, profileCompleted)
+    handleRestRoute(route, fallbackRole, profileCompleted, state)
   );
-  await page.route(`${SUPABASE_URL}/functions/v1/**`, (route) =>
-    json(route, {
+  await page.route(`${SUPABASE_URL}/functions/v1/**`, (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/functions/v1/ai-document-analyze')) {
+      return json(route, {
+        summaryText: 'AI-generated E2E pre-visit summary for recurrent headaches.',
+        keyPoints: ['Patient reports headache symptoms before the visit.'],
+        riskFlags: [],
+        pendingQuestions: [],
+      });
+    }
+
+    return json(route, {
       response: 'AI-generated E2E guidance based on the mocked patient context.',
       message: 'AI-generated E2E guidance based on the mocked patient context.',
       evidence: [],
       actions: [],
-    })
-  );
+    });
+  });
   await page.route(`${SUPABASE_URL}/storage/v1/**`, (route) =>
     json(route, { Key: 'e2e-upload', signedURL: `${SUPABASE_URL}/storage/v1/object/sign/e2e-upload` })
   );
