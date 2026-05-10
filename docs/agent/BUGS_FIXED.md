@@ -166,3 +166,16 @@ Each bug includes a short identifier, the file affected, a description, and the 
 ### Area 2 — Patient portal pages (continued)
 
 72. **BookAppointment: doctor-search input + icon not mirrored in RTL.** Added `rtl:` overrides for padding and the magnifier icon position.
+
+### Area 10 — Libraries (continued)
+
+73. **i18n-ui.formatRelativeTime: negative diff (future timestamps) rendered as "1m ago".** Future timestamps would slip through `Math.max(1, Math.round(diffMs / 60000))` because the negative `diffMs` was never absolutised, producing "1m ago" for arbitrary future events. Now `Math.abs`-es the delta and uses `Math.floor` for hours/days so future times also display sensibly as their absolute relative duration.
+74. **auth-error-messages: OTP request/verify errors hard-coded in English.** `"We could not sign you in..."`, `"That code is no longer valid."`, etc were always English. Imported the `i18n` singleton and routed copy through new `auth.errors.otpUnknownPhone` / `otpNetwork` / `otpExpired` keys.
+75. **messaging: `DEFAULT_CARE_CONVERSATION_SUBJECT` was a frozen English string.** New conversations would always be subject = "Care conversation", even when both participants were Arabic-speaking. Added `getDefaultCareConversationSubject()` that resolves to the active i18n locale, and updated `useMessagingHub` to call it.
+76. **messaging: action fallback labels (booking/appointments/records) hard-coded in English.** Now routed through new `messaging.actionBookingLink` / `actionAppointmentsLink` / `actionRecordsLink` / `actionCareDefault` keys.
+
+### Area 5 — Pharmacy portal pages (continued)
+
+77. **PharmacyDashboard: `formatNumber` called `value.toLocaleString()` without a locale.** Stat tiles and counts used the browser's default locale rather than the active UI language, so Arabic users saw Western digits. `formatNumber` now accepts `language` and delegates to `formatLocaleDigits`.
+78. **PharmacyDispensing: same `toLocaleString()` issue across queue/inventory metrics.** Same fix applied.
+79. **PharmacyInventory: same `toLocaleString()` issue across stat tiles, filter counts, and stock columns.** Same fix applied.

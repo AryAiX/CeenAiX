@@ -691,7 +691,9 @@ export const PortalShell = ({
                 <span>Revenue today</span>
               </div>
               <span className="font-mono text-[12px] font-semibold text-emerald-400">
-                {estimatedRevenueToday !== null ? `AED ${estimatedRevenueToday.toLocaleString()}` : 'AED --'}
+                {estimatedRevenueToday !== null
+                  ? `AED ${estimatedRevenueToday.toLocaleString(i18n.language)}`
+                  : 'AED --'}
               </span>
             </div>
             <div className="flex items-center justify-between px-2">

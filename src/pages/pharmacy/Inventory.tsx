@@ -237,7 +237,11 @@ export const PharmacyInventory = () => {
           <div>
             <h2 className="text-[20px] font-bold text-slate-900">Inventory Management</h2>
             <div className="text-[13px] text-slate-400">
-              Stock levels · {data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'} · {new Date().toLocaleDateString()}
+              Stock levels ·{' '}
+              {data?.profile?.displayName ??
+                data?.organization?.name ??
+                t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' })}{' '}
+              · {new Date().toLocaleDateString(uiLang)}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
