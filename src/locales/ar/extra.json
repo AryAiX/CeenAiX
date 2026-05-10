@@ -1261,6 +1261,7 @@
       "sortedBy": "ترتيب حسب",
       "listView": "عرض قائمة",
       "cardView": "عرض بطاقات",
+      "showingOf": "عرض {{shown}} من {{total}} مريض",
       "count_one": "{{count}} مريض",
       "count_other": "{{count}} مرضى",
       "loadError": "تعذّر تحميل مرضى الطبيب بعد.",

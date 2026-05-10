@@ -1278,7 +1278,8 @@
       "sortNextAppointment": "Next appointment",
       "sortedBy": "Sorted by",
       "listView": "List view",
-      "cardView": "Card view"
+      "cardView": "Card view",
+      "showingOf": "Showing {{shown}} of {{total}} patients"
     },
     "prescriptions": {
       "title": "Prescriptions",
