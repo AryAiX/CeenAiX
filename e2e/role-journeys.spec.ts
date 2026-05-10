@@ -147,9 +147,10 @@ async function expectUsablePage(page: Page, expectedPath: string) {
 }
 
 async function expectProtectedPage(page: Page, expectedPath: string) {
-  await expectUsablePage(page, expectedPath);
-  const bodyText = (await page.locator('body').textContent()) ?? '';
-  expect(bodyText).not.toMatch(/Sign in|Access denied/i);
+  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(expectedPath)}(?:[?#].*)?$`));
+  await expect(page.locator('main').first()).toBeVisible();
+  await expect(page.getByRole('navigation').first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText(/Sign in|Access denied/i);
 }
 
 test.describe('public and auth journeys', () => {
