@@ -1148,6 +1148,19 @@
       }
     }
   },
+  "ai": {
+    "errors": {
+      "invalidChatResponse": "أعاد المساعد الذكي ردًا غير صالح.",
+      "invalidDocResponse": "أعاد تحليل المستندات بالذكاء الاصطناعي ردًا غير صالح.",
+      "invalidMedEnrichment": "أعاد إثراء معلومات الدواء ردًا غير صالح."
+    }
+  },
+  "records": {
+    "errors": {
+      "applyUpdates": "تعذّر تطبيق تحديثات السجل الآن.",
+      "dismissUpdates": "تعذّر تجاهل تلك التحديثات الآن."
+    }
+  },
   "doctor": {
     "messages": {
       "title": "الرسائل",

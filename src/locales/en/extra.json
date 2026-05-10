@@ -1148,6 +1148,19 @@
       }
     }
   },
+  "ai": {
+    "errors": {
+      "invalidChatResponse": "AI chat returned an invalid response.",
+      "invalidDocResponse": "AI document analysis returned an invalid response.",
+      "invalidMedEnrichment": "Medication enrichment returned an invalid response."
+    }
+  },
+  "records": {
+    "errors": {
+      "applyUpdates": "Unable to apply those record updates right now.",
+      "dismissUpdates": "Unable to dismiss those updates right now."
+    }
+  },
   "doctor": {
     "messages": {
       "title": "Messages",
