@@ -12,7 +12,8 @@
     "actionAppointmentsLink": "Appointments reminder",
     "actionRecordsLink": "Records reminder",
     "actionCareDefault": "Care action",
-    "defaultCareSubject": "Care conversation"
+    "defaultCareSubject": "Care conversation",
+    "sendMessage": "Send message"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -773,7 +774,8 @@
         "passwordMismatch": "Password confirmation does not match.",
         "phoneRequired": "Phone number is required for phone OTP registration.",
         "termsRequired": "You must accept the terms to continue.",
-        "emailAlreadyRegistered": "This email is already registered. If you did not receive the confirmation email yet, resend it below. Otherwise sign in or reset your password."
+        "emailAlreadyRegistered": "This email is already registered. If you did not receive the confirmation email yet, resend it below. Otherwise sign in or reset your password.",
+        "signupFailed": "Sign-up failed. Please try again."
       },
       "successAccountCreated": "Account created. Check your email to confirm your account, then continue to onboarding. If you do not see it soon, use the resend button below.",
       "resendSuccess": "We sent a fresh confirmation email. Check your inbox and spam folder, then open the link to continue."

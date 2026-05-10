@@ -239,3 +239,18 @@ Each bug includes a short identifier, the file affected, a description, and the 
 
 108. **CreatePrescription: 'Change Patient' button label + select `aria-label` were hard-coded English.** Routed both through a new `doctor.createPrescription.changePatient` key (EN + AR).
 109. **DoctorSchedule: form-submit/error/success/confirm strings only had `defaultValue` fallbacks** — so even Arabic users would see the English copy because the keys weren't materialized in `extra.json`. Added a full `doctor.schedule.*` namespace (EN + AR) covering availability + blocked-time auth errors, validation errors, success banners, and `window.confirm` prompts, plus the Reason label + textarea placeholder. Arabic users now get translated copy.
+
+### Cross-cutting i18n materialization
+
+110. **62 i18n keys had `defaultValue: 'English copy'` but no actual entries in the Arabic locale files.** Across the prior 105 fixes I'd been using i18next's `defaultValue` option as a safety net, but that means Arabic users still see the English fallback whenever the key is missing in `ar/{common,extra}.json`. Audited every `t('...', { defaultValue: ... })` call in `src/` and materialized the missing Arabic translations for:
+    - `auth.register.errors.signupFailed`
+    - `doctor.earnings.*` (todayProjection, completedToday, pendingReviews, consultationFee, todayEventsHeading, noAppointmentsToday)
+    - `doctor.imaging.*` (worklist, cardStudies, openLabOrders, tab*, allModalities, loadError)
+    - `doctor.patients.*` (unknown, noInsurance, insuranceOnFile, noConditions, noVisits, today, notScheduled, acknowledge, openRecord, lastVisit, nextAppt, sort*, sortedBy, listView, cardView)
+    - `doctor.settings.*` (availabilityWindows, clinicalSpecialty, dhaLicense, verified, pending, saving, sections.*, toggles.*)
+    - `messaging.sendMessage`
+    - `patient.preVisit.{autofilled,typeAnswerPh}`
+    - `patient.records.errDoseNumber`
+    - `pharmacy.queue.linkedDispensingTask`
+    - `shared.labOrderItemStatus.*` (pending + the five reused statuses)
+    Net effect: ~62 strings that were silently English-only in Arabic are now translated. Validated by a script that walks every `defaultValue` call site and intersects with the AR locale tree — final missing-key count is 0.

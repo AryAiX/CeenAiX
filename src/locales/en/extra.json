@@ -45,6 +45,14 @@
       "resulted": "Resulted",
       "reviewed": "Reviewed"
     },
+    "labOrderItemStatus": {
+      "pending": "Pending",
+      "ordered": "Ordered",
+      "collected": "Collected",
+      "processing": "Processing",
+      "resulted": "Resulted",
+      "reviewed": "Reviewed"
+    },
     "weekdays": {
       "sun": "Sun",
       "mon": "Mon",
@@ -503,6 +511,7 @@
       "administeredBy": "Administered by",
       "nextDose": "Next dose due",
       "saveVax": "Save vaccination",
+      "errDoseNumber": "Dose number must be a positive whole number.",
       "noMatchTitle": "No matching records yet",
       "noMatchBody": "Try another search term or add a new entry using the forms below.",
       "severitySevere": "Severe",
@@ -725,7 +734,9 @@
       "saving": "Saving...",
       "complete": "Complete intake",
       "completing": "Completing...",
-      "requiredHint": "Please complete required questions marked below."
+      "requiredHint": "Please complete required questions marked below.",
+      "autofilled": "Autofilled from your record",
+      "typeAnswerPh": "Type your answer"
     },
     "labResults": {
       "title": "My Lab Results",
@@ -1249,7 +1260,25 @@
       "recentConcern": "Recent concern",
       "noRecentConcern": "No chief complaint was captured on the latest linked visit.",
       "viewAppointments": "Open appointments",
-      "footerHint": "Patient detail and full chart routes can attach to this live patient list next."
+      "footerHint": "Patient detail and full chart routes can attach to this live patient list next.",
+      "unknown": "Unknown",
+      "noInsurance": "No insurance",
+      "insuranceOnFile": "Insurance on file",
+      "noConditions": "No active conditions",
+      "noVisits": "No visits",
+      "today": "Today",
+      "notScheduled": "Not scheduled",
+      "acknowledge": "Acknowledge",
+      "openRecord": "Open record",
+      "lastVisit": "Last visit",
+      "nextAppt": "Next appt",
+      "sortLastVisit": "Last visit",
+      "sortRisk": "Risk",
+      "sortName": "Name A–Z",
+      "sortNextAppointment": "Next appointment",
+      "sortedBy": "Sorted by",
+      "listView": "List view",
+      "cardView": "Card view"
     },
     "prescriptions": {
       "title": "Prescriptions",
@@ -1563,7 +1592,33 @@
       "featureClinicalBody": "Preferred templates, prescribing chips, and lab panels.",
       "featureNotificationsTitle": "Notification routing",
       "featureNotificationsBody": "Decide how critical alerts reach you on web, mobile, and SMS.",
-      "actionOpenProfile": "Open my profile"
+      "actionOpenProfile": "Open my profile",
+      "availabilityWindows": "Availability windows",
+      "clinicalSpecialty": "Clinical specialty",
+      "dhaLicense": "DHA license",
+      "verified": "Verified",
+      "pending": "Pending",
+      "saving": "Saving...",
+      "sections": {
+        "general": "General",
+        "notifications": "Notifications",
+        "appearance": "Appearance",
+        "language": "Language",
+        "privacy": "Privacy",
+        "security": "Security",
+        "labImaging": "Labs & imaging",
+        "integrations": "Integrations",
+        "clinicalTools": "Clinical tools",
+        "dashboard": "Dashboard",
+        "help": "Help"
+      },
+      "toggles": {
+        "emailTitle": "Email alerts",
+        "smsTitle": "SMS alerts",
+        "pushTitle": "Push notifications",
+        "autoFollowTitle": "Auto-follow new appointments",
+        "shareCalTitle": "Share calendar with team"
+      }
     },
     "imaging": {
       "title": "Imaging center",
@@ -1574,7 +1629,16 @@
       "featureViewerBody": "Full-resolution MRI, CT, and X-ray series with AI overlays.",
       "featureHandoffTitle": "Order handoff",
       "featureHandoffBody": "Send study findings straight back into the originating appointment.",
-      "actionBackPatients": "Back to patients"
+      "actionBackPatients": "Back to patients",
+      "worklist": "Imaging worklist",
+      "cardStudies": "Studies",
+      "openLabOrders": "Open lab orders",
+      "tabAll": "All",
+      "tabPending": "Pending",
+      "tabReported": "Reported",
+      "tabAbnormal": "Abnormal",
+      "allModalities": "All modalities",
+      "loadError": "Imaging studies could not be loaded right now."
     },
     "earnings": {
       "title": "Earnings",
@@ -1585,7 +1649,13 @@
       "featureClaimsBody": "Claim status pipeline once payments integration is live.",
       "featureTaxTitle": "Tax-ready exports",
       "featureTaxBody": "Exportable CSV and PDF statements for your accountant.",
-      "actionOpenDashboard": "Open clinical dashboard"
+      "actionOpenDashboard": "Open clinical dashboard",
+      "todayProjection": "Today's projection",
+      "completedToday": "Completed today",
+      "pendingReviews": "Pending reviews",
+      "consultationFee": "Consultation fee",
+      "todayEventsHeading": "Today's revenue events",
+      "noAppointmentsToday": "No appointments today yet."
     },
     "portal": {
       "title": "Doctor portal hub",
@@ -1802,6 +1872,9 @@
     }
   },
   "pharmacy": {
+    "queue": {
+      "linkedDispensingTask": "Linked dispensing task"
+    },
     "dashboard": {
       "title": "Pharmacy dashboard",
       "subtitle": "Dispensing, inventory, and insurance claims for pharmacy operators.",

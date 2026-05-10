@@ -45,6 +45,14 @@
       "resulted": "صدرت النتيجة",
       "reviewed": "تمت المراجعة"
     },
+    "labOrderItemStatus": {
+      "pending": "قيد الانتظار",
+      "ordered": "تم الطلب",
+      "collected": "تم الجمع",
+      "processing": "قيد المعالجة",
+      "resulted": "صدرت النتيجة",
+      "reviewed": "تمت المراجعة"
+    },
     "weekdays": {
       "sun": "أحد",
       "mon": "إثنين",
@@ -503,6 +511,7 @@
       "administeredBy": "أعطى بواسطة",
       "nextDose": "الجرعة التالية",
       "saveVax": "حفظ التطعيم",
+      "errDoseNumber": "يجب أن يكون رقم الجرعة عدداً صحيحاً موجباً.",
       "noMatchTitle": "لا سجلات مطابقة",
       "noMatchBody": "جرّب بحثاً آخر أو أضف سجلاً جديداً بالنماذج أدناه.",
       "severitySevere": "شديد",
@@ -725,7 +734,9 @@
       "saving": "جاري الحفظ...",
       "complete": "إكمال الاستقبال",
       "completing": "جاري الإكمال...",
-      "requiredHint": "يرجى إكمال الأسئلة المطلوبة أدناه."
+      "requiredHint": "يرجى إكمال الأسئلة المطلوبة أدناه.",
+      "autofilled": "ملأ تلقائياً من سجلك",
+      "typeAnswerPh": "اكتب إجابتك"
     },
     "labResults": {
       "title": "نتائج مختبري",
@@ -1232,6 +1243,24 @@
       "subtitle": "راجع قائمة مرضاك الحقيقية من المواعيد المكتملة والقادمة.",
       "searchPlaceholder": "ابحث بالاسم أو البريد أو الهاتف أو فصيلة الدم أو الشكوى...",
       "searchPh": "ابحث بالاسم أو الهوية الإماراتية أو الحالة أو الدواء...",
+      "unknown": "غير معروف",
+      "noInsurance": "لا يوجد تأمين",
+      "insuranceOnFile": "التأمين المسجّل",
+      "noConditions": "لا توجد حالات نشطة",
+      "noVisits": "لا توجد زيارات",
+      "today": "اليوم",
+      "notScheduled": "غير محدّد",
+      "acknowledge": "تأكيد الاطلاع",
+      "openRecord": "فتح السجل",
+      "lastVisit": "آخر زيارة",
+      "nextAppt": "الموعد القادم",
+      "sortLastVisit": "آخر زيارة",
+      "sortRisk": "المخاطر",
+      "sortName": "الاسم أ–ي",
+      "sortNextAppointment": "الموعد القادم",
+      "sortedBy": "ترتيب حسب",
+      "listView": "عرض قائمة",
+      "cardView": "عرض بطاقات",
       "count_one": "{{count}} مريض",
       "count_other": "{{count}} مرضى",
       "loadError": "تعذّر تحميل مرضى الطبيب بعد.",
@@ -1557,6 +1586,32 @@
     "settings": {
       "title": "الإعدادات",
       "subtitle": "إدارة التوفر والإعدادات السريرية الافتراضية والإشعارات والتكاملات.",
+      "availabilityWindows": "نوافذ التوفر",
+      "clinicalSpecialty": "التخصص السريري",
+      "dhaLicense": "ترخيص هيئة الصحة بدبي",
+      "verified": "موثّق",
+      "pending": "قيد التحقق",
+      "saving": "جاري الحفظ...",
+      "sections": {
+        "general": "عام",
+        "notifications": "الإشعارات",
+        "appearance": "المظهر",
+        "language": "اللغة",
+        "privacy": "الخصوصية",
+        "security": "الأمان",
+        "labImaging": "المختبر والأشعة",
+        "integrations": "التكاملات",
+        "clinicalTools": "أدوات سريرية",
+        "dashboard": "اللوحة",
+        "help": "المساعدة"
+      },
+      "toggles": {
+        "emailTitle": "تنبيهات البريد الإلكتروني",
+        "smsTitle": "تنبيهات الرسائل القصيرة",
+        "pushTitle": "إشعارات الدفع",
+        "autoFollowTitle": "متابعة المواعيد الجديدة تلقائياً",
+        "shareCalTitle": "مشاركة التقويم مع الفريق"
+      },
       "featureAvailabilityTitle": "نوافذ التوفر",
       "featureAvailabilityBody": "حدد متى يمكن للمرضى الحجز، بما في ذلك مواعيد الطب عن بُعد.",
       "featureClinicalTitle": "الإعدادات السريرية",
@@ -1574,11 +1629,26 @@
       "featureViewerBody": "سلاسل MRI وCT والأشعة السينية بدقة كاملة مع تمييز بالذكاء الاصطناعي.",
       "featureHandoffTitle": "تسليم الطلب",
       "featureHandoffBody": "أرسل نتائج الدراسة مباشرة إلى الموعد الأصلي.",
-      "actionBackPatients": "العودة إلى المرضى"
+      "actionBackPatients": "العودة إلى المرضى",
+      "worklist": "قائمة الأشعة",
+      "cardStudies": "الدراسات",
+      "openLabOrders": "فتح طلبات المختبر",
+      "tabAll": "الكل",
+      "tabPending": "قيد الانتظار",
+      "tabReported": "مكتمل التقرير",
+      "tabAbnormal": "غير طبيعي",
+      "allModalities": "جميع الطرائق",
+      "loadError": "تعذّر تحميل دراسات الأشعة حالياً."
     },
     "earnings": {
       "title": "الأرباح",
       "subtitle": "رؤية واضحة لدخل الاستشارات وتعويضات التأمين ونشاط التعليم المستمر.",
+      "todayProjection": "توقّع اليوم",
+      "completedToday": "اكتمل اليوم",
+      "pendingReviews": "قيد المراجعة",
+      "consultationFee": "رسوم الاستشارة",
+      "todayEventsHeading": "أحداث إيرادات اليوم",
+      "noAppointmentsToday": "لا توجد مواعيد اليوم بعد.",
       "featureSummaryTitle": "ملخص الدفع",
       "featureSummaryBody": "الإجماليات الشهرية والاتجاه والخصومات من العيادة.",
       "featureClaimsTitle": "مطالبات التأمين",
@@ -1802,6 +1872,9 @@
     }
   },
   "pharmacy": {
+    "queue": {
+      "linkedDispensingTask": "مهمة صرف مرتبطة"
+    },
     "dashboard": {
       "title": "لوحة تحكم الصيدلية",
       "subtitle": "الصرف والمخزون ومطالبات التأمين لمشغلي الصيدلية.",
