@@ -438,10 +438,12 @@ export const DoctorPatients: React.FC = () => {
                     ? t('doctor.patients.sortName', { defaultValue: 'Name A-Z' })
                     : t('doctor.patients.sortNextAppointment', { defaultValue: 'Next Appointment' })}
             </div>
-            <div className="flex items-center space-x-2">
-              <button className="rounded border border-slate-300 px-3 py-1 transition-colors hover:bg-white">← 1</button>
-              <button className="rounded border border-slate-300 px-3 py-1 transition-colors hover:bg-white">2 →</button>
-            </div>
+            {/*
+              Pagination is intentionally omitted until the backend exposes
+              cursor-based paging for doctor patients. The previous "← 1" /
+              "2 →" buttons were visual-only and had no onClick handler,
+              which left users wondering why nothing happened.
+            */}
           </div>
         </div>
       ) : (

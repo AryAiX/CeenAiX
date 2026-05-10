@@ -243,6 +243,8 @@ Each bug includes a short identifier, the file affected, a description, and the 
 ### Area 3 — Doctor portal follow-up (Dashboard)
 
 110a. **DoctorDashboard: lab-result "Acknowledge" button was inert and English-only.** The button had no `type`, no `onClick`, and a literal `Acknowledge` string. Tapping it was a no-op despite the "DHA requires acknowledgment within 1 hour" warning right above it. Added `type="button"`, wired it to navigate to `/doctor/labs` (where the doctor can actually take action), and routed the label + "Reviewed" badge through existing localized keys.
+110b. **DoctorPatients: "← 1" / "2 →" pagination buttons were inert decorations.** They had no `onClick` and the page didn't actually paginate. Removed them with a comment explaining why; the row-count text already conveys the total so users no longer have a button that does nothing.
+110c. **CreatePrescription: two unstyled-as-submit buttons lacked `type="button"`.** Could submit their parent form on Enter. Added `type="button"` to both.
 
 ### Cross-cutting i18n materialization
 
