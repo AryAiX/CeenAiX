@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import i18n from 'i18next';
 import type { Conversation, Message } from '../types';
 import {
   buildDirectParticipantIds,
@@ -10,6 +11,16 @@ import {
   trimMessageDraft,
 } from '../lib/messaging';
 import { supabase } from '../lib/supabase';
+
+const careTeamFallback = () => i18n.t('messaging.careTeamFallback', { defaultValue: 'Care team' });
+const errStartConversation = () =>
+  i18n.t('messaging.errStartConversation', { defaultValue: 'Unable to start this conversation.' });
+const errSendMessage = () =>
+  i18n.t('messaging.errSendMessage', { defaultValue: 'Unable to send message.' });
+const errLoadConversations = () =>
+  i18n.t('messaging.errLoadConversations', { defaultValue: 'Unable to load conversations.' });
+const errLoadMessages = () =>
+  i18n.t('messaging.errLoadMessages', { defaultValue: 'Unable to load messages.' });
 
 interface UserProfileRow {
   user_id: string;
@@ -119,7 +130,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         (counterpartProfiles ?? []).map((profile) => [
           profile.user_id,
           {
-            name: profile.full_name?.trim() || profile.email?.trim() || 'Care team',
+            name: profile.full_name?.trim() || profile.email?.trim() || careTeamFallback(),
             email: profile.email ?? null,
           },
         ])
@@ -145,8 +156,8 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         .map((conversation) => {
           const counterpartId = getConversationCounterpartyId(conversation, userId);
           const counterpart = counterpartId
-            ? profileById.get(counterpartId) ?? { name: 'Care team', email: null }
-            : { name: 'Care team', email: null };
+            ? profileById.get(counterpartId) ?? { name: careTeamFallback(), email: null }
+            : { name: careTeamFallback(), email: null };
           const lastMessage = lastMessageByConversationId.get(conversation.id);
 
           return {
@@ -171,7 +182,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
 
       setConversations(nextConversations);
     } catch (error) {
-      setConversationError(error instanceof Error ? error.message : 'Unable to load conversations.');
+      setConversationError(error instanceof Error ? error.message : errLoadConversations());
     } finally {
       setLoadingConversations(false);
     }
@@ -221,7 +232,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         setMessages((data ?? []) as Message[]);
         void markConversationRead(conversationId);
       } catch (error) {
-        setThreadError(error instanceof Error ? error.message : 'Unable to load messages.');
+        setThreadError(error instanceof Error ? error.message : errLoadMessages());
       } finally {
         setLoadingMessages(false);
       }
@@ -317,7 +328,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           created: true,
         };
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : 'Unable to start this conversation.');
+        setActionError(error instanceof Error ? error.message : errStartConversation());
         return {
           conversationId: null,
           created: false,
@@ -368,7 +379,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : 'Unable to send message.');
+        setActionError(error instanceof Error ? error.message : errSendMessage());
         return false;
       } finally {
         setWorking(false);

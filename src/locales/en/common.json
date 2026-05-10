@@ -2,6 +2,13 @@
   "brand": {
     "tagline": "Healthcare Platform"
   },
+  "messaging": {
+    "careTeamFallback": "Care team",
+    "errStartConversation": "Unable to start this conversation.",
+    "errSendMessage": "Unable to send message.",
+    "errLoadConversations": "Unable to load conversations.",
+    "errLoadMessages": "Unable to load messages."
+  },
   "header": {
     "doctors": "Doctors",
     "clinics": "Clinics",

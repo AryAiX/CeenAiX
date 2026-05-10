@@ -68,3 +68,21 @@ Each bug includes a short identifier, the file affected, a description, and the 
 23. **Footer: link buttons missing `type="button"` defaulted to "submit".** Set explicit types and made the brand image decorative.
 24. **AccessDenied: "Dashboard" button always pointed to `dashboardPath`, which falls through to `/auth/login` for unauthenticated users.** Now branches on `isAuthenticated`, showing a "Sign in" CTA for anonymous visitors, and the chevron flips on RTL.
 25. **PatientNotifications: unread count not localized.** Was rendering Western digits in Arabic UI. Now uses `formatLocaleDigits`.
+
+### Area 8 — Hooks and data-fetching layer
+
+26. **useQuery: stale-response race condition + unmount setState warning.** When dependencies changed faster than the request returned, the older response could overwrite the newer one. Added a per-request id + mounted ref so only the latest in-flight result reaches state, and nothing fires after unmount.
+27. **useCounter: snap on `NaN` / negative targets.** `target / (duration / 16)` could become `Infinity` / `NaN` (e.g. `useCounter(0, true)` or stat = `null` cast to `Number`), which surfaced as `NaN` in the UI. Now guards non-finite & non-positive targets up-front and uses `Math.max(1, Math.round(...))` for the step count.
+28. **useUserProfile: `.single()` threw `PGRST116` for users without a profile row.** First login after signup would crash the patient/doctor dashboard. Switched to `.maybeSingle()` and coerced missing rows to `null`.
+
+### Area 10 — Libraries
+
+29. **useMessagingHub: hard-coded English fallbacks/errors leaked to the UI.** `'Care team'`, `'Unable to load conversations.'`, `'Unable to load messages.'`, `'Unable to start this conversation.'`, `'Unable to send message.'` were rendered to Arabic users. The hook now calls `i18n.t('messaging.*', { defaultValue })`, with both locale dictionaries updated. The `actionError` banner in `MessagesWorkspace` (which renders the raw string) now also receives Arabic copy by default.
+
+### Area 7 — Public pages (continued)
+
+30. **Home: portal carousel `setInterval` runs while tab is hidden.** Wastes battery on backgrounded tabs. Pauses on `visibilitychange` and resumes when the tab is foregrounded again.
+
+### Area 1 — Auth flows (continued)
+
+31. **auth-context: null reference on Supabase insert error.** `userProfileInsertError.message.toLowerCase()` would throw if Supabase ever returned an error without a string `message`, kicking the user out of session bootstrap on first login. Made the message check null-safe.

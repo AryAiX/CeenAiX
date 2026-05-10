@@ -83,8 +83,32 @@ export const Home = () => {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => setActivePortal((p) => (p + 1) % 6), 3000);
-    return () => clearInterval(interval);
+    let intervalId: number | null = null;
+    const start = () => {
+      if (intervalId !== null) return;
+      intervalId = window.setInterval(
+        () => setActivePortal((p) => (p + 1) % 6),
+        3000,
+      );
+    };
+    const stop = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        start();
+      }
+    };
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const portals = useMemo(

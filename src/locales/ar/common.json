@@ -2,6 +2,13 @@
   "brand": {
     "tagline": "منصة رعاية صحية"
   },
+  "messaging": {
+    "careTeamFallback": "فريق الرعاية",
+    "errStartConversation": "تعذّر بدء هذه المحادثة.",
+    "errSendMessage": "تعذّر إرسال الرسالة.",
+    "errLoadConversations": "تعذّر تحميل المحادثات.",
+    "errLoadMessages": "تعذّر تحميل الرسائل."
+  },
   "header": {
     "doctors": "الأطباء",
     "clinics": "العيادات",
