@@ -1542,55 +1542,147 @@ export const InsuranceNetworkProviders = () => {
 };
 
 export const InsuranceReports = () => {
-  const { data, claimTotal, openFraud } = useInsurancePageData();
+  const { data, loading, claimTotal, openFraud } = useInsurancePageData();
+  const reports = data?.reportRuns ?? [];
   const fraudExposure = openFraud.reduce((sum, alert) => sum + alert.exposureAmountAed, 0);
+  const ready = reports.filter((r) => r.status === 'ready').length;
+  const running = reports.filter((r) => r.status === 'running').length;
+  const failed = reports.filter((r) => r.status === 'failed').length;
+
+  const grouped: Record<string, typeof reports> = {};
+  reports.forEach((r) => {
+    const lower = r.reportName.toLowerCase();
+    let cat = 'Operational';
+    if (lower.includes('dha') || lower.includes('regulator') || lower.includes('compliance')) cat = 'Regulatory';
+    else if (lower.includes('finance') || lower.includes('claim') || lower.includes('budget')) cat = 'Financial';
+    else if (lower.includes('utiliz') || lower.includes('member') || lower.includes('cohort')) cat = 'Utilization';
+    else if (lower.includes('fraud') || lower.includes('risk')) cat = 'Risk & Fraud';
+    grouped[cat] = grouped[cat] ?? [];
+    grouped[cat].push(r);
+  });
 
   return (
     <InsuranceShell data={data}>
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_0.85fr]">
-        <SectionCard title="Reports" subtitle="Regulatory, finance, and utilization exports">
-          {(data?.reportRuns ?? []).map((report) => (
-            <div key={report.id} className="mb-3 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-4 last:mb-0">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">{report.reportName}</div>
-                <div className="text-xs text-slate-400">
-                  {titleCase(report.status)} · {report.periodLabel}
-                </div>
-              </div>
-              <button className="rounded-xl bg-[#1E3A5F] px-3 py-2 text-xs font-semibold text-white">Download</button>
-            </div>
-          ))}
-        </SectionCard>
-        <SectionCard title="Period Summary">
-          <div className="space-y-3">
-            <KpiCard label="Claims value" value={formatCurrency(claimTotal)} helper="From insurance_claims" tone="blue" />
-            <KpiCard label="Fraud exposure" value={formatCurrency(fraudExposure)} helper="Open investigations" tone="red" />
-          </div>
-        </SectionCard>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiHostedCard label="Total Reports" value={loading ? '...' : formatNumber(reports.length)} caption="Across all categories" tone="blue" />
+        <KpiHostedCard label="Ready to Download" value={loading ? '...' : formatNumber(ready)} caption={`${running} running · ${failed} failed`} tone="emerald" />
+        <KpiHostedCard label="Claims Value" value={loading ? '...' : formatCurrency(claimTotal)} caption="Current period" tone="violet" />
+        <KpiHostedCard label="Fraud Exposure" value={loading ? '...' : formatCurrency(fraudExposure)} caption="Open investigations" tone="red" />
       </section>
+      <div className="space-y-5">
+        {Object.entries(grouped).map(([category, items]) => (
+          <article key={category} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-[15px] font-bold text-slate-900">{category} Reports</h2>
+                <p className="mt-0.5 text-xs text-slate-400">{items.length} report{items.length === 1 ? '' : 's'} in this category</p>
+              </div>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {items.map((report) => (
+                <div key={report.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">{report.reportName}</div>
+                    <div className="text-xs text-slate-400">
+                      <StatusPill tone={statusTone(report.status)}>{titleCase(report.status)}</StatusPill>
+                      <span className="ml-2">{report.periodLabel}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={report.status !== 'ready'}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+        {reports.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+            No report runs available yet.
+          </div>
+        ) : null}
+      </div>
     </InsuranceShell>
   );
 };
 
 export const InsuranceSettings = () => {
   const { data } = useInsurancePageData();
+  const settings = data?.settings ?? [];
+  const profile = data?.profile;
+
+  const grouped: Record<string, typeof settings> = {};
+  settings.forEach((s) => {
+    const k = s.settingKey.toLowerCase();
+    let cat = 'General';
+    if (k.includes('ai') || k.includes('auto')) cat = 'AI & Automation';
+    else if (k.includes('alert') || k.includes('notif')) cat = 'Alerts & Notifications';
+    else if (k.includes('compliance') || k.includes('dha') || k.includes('audit')) cat = 'Compliance & Audit';
+    else if (k.includes('fraud') || k.includes('risk')) cat = 'Fraud & Risk';
+    grouped[cat] = grouped[cat] ?? [];
+    grouped[cat].push(s);
+  });
+
   return (
     <InsuranceShell data={data}>
-      <SectionCard title="Settings" subtitle="Payer portal preferences and compliance controls">
-        <div className="space-y-3">
-          {(data?.settings ?? []).map((setting) => (
-            <div key={setting.id} className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">{setting.title}</div>
-                <div className="text-xs text-slate-500">{setting.description}</div>
+      {profile ? (
+        <article className="rounded-2xl border border-slate-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-bold text-slate-900">{profile.displayName}</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {profile.regulatorName}
+                {profile.arabicName ? <span className="ml-2 text-slate-400">· {profile.arabicName}</span> : null}
+              </p>
+              <p className="mt-2 text-xs text-slate-600">
+                Officer: <span className="font-semibold">{profile.officerName}</span> · {profile.officerTitle}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white p-3 text-xs ring-1 ring-violet-100">
+              <div className="font-bold text-slate-700">SLA Targets</div>
+              <div className="mt-1 text-slate-500">
+                Standard: <span className="font-mono font-bold">{profile.slaTargetStandardHours ?? '—'}h</span>
               </div>
-              <div className={`relative h-6 w-12 rounded-full ${setting.enabled ? 'bg-[#1E3A5F]' : 'bg-slate-300'}`}>
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${setting.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              <div className="text-slate-500">
+                Urgent: <span className="font-mono font-bold">{profile.slaTargetUrgentHours ?? '—'}h</span>
               </div>
             </div>
-          ))}
-        </div>
-      </SectionCard>
+          </div>
+        </article>
+      ) : null}
+      <div className="space-y-5">
+        {Object.entries(grouped).map(([category, items]) => (
+          <article key={category} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h3 className="text-[15px] font-bold text-slate-900">{category}</h3>
+              <p className="mt-0.5 text-xs text-slate-400">{items.length} preference{items.length === 1 ? '' : 's'}</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {items.map((setting) => (
+                <div key={setting.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900">{setting.title}</div>
+                    <div className="text-xs text-slate-500">{setting.description}</div>
+                  </div>
+                  <div className={`relative h-6 w-12 shrink-0 rounded-full transition ${setting.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${setting.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+        {settings.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+            No settings configured.
+          </div>
+        ) : null}
+      </div>
     </InsuranceShell>
   );
 };
