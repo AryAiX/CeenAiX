@@ -98,3 +98,5 @@ Each bug includes a short identifier, the file affected, a description, and the 
 38. **usePatientAiChat: hard-coded English "Doctor" fallback.** Routed through `shared.doctor`.
 39. **usePatientNotifications: hard-coded English titles/bodies ("New message from", "Upcoming visit with", "New lab results from", "Your care team", "Open the thread to review...", "Review the appointment detail..."), all rendered to Arabic users.** Now all routed through new `patient.notifications.*` keys in both locales.
 40. **useDoctorNotifications: same problem — "New message from", "Open the thread...", "{patient} completed pre-visit intake", "{patient} updated chart information", body texts.** Routed through new `doctor.notifications.*` keys in both locales.
+41. **useDoctorPatients: hard-coded English "Insurance on file" fallback.** Routed through `doctor.patients.insuranceOnFile`.
+42. **usePharmacyPrescriptionQueue: hard-coded English "Linked dispensing task" fallback.** Routed through `pharmacy.queue.linkedDispensingTask`.

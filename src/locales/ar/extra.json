@@ -885,7 +885,14 @@
       "unreadBadge": "غير مقروء",
       "open": "فتح",
       "markRead": "تعليم كمقروء",
-      "loadError": "تعذّر تحميل الإشعارات الآن."
+      "loadError": "تعذّر تحميل الإشعارات الآن.",
+      "yourCareTeam": "فريق الرعاية الخاص بك",
+      "newMessageFrom": "رسالة جديدة من {{name}}",
+      "upcomingVisitWith": "زيارة قادمة مع {{name}}",
+      "upcomingBody": "راجع تفاصيل الموعد للاستعداد.",
+      "newLabsFrom": "نتائج مختبر جديدة من {{name}}",
+      "labsBody": "افتح نتائج المختبر للاطلاع على التفاصيل واطلب من المساعد الذكي تفسيراً مبسطاً.",
+      "openThreadFallback": "افتح المحادثة لمراجعة آخر رسائل الرعاية."
     },
     "telemedicine": {
       "title": "الاستشارة الافتراضية",
@@ -1484,7 +1491,13 @@
       "emptyLog": "لا توجد إشعارات محفوظة بعد.",
       "unreadBadge": "غير مقروء",
       "open": "فتح",
-      "markRead": "تحديد كمقروء"
+      "markRead": "تحديد كمقروء",
+      "newMessageFrom": "رسالة جديدة من {{name}}",
+      "openThreadFallback": "افتح المحادثة لمراجعة آخر رسائل الرعاية.",
+      "preVisitCompleted": "أكمل {{name}} استبيان ما قبل الزيارة",
+      "preVisitBody": "راجع تفاصيل الموعد لعرض ملخص المريض وإجاباته.",
+      "chartUpdated": "حدّث {{name}} معلومات السجل الصحي",
+      "chartUpdateBody": "راجع {{label}} في مساحة المريض."
     },
     "consultationWorkspace": {
       "title": "مساحة الاستشارة",

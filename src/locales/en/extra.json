@@ -885,7 +885,14 @@
       "unreadBadge": "Unread",
       "open": "Open",
       "markRead": "Mark read",
-      "loadError": "Your notifications could not be loaded right now."
+      "loadError": "Your notifications could not be loaded right now.",
+      "yourCareTeam": "Your care team",
+      "newMessageFrom": "New message from {{name}}",
+      "upcomingVisitWith": "Upcoming visit with {{name}}",
+      "upcomingBody": "Review the appointment detail for preparation guidance.",
+      "newLabsFrom": "New lab results from {{name}}",
+      "labsBody": "Open your lab results to see details and ask the AI assistant for a plain-language explanation.",
+      "openThreadFallback": "Open the thread to review the latest care message."
     },
     "telemedicine": {
       "title": "Virtual consultation",
@@ -1484,7 +1491,13 @@
       "emptyLog": "No stored notifications yet.",
       "unreadBadge": "Unread",
       "open": "Open",
-      "markRead": "Mark read"
+      "markRead": "Mark read",
+      "newMessageFrom": "New message from {{name}}",
+      "openThreadFallback": "Open the thread to review the latest care message.",
+      "preVisitCompleted": "{{name}} completed pre-visit intake",
+      "preVisitBody": "Review the appointment detail to see the patient summary and intake answers.",
+      "chartUpdated": "{{name}} updated chart information",
+      "chartUpdateBody": "Review {{label}} in the patient detail workspace."
     },
     "consultationWorkspace": {
       "title": "Consultation workspace",
