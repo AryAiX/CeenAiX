@@ -162,6 +162,7 @@ export const PatientPrescriptions: React.FC = () => {
   const { data: allergyRows } = usePatientDashboardAlert(user?.id);
   const [expandedLineIds, setExpandedLineIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<MedicationTab>('active');
+  const [takenDoseKeys, setTakenDoseKeys] = useState<Set<string>>(new Set());
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -209,8 +210,7 @@ export const PatientPrescriptions: React.FC = () => {
       (sum, row) => sum + Math.max(1, estimateDosesPerDay(row.item.frequency)),
       0
     );
-    // No dose-level logging in DB — show 0 "taken" until adherence ships; value is data-honest.
-    const taken = 0;
+    const taken = takenDoseKeys.size;
     const dispensed = activeLineItems.filter((r) => r.item.is_dispensed).length;
     const adh = Math.round((dispensed / activeLineItems.length) * 100);
     return {
@@ -219,7 +219,7 @@ export const PatientPrescriptions: React.FC = () => {
       monthlyAdherencePercent: adh,
       dispensedCount: dispensed,
     };
-  }, [activeLineItems]);
+  }, [activeLineItems, takenDoseKeys]);
 
   const activeLinesWithDays: ActiveLineWithDays[] = useMemo(
     () =>
@@ -526,6 +526,8 @@ export const PatientPrescriptions: React.FC = () => {
               <div className="space-y-3">
                 {block.doses.map(({ row, doseIndex }) => {
                   const accent = lineAccent(row.item.medication_name);
+                  const doseKey = `${row.item.id}-${block.key}-${doseIndex}`;
+                  const isTaken = takenDoseKeys.has(doseKey);
                   return (
                     <div
                       key={`${row.item.id}-${doseIndex}`}
@@ -534,9 +536,9 @@ export const PatientPrescriptions: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div
                           className="flex h-10 w-10 items-center justify-center rounded-full"
-                          style={{ backgroundColor: `${accent.hex}20` }}
+                          style={{ backgroundColor: isTaken ? '#d1fae5' : `${accent.hex}20` }}
                         >
-                          <Pill className="h-5 w-5" style={{ color: accent.hex }} />
+                          <Pill className="h-5 w-5" style={{ color: isTaken ? '#059669' : accent.hex }} />
                         </div>
                         <div>
                           <div className="text-sm font-bold text-slate-900">
@@ -550,27 +552,40 @@ export const PatientPrescriptions: React.FC = () => {
                           </div>
                           <div
                             className={`text-xs font-medium ${
-                              block.status === 'pending' ? 'text-amber-600' : 'text-slate-500'
+                              isTaken
+                                ? 'text-emerald-600'
+                                : block.status === 'pending'
+                                ? 'text-amber-600'
+                                : 'text-slate-500'
                             }`}
                           >
-                            {block.status === 'pending'
+                            {isTaken
+                              ? t('patient.prescriptions.schedulePendingDose', { time: block.time })
+                              : block.status === 'pending'
                               ? t('patient.prescriptions.schedulePendingDose', { time: block.time })
                               : t('patient.prescriptions.scheduleScheduledDose', { time: block.time })}
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        disabled
-                        className={`rounded-full px-4 py-2 text-xs font-bold ${
-                          block.status === 'pending'
-                            ? 'bg-slate-100 text-slate-400'
-                            : 'cursor-not-allowed border-2 border-slate-300 text-slate-400'
-                        }`}
-                        title={t('patient.prescriptions.scheduleMarkTakenDisabled')}
-                      >
-                        {t('patient.prescriptions.scheduleMarkTaken')}
-                      </button>
+                      {isTaken ? (
+                        <span className="rounded-full bg-emerald-100 px-4 py-2 text-xs font-bold text-emerald-700">
+                          Taken ✓
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTakenDoseKeys((prev) => new Set([...prev, doseKey]))
+                          }
+                          className={`rounded-full px-4 py-2 text-xs font-bold transition-colors ${
+                            block.status === 'pending'
+                              ? 'bg-amber-500 text-white hover:bg-amber-600'
+                              : 'border-2 border-slate-300 text-slate-600 hover:border-teal-500 hover:text-teal-600'
+                          }`}
+                        >
+                          {t('patient.prescriptions.scheduleMarkTaken')}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
