@@ -3,12 +3,13 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     name: Production Deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +51,11 @@ jobs:
           VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          # Force the static Vite bundle to compile against the prod Supabase
+          # project even if the Vercel dashboard env is stale.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_PROD_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PROD_ANON_KEY }}
+          VITE_PREVIEW_PIN_GATE: "false"
 
       - name: Deploy to Vercel
         run: |

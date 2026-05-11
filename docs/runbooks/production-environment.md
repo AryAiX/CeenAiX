@@ -80,28 +80,32 @@ The workflow uses the `production` GitHub environment so you can require approva
 
 ## Required GitHub secrets
 
-Set these in **Repository → Settings → Secrets and variables → Actions**:
+These are configured in **Repository → Settings → Secrets and variables → Actions**:
 
 | Secret | Purpose | Where to get it |
 | --- | --- | --- |
-| `SUPABASE_ACCESS_TOKEN` | Lets the CLI authenticate non-interactively | https://supabase.com/dashboard/account/tokens → "Generate new token" |
+| `SUPABASE_ACCESS_TOKEN` | Lets the CLI authenticate non-interactively | Configured from the logged-in Supabase CLI token |
 | `SUPABASE_PROD_PROJECT_REF` | Identifies the prod project to migrations.yml | `ziykaxyadcdmyakzvjff` |
-| `SUPABASE_PROD_DB_PASSWORD` | Lets `supabase db push` authenticate | Saved locally to `/tmp/ceenaix-prod-db-password.txt` on the dev machine. **Rotate via dashboard immediately and put the new value here.** |
+| `SUPABASE_PROD_DB_PASSWORD` | Lets `supabase db push` authenticate | Configured from the generated prod DB password |
+| `VITE_SUPABASE_PROD_URL` | Injected into the production Vite build in deploy.yml | `https://ziykaxyadcdmyakzvjff.supabase.co` |
+| `VITE_SUPABASE_PROD_ANON_KEY` | Injected into the production Vite build in deploy.yml | Prod anon / publishable key |
 | `VITE_SUPABASE_URL` | Used by the `Build` step in `ci.yml` | `https://lgfaucsfiyxvmsghnpey.supabase.co` (dev — CI builds use dev) |
 | `VITE_SUPABASE_ANON_KEY` | Used by the `Build` step in `ci.yml` | dev project anon key |
 | `VERCEL_TOKEN_B64`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Used by `deploy.yml` to deploy to Vercel | Already configured |
 
-## Vercel env wiring (one-time, manual)
+## Vercel production wiring
 
-In Vercel → `ceenaix` project → Settings → Environment Variables, set the following for the **Production** environment:
+The production deployment is functional without changing Vercel dashboard env vars because `.github/workflows/deploy.yml` injects prod Supabase values into `vercel build --prod` from GitHub secrets:
 
+```yaml
+VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_PROD_URL }}
+VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PROD_ANON_KEY }}
+VITE_PREVIEW_PIN_GATE: "false"
 ```
-VITE_SUPABASE_URL          = https://ziykaxyadcdmyakzvjff.supabase.co
-VITE_SUPABASE_ANON_KEY     = <prod anon key from Supabase dashboard>
-VITE_PREVIEW_PIN_GATE      = false        (optional, when going public)
-```
 
-For **Preview** and **Development** environments, leave them pointing at dev:
+This is important because the local Vercel project link is stale and the Vercel dashboard environment had previously pointed production at the dev Supabase project. For GitHub-driven production deploys, the static Vite bundle is compiled against prod regardless of the dashboard env.
+
+For **Preview** and **Development** Vercel environments, leave them pointing at dev if you edit them later:
 
 ```
 VITE_SUPABASE_URL          = https://lgfaucsfiyxvmsghnpey.supabase.co
@@ -110,7 +114,8 @@ VITE_SUPABASE_ANON_KEY     = <dev anon key>
 
 This way PR preview deployments hit dev and never accidentally write to prod.
 
-After updating Vercel env vars, redeploy or push to `main` to pick them up.
+Manual production deploys are available via GitHub Actions → **Release** →
+**Run workflow**. Pushes to `main` still deploy automatically.
 
 ## Local development against prod (rare, read-only debugging)
 
@@ -191,4 +196,4 @@ npx supabase db query --linked --file scripts/prod-counts.sql --output csv
 - **Migration history drift between dev and prod**: dev has 22 migrations that pre-date 2026-02 and aren't in this repo (legacy). Recommend `supabase db pull --linked --project-ref lgfaucsfiyxvmsghnpey` in a separate cleanup PR.
 - **Mixed migrations remain a hazard**: any future migration that mixes schema and demo inserts will land in prod and need a new entry in `scripts/prod-demo-cleanup.sql`. **Discipline:** keep schema and demo seeds in separate migration files going forward.
 - **Edge functions** are deployed automatically by `migrations.yml`. Make sure they read env vars (not hard-coded keys) when port-forwarded.
-- **DB password** is currently in `/tmp/ceenaix-prod-db-password.txt` on the dev machine. Move it to 1Password / your team secret store and delete the temp file.
+- **DB password location**: the generated prod password is stored in GitHub secret `SUPABASE_PROD_DB_PASSWORD` and locally in `/tmp/ceenaix-prod-db-password.txt` on the dev machine for CLI maintenance.
