@@ -29,6 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  createOrganization,
   useAdminAiAnalytics,
   useAdminAiDashboard,
   useAdminCompliance,
@@ -42,7 +43,11 @@ import {
   useAdminSystemHealth,
   useAdminUsers,
 } from '../../hooks';
-import type { AdminComplianceData, AdminDiagnosticsData } from '../../hooks';
+import type {
+  AdminComplianceData,
+  AdminDiagnosticsData,
+  CreateOrganizationInput,
+} from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import type {
   AdminAiAnalyticsPayload,
@@ -97,6 +102,7 @@ interface AdminContext {
   aiDashboard: AdminAiDashboardPayload | null;
   loading: boolean;
   error: string | null;
+  refreshOrganizations: () => void;
 }
 
 interface AdminNavItem {
@@ -353,6 +359,7 @@ const useAdminContextValue = (): AdminContext => {
       insurancePartners.loading ||
       aiDashboard.loading,
     error,
+    refreshOrganizations: organizations.refetch,
   };
 };
 
@@ -396,6 +403,32 @@ const SidebarLink = ({ item, current }: { item: AdminNavItem; current: boolean }
       ) : null}
     </NavLink>
   );
+};
+
+// Module-level CSV downloader: builds a simple CSV from an array of records,
+// escapes embedded quotes/newlines, and triggers a browser download.
+const exportRowsToCsv = (rows: Record<string, unknown>[], filename: string) => {
+  if (!rows.length) return;
+  const columns = Array.from(
+    rows.reduce<Set<string>>((acc, row) => {
+      Object.keys(row).forEach((key) => acc.add(key));
+      return acc;
+    }, new Set<string>()),
+  );
+  const escape = (raw: unknown): string => {
+    const value = raw === null || raw === undefined ? '' : String(raw);
+    return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  };
+  const lines = [columns.join(','), ...rows.map((row) => columns.map((c) => escape(row[c])).join(','))];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 const titleForPage = (page: AdminPage): string => {
@@ -1269,6 +1302,7 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
 
 const PatientsView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const patients = context.patients;
   const [filter, setFilter] = useState<PatientFilter>('all');
@@ -1315,13 +1349,41 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
   return (
     <div className="space-y-5">
       <PageHeader title="Patients" subtitle="Platform-wide patient management">
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/ai-analytics')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
           Analytics
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((p) => ({
+                patient_code: p.patient_code,
+                full_name: p.full_name,
+                age: p.age ?? '',
+                gender: p.gender ?? '',
+                city: p.city ?? '',
+                insurance_plan: p.insurance_plan ?? '',
+                status_label: p.status_label,
+                phone: p.phone ?? '',
+                email: p.email ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `patients-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          disabled={!filtered.length}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
           Export
         </button>
-        <button className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=patient')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
           Register Patient
         </button>
       </PageHeader>
@@ -1531,6 +1593,7 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
 type DoctorFilter = 'all' | 'pending' | 'expiring' | 'flagged';
 
 const DoctorsView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const doctors = context.doctors;
   const [filter, setFilter] = useState<DoctorFilter>('all');
@@ -1573,13 +1636,40 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
   return (
     <div className="space-y-5">
       <PageHeader title="Doctors" subtitle="DHA license verification & platform-wide doctor management">
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/ai-analytics')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
           Analytics
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((d) => ({
+                full_name: d.full_name,
+                specialty: d.specialty ?? '',
+                clinic_name: d.clinic_name ?? '',
+                dha_license: d.dha_license ?? '',
+                license_expires_on: d.license_expires_on ?? '',
+                status_label: d.status_label,
+                phone: d.phone ?? '',
+                email: d.email ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `doctors-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          disabled={!filtered.length}
+        >
           Export
         </button>
-        <button className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=doctor')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
           Add Doctor
         </button>
       </PageHeader>
@@ -1820,6 +1910,255 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
 // ---------------------------------------------------------------------------
 
 type OrgKindFilter = 'all' | 'hospital' | 'clinic' | 'pharmacy' | 'lab' | 'insurance';
+type OrgKind = Exclude<OrgKindFilter, 'all'>;
+
+const ORG_KIND_OPTIONS: { value: OrgKind; label: string; description: string }[] = [
+  { value: 'hospital', label: 'Hospital', description: 'Multi-specialty facility with inpatient services.' },
+  { value: 'clinic', label: 'Clinic', description: 'Outpatient or specialty clinic group.' },
+  { value: 'lab', label: 'Laboratory', description: 'Pathology and/or imaging lab provider.' },
+  { value: 'pharmacy', label: 'Pharmacy', description: 'Retail or hospital pharmacy chain.' },
+  { value: 'insurance', label: 'Insurance', description: 'Insurance carrier or TPA.' },
+];
+
+interface OnboardOrganizationModalProps {
+  open: boolean;
+  defaultKind?: OrgKind;
+  onClose: () => void;
+  onCreated: (org: Organization) => void;
+}
+
+const OnboardOrganizationModal = ({
+  open,
+  defaultKind = 'hospital',
+  onClose,
+  onCreated,
+}: OnboardOrganizationModalProps) => {
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState<OrgKind>(defaultKind);
+  const [city, setCity] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [seatsAllocated, setSeatsAllocated] = useState('0');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setKind(defaultKind);
+      setName('');
+      setCity('');
+      setContactName('');
+      setContactEmail('');
+      setSeatsAllocated('0');
+      setNotes('');
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [open, defaultKind]);
+
+  if (!open) return null;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Organization name is required.');
+      return;
+    }
+    if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+      setError('Primary contact email looks invalid.');
+      return;
+    }
+    const seats = Number.parseInt(seatsAllocated, 10);
+    const payload: CreateOrganizationInput = {
+      name: trimmedName,
+      kind,
+      city: city.trim() || null,
+      primaryContactName: contactName.trim() || null,
+      primaryContactEmail: contactEmail.trim() || null,
+      notes: notes.trim() || null,
+      seatsAllocated: Number.isFinite(seats) && seats > 0 ? seats : 0,
+      status: 'pending',
+    };
+    setSubmitting(true);
+    try {
+      const created = await createOrganization(payload);
+      onCreated(created);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create organization.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">
+              Onboard organization
+            </h2>
+            <p className="text-xs text-slate-500">
+              Creates a pending tenant. Status flips to active after BAA + go-live.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Organization type
+            </label>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {ORG_KIND_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  onClick={() => setKind(option.value)}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    kind === option.value
+                      ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/30'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-slate-900">{option.label}</div>
+                  <div className="text-[11px] text-slate-500">{option.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="org-name" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Organization name <span className="text-rose-600">*</span>
+            </label>
+            <input
+              id="org-name"
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="off"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+              placeholder="e.g. Mediclinic City Hospital"
+              required
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="org-city" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                City
+              </label>
+              <input
+                id="org-city"
+                type="text"
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                placeholder="Dubai"
+              />
+            </div>
+            <div>
+              <label htmlFor="org-seats" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Seats allocated
+              </label>
+              <input
+                id="org-seats"
+                type="number"
+                min={0}
+                value={seatsAllocated}
+                onChange={(event) => setSeatsAllocated(event.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="org-contact-name" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Primary contact name
+              </label>
+              <input
+                id="org-contact-name"
+                type="text"
+                value={contactName}
+                onChange={(event) => setContactName(event.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                placeholder="Operations lead"
+              />
+            </div>
+            <div>
+              <label htmlFor="org-contact-email" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Primary contact email
+              </label>
+              <input
+                id="org-contact-email"
+                type="email"
+                value={contactEmail}
+                onChange={(event) => setContactEmail(event.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                placeholder="ops@example.ae"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="org-notes" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Notes
+            </label>
+            <textarea
+              id="org-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+              placeholder="BAA status, integration scope, NABIDH endpoint, etc."
+            />
+          </div>
+
+          {error ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+            >
+              {submitting ? 'Creating…' : 'Create organization'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const OrganizationsView = ({ context }: { context: AdminContext }) => {
   const orgs = context.organizations;
@@ -1827,6 +2166,14 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   const [filterKind, setFilterKind] = useState<OrgKindFilter>('all');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [onboardKind, setOnboardKind] = useState<OrgKind>('hospital');
+  const [createdToast, setCreatedToast] = useState<string | null>(null);
+
+  const openOnboard = (preset: OrgKind) => {
+    setOnboardKind(preset);
+    setOnboardOpen(true);
+  };
 
   const filtered = useMemo(() => {
     let rows = orgs;
@@ -1850,6 +2197,66 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
       <PageHeader
         title="Organization Management"
         subtitle="Manage all healthcare organizations on the CeenAiX platform"
+      >
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((o) => ({
+                name: o.name,
+                kind: o.kind,
+                status: o.status,
+                slug: o.slug ?? '',
+                city: o.city ?? '',
+                notes: o.notes ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `organizations-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          disabled={!filtered.length}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Export
+        </button>
+        <button
+          type="button"
+          onClick={() => openOnboard('pharmacy')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Onboard Pharmacy
+        </button>
+        <button
+          type="button"
+          onClick={() => openOnboard('lab')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Onboard Lab
+        </button>
+        <button
+          type="button"
+          onClick={() => openOnboard('hospital')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
+          + Add Organization
+        </button>
+      </PageHeader>
+
+      {createdToast ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {createdToast}
+        </div>
+      ) : null}
+
+      <OnboardOrganizationModal
+        open={onboardOpen}
+        defaultKind={onboardKind}
+        onClose={() => setOnboardOpen(false)}
+        onCreated={(org) => {
+          setOnboardOpen(false);
+          context.refreshOrganizations();
+          setCreatedToast(`Created ${org.name} (${titleCase(org.kind)}) — status set to pending.`);
+          window.setTimeout(() => setCreatedToast(null), 5000);
+        }}
       />
 
       <div className="grid gap-5 lg:grid-cols-[260px,1fr]">
@@ -2038,6 +2445,7 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
 type InsuranceFilter = 'all' | 'premium' | 'standard' | 'api_issues' | 'fraud';
 
 const InsuranceView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const partners = context.insurancePartners;
   const [filter, setFilter] = useState<InsuranceFilter>('all');
 
@@ -2078,13 +2486,41 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
           {partners.length} Active
         </span>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/ai-analytics')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
           Analytics
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((p) => ({
+                name: p.name,
+                slug: p.slug ?? '',
+                partner_tier: p.partner_tier,
+                api_status: p.api_status,
+                members: p.members,
+                claims_today: p.claims_today,
+                claim_value_today_aed: p.claim_value_today_aed,
+                fraud_alert_count: p.fraud_alert_count,
+                platform_revenue_label: p.platform_revenue_label ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `insurance-partners-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          disabled={!filtered.length}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
           Export
         </button>
-        <button className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=insurance')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
           Onboard Insurer
         </button>
       </PageHeader>

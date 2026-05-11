@@ -66,6 +66,40 @@ export function useAdminOrganizations() {
   }, []);
 }
 
+export interface CreateOrganizationInput {
+  name: string;
+  kind: 'hospital' | 'clinic' | 'lab' | 'pharmacy' | 'insurance';
+  city?: string | null;
+  primaryContactName?: string | null;
+  primaryContactEmail?: string | null;
+  notes?: string | null;
+  slug?: string | null;
+  status?: 'active' | 'suspended' | 'pending' | 'archived';
+  seatsAllocated?: number;
+}
+
+/**
+ * Insert a new organization via the admin_create_organization RPC.
+ * Returns the created row so the caller can refresh local lists.
+ */
+export async function createOrganization(input: CreateOrganizationInput): Promise<Organization> {
+  const { data, error } = await supabase.rpc('admin_create_organization', {
+    in_name: input.name,
+    in_kind: input.kind,
+    in_city: input.city ?? null,
+    in_primary_contact_name: input.primaryContactName ?? null,
+    in_primary_contact_email: input.primaryContactEmail ?? null,
+    in_notes: input.notes ?? null,
+    in_slug: input.slug ?? null,
+    in_status: input.status ?? 'pending',
+    in_seats_allocated: input.seatsAllocated ?? 0,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as Organization;
+}
+
 export interface AdminComplianceData {
   incidents: AdminIncident[];
   recentAuditEvents: AdminAuditEventRow[];

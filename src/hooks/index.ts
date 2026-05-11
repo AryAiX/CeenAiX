@@ -88,8 +88,13 @@ export {
   useAdminPatientDirectory,
   useAdminInsurancePartners,
   useAdminAiDashboard,
+  createOrganization,
 } from './use-admin-dashboard';
-export type { AdminComplianceData, AdminDiagnosticsData } from './use-admin-dashboard';
+export type {
+  AdminComplianceData,
+  AdminDiagnosticsData,
+  CreateOrganizationInput,
+} from './use-admin-dashboard';
 export {
   useDoctorConsultationStub,
   useDoctorEarningsStub,
