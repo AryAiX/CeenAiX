@@ -29,6 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  createOrganization,
   useAdminAiAnalytics,
   useAdminAiDashboard,
   useAdminCompliance,
@@ -42,7 +43,11 @@ import {
   useAdminSystemHealth,
   useAdminUsers,
 } from '../../hooks';
-import type { AdminComplianceData, AdminDiagnosticsData } from '../../hooks';
+import type {
+  AdminComplianceData,
+  AdminDiagnosticsData,
+  CreateOrganizationInput,
+} from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import type {
   AdminAiAnalyticsPayload,
@@ -97,6 +102,7 @@ interface AdminContext {
   aiDashboard: AdminAiDashboardPayload | null;
   loading: boolean;
   error: string | null;
+  refreshOrganizations: () => void;
 }
 
 interface AdminNavItem {
@@ -353,6 +359,7 @@ const useAdminContextValue = (): AdminContext => {
       insurancePartners.loading ||
       aiDashboard.loading,
     error,
+    refreshOrganizations: organizations.refetch,
   };
 };
 
@@ -1903,14 +1910,270 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
 // ---------------------------------------------------------------------------
 
 type OrgKindFilter = 'all' | 'hospital' | 'clinic' | 'pharmacy' | 'lab' | 'insurance';
+type OrgKind = Exclude<OrgKindFilter, 'all'>;
+
+const ORG_KIND_OPTIONS: { value: OrgKind; label: string; description: string }[] = [
+  { value: 'hospital', label: 'Hospital', description: 'Multi-specialty facility with inpatient services.' },
+  { value: 'clinic', label: 'Clinic', description: 'Outpatient or specialty clinic group.' },
+  { value: 'lab', label: 'Laboratory', description: 'Pathology and/or imaging lab provider.' },
+  { value: 'pharmacy', label: 'Pharmacy', description: 'Retail or hospital pharmacy chain.' },
+  { value: 'insurance', label: 'Insurance', description: 'Insurance carrier or TPA.' },
+];
+
+interface OnboardOrganizationModalProps {
+  open: boolean;
+  defaultKind?: OrgKind;
+  onClose: () => void;
+  onCreated: (org: Organization) => void;
+}
+
+const OnboardOrganizationModal = ({
+  open,
+  defaultKind = 'hospital',
+  onClose,
+  onCreated,
+}: OnboardOrganizationModalProps) => {
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState<OrgKind>(defaultKind);
+  const [city, setCity] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [seatsAllocated, setSeatsAllocated] = useState('0');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setKind(defaultKind);
+      setName('');
+      setCity('');
+      setContactName('');
+      setContactEmail('');
+      setSeatsAllocated('0');
+      setNotes('');
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [open, defaultKind]);
+
+  if (!open) return null;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Organization name is required.');
+      return;
+    }
+    if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+      setError('Primary contact email looks invalid.');
+      return;
+    }
+    const seats = Number.parseInt(seatsAllocated, 10);
+    const payload: CreateOrganizationInput = {
+      name: trimmedName,
+      kind,
+      city: city.trim() || null,
+      primaryContactName: contactName.trim() || null,
+      primaryContactEmail: contactEmail.trim() || null,
+      notes: notes.trim() || null,
+      seatsAllocated: Number.isFinite(seats) && seats > 0 ? seats : 0,
+      status: 'pending',
+    };
+    setSubmitting(true);
+    try {
+      const created = await createOrganization(payload);
+      onCreated(created);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create organization.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">
+              Onboard organization
+            </h2>
+            <p className="text-xs text-slate-500">
+              Creates a pending tenant. Status flips to active after BAA + go-live.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Organization type
+            </label>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {ORG_KIND_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  onClick={() => setKind(option.value)}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    kind === option.value
+                      ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/30'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-slate-900">{option.label}</div>
+                  <div className="text-[11px] text-slate-500">{option.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="org-name" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Organization name <span className="text-rose-600">*</span>
+            </label>
+            <input
+              id="org-name"
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="off"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+              placeholder="e.g. Mediclinic City Hospital"
+              required
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="org-city" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                City
+              </label>
+              <input
+                id="org-city"
+                type="text"
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                placeholder="Dubai"
+              />
+            </div>
+            <div>
+              <label htmlFor="org-seats" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Seats allocated
+              </label>
+              <input
+                id="org-seats"
+                type="number"
+                min={0}
+                value={seatsAllocated}
+                onChange={(event) => setSeatsAllocated(event.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="org-contact-name" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Primary contact name
+              </label>
+              <input
+                id="org-contact-name"
+                type="text"
+                value={contactName}
+                onChange={(event) => setContactName(event.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                placeholder="Operations lead"
+              />
+            </div>
+            <div>
+              <label htmlFor="org-contact-email" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Primary contact email
+              </label>
+              <input
+                id="org-contact-email"
+                type="email"
+                value={contactEmail}
+                onChange={(event) => setContactEmail(event.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                placeholder="ops@example.ae"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="org-notes" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Notes
+            </label>
+            <textarea
+              id="org-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+              placeholder="BAA status, integration scope, NABIDH endpoint, etc."
+            />
+          </div>
+
+          {error ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+            >
+              {submitting ? 'Creating…' : 'Create organization'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const OrganizationsView = ({ context }: { context: AdminContext }) => {
-  const navigate = useNavigate();
   const orgs = context.organizations;
   const orgsSummary = context.dashboard?.orgsSummary;
   const [filterKind, setFilterKind] = useState<OrgKindFilter>('all');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [onboardKind, setOnboardKind] = useState<OrgKind>('hospital');
+  const [createdToast, setCreatedToast] = useState<string | null>(null);
+
+  const openOnboard = (preset: OrgKind) => {
+    setOnboardKind(preset);
+    setOnboardOpen(true);
+  };
 
   const filtered = useMemo(() => {
     let rows = orgs;
@@ -1957,19 +2220,44 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=pharmacy')}
+          onClick={() => openOnboard('pharmacy')}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           Onboard Pharmacy
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=lab')}
-          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+          onClick={() => openOnboard('lab')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           Onboard Lab
         </button>
+        <button
+          type="button"
+          onClick={() => openOnboard('hospital')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
+          + Add Organization
+        </button>
       </PageHeader>
+
+      {createdToast ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {createdToast}
+        </div>
+      ) : null}
+
+      <OnboardOrganizationModal
+        open={onboardOpen}
+        defaultKind={onboardKind}
+        onClose={() => setOnboardOpen(false)}
+        onCreated={(org) => {
+          setOnboardOpen(false);
+          context.refreshOrganizations();
+          setCreatedToast(`Created ${org.name} (${titleCase(org.kind)}) — status set to pending.`);
+          window.setTimeout(() => setCreatedToast(null), 5000);
+        }}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[260px,1fr]">
         <Card>
