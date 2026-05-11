@@ -398,6 +398,32 @@ const SidebarLink = ({ item, current }: { item: AdminNavItem; current: boolean }
   );
 };
 
+// Module-level CSV downloader: builds a simple CSV from an array of records,
+// escapes embedded quotes/newlines, and triggers a browser download.
+const exportRowsToCsv = (rows: Record<string, unknown>[], filename: string) => {
+  if (!rows.length) return;
+  const columns = Array.from(
+    rows.reduce<Set<string>>((acc, row) => {
+      Object.keys(row).forEach((key) => acc.add(key));
+      return acc;
+    }, new Set<string>()),
+  );
+  const escape = (raw: unknown): string => {
+    const value = raw === null || raw === undefined ? '' : String(raw);
+    return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  };
+  const lines = [columns.join(','), ...rows.map((row) => columns.map((c) => escape(row[c])).join(','))];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 const titleForPage = (page: AdminPage): string => {
   const map: Record<AdminPage, string> = {
     dashboard: 'Platform Dashboard',
@@ -1269,6 +1295,7 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
 
 const PatientsView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const patients = context.patients;
   const [filter, setFilter] = useState<PatientFilter>('all');
@@ -1315,13 +1342,41 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
   return (
     <div className="space-y-5">
       <PageHeader title="Patients" subtitle="Platform-wide patient management">
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/ai-analytics')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
           Analytics
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((p) => ({
+                patient_code: p.patient_code,
+                full_name: p.full_name,
+                age: p.age ?? '',
+                gender: p.gender ?? '',
+                city: p.city ?? '',
+                insurance_plan: p.insurance_plan ?? '',
+                status_label: p.status_label,
+                phone: p.phone ?? '',
+                email: p.email ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `patients-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          disabled={!filtered.length}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
           Export
         </button>
-        <button className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=patient')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
           Register Patient
         </button>
       </PageHeader>
@@ -1531,6 +1586,7 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
 type DoctorFilter = 'all' | 'pending' | 'expiring' | 'flagged';
 
 const DoctorsView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const doctors = context.doctors;
   const [filter, setFilter] = useState<DoctorFilter>('all');
@@ -1573,13 +1629,40 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
   return (
     <div className="space-y-5">
       <PageHeader title="Doctors" subtitle="DHA license verification & platform-wide doctor management">
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/ai-analytics')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
           Analytics
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((d) => ({
+                full_name: d.full_name,
+                specialty: d.specialty ?? '',
+                clinic_name: d.clinic_name ?? '',
+                dha_license: d.dha_license ?? '',
+                license_expires_on: d.license_expires_on ?? '',
+                status_label: d.status_label,
+                phone: d.phone ?? '',
+                email: d.email ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `doctors-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          disabled={!filtered.length}
+        >
           Export
         </button>
-        <button className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=doctor')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
           Add Doctor
         </button>
       </PageHeader>
@@ -2038,6 +2121,7 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
 type InsuranceFilter = 'all' | 'premium' | 'standard' | 'api_issues' | 'fraud';
 
 const InsuranceView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const partners = context.insurancePartners;
   const [filter, setFilter] = useState<InsuranceFilter>('all');
 
@@ -2078,13 +2162,41 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
           {partners.length} Active
         </span>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/ai-analytics')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
           Analytics
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((p) => ({
+                name: p.name,
+                slug: p.slug ?? '',
+                partner_tier: p.partner_tier,
+                api_status: p.api_status,
+                members: p.members,
+                claims_today: p.claims_today,
+                claim_value_today_aed: p.claim_value_today_aed,
+                fraud_alert_count: p.fraud_alert_count,
+                platform_revenue_label: p.platform_revenue_label ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `insurance-partners-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          disabled={!filtered.length}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
           Export
         </button>
-        <button className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=insurance')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
           Onboard Insurer
         </button>
       </PageHeader>
