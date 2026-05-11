@@ -87,13 +87,18 @@ There is no long-lived remote `dev` branch. The shared flow is:
 | Event | Web deploy | Database |
 | --- | --- | --- |
 | Local development | `npm run dev` on localhost | `dev-db` (`lgfaucsfiyxvmsghnpey`) |
-| PR to `main` | Vercel preview URL posted on the PR by `.github/workflows/deploy.yml`, also aliased to `https://ceenaix-dev-aryaix.vercel.app` | `dev-db` |
+| PR to `main` | Public Vercel dev deployment URL posted on the PR by `.github/workflows/deploy.yml`, also aliased to `https://ceenaix-dev-aryaix.vercel.app` | `dev-db` |
 | Merge / push to `main` | Vercel production deploy, aliased to `https://www.ceenaix.com` | `ceenaix-prod` (`ziykaxyadcdmyakzvjff`) |
 
-Each PR still gets a dynamic Vercel preview URL (for example
+Each PR still gets a dynamic Vercel URL (for example
 `https://ceenaix-<hash>-aryaix.vercel.app`). The latest dev preview is also
 published at the stable public URL `https://ceenaix-dev-aryaix.vercel.app`, built against
 `dev-db`, never prod.
+
+Implementation note: Vercel preview deployments are protected for this project,
+so the dev workflow builds a production-target deployment with `--skip-domain`.
+That keeps `www.ceenaix.com` pointed at real prod while making the dev alias
+publicly accessible.
 
 ## Required GitHub secrets
 
