@@ -1368,8 +1368,6 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
                 city: p.city ?? '',
                 insurance_plan: p.insurance_plan ?? '',
                 status_label: p.status_label,
-                phone: p.phone ?? '',
-                email: p.email ?? '',
               })) as unknown as Record<string, unknown>[],
               `patients-${new Date().toISOString().slice(0, 10)}.csv`,
             )
@@ -1652,10 +1650,8 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
                 specialty: d.specialty ?? '',
                 clinic_name: d.clinic_name ?? '',
                 dha_license: d.dha_license ?? '',
-                license_expires_on: d.license_expires_on ?? '',
+                license_expires_at: d.license_expires_at ?? '',
                 status_label: d.status_label,
-                phone: d.phone ?? '',
-                email: d.email ?? '',
               })) as unknown as Record<string, unknown>[],
               `doctors-${new Date().toISOString().slice(0, 10)}.csv`,
             )
@@ -2498,8 +2494,8 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
           onClick={() =>
             exportRowsToCsv(
               filtered.map((p) => ({
-                name: p.name,
-                slug: p.slug ?? '',
+                name: p.insurer_name,
+                cbuae_license: p.cbuae_license,
                 partner_tier: p.partner_tier,
                 api_status: p.api_status,
                 members: p.members,

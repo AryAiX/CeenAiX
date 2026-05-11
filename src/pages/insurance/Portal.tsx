@@ -53,6 +53,15 @@ const formatNumber = (value: number | null | undefined) =>
 const formatCurrency = (value: number | null | undefined) =>
   typeof value === 'number' ? `AED ${value.toLocaleString()}` : 'AED —';
 
+const formatDate = (value: string | null | undefined) =>
+  value
+    ? new Date(value).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : '—';
+
 const titleCase = (value: string) =>
   value
     .split(/[_\s-]+/)

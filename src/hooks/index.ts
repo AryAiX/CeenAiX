@@ -64,9 +64,11 @@ export type {
 } from './use-pharmacy-prescription-queue';
 export { useInsurancePortal } from './use-insurance-portal';
 export type {
+  InsuranceAiInsight,
   InsuranceClaim,
   InsuranceFraudAlert,
   InsuranceMember,
+  InsuranceMonthlyClaimsVolumePoint,
   InsuranceNetworkProvider,
   InsurancePayerProfile,
   InsurancePortalData,
