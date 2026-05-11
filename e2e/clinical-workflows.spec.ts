@@ -31,8 +31,33 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   test.setTimeout(90_000);
   const state = createE2EWorkflowState();
 
+  const adminOrgPage = await openRolePage(browser, state, 'super_admin', '/admin/organizations');
+  await adminOrgPage.getByRole('button', { name: /onboard lab/i }).click();
+  await expect(adminOrgPage.getByRole('heading', { name: /onboard organization/i })).toBeVisible();
+  await adminOrgPage.getByLabel(/organization name/i).fill('Future Diagnostics Lab');
+  await adminOrgPage.getByLabel(/^city$/i).fill('Abu Dhabi');
+  await adminOrgPage.getByLabel(/seats allocated/i).fill('12');
+  await adminOrgPage.getByLabel(/primary contact name/i).fill('Noura Ops');
+  await adminOrgPage.getByLabel(/primary contact email/i).fill('noura.ops@example.ae');
+  await adminOrgPage.getByLabel(/notes/i).fill('DHA-L-2026-099 · NABIDH onboarding pending');
+  await adminOrgPage.getByRole('button', { name: /create organization/i }).click();
+  await expect(adminOrgPage.getByText(/created future diagnostics lab/i)).toBeVisible();
+  await expect(adminOrgPage.getByText('Future Diagnostics Lab')).toBeVisible();
+  await closePage(adminOrgPage);
+
+  expect(state.organizations).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        name: 'Future Diagnostics Lab',
+        kind: 'lab',
+        city: 'Abu Dhabi',
+        status: 'pending',
+      }),
+    ])
+  );
+
   const adminPage = await openRolePage(browser, state, 'super_admin', '/admin/doctors');
-  await adminPage.getByPlaceholder(/search name/i).fill(e2eUsers.doctor.fullName);
+  await adminPage.getByPlaceholder(/search by name/i).fill(e2eUsers.doctor.fullName);
   await expect(adminPage.getByRole('cell', { name: e2eUsers.doctor.fullName })).toBeVisible();
   await expect(adminPage.getByText('doctor').first()).toBeVisible();
   await closePage(adminPage);

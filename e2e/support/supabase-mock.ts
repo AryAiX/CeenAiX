@@ -73,6 +73,7 @@ export const workflowIds = {
 };
 
 export interface E2EWorkflowState {
+  organizations: JsonRecord[];
   appointments: JsonRecord[];
   preVisitAssessments: JsonRecord[];
   preVisitAnswers: JsonRecord[];
@@ -117,6 +118,7 @@ const normalizeLabItemRows = (rows: JsonRecord[]) =>
 export const createE2EWorkflowState = (
   options: { includeBaselineData?: boolean } = {}
 ): E2EWorkflowState => ({
+  organizations: [],
   appointments: options.includeBaselineData ? cloneRows(appointmentRows) : [],
   preVisitAssessments: [],
   preVisitAnswers: [],
@@ -674,6 +676,104 @@ const createPreVisitAssessment = (appointment: JsonRecord): JsonRecord => ({
   updated_at: now.toISOString(),
 });
 
+const baselineOrganizations = (): JsonRecord[] => [
+  {
+    id: 'org-e2e',
+    slug: 'ceenaix-clinic',
+    name: 'CeenAiX Clinic',
+    kind: 'clinic',
+    city: 'Dubai',
+    country: 'UAE',
+    primary_contact_name: 'Maya Admin',
+    primary_contact_email: e2eUsers.super_admin.email,
+    baa_signed_at: yesterday,
+    contract_started_at: yesterday,
+    contract_ends_at: null,
+    seats_allocated: 100,
+    seats_used: 42,
+    status: 'active',
+    notes: 'DHA-C-2026-001 · NABIDH connected · E2E organization fixture',
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+];
+
+const organizationsForState = (state?: E2EWorkflowState): JsonRecord[] => [
+  ...baselineOrganizations(),
+  ...(state?.organizations ?? []),
+];
+
+const adminContextPayload = (state?: E2EWorkflowState): JsonRecord => {
+  const organizations = organizationsForState(state);
+  const orgCount = (kind: string) => organizations.filter((org) => org.kind === kind).length;
+  return {
+    total_patients: 1220,
+    patients_30d_active: 346,
+    patients_new_month: 38,
+    patients_flagged: 3,
+    patients_suspended: 1,
+    patient_change_pct: 8.4,
+    verified_doctors: 214,
+    pending_doctors: 1,
+    doctors_added_this_month: 7,
+    doctors_active_now: 18,
+    doctor_license_alerts: 1,
+    doctor_avg_rating: 4.8,
+    doctor_fees_mtd_aed: 812450,
+    connected_orgs: organizations.length,
+    orgs_clinics: orgCount('clinic'),
+    orgs_hospitals: orgCount('hospital'),
+    orgs_pharmacies: orgCount('pharmacy'),
+    orgs_labs: orgCount('lab'),
+    orgs_added_this_month: state?.organizations.length ?? 0,
+    ai_sessions_today: 184,
+    ai_sessions_month: 3200,
+    ai_sessions_alltime: 45000,
+    ai_active_now: 24,
+    ai_avg_response_sec: 1.2,
+    ai_uptime_pct: 99.9,
+    ai_satisfaction: 4.7,
+    ai_satisfaction_count: 642,
+    ai_to_booking_pct: 12.5,
+    ai_to_booking_count: 33,
+    ai_safety_flags_today: 1,
+    ai_safety_escalated: 0,
+    ai_safety_resolved: 1,
+    ai_revenue_today_aed: 5200,
+    ai_revenue_net_aed: 4380,
+    ai_revenue_margin_pct: 84,
+    revenue_today_aed: 42800,
+    revenue_target_aed: 50000,
+    revenue_change_pct: 6.2,
+    uptime_pct: 99.95,
+    uptime_incidents_month: 0,
+    dha_score: 97.4,
+    dha_license: 'DHA-CEENAIX-E2E',
+    dha_license_expires: '2027-12-31',
+    active_sessions: 346,
+    open_issues: 1,
+    super_admin_name: e2eUsers.super_admin.fullName,
+    super_admin_role_label: 'Super Admin · E2E',
+    super_admin_organization: 'AryAiX LLC',
+    platform_version: 'v2.4.1',
+    environment_label: 'E2E',
+    updated_at: now.toISOString(),
+  };
+};
+
+const orgsSummaryPayload = (state?: E2EWorkflowState) => {
+  const organizations = organizationsForState(state);
+  const count = (kind: string) => organizations.filter((org) => org.kind === kind).length;
+  return {
+    total: organizations.length,
+    hospitals: count('hospital'),
+    clinics: count('clinic'),
+    pharmacies: count('pharmacy'),
+    labs: count('lab'),
+    insurance: count('insurance'),
+  };
+};
+
 const asArray = (payload: unknown): JsonRecord[] => {
   if (Array.isArray(payload)) {
     return payload.filter((item): item is JsonRecord => Boolean(item && typeof item === 'object'));
@@ -736,27 +836,38 @@ const rpcPayload = (
         last_sign_in_at: yesterday,
       }));
     case 'admin_list_organizations':
-      return [
-        {
-          id: 'org-e2e',
-          slug: 'ceenaix-clinic',
-          name: 'CeenAiX Clinic',
-          kind: 'clinic',
-          city: 'Dubai',
-          country: 'UAE',
-          primary_contact_name: 'Maya Admin',
-          primary_contact_email: e2eUsers.super_admin.email,
-          baa_signed_at: yesterday,
-          contract_started_at: yesterday,
-          contract_ends_at: null,
-          seats_allocated: 100,
-          seats_used: 42,
-          status: 'active',
-          notes: 'E2E organization fixture',
-          created_at: yesterday,
-          updated_at: yesterday,
-        },
-      ];
+      return organizationsForState(state);
+    case 'admin_create_organization': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      const name = typeof input.in_name === 'string' ? input.in_name : 'E2E Organization';
+      const kind = typeof input.in_kind === 'string' ? input.in_kind : 'clinic';
+      const created = {
+        id: `org-created-${(state?.organizations.length ?? 0) + 1}`,
+        slug:
+          typeof input.in_slug === 'string' && input.in_slug.trim()
+            ? input.in_slug.trim()
+            : name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+        name,
+        kind,
+        city: typeof input.in_city === 'string' ? input.in_city : null,
+        country: 'UAE',
+        primary_contact_name:
+          typeof input.in_primary_contact_name === 'string' ? input.in_primary_contact_name : null,
+        primary_contact_email:
+          typeof input.in_primary_contact_email === 'string' ? input.in_primary_contact_email : null,
+        baa_signed_at: null,
+        contract_started_at: null,
+        contract_ends_at: null,
+        seats_allocated: typeof input.in_seats_allocated === 'number' ? input.in_seats_allocated : 0,
+        seats_used: 0,
+        status: typeof input.in_status === 'string' ? input.in_status : 'pending',
+        notes: typeof input.in_notes === 'string' ? input.in_notes : null,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      state?.organizations.push(created);
+      return created;
+    }
     case 'admin_list_incidents':
       return [
         {
@@ -847,6 +958,188 @@ const rpcPayload = (
         safety: {
           flaggedLast30Days: 2,
         },
+      };
+    case 'admin_get_dashboard':
+      return {
+        generatedAt: now.toISOString(),
+        context: adminContextPayload(state),
+        issues: [
+          {
+            id: 'issue-e2e',
+            severity: 'medium',
+            category: 'license',
+            title: '1 doctor awaiting DHA verification',
+            detail: 'E2E pending doctor review.',
+            cta_label: 'Review',
+            cta_kind: 'doctor',
+          },
+        ],
+        portals: [
+          {
+            id: 'portal-patient',
+            portal_key: 'patient',
+            portal_name: 'Patient Portal',
+            active_users: 180,
+            latency_ms: 42,
+            status: 'online',
+            observed_at: now.toISOString(),
+          },
+          {
+            id: 'portal-lab',
+            portal_key: 'lab',
+            portal_name: 'Lab Portal',
+            active_users: 12,
+            latency_ms: 51,
+            status: 'online',
+            observed_at: now.toISOString(),
+          },
+        ],
+        liveActivity: [
+          {
+            id: 'activity-e2e',
+            category: 'appointment',
+            title: 'Workflow appointment booked',
+            detail: 'Aisha Patient booked with Dr. Omar Doctor.',
+            occurred_at: now.toISOString(),
+            ago_label: 'now',
+          },
+        ],
+        complianceChecklist: [
+          {
+            id: 'compliance-e2e',
+            label: 'RLS enabled',
+            detail: 'All clinical tables guarded.',
+            is_compliant: true,
+          },
+        ],
+        licenseAlerts: [
+          {
+            id: 'license-alert-e2e',
+            doctor_name: e2eUsers.doctor.fullName,
+            doctor_initials: 'OD',
+            days_remaining: 28,
+            severity: 'medium',
+          },
+        ],
+        revenueDaily: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => ({
+          id: `revenue-${day}`,
+          day_label: day,
+          day_index: index,
+          total_aed: 10000 + index * 500,
+          consults_aed: 7000 + index * 400,
+          ai_aed: 1200 + index * 100,
+          lab_aed: 1800 + index * 50,
+          target_aed: 12000,
+        })),
+        orgsSummary: orgsSummaryPayload(state),
+      };
+    case 'admin_get_doctor_directory':
+      return [
+        {
+          id: doctorId,
+          initials: 'OD',
+          full_name: e2eUsers.doctor.fullName,
+          age: 42,
+          gender: 'male',
+          nationality: 'UAE',
+          dha_license: 'DHA-E2E-DOCTOR',
+          dha_verified: true,
+          specialty: 'Family Medicine',
+          specialty_sub: 'Primary care',
+          clinic_name: 'CeenAiX Clinic',
+          city: 'Dubai',
+          consults_lifetime: 326,
+          consults_recent_label: '18 this month',
+          rating: 4.8,
+          rating_count: 94,
+          license_expires_at: '2027-12-31',
+          license_expires_label: 'Expires Dec 31, 2027',
+          reminder_status: null,
+          status_label: 'verified',
+          status_flag: null,
+          badge_emoji: null,
+          badge_label: null,
+          sort_order: 1,
+        },
+      ];
+    case 'admin_get_patient_directory':
+      return [
+        {
+          id: patientId,
+          initials: 'AP',
+          full_name: e2eUsers.patient.fullName,
+          age: 36,
+          gender: 'female',
+          blood_type: 'O+',
+          patient_code: 'PAT-E2E-001',
+          emirates_id_masked: '784-****-0001',
+          insurance_plan: 'CeenAiX Gold',
+          insurance_member_id_masked: 'MEM-****-001',
+          city: 'Dubai',
+          joined_label: 'Mar 2026',
+          last_active_label: 'Today',
+          risk_level: 'low',
+          status_label: 'active',
+          status_flag: null,
+          badge_emoji: null,
+          badge_label: null,
+          sort_order: 1,
+        },
+      ];
+    case 'admin_get_insurance_partners':
+      return [
+        {
+          id: 'insurance-partner-e2e',
+          initials: 'CG',
+          insurer_name: 'CeenAiX Gold',
+          cbuae_license: 'CBUAE-E2E',
+          partner_tier: 'premium',
+          is_government: false,
+          is_new_partner: true,
+          api_status: 'healthy',
+          api_latency_ms: 74,
+          members: 1240,
+          claims_today: 18,
+          claim_value_today_aed: 42000,
+          auto_approval_pct: 91,
+          plan_pills: ['Gold', 'Family'],
+          partner_since: '2026',
+          platform_revenue_label: 'AED 42,000',
+          sla_status: 'Met',
+          breach_label: null,
+          fraud_alert_count: 0,
+          fraud_alert_severity: null,
+          api_warning_label: null,
+          sla_breach_label: null,
+          notes: 'E2E insurance partner',
+          sort_order: 1,
+        },
+      ];
+    case 'admin_get_ai_dashboard':
+      return {
+        generatedAt: now.toISOString(),
+        context: adminContextPayload(state),
+        languages: [
+          {
+            id: 'ai-lang-en',
+            bucket: 'language',
+            label: 'English',
+            sub_label: 'Default',
+            sessions: 2400,
+            percent: 75,
+            metric_1_label: 'CSAT',
+            metric_1_value: '4.7',
+            metric_2_label: 'Escalations',
+            metric_2_value: '12',
+            metric_3_label: null,
+            metric_3_value: null,
+            metric_4_label: null,
+            metric_4_value: null,
+            sort_order: 1,
+          },
+        ],
+        topics: [],
+        portals: [],
       };
     case 'admin_list_feature_flags':
       return [
