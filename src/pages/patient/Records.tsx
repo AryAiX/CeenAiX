@@ -169,6 +169,8 @@ export const PatientRecords: React.FC = () => {
   const [vaccinationForm, setVaccinationForm] = useState<VaccinationFormState>(initialVaccinationForm);
   const [submittingForm, setSubmittingForm] = useState<RecordCategory | null>(null);
   const [conditionSubmitAttempted, setConditionSubmitAttempted] = useState(false);
+  const [allergySubmitAttempted, setAllergySubmitAttempted] = useState(false);
+  const [vaccinationSubmitAttempted, setVaccinationSubmitAttempted] = useState(false);
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -339,6 +341,8 @@ export const PatientRecords: React.FC = () => {
     setAllergyForm(initialAllergyForm);
     setVaccinationForm(initialVaccinationForm);
     setConditionSubmitAttempted(false);
+    setAllergySubmitAttempted(false);
+    setVaccinationSubmitAttempted(false);
     setActiveForm(null);
   };
 
@@ -347,7 +351,11 @@ export const PatientRecords: React.FC = () => {
 
     setConditionSubmitAttempted(true);
 
-    if (!conditionForm.conditionName.trim()) {
+    if (
+      !conditionForm.conditionName.trim() ||
+      !conditionForm.icdCode.trim() ||
+      !conditionForm.diagnosedDate
+    ) {
       return;
     }
 
@@ -382,6 +390,12 @@ export const PatientRecords: React.FC = () => {
   const handleCreateAllergy = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    setAllergySubmitAttempted(true);
+
+    if (!allergyForm.allergen.trim()) {
+      return;
+    }
+
     if (!user?.id) {
       return;
     }
@@ -411,6 +425,16 @@ export const PatientRecords: React.FC = () => {
 
   const handleCreateVaccination = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    setVaccinationSubmitAttempted(true);
+
+    if (
+      !vaccinationForm.vaccineName.trim() ||
+      !vaccinationForm.doseNumber.trim() ||
+      !vaccinationForm.administeredDate
+    ) {
+      return;
+    }
 
     if (!user?.id) {
       return;
@@ -655,8 +679,15 @@ export const PatientRecords: React.FC = () => {
                   onChange={(event) =>
                     setConditionForm((current) => ({ ...current, icdCode: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    conditionSubmitAttempted && !conditionForm.icdCode.trim()
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-cyan-500 focus:ring-cyan-500/10'
+                  }`}
                 />
+                {conditionSubmitAttempted && !conditionForm.icdCode.trim() ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')}</span>
@@ -666,8 +697,15 @@ export const PatientRecords: React.FC = () => {
                   onChange={(event) =>
                     setConditionForm((current) => ({ ...current, diagnosedDate: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    conditionSubmitAttempted && !conditionForm.diagnosedDate
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-cyan-500 focus:ring-cyan-500/10'
+                  }`}
                 />
+                {conditionSubmitAttempted && !conditionForm.diagnosedDate ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.status')}</span>
@@ -738,14 +776,20 @@ export const PatientRecords: React.FC = () => {
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.allergen')}</span>
                 <input
-                  required
                   type="text"
                   value={allergyForm.allergen}
                   onChange={(event) =>
                     setAllergyForm((current) => ({ ...current, allergen: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    allergySubmitAttempted && !allergyForm.allergen.trim()
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-amber-500 focus:ring-amber-500/10'
+                  }`}
                 />
+                {allergySubmitAttempted && !allergyForm.allergen.trim() ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.severity')}</span>
@@ -830,14 +874,20 @@ export const PatientRecords: React.FC = () => {
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.vaccineName')}</span>
                 <input
-                  required
                   type="text"
                   value={vaccinationForm.vaccineName}
                   onChange={(event) =>
                     setVaccinationForm((current) => ({ ...current, vaccineName: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    vaccinationSubmitAttempted && !vaccinationForm.vaccineName.trim()
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-violet-500 focus:ring-violet-500/10'
+                  }`}
                 />
+                {vaccinationSubmitAttempted && !vaccinationForm.vaccineName.trim() ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')}</span>
@@ -848,8 +898,15 @@ export const PatientRecords: React.FC = () => {
                   onChange={(event) =>
                     setVaccinationForm((current) => ({ ...current, doseNumber: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    vaccinationSubmitAttempted && !vaccinationForm.doseNumber.trim()
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-violet-500 focus:ring-violet-500/10'
+                  }`}
                 />
+                {vaccinationSubmitAttempted && !vaccinationForm.doseNumber.trim() ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')}</span>
@@ -862,8 +919,15 @@ export const PatientRecords: React.FC = () => {
                       administeredDate: event.target.value,
                     }))
                   }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+                  className={`w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-4 ${
+                    vaccinationSubmitAttempted && !vaccinationForm.administeredDate
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-gray-200 focus:border-violet-500 focus:ring-violet-500/10'
+                  }`}
                 />
+                {vaccinationSubmitAttempted && !vaccinationForm.administeredDate ? (
+                  <p className="text-xs font-medium text-red-600">This field is required</p>
+                ) : null}
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')}</span>
