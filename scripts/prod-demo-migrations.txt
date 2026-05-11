@@ -1,0 +1,64 @@
+# Demo / seed-only migrations that should be SKIPPED in production.
+# Used by scripts/setup-prod-supabase.sh: each version listed here is marked
+# `--status applied` in the prod project before `supabase db push --linked`,
+# so the seed never runs.
+#
+# Rules:
+#   - Lines starting with `#` are comments.
+#   - One migration version per line (the 14-digit prefix).
+#   - DO NOT list mixed schema+seed migrations here — those run, and any
+#     unwanted rows they insert are cleaned up by scripts/prod-demo-cleanup.sql.
+#
+# Mixed schema+seed migrations that we KEEP applying (their inserts are
+# either guarded by `WHERE EXISTS` on demo users or cleaned post-push):
+#   20260427054000  add_pharmacy_insurance_ops_portal_data  (mixed, run)
+#   20260503133000  add_lab_admin_week1_portal_data         (mixed, run)
+#   20260510010000  add_admin_portal_parity_data            (mixed, run)
+#
+# Reference data we KEEP (lookup tables, vocab, catalogs):
+#   20260315193000  add_specializations_lookup
+#   20260328140000  prescription_clinical_vocab
+#   20260406013000  add_medication_catalog
+#   20260406024000  add_medication_catalog_enrichment_fields
+#   20260406103000  add_lab_test_catalog
+#   20260315235900  backfill_doctor_specializations  (idempotent backfill)
+#   20260302072110  add_sample_appointments_function (function DDL, not data)
+#   20260302075407  update_sample_appointments_function (function DDL)
+
+# Demo auth users (lab1 + admin1) — creates demo logins in auth.users
+20260419220050
+
+# Demo lab + admin data tied to lab1 / admin1 auth users above
+20260419220300
+20260419220400
+
+# patient1 / doctor1 demo data — guarded by WHERE EXISTS but explicit skip
+# keeps the audit trail clean
+20260321120000
+20260413005606
+20260413010316
+20260413053808
+20260413054707
+20260413055008
+20260413055927
+20260420022736
+20260420031204
+
+# Demo hospitals / extra doctors (sample, not reference)
+20260303094940
+20260304124134
+
+# Pharmacy + insurance demo queues / claim appeals
+20260427034500
+20260427061000
+
+# Lab1 demo staff membership
+20260503190000
+
+# Lab + insurance portal seed extensions
+20260504000000
+20260510000000
+
+# Lab inbox demo rows (3 imaging + 3 lab orders for the demo lab portal)
+20260510020000
+20260510030000

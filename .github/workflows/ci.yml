@@ -27,6 +27,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # CI builds against the DEV Supabase project. Production deploys read
+      # their env vars from Vercel directly (see deploy.yml + the prod
+      # environment in Vercel → Settings → Environment Variables).
       - name: Build
         run: npm run build
         env:
