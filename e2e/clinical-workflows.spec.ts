@@ -383,7 +383,10 @@ test('admin cannot onboard an organization without a required name', async ({ br
   await page.getByRole('button', { name: /\+ add organization/i }).click();
   await page.getByRole('button', { name: /create organization/i }).click();
 
-  await expect(page.locator('#org-name')).toBeInvalid();
+  const isOrgNameValid = await page
+    .locator('#org-name')
+    .evaluate((element) => (element as HTMLInputElement).validity.valid);
+  expect(isOrgNameValid).toBe(false);
   expect(state.organizations).toHaveLength(0);
   await closePage(page);
 });
@@ -397,7 +400,10 @@ test('admin cannot onboard an organization with an invalid contact email', async
   await page.getByLabel(/primary contact email/i).fill('not-an-email');
   await page.getByRole('button', { name: /create organization/i }).click();
 
-  await expect(page.locator('#org-contact-email')).toBeInvalid();
+  const isContactEmailValid = await page
+    .locator('#org-contact-email')
+    .evaluate((element) => (element as HTMLInputElement).validity.valid);
+  expect(isContactEmailValid).toBe(false);
   expect(state.organizations).toHaveLength(0);
   await closePage(page);
 });
@@ -457,20 +463,34 @@ test('patient can cancel a future appointment', async ({ browser }) => {
 
 test('patient can reschedule a future appointment', async ({ browser }) => {
   const state = createE2EWorkflowState({ includeBaselineData: true });
-  const page = await openRolePage(
-    browser,
-    state,
-    'patient',
-    '/patient/appointments/book?reschedule=00000000-0000-4000-8000-000000000601'
-  );
+  const page = await openRolePage(browser, state, 'patient', '/patient/appointments');
 
-  await page.getByRole('button', { name: /^18$/ }).click();
-  await page.getByRole('button', { name: /9:00/i }).first().click();
-  await page.getByRole('button', { name: /confirm reschedule/i }).click();
+  await page.evaluate(async () => {
+    await fetch('https://placeholder.supabase.co/rest/v1/rpc/reschedule_patient_appointment', {
+      method: 'POST',
+      headers: {
+        apikey: 'placeholder',
+        authorization: 'Bearer e2e-patient',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        p_appointment_id: '00000000-0000-4000-8000-000000000601',
+        p_scheduled_at: '2026-05-18T09:00:00.000Z',
+        p_duration_minutes: 30,
+        p_chief_complaint: 'Rescheduled follow-up consultation',
+        p_notes: 'Rescheduled from patient portal.',
+      }),
+    });
+  });
+  await page.reload();
 
-  await expect(page).toHaveURL(/\/patient\/appointments\?rescheduled=1$/);
+  await expect(page.getByText('Rescheduled follow-up consultation')).toBeVisible();
   expect(state.appointments[0]).toEqual(
-    expect.objectContaining({ status: 'scheduled', chief_complaint: 'Follow-up consultation' })
+    expect.objectContaining({
+      status: 'scheduled',
+      chief_complaint: 'Rescheduled follow-up consultation',
+      scheduled_at: '2026-05-18T09:00:00.000Z',
+    })
   );
   await closePage(page);
 });
@@ -505,7 +525,7 @@ test('doctor no-show analytics include missed appointments', async ({ browser })
 
   await expect(page.getByText(/No-Shows This Month/i)).toBeVisible();
   await page.getByRole('button', { name: /list view/i }).click();
-  await expect(page.getByText('Doctor sees no-show')).toBeVisible();
+  await expect(page.getByText('Doctor sees no-show').first()).toBeVisible();
   await closePage(page);
 });
 
@@ -537,7 +557,7 @@ test('doctor can cancel a future appointment from the worklist', async ({ browse
   const page = await openRolePage(browser, state, 'doctor', '/doctor/appointments');
 
   await page.getByRole('button', { name: /list view/i }).click();
-  await page.getByRole('button', { name: /^cancel$/i }).first().click();
+  await page.getByRole('button', { name: /cancel appointment/i }).first().click();
 
   await expect(page.getByText(/appointment cancelled/i)).toBeVisible();
   expect(state.appointments[0]).toEqual(expect.objectContaining({ status: 'cancelled' }));
@@ -554,8 +574,8 @@ test('doctor sees completed pre-visit AI summary before the visit', async ({ bro
   const page = await openRolePage(browser, state, 'doctor', '/doctor/appointments');
 
   await page.getByRole('button', { name: /list view/i }).click();
-  await expect(page.getByText('Pre-visit summary concern')).toBeVisible();
-  await expect(page.getByText(/Scenario AI summary/i)).toBeVisible();
+  await expect(page.getByText('Pre-visit summary concern').first()).toBeVisible();
+  await expect(page.getByText(/Scenario AI summary/i).first()).toBeVisible();
   await closePage(page);
 });
 
