@@ -16,7 +16,7 @@ Owner: Platform engineering
 | Project ref | `lgfaucsfiyxvmsghnpey` |
 | Region | `us-west-2` |
 | **Vercel project** | `ceenaix` (team `aryaix`) — `prj_FosTjANr8nLMgGOMCcMX1CoAKXLi` |
-| Stable dev web URL | https://dev.ceenaix.com |
+| Stable dev web URL | https://ceenaix-dev-aryaix.vercel.app |
 | Production web URL | https://www.ceenaix.com |
 
 > **Data residency note:** Supabase does not yet offer a UAE region (`me-central-1`), and AWS UAE is in a multi-month restoration window as of 2026-05. Production is therefore hosted in `us-west-2` matching dev. When Supabase adds UAE, or when we move to self-hosted on G42/eCloud, this runbook needs updating and a DB migration window.
@@ -87,12 +87,12 @@ There is no long-lived remote `dev` branch. The shared flow is:
 | Event | Web deploy | Database |
 | --- | --- | --- |
 | Local development | `npm run dev` on localhost | `dev-db` (`lgfaucsfiyxvmsghnpey`) |
-| PR to `main` | Vercel preview URL posted on the PR by `.github/workflows/deploy.yml`, also aliased to `https://dev.ceenaix.com` | `dev-db` |
+| PR to `main` | Vercel preview URL posted on the PR by `.github/workflows/deploy.yml`, also aliased to `https://ceenaix-dev-aryaix.vercel.app` | `dev-db` |
 | Merge / push to `main` | Vercel production deploy, aliased to `https://www.ceenaix.com` | `ceenaix-prod` (`ziykaxyadcdmyakzvjff`) |
 
 Each PR still gets a dynamic Vercel preview URL (for example
 `https://ceenaix-<hash>-aryaix.vercel.app`). The latest dev preview is also
-published at the stable public URL `https://dev.ceenaix.com`, built against
+published at the stable public URL `https://ceenaix-dev-aryaix.vercel.app`, built against
 `dev-db`, never prod.
 
 ## Required GitHub secrets
@@ -133,7 +133,7 @@ This way PR preview deployments hit dev and never accidentally write to prod.
 
 Manual deploys are available via GitHub Actions → **Release** → **Run workflow**:
 
-- `target=dev` builds against `dev-db` and aliases to `https://dev.ceenaix.com`.
+- `target=dev` builds against `dev-db` and aliases to `https://ceenaix-dev-aryaix.vercel.app`.
 - `target=production` builds against `ceenaix-prod` and aliases to `https://www.ceenaix.com`.
 
 Pushes to `main` still deploy production automatically. Verified manual
