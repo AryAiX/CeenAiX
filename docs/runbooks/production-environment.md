@@ -16,6 +16,7 @@ Owner: Platform engineering
 | Project ref | `lgfaucsfiyxvmsghnpey` |
 | Region | `us-west-2` |
 | **Vercel project** | `ceenaix` (team `aryaix`) — `prj_FosTjANr8nLMgGOMCcMX1CoAKXLi` |
+| Production web URL | https://www.ceenaix.com |
 
 > **Data residency note:** Supabase does not yet offer a UAE region (`me-central-1`), and AWS UAE is in a multi-month restoration window as of 2026-05. Production is therefore hosted in `us-west-2` matching dev. When Supabase adds UAE, or when we move to self-hosted on G42/eCloud, this runbook needs updating and a DB migration window.
 
@@ -115,7 +116,8 @@ VITE_SUPABASE_ANON_KEY     = <dev anon key>
 This way PR preview deployments hit dev and never accidentally write to prod.
 
 Manual production deploys are available via GitHub Actions → **Release** →
-**Run workflow**. Pushes to `main` still deploy automatically.
+**Run workflow**. Pushes to `main` still deploy automatically. Verified manual
+deploy on 2026-05-11: `https://www.ceenaix.com` aliased to the new prod build.
 
 ## Local development against prod (rare, read-only debugging)
 
