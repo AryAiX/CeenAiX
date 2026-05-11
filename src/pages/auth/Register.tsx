@@ -480,7 +480,14 @@ export const Register = () => {
                   onChange={(event) => setFullName(event.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                   placeholder={t('auth.register.fullNamePlaceholder')}
-                  autoComplete="name"
+                  // autoComplete=off + non-standard name attribute prevents Chrome/Safari
+                  // from auto-injecting the *current* user's profile name when an admin
+                  // opens this form to register a different user (e.g. Add Doctor).
+                  autoComplete="off"
+                  name="register-full-name"
+                  data-1p-ignore
+                  data-lpignore="true"
+                  data-form-type="other"
                   required
                 />
               </div>
