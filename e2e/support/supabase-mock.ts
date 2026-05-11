@@ -794,6 +794,22 @@ const parsePostData = (route: Route): unknown => {
   }
 };
 
+const updateAppointment = (
+  state: E2EWorkflowState | undefined,
+  appointmentIdValue: unknown,
+  changes: JsonRecord
+) => {
+  if (!state || typeof appointmentIdValue !== 'string') {
+    return;
+  }
+
+  state.appointments.forEach((appointment) => {
+    if (appointment.id === appointmentIdValue) {
+      Object.assign(appointment, changes, { updated_at: now.toISOString() });
+    }
+  });
+};
+
 const rpcPayload = (
   rpcName: string,
   state?: E2EWorkflowState,
@@ -1170,6 +1186,27 @@ const rpcPayload = (
           active_availability_count: 1,
         },
       ];
+    case 'cancel_patient_appointment':
+      updateAppointment(state, (payload as JsonRecord | null)?.p_appointment_id, {
+        status: 'cancelled',
+        cancelled_at: now.toISOString(),
+      });
+      return { ok: true };
+    case 'cancel_doctor_appointment':
+      updateAppointment(state, (payload as JsonRecord | null)?.p_appointment_id, {
+        status: 'cancelled',
+        cancelled_at: now.toISOString(),
+      });
+      return { ok: true };
+    case 'reschedule_patient_appointment':
+      updateAppointment(state, (payload as JsonRecord | null)?.p_appointment_id, {
+        status: 'scheduled',
+        scheduled_at: (payload as JsonRecord | null)?.p_scheduled_at,
+        duration_minutes: (payload as JsonRecord | null)?.p_duration_minutes,
+        chief_complaint: (payload as JsonRecord | null)?.p_chief_complaint,
+        notes: (payload as JsonRecord | null)?.p_notes,
+      });
+      return { id: (payload as JsonRecord | null)?.p_appointment_id ?? null };
     case 'lab_claim_order':
       state?.labActionLog.push(`claim:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
       return { ok: true };
@@ -1201,7 +1238,13 @@ const rpcPayload = (
       state?.labActionLog.push(`release:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
       state?.labOrders.forEach((order) => {
         if (order.id === (payload as JsonRecord | null)?.target_order_id) {
-          order.status = 'resulted';
+          const items = state.labOrderItems.filter((item) => item.lab_order_id === order.id);
+          const allItemsResulted = items.length > 0 && items.every((item) => item.result_value != null);
+          if (allItemsResulted) {
+            order.status = 'resulted';
+          } else {
+            state.labActionLog.push(`release_blocked:${order.id}`);
+          }
         }
       });
       return { ok: true };
