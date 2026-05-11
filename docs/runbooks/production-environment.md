@@ -79,6 +79,21 @@ GitHub Actions handles migrations automatically:
 
 The workflow uses the `production` GitHub environment so you can require approvals on it (Settings → Environments → production → Required reviewers).
 
+## Branch and deploy model
+
+There is no long-lived remote `dev` branch. The shared flow is:
+
+| Event | Web deploy | Database |
+| --- | --- | --- |
+| Local development | `npm run dev` on localhost | `dev-db` (`lgfaucsfiyxvmsghnpey`) |
+| PR to `main` | Vercel preview URL posted on the PR by `.github/workflows/deploy.yml` | `dev-db` |
+| Merge / push to `main` | Vercel production deploy, aliased to `https://www.ceenaix.com` | `ceenaix-prod` (`ziykaxyadcdmyakzvjff`) |
+
+The preview URL is dynamic per PR/deployment (for example
+`https://ceenaix-<hash>-aryaix.vercel.app`). It is not a fixed dev URL. If a
+stable dev URL is needed later, add a Vercel alias such as
+`dev.ceenaix.com` and point it at the latest preview deployment.
+
 ## Required GitHub secrets
 
 These are configured in **Repository → Settings → Secrets and variables → Actions**:
