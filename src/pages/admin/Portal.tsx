@@ -1905,6 +1905,7 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
 type OrgKindFilter = 'all' | 'hospital' | 'clinic' | 'pharmacy' | 'lab' | 'insurance';
 
 const OrganizationsView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const orgs = context.organizations;
   const orgsSummary = context.dashboard?.orgsSummary;
   const [filterKind, setFilterKind] = useState<OrgKindFilter>('all');
@@ -1933,7 +1934,42 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
       <PageHeader
         title="Organization Management"
         subtitle="Manage all healthcare organizations on the CeenAiX platform"
-      />
+      >
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((o) => ({
+                name: o.name,
+                kind: o.kind,
+                status: o.status,
+                slug: o.slug ?? '',
+                city: o.city ?? '',
+                notes: o.notes ?? '',
+              })) as unknown as Record<string, unknown>[],
+              `organizations-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          disabled={!filtered.length}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Export
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=pharmacy')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Onboard Pharmacy
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/auth/register?role=lab')}
+          className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
+          Onboard Lab
+        </button>
+      </PageHeader>
 
       <div className="grid gap-5 lg:grid-cols-[260px,1fr]">
         <Card>
