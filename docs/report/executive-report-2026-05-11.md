@@ -2,19 +2,19 @@
 
 Date: 2026-05-11  
 Project: CeenAiX  
-Scope: Playwright end-to-end role and workflow coverage for admin, patient, doctor, and lab journeys; deterministic Supabase mocks for Auth, REST, RPC, Storage, and Edge Functions; negative-case coverage for organization onboarding, appointments, lab ordering, lab result release, and role-denied access  
+Scope: End-to-end quality coverage, production/dev environment readiness, and role-based workflow validation across admin, patient, doctor, and lab journeys  
 Reference: [Development Checklist](../../CHECKLIST.md)  
 DHA Reference: [DHA Integration Checklist](../../DHA_INTEGRATION_CHECKLIST.md)
 
 ## Executive Summary
 
-For the week ending 2026-05-11, CeenAiX added a **Playwright E2E suite with 124 passing browser tests**, including **23 stateful scenario-style tests** that exercise real operational journeys across admin, patient, doctor, and lab surfaces. The suite runs through the real React/Vite UI in Chromium while using deterministic Supabase mocks, so it verifies route guards, page rendering, validation, state transitions, and handoffs without depending on a live database.
+For the week ending 2026-05-11, CeenAiX added a formal end-to-end QA layer with **124 passing browser tests**, including **23 full workflow scenarios** across admin, patient, doctor, and lab journeys. These tests now cover the user paths that matter most for demos and production readiness: onboarding, appointment booking, doctor lab orders, lab processing, result release, patient visibility, and access control.
 
-The largest gain is cross-role workflow coverage. The suite now validates the clinical path from admin onboarding through patient booking, doctor lab ordering, lab processing, result release, and patient result visibility. It also covers negative cases that previously relied on manual QA: missing required admin data, invalid emails, missing visit reasons, no-show propagation, invalid doctor lab orders, blocked lab release when results are incomplete, draft results not leaking to patients, and wrong-role access denial.
+The week also closed the long-running quality audit with **120 categorized bugs fixed** across the product. The highest-impact fixes covered Arabic/English copy gaps, appointment date handling, invalid or missing form data, incorrect fallback values, onboarding loops, and role-based access edge cases.
 
-The work gives the platform a repeatable safety net for portal parity changes. Admin onboarding, patient appointments, doctor worklists, and lab result workflows can now be refactored with confidence because the tests capture both expected journeys and failure paths.
+CeenAiX now has a clearer **dev vs. production setup**. Development and PR review use the public dev environment at `https://dev.ceenaix.com`, connected to the dev database with demo/test data. Production uses `https://www.ceenaix.com`, connected to the clean production database with schema and reference data only. This separation lets the team test freely without touching production data.
 
-The final verification is green: `npm run test:e2e -- e2e/clinical-workflows.spec.ts` passed **23/23**, `npm run typecheck` passed, and `npm run test:e2e` passed **124/124**.
+Overall, the platform is in a stronger release position: core workflows are tested, the environments are separated, production is live, and the team has a repeatable way to validate future portal parity and workflow changes before they reach users.
 
 ## What We Accomplished
 
