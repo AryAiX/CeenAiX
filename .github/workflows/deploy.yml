@@ -47,6 +47,29 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
+      - name: Disable Vercel deployment protection for public dev URL
+        run: |
+          VERCEL_TOKEN_CLEAN="$(python - <<'PY'
+          import base64
+          import os
+          print(base64.b64decode(os.environ["VERCEL_TOKEN_B64"]).decode().strip())
+          PY
+          )"
+          status="$(curl -sS -o /tmp/vercel-project-update.json -w "%{http_code}" \
+            -X PATCH "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}?teamId=${VERCEL_ORG_ID}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN_CLEAN}" \
+            -H "Content-Type: application/json" \
+            --data '{"ssoProtection":null,"passwordProtection":null}')"
+          cat /tmp/vercel-project-update.json
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "Failed to update Vercel project protection settings (HTTP $status)"
+            exit 1
+          fi
+        env:
+          VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
       - name: Build Public Dev Artifacts
         run: |
           VERCEL_TOKEN_CLEAN="$(python - <<'PY'

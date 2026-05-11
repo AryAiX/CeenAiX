@@ -98,7 +98,9 @@ published at the stable public URL `https://ceenaix-dev-aryaix.vercel.app`, buil
 Implementation note: Vercel preview deployments are protected for this project,
 so the dev workflow builds a production-target deployment with `--skip-domain`.
 That keeps `www.ceenaix.com` pointed at real prod while making the dev alias
-publicly accessible.
+publicly accessible. The workflow also disables Vercel SSO/password deployment
+protection at the project level so `https://ceenaix-dev-aryaix.vercel.app`
+does not require Vercel login.
 
 ## Required GitHub secrets
 
