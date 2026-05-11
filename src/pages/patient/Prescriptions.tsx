@@ -168,6 +168,7 @@ export const PatientPrescriptions: React.FC = () => {
   const [deletedReminderIds, setDeletedReminderIds] = useState<Set<string>>(new Set());
   const [reminderTimes, setReminderTimes] = useState<Record<string, string>>({});
   const [editingTime, setEditingTime] = useState('');
+  const [showMissedDoseAnalysis, setShowMissedDoseAnalysis] = useState(false);
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -861,14 +862,108 @@ export const PatientPrescriptions: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <button type="button" className="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-slate-50">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => setShowMissedDoseAnalysis((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-xl p-6 transition-colors hover:bg-slate-50"
+          >
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <TrendingUp className="h-5 w-5 text-teal-600" />
               {t('patient.prescriptions.missedDoseAnalysis')}
             </div>
-            <div className="text-slate-400">▼</div>
+            {showMissedDoseAnalysis ? (
+              <ChevronUp className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            )}
           </button>
+
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              showMissedDoseAnalysis ? 'max-h-[900px] opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="space-y-6 border-t border-slate-100 px-6 pb-6 pt-5">
+              <h4 className="text-base font-bold text-slate-900">
+                {t('patient.prescriptions.missedDoseAnalysis')}
+              </h4>
+
+              {/* Weekly breakdown */}
+              <div className="space-y-3">
+                {weeklyBars.map((day) => (
+                  <div key={day.label} className="flex items-center gap-3">
+                    <div className="w-8 flex-shrink-0 text-xs font-semibold text-slate-500">
+                      {day.label}
+                    </div>
+                    <div className="flex-1 overflow-hidden rounded-full bg-slate-100" style={{ height: 8 }}>
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          day.percent >= 90
+                            ? 'bg-emerald-500'
+                            : day.percent > 0
+                            ? 'bg-amber-400'
+                            : 'bg-red-400'
+                        }`}
+                        style={{ width: `${day.percent}%` }}
+                      />
+                    </div>
+                    <div
+                      className={`w-10 flex-shrink-0 text-right text-xs font-bold ${
+                        day.percent >= 90
+                          ? 'text-emerald-600'
+                          : day.percent > 0
+                          ? 'text-amber-600'
+                          : 'text-red-500'
+                      }`}
+                    >
+                      {day.percent}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Most Missed Medications */}
+              <div>
+                <h5 className="mb-3 text-sm font-bold text-slate-700">Most Missed Medications</h5>
+                <div className="space-y-2">
+                  {activeLineItems.map(({ item }) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3"
+                    >
+                      <div className="text-sm font-medium text-slate-800">
+                        <MedicationNameDisplay
+                          canonicalName={item.medication_name}
+                          localizedName={item.medication_name_ar}
+                          language={uiLang}
+                          variant="compact"
+                        />{' '}
+                        {item.dosage ?? ''}
+                      </div>
+                      {item.is_dispensed ? (
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                          On Track
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                          Needs Attention
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tip box */}
+              <div className="flex items-start gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+                <span className="text-base" aria-hidden>💡</span>
+                <p className="text-xs text-teal-800">
+                  Tip: Setting reminders for the same time each day can improve your adherence by up to 40%
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
