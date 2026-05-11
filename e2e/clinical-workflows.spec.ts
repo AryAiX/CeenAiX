@@ -42,7 +42,7 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   await adminOrgPage.getByLabel(/notes/i).fill('DHA-L-2026-099 · NABIDH onboarding pending');
   await adminOrgPage.getByRole('button', { name: /create organization/i }).click();
   await expect(adminOrgPage.getByText(/created future diagnostics lab/i)).toBeVisible();
-  await expect(adminOrgPage.getByText('Future Diagnostics Lab')).toBeVisible();
+  await expect(adminOrgPage.getByRole('heading', { name: 'Future Diagnostics Lab' })).toBeVisible();
   await closePage(adminOrgPage);
 
   expect(state.organizations).toEqual(
