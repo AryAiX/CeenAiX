@@ -467,9 +467,15 @@ export const PatientDocuments = () => {
         </div>
       )}
 
-      {selectedDocument ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
+      {selectedDocument
+        ? createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => { setSelectedId(null); setPreviewExpanded(false); }}
+        >
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">{selectedDocument.name}</h2>
@@ -610,7 +616,8 @@ export const PatientDocuments = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
 
       <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
@@ -620,7 +627,7 @@ export const PatientDocuments = () => {
       {showUploadModal &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4"
             role="dialog"
             aria-modal="true"
           >
@@ -740,7 +747,7 @@ export const PatientDocuments = () => {
       {showSecurityModal &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4"
             role="dialog"
             aria-modal="true"
             onClick={() => setShowSecurityModal(false)}
@@ -821,7 +828,7 @@ export const PatientDocuments = () => {
       {showShareModal && selectedDocument &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4"
             role="dialog"
             aria-modal="true"
             onClick={closeShareModal}
