@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
@@ -36,6 +36,11 @@ export const Profile: React.FC = () => {
   const [personalInfoErrors, setPersonalInfoErrors] = useState<Record<string, string>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string>('');
+  const [showScanModal, setShowScanModal] = useState<boolean>(false);
+  const [scanFront, setScanFront] = useState<string>('');
+  const [scanBack, setScanBack] = useState<string>('');
+  const scanFrontInputRef = useRef<HTMLInputElement>(null);
+  const scanBackInputRef = useRef<HTMLInputElement>(null);
 
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
@@ -237,7 +242,34 @@ export const Profile: React.FC = () => {
   };
 
   const handleScanEmiratesId = () => {
-    alert(t('patient.profile.scanAlert'));
+    setScanFront('');
+    setScanBack('');
+    setShowScanModal(true);
+  };
+
+  const handleScanFileChange = (side: 'front' | 'back', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      if (side === 'front') setScanFront(result);
+      else setScanBack(result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const confirmScan = () => {
+    if (scanFront) setEmiratesIdFront(scanFront);
+    if (scanBack) setEmiratesIdBack(scanBack);
+    setShowScanModal(false);
+  };
+
+  const closeScanModal = () => {
+    setShowScanModal(false);
+    setScanFront('');
+    setScanBack('');
   };
 
   const addFamilyMember = () => {
@@ -939,6 +971,155 @@ export const Profile: React.FC = () => {
             <span className="text-sm font-semibold">
               {saveStatus === 'saving' ? 'Saving changes...' : saveMessage}
             </span>
+          </div>,
+          document.body
+        )}
+
+      {showScanModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={closeScanModal}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-emerald-600" />
+                  <h2 className="text-lg font-bold text-slate-900">Scan Emirates ID</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeScanModal}
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                {/* Info banner */}
+                <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                  <Camera className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                  Upload a clear photo of your Emirates ID. We will extract your information automatically.
+                </div>
+
+                {/* Hidden file inputs — capture="environment" opens rear camera on mobile */}
+                <input
+                  ref={scanFrontInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={(e) => handleScanFileChange('front', e)}
+                />
+                <input
+                  ref={scanBackInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={(e) => handleScanFileChange('back', e)}
+                />
+
+                {/* Upload cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Front */}
+                  <div>
+                    <p className="mb-2 text-sm font-semibold text-slate-700">Front Side</p>
+                    <button
+                      type="button"
+                      onClick={() => scanFrontInputRef.current?.click()}
+                      className="relative w-full overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-emerald-400 hover:bg-emerald-50"
+                    >
+                      {scanFront ? (
+                        <>
+                          <img src={scanFront} alt="Front" className="h-36 w-full object-cover" />
+                          <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 shadow">
+                            <CheckCircle className="h-4 w-4 text-white" />
+                          </span>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 px-4 py-8">
+                          <Upload className="h-7 w-7 text-slate-400" />
+                          <span className="text-xs font-medium text-slate-600">Upload front of Emirates ID</span>
+                        </div>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Back */}
+                  <div>
+                    <p className="mb-2 text-sm font-semibold text-slate-700">Back Side</p>
+                    <button
+                      type="button"
+                      onClick={() => scanBackInputRef.current?.click()}
+                      className="relative w-full overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-emerald-400 hover:bg-emerald-50"
+                    >
+                      {scanBack ? (
+                        <>
+                          <img src={scanBack} alt="Back" className="h-36 w-full object-cover" />
+                          <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 shadow">
+                            <CheckCircle className="h-4 w-4 text-white" />
+                          </span>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 px-4 py-8">
+                          <Upload className="h-7 w-7 text-slate-400" />
+                          <span className="text-xs font-medium text-slate-600">Upload back of Emirates ID</span>
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Both-uploaded success banner */}
+                {scanFront && scanBack && (
+                  <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
+                    ✓ Both sides uploaded! Your information will be extracted shortly.
+                  </div>
+                )}
+
+                {/* Tips */}
+                <ul className="space-y-1.5">
+                  {[
+                    'Ensure the ID is not expired',
+                    'Make sure all text is clearly visible',
+                    'Avoid glare or shadows on the ID',
+                  ].map((tip) => (
+                    <li key={tip} className="flex items-center gap-2 text-xs text-slate-500">
+                      <span>💡</span> {tip}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={closeScanModal}
+                    className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!scanFront && !scanBack}
+                    onClick={confirmScan}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>,
           document.body
         )}
