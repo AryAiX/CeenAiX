@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Calendar, CheckCheck, FlaskConical, Loader2, Pill, RefreshCcw, Shield, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bell, Calendar, CheckCheck, FlaskConical, Loader2, Pill, RefreshCcw, Shield, Sparkles, Trash2 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -17,6 +17,8 @@ export const PatientNotifications: React.FC = () => {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [undoDeleteId, setUndoDeleteId] = useState<string | null>(null);
   const undoTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [markAllSuccess, setMarkAllSuccess] = useState<boolean>(false);
+  const [markAllError, setMarkAllError] = useState<boolean>(false);
 
   const markRead = async (notificationId: string) => {
     setBusyId(notificationId);
@@ -35,6 +37,8 @@ export const PatientNotifications: React.FC = () => {
 
   const markAllRead = async () => {
     setBusyId('all');
+    setMarkAllSuccess(false);
+    setMarkAllError(false);
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -43,8 +47,13 @@ export const PatientNotifications: React.FC = () => {
 
     setBusyId(null);
 
-    if (!updateError) {
+    if (updateError) {
+      setMarkAllError(true);
+      window.setTimeout(() => setMarkAllError(false), 3000);
+    } else {
       refetch();
+      setMarkAllSuccess(true);
+      window.setTimeout(() => setMarkAllSuccess(false), 3000);
     }
   };
 
@@ -149,18 +158,34 @@ export const PatientNotifications: React.FC = () => {
                 type="button"
                 onClick={markAllRead}
                 disabled={busyId === 'all' || unreadCount === 0}
-                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60"
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60 ${
+                  markAllSuccess ? 'bg-emerald-700' : 'bg-teal-600 hover:bg-teal-700'
+                }`}
               >
                 {busyId === 'all' ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <CheckCheck className="h-3.5 w-3.5" />
                 )}
-                <span>{t('patient.notifications.markAllRead')}</span>
+                <span>{markAllSuccess ? '✓ All Read!' : t('patient.notifications.markAllRead')}</span>
               </button>
             </div>
           </div>
         </div>
+
+        {markAllSuccess && (
+          <div className="animate-fadeIn flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+            <CheckCheck className="h-4 w-4 shrink-0 text-emerald-500" />
+            ✓ All notifications marked as read!
+          </div>
+        )}
+
+        {markAllError && (
+          <div className="animate-fadeIn flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+            Failed to mark all as read. Please try again.
+          </div>
+        )}
 
         {!hasAnyNotifications ? (
           <div className="rounded-2xl border border-slate-100 bg-white p-12 shadow-sm">
