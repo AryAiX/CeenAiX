@@ -88,6 +88,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
   const [sentAttachments, setSentAttachments] = useState<Record<string, AttachmentPreview>>({});
   const [readMessageIds, setReadMessageIds] = useState<Set<string>>(new Set());
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState('');
+  const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
+  const [undoMessageId, setUndoMessageId] = useState<string | null>(null);
+  const [undoTimers, setUndoTimers] = useState<Record<string, ReturnType<typeof setTimeout>>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const bootstrappedTargetRef = useRef<string | null>(null);
   const doctorComposerRef = useRef<HTMLDivElement | null>(null);
@@ -501,7 +506,49 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     doctorComposerSelectionRef.current = nextRange.cloneRange();
     syncDoctorComposerState();
   };
+  const handleEditMessage = (messageId: string, currentBody: string) => {
+    setEditingMessageId(messageId);
+    setEditingMessageText(currentBody);
+  };
 
+  const handleSaveEdit = (messageId: string) => {
+    // UI only — no DB call
+    setEditingMessageId(null);
+    setEditingMessageText('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageText('');
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setDeletedMessageIds((prev) => new Set([...prev, messageId]));
+    setUndoMessageId(messageId);
+
+    const timer = setTimeout(() => {
+      setUndoMessageId(null);
+    }, 5000);
+
+    setUndoTimers((prev) => ({ ...prev, [messageId]: timer }));
+  };
+
+  const handleUndoDelete = (messageId: string) => {
+    setDeletedMessageIds((prev) => {
+      const next = new Set(prev);
+      next.delete(messageId);
+      return next;
+    });
+    setUndoMessageId(null);
+    if (undoTimers[messageId]) {
+      clearTimeout(undoTimers[messageId]);
+      setUndoTimers((prev) => {
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
+    }
+  };
   const renderInlineText = (text: string, isOwn: boolean) => {
     const linkClassName = isOwn
       ? 'font-semibold underline text-white'
@@ -832,39 +879,105 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                         ? sentAttachments[sentAttachmentKeys[sentAttachmentKeys.length - 1]]
                         : null;
 
-                    return (
-                      <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div
-                          className={`w-full max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
-                            isOwn ? theme.ownBubble : 'border-gray-200 bg-white text-gray-900'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-4 text-xs">
-                            <span className={isOwn ? 'text-white/85' : 'text-gray-500'}>
-                              {isOwn ? t(`${namespace}.you`) : activeConversation.counterpart.name}
-                            </span>
-                            <span className={isOwn ? 'text-white/80' : 'text-gray-400'}>
-                              {formatTimestamp(message.sent_at)}
-                            </span>
+              // Skip deleted messages (show undo banner instead)
+              if (deletedMessageIds.has(message.id)) {
+                return undoMessageId === message.id ? (
+                  <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                    <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <span className="text-sm text-amber-700">Message deleted</span>
+                      <button
+                        type="button"
+                        onClick={() => handleUndoDelete(message.id)}
+                        className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  </div>
+                ) : null;
+              }
+
+              return (
+                <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`w-full max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
+                      isOwn ? theme.ownBubble : 'border-gray-200 bg-white text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4 text-xs">
+                      <span className={isOwn ? 'text-white/85' : 'text-gray-500'}>
+                        {isOwn ? t(`${namespace}.you`) : activeConversation.counterpart.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={isOwn ? 'text-white/80' : 'text-gray-400'}>
+                          {formatTimestamp(message.sent_at)}
+                        </span>
+                        {isOwn ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditMessage(message.id, message.body)}
+                              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
+                            >
+                              Delete
+                            </button>
                           </div>
-                          {attachmentForMessage ? (
-                            <div className="mt-2">
-                              {renderSentAttachment(attachmentForMessage, isOwn)}
-                            </div>
-                          ) : null}
-                          <div className="mt-2">{renderMessageBody(message.body, isOwn)}</div>
-                          {isOwn ? (
-                            <div className="mt-1 flex items-center justify-end gap-1">
-                              {readMessageIds.has(message.id) ? (
-                                <span className="text-[10px] text-white/70">{'✓✓ Read'}</span>
-                              ) : (
-                                <span className="text-[10px] text-white/60">{'✓ Sent'}</span>
-                              )}
-                            </div>
-                          ) : null}
+                        ) : null}
+                      </div>
+                    </div>
+                    {attachmentForMessage ? (
+                      <div className="mt-2">
+                        {renderSentAttachment(attachmentForMessage, isOwn)}
+                      </div>
+                    ) : null}
+                    {editingMessageId === message.id ? (
+                      <div className="mt-2">
+                        <textarea
+                          value={editingMessageText}
+                          onChange={(e) => setEditingMessageText(e.target.value)}
+                          className="w-full rounded-xl border border-white/30 bg-white/10 p-2 text-sm text-white outline-none placeholder:text-white/50 focus:border-white/50"
+                          rows={3}
+                          autoFocus
+                        />
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEdit(message.id)}
+                            className="rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/30"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="rounded-lg px-3 py-1 text-xs font-medium text-white/70 transition hover:text-white"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
-                    );
+                    ) : (
+                      <div className="mt-2">{renderMessageBody(message.body, isOwn)}</div>
+                    )}
+                    {isOwn && editingMessageId !== message.id ? (
+                      <div className="mt-1 flex items-center justify-end gap-1">
+                        {readMessageIds.has(message.id) ? (
+                          <span className="text-[10px] text-white/70">✓✓ Read</span>
+                        ) : (
+                          <span className="text-[10px] text-white/60">✓ Sent</span>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
                   })}
                   <div ref={messagesEndRef} />
                 </div>
