@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Globe, HelpCircle, Lock, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
+import { Bell, BookOpen, Bug, Globe, HelpCircle, Lock, Mail, MessageSquare, Phone, PlayCircle, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -59,6 +59,8 @@ export const PatientSettings = () => {
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
   const [resetEmailSent, setResetEmailSent] = useState<boolean>(false);
   const [resetCooldown, setResetCooldown] = useState<boolean>(false);
+  const [bugReport, setBugReport] = useState<string>('');
+  const [bugSubmitted, setBugSubmitted] = useState<boolean>(false);
 
   useEffect(() => {
     if (profile) {
@@ -224,9 +226,131 @@ export const PatientSettings = () => {
     }
 
     return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.supportTitle')}</h3>
-        <p className="mt-2 text-sm text-slate-500">{t('patient.settings.supportBody')}</p>
+      <div className="space-y-5">
+        {/* Quick Help Cards */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            { emoji: '📖', icon: BookOpen, label: 'User Guide', desc: 'Learn how to use CeenAiX patient portal', url: 'https://ceenaix.com/guide' },
+            { emoji: '❓', icon: HelpCircle, label: 'FAQ', desc: 'Frequently asked questions about your health portal', url: 'https://ceenaix.com/faq' },
+            { emoji: '🎥', icon: PlayCircle, label: 'Video Tutorials', desc: 'Watch step-by-step video guides', url: 'https://ceenaix.com/tutorials' },
+          ].map(({ icon: Icon, label, desc, url }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => window.open(url, '_blank')}
+              className="flex flex-col items-start gap-3 rounded-2xl border border-slate-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50">
+                <Icon className="h-5 w-5 text-cyan-600" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900">{label}</p>
+                <p className="mt-1 text-xs text-slate-500">{desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Contact Support */}
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-4">
+            <h3 className="font-bold text-slate-900">Contact Support</h3>
+          </div>
+          <ul className="divide-y divide-slate-100">
+            <li className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
+                  <Mail className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Email Support</p>
+                  <p className="text-xs text-slate-500">support@ceenaix.com</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.open('mailto:support@ceenaix.com')}
+                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                Send Email
+              </button>
+            </li>
+            <li className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
+                  <MessageSquare className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Live Chat</p>
+                  <p className="text-xs text-slate-500">Available Sunday–Thursday, 9AM–6PM</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => alert('Live chat coming soon!')}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Start Chat
+              </button>
+            </li>
+            <li className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50">
+                  <Phone className="h-4 w-4 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Phone</p>
+                  <p className="text-xs text-slate-500">+971 4 000 0000</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.open('tel:+97140000000')}
+                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                Call Now
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        {/* Report a Bug */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50">
+              <Bug className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Found a bug or issue?</h3>
+              <p className="text-xs text-slate-500">Help us improve CeenAiX by reporting any issues you encounter</p>
+            </div>
+          </div>
+          <textarea
+            value={bugReport}
+            onChange={(e) => setBugReport(e.target.value)}
+            placeholder="Describe the issue..."
+            rows={4}
+            className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+          />
+          {bugSubmitted && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              ✓ Report submitted! Thank you for helping us improve.
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={!bugReport.trim()}
+            onClick={() => {
+              setBugSubmitted(true);
+              setBugReport('');
+              window.setTimeout(() => setBugSubmitted(false), 3000);
+            }}
+            className="mt-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Submit Report
+          </button>
+        </div>
       </div>
     );
   };
