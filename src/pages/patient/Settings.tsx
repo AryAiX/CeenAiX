@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Globe, HelpCircle, Lock, Settings as SettingsIcon, ShieldCheck, User } from 'lucide-react';
+import { Bell, Globe, HelpCircle, Lock, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -55,6 +56,9 @@ export const PatientSettings = () => {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
+  const [resetEmailSent, setResetEmailSent] = useState<boolean>(false);
+  const [resetCooldown, setResetCooldown] = useState<boolean>(false);
 
   useEffect(() => {
     if (profile) {
@@ -206,7 +210,12 @@ export const PatientSettings = () => {
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.securityTitle')}</h3>
             <p className="mt-2 text-sm text-slate-500">{t('patient.settings.securityBody')}</p>
-            <button type="button" className="mt-4 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+            >
+              <Lock className="h-4 w-4" />
               {t('patient.settings.passwordManaged')}
             </button>
           </div>
@@ -280,6 +289,93 @@ export const PatientSettings = () => {
           {renderSection()}
         </main>
       </div>
+
+      {showPasswordModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setShowPasswordModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-5 w-5 text-cyan-600" />
+                  <h2 className="text-lg font-bold text-slate-900">Password &amp; Security</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                {/* Info card */}
+                <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm text-cyan-800">
+                  Your password is managed securely through Supabase Authentication. For security reasons,
+                  password changes are handled through our secure authentication system.
+                </div>
+
+                {/* Security info rows */}
+                <ul className="space-y-3">
+                  {[
+                    { emoji: '🔒', text: 'Password is encrypted using bcrypt hashing' },
+                    { emoji: '🛡️', text: 'Two-factor authentication is available through your email' },
+                    { emoji: '📧', text: 'To change your password, use the Forgot Password flow on the login page' },
+                  ].map(({ emoji, text }) => (
+                    <li key={text} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                      <span className="mt-0.5 shrink-0 text-base">{emoji}</span>
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Reset email sent banner */}
+                {resetEmailSent && (
+                  <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    ✓ Password reset email sent! Check your inbox.
+                  </div>
+                )}
+
+                {/* Send reset email button */}
+                <button
+                  type="button"
+                  disabled={resetCooldown}
+                  onClick={async () => {
+                    if (resetCooldown) return;
+                    await supabase.auth.resetPasswordForEmail(profile?.email ?? '');
+                    setResetEmailSent(true);
+                    setResetCooldown(true);
+                    window.setTimeout(() => setResetCooldown(false), 30_000);
+                  }}
+                  className="w-full rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {resetCooldown ? 'Email sent — please wait 30 s' : 'Send Password Reset Email'}
+                </button>
+
+                {/* Close */}
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
