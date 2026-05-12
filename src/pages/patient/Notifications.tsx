@@ -97,6 +97,7 @@ export const PatientNotifications: React.FC = () => {
   const storedNotifications = allStoredNotifications.filter((n) => !deletedIds.has(n.id));
   const unreadCount = storedNotifications.filter((notification) => !notification.is_read).length;
   const liveAttentionItems = data?.derivedNotifications ?? [];
+  const hasAnyNotifications = storedNotifications.length > 0 || liveAttentionItems.length > 0;
 
   return (
     <>
@@ -144,6 +145,46 @@ export const PatientNotifications: React.FC = () => {
           </div>
         </div>
 
+        {!hasAnyNotifications ? (
+          <div className="rounded-2xl border border-slate-100 bg-white p-12 shadow-sm">
+            <div className="flex flex-col items-center text-center">
+              {/* Icon */}
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg">
+                <Bell className="h-10 w-10 text-white" />
+              </div>
+
+              <h2 className="text-2xl font-bold text-slate-900">You're all caught up! 🎉</h2>
+              <p className="mt-3 max-w-md text-sm text-slate-500">
+                No new notifications at the moment. We'll notify you when something needs your attention.
+              </p>
+
+              {/* Info cards */}
+              <div className="mt-8 grid w-full max-w-lg gap-3 sm:grid-cols-3">
+                {[
+                  { emoji: '🔬', label: 'Lab Results', desc: 'When your lab results are ready' },
+                  { emoji: '💊', label: 'Medications', desc: 'Refill reminders and new prescriptions' },
+                  { emoji: '📅', label: 'Appointments', desc: 'Upcoming appointment reminders' },
+                ].map(({ emoji, label, desc }) => (
+                  <div key={label} className="rounded-xl bg-slate-50 p-4 text-left">
+                    <div className="mb-1.5 text-2xl">{emoji}</div>
+                    <p className="text-sm font-semibold text-slate-800">{label}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={refetch}
+                className="mt-8 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Refresh
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-teal-600" />
@@ -270,6 +311,8 @@ export const PatientNotifications: React.FC = () => {
             </div>
           )}
         </section>
+          </>
+        )}
       </div>
     </>
   );
