@@ -432,10 +432,35 @@ export const PatientDocuments = () => {
                 </div>
               </div>
               <div className="text-sm text-slate-500">{formatDate(doc.date)}</div>
-              <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4 text-cyan-600" />
-                <Download className="h-4 w-4 text-slate-400" />
-                <Share2 className="h-4 w-4 text-slate-400" />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  title="View"
+                  onClick={(e) => { e.stopPropagation(); setSelectedId(doc.id); }}
+                  className="rounded-lg p-1.5 text-cyan-600 transition hover:bg-slate-100"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  title="Download"
+                  onClick={(e) => { e.stopPropagation(); handleDownloadDocument(doc); }}
+                  className={`rounded-lg p-1.5 transition hover:bg-slate-100 ${downloadedDocId === doc.id ? 'text-emerald-500' : 'text-slate-400'}`}
+                >
+                  {downloadedDocId === doc.id ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  title="Share"
+                  onClick={(e) => { e.stopPropagation(); setSelectedId(doc.id); setShowShareModal(true); }}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
               </div>
             </button>
           ))}
