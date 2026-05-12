@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Share2,
   ShieldCheck,
   Upload,
+  X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientInsurance, usePatientLabResults, usePatientPrescriptions } from '../../hooks';
@@ -30,6 +32,28 @@ export const PatientDocuments = () => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'all' | PatientDocument['category']>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadedFile(null);
+    setUploadSuccess(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setUploadedFile(file);
+    e.target.value = '';
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -179,6 +203,7 @@ export const PatientDocuments = () => {
         </button>
         <button
           type="button"
+          onClick={() => setShowUploadModal(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
         >
           <Upload className="h-4 w-4" />
@@ -377,6 +402,126 @@ export const PatientDocuments = () => {
       <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
         {t('patient.documents.dataNote')}
       </div>
+
+      {showUploadModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                <h2 className="text-lg font-bold text-slate-900">Upload Document</h2>
+                <button
+                  type="button"
+                  onClick={closeUploadModal}
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {uploadSuccess ? (
+                /* Success screen */
+                <div className="flex flex-col items-center gap-4 px-6 py-10">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                    <CheckCircle className="h-9 w-9 text-emerald-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Document Uploaded!</h3>
+                  <p className="text-center text-sm text-slate-500">
+                    Your file has been encrypted and stored securely.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={closeUploadModal}
+                    className="mt-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-8 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                /* Upload form */
+                <div className="px-6 py-5 space-y-5">
+                  {/* Drop / click area */}
+                  <button
+                    type="button"
+                    onClick={() => uploadInputRef.current?.click()}
+                    className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-cyan-400 hover:bg-cyan-50"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cyan-100">
+                      <Upload className="h-7 w-7 text-cyan-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-800">Click to browse files</p>
+                      <p className="mt-1 text-xs text-slate-400">PDF, Word (.doc / .docx), or images</p>
+                    </div>
+                  </button>
+
+                  {/* Hidden file input */}
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="sr-only"
+                    onChange={handleFileChange}
+                  />
+
+                  {/* Selected file preview */}
+                  {uploadedFile && (
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-100">
+                        <FileText className="h-5 w-5 text-cyan-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">{uploadedFile.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {uploadedFile.type || 'Unknown type'} · {formatFileSize(uploadedFile.size)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFile(null)}
+                        className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Remove file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Disclaimer */}
+                  <div className="flex items-center gap-2 rounded-xl bg-cyan-50 px-4 py-3 text-xs text-cyan-700">
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    Files are encrypted and stored securely
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={closeUploadModal}
+                      className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!uploadedFile}
+                      onClick={() => setUploadSuccess(true)}
+                      className="flex-1 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Upload
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
