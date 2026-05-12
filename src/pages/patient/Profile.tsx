@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
-import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save } from 'lucide-react';
+import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save, X } from 'lucide-react';
 import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
@@ -34,6 +34,17 @@ export const Profile: React.FC = () => {
   const [isEditingInsurance, setIsEditingInsurance] = useState(false);
 
   const [personalInfo, setPersonalInfo] = useState({
+    fullName: '',
+    emiratesId: '',
+    dateOfBirth: '',
+    bloodType: '',
+    allergies: '',
+    chronicConditions: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+  });
+
+  const [personalInfoSnapshot, setPersonalInfoSnapshot] = useState({
     fullName: '',
     emiratesId: '',
     dateOfBirth: '',
@@ -322,19 +333,41 @@ export const Profile: React.FC = () => {
                     <p className="text-blue-100 text-sm mt-1">{t('patient.profile.personalSub')}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (isEditingPersonal) {
-                      void savePersonalInfo();
-                    } else {
+                {isEditingPersonal ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPersonalInfo(personalInfoSnapshot);
+                        setIsEditingPersonal(false);
+                      }}
+                      className="flex items-center space-x-2 px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/30 rounded-xl hover:bg-white/20 transition-all duration-200 font-medium"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>{t('shared.cancel')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void savePersonalInfo()}
+                      className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                    >
+                      <Save className="w-5 h-5" />
+                      <span>{t('patient.profile.saveChanges')}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPersonalInfoSnapshot(personalInfo);
                       setIsEditingPersonal(true);
-                    }
-                  }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-                >
-                  {isEditingPersonal ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                  <span>{isEditingPersonal ? t('patient.profile.saveChanges') : t('patient.profile.editProfile')}</span>
-                </button>
+                    }}
+                    className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                    <span>{t('patient.profile.editProfile')}</span>
+                  </button>
+                )}
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
