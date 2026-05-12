@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
-import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save, X } from 'lucide-react';
 import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
@@ -33,6 +34,8 @@ export const Profile: React.FC = () => {
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingInsurance, setIsEditingInsurance] = useState(false);
   const [personalInfoErrors, setPersonalInfoErrors] = useState<Record<string, string>>({});
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string>('');
 
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
@@ -147,7 +150,9 @@ export const Profile: React.FC = () => {
   const savePersonalInfo = async () => {
     if (!user?.id) return;
     if (!validatePersonalInfo()) return;
-    await supabase
+    setSaveStatus('saving');
+    setSaveMessage('');
+    const { error: profileError } = await supabase
       .from('user_profiles')
       .update({
         full_name: personalInfo.fullName,
@@ -156,7 +161,7 @@ export const Profile: React.FC = () => {
         avatar_url: profileImage || null,
       })
       .eq('user_id', user.id);
-    await supabase.from('patient_profiles').upsert(
+    const { error: patientError } = await supabase.from('patient_profiles').upsert(
       {
         user_id: user.id,
         blood_type: personalInfo.bloodType || null,
@@ -165,13 +170,21 @@ export const Profile: React.FC = () => {
       },
       { onConflict: 'user_id' }
     );
-    await refetchProfile();
-    setPatientProfile({
-      blood_type: personalInfo.bloodType || null,
-      emergency_contact_name: personalInfo.emergencyContactName || null,
-      emergency_contact_phone: personalInfo.emergencyContactPhone || null,
-    });
-    setIsEditingPersonal(false);
+    if (profileError ?? patientError) {
+      setSaveStatus('error');
+      setSaveMessage('✕ Failed to save. Please try again.');
+    } else {
+      await refetchProfile();
+      setPatientProfile({
+        blood_type: personalInfo.bloodType || null,
+        emergency_contact_name: personalInfo.emergencyContactName || null,
+        emergency_contact_phone: personalInfo.emergencyContactPhone || null,
+      });
+      setIsEditingPersonal(false);
+      setSaveStatus('success');
+      setSaveMessage('✓ Personal information saved successfully!');
+    }
+    window.setTimeout(() => setSaveStatus('idle'), 3000);
   };
 
   const saveInsuranceInfo = async () => {
@@ -179,7 +192,9 @@ export const Profile: React.FC = () => {
       setIsEditingInsurance(false);
       return;
     }
-    await supabase
+    setSaveStatus('saving');
+    setSaveMessage('');
+    const { error } = await supabase
       .from('patient_insurance')
       .update({
         policy_number: insuranceInfo.policyNumber || null,
@@ -189,7 +204,15 @@ export const Profile: React.FC = () => {
         valid_until: insuranceInfo.validUntil || null,
       })
       .eq('id', insurance.primaryPlan.id);
-    setIsEditingInsurance(false);
+    if (error) {
+      setSaveStatus('error');
+      setSaveMessage('✕ Failed to save. Please try again.');
+    } else {
+      setIsEditingInsurance(false);
+      setSaveStatus('success');
+      setSaveMessage('✓ Insurance information saved successfully!');
+    }
+    window.setTimeout(() => setSaveStatus('idle'), 3000);
   };
 
   const handleImageUpload = (type: 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance') => {
@@ -893,6 +916,32 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {saveStatus !== 'idle' &&
+        createPortal(
+          <div
+            className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 rounded-2xl px-5 py-4 shadow-xl transition-all duration-300 ${
+              saveStatus === 'saving'
+                ? 'bg-slate-800 text-white'
+                : saveStatus === 'success'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-red-600 text-white'
+            }`}
+          >
+            {saveStatus === 'saving' && (
+              <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            )}
+            {saveStatus === 'success' && <CheckCircle className="h-5 w-5 shrink-0" />}
+            {saveStatus === 'error' && <AlertTriangle className="h-5 w-5 shrink-0" />}
+            <span className="text-sm font-semibold">
+              {saveStatus === 'saving' ? 'Saving changes...' : saveMessage}
+            </span>
+          </div>,
+          document.body
+        )}
     </>
   );
 };
