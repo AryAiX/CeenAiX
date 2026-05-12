@@ -36,6 +36,7 @@ export const PatientDocuments = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [showSecurityModal, setShowSecurityModal] = useState<boolean>(false);
 
   const closeUploadModal = () => {
     setShowUploadModal(false);
@@ -196,6 +197,7 @@ export const PatientDocuments = () => {
         </div>
         <button
           type="button"
+          onClick={() => setShowSecurityModal(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
         >
           <ShieldCheck className="h-4 w-4" />
@@ -518,6 +520,87 @@ export const PatientDocuments = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {showSecurityModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setShowSecurityModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-cyan-600" />
+                  <h2 className="text-lg font-bold text-slate-900">Document Security</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSecurityModal(false)}
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Feature cards */}
+              <div className="grid grid-cols-2 gap-3 px-6 py-5">
+                {[
+                  {
+                    emoji: '🔒',
+                    title: 'End-to-End Encryption',
+                    description: 'All documents are encrypted using AES-256 encryption before storage',
+                  },
+                  {
+                    emoji: '🛡️',
+                    title: 'HIPAA Compliant',
+                    description: 'Our platform follows strict HIPAA guidelines to protect your health data',
+                  },
+                  {
+                    emoji: '👁️',
+                    title: 'Access Control',
+                    description: 'Only you and authorized healthcare providers can access your documents',
+                  },
+                  {
+                    emoji: '🔐',
+                    title: 'Secure Sharing',
+                    description: 'When you share documents, recipients get time-limited view-only access',
+                  },
+                ].map((card) => (
+                  <div key={card.title} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="mb-2 text-2xl">{card.emoji}</div>
+                    <p className="mb-1 text-sm font-semibold text-slate-800">{card.title}</p>
+                    <p className="text-xs leading-relaxed text-slate-500">{card.description}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Green banner */}
+              <div className="mx-6 mb-5 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
+                Your documents are protected by bank-level security
+              </div>
+
+              {/* Got it */}
+              <div className="border-t border-slate-100 px-6 py-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSecurityModal(false)}
+                  className="w-full rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>,
           document.body
