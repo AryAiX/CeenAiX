@@ -37,6 +37,7 @@ export const PatientDocuments = () => {
   const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [showSecurityModal, setShowSecurityModal] = useState<boolean>(false);
+  const [previewExpanded, setPreviewExpanded] = useState<boolean>(false);
 
   const closeUploadModal = () => {
     setShowUploadModal(false);
@@ -363,14 +364,93 @@ export const PatientDocuments = () => {
                 <h2 className="text-xl font-bold text-slate-900">{selectedDocument.name}</h2>
                 <p className="mt-1 text-sm text-slate-500">{selectedDocument.fileName}</p>
               </div>
-              <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg px-3 py-1 text-sm text-slate-500 hover:bg-slate-100">
+              <button
+                type="button"
+                onClick={() => { setSelectedId(null); setPreviewExpanded(false); }}
+                className="rounded-lg px-3 py-1 text-sm text-slate-500 hover:bg-slate-100"
+              >
                 {t('shared.close')}
               </button>
             </div>
             <div className="rounded-xl bg-slate-50 p-5">
-              <div className="mb-3 flex h-32 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white">
-                <FileText className="h-12 w-12 text-slate-300" />
-              </div>
+              {!previewExpanded && (
+                <div className="mb-3 flex h-32 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white">
+                  <FileText className="h-12 w-12 text-slate-300" />
+                </div>
+              )}
+
+              {previewExpanded && (
+                <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+                  {selectedDocument.category === 'lab-report' && (
+                    <>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="pb-2 text-left font-semibold text-slate-600">Test</th>
+                            <th className="pb-2 text-left font-semibold text-slate-600">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedDocument.contains.split(' + ').map((test) => (
+                            <tr key={test} className="border-b border-slate-50 last:border-0">
+                              <td className="py-2 text-slate-800">{test.trim()}</td>
+                              <td className="py-2">
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${selectedDocument.status === 'reviewed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  {selectedDocument.status === 'reviewed' ? (
+                                    <><CheckCircle className="h-3 w-3" /> Reviewed</>
+                                  ) : (
+                                    <><AlertTriangle className="h-3 w-3" /> Pending</>
+                                  )}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="mt-3 text-xs text-slate-400">Full report available in Lab Results page</p>
+                    </>
+                  )}
+
+                  {selectedDocument.category === 'prescription' && (
+                    <>
+                      <ul className="space-y-2">
+                        {selectedDocument.contains.split(' + ').map((med) => (
+                          <li key={med} className="flex items-center gap-2 text-sm text-slate-800">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600">💊</span>
+                            {med.trim()}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-3 text-xs text-slate-400">Full details available in Medications page</p>
+                    </>
+                  )}
+
+                  {selectedDocument.category === 'insurance' && (
+                    <>
+                      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                        <div>
+                          <dt className="text-slate-400">Plan name</dt>
+                          <dd className="font-medium text-slate-800">{selectedDocument.name.split('—')[1]?.trim() ?? selectedDocument.name}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-400">Policy reference</dt>
+                          <dd className="font-medium text-slate-800">{selectedDocument.contains}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-400">{t('patient.documents.issuedBy')}</dt>
+                          <dd className="font-medium text-slate-800">{selectedDocument.issuedBy}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-400">{t('patient.documents.date')}</dt>
+                          <dd className="font-medium text-slate-800">{formatDate(selectedDocument.date)}</dd>
+                        </div>
+                      </dl>
+                      <p className="mt-3 text-xs text-slate-400">Full details available in Insurance page</p>
+                    </>
+                  )}
+                </div>
+              )}
+
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-slate-400">{t('patient.documents.issuedBy')}</dt>
@@ -387,8 +467,13 @@ export const PatientDocuments = () => {
               </dl>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">
-                <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700"
+              >
+                <Eye className="h-4 w-4" />
+                {previewExpanded ? 'Hide Preview' : t('patient.documents.view')}
               </button>
               <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
                 <Download className="h-4 w-4" /> {t('patient.documents.download')}
