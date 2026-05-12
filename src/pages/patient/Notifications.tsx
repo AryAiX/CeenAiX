@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, Loader2, RefreshCcw, Sparkles, Trash2 } from 'lucide-react';
+import { Bell, Calendar, CheckCheck, FlaskConical, Loader2, Pill, RefreshCcw, Shield, Sparkles, Trash2 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -75,6 +75,23 @@ export const PatientNotifications: React.FC = () => {
       return next;
     });
     setUndoDeleteId((current) => (current === notificationId ? null : current));
+  };
+
+  const getNotificationStyle = (title: string) => {
+    const lower = title.toLowerCase();
+    if (/lab|result|test/.test(lower)) {
+      return { Icon: FlaskConical, iconBg: 'bg-violet-100', iconColor: 'text-violet-600', borderColor: 'border-violet-200', unreadBg: 'bg-violet-50/50' };
+    }
+    if (/prescription|medication|refill|medicine/.test(lower)) {
+      return { Icon: Pill, iconBg: 'bg-teal-100', iconColor: 'text-teal-600', borderColor: 'border-teal-200', unreadBg: 'bg-teal-50/50' };
+    }
+    if (/appointment|booking|schedule/.test(lower)) {
+      return { Icon: Calendar, iconBg: 'bg-blue-100', iconColor: 'text-blue-600', borderColor: 'border-blue-200', unreadBg: 'bg-blue-50/50' };
+    }
+    if (/insurance|claim|coverage/.test(lower)) {
+      return { Icon: Shield, iconBg: 'bg-amber-100', iconColor: 'text-amber-600', borderColor: 'border-amber-200', unreadBg: 'bg-amber-50/50' };
+    }
+    return { Icon: Bell, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', borderColor: 'border-emerald-200', unreadBg: 'bg-emerald-50/50' };
   };
 
   if (loading) {
@@ -202,13 +219,20 @@ export const PatientNotifications: React.FC = () => {
                   onClick={() => navigate(notification.actionUrl)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-semibold text-slate-900">{notification.title}</p>
-                    <span className="text-xs font-semibold text-slate-500">
-                      {formatRelativeTime(t, notification.createdAt)}
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-100">
+                      <Sparkles className="h-4 w-4 text-teal-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-semibold text-slate-900">{notification.title}</p>
+                        <span className="text-xs font-semibold text-slate-500">
+                          {formatRelativeTime(t, notification.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
                 </button>
               ))}
             </div>
@@ -244,21 +268,27 @@ export const PatientNotifications: React.FC = () => {
                   ) : null;
                 }
 
+                const style = getNotificationStyle(notification.title);
+                const { Icon } = style;
                 return (
                   <div
                     key={notification.id}
                     className={`rounded-2xl border p-4 ${
                       notification.is_read
                         ? 'border-slate-200 bg-slate-50'
-                        : 'border-emerald-200 bg-emerald-50/50'
+                        : `${style.borderColor} ${style.unreadBg}`
                     }`}
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.iconBg}`}>
+                          <Icon className={`h-4 w-4 ${style.iconColor}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-slate-900">{notification.title}</p>
                           {!notification.is_read ? (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${style.iconBg} ${style.iconColor}`}>
                               {t('patient.notifications.unreadBadge')}
                             </span>
                           ) : null}
@@ -269,6 +299,7 @@ export const PatientNotifications: React.FC = () => {
                         <p className="mt-2 text-xs font-semibold text-slate-500">
                           {formatRelativeTime(t, notification.created_at)}
                         </p>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {notification.action_url ? (
