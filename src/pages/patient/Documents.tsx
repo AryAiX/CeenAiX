@@ -8,11 +8,13 @@ import {
   Download,
   Eye,
   FileText,
+  FlaskConical,
   FolderOpen,
   Grid3x3,
   Link,
   List,
   Mail,
+  Pill,
   Search,
   Share2,
   ShieldCheck,
@@ -491,8 +493,82 @@ export const PatientDocuments = () => {
             </div>
             <div className="rounded-xl bg-slate-50 p-5">
               {!previewExpanded && (
-                <div className="mb-3 flex h-32 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white">
-                  <FileText className="h-12 w-12 text-slate-300" />
+                <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  {selectedDocument.category === 'lab-report' && (
+                    <>
+                      <div className="flex items-center gap-2 bg-violet-600 px-4 py-2.5">
+                        <FlaskConical className="h-4 w-4 text-violet-100" />
+                        <span className="text-sm font-semibold text-white">Lab Report</span>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-100 bg-slate-50">
+                            <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Test Name</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedDocument.contains.split(' + ').map((test) => (
+                            <tr key={test} className="border-b border-slate-50 last:border-0">
+                              <td className="px-4 py-2.5 text-slate-800">{test.trim()}</td>
+                              <td className="px-4 py-2.5">
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${selectedDocument.status === 'reviewed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  {selectedDocument.status === 'reviewed' ? (
+                                    <><CheckCircle className="h-3 w-3" /> Reviewed</>
+                                  ) : (
+                                    <><AlertTriangle className="h-3 w-3" /> Pending</>
+                                  )}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-400">🔬 Full results available in Lab Results page</p>
+                    </>
+                  )}
+
+                  {selectedDocument.category === 'prescription' && (
+                    <>
+                      <div className="flex items-center gap-2 bg-teal-600 px-4 py-2.5">
+                        <Pill className="h-4 w-4 text-teal-100" />
+                        <span className="text-sm font-semibold text-white">Prescription</span>
+                      </div>
+                      <ul className="divide-y divide-slate-50 px-4 py-1">
+                        {selectedDocument.contains.split(' + ').map((med) => (
+                          <li key={med} className="flex items-center gap-3 py-2.5">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-50 text-base">💊</span>
+                            <span className="text-sm text-slate-800">{med.trim()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex flex-wrap gap-4 border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
+                        <span>Issued by <span className="font-medium text-slate-700">{selectedDocument.issuedBy}</span></span>
+                        <span>{formatDate(selectedDocument.date)}</span>
+                      </div>
+                      <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">💊 Full details available in Medications page</p>
+                    </>
+                  )}
+
+                  {selectedDocument.category === 'insurance' && (
+                    <>
+                      <div className="m-4 overflow-hidden rounded-xl bg-gradient-to-br from-blue-800 to-blue-600 p-4 text-white shadow-md">
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-widest text-blue-200">Insurance</span>
+                          <ShieldCheck className="h-5 w-5 text-blue-200" />
+                        </div>
+                        <p className="text-lg font-bold leading-tight">
+                          {selectedDocument.name.split('—')[1]?.trim() ?? selectedDocument.name}
+                        </p>
+                        <p className="mt-1 text-sm text-blue-200">{selectedDocument.issuedBy}</p>
+                        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-blue-100">
+                          <span>Policy ref: <span className="font-semibold text-white">{selectedDocument.contains}</span></span>
+                          <span>Valid: <span className="font-semibold text-white">{formatDate(selectedDocument.date)}</span></span>
+                        </div>
+                      </div>
+                      <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-400">🛡️ Full details available in Insurance page</p>
+                    </>
+                  )}
                 </div>
               )}
 
