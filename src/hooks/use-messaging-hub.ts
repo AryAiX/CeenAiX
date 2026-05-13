@@ -403,6 +403,32 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     [activeConversationId, loadConversations, loadMessages, userId]
   );
 
+  const updateMessage = useCallback(
+    async (messageId: string, newBody: string): Promise<boolean> => {
+      if (!userId) return false;
+      const trimmedBody = trimMessageDraft(newBody);
+      if (!trimmedBody) return false;
+      setWorking(true);
+      setActionError(null);
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .update({ body: trimmedBody })
+          .eq('id', messageId)
+          .eq('sender_id', userId);
+        if (error) throw error;
+        await loadMessages(activeConversationId);
+        return true;
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : 'Unable to edit message.');
+        return false;
+      } finally {
+        setWorking(false);
+      }
+    },
+    [activeConversationId, loadMessages, userId]
+  );
+
   return {
     conversations,
     activeConversationId,
@@ -417,6 +443,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     ensureDirectConversation,
     sendMessage,
     deleteMessage,
+    updateMessage,
     refresh: loadConversations,
   };
 }

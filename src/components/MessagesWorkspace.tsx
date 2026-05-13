@@ -90,6 +90,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const [readMessageIds, setReadMessageIds] = useState<Set<string>>(new Set());
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
   const [undoMessageId, setUndoMessageId] = useState<string | null>(null);
   const undoTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -113,6 +114,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     ensureDirectConversation,
     sendMessage,
     deleteMessage,
+    updateMessage,
   } = useMessagingHub(user?.id, conversationId ?? null);
 
   useEffect(() => {
@@ -519,10 +521,15 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     setEditingMessageText(currentBody);
   };
 
-  const handleSaveEdit = (messageId: string) => {
-    // UI only — no DB call
-    setEditingMessageId(null);
-    setEditingMessageText('');
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editingMessageText.trim()) return;
+    setSavingEdit(true);
+    const success = await updateMessage(messageId, editingMessageText);
+    setSavingEdit(false);
+    if (success) {
+      setEditingMessageId(null);
+      setEditingMessageText('');
+    }
   };
 
   const handleCancelEdit = () => {
@@ -953,11 +960,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                         />
                         <div className="mt-2 flex items-center gap-2">
                           <button
-                            type="button"
-                            onClick={() => handleSaveEdit(message.id)}
-                            className="rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/30"
+                            type='button'
+                            onClick={() => void handleSaveEdit(message.id)}
+                            disabled={savingEdit || !editingMessageText.trim()}
+                            className='rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/30 disabled:opacity-60'
                           >
-                            Save
+                            {savingEdit ? 'Saving...' : 'Save'}
                           </button>
                           <button
                             type="button"
