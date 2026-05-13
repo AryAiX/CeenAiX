@@ -103,6 +103,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
                 .from('messages')
                 .select('id, conversation_id, sender_id, body, sent_at, read_at')
                 .in('conversation_id', conversationIds)
+                .eq('is_deleted', false)
                 .order('sent_at', { ascending: false })
             : Promise.resolve({ data: [] as MessagePreviewRow[], error: null }),
         ]);
@@ -212,6 +213,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           .from('messages')
           .select('*')
           .eq('conversation_id', conversationId)
+          .eq('is_deleted', false)
           .order('sent_at', { ascending: true });
 
         if (error) {
@@ -377,6 +379,30 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     [activeConversationId, loadConversations, loadMessages, userId]
   );
 
+  const deleteMessage = useCallback(
+    async (messageId: string): Promise<boolean> => {
+      if (!userId) return false;
+      setWorking(true);
+      setActionError(null);
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .update({ is_deleted: true })
+          .eq('id', messageId)
+          .eq('sender_id', userId);
+        if (error) throw error;
+        await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
+        return true;
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : 'Unable to delete message.');
+        return false;
+      } finally {
+        setWorking(false);
+      }
+    },
+    [activeConversationId, loadConversations, loadMessages, userId]
+  );
+
   return {
     conversations,
     activeConversationId,
@@ -390,6 +416,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     actionError,
     ensureDirectConversation,
     sendMessage,
+    deleteMessage,
     refresh: loadConversations,
   };
 }
