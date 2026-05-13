@@ -151,6 +151,29 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     }
   }, [messages, user?.id]);
 
+  useEffect(() => {
+    setSentAttachments((prev) => {
+      const tempKeys = Object.keys(prev).filter((key) => key.startsWith('temp-'));
+      if (tempKeys.length === 0) return prev;
+      const ownMessages = messages.filter((m) => m.sender_id === user?.id);
+      if (ownMessages.length === 0) return prev;
+      const updated = { ...prev };
+      tempKeys.forEach((tempKey) => {
+        const tempTimestamp = parseInt(tempKey.replace('temp-', ''), 10);
+        const closest = ownMessages.reduce((best, m) => {
+          const diff = Math.abs(new Date(m.sent_at).getTime() - tempTimestamp);
+          const bestDiff = Math.abs(new Date(best.sent_at).getTime() - tempTimestamp);
+          return diff < bestDiff ? m : best;
+        });
+        if (closest) {
+          updated[closest.id] = updated[tempKey];
+          delete updated[tempKey];
+        }
+      });
+      return updated;
+    });
+  }, [messages, user?.id]);
+
   // Cleanup attachment preview URLs on unmount
   useEffect(() => {
     return () => {
@@ -286,7 +309,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     const didSend = await sendMessage(bodyToSend);
 
     if (didSend) {
-      // Store attachment with a temp key based on timestamp to show in bubble
       if (attachment) {
         const tempKey = `temp-${Date.now()}`;
         setSentAttachments((prev) => ({ ...prev, [tempKey]: attachment }));
@@ -884,12 +906,13 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 <div className="space-y-4">
                   {messages.map((message, msgIndex) => {
                     const isOwn = message.sender_id === user?.id;
-                    // Show sent attachment on the last own message if it exists
-                    const sentAttachmentKeys = Object.keys(sentAttachments);
-                    const attachmentForMessage =
-                      isOwn && msgIndex === messages.length - 1 && sentAttachmentKeys.length > 0
-                        ? sentAttachments[sentAttachmentKeys[sentAttachmentKeys.length - 1]]
-                        : null;
+                    const attachmentForMessage = isOwn
+                      ? sentAttachments[message.id] ?? (
+                          msgIndex === messages.length - 1 && Object.keys(sentAttachments).length > 0
+                            ? sentAttachments[Object.keys(sentAttachments)[Object.keys(sentAttachments).length - 1]]
+                            : null
+                        )
+                      : null;
 
               // Skip deleted messages (show undo banner instead)
               if (deletedMessageIds.has(message.id)) {
