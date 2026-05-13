@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ClipboardList,
   Clock,
+  Copy,
   FileText,
   MapPin,
   MessageSquare,
@@ -104,6 +105,9 @@ export const PatientAppointments: React.FC = () => {
   const [cancellingAppointmentId, setCancellingAppointmentId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelCustomReason, setCancelCustomReason] = useState('');
+  const [showDirectionsModal, setShowDirectionsModal] = useState(false);
+  const [directionsAppointmentId, setDirectionsAppointmentId] = useState<string | null>(null);
+  const [addressCopied, setAddressCopied] = useState(false);
   const { data: preVisitAssessmentsData } = usePatientPreVisitAssessments(user?.id);
   const preVisitAssessments = useMemo(
     () => preVisitAssessmentsData ?? [],
@@ -305,11 +309,10 @@ export const PatientAppointments: React.FC = () => {
     setCancelCustomReason('');
   };
 
-  const handleGetDirections = (doctorProfile: DoctorAppointmentProfile | undefined) => {
-    const parts = [doctorProfile?.address, doctorProfile?.city].filter(Boolean);
-    if (parts.length === 0) return;
-    const query = encodeURIComponent(parts.join(', '));
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer');
+  const resetDirectionsModal = () => {
+    setShowDirectionsModal(false);
+    setDirectionsAppointmentId(null);
+    setAddressCopied(false);
   };
 
   const isWithin10Min = (appointment: Appointment) => {
@@ -526,7 +529,10 @@ export const PatientAppointments: React.FC = () => {
               {!isTeleconsult && (clinicAddress || clinicName) ? (
                 <button
                   type="button"
-                  onClick={() => handleGetDirections(doctorProfile)}
+                  onClick={() => {
+                    setDirectionsAppointmentId(appointment.id);
+                    setShowDirectionsModal(true);
+                  }}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                 >
                   <MapPin className="w-4 h-4 inline mr-2" />
@@ -546,6 +552,156 @@ export const PatientAppointments: React.FC = () => {
           </div>
         </div>
       </div>
+    );
+  };
+
+  const renderDirectionsModal = () => {
+    if (!showDirectionsModal || !directionsAppointmentId) return null;
+
+    const directionsDoctor = doctorProfileById.get(directionsAppointmentId);
+    const address = [directionsDoctor?.address, directionsDoctor?.city].filter(Boolean).join(', ');
+    const clinicLabel = directionsDoctor?.city ?? t('shared.clinicPending');
+    const encodedAddress = encodeURIComponent(address);
+
+    const navApps: Array<{
+      name: string;
+      icon: React.ReactNode;
+      onClick: () => void;
+    }> = [
+      {
+        name: 'Google Maps',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path
+              fill="#4285F4"
+              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+            />
+          </svg>
+        ),
+        onClick: () =>
+          window.open(
+            `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
+            '_blank',
+            'noopener,noreferrer'
+          ),
+      },
+      {
+        name: 'Waze',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path
+              fill="#33CCFF"
+              d="M20.54 6.63C19.08 3.24 15.79 1 12.06 1 6.56 1 2.06 5.5 2.06 11c0 2.12.67 4.08 1.8 5.69L2 22l5.5-1.73A9.94 9.94 0 0 0 12.06 21c5.5 0 9.94-4.5 9.94-10 0-1.61-.39-3.13-1.46-4.37z"
+            />
+          </svg>
+        ),
+        onClick: () =>
+          window.open(
+            `https://waze.com/ul?q=${encodedAddress}`,
+            '_blank',
+            'noopener,noreferrer'
+          ),
+      },
+      {
+        name: 'Apple Maps',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path
+              fill="#000000"
+              d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"
+            />
+          </svg>
+        ),
+        onClick: () =>
+          window.open(
+            `https://maps.apple.com/?q=${encodedAddress}`,
+            '_blank',
+            'noopener,noreferrer'
+          ),
+      },
+      {
+        name: addressCopied ? '✓ Copied!' : 'Copy Address',
+        icon: <Copy className="w-6 h-6 text-slate-600" />,
+        onClick: () => {
+          navigator.clipboard.writeText(address).then(() => {
+            setAddressCopied(true);
+            window.setTimeout(() => setAddressCopied(false), 2000);
+          });
+        },
+      },
+    ];
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={resetDirectionsModal}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-5 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-5 w-5 text-teal-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Get Directions</h2>
+            </div>
+            <button
+              type="button"
+              onClick={resetDirectionsModal}
+              aria-label="Close"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-5">
+            {/* Location summary */}
+            <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <MapPin className="h-5 w-5 text-teal-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-slate-900 text-sm">{clinicLabel}</p>
+                {address ? (
+                  <p className="text-sm text-slate-600 mt-0.5">{address}</p>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Navigation app grid */}
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                Choose your navigation app
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {navApps.map((app) => (
+                  <button
+                    key={app.name}
+                    type="button"
+                    onClick={app.onClick}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm font-medium text-gray-700 transition-all hover:border-teal-400 hover:bg-teal-50/40 hover:shadow-sm"
+                  >
+                    {app.icon}
+                    <span className="text-xs leading-tight">{app.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 pb-5">
+            <button
+              type="button"
+              onClick={resetDirectionsModal}
+              className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
     );
   };
 
@@ -1205,6 +1361,7 @@ export const PatientAppointments: React.FC = () => {
         .animate-pulse-border { animation: pulse-border 2s ease-in-out infinite; }
       `}</style>
 
+      {renderDirectionsModal()}
       {renderCancelModal()}
     </>
   );
