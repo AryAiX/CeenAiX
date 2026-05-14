@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
+import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -58,6 +59,10 @@ export const DoctorAppointments: React.FC = () => {
   const [calendarViewType, setCalendarViewType] = useState<'day' | 'week' | 'month'>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportRange, setExportRange] = useState<'today' | 'week' | 'month'>('today');
+  const [exportType, setExportType] = useState<'administrative' | 'personal' | 'billing'>('administrative');
+  const [exportSuccess, setExportSuccess] = useState(false);
 
   const patientIds = useMemo(
     () => Array.from(new Set((routeAppointments ?? []).map((appointment) => appointment.patient_id))),
@@ -278,6 +283,65 @@ export const DoctorAppointments: React.FC = () => {
     setSelectedCalendarDate(nextMonth);
   };
 
+  const exportFilteredAppointments = useMemo(() => {
+    if (exportRange === 'today') return appointments.filter((a) => formatDateKey(new Date(a.scheduled_at)) === todayDateKey);
+    if (exportRange === 'week') return appointments.filter((a) => { const d = new Date(a.scheduled_at); return d >= startOfWeek && d < endOfWeek; });
+    return appointments.filter((a) => { const d = new Date(a.scheduled_at); return d >= startOfMonth && d < endOfMonth; });
+  }, [appointments, exportRange, todayDateKey, startOfWeek, endOfWeek, startOfMonth, endOfMonth]);
+
+  const handleExport = () => {
+    const rows: string[] = [];
+    const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const fmtTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const esc = (v: string | null | undefined) => `"${(v ?? '').replace(/"/g, '""')}"`;
+
+    if (exportType === 'administrative') {
+      rows.push('Date,Time,Patient Name,Type,Status,Duration (min)');
+      for (const a of exportFilteredAppointments) {
+        const d = new Date(a.scheduled_at);
+        rows.push([fmt(d), fmtTime(d), esc(patientNameById.get(a.patient_id)), esc(a.type), esc(a.status), String(a.duration_minutes)].join(','));
+      }
+    } else if (exportType === 'personal') {
+      rows.push('Date,Time,Patient Name,Type,Status,Duration (min),Reason for Visit,Patient Notes,Pre-Visit Status');
+      for (const a of exportFilteredAppointments) {
+        const d = new Date(a.scheduled_at);
+        const assessment = preVisitAssessmentByAppointmentId.get(a.id);
+        rows.push([fmt(d), fmtTime(d), esc(patientNameById.get(a.patient_id)), esc(a.type), esc(a.status), String(a.duration_minutes), esc(a.chief_complaint), esc(a.notes), esc(assessment?.status ?? 'none')].join(','));
+      }
+    } else {
+      rows.push('Date,Patient Name,Status,Consultation Fee (AED),Collected');
+      let totalFee = 0;
+      let totalCollected = 0;
+      for (const a of exportFilteredAppointments) {
+        const d = new Date(a.scheduled_at);
+        const fee = consultationFee;
+        const collected = a.status === 'completed';
+        totalFee += fee;
+        if (collected) totalCollected += fee;
+        rows.push([fmt(d), esc(patientNameById.get(a.patient_id)), esc(a.status), String(fee), collected ? 'Yes' : 'No'].join(','));
+      }
+      const completedCount = exportFilteredAppointments.filter((a) => a.status === 'completed').length;
+      rows.push([',TOTAL,,', String(totalFee), String(completedCount * consultationFee)].join(''));
+    }
+
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ceenaix-appointments-${exportRange}-${exportType}-${todayDateKey}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportSuccess(true);
+    window.setTimeout(() => {
+      setExportSuccess(false);
+      setShowExportModal(false);
+    }, 2000);
+  };
+
   const handleCancelAppointment = async (appointmentId: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
@@ -317,6 +381,7 @@ export const DoctorAppointments: React.FC = () => {
               </button>
               <button
                 type="button"
+                onClick={() => setShowExportModal(true)}
                 className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Download className="h-4 w-4" />
@@ -1112,6 +1177,121 @@ export const DoctorAppointments: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showExportModal && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => { setShowExportModal(false); setExportSuccess(false); }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
+                  <Download className="h-5 w-5 text-slate-600" />
+                </div>
+                <h2 className="text-[17px] font-bold text-slate-900">Export Appointments</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowExportModal(false); setExportSuccess(false); }}
+                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-5">
+              {/* Date Range */}
+              <div>
+                <p className="mb-3 text-sm font-semibold text-slate-900">Date Range</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'today', emoji: '📅', label: 'Today', sub: 'Appointments for today only' },
+                    { value: 'week', emoji: '📆', label: 'This Week', sub: 'Current week appointments' },
+                    { value: 'month', emoji: '🗓️', label: 'This Month', sub: 'All appointments this month' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setExportRange(opt.value)}
+                      className={`rounded-xl border p-3 text-left transition-all ${
+                        exportRange === opt.value
+                          ? 'border-teal-500 bg-teal-50'
+                          : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/40'
+                      }`}
+                    >
+                      <span className="mb-1 block text-xl">{opt.emoji}</span>
+                      <p className={`text-xs font-bold ${exportRange === opt.value ? 'text-teal-700' : 'text-slate-800'}`}>{opt.label}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">{opt.sub}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Export Type */}
+              <div>
+                <p className="mb-3 text-sm font-semibold text-slate-900">Export Type</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'administrative', emoji: '📊', label: 'Administrative', sub: 'Patient, date, time, status, type, duration' },
+                    { value: 'personal', emoji: '👤', label: 'Personal Records', sub: 'Full details including reason, notes and pre-visit status' },
+                    { value: 'billing', emoji: '💰', label: 'Billing', sub: 'Revenue summary with consultation fees and totals' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setExportType(opt.value)}
+                      className={`rounded-xl border p-3 text-left transition-all ${
+                        exportType === opt.value
+                          ? 'border-teal-500 bg-teal-50'
+                          : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/40'
+                      }`}
+                    >
+                      <span className="mb-1 block text-xl">{opt.emoji}</span>
+                      <p className={`text-xs font-bold ${exportType === opt.value ? 'text-teal-700' : 'text-slate-800'}`}>{opt.label}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">{opt.sub}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview count */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                📋 <span className="font-semibold text-slate-800">{exportFilteredAppointments.length}</span> appointment{exportFilteredAppointments.length !== 1 ? 's' : ''} will be exported as CSV
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => { setShowExportModal(false); setExportSuccess(false); }}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition-colors ${
+                  exportSuccess ? 'bg-emerald-600' : 'bg-teal-600 hover:bg-teal-700'
+                }`}
+              >
+                {exportSuccess ? (
+                  <>✓ Exported!</>
+                ) : (
+                  <><Download className="h-4 w-4" /> Export CSV</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 };
