@@ -1,4 +1,5 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -92,6 +93,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
   const [undoMessageId, setUndoMessageId] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const undoTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const bootstrappedTargetRef = useRef<string | null>(null);
@@ -724,6 +726,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         };
 
   return (
+    <>
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
         <div className="border-b border-gray-100 px-5 py-4">
@@ -866,7 +869,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                       : t(`${namespace}.newConversation`)}
                   </p>
                 </div>
-                <ChevronRight className="mt-1 h-5 w-5 text-gray-300 rtl:rotate-180" />
+                <button
+                  type='button'
+                  onClick={() => setShowProfileModal(true)}
+                  className='rounded-lg p-1 text-gray-300 transition hover:bg-gray-100 hover:text-gray-500'
+                  title='View profile'
+                >
+                  <ChevronRight className='h-5 w-5 rtl:rotate-180' />
+                </button>
               </div>
             </div>
 
@@ -1161,5 +1171,86 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         )}
       </div>
     </div>
+
+    {showProfileModal && activeConversation
+      ? createPortal(
+          <div
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm'
+            onClick={() => setShowProfileModal(false)}
+          >
+            <div
+              className='w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl'
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className='flex items-center justify-between border-b border-gray-100 px-5 py-4'>
+                <h3 className='font-bold text-gray-900'>Profile Details</h3>
+                <button
+                  type='button'
+                  onClick={() => setShowProfileModal(false)}
+                  className='rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
+                >
+                  <X className='h-5 w-5' />
+                </button>
+              </div>
+
+              {/* Avatar + name */}
+              <div className='flex flex-col items-center px-6 pt-8 pb-4'>
+                <div
+                  className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-xl font-bold text-white shadow-md ${avatarGradient(
+                    activeConversation.counterpart.id ?? activeConversation.counterpart.name
+                  )}`}
+                >
+                  {avatarInitials(activeConversation.counterpart.name)}
+                </div>
+                <p className='mt-4 text-xl font-bold text-gray-900'>{activeConversation.counterpart.name}</p>
+                <p className='mt-1 text-sm text-gray-500'>
+                  {activeConversation.counterpart.email ?? 'No email'}
+                </p>
+                <span
+                  className={`mt-3 rounded-full px-3 py-1 text-xs font-semibold ${
+                    role === 'patient'
+                      ? 'bg-teal-100 text-teal-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {role === 'patient' ? 'Doctor' : 'Patient'}
+                </span>
+              </div>
+
+              {/* Details */}
+              <div className='mx-6 mb-6 divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50'>
+                <div className='flex items-center gap-3 px-4 py-3 text-sm'>
+                  <span className='text-base'>📧</span>
+                  <span className='text-gray-500'>Email</span>
+                  <span className='ml-auto font-medium text-gray-800 truncate max-w-[180px]'>
+                    {activeConversation.counterpart.email ?? 'Not available'}
+                  </span>
+                </div>
+                <div className='flex items-center gap-3 px-4 py-3 text-sm'>
+                  <span className='text-base'>👤</span>
+                  <span className='text-gray-500'>Role</span>
+                  <span className='ml-auto font-medium text-gray-800'>
+                    {role === 'patient' ? 'Healthcare Provider' : 'Patient'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action */}
+              <div className='border-t border-gray-100 px-6 py-4'>
+                <button
+                  type='button'
+                  onClick={() => setShowProfileModal(false)}
+                  className={`w-full rounded-xl bg-gradient-to-r py-2.5 text-sm font-semibold text-white transition hover:opacity-90 ${theme.button}`}
+                >
+                  Message
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 };
