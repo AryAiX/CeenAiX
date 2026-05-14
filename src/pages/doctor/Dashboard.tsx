@@ -180,6 +180,7 @@ export const DoctorDashboard: React.FC = () => {
       sub: `${formatLocaleDigits(completedTodayAppointments, uiLang)} done · ${formatLocaleDigits(inProgressAppointments, uiLang)} in progress · ${formatLocaleDigits(remainingTodayAppointments, uiLang)} remaining`,
       color: 'teal',
       progress: appointmentProgress,
+      onClick: () => navigate('/doctor/appointments'),
     },
     {
       icon: PenLine,
@@ -188,6 +189,7 @@ export const DoctorDashboard: React.FC = () => {
       sub: 'Today · live from prescriptions',
       color: 'purple',
       badge: (data?.pendingReviews ?? 0) > 0 ? 'Review' : undefined,
+      onClick: () => navigate('/doctor/prescriptions'),
     },
     {
       icon: FlaskConical,
@@ -196,6 +198,7 @@ export const DoctorDashboard: React.FC = () => {
       sub: `${formatLocaleDigits(data?.criticalResults.length ?? 0, uiLang)} critical pending · ${formatLocaleDigits(recentLabResults.length, uiLang)} recent results`,
       color: 'indigo',
       critical: (data?.criticalResults.length ?? 0) > 0,
+      onClick: () => navigate('/doctor/labs'),
     },
     {
       icon: MessageSquare,
@@ -203,6 +206,7 @@ export const DoctorDashboard: React.FC = () => {
       value: formatLocaleDigits(data?.unreadMessages ?? 0, uiLang),
       sub: `${formatLocaleDigits(recentMessages.length, uiLang)} recent patient threads`,
       color: 'blue',
+      onClick: () => navigate('/doctor/messages'),
     },
     {
       icon: CircleDollarSign,
@@ -215,6 +219,7 @@ export const DoctorDashboard: React.FC = () => {
         : 'Add consultation fee to estimate',
       color: 'emerald',
       progress: appointmentProgress,
+      onClick: () => navigate('/doctor/earnings'),
     },
     {
       icon: Users,
@@ -223,6 +228,7 @@ export const DoctorDashboard: React.FC = () => {
       sub: doctorLicense,
       color: doctorProfile?.dha_license_verified ? 'emerald' : 'slate',
       extraSub: doctorProfile?.dha_license_verified ? 'Verified provider profile' : 'Verification pending',
+      onClick: () => navigate('/doctor/settings'),
     },
   ];
   const quickActions = [
@@ -500,11 +506,7 @@ export const DoctorDashboard: React.FC = () => {
             className={`cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-md transition-all hover:scale-[1.015] hover:shadow-xl ${
               card.critical ? 'animate-pulse ring-2 ring-red-500' : ''
             }`}
-            onClick={() => {
-              if (card.label === 'Appointments Today') {
-                navigate('/doctor/today');
-              }
-            }}
+            onClick={() => card.onClick?.()}
           >
             <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${color.bg}`}>
               <Icon className={`h-6 w-6 ${color.icon}`} />
