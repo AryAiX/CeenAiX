@@ -55,6 +55,7 @@ export const DoctorAppointments: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
+  const [calendarViewType, setCalendarViewType] = useState<'day' | 'week' | 'month'>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -560,22 +561,25 @@ export const DoctorAppointments: React.FC = () => {
 
                   <div className="flex items-center gap-2 overflow-x-auto">
                     <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
-                      <button type="button" className="rounded px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-colors hover:text-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => { setCalendarViewType('day'); setViewMode('calendar'); handleTabChange('calendar'); }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${calendarViewType === 'day' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
                         📅 Day
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setViewMode('calendar');
-                          handleTabChange('calendar');
-                        }}
-                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
-                          activeTab === 'calendar' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'
-                        }`}
+                        onClick={() => { setCalendarViewType('week'); setViewMode('calendar'); handleTabChange('calendar'); }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${calendarViewType === 'week' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                       >
-                        📆 Week ●
+                        📆 Week
                       </button>
-                      <button type="button" className="rounded px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-colors hover:text-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => { setCalendarViewType('month'); setViewMode('calendar'); handleTabChange('calendar'); }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${calendarViewType === 'month' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
                         📅 Month
                       </button>
                     </div>
@@ -609,7 +613,7 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             ) : null}
 
-            {!isTodayRoute && activeTab === 'calendar' ? (
+            {!isTodayRoute && activeTab === 'calendar' && calendarViewType === 'week' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
                 <div className="grid min-w-[980px] grid-cols-7 gap-3">
                   {weekDays.map((date) => {
@@ -684,6 +688,172 @@ export const DoctorAppointments: React.FC = () => {
                 </div>
               </section>
             ) : null}
+
+            {!isTodayRoute && activeTab === 'calendar' && calendarViewType === 'day' ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prev = new Date(selectedCalendarDate);
+                      prev.setDate(prev.getDate() - 1);
+                      setSelectedCalendarDate(prev);
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous Day
+                  </button>
+                  <div className="text-center">
+                    <p className="text-base font-bold text-slate-800">
+                      {selectedCalendarDate.toLocaleDateString(locale, dtOpts({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))}
+                    </p>
+                    {formatDateKey(selectedCalendarDate) === todayDateKey ? (
+                      <span className="mt-1 inline-block rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-bold text-white">Today</span>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(next.getDate() + 1);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Next Day
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {Array.from({ length: 25 }, (_, i) => {
+                    const hour = 8 + Math.floor(i / 2);
+                    const minute = i % 2 === 0 ? 0 : 30;
+                    if (hour > 20) return null;
+                    const slotDate = new Date(selectedCalendarDate);
+                    slotDate.setHours(hour, minute, 0, 0);
+                    const slotLabel = slotDate.toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }));
+                    const slotAppts = routeAppointments.filter((appt) => {
+                      const d = new Date(appt.scheduled_at);
+                      return (
+                        formatDateKey(d) === formatDateKey(selectedCalendarDate) &&
+                        d.getHours() === hour &&
+                        d.getMinutes() >= minute &&
+                        d.getMinutes() < minute + 30
+                      );
+                    });
+                    return (
+                      <div key={`${hour}-${minute}`} className="flex gap-3">
+                        <div className="w-20 shrink-0 pt-2 text-right font-mono text-[11px] text-slate-400">{slotLabel}</div>
+                        <div className="flex-1 border-t border-slate-100 pb-1 pt-1">
+                          {slotAppts.length > 0 ? (
+                            <div className="space-y-1">
+                              {slotAppts.map((appt) => (
+                                <button
+                                  key={appt.id}
+                                  type="button"
+                                  onClick={() => navigate(`/doctor/appointments/${appt.id}`)}
+                                  className={`w-full rounded-lg border px-3 py-2 text-left transition hover:shadow-sm ${
+                                    appt.status === 'completed'
+                                      ? 'border-emerald-200 bg-emerald-50'
+                                      : appt.status === 'in_progress'
+                                        ? 'border-teal-200 bg-teal-100'
+                                        : 'border-blue-200 bg-blue-50'
+                                  }`}
+                                >
+                                  <p className="text-[12px] font-bold text-slate-900">
+                                    {patientNameById.get(appt.patient_id) ?? t('shared.patient')}
+                                  </p>
+                                  <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">
+                                    {appt.chief_complaint ?? appointmentTypeLabel(t, appt.type)}
+                                  </p>
+                                  <span className="mt-1 inline-block rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                    {appointmentStatusLabel(t, appt.status)}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded border border-dashed border-slate-200 px-3 py-1 text-[11px] text-slate-300">
+                              Available
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {!isTodayRoute && activeTab === 'calendar' && calendarViewType === 'month' ? (() => {
+              const daysInCurrentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+              const firstDayOfCurrentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+              return (
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => handleMonthChange(-1)}
+                      className="rounded-lg p-2 transition-colors hover:bg-slate-100"
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft className="h-5 w-5 text-slate-400" />
+                    </button>
+                    <h3 className="text-base font-bold text-slate-800">
+                      {currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => handleMonthChange(1)}
+                      className="rounded-lg p-2 transition-colors hover:bg-slate-100"
+                      aria-label="Next month"
+                    >
+                      <ChevronRight className="h-5 w-5 text-slate-400" />
+                    </button>
+                  </div>
+                  <div className="mb-1 grid grid-cols-7 text-center">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                      <div key={day} className="py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">{day}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: firstDayOfCurrentMonth }, (_, i) => (
+                      <div key={`empty-${i}`} />
+                    ))}
+                    {Array.from({ length: daysInCurrentMonth }, (_, i) => {
+                      const day = i + 1;
+                      const cellDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                      const cellKey = formatDateKey(cellDate);
+                      const cellCount = appointments.filter((a) => formatDateKey(new Date(a.scheduled_at)) === cellKey).length;
+                      const isToday = cellKey === todayDateKey;
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCalendarDate(cellDate);
+                            setCalendarViewType('day');
+                          }}
+                          className={`relative flex h-16 flex-col items-center rounded-lg p-1.5 text-sm font-semibold transition hover:scale-105 ${
+                            isToday ? 'bg-teal-600 text-white hover:bg-teal-700' : 'text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>{formatLocaleDigits(day, uiLang)}</span>
+                          {cellCount > 0 ? (
+                            <span className={`mt-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              isToday ? 'bg-white/30 text-white' : 'bg-teal-100 text-teal-700'
+                            }`}>
+                              {formatLocaleDigits(cellCount, uiLang)}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })() : null}
 
             {activeTab === 'calendar' && !isTodayRoute ? null : (
               <>
