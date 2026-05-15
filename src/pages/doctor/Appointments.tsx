@@ -281,7 +281,6 @@ export const DoctorAppointments: React.FC = () => {
   const handleMonthChange = (offset: number) => {
     const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
     setCurrentMonth(nextMonth);
-    setSelectedCalendarDate(nextMonth);
   };
 
   const exportFilteredAppointments = useMemo(() => {
@@ -639,7 +638,7 @@ export const DoctorAppointments: React.FC = () => {
                     <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
                       <button
                         type="button"
-                        onClick={() => { setCalendarViewType('day'); setViewMode('calendar'); handleTabChange('calendar'); }}
+                        onClick={() => { setCalendarViewType('day'); setViewMode('calendar'); handleTabChange('calendar'); setSelectedCalendarDate(new Date()); }}
                         className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${calendarViewType === 'day' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                       >
                         📅 Day
