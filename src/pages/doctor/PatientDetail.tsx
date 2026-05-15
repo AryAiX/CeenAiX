@@ -47,6 +47,7 @@ export const DoctorPatientDetail: React.FC = () => {
   const uiLang = i18n.language ?? 'en';
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const [reviewingMedicationId, setReviewingMedicationId] = useState<string | null>(null);
+  const [showAllAppointments, setShowAllAppointments] = useState<boolean>(false);
 
   const appointments = useMemo(() => data?.appointments ?? [], [data?.appointments]);
   const nextAppointment = useMemo(
@@ -258,7 +259,7 @@ export const DoctorPatientDetail: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                {appointments.slice(0, 6).map((appointment) => (
+                {(showAllAppointments ? appointments : appointments.slice(0, 6)).map((appointment) => (
                   <button
                     key={appointment.id}
                     type="button"
@@ -290,6 +291,17 @@ export const DoctorPatientDetail: React.FC = () => {
                     </div>
                   </button>
                 ))}
+                {appointments.length > 6 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllAppointments((prev) => !prev)}
+                    className="mt-2 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    {showAllAppointments
+                      ? `Show Less ↑`
+                      : `Show All ${appointments.length} Appointments ↓`}
+                  </button>
+                ) : null}
               </div>
             </div>
 
