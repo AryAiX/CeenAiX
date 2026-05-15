@@ -244,14 +244,24 @@ export const DoctorPrescriptions: React.FC = () => {
                         <p className="text-sm text-gray-500">
                           {t('doctor.prescriptions.prescribedAt', { date: formatDate(prescription.prescribed_at) })}
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/doctor/messages?patient=${prescription.patient_id}`)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                          <span>{t('doctor.messages.messagePatient')}</span>
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/doctor/patients/${prescription.patient_id}`)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                          >
+                            <Users className="h-4 w-4" />
+                            <span>View Patient</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/doctor/messages?patient=${prescription.patient_id}`)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                            <span>{t('doctor.messages.messagePatient')}</span>
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-3">
                         {prescription.items.map((item) => (
@@ -344,7 +354,15 @@ export const DoctorPrescriptions: React.FC = () => {
                         {prescriptionStatusLabel(t, prescription.status)}
                       </span>
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/doctor/patients/${prescription.patient_id}`)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                      >
+                        <Users className="h-4 w-4" />
+                        <span>View Patient</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => navigate(`/doctor/messages?patient=${prescription.patient_id}`)}
