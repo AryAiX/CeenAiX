@@ -60,6 +60,7 @@ export const DoctorAppointments: React.FC = () => {
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showNewApptHint, setShowNewApptHint] = useState<boolean>(false);
   const [exportRange, setExportRange] = useState<'today' | 'week' | 'month'>('today');
   const [exportType, setExportType] = useState<'administrative' | 'personal' | 'billing'>('administrative');
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -371,14 +372,24 @@ export const DoctorAppointments: React.FC = () => {
               <p className="text-[13px] text-slate-400">Al Noor Medical Center — Cardiology Suite</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate('/patient/book-appointment')}
-                className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-teal-700"
-              >
-                <Plus className="h-4 w-4" />
-                New Appointment
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  title="Select a patient to book an appointment"
+                  onClick={() => navigate('/doctor/patients')}
+                  onMouseEnter={() => setShowNewApptHint(true)}
+                  onMouseLeave={() => setShowNewApptHint(false)}
+                  className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-teal-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Appointment
+                </button>
+                {showNewApptHint ? (
+                  <div className="absolute top-full mt-1 left-0 z-10 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-md">
+                    Select a patient from Patient Records to book
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => setShowExportModal(true)}
