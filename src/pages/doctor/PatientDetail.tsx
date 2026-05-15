@@ -162,12 +162,30 @@ export const DoctorPatientDetail: React.FC = () => {
                 </p>
                 <h2 className="mt-2 text-3xl font-bold">{patientName}</h2>
                 <div className="mt-4 grid gap-3 text-sm text-white/85 sm:grid-cols-2">
-                  <p>{patientEmail}</p>
-                  <p>{patientPhone}</p>
-                  <p>{patientCity}</p>
-                  <p>
-                    {formatNullableText(data.patientExtensionProfile?.blood_type, t('doctor.patients.notProvided'))}
-                  </p>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Email</p>
+                    <p className="mt-0.5">{patientEmail}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Phone</p>
+                    <p className="mt-0.5">{patientPhone}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">City</p>
+                    <p className="mt-0.5">{patientCity}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Blood Type</p>
+                    <p className="mt-0.5">{formatNullableText(data.patientExtensionProfile?.blood_type, t('doctor.patients.notProvided'))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">🚨 Emergency Contact</p>
+                    <p className="mt-0.5">{formatNullableText(data.patientExtensionProfile?.emergency_contact_name, t('doctor.patients.notProvided'))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">🚨 Emergency Phone</p>
+                    <p className="mt-0.5">{formatNullableText(data.patientExtensionProfile?.emergency_contact_phone, t('doctor.patients.notProvided'))}</p>
+                  </div>
                 </div>
               </div>
 
