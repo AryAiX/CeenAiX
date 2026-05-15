@@ -316,7 +316,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 p-6 md:grid-cols-4">
+          <div className="grid gap-4 p-6 md:grid-cols-5">
             <button
               type="button"
               disabled={updatingAppointment}
@@ -363,6 +363,30 @@ export const DoctorAppointmentDetail: React.FC = () => {
               </div>
               {data.appointment.status === 'completed' ? (
                 <p className="mt-1 text-[10px] font-medium text-emerald-600">✓ Appointment done</p>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              disabled={updatingAppointment}
+              onClick={() => updateAppointmentStatus('no_show')}
+              className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
+                data.appointment.status === 'no_show'
+                  ? 'border-red-400 bg-red-50 ring-2 ring-red-400'
+                  : 'border-slate-200 bg-slate-50 hover:border-red-200 hover:bg-red-50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {data.appointment.status === 'no_show' ? (
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                ) : null}
+                <p className={`text-xs font-semibold uppercase tracking-wide ${
+                  data.appointment.status === 'no_show' ? 'text-red-700' : 'text-slate-500'
+                }`}>
+                  No-Show
+                </p>
+              </div>
+              {data.appointment.status === 'no_show' ? (
+                <p className="mt-1 text-[10px] font-medium text-red-600">✗ Patient did not attend</p>
               ) : null}
             </button>
             <div className="rounded-2xl bg-slate-50 p-4">
