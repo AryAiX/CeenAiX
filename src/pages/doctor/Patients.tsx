@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, MoreVertical, Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -139,6 +139,13 @@ export const DoctorPatients: React.FC = () => {
   const [viewMode, setViewMode] = useState<PatientViewMode>('list');
   const [filterActive, setFilterActive] = useState<PatientFilter>('all');
   const [sortBy, setSortBy] = useState<PatientSort>('lastVisit');
+  const [openMenuPatientId, setOpenMenuPatientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuPatientId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
   const { data, loading, error } = useDoctorPatients(user?.id);
   const rawPatients = useMemo(() => data ?? [], [data]);
   const uiLang = i18n.language ?? 'en';
@@ -393,13 +400,43 @@ export const DoctorPatients: React.FC = () => {
                       <FileText className="h-3 w-3" />
                       <span>Open Record</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(event) => event.stopPropagation()}
-                      className="rounded p-1.5 opacity-0 transition-colors hover:bg-slate-200 group-hover:opacity-100"
-                    >
-                      <MoreVertical className="h-4 w-4 text-slate-400" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuPatientId(openMenuPatientId === patient.id ? null : patient.id);
+                        }}
+                        className="rounded p-1.5 opacity-0 transition-colors hover:bg-slate-200 group-hover:opacity-100"
+                      >
+                        <MoreVertical className="h-4 w-4 text-slate-400" />
+                      </button>
+                      {openMenuPatientId === patient.id ? (
+                        <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                          {[
+                            { icon: '👤', label: 'View Profile', onClick: () => navigate(`/doctor/patients/${patient.id}`) },
+                            { icon: '💬', label: 'Message Patient', onClick: () => navigate(`/doctor/messages?patient=${patient.id}`) },
+                            { icon: '💊', label: 'Write Prescription', onClick: () => navigate(`/doctor/prescriptions/new?patient=${patient.id}`) },
+                            { icon: '🔬', label: 'Order Lab Test', onClick: () => navigate(`/doctor/lab-orders/new?patient=${patient.id}`) },
+                            { icon: '📅', label: 'Book Appointment', onClick: () => navigate(`/doctor/patients/${patient.id}`) },
+                          ].map((action) => (
+                            <button
+                              key={action.label}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                action.onClick();
+                                setOpenMenuPatientId(null);
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                            >
+                              <span>{action.icon}</span>
+                              <span>{action.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
