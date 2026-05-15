@@ -321,21 +321,49 @@ export const DoctorAppointmentDetail: React.FC = () => {
               type="button"
               disabled={updatingAppointment}
               onClick={() => updateAppointmentStatus('in_progress')}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-60"
+              className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
+                data.appointment.status === 'in_progress'
+                  ? 'border-teal-400 bg-teal-50 ring-2 ring-teal-400'
+                  : 'border-slate-200 bg-slate-50 hover:border-teal-200 hover:bg-teal-50'
+              }`}
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t('doctor.appointmentDetail.statusInProgress')}
-              </p>
+              <div className="flex items-center gap-2">
+                {data.appointment.status === 'in_progress' ? (
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-teal-500" />
+                ) : null}
+                <p className={`text-xs font-semibold uppercase tracking-wide ${
+                  data.appointment.status === 'in_progress' ? 'text-teal-700' : 'text-slate-500'
+                }`}>
+                  {t('doctor.appointmentDetail.statusInProgress')}
+                </p>
+              </div>
+              {data.appointment.status === 'in_progress' ? (
+                <p className="mt-1 text-[10px] font-medium text-teal-600">● Currently active</p>
+              ) : null}
             </button>
             <button
               type="button"
               disabled={updatingAppointment}
               onClick={() => updateAppointmentStatus('completed')}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-60"
+              className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
+                data.appointment.status === 'completed'
+                  ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400'
+                  : 'border-slate-200 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50'
+              }`}
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t('doctor.appointmentDetail.statusCompleted')}
-              </p>
+              <div className="flex items-center gap-2">
+                {data.appointment.status === 'completed' ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                ) : null}
+                <p className={`text-xs font-semibold uppercase tracking-wide ${
+                  data.appointment.status === 'completed' ? 'text-emerald-700' : 'text-slate-500'
+                }`}>
+                  {t('doctor.appointmentDetail.statusCompleted')}
+                </p>
+              </div>
+              {data.appointment.status === 'completed' ? (
+                <p className="mt-1 text-[10px] font-medium text-emerald-600">✓ Appointment done</p>
+              ) : null}
             </button>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
