@@ -49,6 +49,7 @@ export const DoctorPatientDetail: React.FC = () => {
   const [reviewingMedicationId, setReviewingMedicationId] = useState<string | null>(null);
   const [showAllAppointments, setShowAllAppointments] = useState<boolean>(false);
   const [showAllPrescriptions, setShowAllPrescriptions] = useState<boolean>(false);
+  const [showAllLabOrders, setShowAllLabOrders] = useState<boolean>(false);
 
   const appointments = useMemo(() => data?.appointments ?? [], [data?.appointments]);
   const nextAppointment = useMemo(
@@ -457,7 +458,7 @@ export const DoctorPatientDetail: React.FC = () => {
                 </div>
                 <div className="space-y-4">
                   {data.labOrders.length > 0 ? (
-                    data.labOrders.slice(0, 4).map((labOrder) => (
+                    (showAllLabOrders ? data.labOrders : data.labOrders.slice(0, 4)).map((labOrder) => (
                       <div key={labOrder.id} className="rounded-2xl bg-slate-50 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-900">
@@ -496,6 +497,17 @@ export const DoctorPatientDetail: React.FC = () => {
                   ) : (
                     <p className="text-sm text-slate-600">{t('doctor.patientDetail.noneRecorded')}</p>
                   )}
+                  {data.labOrders.length > 4 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllLabOrders((prev) => !prev)}
+                      className="mt-2 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                    >
+                      {showAllLabOrders
+                        ? `Show Less ↑`
+                        : `Show All ${data.labOrders.length} Lab Orders ↓`}
+                    </button>
+                  ) : null}
                 </div>
               </section>
             </div>
