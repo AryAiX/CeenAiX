@@ -178,39 +178,57 @@ export const DoctorPrescriptions: React.FC = () => {
         ) : null}
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-emerald-200 hover:shadow-md"
+            onClick={() => setStatusFilter('active')}
+            role="button"
+            tabIndex={0}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">{t('doctor.prescriptions.activePlans')}</p>
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(activePrescriptionCount, uiLang)}
                 </p>
+                <p className="mt-1 text-xs text-emerald-600">Click to filter</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                 <CheckCircle className="h-5 w-5 text-emerald-600" />
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-teal-200 hover:shadow-md"
+            onClick={() => setStatusFilter('active')}
+            role="button"
+            tabIndex={0}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">{t('doctor.prescriptions.pendingDispense')}</p>
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(pendingDispenseCount, uiLang)}
                 </p>
+                <p className="mt-1 text-xs text-teal-600">Click to view active</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
                 <Pill className="h-5 w-5 text-teal-600" />
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+            onClick={() => setStatusFilter('all')}
+            role="button"
+            tabIndex={0}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">{t('doctor.prescriptions.linkedPatients')}</p>
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(uniquePatientsCount, uiLang)}
                 </p>
+                <p className="mt-1 text-xs text-blue-600">Click to view all</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
                 <Users className="h-5 w-5 text-blue-600" />
