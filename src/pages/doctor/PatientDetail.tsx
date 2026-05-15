@@ -104,6 +104,36 @@ export const DoctorPatientDetail: React.FC = () => {
     refetch();
   };
 
+  const getUpdateStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'applied':
+        return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+      case 'pending':
+        return 'bg-amber-100 text-amber-700 border border-amber-200';
+      case 'dismissed':
+        return 'bg-slate-100 text-slate-500 border border-slate-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-700 border border-red-200';
+      default:
+        return 'bg-blue-100 text-blue-700 border border-blue-200';
+    }
+  };
+
+  const getUpdateStatusLabel = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'applied':
+        return '✅ Applied';
+      case 'pending':
+        return '⏳ Pending Review';
+      case 'dismissed':
+        return '🚫 Dismissed';
+      case 'rejected':
+        return '❌ Rejected';
+      default:
+        return status;
+    }
+  };
+
   return (
     <>
       <div>
@@ -508,12 +538,12 @@ export const DoctorPatientDetail: React.FC = () => {
                   data.canonicalUpdates.map((update) => (
                     <div key={update.id} className="rounded-2xl bg-slate-50 p-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                          {update.status}
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getUpdateStatusBadge(update.status)}`}>
+                          {getUpdateStatusLabel(update.status)}
                         </span>
                         {update.requires_doctor_review ? (
-                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                            {t('doctor.patientDetail.requiresReview')}
+                          <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                            ⚠️ Requires Doctor Review
                           </span>
                         ) : null}
                       </div>
