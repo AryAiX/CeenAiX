@@ -868,35 +868,56 @@ const SystemHealthCard = ({ context }: { context: AdminContext }) => {
 };
 
 const QuickActions = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
-  const actions = [
+  const actions: Array<{ label: string; value: string; icon: LucideIcon; href: string }> = [
     {
       label: 'Verify Doctor',
       value: `${formatNumber(ctx?.pending_doctors ?? 0)} pending`,
       icon: Stethoscope,
+      href: '/admin/doctors',
     },
     {
       label: 'Approve Org',
       value: `${formatNumber(context.organizations.filter((org) => org.status === 'pending').length)} requests`,
       icon: Building2,
+      href: '/admin/organizations',
     },
     {
       label: 'Platform Revenue',
       value: `${formatAed(ctx?.revenue_today_aed ?? 0)} today`,
       icon: CircleDollarSign,
+      href: '/admin/revenue',
     },
-    { label: 'AI Dashboard', value: `${formatNumber(ctx?.ai_sessions_today ?? 0)} sessions`, icon: Bot },
-    { label: 'DHA Compliance', value: `Score: ${ctx?.dha_score?.toFixed(1) ?? '—'}%`, icon: ShieldCheck },
+    {
+      label: 'AI Dashboard',
+      value: `${formatNumber(ctx?.ai_sessions_today ?? 0)} sessions`,
+      icon: Bot,
+      href: '/admin/ai-analytics',
+    },
+    {
+      label: 'DHA Compliance',
+      value: `Score: ${ctx?.dha_score?.toFixed(1) ?? '—'}%`,
+      icon: ShieldCheck,
+      href: '/admin/compliance',
+    },
     {
       label: 'Fraud Review',
       value: `${context.insurancePartners.reduce((acc, p) => acc + p.fraud_alert_count, 0)} flagged`,
       icon: AlertTriangle,
+      href: '/admin/insurance',
     },
-    { label: 'Generate Report', value: 'April 2026', icon: FileText },
+    {
+      label: 'Generate Report',
+      value: 'April 2026',
+      icon: FileText,
+      href: '/admin/revenue',
+    },
     {
       label: 'System Logs',
       value: `${formatNumber(degradedServiceCount(context.systemHealth))} degraded`,
       icon: Terminal,
+      href: '/admin/diagnostics',
     },
   ];
   return (
@@ -909,7 +930,9 @@ const QuickActions = ({ context }: { context: AdminContext }) => {
           const Icon = action.icon;
           return (
             <button
+              type="button"
               key={action.label}
+              onClick={() => navigate(action.href)}
               className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-teal-300 hover:bg-teal-50/30"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -1477,18 +1500,12 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Insurance: All</option>
-            </select>
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Region: All UAE</option>
-            </select>
-            <button className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              More Filters
-            </button>
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Sort: Newest</option>
-            </select>
+            {/*
+              Insurance / Region / "More Filters" / Sort selectors had only
+              a single inert option; removed so the toolbar isn't dishonest
+              about controls that did nothing. Real multi-faceted filtering
+              ships when the admin_patients RPC accepts those parameters.
+            */}
           </div>
         </div>
 
@@ -1603,12 +1620,11 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
           <span>
             Showing {filtered.length} of {formatNumber(ctx?.total_patients ?? patients.length)} patients
           </span>
-          <div className="flex items-center gap-2">
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-700">1</button>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700">2</button>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700">…</button>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700">1,930</button>
-          </div>
+          {/*
+            Real pagination ships once the admin patients RPC supports
+            offset/limit; for now the list is paged client-side on the
+            current `filtered` set inside this view via the search input.
+          */}
         </div>
       </Card>
     </div>
