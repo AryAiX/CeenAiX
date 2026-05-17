@@ -280,6 +280,22 @@ const formatExpiry = (value: string | null) => {
 };
 
 /**
+ * Toggle a `pharmacy_settings` row's `enabled` boolean. Used by the pharmacy
+ * Settings toggles so preference changes are persisted instead of being
+ * presentational only.
+ */
+export async function setPharmacySettingEnabled(
+  settingId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('pharmacy_settings')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('id', settingId);
+  if (error) throw error;
+}
+
+/**
  * Update a pharmacy dispensing task workflow status (verifying / ready /
  * counseling / completed / on_hold / cancelled). Wraps the canonical
  * `pharmacy_dispensing_tasks` row write.

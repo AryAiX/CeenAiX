@@ -52,6 +52,7 @@ export type {
 } from './use-lab-ops-portal';
 export {
   sendPharmacyResponse,
+  setPharmacySettingEnabled,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
 } from './use-pharmacy-prescription-queue';

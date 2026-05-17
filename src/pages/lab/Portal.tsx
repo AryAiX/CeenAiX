@@ -2136,8 +2136,16 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs font-bold text-slate-500">Last QC: {formatTimeShort(runs[0]?.runAt)} · Microbiology · PASS ✅</div>
-        <button className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Log New QC Run</button>
+        <div className="text-xs font-bold text-slate-500">
+          Last QC: {formatTimeShort(runs[0]?.runAt)} · {runs[0]?.department ?? 'Lab'} ·{' '}
+          {runs[0]?.resultLabel ?? 'No runs yet'}
+        </div>
+        <a
+          href="/lab/results/entry"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+        >
+          Log New QC Run
+        </a>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -2163,7 +2171,12 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
           <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{labMaintenance.name} ({labMaintenance.equipmentType}) — Under Maintenance</h2>
           <p className="mt-1 text-sm text-amber-800">Since {formatTimeShort(labMaintenance.maintenanceDueAt)} · ETA: 3:00 PM · Reason: Daily maintenance + ISI calibration</p>
           <p className="mt-2 text-sm text-amber-800">Samples rerouted to Sysmex CA-600 backup analyzer. ✅ All coagulation samples being processed.</p>
-          <button className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100">View Maintenance Log →</button>
+          <a
+            href="/lab/equipment"
+            className="mt-3 inline-flex rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+          >
+            View Maintenance Log →
+          </a>
         </SectionCard>
       ) : null}
 
@@ -2202,7 +2215,21 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
                     </Pill>
                   </td>
                   <td className="px-3 py-2 text-slate-600">
-                    {run.status === 'warning' ? <button className="text-xs font-bold text-amber-700">View Log</button> : <button className="text-xs font-bold text-indigo-600">Levey-Jennings</button>}
+                    {run.status === 'warning' ? (
+                      <a
+                        href="/lab/equipment"
+                        className="text-xs font-bold text-amber-700"
+                      >
+                        View Log
+                      </a>
+                    ) : (
+                      <a
+                        href="/lab/analytics"
+                        className="text-xs font-bold text-indigo-600"
+                      >
+                        Levey-Jennings
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -2544,15 +2571,46 @@ const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                       <span className="font-semibold text-amber-800">{study.preauthStatus}</span>
                       {' ⚠️'}
                     </div>
-                    <button className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700">📋 Request Pre-Auth</button>
+                    <a
+                      href={`mailto:?subject=${encodeURIComponent(
+                        `Pre-auth request: ${study.accession} ${study.studyName}`
+                      )}&body=${encodeURIComponent(
+                        `Patient: ${study.patientName}\nStudy: ${study.studyName}\nModality: ${study.modality}\nPrescriber: ${study.doctorName}\nInsurance: ${study.insurancePlan ?? '—'}\nClinical indication: ${study.clinicalIndication ?? '—'}\n\nPlease initiate pre-authorization.`
+                      )}`}
+                      className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
+                    >
+                      📋 Request Pre-Auth
+                    </a>
                   </div>
                   {study.preauthCoverage ? <div className="mt-1 text-xs text-amber-700">{study.preauthCoverage}</div> : null}
                 </div>
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700">Accept &amp; Schedule</button>
-                <button className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Reject</button>
+                <a
+                  href="/lab/imaging/queue"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Accept &amp; Schedule
+                </a>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const reason = window.prompt(
+                      `Reject imaging order ${study.accession}?\n\nProvide a short reason that will be saved to the order notes:`
+                    );
+                    if (reason === null) return;
+                    try {
+                      await context.actions.rejectOrder(study.id, reason.trim());
+                    } catch {
+                      // The shared error surface for lab orders is already
+                      // wired in the orders page; silent here is intentional.
+                    }
+                  }}
+                  className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                >
+                  Reject
+                </button>
               </div>
             </article>
           );
@@ -2578,9 +2636,37 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
 
   const [tab, setTab] = useState<ReportTab>('pending');
   const [selectedId, setSelectedId] = useState<string | null>(pending[0]?.id ?? null);
+  const [savingReport, setSavingReport] = useState<'idle' | 'draft' | 'preliminary' | 'verify'>('idle');
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportNotice, setReportNotice] = useState<string | null>(null);
 
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
+
+  const advanceStudy = async (
+    nextStatus: 'reported' | 'released',
+    label: 'idle' | 'draft' | 'preliminary' | 'verify',
+    reportStatus: string | null
+  ) => {
+    if (!selected) return;
+    setReportError(null);
+    setReportNotice(null);
+    setSavingReport(label);
+    try {
+      await context.actions.setImagingStudyStatus(selected.id, nextStatus, reportStatus);
+      setReportNotice(
+        nextStatus === 'released'
+          ? 'Report verified and released to the requesting doctor.'
+          : 'Report saved.'
+      );
+    } catch (error) {
+      setReportError(
+        error instanceof Error ? error.message : 'Could not update the radiology report.'
+      );
+    } finally {
+      setSavingReport('idle');
+    }
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -2589,7 +2675,20 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
           <h2 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">{meta?.radiologistName ?? 'Dr. Rania Al Suwaidi'} {meta?.radiologistCredentials ? meta.radiologistCredentials : 'FRCR'}</h2>
           <p className="mt-1 text-xs text-slate-600">Radiologist on duty · {pending.length} reports in queue</p>
           {overdueCount > 0 ? <p className="mt-1 text-xs font-bold text-red-600">{overdueCount} overdue</p> : null}
-          <button className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">🏃 Start Reporting</button>
+          <button
+            type="button"
+            onClick={() => {
+              const firstPending = pending[0];
+              if (firstPending) {
+                setSelectedId(firstPending.id);
+                setTab('pending');
+              }
+            }}
+            disabled={pending.length === 0}
+            className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            🏃 Start Reporting
+          </button>
         </div>
 
         <div className="mb-3 flex gap-2">
@@ -2737,10 +2836,41 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
                   <span>QA: measurements consistent with viewer</span>
                 </div>
               </div>
+              {reportError ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {reportError}
+                </div>
+              ) : null}
+              {reportNotice ? (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                  {reportNotice}
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">💾 Save Draft</button>
-                <button className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700">📤 Submit Preliminary</button>
-                <button className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Verify &amp; Sign Report</button>
+                <button
+                  type="button"
+                  onClick={() => void advanceStudy('reported', 'draft', 'draft')}
+                  disabled={savingReport !== 'idle'}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingReport === 'draft' ? 'Saving…' : '💾 Save Draft'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void advanceStudy('reported', 'preliminary', 'preliminary')}
+                  disabled={savingReport !== 'idle'}
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingReport === 'preliminary' ? 'Submitting…' : '📤 Submit Preliminary'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void advanceStudy('released', 'verify', 'final')}
+                  disabled={savingReport !== 'idle'}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingReport === 'verify' ? 'Verifying…' : 'Verify & Sign Report'}
+                </button>
               </div>
             </SectionCard>
           </div>
@@ -2867,12 +2997,18 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
       ) : null}
 
       <div className="mt-3 flex gap-2">
-        <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+        <a
+          href={isLab ? '/lab/analytics' : '/lab/imaging/equipment'}
+          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+        >
           {isLab ? '📊 Stats' : '📋 Schedule'}
-        </button>
-        <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+        </a>
+        <a
+          href="/lab/equipment"
+          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+        >
           {isLab ? '⚙️ Log Maintenance' : '⚙️ Maintenance'}
-        </button>
+        </a>
       </div>
     </SectionCard>
   );
@@ -2898,7 +3034,20 @@ const EquipmentPage = ({ data, department }: { data: LabPortalData | null; depar
                     .join(' · ')}
                 </p>
               </div>
-              <button className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">📦 Generate Purchase Order</button>
+              <a
+                href={`mailto:?subject=${encodeURIComponent('Reagent purchase order')}&body=${encodeURIComponent(
+                  lowReagents
+                    .flatMap((eq) =>
+                      eq.reagents
+                        .filter((r) => r.percent < 50)
+                        .map((r) => `- ${eq.name} · ${r.name} at ${r.percent}%`)
+                    )
+                    .join('\n')
+                )}`}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
+              >
+                📦 Generate Purchase Order
+              </a>
             </div>
           </SectionCard>
         ) : null}
@@ -2958,7 +3107,23 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
         <KpiTile label="✅" value={`${submitted}/${events.length}`} caption="submitted" tone="emerald" />
         <KpiTile label="⏳" value={pending} caption="pending" tone="amber" />
         <KpiTile label="✅" value={failed} caption="failed" tone="rose" />
-        <KpiTile label="📤" value="8:00 AM" caption="Last bulk" tone="slate" />
+        {(() => {
+          const lastSubmitted = events
+            .filter((event) => event.status === 'submitted' && event.submittedAt)
+            .sort(
+              (left, right) =>
+                new Date(right.submittedAt ?? 0).getTime() -
+                new Date(left.submittedAt ?? 0).getTime()
+            )[0];
+          return (
+            <KpiTile
+              label="📤"
+              value={lastSubmitted?.submittedAt ? formatTimeShort(lastSubmitted.submittedAt) : '—'}
+              caption="Last bulk"
+              tone="slate"
+            />
+          );
+        })()}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -2979,7 +3144,13 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
                 <h4 className="mt-1 text-sm font-bold text-slate-900">{event.patientName}</h4>
                 <p className="text-xs text-slate-500">{event.reason ?? 'Awaiting submission'}</p>
                 {event.status === 'pending' && event.reason?.toLowerCase().includes('critical') ? (
-                  <button className="mt-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white">📞 Notify First</button>
+                  <button
+                    type="button"
+                    onClick={() => void context.actions.markNabidhSubmitted(event.id)}
+                    className="mt-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    📞 Notify First
+                  </button>
                 ) : null}
               </article>
             ))}
@@ -3029,7 +3200,43 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
       <SectionCard>
         <div className="flex items-center justify-between">
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Submission History — Today</h3>
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700">Export Log</button>
+          <button
+            type="button"
+            onClick={() => {
+              const header = ['ref', 'patient', 'status', 'reason', 'submitted_at'];
+              const escape = (v: string | number | null | undefined) => {
+                if (v === null || v === undefined) return '';
+                const s = String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n')
+                  ? `"${s.replace(/"/g, '""')}"`
+                  : s;
+              };
+              const body = [
+                header,
+                ...events.map((event) => [
+                  event.referenceCode,
+                  event.patientName,
+                  event.status,
+                  event.reason ?? '',
+                  event.submittedAt ?? '',
+                ]),
+              ]
+                .map((line) => line.map(escape).join(','))
+                .join('\n');
+              const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `nabidh-submission-log-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700"
+          >
+            Export Log
+          </button>
         </div>
         <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
           <table className="min-w-full text-sm">
@@ -3100,7 +3307,41 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
               {p === 'today' ? 'Today ●' : p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
           ))}
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">Export</button>
+          <button
+            type="button"
+            onClick={() => {
+              const samples = data?.samples ?? [];
+              const studies = data?.imagingStudies ?? [];
+              const header = ['kind', 'id', 'patient_name', 'status', 'ordered_at_or_scheduled_at'];
+              const escape = (v: string | number | null | undefined) => {
+                if (v === null || v === undefined) return '';
+                const s = String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n')
+                  ? `"${s.replace(/"/g, '""')}"`
+                  : s;
+              };
+              const lines = [header];
+              for (const sample of samples) {
+                lines.push(['sample', sample.id, sample.patientName, sample.status, sample.orderedAt ?? '']);
+              }
+              for (const study of studies) {
+                lines.push(['study', study.id, study.patientName, study.status, study.scheduledAt ?? '']);
+              }
+              const body = lines.map((line) => line.map(escape).join(',')).join('\n');
+              const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `lab-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"
+          >
+            Export
+          </button>
         </div>
       </div>
 
@@ -3108,7 +3349,22 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
         <KpiTile label="Lab Samples" value={formatNumber(totalLab)} tone="indigo" />
         <KpiTile label="Radiology Studies" value={formatNumber(totalRad)} tone="blue" />
         <KpiTile label="Total Today" value={formatNumber(totalLab + totalRad)} tone="violet" />
-        <KpiTile label="DHA Compliance Rate" value="99.7%" tone="emerald" />
+        {(() => {
+          // Compliance from live NABIDH events; fall back to '—' when there
+          // are no events to score.
+          const nabidh = data?.nabidhEvents ?? [];
+          const submittedShare =
+            nabidh.length > 0
+              ? Math.round((nabidh.filter((event) => event.status === 'submitted').length / nabidh.length) * 100)
+              : null;
+          return (
+            <KpiTile
+              label="DHA Compliance Rate"
+              value={submittedShare != null ? `${submittedShare}%` : '—'}
+              tone="emerald"
+            />
+          );
+        })()}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -3224,7 +3480,12 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
             <p className="text-sm text-slate-700">NABIDH Submission Rate (30 days)</p>
             <p className="text-xs text-slate-500">2 failed submissions (resolved) · 0 currently failed</p>
           </div>
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">📋 Full NABIDH Report →</button>
+          <a
+            href="/lab/nabidh"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+          >
+            📋 Full NABIDH Report →
+          </a>
         </div>
       </SectionCard>
 
@@ -3232,7 +3493,72 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
         <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Export Reports</h3>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           {['DHA Monthly Lab Report', 'DHA Radiology Report', 'Full Diagnostics Ledger', 'Critical Value Log', 'QC Summary Report'].map((report) => (
-            <button key={report} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <button
+              key={report}
+              type="button"
+              onClick={() => {
+                // Each report ships a real text summary of the underlying
+                // canonical rows the dashboard already loaded. A richer PDF
+                // / DOCX renderer will replace these once the formatting
+                // workflow ships, but the download itself is real.
+                const samples = data?.samples ?? [];
+                const studies = data?.imagingStudies ?? [];
+                const nabidh = data?.nabidhEvents ?? [];
+                const qc = data?.qcRuns ?? [];
+                const criticalValues = data?.criticalValues ?? [];
+                const stamp = new Date().toISOString().slice(0, 10);
+                let body = `${report}\nGenerated ${stamp}\n\n`;
+                switch (report) {
+                  case 'DHA Monthly Lab Report':
+                    body += `Total lab samples this period: ${samples.length}\n`;
+                    body += `By status: ${Object.entries(
+                      samples.reduce<Record<string, number>>((acc, sample) => {
+                        acc[sample.status] = (acc[sample.status] ?? 0) + 1;
+                        return acc;
+                      }, {})
+                    )
+                      .map(([status, count]) => `${status} ${count}`)
+                      .join(' · ')}\n`;
+                    break;
+                  case 'DHA Radiology Report':
+                    body += `Total imaging studies this period: ${studies.length}\n`;
+                    break;
+                  case 'Full Diagnostics Ledger':
+                    body += `Samples: ${samples.length} · Imaging studies: ${studies.length} · QC runs: ${qc.length}\n`;
+                    break;
+                  case 'Critical Value Log':
+                    body += `Critical values on file: ${criticalValues.length}\n`;
+                    body += criticalValues
+                      .map(
+                        (value) =>
+                          `- ${value.observedAt} · ${value.patientName} · ${value.testName} · ${value.valueLabel} · ${value.status}`
+                      )
+                      .join('\n');
+                    break;
+                  case 'QC Summary Report':
+                    body += `QC runs: ${qc.length}\n`;
+                    body += qc
+                      .map(
+                        (run) =>
+                          `- ${run.runAt} · ${run.department} · ${run.instrumentName} · ${run.status}`
+                      )
+                      .join('\n');
+                    break;
+                  default:
+                    body += `NABIDH events: ${nabidh.length}`;
+                }
+                const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${report.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${stamp}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
               {report}
             </button>
           ))}

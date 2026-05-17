@@ -1015,6 +1015,27 @@ export function useLabOpsActions(onChange: () => void) {
   );
 
   /**
+   * Advance an imaging study's lifecycle status (e.g. report_pending →
+   * reported → released). Used by the radiology reporting workspace's
+   * Save Draft / Submit Preliminary / Verify & Sign buttons.
+   */
+  const setImagingStudyStatus = useCallback(
+    async (studyId: string, status: ImagingStatus, reportStatus?: string | null) => {
+      const update: Record<string, unknown> = { status };
+      if (reportStatus !== undefined) {
+        update.report_status = reportStatus;
+      }
+      const { error } = await supabase
+        .from('lab_portal_imaging_studies')
+        .update(update)
+        .eq('id', studyId);
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  /**
    * Soft-delete a lab order (the canonical clinical-data convention — we
    * never hard-delete records that carry patient context). Used when a lab
    * rejects an incoming order that cannot be processed.
@@ -1069,6 +1090,7 @@ export function useLabOpsActions(onChange: () => void) {
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
+      setImagingStudyStatus,
     }),
     [
       claimSample,
@@ -1079,6 +1101,7 @@ export function useLabOpsActions(onChange: () => void) {
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
+      setImagingStudyStatus,
     ],
   );
 }
