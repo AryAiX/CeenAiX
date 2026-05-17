@@ -138,12 +138,35 @@ export const PatientImaging = () => {
           </div>
           <button
             type="button"
-            disabled
-            title={t('patient.imaging.shareComingSoon', {
-              defaultValue:
-                'Secure imaging sharing is coming with the Phase 3 imaging release.',
-            })}
-            className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => {
+              // Real client-side export of the studies list so patients can
+              // send their imaging history to an external provider.
+              const lines = [
+                `${t('patient.imaging.title')} — ${new Date().toLocaleDateString()}`,
+                '',
+                ...studies.map((study) =>
+                  [
+                    `• ${study.modality ?? ''} ${study.studyType ?? ''}`.trim(),
+                    `  Date: ${formatDate(study.date)}`,
+                    `  Facility: ${study.facility}`,
+                    `  Status: ${study.status}`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
+                ),
+              ];
+              const body = lines.join('\n');
+              if (navigator.share) {
+                void navigator
+                  .share({ title: t('patient.imaging.title'), text: body })
+                  .catch(() => undefined);
+                return;
+              }
+              const subject = encodeURIComponent(t('patient.imaging.title'));
+              const mailto = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+              window.location.href = mailto;
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/20"
           >
             <Share2 className="h-4 w-4" />
             {t('patient.imaging.shareStudies')}

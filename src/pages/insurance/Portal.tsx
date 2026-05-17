@@ -23,6 +23,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  approvePreAuthorization,
+  bulkApprovePreAuthorizations,
   useInsurancePortal,
   type InsuranceAiInsight,
   type InsuranceClaim,
@@ -362,9 +364,60 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
             </button>
             <button
               type="button"
-              disabled
-              title="Export is coming in a later release."
-              className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200 md:flex disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => {
+                // Real CSV export over the current pre-authorization workload
+                // so officers can hand the queue to spreadsheets / DHA tooling.
+                const rows = data?.preAuthorizations ?? [];
+                const header = [
+                  'ref',
+                  'patient',
+                  'clinician',
+                  'provider',
+                  'procedure',
+                  'priority',
+                  'status',
+                  'requested_aed',
+                  'approved_aed',
+                  'ai_recommendation',
+                  'ai_confidence',
+                  'sla_due_at',
+                ];
+                const escape = (v: string | number | null | undefined) => {
+                  if (v === null || v === undefined) return '';
+                  const s = String(v);
+                  return s.includes(',') || s.includes('"') || s.includes('\n')
+                    ? `"${s.replace(/"/g, '""')}"`
+                    : s;
+                };
+                const body = [header, ...rows.map((row) => [
+                  row.externalRef,
+                  row.patientName,
+                  row.clinicianName,
+                  row.providerName,
+                  row.procedureName,
+                  row.priority,
+                  row.status,
+                  row.requestedAmountAed ?? '',
+                  row.approvedAmountAed ?? '',
+                  row.aiRecommendation ?? '',
+                  row.aiConfidencePercent ?? '',
+                  row.slaDueAt ?? '',
+                ])]
+                  .map((line) => line.map(escape).join(','))
+                  .join('\n');
+                const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `insurance-pre-auths-${new Date()
+                  .toISOString()
+                  .slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200 md:flex"
             >
               <Download className="h-3.5 w-3.5 text-slate-500" />
               <span className="text-xs text-slate-500">Export</span>
@@ -609,8 +662,33 @@ const ageGenderShort = (age: number | null, gender: string | null) => {
   return `${age}${g}`;
 };
 
-const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; max?: number }) => {
+const PreAuthHostedTable = ({
+  rows,
+  max,
+  onApproved,
+}: {
+  rows: InsurancePreAuthorization[];
+  max?: number;
+  onApproved?: () => void;
+}) => {
+  const navigate = useNavigate();
   const visible = max ? rows.slice(0, max) : rows;
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const handleRowApprove = async (row: InsurancePreAuthorization) => {
+    setRowError(null);
+    setRowBusyId(row.id);
+    try {
+      await approvePreAuthorization(row.id, row.requestedAmountAed);
+      onApproved?.();
+    } catch (error) {
+      setRowError(error instanceof Error ? error.message : 'Approval failed.');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-100">
       <div className="overflow-x-auto">
@@ -691,17 +769,20 @@ const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; 
                     <div className="flex flex-wrap justify-end gap-1.5">
                       <button
                         type="button"
-                        disabled
-                        title="Approve / Review actions are wired in the pre-authorizations workspace; bulk row controls are coming in a later release."
+                        onClick={() => void handleRowApprove(row)}
+                        disabled={rowBusyId === row.id || row.status === 'approved'}
                         className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Approve
+                        {row.status === 'approved'
+                          ? 'Approved'
+                          : rowBusyId === row.id
+                            ? '…'
+                            : 'Approve'}
                       </button>
                       <button
                         type="button"
-                        disabled
-                        title="Approve / Review actions are wired in the pre-authorizations workspace; bulk row controls are coming in a later release."
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => navigate('/insurance/preauth')}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
                       >
                         Review
                       </button>
@@ -718,6 +799,9 @@ const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; 
           </tbody>
         </table>
       </div>
+      {rowError ? (
+        <p className="px-3 py-2 text-[11px] font-semibold text-rose-600">{rowError}</p>
+      ) : null}
     </div>
   );
 };
@@ -930,7 +1014,7 @@ const useInsurancePageData = () => {
 
 export const InsurancePortal = () => {
   const navigate = useNavigate();
-  const { data, loading, overduePreAuth, openFraud } = useInsurancePageData();
+  const { data, loading, overduePreAuth, openFraud, refetch } = useInsurancePageData();
   const profile = data?.profile ?? null;
   const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
   const fraudAlerts = data?.fraudAlerts ?? [];
@@ -941,7 +1025,36 @@ export const InsurancePortal = () => {
   const standardPending = pendingPreAuths.length - urgentPending;
   const aiHigh = fraudAlerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
   const aiMedium = fraudAlerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
-  const aiBulkApproveCount = preAuths.filter((p) => p.aiRecommendation === 'approve' && p.aiConfidencePercent != null && p.aiConfidencePercent >= 95 && p.status !== 'approved').length;
+  const aiBulkApprove = useMemo(
+    () =>
+      preAuths.filter(
+        (p) =>
+          p.aiRecommendation === 'approve' &&
+          p.aiConfidencePercent != null &&
+          p.aiConfidencePercent >= 95 &&
+          p.status !== 'approved'
+      ),
+    [preAuths]
+  );
+  const aiBulkApproveCount = aiBulkApprove.length;
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const handleBulkApprove = async () => {
+    if (aiBulkApprove.length === 0) return;
+    setBulkError(null);
+    setBulkBusy(true);
+    try {
+      await bulkApprovePreAuthorizations(
+        aiBulkApprove.map((row) => ({ id: row.id, requestedAmountAed: row.requestedAmountAed }))
+      );
+      refetch();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Bulk approval failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue'>('all');
   const filtered = useMemo(() => {
@@ -1055,22 +1168,29 @@ export const InsurancePortal = () => {
                 <h2 className="text-[15px] font-bold text-slate-900">Pre-Authorization Queue</h2>
                 <p className="mt-0.5 text-xs text-slate-400">{pendingPreAuths.length} pending · DHA response required</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled
-                  title="Bulk approval workflow is coming in a later release. Use the pre-authorizations workspace to review individual cases."
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Bulk Approve AI Recommended ({aiBulkApproveCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/insurance/preauth')}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  View All →
-                </button>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkApprove()}
+                    disabled={bulkBusy || aiBulkApproveCount === 0}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {bulkBusy
+                      ? 'Approving…'
+                      : `Bulk Approve AI Recommended (${aiBulkApproveCount})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/insurance/preauth')}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    View All →
+                  </button>
+                </div>
+                {bulkError ? (
+                  <p className="text-[11px] font-semibold text-rose-600">{bulkError}</p>
+                ) : null}
               </div>
             </div>
             <div className="border-b border-slate-100 px-5 py-3">
@@ -1087,7 +1207,7 @@ export const InsurancePortal = () => {
               </div>
             </div>
             <div className="p-5">
-              <PreAuthHostedTable rows={filtered} max={5} />
+              <PreAuthHostedTable rows={filtered} max={5} onApproved={refetch} />
               {filtered.length > 5 ? (
                 <button onClick={() => navigate('/insurance/preauth')} className="mt-3 w-full rounded-lg bg-slate-50 px-4 py-2 text-xs font-bold text-[#1E3A5F] hover:bg-slate-100">
                   Show {filtered.length - 5} more pre-auths →
@@ -1207,10 +1327,12 @@ export const InsurancePortal = () => {
 };
 
 export const InsurancePreAuthorizations = () => {
-  const { data, overduePreAuth } = useInsurancePageData();
+  const { data, overduePreAuth, refetch } = useInsurancePageData();
   const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue' | 'approved'>('all');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const filtered = useMemo(() => {
     let rows = preAuths;
     if (filter === 'urgent') rows = rows.filter((p) => p.priority === 'urgent');
@@ -1231,7 +1353,46 @@ export const InsurancePreAuthorizations = () => {
     return rows;
   }, [preAuths, filter, search]);
 
-  const aiBulkApprove = preAuths.filter((p) => p.aiRecommendation === 'approve' && (p.aiConfidencePercent ?? 0) >= 95).length;
+  const aiBulkApproveRows = useMemo(
+    () =>
+      preAuths.filter(
+        (p) =>
+          p.aiRecommendation === 'approve' &&
+          (p.aiConfidencePercent ?? 0) >= 95 &&
+          p.status !== 'approved'
+      ),
+    [preAuths]
+  );
+  const aiBulkApprove = aiBulkApproveRows.length;
+
+  const handleBulkApprove = async () => {
+    if (aiBulkApproveRows.length === 0) return;
+    setBulkError(null);
+    setBulkBusy(true);
+    try {
+      await bulkApprovePreAuthorizations(
+        aiBulkApproveRows.map((row) => ({
+          id: row.id,
+          requestedAmountAed: row.requestedAmountAed,
+        }))
+      );
+      refetch();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Bulk approval failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  /**
+   * Lightweight client-side triage: surfaces every row that the AI flagged
+   * for human review and snaps the filter to the "AI: Review" tab so the
+   * officer can work the queue. This is a working in-browser action; once a
+   * server-side triage Edge Function ships, the same handler can call it.
+   */
+  const handleRunAiTriage = () => {
+    setFilter('review');
+  };
 
   const filterTabs: Array<{ id: typeof filter; label: string; count: number }> = [
     { id: 'all', label: 'All', count: preAuths.length },
@@ -1251,23 +1412,27 @@ export const InsurancePreAuthorizations = () => {
             <h2 className="text-[15px] font-bold text-slate-900">Pre-Authorizations</h2>
             <p className="mt-0.5 text-xs text-slate-400">Review urgent, high, and routine authorization requests</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled
-              title="Bulk approval workflow is coming in a later release."
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Bulk Approve AI Recommended ({aiBulkApprove})
-            </button>
-            <button
-              type="button"
-              disabled
-              title="On-demand AI triage will ship with the Edge Function for pre-auth scoring."
-              className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Run AI triage
-            </button>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleBulkApprove()}
+                disabled={bulkBusy || aiBulkApprove === 0}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {bulkBusy ? 'Approving…' : `Bulk Approve AI Recommended (${aiBulkApprove})`}
+              </button>
+              <button
+                type="button"
+                onClick={handleRunAiTriage}
+                className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f]"
+              >
+                Run AI triage
+              </button>
+            </div>
+            {bulkError ? (
+              <p className="text-[11px] font-semibold text-rose-600">{bulkError}</p>
+            ) : null}
           </div>
         </div>
         <div className="border-b border-slate-100 px-5 py-3">
@@ -1295,7 +1460,7 @@ export const InsurancePreAuthorizations = () => {
           </div>
         </div>
         <div className="p-5">
-          <PreAuthHostedTable rows={filtered} />
+          <PreAuthHostedTable rows={filtered} onApproved={refetch} />
         </div>
       </article>
     </InsuranceShell>

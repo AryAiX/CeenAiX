@@ -279,6 +279,33 @@ const formatExpiry = (value: string | null) => {
   return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 };
 
+/**
+ * Persists a pharmacist reply on a `pharmacy_messages` row. The Bolt prototype
+ * silently cleared the draft; this writes back to the canonical table so the
+ * thread keeps the pharmacy response, marks it as resolved, and clears the
+ * unread counter.
+ */
+export async function sendPharmacyResponse(
+  messageId: string,
+  body: string
+): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) {
+    throw new Error('Message body is empty.');
+  }
+  const { error } = await supabase
+    .from('pharmacy_messages')
+    .update({
+      pharmacy_response: trimmed,
+      status: 'resolved',
+      unread_count: 0,
+      last_message: trimmed.slice(0, 240),
+      last_message_at: new Date().toISOString(),
+    })
+    .eq('id', messageId);
+  if (error) throw error;
+}
+
 export function usePharmacyPrescriptionQueue() {
   return useQuery<PharmacyPrescriptionQueueData>(async () => {
     const { data: organization, error: orgError } = await supabase

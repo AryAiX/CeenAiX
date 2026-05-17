@@ -17,6 +17,7 @@ import {
 
 type AppointmentViewMode = 'list' | 'calendar';
 type AppointmentBodyTab = 'calendar' | 'list' | 'pending' | 'analytics';
+type CalendarScale = 'day' | 'week' | 'month';
 
 const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
@@ -55,6 +56,7 @@ export const DoctorAppointments: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
+  const [calendarScale, setCalendarScale] = useState<CalendarScale>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -259,6 +261,41 @@ export const DoctorAppointments: React.FC = () => {
       }, new Map()),
     [weekAppointments]
   );
+  const selectedDayAppointments = useMemo(() => {
+    const key = formatDateKey(selectedCalendarDate);
+    return appointments
+      .filter((appointment) => formatDateKey(new Date(appointment.scheduled_at)) === key)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [appointments, selectedCalendarDate]);
+  const monthGridDays = useMemo(() => {
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    const gridStart = new Date(monthStart);
+    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+    const gridEnd = new Date(monthEnd);
+    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+    const totalDays = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86_400_000) + 1;
+    return Array.from({ length: totalDays }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      return date;
+    });
+  }, [currentMonth]);
+  const monthAppointmentsByDate = useMemo(() => {
+    const start = monthGridDays[0];
+    const end = monthGridDays[monthGridDays.length - 1];
+    if (!start || !end) return new Map<string, typeof appointments>();
+    const startTs = start.getTime();
+    const endTs = end.getTime() + 86_400_000;
+    return appointments.reduce<Map<string, typeof appointments>>((map, appointment) => {
+      const scheduled = new Date(appointment.scheduled_at);
+      const ts = scheduled.getTime();
+      if (ts < startTs || ts >= endTs) return map;
+      const key = formatDateKey(scheduled);
+      map.set(key, [...(map.get(key) ?? []), appointment]);
+      return map;
+    }, new Map());
+  }, [appointments, monthGridDays]);
   const appointmentTabs: Array<{ id: AppointmentBodyTab; label: string; icon: typeof CalendarDays }> = [
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'list', label: 'List', icon: List },
@@ -562,35 +599,46 @@ export const DoctorAppointments: React.FC = () => {
                     <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
                       <button
                         type="button"
-                        disabled
-                        title={t('doctor.appointments.dayViewComingSoon', {
-                          defaultValue: 'Day view is coming in a later release.',
-                        })}
-                        aria-disabled="true"
-                        className="rounded px-3 py-1.5 text-[12px] font-bold text-slate-300 cursor-not-allowed"
+                        onClick={() => {
+                          setCalendarScale('day');
+                          setViewMode('calendar');
+                          handleTabChange('calendar');
+                        }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                          calendarScale === 'day' && activeTab === 'calendar'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
                       >
                         📅 Day
                       </button>
                       <button
                         type="button"
                         onClick={() => {
+                          setCalendarScale('week');
                           setViewMode('calendar');
                           handleTabChange('calendar');
                         }}
                         className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
-                          activeTab === 'calendar' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                          calendarScale === 'week' && activeTab === 'calendar'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
-                        📆 Week ●
+                        📆 Week
                       </button>
                       <button
                         type="button"
-                        disabled
-                        title={t('doctor.appointments.monthViewComingSoon', {
-                          defaultValue: 'Month view is coming in a later release.',
-                        })}
-                        aria-disabled="true"
-                        className="rounded px-3 py-1.5 text-[12px] font-bold text-slate-300 cursor-not-allowed"
+                        onClick={() => {
+                          setCalendarScale('month');
+                          setViewMode('calendar');
+                          handleTabChange('calendar');
+                        }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                          calendarScale === 'month' && activeTab === 'calendar'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
                       >
                         📅 Month
                       </button>
@@ -625,7 +673,144 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             ) : null}
 
-            {!isTodayRoute && activeTab === 'calendar' ? (
+            {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'day' ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() - 1);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                    aria-label={t('doctor.appointments.previousDay', { defaultValue: 'Previous day' })}
+                  >
+                    ← Previous day
+                  </button>
+                  <div className="text-sm font-bold text-slate-900">
+                    {selectedCalendarDate.toLocaleDateString(
+                      locale,
+                      dtOpts({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() + 1);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                    aria-label={t('doctor.appointments.nextDay', { defaultValue: 'Next day' })}
+                  >
+                    Next day →
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {selectedDayAppointments.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-3 py-6 text-center text-sm text-slate-400">
+                      {t('doctor.appointments.dayEmpty', {
+                        defaultValue: 'No appointments scheduled for this day.',
+                      })}
+                    </div>
+                  ) : (
+                    selectedDayAppointments.map((appointment) => (
+                      <button
+                        key={appointment.id}
+                        type="button"
+                        onClick={() => navigate(`/doctor/appointments/${appointment.id}`)}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-teal-200 hover:bg-teal-50/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-teal-50 px-3 py-2 font-mono text-xs font-bold text-teal-700">
+                            {new Date(appointment.scheduled_at).toLocaleTimeString(
+                              locale,
+                              dtOpts({ hour: 'numeric', minute: '2-digit' })
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">
+                              {patientNameById.get(appointment.patient_id) ?? t('shared.patient')}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {appointment.chief_complaint ?? appointmentTypeLabel(t, appointment.type)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {appointmentStatusLabel(t, appointment.status)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'month' ? (
+              <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                    <div key={day} className="py-2">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {monthGridDays.map((date) => {
+                    const dateKey = formatDateKey(date);
+                    const inMonth = date.getMonth() === currentMonth.getMonth();
+                    const isToday = dateKey === todayDateKey;
+                    const dayAppointments = monthAppointmentsByDate.get(dateKey) ?? [];
+                    return (
+                      <button
+                        key={dateKey}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCalendarDate(date);
+                          setCalendarScale('day');
+                        }}
+                        className={`min-h-[90px] rounded-lg border p-2 text-left transition hover:border-teal-200 hover:bg-teal-50/30 ${
+                          !inMonth
+                            ? 'border-transparent bg-slate-50/50 text-slate-300'
+                            : isToday
+                              ? 'border-teal-300 bg-teal-50/40'
+                              : 'border-slate-100 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className={`font-bold ${isToday ? 'text-teal-700' : ''}`}>
+                            {formatLocaleDigits(date.getDate(), uiLang)}
+                          </span>
+                          {dayAppointments.length > 0 ? (
+                            <span className="rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white">
+                              {formatLocaleDigits(dayAppointments.length, uiLang)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          {dayAppointments.slice(0, 2).map((appointment) => (
+                            <p
+                              key={appointment.id}
+                              className="line-clamp-1 text-[10px] text-slate-500"
+                            >
+                              {new Date(appointment.scheduled_at).toLocaleTimeString(
+                                locale,
+                                dtOpts({ hour: 'numeric', minute: '2-digit' })
+                              )}{' '}
+                              {patientNameById.get(appointment.patient_id) ?? ''}
+                            </p>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'week' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
                 <div className="grid min-w-[980px] grid-cols-7 gap-3">
                   {weekDays.map((date) => {

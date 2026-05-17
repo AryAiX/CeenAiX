@@ -2442,17 +2442,21 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
         <button
           type="button"
-          disabled
-          title="Per-organization detail pages are coming in a later release."
-          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => {
+            // No per-org detail page yet, so surface the user-management page
+            // pre-filtered to this organisation's name — that's the closest
+            // working roster view today.
+            navigate(`/admin/users?org=${encodeURIComponent(org.name)}`);
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
         >
           View
         </button>
         <button
           type="button"
-          disabled
-          title="Per-organization detail pages are coming in a later release."
-          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => navigate('/admin/organizations')}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+          title="Edit organization details in the onboarding workspace"
         >
           Edit
         </button>

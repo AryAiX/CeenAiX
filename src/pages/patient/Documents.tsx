@@ -178,18 +178,17 @@ export const PatientDocuments = () => {
           <ShieldCheck className="h-4 w-4" />
           {t('patient.documents.security')}
         </Link>
-        <button
-          type="button"
-          disabled
-          title={t('patient.documents.uploadComingSoon', {
+        <Link
+          to="/patient/ai-chat"
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+          title={t('patient.documents.uploadHint', {
             defaultValue:
-              'Patient-initiated uploads are coming in a later release. Lab reports, prescriptions and insurance cards already sync automatically.',
+              'Upload a document by attaching it to the AI chat — the assistant will store and summarise it for your record.',
           })}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-sm"
         >
           <Upload className="h-4 w-4" />
           {t('patient.documents.uploadDocument')}
-        </button>
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -390,26 +389,59 @@ export const PatientDocuments = () => {
               )}
               <button
                 type="button"
-                disabled
-                title={t('patient.documents.downloadComingSoon', {
-                  defaultValue:
-                    'PDF export is coming in a later release. Use the live source view above for now.',
-                })}
-                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => {
+                  // Real client-side download — assembles a human-readable text
+                  // summary of the document so patients can keep a local copy
+                  // even before the full PDF renderer ships.
+                  const lines = [
+                    selectedDocument.name,
+                    `Issued by: ${selectedDocument.issuedBy}`,
+                    `Date: ${formatDate(selectedDocument.date)}`,
+                    `Contents: ${selectedDocument.contains}`,
+                    '',
+                    'View the live, signed source via the CeenAiX patient portal:',
+                    `${window.location.origin}${
+                      selectedDocument.source === 'lab_orders'
+                        ? '/patient/lab-results'
+                        : selectedDocument.source === 'prescriptions'
+                          ? '/patient/prescriptions'
+                          : '/patient/insurance'
+                    }`,
+                  ];
+                  const blob = new Blob([lines.join('\n')], {
+                    type: 'text/plain;charset=utf-8',
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = selectedDocument.fileName.replace(/\.pdf$/i, '.txt');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
               >
                 <Download className="h-4 w-4" /> {t('patient.documents.download')}
               </button>
-              <button
-                type="button"
-                disabled
-                title={t('patient.documents.shareComingSoon', {
-                  defaultValue:
-                    'Secure document sharing is coming in a later release.',
-                })}
-                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              <a
+                href={`mailto:?subject=${encodeURIComponent(
+                  selectedDocument.name
+                )}&body=${encodeURIComponent(
+                  `${selectedDocument.name}\nIssued by: ${selectedDocument.issuedBy}\nDate: ${formatDate(
+                    selectedDocument.date
+                  )}\n\nView the live source: ${window.location.origin}${
+                    selectedDocument.source === 'lab_orders'
+                      ? '/patient/lab-results'
+                      : selectedDocument.source === 'prescriptions'
+                        ? '/patient/prescriptions'
+                        : '/patient/insurance'
+                  }`
+                )}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
               >
                 <Share2 className="h-4 w-4" /> {t('patient.documents.share')}
-              </button>
+              </a>
             </div>
           </div>
         </div>

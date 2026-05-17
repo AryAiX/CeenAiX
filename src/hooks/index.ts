@@ -50,7 +50,7 @@ export type {
   LabPriority,
   NabidhStatus,
 } from './use-lab-ops-portal';
-export { usePharmacyPrescriptionQueue } from './use-pharmacy-prescription-queue';
+export { sendPharmacyResponse, usePharmacyPrescriptionQueue } from './use-pharmacy-prescription-queue';
 export type {
   PharmacyClaimLedgerItem,
   PharmacyFacilityProfile,
@@ -62,7 +62,11 @@ export type {
   PharmacySettingItem,
   PharmacyStaffMember,
 } from './use-pharmacy-prescription-queue';
-export { useInsurancePortal } from './use-insurance-portal';
+export {
+  approvePreAuthorization,
+  bulkApprovePreAuthorizations,
+  useInsurancePortal,
+} from './use-insurance-portal';
 export type {
   InsuranceAiInsight,
   InsuranceClaim,
