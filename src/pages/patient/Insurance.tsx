@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
@@ -35,6 +36,7 @@ function statusClasses(status: PatientInsuranceActivity['status']) {
 
 export const PatientInsurance = () => {
   const { t, i18n } = useTranslation('common');
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data, loading, error } = usePatientInsurance(user?.id);
   const [tab, setTab] = useState<InsuranceTab>('claims');
@@ -470,24 +472,30 @@ export const PatientInsurance = () => {
             <div className="grid gap-4 md:grid-cols-2">
               {[
                 {
+                  key: 'card' as const,
                   title: t('patient.insurance.docCard'),
                   body: primaryPlan?.cardPhotoUrl ? t('patient.insurance.docCardUploaded') : t('patient.insurance.docCardMissing'),
                   icon: ShieldCheck,
-                  action: primaryPlan?.cardPhotoUrl ? t('patient.insurance.viewDocument') : t('patient.insurance.uploadComingSoon'),
+                  action: primaryPlan?.cardPhotoUrl
+                    ? t('patient.insurance.viewDocument')
+                    : t('patient.insurance.uploadCard', { defaultValue: 'Upload on profile' }),
                 },
                 {
+                  key: 'policy' as const,
                   title: t('patient.insurance.docPolicy'),
                   body: primaryPlan?.policyNumber ?? t('patient.insurance.policyMissing'),
                   icon: FileText,
                   action: t('patient.insurance.viewDocument'),
                 },
                 {
+                  key: 'eob' as const,
                   title: t('patient.insurance.docEob'),
                   body: t('patient.insurance.docEobBody', { count: formatLocaleDigits(activity.length, uiLang) }),
                   icon: CheckCircle,
                   action: t('patient.insurance.generateFromActivity'),
                 },
                 {
+                  key: 'annual' as const,
                   title: t('patient.insurance.docAnnual'),
                   body: `${money(annualUsed)} ${t('patient.insurance.usedThisYear').toLowerCase()}`,
                   icon: Activity,
@@ -495,8 +503,24 @@ export const PatientInsurance = () => {
                 },
               ].map((doc) => {
                 const Icon = doc.icon;
+                const handleDocumentAction = () => {
+                  if (doc.key === 'card') {
+                    if (primaryPlan?.cardPhotoUrl) {
+                      window.open(primaryPlan.cardPhotoUrl, '_blank', 'noopener,noreferrer');
+                      return;
+                    }
+                    navigate('/patient/profile');
+                    return;
+                  }
+                  if (doc.key === 'policy' || doc.key === 'annual') {
+                    setTab('benefits');
+                    return;
+                  }
+                  setTab('claims');
+                };
+
                 return (
-                  <div key={doc.title} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+                  <div key={doc.key} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
                     <div className="mb-4 flex items-start gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
                         <Icon className="h-6 w-6 text-blue-600" />
@@ -508,6 +532,7 @@ export const PatientInsurance = () => {
                     </div>
                     <button
                       type="button"
+                      onClick={handleDocumentAction}
                       className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                     >
                       <Eye className="h-4 w-4" />

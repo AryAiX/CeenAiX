@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Search, MapPin, Star, Filter, Video, Clock, ArrowLeft, Award } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useBookableDoctors } from '../../hooks';
 import { formatLocaleDecimal, formatLocaleDigits } from '../../lib/i18n-ui';
 import {
   displayDoctorDirectoryLocation,
@@ -15,7 +15,7 @@ import { GeometricBackground } from '../../components/GeometricBackground';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 
-/** English `value` must match `doctors.specialty` in the database; labels are translated. */
+/** English `value` must match canonical `doctor_profiles.specialization` where possible; labels are translated. */
 const SPECIALTY_FILTER_OPTIONS = [
   { value: 'all', tKey: 'all' as const },
   { value: 'Cardiologist', tKey: 'cardiologist' as const },
@@ -35,15 +35,11 @@ interface Doctor {
   name: string;
   specialty: string;
   location: string;
-  latitude?: number;
-  longitude?: number;
   image_url?: string;
   available_slots: number;
   accepts_video: boolean;
-  rating?: number;
+  rating: number;
 }
-
-type DoctorRow = Omit<Doctor, 'rating'>;
 
 const doctorImages = [
   'https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg?auto=compress&cs=tinysrgb&w=400',
@@ -54,53 +50,41 @@ const doctorImages = [
   'https://images.pexels.com/photos/6129410/pexels-photo-6129410.jpeg?auto=compress&cs=tinysrgb&w=400',
 ];
 
+const stableRating = (id: string) => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  const normalized = Math.abs(hash % 800) / 1000;
+  return Number((4.2 + normalized).toFixed(1));
+};
+
 export const FindDoctor: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: bookableDoctors, loading, error: loadError } = useBookableDoctors();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
 
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
+  const doctors = useMemo<Doctor[]>(() => {
+    return (bookableDoctors ?? []).map((row, index) => {
+      const specialty = row.specialty?.trim() || t('shared.doctor', { defaultValue: 'Doctor' });
+      const location =
+        [row.city, row.address].filter(Boolean).join(' · ') ||
+        t('findDoctor.locationUnknown', { defaultValue: 'UAE' });
 
-  const fetchDoctors = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('doctors')
-        .select('*')
-        .order('name')
-        .limit(50);
-
-      if (error) throw error;
-
-      // Generate a stable pseudo-rating per doctor so cards don't change on
-      // every re-render. Uses the doctor id as the seed so reloads stay
-      // consistent until a real rating column is wired up.
-      const stableRating = (id: string) => {
-        let hash = 0;
-        for (let i = 0; i < id.length; i += 1) {
-          hash = (hash * 31 + id.charCodeAt(i)) | 0;
-        }
-        const normalized = Math.abs(hash % 800) / 1000;
-        return Number((4.2 + normalized).toFixed(1));
+      return {
+        id: row.userId,
+        name: row.fullName,
+        specialty,
+        location,
+        available_slots: row.activeAvailabilityCount,
+        accepts_video: false,
+        rating: stableRating(row.userId),
+        image_url: doctorImages[index % doctorImages.length],
       };
-
-      const doctorsWithRatings = (data as DoctorRow[] | null)?.map((doc, index) => ({
-        ...doc,
-        rating: stableRating(doc.id),
-        image_url: doc.image_url || doctorImages[index % doctorImages.length],
-      })) || [];
-
-      setDoctors(doctorsWithRatings);
-    } catch (error) {
-      console.error('Error fetching doctors:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+  }, [bookableDoctors, t]);
 
   const filteredDoctors = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -111,8 +95,8 @@ export const FindDoctor: React.FC = () => {
     });
   }, [doctors, searchTerm, selectedSpecialty, t]);
 
-  const handleBookAppointment = () => {
-    navigate('/patient/appointments/book');
+  const handleBookAppointment = (doctorId: string) => {
+    navigate(`/patient/appointments/book?doctor=${encodeURIComponent(doctorId)}`);
   };
 
   return (
@@ -207,6 +191,12 @@ export const FindDoctor: React.FC = () => {
           </div>
         </div>
 
+        {loadError ? (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            {t('findDoctor.loadError', { defaultValue: 'Unable to load doctors. Please try again.' })}
+          </div>
+        ) : null}
+
         {loading && (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
@@ -288,7 +278,7 @@ export const FindDoctor: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => handleBookAppointment()}
+                    onClick={() => handleBookAppointment(doctor.id)}
                     className="w-full rounded-2xl bg-gradient-to-r from-ceenai-cyan to-ceenai-blue py-3 font-semibold text-white shadow-sm transition-all duration-300 hover:shadow-lg"
                   >
                     {t('findDoctor.bookAppointment')}

@@ -473,7 +473,7 @@ export const PatientDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="divide-y divide-slate-50">
+            <div className="min-h-[12.5rem] divide-y divide-slate-50">
               {dashboardLoading ? (
                 <>
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>

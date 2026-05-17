@@ -17,6 +17,7 @@ import { Skeleton } from '../../components/Skeleton';
 import { usePatientRecords } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { PATIENT_RECORD_FIELD_LIMITS } from '../../lib/patient-records';
 import { supabase } from '../../lib/supabase';
 import type { AllergySeverity, ConditionStatus } from '../../types';
 
@@ -635,6 +636,7 @@ export const PatientRecords: React.FC = () => {
                 <input
                   required
                   type="text"
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.conditionName}
                   value={conditionForm.conditionName}
                   onChange={(event) =>
                     setConditionForm((current) => ({ ...current, conditionName: event.target.value }))
@@ -646,6 +648,7 @@ export const PatientRecords: React.FC = () => {
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')}</span>
                 <input
                   type="text"
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.icdCode}
                   value={conditionForm.icdCode}
                   onChange={(event) =>
                     setConditionForm((current) => ({ ...current, icdCode: event.target.value }))
@@ -685,6 +688,7 @@ export const PatientRecords: React.FC = () => {
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')}</span>
                 <textarea
                   rows={4}
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.notes}
                   value={conditionForm.notes}
                   onChange={(event) =>
                     setConditionForm((current) => ({ ...current, notes: event.target.value }))
@@ -735,6 +739,7 @@ export const PatientRecords: React.FC = () => {
                 <input
                   required
                   type="text"
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.allergen}
                   value={allergyForm.allergen}
                   onChange={(event) =>
                     setAllergyForm((current) => ({ ...current, allergen: event.target.value }))
@@ -763,6 +768,7 @@ export const PatientRecords: React.FC = () => {
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')}</span>
                 <textarea
                   rows={4}
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.reaction}
                   value={allergyForm.reaction}
                   onChange={(event) =>
                     setAllergyForm((current) => ({ ...current, reaction: event.target.value }))
@@ -827,6 +833,7 @@ export const PatientRecords: React.FC = () => {
                 <input
                   required
                   type="text"
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.vaccineName}
                   value={vaccinationForm.vaccineName}
                   onChange={(event) =>
                     setVaccinationForm((current) => ({ ...current, vaccineName: event.target.value }))
@@ -838,7 +845,8 @@ export const PatientRecords: React.FC = () => {
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')}</span>
                 <input
                   type="number"
-                  min="1"
+                  min={1}
+                  max={PATIENT_RECORD_FIELD_LIMITS.doseNumberMax}
                   value={vaccinationForm.doseNumber}
                   onChange={(event) =>
                     setVaccinationForm((current) => ({ ...current, doseNumber: event.target.value }))
@@ -864,6 +872,7 @@ export const PatientRecords: React.FC = () => {
                 <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')}</span>
                 <input
                   type="text"
+                  maxLength={PATIENT_RECORD_FIELD_LIMITS.administeredBy}
                   value={vaccinationForm.administeredBy}
                   onChange={(event) =>
                     setVaccinationForm((current) => ({

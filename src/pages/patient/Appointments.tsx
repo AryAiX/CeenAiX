@@ -1031,7 +1031,7 @@ export const PatientAppointments: React.FC = () => {
 
           <div className="flex-1 min-w-0">
             {isLoadingPage ? (
-              <div className="space-y-6">
+              <div className="min-h-[24rem] space-y-6">
                 <Skeleton className="h-48 w-full rounded-2xl" />
                 <Skeleton className="h-48 w-full rounded-2xl" />
               </div>

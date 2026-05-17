@@ -24,6 +24,7 @@ export function useDoctorBookingAvailability(doctorId: string | null | undefined
       const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 90);
+      endDate.setHours(23, 59, 59, 999);
       const formatLocalDate = (date: Date) =>
         `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 

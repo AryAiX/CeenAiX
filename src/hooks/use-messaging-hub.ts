@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import i18n from 'i18next';
 import type { Conversation, Message } from '../types';
 import {
@@ -43,6 +43,7 @@ interface EnsureConversationResult {
 }
 
 export function useMessagingHub(userId: string | null | undefined, selectedConversationId: string | null) {
+  const loadMessagesRequestRef = useRef(0);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -196,7 +197,9 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
 
       if (error) {
         if (!isMissingMessagingRpcError(error)) {
-          console.warn(error.message);
+          const message = error.message;
+          console.warn(message);
+          setThreadError(message);
         }
         return;
       }
@@ -215,6 +218,8 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         return;
       }
 
+      const requestId = loadMessagesRequestRef.current + 1;
+      loadMessagesRequestRef.current = requestId;
       setLoadingMessages(true);
       setThreadError(null);
 
@@ -229,12 +234,20 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           throw error;
         }
 
+        if (loadMessagesRequestRef.current !== requestId) {
+          return;
+        }
+
         setMessages((data ?? []) as Message[]);
         void markConversationRead(conversationId);
       } catch (error) {
-        setThreadError(error instanceof Error ? error.message : errLoadMessages());
+        if (loadMessagesRequestRef.current === requestId) {
+          setThreadError(error instanceof Error ? error.message : errLoadMessages());
+        }
       } finally {
-        setLoadingMessages(false);
+        if (loadMessagesRequestRef.current === requestId) {
+          setLoadingMessages(false);
+        }
       }
     },
     [markConversationRead, userId]
