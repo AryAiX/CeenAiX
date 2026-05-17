@@ -247,18 +247,52 @@ export const PharmacyInventory = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={() => {
+                const header = ['id', 'generic_name', 'brand_name', 'stock_qty', 'reorder_level', 'stock_status', 'next_expiry'];
+                const escape = (v: string | number | null | undefined) => {
+                  if (v === null || v === undefined) return '';
+                  const s = String(v);
+                  return s.includes(',') || s.includes('"') || s.includes('\n')
+                    ? `"${s.replace(/"/g, '""')}"`
+                    : s;
+                };
+                const body = [
+                  header,
+                  ...rows.map((row) => [
+                    row.id,
+                    row.genericName,
+                    row.brandName,
+                    row.stockQty,
+                    row.reorderLevel,
+                    row.stockStatus,
+                    row.nextExpiry,
+                  ]),
+                ]
+                  .map((line) => line.map(escape).join(','))
+                  .join('\n');
+                const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `pharmacy-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
             >
               <Download className="h-4 w-4" />
               Export Stock Report
             </button>
-            <button
-              type="button"
+            <a
+              href="/pharmacy/messages"
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+              title="Open pharmacy messages to coordinate a stock receipt with the supplier"
             >
               <Plus className="h-4 w-4" />
               Receive Stock
-            </button>
+            </a>
           </div>
         </div>
 
@@ -424,18 +458,30 @@ export const PharmacyInventory = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
+                        onClick={() => {
+                          // Surface the per-item batch list in-place via a
+                          // user-friendly toast-style alert. A full per-SKU
+                          // batches dialog ships with the inventory phase.
+                          const batches = `${item.genericName} · ${item.batchCount} batch${item.batchCount === 1 ? '' : 'es'} on hand` +
+                            (item.nextExpiry ? `\nNext expiry: ${item.nextExpiry}` : '');
+                          window.alert(batches);
+                        }}
                         className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
                       >
                         <Eye className="h-3 w-3" />
                         Batches
                       </button>
-                      <button
-                        type="button"
+                      <a
+                        href={`mailto:?subject=${encodeURIComponent(
+                          `Reorder request: ${item.genericName}`
+                        )}&body=${encodeURIComponent(
+                          `Item id: ${item.id}\nMedication: ${item.genericName}\nCurrent stock: ${item.stockQty}\nReorder level: ${item.reorderLevel}\n\nPlease arrange a reorder.`
+                        )}`}
                         className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
                       >
                         <ShoppingCart className="h-3 w-3" />
                         Order
-                      </button>
+                      </a>
                     </div>
                   </div>
                 );

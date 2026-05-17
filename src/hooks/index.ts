@@ -50,7 +50,11 @@ export type {
   LabPriority,
   NabidhStatus,
 } from './use-lab-ops-portal';
-export { sendPharmacyResponse, usePharmacyPrescriptionQueue } from './use-pharmacy-prescription-queue';
+export {
+  sendPharmacyResponse,
+  updatePharmacyDispensingTaskStatus,
+  usePharmacyPrescriptionQueue,
+} from './use-pharmacy-prescription-queue';
 export type {
   PharmacyClaimLedgerItem,
   PharmacyFacilityProfile,

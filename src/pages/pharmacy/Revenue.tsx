@@ -85,6 +85,31 @@ export const PharmacyRevenue = () => {
           </div>
           <button
             type="button"
+            onClick={() => {
+              const header = ['claim_id', 'patient_name', 'medication', 'insurer', 'amount_aed', 'status'];
+              const escape = (v: string | number | null | undefined) => {
+                if (v === null || v === undefined) return '';
+                const s = String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n')
+                  ? `"${s.replace(/"/g, '""')}"`
+                  : s;
+              };
+              const body = [
+                header,
+                ...rows.map((row) => [row.id, row.patientName, row.medication, row.insurer, row.amount, row.status]),
+              ]
+                .map((line) => line.map(escape).join(','))
+                .join('\n');
+              const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `pharmacy-revenue-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
             className="flex w-fit items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
           >
             <Download className="h-4 w-4" /> {t('pharmacy.revenue.exportReport', { defaultValue: 'Export Revenue Report' })}
@@ -209,6 +234,11 @@ export const PharmacyRevenue = () => {
                   </span>
                   <button
                     type="button"
+                    onClick={() => {
+                      window.alert(
+                        `${row.id} · ${row.patientName}\n${row.medication}\n${formatCurrency(row.amount, uiLang)} · ${row.insurer}\nStatus: ${row.status}`
+                      );
+                    }}
                     className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
                   >
                     {t('pharmacy.revenue.view', { defaultValue: 'View' })}

@@ -280,6 +280,28 @@ const formatExpiry = (value: string | null) => {
 };
 
 /**
+ * Update a pharmacy dispensing task workflow status (verifying / ready /
+ * counseling / completed / on_hold / cancelled). Wraps the canonical
+ * `pharmacy_dispensing_tasks` row write.
+ */
+export async function updatePharmacyDispensingTaskStatus(
+  taskId: string,
+  workflowStatus:
+    | 'verifying'
+    | 'ready'
+    | 'counseling'
+    | 'completed'
+    | 'on_hold'
+    | 'cancelled'
+): Promise<void> {
+  const { error } = await supabase
+    .from('pharmacy_dispensing_tasks')
+    .update({ workflow_status: workflowStatus, updated_at: new Date().toISOString() })
+    .eq('id', taskId);
+  if (error) throw error;
+}
+
+/**
  * Persists a pharmacist reply on a `pharmacy_messages` row. The Bolt prototype
  * silently cleared the draft; this writes back to the canonical table so the
  * thread keeps the pharmacy response, marks it as resolved, and clears the
