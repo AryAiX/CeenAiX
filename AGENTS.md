@@ -91,3 +91,31 @@ When you need the full specification for any feature, consult:
 | Phased roadmap | `docs/specs/13-phased-roadmap.md` |
 | Complete route map | `docs/specs/14-route-map.md` |
 | Glossary | `docs/specs/07-glossary.md` |
+
+## Cursor Cloud specific instructions
+
+### Services
+
+This is a single-service SPA (no monorepo, no backend server in-repo). The only service to run locally is the **Vite dev server** (`npm run dev`, port 5173). The backend is a hosted Supabase project (dev ref: `lgfaucsfiyxvmsghnpey`).
+
+### Environment setup
+
+- Copy `env.template.dev` → `.env.local` (contains the dev Supabase URL and publishable anon key).
+- The preview PIN gate is enabled by default — PIN is `6969`. Disable it by setting `VITE_PREVIEW_PIN_GATE=false` in `.env.local`.
+
+### Running checks
+
+| Task | Command |
+|------|---------|
+| Dev server | `npm run dev` |
+| Lint | `npm run lint` |
+| Type check | `npm run typecheck` |
+| Unit tests | `npm run test` |
+| Build | `npm run build` |
+| E2E tests | `npm run test:e2e` (requires Playwright browsers: `npx playwright install`) |
+
+### Gotchas
+
+- `npm run test` (Vitest) picks up Playwright e2e files in `e2e/` and reports them as "failed suites" — this is a known pre-existing config gap. The actual unit tests (33 in `src/`) all pass. Run e2e tests separately with `npm run test:e2e`.
+- The project uses Node 20+ (CI pins Node 20; Node 22 on this VM is compatible).
+- There is no local Supabase setup (`supabase/config.toml` does not exist) — all DB access hits the remote hosted project. Migrations are applied via GitHub Actions or the Supabase CLI against the remote instance.
