@@ -49,6 +49,7 @@ import type {
   CreateOrganizationInput,
 } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase';
 import type {
   AdminAiAnalyticsPayload,
   AdminAiDashboardPayload,
@@ -583,7 +584,13 @@ const AdminShell = ({
                 {context.dashboard.issues.length} issues detected
               </span>
             ) : null}
-            <button className="relative rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/audit')}
+              className="relative rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+              aria-label="Open audit log"
+              title="Open audit log"
+            >
               <Bell className="h-4 w-4" />
               {context.dashboard?.issues.length ? (
                 <span className="absolute -right-1 -top-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
@@ -1620,6 +1627,31 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
   const doctors = context.doctors;
   const [filter, setFilter] = useState<DoctorFilter>('all');
   const [search, setSearch] = useState('');
+  const [busyDoctorId, setBusyDoctorId] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const setDoctorVerificationStatus = async (doctorId: string, verified: boolean) => {
+    setVerifyError(null);
+    setBusyDoctorId(doctorId);
+    const nowIso = new Date().toISOString();
+    const update = verified
+      ? { dha_license_verified: true, dha_verified_at: nowIso, updated_at: nowIso }
+      : { dha_license_verified: false, dha_verified_at: null, updated_at: nowIso };
+    const { error: updateError } = await supabase
+      .from('doctor_profiles')
+      .update(update)
+      .eq('user_id', doctorId);
+    setBusyDoctorId(null);
+    if (updateError) {
+      setVerifyError(updateError.message);
+      return;
+    }
+    // No central refresh on AdminContext; refresh the organizations slice as
+    // a side-effect — the doctors RPC has no per-call refetch surface here.
+    // The doctor's verification badge updates after the next admin route
+    // navigation in the meantime.
+    context.refreshOrganizations();
+  };
 
   const filtered = useMemo(() => {
     let rows = doctors;
@@ -1657,6 +1689,14 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
 
   return (
     <div className="space-y-5">
+      {verifyError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {verifyError}
+        </div>
+      ) : null}
       <PageHeader title="Doctors" subtitle="DHA license verification & platform-wide doctor management">
         <button
           type="button"
@@ -1898,8 +1938,20 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
                   <td className="px-3 py-3">
                     {row.status_label === 'pending' ? (
                       <div className="flex gap-1">
-                        <button className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white">OK</button>
-                        <button className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => void setDoctorVerificationStatus(row.id, true)}
+                          disabled={busyDoctorId === row.id}
+                          className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busyDoctorId === row.id ? '…' : 'OK'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setDoctorVerificationStatus(row.id, false)}
+                          disabled={busyDoctorId === row.id}
+                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
                           Reject
                         </button>
                       </div>
@@ -2562,7 +2614,9 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=insurance')}
+          // Same admin sign-out-and-register flow as Add Doctor — otherwise
+          // an authenticated super_admin would be bounced to /auth/onboarding.
+          onClick={() => navigate('/auth/register?role=insurance&reset=1')}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Onboard Insurer
@@ -2576,7 +2630,16 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
               {damanWarning.api_warning_label ||
                 `${damanWarning.insurer_name} API degraded — ${damanWarning.api_latency_ms}ms avg response since 1:20 PM`}
             </span>
-            <button className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white">Notify</button>
+            <a
+              href={`mailto:?subject=${encodeURIComponent(
+                `Insurer integration alert — ${damanWarning.insurer_name}`
+              )}&body=${encodeURIComponent(
+                `${damanWarning.insurer_name} API is reporting degraded status (${damanWarning.api_status}, latency ${damanWarning.api_latency_ms ?? '—'}ms).\n\nPlease investigate.`
+              )}`}
+              className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white"
+            >
+              Notify
+            </a>
           </div>
         </Card>
       ) : null}
@@ -2791,16 +2854,75 @@ const AiView = ({ context }: { context: AdminContext }) => {
           ✅ All AI systems operational · {ctx?.ai_avg_response_sec?.toFixed(1) ?? '—'}s avg ·{' '}
           {ctx?.ai_uptime_pct?.toFixed(2) ?? '—'}% uptime
         </Pill>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        {/* The AI analytics RPC only returns a single window; the chips
+            below are intentionally view-state placeholders until the hook
+            supports a date filter. Once it does, the same buttons can set
+            local state and refetch — keeping callsites stable. */}
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
           today
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
           week
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
           month
         </button>
-        <button className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700">
+        <button
+          type="button"
+          onClick={() => {
+            const lines = [
+              'CeenAiX AI Analytics export',
+              `Generated ${new Date().toISOString()}`,
+              '',
+              `Sessions today: ${ctx?.ai_sessions_today ?? '—'}`,
+              `Sessions this month: ${ctx?.ai_sessions_month ?? '—'}`,
+              `Sessions all-time: ${ctx?.ai_sessions_alltime ?? '—'}`,
+              `Active now: ${ctx?.ai_active_now ?? '—'}`,
+              `Avg response: ${ctx?.ai_avg_response_sec ?? '—'}s`,
+              `Uptime: ${ctx?.ai_uptime_pct ?? '—'}%`,
+              `Safety flags today: ${ctx?.ai_safety_flags_today ?? '—'}`,
+              '',
+              'Languages:',
+              ...langs.map((l) => `- ${l.label}: ${l.sessions} sessions (${l.percent ?? '—'}%)`),
+              '',
+              'Topics:',
+              ...topics.map((t) => `- ${t.label}: ${t.sessions ?? '—'} sessions`),
+              '',
+              'Portals:',
+              ...portals.map((p) => `- ${p.label}: ${p.sessions ?? '—'} sessions`),
+            ];
+            const blob = new Blob([lines.join('\n')], {
+              type: 'text/plain;charset=utf-8',
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-analytics-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }}
+          className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+        >
           Export AI Report
         </button>
       </PageHeader>

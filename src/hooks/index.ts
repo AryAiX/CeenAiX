@@ -70,6 +70,7 @@ export type {
 export {
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  setInsuranceSettingEnabled,
   useInsurancePortal,
 } from './use-insurance-portal';
 export type {
