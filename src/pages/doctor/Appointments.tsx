@@ -161,17 +161,17 @@ export const DoctorAppointments: React.FC = () => {
     },
     [activeTab, isTodayRoute, routeAppointments, selectedCalendarDateKey, viewMode]
   );
+  // Use canonical AppointmentStatus values only. The previous list mixed in
+  // 'fulfilled', 'finished', 'checked_in' which are not in the enum, so the
+  // counters silently stayed wrong even when real rows transitioned status.
   const completedTodayCount = useMemo(
-    () =>
-      routeAppointments.filter((appointment) =>
-        ['completed', 'fulfilled', 'finished'].includes((appointment.status ?? '').toLowerCase())
-      ).length,
+    () => routeAppointments.filter((appointment) => appointment.status === 'completed').length,
     [routeAppointments]
   );
   const activeTodayCount = useMemo(
     () =>
       routeAppointments.filter((appointment) =>
-        ['in_progress', 'checked_in', 'confirmed', 'scheduled'].includes((appointment.status ?? '').toLowerCase())
+        ['in_progress', 'confirmed', 'scheduled'].includes(appointment.status)
       ).length,
     [routeAppointments]
   );
@@ -236,10 +236,18 @@ export const DoctorAppointments: React.FC = () => {
     [monthAppointments]
   );
   const todayDone = todayAppointmentsForStats.filter((appointment) => appointment.status === 'completed').length;
-  const todayActive = todayAppointmentsForStats.filter((appointment) => ['in_progress', 'checked_in'].includes(appointment.status)).length;
-  const todayUpcoming = todayAppointmentsForStats.filter((appointment) => ['scheduled', 'confirmed'].includes(appointment.status)).length;
+  // Canonical AppointmentStatus enum: scheduled / confirmed / in_progress /
+  // completed / cancelled / no_show. The previous list used 'checked_in'
+  // which is not in the enum; remove it and keep parity with the week-level
+  // 'remaining' metric below.
+  const todayActive = todayAppointmentsForStats.filter((appointment) => appointment.status === 'in_progress').length;
+  const todayUpcoming = todayAppointmentsForStats.filter((appointment) =>
+    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
+  ).length;
   const weekDone = weekAppointments.filter((appointment) => appointment.status === 'completed').length;
-  const weekRemaining = weekAppointments.filter((appointment) => ['scheduled', 'confirmed', 'checked_in', 'in_progress'].includes(appointment.status)).length;
+  const weekRemaining = weekAppointments.filter((appointment) =>
+    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
+  ).length;
   const consultationFee = doctorProfile?.consultation_fee ?? 0;
   const weekRevenue = weekDone * consultationFee;
   const todayRemainingRevenue = todayUpcoming * consultationFee;
@@ -916,12 +924,33 @@ export const DoctorAppointments: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completion rate</p>
                   <p className="mt-3 text-3xl font-bold text-slate-900">
-                    {routeAppointments.length > 0
-                      ? `${formatLocaleDigits(Math.round((completedCount / routeAppointments.length) * 100), uiLang)}%`
-                      : '0%'}
+                    {/*
+                      Denominator is appointments that actually had the chance
+                      to complete. Cancelled / no-show rows are excluded so a
+                      busy clinic with frequent no-shows doesn't appear to be
+                      missing completions it never had.
+                    */}
+                    {(() => {
+                      const eligible = routeAppointments.filter(
+                        (appointment) =>
+                          appointment.status !== 'cancelled' &&
+                          appointment.status !== 'no_show'
+                      ).length;
+                      return eligible > 0
+                        ? `${formatLocaleDigits(Math.round((completedCount / eligible) * 100), uiLang)}%`
+                        : '0%';
+                    })()}
                   </p>
                   <p className="mt-2 text-sm text-slate-500">
-                    {formatLocaleDigits(completedCount, uiLang)} completed of {formatLocaleDigits(routeAppointments.length, uiLang)}
+                    {formatLocaleDigits(completedCount, uiLang)} completed of{' '}
+                    {formatLocaleDigits(
+                      routeAppointments.filter(
+                        (appointment) =>
+                          appointment.status !== 'cancelled' &&
+                          appointment.status !== 'no_show'
+                      ).length,
+                      uiLang
+                    )}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

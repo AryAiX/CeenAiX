@@ -898,7 +898,10 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     const startOfToday = todayStartIso();
     const labEquipmentWarnings = equipment.filter((item) => item.department === 'laboratory' && item.status !== 'online').length;
     const imagingEquipmentWarnings = equipment.filter((item) => item.department === 'radiology' && item.status !== 'online').length;
-    const pendingNabidh = nabidhEvents.filter((event) => event.status === 'pending' || event.status === 'failed').length;
+    // Pending = strictly status='pending'. The previous version included
+    // 'failed' rows too, which double-counted them across pendingNabidh and
+    // failedNabidh and made the "Pending" KPI lie.
+    const pendingNabidh = nabidhEvents.filter((event) => event.status === 'pending').length;
     const submittedNabidh = nabidhEvents.filter((event) => event.status === 'submitted').length;
     const failedNabidh = nabidhEvents.filter((event) => event.status === 'failed').length;
 

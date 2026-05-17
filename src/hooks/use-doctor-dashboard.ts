@@ -260,7 +260,18 @@ export function useDoctorDashboard(userId: string | null | undefined) {
 
     const safeAppointments = (appointments ?? []) as AppointmentRow[];
     const safeConversations = (conversations ?? []) as ConversationRow[];
-    const patientIds = Array.from(new Set(safeAppointments.map((appointment) => appointment.patient_id)));
+    // "Total patients" should reflect patients with at least one non-cancelled
+    // visit — counting cancelled-only patients overstates the panel.
+    const patientIds = Array.from(
+      new Set(
+        safeAppointments
+          .filter(
+            (appointment) =>
+              appointment.status !== 'cancelled' && appointment.status !== 'no_show'
+          )
+          .map((appointment) => appointment.patient_id)
+      )
+    );
     const appointmentIds = safeAppointments.map((appointment) => appointment.id);
 
     const now = new Date();
@@ -438,8 +449,17 @@ export function useDoctorDashboard(userId: string | null | undefined) {
           ...allergies.slice(0, 1).map((allergy) => `ALLERGY: ${allergy}`),
           ...(medications.length > 0 ? [`${medications.length} active medications`] : []),
         ],
-        visitCount: patientAppointments.length,
-        lastVisitAt: previousAppointments[0]?.scheduled_at ?? null,
+        // Honour clinical intent: visit counts should only include visits
+        // that actually occurred. Cancelled/no-show rows are noise here.
+        visitCount: patientAppointments.filter(
+          (appointment) =>
+            appointment.status !== 'cancelled' && appointment.status !== 'no_show'
+        ).length,
+        lastVisitAt:
+          previousAppointments.find(
+            (appointment) =>
+              appointment.status !== 'cancelled' && appointment.status !== 'no_show'
+          )?.scheduled_at ?? null,
       };
     };
 

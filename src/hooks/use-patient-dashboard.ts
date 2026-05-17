@@ -407,8 +407,16 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           (appointment) =>
             UPCOMING_STATUSES.has(appointment.status) && new Date(appointment.scheduled_at).getTime() >= now.getTime()
         );
+        // "Last visit" must be a visit that actually happened — exclude
+        // cancelled and no-show rows so they don't masquerade as the most
+        // recent encounter on the care-team timeline.
         const lastDoctorAppointment =
-          appointmentsForDoctor.length > 0 ? appointmentsForDoctor[appointmentsForDoctor.length - 1] : null;
+          [...appointmentsForDoctor]
+            .reverse()
+            .find(
+              (appointment) =>
+                appointment.status !== 'cancelled' && appointment.status !== 'no_show'
+            ) ?? null;
         const doctorProfile = doctorProfilesById.get(doctorId);
 
         return {

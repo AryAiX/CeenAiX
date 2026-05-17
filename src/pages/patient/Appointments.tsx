@@ -235,9 +235,17 @@ export const PatientAppointments: React.FC = () => {
     [filteredAppointments]
   );
 
+  // "Past" means the visit's scheduled time has gone by AND it isn't sitting
+  // in an active status (scheduled/confirmed/in_progress). Without the time
+  // check, a future cancelled appointment would otherwise be misfiled as
+  // past instead of cancelled-and-upcoming.
   const pastAppointments = useMemo(
     () =>
-      filteredAppointments.filter((appointment) => !isUpcoming(appointment)),
+      filteredAppointments.filter(
+        (appointment) =>
+          !isUpcoming(appointment) &&
+          new Date(appointment.scheduled_at).getTime() < Date.now()
+      ),
     [filteredAppointments]
   );
 

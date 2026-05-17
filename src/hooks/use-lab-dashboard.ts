@@ -289,6 +289,7 @@ export function useLabOrderDetail(orderId: string | null | undefined) {
       .from('lab_orders')
       .select('id, status, ordered_at, patient_id, doctor_id, assigned_lab_id')
       .eq('id', orderId)
+      .eq('is_deleted', false)
       .maybeSingle();
     if (orderError) {
       throw orderError;

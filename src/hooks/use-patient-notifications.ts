@@ -81,6 +81,7 @@ export function usePatientNotifications(userId: string | null | undefined) {
         .from('appointments')
         .select('id, doctor_id, scheduled_at, status, chief_complaint')
         .eq('patient_id', userId)
+        .eq('is_deleted', false)
         .gte('scheduled_at', nowIso)
         .lte('scheduled_at', upcomingWindowIso)
         .in('status', ['scheduled', 'confirmed', 'in_progress'])

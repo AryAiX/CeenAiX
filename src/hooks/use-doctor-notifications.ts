@@ -152,6 +152,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
             .from('appointments')
             .select('id, chief_complaint')
             .in('id', assessmentAppointmentIds)
+            .eq('is_deleted', false)
         : Promise.resolve({ data: [], error: null }),
     ]);
 

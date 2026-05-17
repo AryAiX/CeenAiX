@@ -323,7 +323,13 @@ export const PatientDashboard: React.FC = () => {
         iconBg: 'bg-teal-50',
         iconColor: 'text-teal-600',
         label: localCopy.medicationsLabel,
-        value: `${formatLocaleDigits(takenCount, i18n.language)}/${formatLocaleDigits(Math.max(medications.length, 1), i18n.language)}`,
+        // Show "0" instead of "0/1" when the patient has zero medications;
+        // forcing a denominator of 1 made an empty list look like a missed
+        // dose tracker.
+        value:
+          medications.length > 0
+            ? `${formatLocaleDigits(takenCount, i18n.language)}/${formatLocaleDigits(medications.length, i18n.language)}`
+            : formatLocaleDigits(0, i18n.language),
         badge: localCopy.todayBadge,
         badgeColor: 'bg-teal-50 text-teal-700',
         trend: 'up' as const,
