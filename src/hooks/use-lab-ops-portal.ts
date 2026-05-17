@@ -40,6 +40,7 @@ export interface LabFacilityMeta {
 }
 
 export interface LabPortalSampleTest {
+  itemId: string;
   testName: string;
   loincCode: string | null;
   specimen: string | null;
@@ -324,6 +325,7 @@ interface LabOrderRow {
 }
 
 interface LabItemRow {
+  id: string;
   lab_order_id: string;
   test_name: string;
   status: LabOrderStatus;
@@ -663,7 +665,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     if (orderIds.length > 0) {
       const { data, error } = await supabase
         .from('lab_order_items')
-        .select('lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal')
+        .select('id, lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal')
         .in('lab_order_id', orderIds)
         .order('sort_order', { ascending: true });
       if (error) throw error;
@@ -711,6 +713,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         clinicName: order.clinic_name ?? (doctor?.city ? `${doctor.city} Clinic` : 'Dubai Care Clinic'),
         firstTestName: items[0]?.test_name ?? 'Diagnostic panel',
         tests: items.map((item) => ({
+          itemId: item.id,
           testName: item.test_name,
           loincCode: item.loinc_code,
           specimen: item.specimen_type,
@@ -962,6 +965,27 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  const saveItemResult = useCallback(
+    async (input: {
+      itemId: string;
+      resultValue: string | null;
+      resultUnit: string | null;
+      referenceRange: string | null;
+      isAbnormal?: boolean;
+    }) => {
+      const { error } = await supabase.rpc('lab_save_item_result', {
+        target_item_id: input.itemId,
+        result_value: input.resultValue,
+        result_unit: input.resultUnit,
+        reference_range: input.referenceRange,
+        is_abnormal: input.isAbnormal ?? false,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const markNabidhSubmitted = useCallback(
     async (eventId: string) => {
       const { error } = await supabase
@@ -987,8 +1011,71 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  /**
+   * Soft-delete a lab order (the canonical clinical-data convention — we
+   * never hard-delete records that carry patient context). Used when a lab
+   * rejects an incoming order that cannot be processed.
+   */
+  const rejectOrder = useCallback(
+    async (orderId: string, reason?: string) => {
+      const { error } = await supabase
+        .from('lab_orders')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          clinical_notes: reason ? `[REJECTED] ${reason}` : '[REJECTED] No reason provided',
+        })
+        .eq('id', orderId);
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  /**
+   * Records that the prescribing doctor has been notified about a critical
+   * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
+   * also compute and persist the actual minutes-to-notification on the row.
+   */
+  const markCriticalValueNotified = useCallback(
+    async (criticalValueId: string, observedAtIso: string | null) => {
+      const observedAt = observedAtIso ? new Date(observedAtIso) : null;
+      const notifiedInMinutes = observedAt
+        ? Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 60_000))
+        : null;
+      const { error } = await supabase
+        .from('lab_portal_critical_values')
+        .update({
+          status: 'notified',
+          notified_in_minutes: notifiedInMinutes,
+        })
+        .eq('id', criticalValueId);
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   return useMemo(
-    () => ({ claimSample, startProcessing, releaseOrder, markNabidhSubmitted, markNabidhSubmittedBulk }),
-    [claimSample, startProcessing, releaseOrder, markNabidhSubmitted, markNabidhSubmittedBulk],
+    () => ({
+      claimSample,
+      startProcessing,
+      releaseOrder,
+      rejectOrder,
+      saveItemResult,
+      markNabidhSubmitted,
+      markNabidhSubmittedBulk,
+      markCriticalValueNotified,
+    }),
+    [
+      claimSample,
+      startProcessing,
+      releaseOrder,
+      rejectOrder,
+      saveItemResult,
+      markNabidhSubmitted,
+      markNabidhSubmittedBulk,
+      markCriticalValueNotified,
+    ],
   );
 }
