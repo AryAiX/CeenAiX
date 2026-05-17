@@ -373,7 +373,13 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           .eq('id', activeConversationId);
 
         if (updateConversationError) {
-          console.warn(updateConversationError.message);
+          // The message itself was inserted; the conversation timestamp
+          // update is best-effort, but we expose a soft warning so callers
+          // (and operators in the logs) can spot the inconsistency.
+          console.warn(
+            `[messaging] message sent but conversation timestamp update failed: ${updateConversationError.message}`
+          );
+          setActionError(updateConversationError.message);
         }
 
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);

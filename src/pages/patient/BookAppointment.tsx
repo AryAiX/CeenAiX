@@ -348,62 +348,74 @@ export const BookAppointment: React.FC = () => {
     setFeedback(null);
     setIsSubmitting(true);
 
-    const bookingResult = isRescheduling
-      ? await supabase.rpc('reschedule_patient_appointment', {
-          p_appointment_id: rescheduleAppointment?.id,
-          p_scheduled_at: selectedSlot.iso,
-          p_duration_minutes: selectedSlot.durationMinutes,
-          p_chief_complaint: chiefComplaint.trim(),
-          p_notes: notes.trim(),
-        })
-      : await supabase
-          .from('appointments')
-          .insert({
-            patient_id: user.id,
-            doctor_id: selectedDoctor.userId,
-            facility_id: null,
-            type: 'in_person',
-            status: 'scheduled',
-            scheduled_at: selectedSlot.iso,
-            duration_minutes: selectedSlot.durationMinutes,
-            chief_complaint: chiefComplaint.trim(),
-            notes: notes.trim() || null,
+    try {
+      const bookingResult = isRescheduling
+        ? await supabase.rpc('reschedule_patient_appointment', {
+            p_appointment_id: rescheduleAppointment?.id,
+            p_scheduled_at: selectedSlot.iso,
+            p_duration_minutes: selectedSlot.durationMinutes,
+            p_chief_complaint: chiefComplaint.trim(),
+            p_notes: notes.trim(),
           })
+        : await supabase
+            .from('appointments')
+            .insert({
+              patient_id: user.id,
+              doctor_id: selectedDoctor.userId,
+              facility_id: null,
+              type: 'in_person',
+              status: 'scheduled',
+              scheduled_at: selectedSlot.iso,
+              duration_minutes: selectedSlot.durationMinutes,
+              chief_complaint: chiefComplaint.trim(),
+              notes: notes.trim() || null,
+            })
+            .select('id')
+            .single();
+
+      if (bookingResult.error) {
+        setFeedback({ type: 'error', message: bookingResult.error.message });
+        return;
+      }
+
+      const appointmentId = isRescheduling
+        ? rescheduleAppointment?.id ?? null
+        : bookingResult.data?.id ?? null;
+
+      if (appointmentId) {
+        const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
+          .from('appointment_pre_visit_assessments')
           .select('id')
-          .single();
+          .eq('appointment_id', appointmentId)
+          .maybeSingle();
 
-    setIsSubmitting(false);
+        if (preVisitAssessmentError) {
+          setFeedback({ type: 'error', message: preVisitAssessmentError.message });
+          return;
+        }
 
-    if (bookingResult.error) {
-      setFeedback({ type: 'error', message: bookingResult.error.message });
-      return;
-    }
-
-    const appointmentId = isRescheduling ? rescheduleAppointment?.id ?? null : bookingResult.data?.id ?? null;
-
-    if (appointmentId) {
-      const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
-        .from('appointment_pre_visit_assessments')
-        .select('id')
-        .eq('appointment_id', appointmentId)
-        .maybeSingle();
-
-      if (preVisitAssessmentError) {
-        setFeedback({ type: 'error', message: preVisitAssessmentError.message });
-        return;
+        if (preVisitAssessment?.id) {
+          navigate(`/patient/pre-visit/${preVisitAssessment.id}`, {
+            replace: true,
+          });
+          return;
+        }
       }
 
-      if (preVisitAssessment?.id) {
-        navigate(`/patient/pre-visit/${preVisitAssessment.id}`, {
-          replace: true,
-        });
-        return;
-      }
+      navigate(`/patient/appointments?${isRescheduling ? 'rescheduled=1' : 'booked=1'}`, {
+        replace: true,
+      });
+    } catch (error) {
+      setFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : t('patient.book.errReason'),
+      });
+    } finally {
+      // Always release the submit lock — previously a throw between
+      // setIsSubmitting(true) and the explicit setIsSubmitting(false) below
+      // left the button perpetually disabled.
+      setIsSubmitting(false);
     }
-
-    navigate(`/patient/appointments?${isRescheduling ? 'rescheduled=1' : 'booked=1'}`, {
-      replace: true,
-    });
   };
 
   return (

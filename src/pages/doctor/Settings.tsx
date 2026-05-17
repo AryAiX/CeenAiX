@@ -42,6 +42,7 @@ export const DoctorSettings = () => {
   const { data: schedule } = useDoctorSchedule(user?.id);
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
   const settingsSections: Array<{ key: string; label: string }> = [
     { key: 'general', label: t('doctor.settings.sections.general', { defaultValue: 'General' }) },
@@ -66,8 +67,16 @@ export const DoctorSettings = () => {
   const save = async (nextPrefs: DoctorSettingsPrefs) => {
     if (!user?.id) return;
     setSaving(true);
-    await supabase.from('user_profiles').update({ notification_preferences: nextPrefs }).eq('user_id', user.id);
+    setSaveError(null);
+    const { error: saveError } = await supabase
+      .from('user_profiles')
+      .update({ notification_preferences: nextPrefs })
+      .eq('user_id', user.id);
     setSaving(false);
+    if (saveError) {
+      setSaveError(saveError.message);
+      return;
+    }
     refetch();
   };
 
@@ -105,6 +114,17 @@ export const DoctorSettings = () => {
 
   return (
     <div className="animate-fadeIn space-y-6">
+      {saveError ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {t('doctor.settings.saveError', {
+            defaultValue: 'Could not save your preferences: {{message}}',
+            message: saveError,
+          })}
+        </div>
+      ) : null}
       <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-8 text-white shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

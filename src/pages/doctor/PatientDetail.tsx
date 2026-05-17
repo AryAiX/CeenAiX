@@ -46,6 +46,7 @@ export const DoctorPatientDetail: React.FC = () => {
   const uiLang = i18n.language ?? 'en';
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const [reviewingMedicationId, setReviewingMedicationId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const appointments = useMemo(() => data?.appointments ?? [], [data?.appointments]);
   const nextAppointment = useMemo(
@@ -96,10 +97,15 @@ export const DoctorPatientDetail: React.FC = () => {
 
   const markMedicationReviewed = async (medicationId: string) => {
     setReviewingMedicationId(medicationId);
-    await supabase.rpc('mark_doctor_reported_medications_reviewed', {
+    setReviewError(null);
+    const { error: reviewError } = await supabase.rpc('mark_doctor_reported_medications_reviewed', {
       p_medication_ids: [medicationId],
     });
     setReviewingMedicationId(null);
+    if (reviewError) {
+      setReviewError(reviewError.message);
+      return;
+    }
     refetch();
   };
 
@@ -109,6 +115,18 @@ export const DoctorPatientDetail: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-900">{patientName}</h1>
         <p className="mt-1 text-sm text-slate-500">{t('doctor.patientDetail.subtitle')}</p>
       </div>
+
+      {reviewError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {t('doctor.patientDetail.reviewError', {
+            defaultValue: 'Could not mark medication reviewed: {{message}}',
+            message: reviewError,
+          })}
+        </div>
+      ) : null}
 
       <div className="space-y-6">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

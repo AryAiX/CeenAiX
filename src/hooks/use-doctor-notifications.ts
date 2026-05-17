@@ -197,7 +197,9 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         id: `patient-update-${update.id}`,
         kind: 'patient_update',
         title: chartUpdateTitle(reviewPatientNameById.get(update.patient_id) ?? patientFallback()),
-        body: chartUpdateBody(update.display_label.toLowerCase()),
+        // display_label is nullable in the canonical schema; coalesce so a
+        // stray null row doesn't crash the entire notifications hook.
+        body: chartUpdateBody((update.display_label ?? 'record').toLowerCase()),
         createdAt: update.updated_at ?? update.created_at,
         actionUrl: `/doctor/patients/${update.patient_id}`,
       });

@@ -99,7 +99,10 @@ export const generateAvailableTimeSlots = ({
         break;
       }
 
-      const isPast = cursor.getTime() <= now.getTime();
+      // Treat the slot as "past" only if it starts strictly before now —
+      // a slot that begins exactly at the current minute should still be
+      // bookable so the patient can take the immediate-next opening.
+      const isPast = cursor.getTime() < now.getTime();
       const isBlocked = relevantBlockedSlots.some((blockedSlot) =>
         overlaps(
           cursor,

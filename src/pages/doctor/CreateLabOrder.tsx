@@ -196,6 +196,17 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       return;
     }
 
+    // Refuse to write a suggestion row with an empty `created_by` (would
+    // insert a corrupt FK / break audit trails). Bail out cleanly instead.
+    if (!userId) {
+      setSuggestionError(
+        t('doctor.createLabOrder.signInRequired', {
+          defaultValue: 'Please re-authenticate before submitting catalog suggestions.',
+        })
+      );
+      return;
+    }
+
     setSubmittingSuggestion(true);
     setSuggestionError(null);
 
@@ -244,6 +255,15 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
   const submitNewLabTestSuggestion = async () => {
     if (!newTestDraft.displayNameEn.trim()) {
       setSuggestionError(t('doctor.createLabOrder.testNameRequired'));
+      return;
+    }
+
+    if (!userId) {
+      setSuggestionError(
+        t('doctor.createLabOrder.signInRequired', {
+          defaultValue: 'Please re-authenticate before submitting catalog suggestions.',
+        })
+      );
       return;
     }
 
@@ -736,7 +756,7 @@ export const CreateLabOrder: React.FC = () => {
       return;
     }
 
-    await supabase.from('notifications').insert({
+    const { error: notificationError } = await supabase.from('notifications').insert({
       user_id: patientId,
       type: 'system',
       title: 'New lab order created',
@@ -745,6 +765,14 @@ export const CreateLabOrder: React.FC = () => {
     });
 
     setSaving(false);
+    if (notificationError) {
+      setFeedback({
+        type: 'success',
+        message: `${t('doctor.createLabOrder.saveSuccess')} (Patient notification could not be sent: ${notificationError.message})`,
+      });
+      navigate('/doctor/lab-orders');
+      return;
+    }
     setFeedback({ type: 'success', message: t('doctor.createLabOrder.saveSuccess') });
     navigate('/doctor/lab-orders');
   };

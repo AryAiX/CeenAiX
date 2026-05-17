@@ -68,10 +68,13 @@ export const Profile: React.FC = () => {
       .select('blood_type, emergency_contact_name, emergency_contact_phone')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (mounted) {
-          setPatientProfile(data);
+      .then(({ data, error: fetchError }) => {
+        if (!mounted) return;
+        if (fetchError) {
+          setSaveError(fetchError.message);
+          return;
         }
+        setPatientProfile(data);
       });
     return () => {
       mounted = false;

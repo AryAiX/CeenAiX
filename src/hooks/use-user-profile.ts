@@ -8,7 +8,14 @@ import type { UserProfile } from '../types';
  */
 export function useUserProfile() {
   return useQuery<UserProfile | null>(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) {
+      // Surface the auth error so callers can distinguish "no profile" from
+      // "couldn't reach the auth server" — previously this was swallowed and
+      // the UI happily rendered a logged-out state instead of a retry.
+      throw authError;
+    }
+    const user = authData.user;
     if (!user) return null;
 
     const { data, error } = await supabase

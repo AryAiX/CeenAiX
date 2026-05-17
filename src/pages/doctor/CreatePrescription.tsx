@@ -310,6 +310,15 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
       return;
     }
 
+    if (!userId) {
+      setSuggestionError(
+        t('doctor.createPrescription.signInRequired', {
+          defaultValue: 'Please re-authenticate before submitting catalog suggestions.',
+        })
+      );
+      return;
+    }
+
     setSubmittingSuggestion(true);
     setSuggestionError(null);
 
@@ -361,6 +370,15 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
   const submitNewMedicationSuggestion = async () => {
     if (!newMedicationDraft.genericNameEn.trim()) {
       setSuggestionError(t('doctor.createPrescription.genericNameRequired'));
+      return;
+    }
+
+    if (!userId) {
+      setSuggestionError(
+        t('doctor.createPrescription.signInRequired', {
+          defaultValue: 'Please re-authenticate before submitting catalog suggestions.',
+        })
+      );
       return;
     }
 
@@ -1022,13 +1040,26 @@ export const CreatePrescription: React.FC = () => {
       return;
     }
 
-    await supabase.from('notifications').insert({
+    const { error: notificationError } = await supabase.from('notifications').insert({
       user_id: patientId,
       type: 'medication',
       title: 'New prescription issued',
       body: 'Your doctor added a new medication plan to your account.',
       action_url: '/patient/prescriptions',
     });
+
+    // Surface notification failures inline so the doctor knows to follow up
+    // out-of-band, but do not roll back the prescription itself — the
+    // canonical record was already created successfully.
+    if (notificationError) {
+      setSaving(false);
+      setFeedback({
+        type: 'success',
+        message: `${t('doctor.createPrescription.saveSuccess')} (Patient notification could not be sent: ${notificationError.message})`,
+      });
+      navigate('/doctor/prescriptions');
+      return;
+    }
 
     setSaving(false);
     setFeedback({ type: 'success', message: t('doctor.createPrescription.saveSuccess') });
