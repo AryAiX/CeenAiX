@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -352,19 +352,38 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button className="hidden items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 transition hover:bg-red-100 md:flex">
+            <button
+              type="button"
+              onClick={() => navigate('/insurance/fraud')}
+              className="hidden items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 transition hover:bg-red-100 md:flex"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-xs font-semibold text-red-600">{openFraud} Fraud Alerts</span>
             </button>
-            <button className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200 md:flex">
+            <button
+              type="button"
+              disabled
+              title="Export is coming in a later release."
+              className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200 md:flex disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <Download className="h-3.5 w-3.5 text-slate-500" />
               <span className="text-xs text-slate-500">Export</span>
             </button>
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 transition hover:bg-slate-200">
+            <button
+              type="button"
+              onClick={() => navigate('/insurance/preauth')}
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 transition hover:bg-slate-200"
+              aria-label="Open pending pre-authorizations"
+            >
               <Bell className="h-4 w-4 text-slate-600" />
               {urgentPreAuth ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" /> : null}
             </button>
-            <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200">
+            <button
+              type="button"
+              onClick={() => navigate('/insurance/settings')}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200"
+              aria-label="Open insurance settings"
+            >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E3A5F] text-xs font-bold text-white">{officerInitials || 'IO'}</div>
               <ChevronDown className="h-3 w-3 text-slate-400" />
             </button>
@@ -380,6 +399,7 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
 };
 
 const PreAuthAlert = ({ item }: { item: InsurancePreAuthorization | null }) => {
+  const navigate = useNavigate();
   if (!item) return null;
 
   return (
@@ -397,7 +417,13 @@ const PreAuthAlert = ({ item }: { item: InsurancePreAuthorization | null }) => {
             </div>
           </div>
         </div>
-        <button className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Review urgent case</button>
+        <button
+          type="button"
+          onClick={() => navigate('/insurance/preauth')}
+          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+        >
+          Review urgent case
+        </button>
       </div>
     </section>
   );
@@ -663,8 +689,22 @@ const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; 
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex flex-wrap justify-end gap-1.5">
-                      <button className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700">Approve</button>
-                      <button className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">Review</button>
+                      <button
+                        type="button"
+                        disabled
+                        title="Approve / Review actions are wired in the pre-authorizations workspace; bulk row controls are coming in a later release."
+                        className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        title="Approve / Review actions are wired in the pre-authorizations workspace; bulk row controls are coming in a later release."
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Review
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -698,14 +738,46 @@ const AiInsightCard = ({ insight }: { insight: InsuranceAiInsight }) => {
       ) : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {insight.primaryActionLabel ? (
-          <button className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f]">
-            {insight.primaryActionLabel}
-          </button>
+          insight.primaryActionUrl ? (
+            <a
+              href={insight.primaryActionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f]"
+            >
+              {insight.primaryActionLabel}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="A primary action target has not been provided for this insight."
+              className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {insight.primaryActionLabel}
+            </button>
+          )
         ) : null}
         {insight.secondaryActionLabel ? (
-          <button className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">
-            {insight.secondaryActionLabel}
-          </button>
+          insight.secondaryActionUrl ? (
+            <a
+              href={insight.secondaryActionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
+            >
+              {insight.secondaryActionLabel}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="A secondary action target has not been provided for this insight."
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {insight.secondaryActionLabel}
+            </button>
+          )
         ) : null}
       </div>
     </div>
@@ -727,8 +799,20 @@ const FraudAlertCard = ({ alert }: { alert: InsuranceFraudAlert }) => {
         Amount at risk: {formatCurrency(alert.exposureAmountAed)}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <button className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700">Investigate</button>
-        <button className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100">Freeze Claims</button>
+        <Link
+          to="/insurance/fraud"
+          className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700"
+        >
+          Investigate
+        </Link>
+        <button
+          type="button"
+          disabled
+          title="Claims freeze action is wired in the dedicated fraud workspace; bulk row controls are coming in a later release."
+          className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Freeze Claims
+        </button>
       </div>
     </div>
   );
@@ -972,10 +1056,19 @@ export const InsurancePortal = () => {
                 <p className="mt-0.5 text-xs text-slate-400">{pendingPreAuths.length} pending · DHA response required</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+                <button
+                  type="button"
+                  disabled
+                  title="Bulk approval workflow is coming in a later release. Use the pre-authorizations workspace to review individual cases."
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   Bulk Approve AI Recommended ({aiBulkApproveCount})
                 </button>
-                <button onClick={() => navigate('/insurance/preauth')} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => navigate('/insurance/preauth')}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
                   View All →
                 </button>
               </div>
@@ -1159,10 +1252,20 @@ export const InsurancePreAuthorizations = () => {
             <p className="mt-0.5 text-xs text-slate-400">Review urgent, high, and routine authorization requests</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+            <button
+              type="button"
+              disabled
+              title="Bulk approval workflow is coming in a later release."
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
               Bulk Approve AI Recommended ({aiBulkApprove})
             </button>
-            <button className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f]">
+            <button
+              type="button"
+              disabled
+              title="On-demand AI triage will ship with the Edge Function for pre-auth scoring."
+              className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f] disabled:cursor-not-allowed disabled:opacity-60"
+            >
               Run AI triage
             </button>
           </div>

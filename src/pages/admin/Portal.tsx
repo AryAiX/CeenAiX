@@ -730,6 +730,22 @@ const issueIconTone = (severity: string) => {
   return 'bg-blue-100 text-blue-600';
 };
 
+const issueCtaRoute = (ctaKind: string | null, category: string | null): string => {
+  const kind = (ctaKind ?? '').toLowerCase();
+  const cat = (category ?? '').toLowerCase();
+  if (kind.includes('license') || cat === 'license') return '/admin/doctors';
+  if (kind.includes('security') || cat === 'security') return '/admin/security';
+  if (kind.includes('integration') || cat === 'integration') return '/admin/integrations';
+  if (kind.includes('compliance') || cat === 'compliance') return '/admin/compliance';
+  if (kind.includes('audit')) return '/admin/audit';
+  if (kind.includes('revenue') || kind.includes('billing')) return '/admin/revenue';
+  if (kind.includes('nabidh')) return '/admin/nabidh';
+  if (kind.includes('user')) return '/admin/users';
+  if (kind.includes('org') || kind.includes('tenant')) return '/admin/organizations';
+  if (kind.includes('ai')) return '/admin/ai-analytics';
+  return '/admin/diagnostics';
+};
+
 const RevenueBars = ({
   revenueDaily,
 }: {
@@ -905,6 +921,7 @@ const QuickActions = ({ context }: { context: AdminContext }) => {
 };
 
 const DashboardView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const issues = context.dashboard?.issues ?? [];
   const portals = context.dashboard?.portals ?? [];
@@ -945,7 +962,14 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
                     ) : null}
                   </div>
                   {issue.cta_label ? (
-                    <button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = issueCtaRoute(issue.cta_kind, issue.category);
+                        navigate(target);
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                    >
                       {issue.cta_label}
                     </button>
                   ) : null}
@@ -2361,6 +2385,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
 };
 
 const OrganizationCard = ({ org }: { org: Organization }) => {
+  const navigate = useNavigate();
   const dha = org.notes?.match(/DHA-[A-Z]-\d{4}-\d{3,}/)?.[0] ?? '—';
   const nabidh = org.notes?.toLowerCase().includes('nabidh connected') ? 'connected' : 'disconnected';
   const kindTone =
@@ -2404,18 +2429,8 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
           <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{org.seats_used}</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
-          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Monthly Trans.</dt>
-          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">
-            {org.kind === 'hospital'
-              ? '12,470'
-              : org.kind === 'pharmacy'
-                ? '8,920'
-                : org.kind === 'lab'
-                  ? '11,230'
-                  : org.kind === 'clinic'
-                    ? '0'
-                    : '5,200'}
-          </dd>
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Type</dt>
+          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{titleCase(org.kind)}</dd>
         </div>
         <div className="col-span-2 rounded-xl bg-slate-50 p-2">
           <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">NABIDH Status</dt>
@@ -2425,10 +2440,36 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
         </div>
       </dl>
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">View</button>
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">Edit</button>
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">Billing</button>
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">Audit</button>
+        <button
+          type="button"
+          disabled
+          title="Per-organization detail pages are coming in a later release."
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          View
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Per-organization detail pages are coming in a later release."
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/revenue')}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+        >
+          Billing
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/audit')}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+        >
+          Audit
+        </button>
       </div>
     </Card>
   );
