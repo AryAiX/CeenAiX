@@ -98,6 +98,9 @@ export const Profile: React.FC = () => {
       provider: primaryInsurance?.providerCompany ?? '',
       policyNumber: primaryInsurance?.policyNumber ?? '',
       memberId: primaryInsurance?.memberId ?? '',
+      // The canonical `patient_insurance` row has no `group_number` column;
+      // the network type (e.g. "Premium Plus", "Network B") is the closest
+      // human-meaningful identifier we surface alongside the policy number.
       groupNumber: primaryInsurance?.networkType ?? '',
       coverageType: primaryInsurance?.coverageType ?? '',
       validFrom: primaryInsurance?.validFrom ?? '',

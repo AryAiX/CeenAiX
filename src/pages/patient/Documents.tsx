@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   Calendar,
@@ -170,16 +171,21 @@ export const PatientDocuments = () => {
             <p className="text-sm text-slate-500">{t('patient.documents.subtitle')}</p>
           </div>
         </div>
-        <button
-          type="button"
+        <Link
+          to="/patient/settings"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
         >
           <ShieldCheck className="h-4 w-4" />
           {t('patient.documents.security')}
-        </button>
+        </Link>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+          disabled
+          title={t('patient.documents.uploadComingSoon', {
+            defaultValue:
+              'Patient-initiated uploads are coming in a later release. Lab reports, prescriptions and insurance cards already sync automatically.',
+          })}
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-sm"
         >
           <Upload className="h-4 w-4" />
           {t('patient.documents.uploadDocument')}
@@ -360,13 +366,48 @@ export const PatientDocuments = () => {
               </dl>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">
-                <Eye className="h-4 w-4" /> {t('patient.documents.view')}
-              </button>
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {selectedDocument.source === 'lab_orders' ? (
+                <Link
+                  to="/patient/lab-results"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+                </Link>
+              ) : selectedDocument.source === 'prescriptions' ? (
+                <Link
+                  to="/patient/prescriptions"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+                </Link>
+              ) : (
+                <Link
+                  to="/patient/insurance"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+                </Link>
+              )}
+              <button
+                type="button"
+                disabled
+                title={t('patient.documents.downloadComingSoon', {
+                  defaultValue:
+                    'PDF export is coming in a later release. Use the live source view above for now.',
+                })}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 <Download className="h-4 w-4" /> {t('patient.documents.download')}
               </button>
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              <button
+                type="button"
+                disabled
+                title={t('patient.documents.shareComingSoon', {
+                  defaultValue:
+                    'Secure document sharing is coming in a later release.',
+                })}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 <Share2 className="h-4 w-4" /> {t('patient.documents.share')}
               </button>
             </div>
