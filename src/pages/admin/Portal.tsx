@@ -1687,7 +1687,10 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=doctor')}
+          // Force the register page to sign-out the admin first (?reset=1)
+          // so the existing session doesn't bounce them back to /auth/onboarding
+          // before the new doctor record can be created.
+          onClick={() => navigate('/auth/register?role=doctor&reset=1')}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Add Doctor
