@@ -196,6 +196,34 @@ export async function uploadAiChatAttachment(userId: string, file: File): Promis
   };
 }
 
+/**
+ * Best-effort rollback for storage objects that were uploaded but whose
+ * downstream invoke (or DB write) failed. Used to keep the medical-files
+ * bucket from accumulating orphaned objects.
+ */
+export async function removeAiChatAttachments(
+  attachments: ReadonlyArray<AiChatFileAttachment>
+): Promise<void> {
+  if (attachments.length === 0) return;
+  const byBucket = new Map<string, string[]>();
+  for (const attachment of attachments) {
+    const paths = byBucket.get(attachment.bucket) ?? [];
+    paths.push(attachment.path);
+    byBucket.set(attachment.bucket, paths);
+  }
+  await Promise.all(
+    Array.from(byBucket.entries()).map(async ([bucket, paths]) => {
+      const { error } = await supabase.storage.from(bucket).remove(paths);
+      if (error) {
+        // Cleanup is best-effort; surface only as a console warning so a
+        // failed rollback never masks the original invoke failure for the
+        // caller.
+        console.warn('[ai-chat] orphan attachment rollback failed', error);
+      }
+    })
+  );
+}
+
 const createTemplateDocumentPath = (doctorUserId: string, fileName: string) => {
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '-');
   return `${doctorUserId}/pre-visit/${crypto.randomUUID()}-${sanitizedName}`;

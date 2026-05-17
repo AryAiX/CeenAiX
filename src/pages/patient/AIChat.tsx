@@ -30,6 +30,7 @@ import {
   invokeAiChat,
   type AiChatFileAttachment,
   type AiChatStoredAttachment,
+  removeAiChatAttachments,
   uploadAiChatAttachment,
 } from '../../lib/ai';
 import { useAuth } from '../../lib/auth-context';
@@ -302,11 +303,13 @@ export const PatientAIChat: React.FC = () => {
       return;
     }
 
+    let uploadedAttachments: AiChatFileAttachment[] = [];
+    let invokeSucceeded = false;
     try {
       setSendError(null);
       setIsSending(true);
 
-      const uploadedAttachments =
+      uploadedAttachments =
         pendingFiles.length > 0
           ? await Promise.all(pendingFiles.map((file) => uploadAiChatAttachment(user.id, file)))
           : [];
@@ -336,6 +339,7 @@ export const PatientAIChat: React.FC = () => {
         usePatientContext: true,
         mode: 'chat',
       });
+      invokeSucceeded = true;
 
       const previousSessionId = selectedSessionId;
       setSelectedSessionId(response.sessionId);
@@ -362,6 +366,12 @@ export const PatientAIChat: React.FC = () => {
       await refetchCanonicalUpdates();
     } catch (sendFailure) {
       setSendError(sendFailure instanceof Error ? sendFailure.message : t('patient.aiChat.sendError'));
+      // The invoke or one of the surrounding writes failed after we already
+      // pushed attachments into storage. Clean them up so we don't leak
+      // orphan objects into the medical-files bucket.
+      if (!invokeSucceeded && uploadedAttachments.length > 0) {
+        await removeAiChatAttachments(uploadedAttachments);
+      }
     } finally {
       setIsSending(false);
     }
