@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MapPin, Clock, Star, Search, Filter, Beaker, TestTube } from 'lucide-react';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
-import { supabase } from '../../lib/supabase';
+import { usePublicLaboratories } from '../../hooks';
 import { formatLocaleDecimal, formatLocaleDigits } from '../../lib/i18n-ui';
 import {
   displayLaboratoryHours,
@@ -15,138 +15,31 @@ import {
   laboratorySearchHaystack,
 } from '../../lib/laboratories-display';
 
-interface Laboratory {
-  id: string;
-  name: string;
-  location: string;
-  rating: number;
-  tests_available: number;
-  opening_hours: string;
-  services: string[];
-  featured: boolean;
-}
-
 export const Laboratories: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
-  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [usingDemoData, setUsingDemoData] = useState(false);
+  const { data: laboratories, loading, error: loadError, refetch } = usePublicLaboratories();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('all');
 
-  const getSampleLaboratories = useCallback((): Laboratory[] => {
-    return [
-      {
-        id: '1',
-        name: 'Dubai Advanced Laboratory',
-        location: 'Dubai Healthcare City',
-        rating: 4.9,
-        tests_available: 250,
-        opening_hours: '7:00 AM - 9:00 PM',
-        services: ['Blood Tests', 'Radiology', 'Pathology', 'Genetic Testing', 'COVID-19 PCR'],
-        featured: true,
-      },
-      {
-        id: '2',
-        name: 'HealthCheck Lab Center',
-        location: 'Jumeirah',
-        rating: 4.7,
-        tests_available: 180,
-        opening_hours: '8:00 AM - 8:00 PM',
-        services: ['Blood Tests', 'Urine Analysis', 'X-Ray', 'Ultrasound', 'ECG'],
-        featured: true,
-      },
-      {
-        id: '3',
-        name: 'Al Barsha Medical Lab',
-        location: 'Al Barsha',
-        rating: 4.6,
-        tests_available: 150,
-        opening_hours: '8:00 AM - 7:00 PM',
-        services: ['Blood Tests', 'Pathology', 'Microbiology', 'Immunology'],
-        featured: false,
-      },
-      {
-        id: '4',
-        name: 'Emirates Diagnostic Center',
-        location: 'Dubai Marina',
-        rating: 4.8,
-        tests_available: 220,
-        opening_hours: '7:00 AM - 10:00 PM',
-        services: ['Blood Tests', 'MRI', 'CT Scan', 'Radiology', 'Nuclear Medicine'],
-        featured: false,
-      },
-      {
-        id: '5',
-        name: 'City Lab & Diagnostics',
-        location: 'Deira',
-        rating: 4.5,
-        tests_available: 160,
-        opening_hours: '8:00 AM - 8:00 PM',
-        services: ['Blood Tests', 'Pathology', 'Chemistry', 'Hematology'],
-        featured: false,
-      },
-      {
-        id: '6',
-        name: 'Premier Medical Laboratory',
-        location: 'Business Bay',
-        rating: 4.9,
-        tests_available: 280,
-        opening_hours: '24/7',
-        services: ['Blood Tests', 'Radiology', 'Advanced Diagnostics', 'Molecular Testing', 'Toxicology'],
-        featured: true,
-      },
-    ];
-  }, []);
-
-  const fetchLaboratories = useCallback(async () => {
-    setLoadError(null);
-    setUsingDemoData(false);
-    try {
-      const { data, error } = await supabase
-        .from('laboratories')
-        .select('*')
-        .order('featured', { ascending: false })
-        .order('rating', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        setLaboratories(data as Laboratory[]);
-      }
-    } catch (error) {
-      console.error('Error fetching laboratories:', error);
-      setLoadError(error instanceof Error ? error.message : 'Unable to load laboratories.');
-      setLaboratories(getSampleLaboratories());
-      setUsingDemoData(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [getSampleLaboratories]);
-
-  useEffect(() => {
-    fetchLaboratories();
-  }, [fetchLaboratories]);
+  const labList = laboratories ?? [];
 
   const filteredLaboratories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return laboratories.filter((lab) => {
+    return labList.filter((lab) => {
       const matchesSearch = !q || laboratorySearchHaystack(t, lab).includes(q);
       const matchesLocation = selectedLocation === 'all' || lab.location === selectedLocation;
       return matchesSearch && matchesLocation;
     });
-  }, [laboratories, searchQuery, selectedLocation, t]);
+  }, [labList, searchQuery, selectedLocation, t]);
 
   const locations = useMemo(
-    () => ['all', ...new Set(laboratories.map((lab) => lab.location))],
-    [laboratories]
+    () => ['all', ...new Set(labList.map((lab) => lab.location).filter(Boolean))],
+    [labList]
   );
 
   return (
     <div className="relative min-h-screen bg-gray-50">
-      {/* Keep decoration in the top band only — full-page inset-0 stacked over the footer and hid slate-950 + light text */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[22rem] overflow-hidden sm:h-[26rem]"
         aria-hidden
@@ -172,10 +65,18 @@ export const Laboratories: React.FC = () => {
         </div>
 
         {loadError ? (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
-            {usingDemoData
-              ? `${loadError} Showing sample directory for preview.`
-              : loadError}
+          <div
+            className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            role="alert"
+          >
+            <p>{loadError}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 font-semibold text-red-700 underline"
+            >
+              Retry
+            </button>
           </div>
         ) : null}
 
@@ -225,9 +126,9 @@ export const Laboratories: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredLaboratories.map((lab) => {
-              const nameDisplay = displayLaboratoryName(t, lab.id, lab.name);
+              const nameDisplay = displayLaboratoryName(t, lab.slug || lab.id, lab.name);
               const locationDisplay = displayLaboratoryLocation(t, lab.location);
-              const hoursDisplay = displayLaboratoryHours(t, lab.opening_hours);
+              const hoursDisplay = displayLaboratoryHours(t, lab.openingHours);
 
               return (
                 <div
@@ -268,7 +169,7 @@ export const Laboratories: React.FC = () => {
                       <TestTube className="me-2 h-4 w-4 text-blue-600" />
                       <span className="text-sm font-semibold">
                         {t('laboratoryPage.testsAvailable', {
-                          count: formatLocaleDigits(lab.tests_available, i18n.language),
+                          count: formatLocaleDigits(lab.testsAvailable, i18n.language),
                         })}
                       </span>
                     </div>
@@ -298,8 +199,8 @@ export const Laboratories: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => navigate('/auth/register?role=patient&reset=1')}
-                      className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 py-3 font-semibold text-white shadow-md transition-all hover:from-blue-700 hover:to-cyan-700 hover:shadow-lg"
+                      onClick={() => navigate('/find-doctor')}
+                      className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 py-3 font-semibold text-white transition-all hover:from-blue-700 hover:to-cyan-700"
                     >
                       {t('laboratoryPage.bookTest')}
                     </button>
@@ -309,40 +210,9 @@ export const Laboratories: React.FC = () => {
             })}
           </div>
         )}
-
-        <div className="mt-12 rounded-2xl bg-white p-8 shadow-lg">
-          <h2 className="mb-6 text-center text-2xl font-bold text-gray-900">
-            {t('laboratoryPage.benefitsTitle')}
-          </h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                <Beaker className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="mb-2 font-semibold text-gray-900">{t('laboratoryPage.benefit1Title')}</h3>
-              <p className="text-sm text-gray-600">{t('laboratoryPage.benefit1Body')}</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <TestTube className="h-6 w-6 text-green-600" />
-              </div>
-              <h3 className="mb-2 font-semibold text-gray-900">{t('laboratoryPage.benefit2Title')}</h3>
-              <p className="text-sm text-gray-600">{t('laboratoryPage.benefit2Body')}</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-100">
-                <Clock className="h-6 w-6 text-cyan-600" />
-              </div>
-              <h3 className="mb-2 font-semibold text-gray-900">{t('laboratoryPage.benefit3Title')}</h3>
-              <p className="text-sm text-gray-600">{t('laboratoryPage.benefit3Body')}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <div className="relative z-10 border-t border-slate-800/20">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };

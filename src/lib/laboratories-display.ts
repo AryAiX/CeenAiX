@@ -8,6 +8,10 @@ export const LABORATORY_ID_TO_NAME_KEY: Record<string, string> = {
   '4': 'emiratesDiagnostic',
   '5': 'cityLab',
   '6': 'premierMedical',
+  'dubai-advanced-laboratory': 'dubaiAdvanced',
+  'healthcheck-lab-center': 'healthCheck',
+  'emirates-diagnostic-center': 'emiratesDiagnostic',
+  'ceenaix-reference-lab': 'premierMedical',
 };
 
 /** English location from API/sample → `laboratoryPage.locations.*` */
@@ -86,15 +90,25 @@ export const displayLaboratoryService = (t: TFunction, service: string): string 
 
 export const laboratorySearchHaystack = (
   t: TFunction,
-  lab: { id: string; name: string; location: string; opening_hours: string; services: string[] }
+  lab: {
+    id: string;
+    slug?: string;
+    name: string;
+    location: string;
+    opening_hours?: string;
+    openingHours?: string;
+    services: string[];
+  }
 ): string => {
+  const directoryKey = lab.slug ?? lab.id;
+  const openingHours = lab.openingHours ?? lab.opening_hours ?? '';
   const parts = [
     lab.name,
     lab.location,
-    lab.opening_hours,
-    displayLaboratoryName(t, lab.id, lab.name),
+    openingHours,
+    displayLaboratoryName(t, directoryKey, lab.name),
     displayLaboratoryLocation(t, lab.location),
-    displayLaboratoryHours(t, lab.opening_hours),
+    displayLaboratoryHours(t, openingHours),
     ...lab.services,
     ...lab.services.map((s) => displayLaboratoryService(t, s)),
   ];

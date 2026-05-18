@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, MapPin, Star, Clock, Phone,
@@ -7,52 +7,20 @@ import {
   Ambulance, ParkingCircle, Shield, Navigation,
   Award, TrendingUp, Stethoscope, Heart
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useFacilityDoctors, usePublicFacilities } from '../../hooks';
+import type { PublicFacility } from '../../types/facility';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 
-interface Hospital {
-  id: string;
-  name: string;
-  type: string;
-  address: string;
-  city: string;
-  phone: string;
-  email: string;
-  image_url: string;
-  rating: number;
-  total_reviews: number;
-  description: string;
-  facilities: string[];
-  specialties: string[];
-  emergency_services: boolean;
-  parking_available: boolean;
-  insurance_accepted: string[];
-  operating_hours: Record<string, string>;
-  latitude: number;
-  longitude: number;
-}
+const DEFAULT_FACILITY_IMAGE =
+  'https://images.pexels.com/photos/668300/pexels-photo-668300.jpeg?auto=compress&cs=tinysrgb&w=800';
 
-interface Doctor {
-  id: string;
-  name: string;
-  specialty: string;
-  location: string;
-  image_url: string;
-  average_rating: number;
-  total_ratings: number;
-  accepts_video: boolean;
-  is_available: boolean;
-  consultation_days: string[];
-  consultation_hours: string;
-  room_number: string;
-}
+const DEFAULT_DOCTOR_IMAGE =
+  'https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg?auto=compress&cs=tinysrgb&w=200';
 
 export const FindClinic: React.FC = () => {
   const navigate = useNavigate();
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { data: facilities, loading, error: loadError, refetch } = usePublicFacilities();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
@@ -60,125 +28,83 @@ export const FindClinic: React.FC = () => {
   const [minRating, setMinRating] = useState<number>(0);
   const [showEmergencyOnly, setShowEmergencyOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [expandedHospital, setExpandedHospital] = useState<string | null>(null);
-  const [hospitalDoctors, setHospitalDoctors] = useState<Record<string, Doctor[]>>({});
+  const [expandedFacilityId, setExpandedFacilityId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'rating' | 'name'>('rating');
   const [showNavMenu, setShowNavMenu] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchHospitals();
-  }, []);
+  const { data: facilityDoctors, loading: doctorsLoading } = useFacilityDoctors(expandedFacilityId);
 
-  const fetchHospitals = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const { data, error } = await supabase
-        .from('hospitals')
-        .select('*')
-        .order('rating', { ascending: false });
+  const facilityList = facilities ?? [];
 
-      if (error) throw error;
-      setHospitals(data || []);
-    } catch (error) {
-      console.error('Error fetching hospitals:', error);
-      setLoadError(error instanceof Error ? error.message : 'Unable to load clinics.');
-      setHospitals([]);
-    } finally {
-      setLoading(false);
-    }
+  const toggleFacilityExpansion = (facilityId: string) => {
+    setExpandedFacilityId((current) => (current === facilityId ? null : facilityId));
   };
 
-  const fetchHospitalDoctors = async (hospitalId: string) => {
-    if (hospitalDoctors[hospitalId]) return;
+  const allCities = useMemo(
+    () => Array.from(new Set(facilityList.map((facility) => facility.city))),
+    [facilityList]
+  );
+  const allSpecialties = useMemo(
+    () => Array.from(new Set(facilityList.flatMap((facility) => facility.specialties))).sort(),
+    [facilityList]
+  );
 
-    try {
-      const { data, error } = await supabase
-        .from('hospital_doctors')
-        .select(`
-          *,
-          doctor:doctors (
-            id,
-            name,
-            specialty,
-            location,
-            image_url,
-            average_rating,
-            total_ratings,
-            accepts_video
-          )
-        `)
-        .eq('hospital_id', hospitalId);
-
-      if (error) throw error;
-
-      const doctors = data?.map(hd => ({
-        id: hd.doctor.id,
-        name: hd.doctor.name,
-        specialty: hd.doctor.specialty,
-        location: hd.doctor.location,
-        image_url: hd.doctor.image_url,
-        average_rating: hd.doctor.average_rating || 0,
-        total_ratings: hd.doctor.total_ratings || 0,
-        accepts_video: hd.doctor.accepts_video,
-        is_available: hd.is_available,
-        consultation_days: hd.consultation_days || [],
-        consultation_hours: hd.consultation_hours || '',
-        room_number: hd.room_number || ''
-      })) || [];
-
-      setHospitalDoctors(prev => ({ ...prev, [hospitalId]: doctors }));
-    } catch (error) {
-      console.error('Error fetching hospital doctors:', error);
-    }
-  };
-
-  const toggleHospitalExpansion = (hospitalId: string) => {
-    if (expandedHospital === hospitalId) {
-      setExpandedHospital(null);
-    } else {
-      setExpandedHospital(hospitalId);
-      fetchHospitalDoctors(hospitalId);
-    }
-  };
-
-  const allCities = Array.from(new Set(hospitals.map(h => h.city)));
-  const allSpecialties = Array.from(
-    new Set(hospitals.flatMap(h => h.specialties || []))
-  ).sort();
-
-  const openGoogleMaps = (hospital: Hospital) => {
-    const url = `https://www.google.com/maps/search/?api=1&query=${hospital.latitude},${hospital.longitude}`;
+  const openGoogleMaps = (facility: PublicFacility) => {
+    if (facility.latitude == null || facility.longitude == null) return;
+    const url = `https://www.google.com/maps/search/?api=1&query=${facility.latitude},${facility.longitude}`;
     window.open(url, '_blank', 'noopener,noreferrer');
     setShowNavMenu(null);
   };
 
-  const openWaze = (hospital: Hospital) => {
-    const url = `https://waze.com/ul?ll=${hospital.latitude},${hospital.longitude}&navigate=yes`;
+  const openWaze = (facility: PublicFacility) => {
+    if (facility.latitude == null || facility.longitude == null) return;
+    const url = `https://waze.com/ul?ll=${facility.latitude},${facility.longitude}&navigate=yes`;
     window.open(url, '_blank', 'noopener,noreferrer');
     setShowNavMenu(null);
   };
 
-  const filteredHospitals = hospitals
-    .filter(hospital => {
-      const matchesSearch =
-        hospital.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        hospital.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        hospital.specialties?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredFacilities = useMemo(
+    () =>
+      facilityList
+        .filter((facility) => {
+          const matchesSearch =
+            facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            facility.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            facility.specialties.some((specialty) =>
+              specialty.toLowerCase().includes(searchTerm.toLowerCase())
+            );
 
-      const matchesType = selectedType === 'all' || hospital.type === selectedType;
-      const matchesCity = selectedCity === 'all' || hospital.city === selectedCity;
-      const matchesSpecialty = selectedSpecialty === 'all' ||
-        hospital.specialties?.includes(selectedSpecialty);
-      const matchesEmergency = !showEmergencyOnly || hospital.emergency_services;
-      const matchesRating = hospital.rating >= minRating;
+          const matchesType = selectedType === 'all' || facility.facilityType === selectedType;
+          const matchesCity = selectedCity === 'all' || facility.city === selectedCity;
+          const matchesSpecialty =
+            selectedSpecialty === 'all' || facility.specialties.includes(selectedSpecialty);
+          const matchesEmergency = !showEmergencyOnly || facility.emergencyServices;
+          const matchesRating = facility.rating >= minRating;
 
-      return matchesSearch && matchesType && matchesCity && matchesSpecialty && matchesEmergency && matchesRating;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'rating') return b.rating - a.rating;
-      return a.name.localeCompare(b.name);
-    });
+          return (
+            matchesSearch &&
+            matchesType &&
+            matchesCity &&
+            matchesSpecialty &&
+            matchesEmergency &&
+            matchesRating
+          );
+        })
+        .sort((a, b) => {
+          if (sortBy === 'rating') return b.rating - a.rating;
+          return a.name.localeCompare(b.name);
+        }),
+    [
+      facilityList,
+      minRating,
+      searchTerm,
+      selectedCity,
+      selectedSpecialty,
+      selectedType,
+      showEmergencyOnly,
+      sortBy,
+    ]
+  );
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white">
@@ -218,7 +144,7 @@ export const FindClinic: React.FC = () => {
             <p>{loadError}</p>
             <button
               type="button"
-              onClick={() => void fetchHospitals()}
+              onClick={() => void refetch()}
               className="mt-2 text-sm font-semibold text-red-700 underline"
             >
               Retry
@@ -363,7 +289,7 @@ export const FindClinic: React.FC = () => {
 
         <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-blue-600" />
-          Found <span className="font-bold text-blue-600">{filteredHospitals.length}</span> {filteredHospitals.length === 1 ? 'facility' : 'facilities'}
+          Found <span className="font-bold text-blue-600">{filteredFacilities.length}</span> {filteredFacilities.length === 1 ? 'facility' : 'facilities'}
         </div>
 
         {loading ? (
@@ -373,21 +299,21 @@ export const FindClinic: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {filteredHospitals.map((hospital, index) => (
+            {filteredFacilities.map((facility, index) => (
               <div
-                key={hospital.id}
+                key={facility.id}
                 className="card-hover bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-gray-100 animate-fade-in-up"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className="lg:flex">
                   <div className="lg:w-96 h-72 lg:h-auto relative overflow-hidden group">
                     <img
-                      src={hospital.image_url}
-                      alt={hospital.name}
+                      src={facility.imageUrl ?? DEFAULT_FACILITY_IMAGE}
+                      alt={facility.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    {hospital.rating >= 4.5 && (
+                    {facility.rating >= 4.5 && (
                       <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg animate-bounce-subtle">
                         <Award className="w-3.5 h-3.5" />
                         Top Rated
@@ -400,9 +326,9 @@ export const FindClinic: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
-                            {hospital.name}
+                            {facility.name}
                           </h3>
-                          {hospital.type === 'hospital' ? (
+                          {facility.facilityType === 'hospital' ? (
                             <Building2 className="w-5 h-5 text-blue-600" />
                           ) : (
                             <Heart className="w-5 h-5 text-cyan-600" />
@@ -410,17 +336,17 @@ export const FindClinic: React.FC = () => {
                         </div>
                         <p className="text-blue-600 font-medium capitalize flex items-center gap-2">
                           <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
-                          {hospital.type}
+                          {facility.facilityType}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        {hospital.emergency_services && (
+                        {facility.emergencyServices && (
                           <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-md animate-pulse-subtle">
                             <Ambulance className="w-3.5 h-3.5" />
                             24/7 Emergency
                           </span>
                         )}
-                        {hospital.parking_available && (
+                        {facility.parkingAvailable && (
                           <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-md">
                             <ParkingCircle className="w-3.5 h-3.5" />
                             Parking
@@ -429,42 +355,44 @@ export const FindClinic: React.FC = () => {
                       </div>
                     </div>
 
-                    <p className="text-gray-600 mb-4 line-clamp-2 leading-relaxed">{hospital.description}</p>
+                    <p className="text-gray-600 mb-4 line-clamp-2 leading-relaxed">{facility.description}</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                       <div className="flex items-center gap-2 text-gray-700 group hover:text-blue-600 transition-colors">
                         <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 group-hover:animate-bounce-subtle" />
-                        <span className="text-sm">{hospital.address}</span>
+                        <span className="text-sm">{facility.address}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-700 group hover:text-blue-600 transition-colors">
-                        <Phone className="w-4 h-4 text-blue-600 flex-shrink-0 group-hover:animate-bounce-subtle" />
-                        <a href={`tel:${hospital.phone}`} className="text-sm hover:text-blue-600">
-                          {hospital.phone}
-                        </a>
-                      </div>
-                      {hospital.email && (
+                      {facility.phone ? (
+                        <div className="flex items-center gap-2 text-gray-700 group hover:text-blue-600 transition-colors">
+                          <Phone className="w-4 h-4 text-blue-600 flex-shrink-0 group-hover:animate-bounce-subtle" />
+                          <a href={`tel:${facility.phone}`} className="text-sm hover:text-blue-600">
+                            {facility.phone}
+                          </a>
+                        </div>
+                      ) : null}
+                      {facility.email && (
                         <div className="flex items-center gap-2 text-gray-700 group hover:text-blue-600 transition-colors">
                           <Mail className="w-4 h-4 text-blue-600 flex-shrink-0 group-hover:animate-bounce-subtle" />
-                          <a href={`mailto:${hospital.email}`} className="text-sm hover:text-blue-600">
-                            {hospital.email}
+                          <a href={`mailto:${facility.email}`} className="text-sm hover:text-blue-600">
+                            {facility.email}
                           </a>
                         </div>
                       )}
                       <div className="flex items-center gap-2 bg-yellow-50 px-3 py-2 rounded-lg">
                         <Star className="w-5 h-5 text-yellow-500 fill-current flex-shrink-0 animate-pulse-subtle" />
-                        <span className="font-bold text-gray-900">{hospital.rating.toFixed(1)}</span>
-                        <span className="text-gray-500 text-sm">({hospital.total_reviews} reviews)</span>
+                        <span className="font-bold text-gray-900">{facility.rating.toFixed(1)}</span>
+                        <span className="text-gray-500 text-sm">({facility.totalReviews} reviews)</span>
                       </div>
                     </div>
 
-                    {hospital.specialties && hospital.specialties.length > 0 && (
+                    {facility.specialties && facility.specialties.length > 0 && (
                       <div className="mb-4">
                         <p className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide flex items-center gap-2">
                           <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
                           Specialties
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {hospital.specialties.slice(0, 6).map((specialty, index) => (
+                          {facility.specialties.slice(0, 6).map((specialty, index) => (
                             <span
                               key={index}
                               className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold hover:scale-105 transition-transform cursor-default"
@@ -472,23 +400,23 @@ export const FindClinic: React.FC = () => {
                               {specialty}
                             </span>
                           ))}
-                          {hospital.specialties.length > 6 && (
+                          {facility.specialties.length > 6 && (
                             <span className="text-xs text-gray-500 px-2 py-1">
-                              +{hospital.specialties.length - 6} more
+                              +{facility.specialties.length - 6} more
                             </span>
                           )}
                         </div>
                       </div>
                     )}
 
-                    {hospital.insurance_accepted && hospital.insurance_accepted.length > 0 && (
+                    {facility.insuranceAccepted && facility.insuranceAccepted.length > 0 && (
                       <div className="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                         <p className="text-sm font-bold text-green-900 mb-3 flex items-center gap-2">
                           <Shield className="w-5 h-5 text-green-600" />
-                          Insurance Accepted ({hospital.insurance_accepted.length} providers)
+                          Insurance Accepted ({facility.insuranceAccepted.length} providers)
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {hospital.insurance_accepted.map((insurance, index) => (
+                          {facility.insuranceAccepted.map((insurance, index) => (
                             <span
                               key={index}
                               className="bg-white border-2 border-green-300 text-green-800 px-3 py-1.5 rounded-lg text-sm font-semibold shadow-sm hover:shadow-md hover:scale-105 transition-all cursor-default"
@@ -502,12 +430,12 @@ export const FindClinic: React.FC = () => {
 
                     <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
                       <button
-                        onClick={() => toggleHospitalExpansion(hospital.id)}
+                        onClick={() => toggleFacilityExpansion(facility.id)}
                         className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-xl transform hover:scale-105"
                       >
                         <Users className="w-4 h-4" />
-                        {expandedHospital === hospital.id ? 'Hide' : 'View'} Doctors
-                        {expandedHospital === hospital.id ?
+                        {expandedFacilityId === facility.id ? 'Hide' : 'View'} Doctors
+                        {expandedFacilityId === facility.id ?
                           <ChevronUp className="w-4 h-4" /> :
                           <ChevronDown className="w-4 h-4" />
                         }
@@ -522,24 +450,24 @@ export const FindClinic: React.FC = () => {
                       </button>
                       <div className="relative">
                         <button
-                          onClick={() => setShowNavMenu(showNavMenu === hospital.id ? null : hospital.id)}
+                          onClick={() => setShowNavMenu(showNavMenu === facility.id ? null : facility.id)}
                           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 font-semibold text-white shadow-md transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/30"
                         >
                           <Navigation className="w-4 h-4" />
                           Get Directions
-                          <ChevronDown className={`w-4 h-4 transition-transform ${showNavMenu === hospital.id ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-4 h-4 transition-transform ${showNavMenu === facility.id ? 'rotate-180' : ''}`} />
                         </button>
-                        {showNavMenu === hospital.id && (
+                        {showNavMenu === facility.id && (
                           <div className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-10 animate-fade-in min-w-[200px]">
                             <button
-                              onClick={() => openGoogleMaps(hospital)}
+                              onClick={() => openGoogleMaps(facility)}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left text-gray-700 hover:text-blue-600 font-medium"
                             >
                               <MapPin className="w-4 h-4 text-blue-600" />
                               Google Maps
                             </button>
                             <button
-                              onClick={() => openWaze(hospital)}
+                              onClick={() => openWaze(facility)}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-cyan-50 transition-colors text-left text-gray-700 hover:text-cyan-600 font-medium border-t border-gray-100"
                             >
                               <Navigation className="w-4 h-4 text-cyan-600" />
@@ -552,91 +480,112 @@ export const FindClinic: React.FC = () => {
                   </div>
                 </div>
 
-                {expandedHospital === hospital.id && (
+                {expandedFacilityId === facility.id && (
                   <div className="bg-gradient-to-br from-slate-50 to-blue-50 border-t-2 border-blue-100 p-6 animate-fade-in">
                     <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <Stethoscope className="w-5 h-5 text-blue-600" />
-                      Available Doctors at {hospital.name}
+                      Available Doctors at {facility.name}
                     </h4>
 
-                    {hospitalDoctors[hospital.id]?.length > 0 ? (
+                    {doctorsLoading ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+                        <p>Loading doctors...</p>
+                      </div>
+                    ) : (facilityDoctors ?? []).length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {hospitalDoctors[hospital.id].map((doctor, idx) => (
+                        {(facilityDoctors ?? []).map((doctor, idx) => (
                           <div
-                            key={doctor.id}
+                            key={doctor.userId}
                             className="card-hover bg-white rounded-xl p-4 shadow-md border border-gray-100 animate-fade-in-up"
                             style={{ animationDelay: `${idx * 50}ms` }}
                           >
                             <div className="flex items-start gap-3 mb-3">
                               <div className="relative">
                                 <img
-                                  src={doctor.image_url}
-                                  alt={doctor.name}
+                                  src={DEFAULT_DOCTOR_IMAGE}
+                                  alt={doctor.fullName}
                                   className="w-16 h-16 rounded-full object-cover border-2 border-blue-100"
                                 />
-                                {doctor.is_available && (
+                                {doctor.isAvailable && (
                                   <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h5 className="font-bold text-gray-900 mb-1">{doctor.name}</h5>
-                                <p className="text-sm text-blue-600 font-medium">{doctor.specialty}</p>
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
-                                  <span className="text-xs font-bold text-gray-900">
-                                    {doctor.average_rating > 0 ? doctor.average_rating.toFixed(1) : 'New'}
-                                  </span>
-                                  {doctor.total_ratings > 0 && (
-                                    <span className="text-xs text-gray-500">({doctor.total_ratings})</span>
-                                  )}
-                                </div>
+                                <h5 className="font-bold text-gray-900 mb-1">{doctor.fullName}</h5>
+                                <p className="text-sm text-blue-600 font-medium">
+                                  {doctor.specialty ?? 'General Medicine'}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  {doctor.activeAvailabilityCount > 0
+                                    ? `${doctor.activeAvailabilityCount} bookable slots`
+                                    : 'Schedule on request'}
+                                </p>
                               </div>
                             </div>
 
                             <div className="space-y-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 mb-3">
-                              <div className="flex items-center gap-2">
-                                <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                <span>Room {doctor.room_number}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                <span>{doctor.consultation_hours}</span>
-                              </div>
-                              {doctor.consultation_days?.length > 0 && (
+                              {doctor.roomNumber ? (
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                  <span>Room {doctor.roomNumber}</span>
+                                </div>
+                              ) : null}
+                              {doctor.consultationHours ? (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                  <span>{doctor.consultationHours}</span>
+                                </div>
+                              ) : null}
+                              {doctor.consultationDays.length > 0 ? (
                                 <div className="flex items-start gap-2">
                                   <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
                                   <div className="flex flex-wrap gap-1">
-                                    {doctor.consultation_days.map((day, idx) => (
-                                      <span key={idx} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">
+                                    {doctor.consultationDays.map((day, dayIdx) => (
+                                      <span
+                                        key={dayIdx}
+                                        className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium"
+                                      >
                                         {day}
                                       </span>
                                     ))}
                                   </div>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
 
                             <button
-                              onClick={() => navigate('/patient/appointments/book')}
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/patient/appointments/book?doctor=${encodeURIComponent(doctor.userId)}`
+                                )
+                              }
                               className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium rounded-lg transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
                             >
-                              Book with Dr. {doctor.name.split(' ')[doctor.name.split(' ').length - 1]}
+                              Book with {doctor.fullName}
                             </button>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
-                        <p>Loading doctors...</p>
-                      </div>
+                      <p className="text-center text-sm text-gray-600 py-6">
+                        No bookable doctors are listed for this facility yet.{' '}
+                        <button
+                          type="button"
+                          onClick={() => navigate('/find-doctor')}
+                          className="font-semibold text-blue-600 underline"
+                        >
+                          Browse all doctors
+                        </button>
+                      </p>
                     )}
                   </div>
                 )}
               </div>
             ))}
 
-            {filteredHospitals.length === 0 && (
+            {filteredFacilities.length === 0 && (
               <div className="text-center py-16 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100">
                 <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300 animate-pulse" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No facilities found</h3>

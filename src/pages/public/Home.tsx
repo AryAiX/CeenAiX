@@ -32,11 +32,8 @@ import { useInView, useCounter } from '../../hooks';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 
 /* ------------------------------------------------------------------------- */
-/*  Landing page — ported from the Bolt reference LandingPage.tsx.           */
-/*  Layout / class names / keyframes are byte-for-byte Bolt; we only swap    */
-/*  out Bolt's global `navigate()` helper for react-router's `useNavigate`,  */
-/*  route every translatable string through i18next, and use the shared     */
-/*  useInView / useCounter hooks (also ported verbatim).                    */
+/*  Marketing landing page — layout preserved; routing via react-router and   */
+/*  copy via i18next. Shared useInView / useCounter hooks drive animations.   */
 /* ------------------------------------------------------------------------- */
 
 interface StatCounterProps {

@@ -1194,6 +1194,64 @@ const rpcPayload = (
           active_availability_count: 1,
         },
       ];
+    case 'get_public_facilities':
+      return [
+        {
+          id: 'facility-e2e-dhcc',
+          name: 'Dubai Healthcare City',
+          facility_type: 'hospital',
+          address: 'Dubai Healthcare City',
+          city: 'Dubai',
+          phone: '+971 4 000 0000',
+          email: 'partnerships@dhcc.ae',
+          image_url:
+            'https://images.pexels.com/photos/668300/pexels-photo-668300.jpeg?auto=compress&cs=tinysrgb&w=800',
+          description: 'E2E network hospital for facility discovery.',
+          rating: 4.8,
+          total_reviews: 120,
+          specialties: ['Family Medicine', 'Cardiology'],
+          amenities: ['Parking', 'Emergency'],
+          emergency_services: true,
+          parking_available: true,
+          insurance_accepted: ['Daman', 'AXA'],
+          operating_hours: { mon: '08:00-20:00' },
+          latitude: 25.1172,
+          longitude: 55.2082,
+        },
+      ];
+    case 'get_facility_doctors':
+      return [
+        {
+          user_id: doctorId,
+          full_name: e2eUsers.doctor.fullName,
+          specialty: 'Family Medicine',
+          city: 'Dubai',
+          address: 'Dubai Healthcare City',
+          consultation_fee: 350,
+          is_available: true,
+          consultation_days: ['Mon'],
+          consultation_hours: '09:00 - 17:00',
+          room_number: 'A-101',
+          active_availability_count: 1,
+        },
+      ];
+    case 'get_public_laboratories':
+      return [
+        {
+          id: labId,
+          slug: 'ceenaix-reference-lab',
+          name: 'CeenAiX Reference Laboratory',
+          city: 'Dubai',
+          location: 'Dubai Healthcare City',
+          phone: '+971 4 000 0000',
+          email: 'lab1@aryaix.com',
+          opening_hours: '8:00 AM - 8:00 PM',
+          rating: 4.8,
+          tests_available: 180,
+          services: ['Blood Tests', 'Pathology', 'Radiology'],
+          featured: true,
+        },
+      ];
     case 'cancel_patient_appointment':
       updateAppointment(state, (payload as JsonRecord | null)?.p_appointment_id, {
         status: 'cancelled',
