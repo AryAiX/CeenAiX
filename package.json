@@ -16,6 +16,7 @@
     "deploy:edge:functions": "node scripts/deploy-edge-functions.mjs",
     "sync:medication-catalog": "node scripts/sync-medication-catalog.mjs",
     "sync:lab-test-catalog": "node scripts/sync-lab-test-catalog.mjs",
+    "auth:email:build": "node scripts/build-auth-email-templates.mjs",
     "ui-parity:up": "./scripts/ui-parity-servers.sh up",
     "ui-parity:down": "./scripts/ui-parity-servers.sh down",
     "ui-parity:status": "./scripts/ui-parity-servers.sh status",

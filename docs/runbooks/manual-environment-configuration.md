@@ -26,13 +26,14 @@ Do not use this document for:
 | Area | Manual Configuration | Environment(s) | Where It Is Configured | Status | Notes |
 |---|---|---|---|---|---|
 | Supabase Auth | Enable email auth provider | All envs | Supabase project Auth configuration | done | Already enabled on the current project |
-| Supabase Auth | Confirmation email delivery provider / SMTP sender setup | All envs that use email/password signup | Supabase Auth email configuration | done | Current project is configured to use Resend SMTP with sender `no-reply@mail.ceenaix.com`. Apply equivalent SMTP settings and a verified sender domain in each additional environment. |
+| Supabase Auth | Confirmation email delivery provider / SMTP sender setup | All envs that use email/password signup | Supabase Auth email configuration | done | Resend SMTP: host `smtp.resend.com`, user `resend`, sender `CeenAiX <no-reply@mail.ceenaix.com>`. **Replicate on every Supabase project** (dev `lgfaucsfiyxvmsghnpey` and prod `ziykaxyadcdmyakzvjff`). Resend marketing/branded templates do **not** apply when using Supabase SMTP — Supabase still renders its own HTML from Auth → Email Templates. |
+| Supabase Auth | Branded auth email HTML (all auth mailers, all roles) | All envs | `node scripts/build-auth-email-templates.mjs` then `scripts/sync-auth-email-templates.sh` | pending | **One shared layout for every role** (patient, doctor, pharmacy, lab, insurance). Signup only stores `role` in user metadata; Supabase sends the same confirmation template for all. Resend SMTP delivers; Supabase renders HTML from `supabase/templates/`. Sync to **both** dev and prod projects. |
 | Supabase Auth | Enable phone OTP auth provider | All envs | Supabase project Auth configuration | done | Enabled on the current project |
 | Supabase Auth | Local redirect allow-list | Local, preview | Supabase Auth URL configuration | done | Includes `http://localhost:5173/**`, `http://127.0.0.1:5173/**`, `https://*.vercel.app/**` |
 | Supabase Auth | Development test OTP mapping | Local/dev only | Supabase Auth configuration | done | Previously used on the current project for development validation; removed after Twilio Verify was configured for real SMS delivery |
 | Supabase Auth | Real SMS provider credentials | Staging, production | Supabase Auth SMS provider settings | done | Current project is configured with Twilio Verify for real phone OTP delivery; replicate credentials per environment through secure secrets management |
 | Twilio Admin | Account recovery code custody | Shared ops ownership | Company password manager / secure vault | pending | Store Twilio recovery codes in a secure vault only; never commit recovery codes, auth tokens, or backup codes to the repository |
-| Supabase Auth | Site URL for auth emails and redirects | Staging, production | Supabase Auth URL configuration | pending | Current project still uses `http://localhost:5173`; each non-local environment must set `site_url` to its actual deployed app domain so confirmation and recovery links open the correct host |
+| Supabase Auth | Site URL for auth emails and redirects | Staging, production | Supabase Auth URL configuration | pending | **Prod** (`ceenaix-prod` / `ziykaxyadcdmyakzvjff`): set `site_url` to `https://www.ceenaix.com`. Dev can stay on `http://localhost:5173`. The sync script accepts `--site-url` to PATCH this via Management API. |
 | Supabase Auth | Redirect URL allow-list for final domains | Preview, staging, production | Supabase Auth URL configuration | pending | Add exact custom-domain URLs and any approved preview URLs |
 | Supabase Edge Functions | Deploy AI Edge Functions used by the current app surface | Each Supabase env | Supabase CLI / Supabase dashboard | done | Current project has both `ai-chat` and `ai-document-analyze` deployed with platform JWT verification disabled so browser CORS preflights succeed; both functions handle auth requirements in-function as needed. Any environment running patient AI chat or doctor PDF-to-questionnaire extraction must deploy the same function set after code changes. |
 | Supabase Edge Functions | Set Edge Function AI secrets | All envs that use AI features | Supabase project secrets | done | Current project has `OPENAI_API_KEY` configured. This key is consumed by Supabase Edge Functions, not by the Vercel frontend project. Replicate required secrets in every environment before deploying `ai-chat` or `ai-document-analyze`. |
@@ -50,7 +51,13 @@ For each Supabase project:
 
 1. Enable email auth
 2. Configure auth email delivery (SMTP/provider, sender identity, templates if customized)
-   Current project settings: Resend SMTP with host `smtp.resend.com`, username `resend`, password from `docs/keys.local.md`, sender name `CeenAiX`, and `from` address `no-reply@mail.ceenaix.com`.
+   - **SMTP (Resend):** host `smtp.resend.com`, username `resend`, password from `docs/keys.local.md`, sender name `CeenAiX`, from `no-reply@mail.ceenaix.com`. Disable link tracking for auth mail.
+   - **Templates:** paste HTML from `supabase/templates/` into Dashboard → Authentication → Email Templates, **or** run:
+     ```bash
+     export SUPABASE_ACCESS_TOKEN="..."  # dashboard account token
+     ./scripts/sync-auth-email-templates.sh ziykaxyadcdmyakzvjff --site-url https://www.ceenaix.com
+     ./scripts/sync-auth-email-templates.sh lgfaucsfiyxvmsghnpey --site-url http://localhost:5173
+     ```
 3. Enable phone auth if OTP login is required
 4. Configure allowed redirect URLs for the environment
 5. Set the correct `site_url`
