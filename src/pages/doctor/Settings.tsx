@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CalendarRange, Settings as SettingsIcon, ShieldCheck, Stethoscope, User } from 'lucide-react';
+import { Bell, CalendarRange, Palette, Settings as SettingsIcon, ShieldCheck, Stethoscope, User } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -43,6 +43,9 @@ export const DoctorSettings = () => {
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState('notifications');
+  const [darkMode, setDarkMode] = useState(false);
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [compactMode, setCompactMode] = useState(false);
   const settingsSections = [
     'General',
     'Appearance',
@@ -218,6 +221,70 @@ export const DoctorSettings = () => {
                 <User className="h-4 w-4" />
                 Edit Full Profile
               </button>
+            </div>
+          ) : activeSection === 'appearance' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <Palette className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Appearance</h2>
+                  <p className="text-sm text-slate-500">Customize how the CeenAiX portal looks for you.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <p className="font-semibold text-slate-900">Dark Mode</p>
+                    <p className="text-sm text-slate-500">Switch to a darker color scheme — coming soon.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDarkMode((prev) => !prev)}
+                    className={`relative h-7 w-12 rounded-full transition ${darkMode ? 'bg-cyan-600' : 'bg-slate-300'}`}
+                  >
+                    <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${darkMode ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <p className="font-semibold text-slate-900">Compact Mode</p>
+                    <p className="text-sm text-slate-500">Reduce spacing and padding for a denser layout.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCompactMode((prev) => !prev)}
+                    className={`relative h-7 w-12 rounded-full transition ${compactMode ? 'bg-cyan-600' : 'bg-slate-300'}`}
+                  >
+                    <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${compactMode ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-semibold text-slate-900 mb-3">Font Size</p>
+                  <div className="flex gap-3">
+                    {(['small', 'medium', 'large'] as const).map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setFontSize(size)}
+                        className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold capitalize transition ${
+                          fontSize === size
+                            ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                ⚠️ Appearance settings are UI preferences only and will be saved to your browser locally. Full theme support coming soon.
+              </div>
             </div>
           ) : activeSection !== 'notifications' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
