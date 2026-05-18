@@ -59,10 +59,12 @@ export const PatientDashboard: React.FC = () => {
     [i18n.language]
   );
   const { profile, user } = useAuth();
-  const { data: dashboardData, loading: dashboardLoading, error: dashboardError } = usePatientDashboard(
-    user?.id,
-    i18n.language
-  );
+  const {
+    data: dashboardData,
+    loading: dashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
+  } = usePatientDashboard(user?.id, i18n.language);
 
   const displayName =
     getDisplayName(profile?.full_name, profile?.first_name, user?.email) || t('patient.dashboard.greetingFallback');
@@ -379,8 +381,16 @@ export const PatientDashboard: React.FC = () => {
   return (
     <>
       {dashboardError ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {t('patient.dashboard.loadError')}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+          <p>{t('patient.dashboard.loadError')}</p>
+          <p className="mt-1 text-xs text-amber-900/80">{dashboardError}</p>
+          <button
+            type="button"
+            onClick={() => void refetchDashboard()}
+            className="mt-2 font-semibold text-amber-900 underline"
+          >
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
         </div>
       ) : null}
 

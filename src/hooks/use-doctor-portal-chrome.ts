@@ -98,7 +98,7 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
       .select('id')
       .eq('doctor_id', userId)
       .eq('is_deleted', false)
-      .eq('status', 'resulted');
+      .in('status', ['resulted', 'reviewed']);
 
     if (resultedLabOrdersError) {
       throw resultedLabOrdersError;
@@ -112,7 +112,7 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
         .from('lab_order_items')
         .select('id', { count: 'exact', head: true })
         .in('lab_order_id', resultedLabOrderIds)
-        .eq('status', 'resulted')
+        .in('status', ['resulted', 'reviewed'])
         .eq('is_abnormal', true);
 
       if (criticalResultsError) {

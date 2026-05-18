@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, DatabaseZap, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { setPharmacySettingEnabled, usePharmacyPrescriptionQueue } from '../../hooks';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 export const PharmacySettings = () => {
   const { t } = useTranslation('common');
-  const { data, refetch } = usePharmacyPrescriptionQueue();
+  const { data, error: loadError, refetch } = usePharmacyPrescriptionQueue();
   const settings = data?.settings ?? [];
   const fallbackName = t('pharmacy.settings.fallbackName', { defaultValue: 'Pharmacy' });
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export const PharmacySettings = () => {
       variant="pharmacy"
     >
       <div className="min-h-full bg-slate-50 p-6">
+        <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />
         <div className="max-w-3xl">
           <div className="mb-5">
             <h2 className="text-[20px] font-bold text-slate-900">

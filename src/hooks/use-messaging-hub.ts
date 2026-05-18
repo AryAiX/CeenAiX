@@ -69,6 +69,8 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     [activeConversationId, conversations]
   );
 
+  const conversationRequestIdRef = useRef(0);
+
   const loadConversations = useCallback(async () => {
     if (!userId) {
       setConversations([]);
@@ -78,6 +80,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
       return;
     }
 
+    const requestId = ++conversationRequestIdRef.current;
     setLoadingConversations(true);
     setConversationError(null);
 
@@ -181,11 +184,17 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           return rightTime - leftTime;
         });
 
-      setConversations(nextConversations);
+      if (requestId === conversationRequestIdRef.current) {
+        setConversations(nextConversations);
+      }
     } catch (error) {
-      setConversationError(error instanceof Error ? error.message : errLoadConversations());
+      if (requestId === conversationRequestIdRef.current) {
+        setConversationError(error instanceof Error ? error.message : errLoadConversations());
+      }
     } finally {
-      setLoadingConversations(false);
+      if (requestId === conversationRequestIdRef.current) {
+        setLoadingConversations(false);
+      }
     }
   }, [userId]);
 

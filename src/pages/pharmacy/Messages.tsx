@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, CheckCircle2, Info, Send } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { sendPharmacyResponse, usePharmacyPrescriptionQueue } from '../../hooks';
 import { PHARMACY_NAV_ITEMS } from './navItems';
@@ -35,7 +36,7 @@ const initialsFor = (name: string) =>
 
 export const PharmacyMessages = () => {
   const { t } = useTranslation('common');
-  const { data, refetch } = usePharmacyPrescriptionQueue();
+  const { data, error: loadError, refetch } = usePharmacyPrescriptionQueue();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<
@@ -119,6 +120,7 @@ export const PharmacyMessages = () => {
       accent="emerald"
       variant="pharmacy"
     >
+      <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />
       <div className="flex min-h-full bg-slate-50">
         <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white">
           <div className="shrink-0 border-b border-slate-100 px-4 py-4">

@@ -661,12 +661,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       <div className="flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
         {conversationError ? (
           <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
-            {t(`${namespace}.loadError`)}
+            {conversationError}
           </div>
         ) : null}
         {threadError ? (
           <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
-            {t(`${namespace}.threadError`)}
+            {threadError}
           </div>
         ) : null}
         {actionError ? (

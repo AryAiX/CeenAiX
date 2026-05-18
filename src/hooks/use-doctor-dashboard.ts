@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
-import { CLINIC_TIME_ZONE, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
+import { CLINIC_TIME_ZONE, clinicDayUtcBounds, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
 import { getMessagePreviewText } from '../lib/messaging';
 import type { AppointmentStatus, AppointmentType, LabOrderStatus, PreVisitAssessmentStatus } from '../types';
 import { useQuery } from './use-query';
@@ -191,15 +191,29 @@ const calculateAge = (dateOfBirth: string | null | undefined) => {
     return null;
   }
 
-  const birthDate = new Date(dateOfBirth);
-  if (Number.isNaN(birthDate.getTime())) {
+  const dateOnly = dateOfBirth.slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+  if (!match) {
     return null;
   }
 
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
+  const birthYear = Number(match[1]);
+  const birthMonth = Number(match[2]);
+  const birthDay = Number(match[3]);
+  const todayKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: CLINIC_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const todayMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(todayKey);
+  if (!todayMatch) {
+    return null;
+  }
+
+  let age = Number(todayMatch[1]) - birthYear;
+  const monthDelta = Number(todayMatch[2]) - birthMonth;
+  if (monthDelta < 0 || (monthDelta === 0 && Number(todayMatch[3]) < birthDay)) {
     age -= 1;
   }
 
@@ -250,7 +264,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
         .from('patient_canonical_update_requests')
         .select('id', { count: 'exact', head: true })
         .eq('requires_doctor_review', true)
-        .eq('status', 'applied'),
+        .eq('status', 'pending'),
     ]);
 
     if (appointmentsError) throw appointmentsError;
@@ -275,10 +289,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     const appointmentIds = safeAppointments.map((appointment) => appointment.id);
 
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
+    const { startIso: startOfTodayIso, endIso: endOfTodayIso } = clinicDayUtcBounds(now);
 
     const [
       { data: patientProfiles, error: patientProfilesError },
@@ -334,19 +345,19 @@ export function useDoctorDashboard(userId: string | null | undefined) {
         .select('id', { count: 'exact', head: true })
         .eq('doctor_id', userId)
         .eq('is_deleted', false)
-        .gte('prescribed_at', startOfToday.toISOString())
-        .lt('prescribed_at', endOfToday.toISOString()),
+        .gte('prescribed_at', startOfTodayIso)
+        .lte('prescribed_at', endOfTodayIso),
       supabase
         .from('lab_orders')
         .select('id', { count: 'exact', head: true })
         .eq('doctor_id', userId)
         .eq('is_deleted', false)
-        .gte('ordered_at', startOfToday.toISOString())
-        .lt('ordered_at', endOfToday.toISOString()),
+        .gte('ordered_at', startOfTodayIso)
+        .lte('ordered_at', endOfTodayIso),
       appointmentIds.length > 0
         ? supabase
             .from('appointment_pre_visit_assessments')
-            .select('appointment_id, status')
+            .select('appointment_id, status, reviewed_at')
             .in('appointment_id', appointmentIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -479,13 +490,11 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     ).length;
 
     const nextAppointmentSource =
-      safeAppointments.find((appointment) => {
-        if (!UPCOMING_STATUSES.has(appointment.status) || appointment.status === 'in_progress') {
-          return false;
-        }
-
-        return new Date(appointment.scheduled_at).getTime() >= now.getTime();
-      }) ?? null;
+      safeAppointments.find(
+        (appointment) =>
+          UPCOMING_STATUSES.has(appointment.status) &&
+          new Date(appointment.scheduled_at).getTime() >= now.getTime()
+      ) ?? null;
 
     const todayQueue = safeAppointments
       .filter(
@@ -537,7 +546,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       }));
 
     const preVisitReviewCount = (preVisitAssessments ?? []).filter(
-      (assessment) => assessment.status === 'completed'
+      (assessment) => assessment.status === 'completed' && assessment.reviewed_at == null
     ).length;
 
     let unreadMessages = 0;
@@ -611,7 +620,7 @@ export function useDoctorDashboard(userId: string | null | undefined) {
         .from('lab_order_items')
         .select('id, lab_order_id, test_name, result_value, result_unit, reference_range, is_abnormal, resulted_at')
         .in('lab_order_id', labOrderIds)
-        .eq('status', 'resulted')
+        .in('status', ['resulted', 'reviewed'])
         .not('resulted_at', 'is', null)
         .order('resulted_at', { ascending: false })
         .limit(20);
@@ -642,7 +651,10 @@ export function useDoctorDashboard(userId: string | null | undefined) {
         });
 
       criticalResults = normalizedLabResults
-        .filter((item) => item.isAbnormal && item.labOrderStatus === 'resulted')
+        .filter(
+          (item) =>
+            item.isAbnormal && (item.labOrderStatus === 'resulted' || item.labOrderStatus === 'reviewed')
+        )
         .slice(0, 3)
         .map((item) => ({
           id: item.id,

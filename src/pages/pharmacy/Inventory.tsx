@@ -9,6 +9,7 @@ import {
   Search,
   ShoppingCart,
 } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyInventoryDerivedItem } from '../../hooks';
@@ -176,7 +177,7 @@ const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] 
 export const PharmacyInventory = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
@@ -235,7 +236,8 @@ export const PharmacyInventory = () => {
       accent="emerald"
       variant="pharmacy"
     >
-      <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
+        <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
         <div className="mx-6 mb-4 mt-5 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-[20px] font-bold text-slate-900">Inventory Management</h2>

@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 
-export type E2ERole = 'patient' | 'doctor' | 'super_admin' | 'lab';
+export type E2ERole = 'patient' | 'doctor' | 'super_admin' | 'lab' | 'pharmacy' | 'insurance';
 
 interface E2EUser {
   id: string;
@@ -61,7 +61,26 @@ export const e2eUsers: Record<E2ERole, E2EUser> = {
     firstName: 'Layla',
     lastName: 'Lab',
   },
+  pharmacy: {
+    id: '00000000-0000-4000-8000-000000000501',
+    email: 'pharmacy.e2e@ceenaix.test',
+    role: 'pharmacy',
+    fullName: 'Omar Pharmacist',
+    firstName: 'Omar',
+    lastName: 'Pharmacist',
+  },
+  insurance: {
+    id: '00000000-0000-4000-8000-000000000601',
+    email: 'insurance.e2e@ceenaix.test',
+    role: 'insurance',
+    fullName: 'Noura Insurance',
+    firstName: 'Noura',
+    lastName: 'Insurance',
+  },
 };
+
+export const e2ePharmacyOrgId = '00000000-0000-4000-8000-000000000701';
+export const e2eInsuranceOrgId = '00000000-0000-4000-8000-000000000801';
 
 const patientId = e2eUsers.patient.id;
 const doctorId = e2eUsers.doctor.id;
@@ -638,6 +657,177 @@ const tableRows = (
     case 'lab_portal_top_metrics':
     case 'lab_portal_volume_trends':
       return [];
+    case 'organization_members':
+      return [
+        {
+          organization_id: e2eInsuranceOrgId,
+          user_id: e2eUsers.insurance.id,
+          is_active: true,
+        },
+      ];
+    case 'pharmacy_facility_profiles':
+      return [
+        {
+          organization_id: e2ePharmacyOrgId,
+          display_name: 'CarePlus Pharmacy E2E',
+          license_number: 'PHA-E2E-001',
+          license_valid_until: '2027-12-31',
+          address: 'Dubai Healthcare City',
+          operating_hours: '08:00-22:00',
+          pharmacist_in_charge: e2eUsers.pharmacy.fullName,
+          dha_connected: true,
+          nabidh_connected: true,
+        },
+      ];
+    case 'organization_staff_members':
+      return [
+        {
+          id: 'staff-pharmacy-e2e',
+          organization_id: e2ePharmacyOrgId,
+          full_name: e2eUsers.pharmacy.fullName,
+          role_title: 'Pharmacist',
+          credential_number: 'PHA-E2E',
+          shift_status: 'on_shift',
+        },
+      ];
+    case 'pharmacy_dispensing_tasks':
+      return [
+        {
+          id: 'pharmacy-task-e2e',
+          organization_id: e2ePharmacyOrgId,
+          external_ref: 'RX-E2E-001',
+          patient_name: e2eUsers.patient.fullName,
+          prescriber_name: e2eUsers.doctor.fullName,
+          medication_name: 'Metformin 500mg',
+          quantity: 30,
+          priority: 'routine',
+          workflow_status: 'new',
+          received_at: yesterday,
+          insurance_provider: 'CeenAiX Gold',
+          copay_aed: 25,
+          allergy_flag: false,
+          assigned_to: e2eUsers.pharmacy.fullName,
+        },
+      ];
+    case 'pharmacy_inventory_items':
+      return [
+        {
+          id: 'inventory-e2e',
+          organization_id: e2ePharmacyOrgId,
+          sku: 'MET-500',
+          generic_name: 'Metformin',
+          brand_name: 'Glucophage',
+          strength: '500mg',
+          dosage_form: 'tablet',
+          atc_code: 'A10BA02',
+          category: 'Diabetes',
+          unit: 'tablet',
+          reorder_level: 50,
+          is_controlled: false,
+          is_dha_formulary: true,
+        },
+      ];
+    case 'pharmacy_inventory_batches':
+      return [];
+    case 'pharmacy_claims':
+      return [
+        {
+          id: 'pharmacy-claim-e2e',
+          organization_id: e2ePharmacyOrgId,
+          external_ref: 'CLM-E2E-001',
+          patient_name: e2eUsers.patient.fullName,
+          amount_aed: 120,
+          status: 'paid',
+          submitted_at: yesterday,
+        },
+      ];
+    case 'pharmacy_messages':
+      return [
+        {
+          id: 'pharmacy-message-e2e',
+          organization_id: e2ePharmacyOrgId,
+          sender_name: e2eUsers.doctor.fullName,
+          subject: 'Prior authorization question',
+          preview: 'Please confirm coverage for Metformin refill.',
+          unread: 1,
+          received_at: yesterday,
+        },
+      ];
+    case 'pharmacy_settings':
+      return [];
+    case 'insurance_payer_profiles':
+      return [
+        {
+          organization_id: e2eInsuranceOrgId,
+          display_name: 'CeenAiX Insurance E2E',
+          arabic_name: 'سين إيه إكس',
+          regulator_name: 'DHA',
+          active_members: 1200,
+          members_gold: 400,
+          members_silver: 500,
+          members_basic: 300,
+          officer_name: e2eUsers.insurance.fullName,
+          officer_title: 'Claims officer',
+          ai_auto_approval_percent: 42,
+          ai_auto_approval_change_percent: 3,
+          avg_processing_hours: 4,
+          sla_target_standard_hours: 24,
+          sla_target_urgent_hours: 4,
+          claims_today_total_aed: 12000,
+          claims_today_count: 8,
+          claims_today_approved_count: 5,
+          claims_today_approved_aed: 9000,
+          claims_today_pending_count: 2,
+          claims_today_pending_aed: 2000,
+          claims_today_denied_count: 1,
+          claims_today_denied_aed: 1000,
+          claims_today_appealed_count: 0,
+          claims_today_appealed_aed: 0,
+          daman_exposure_today_aed: 0,
+          claims_mtd_aed: 240000,
+          claims_budget_aed: 500000,
+          claims_budget_pct: 48,
+          prior_month_growth_percent: 2,
+        },
+      ];
+    case 'insurance_pre_authorizations':
+      return [
+        {
+          id: 'preauth-e2e',
+          organization_id: e2eInsuranceOrgId,
+          external_ref: 'PA-E2E-001',
+          patient_name: e2eUsers.patient.fullName,
+          patient_age: 34,
+          patient_gender: 'female',
+          plan_tier: 'gold',
+          plan_label: 'CeenAiX Gold',
+          clinician_name: e2eUsers.doctor.fullName,
+          provider_name: 'CeenAiX Clinic',
+          procedure_name: 'MRI lumbar spine',
+          procedure_icd_code: 'M54.5',
+          priority: 'urgent',
+          status: 'review',
+          requested_amount_aed: 2500,
+          approved_amount_aed: null,
+          coverage_label: 'Pending review',
+          coverage_percent: null,
+          is_ceenaix_eprescribed: true,
+          ai_recommendation: 'approve',
+          ai_confidence_percent: 96,
+          requested_at: yesterday,
+          sla_due_at: tomorrow,
+        },
+      ];
+    case 'insurance_claims':
+    case 'insurance_members':
+    case 'insurance_fraud_alerts':
+    case 'insurance_network_providers':
+    case 'insurance_risk_segments':
+    case 'insurance_report_runs':
+    case 'insurance_settings':
+    case 'insurance_ai_insights':
+    case 'insurance_monthly_claims_volume':
+      return [];
     default:
       return [];
   }
@@ -701,6 +891,44 @@ const baselineOrganizations = (): JsonRecord[] => [
     seats_used: 42,
     status: 'active',
     notes: 'DHA-C-2026-001 · NABIDH connected · E2E organization fixture',
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+  {
+    id: e2ePharmacyOrgId,
+    slug: 'careplus-pharmacy-e2e',
+    name: 'CarePlus Pharmacy E2E',
+    kind: 'pharmacy',
+    city: 'Dubai',
+    country: 'UAE',
+    primary_contact_name: e2eUsers.pharmacy.fullName,
+    primary_contact_email: e2eUsers.pharmacy.email,
+    baa_signed_at: yesterday,
+    contract_started_at: yesterday,
+    contract_ends_at: null,
+    seats_allocated: 20,
+    seats_used: 8,
+    status: 'active',
+    notes: 'Pharmacy portal E2E fixture',
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+  {
+    id: e2eInsuranceOrgId,
+    slug: 'ceenaix-insurance-e2e',
+    name: 'CeenAiX Insurance E2E',
+    kind: 'insurance',
+    city: 'Dubai',
+    country: 'UAE',
+    primary_contact_name: e2eUsers.insurance.fullName,
+    primary_contact_email: e2eUsers.insurance.email,
+    baa_signed_at: yesterday,
+    contract_started_at: yesterday,
+    contract_ends_at: null,
+    seats_allocated: 50,
+    seats_used: 12,
+    status: 'active',
+    notes: 'Insurance portal E2E fixture',
     created_at: yesterday,
     updated_at: yesterday,
   },

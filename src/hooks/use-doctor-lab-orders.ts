@@ -27,7 +27,8 @@ export function useDoctorLabOrders(userId: string | null | undefined) {
       .select('*')
       .eq('doctor_id', userId)
       .eq('is_deleted', false)
-      .order('ordered_at', { ascending: false });
+      .order('ordered_at', { ascending: false })
+      .limit(200);
 
     if (labOrdersError) {
       throw labOrdersError;

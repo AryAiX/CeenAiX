@@ -43,3 +43,4 @@ supabase/.temp/bundle-*.sql
 # every port pass and are regenerated on demand.
 docs/ui-parity/**/*.png
 .last-run.json
+playwright-report/

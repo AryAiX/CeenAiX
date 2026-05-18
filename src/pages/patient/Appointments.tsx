@@ -210,11 +210,9 @@ export const PatientAppointments: React.FC = () => {
       return new Date(y, m - 1, d, 0, 0, 0, 0);
     };
     const fromTs = dateFrom ? parseLocal(dateFrom)?.getTime() ?? null : null;
-    const toTs = dateTo
-      ? (parseLocal(dateTo)?.getTime() ?? null) !== null
-        ? parseLocal(dateTo)!.getTime() + 24 * 60 * 60 * 1000 - 1
-        : null
-      : null;
+    const endOfDay = dateTo ? parseLocal(dateTo) : null;
+    const toTs =
+      endOfDay !== null ? endOfDay.getTime() + 24 * 60 * 60 * 1000 - 1 : null;
 
     return appointments.filter((appointment) => {
       const scheduledTs = new Date(appointment.scheduled_at).getTime();

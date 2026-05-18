@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { updatePharmacyDispensingTaskStatus, usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
@@ -186,7 +187,7 @@ export const PharmacyDispensing = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const navigate = useNavigate();
-  const { data, loading, refetch } = usePharmacyPrescriptionQueue();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
@@ -294,7 +295,8 @@ export const PharmacyDispensing = () => {
       accent="emerald"
       variant="pharmacy"
     >
-      <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
+        <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
         {actionError ? (
           <div
             role="alert"

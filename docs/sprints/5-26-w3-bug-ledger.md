@@ -113,3 +113,103 @@ Severity: **P0** broken auth/data loss · **P1** user blocked · **P2** wrong da
 | 104 | Doctor/Dashboard | P2 | AI insight card CTA permanently disabled | Bolt "coming soon" never wired | `src/pages/doctor/Dashboard.tsx` — opens consultation workspace when `featuredAppointment` exists | manual |
 | 105 | Public/Home | P3 | Footer links used `href="#"` (no navigation) | Bolt placeholder anchors | `src/pages/public/Home.tsx` — in-page anchors to `#features`, `#pricing`, `#security`, `#contact` | manual |
 | 106 | E2E | P2 | Doctor appointment assertions failed strict-mode (duplicate chief-complaint nodes) | Featured card + list row both render complaint text | `e2e/clinical-workflows.spec.ts` + `e2e/multi-role-interactions.spec.ts` — `.first()` + `/list view/i` tab selector | e2e |
+| 107 | Hooks/doctor-dashboard | P1 | Pending review count zero | status=applied | status=pending | manual |
+| 108 | Hooks/doctor-dashboard | P2 | Pre-visit review queue stuck | No reviewed_at | completed+reviewed_at null | manual |
+| 109 | Hooks/doctor-dashboard | P2 | Rx/lab today wrong TZ | Browser midnight | clinicDayUtcBounds | manual |
+| 110 | Hooks/doctor-dashboard | P2 | Reviewed lab items missing | resulted-only items | resulted+reviewed | manual |
+| 111 | Hooks/doctor-dashboard | P2 | Critical labs after review hidden | resulted-only critical | include reviewed | manual |
+| 112 | Hooks/doctor-dashboard | P3 | Patient age TZ edge | UTC DOB | clinic date-only age | manual |
+| 113 | Hooks/doctor-dashboard | P2 | Next appt skipped in_progress | Excluded status | include in_progress | manual |
+| 114 | Hooks/messaging | P2 | Stale conversation list | No guard | conversationRequestIdRef | manual |
+| 115 | MessagesWorkspace | P2 | Opaque conversation error | i18n only | show conversationError | manual |
+| 116 | MessagesWorkspace | P2 | Opaque thread error | i18n only | show threadError | manual |
+| 117 | Doctor/Dashboard | P2 | No dashboard retry | Missing refetch | Retry button | manual |
+| 118 | Doctor/Dashboard | P2 | Metric routing fragile | label match | card.id | manual |
+| 119 | Doctor/Dashboard | P3 | Inert KPIs look clickable | cursor-pointer | disable on revenue/dha | manual |
+| 120 | Doctor/Dashboard | P2 | Wrong quick action labels | Bolt copy | Message/Records/Consultation | manual |
+| 121 | Pharmacy/Dashboard | P2 | Wrong messages badge | unread field | unreadCount | manual |
+| 122 | Pharmacy/Dashboard | P2 | Empty stock banner | Always on | conditional | manual |
+| 123 | Pharmacy/Dashboard | P2 | Silent load error | No banner | error+refetch | manual |
+| 124 | Patient/Appointments | P2 | dateTo same-day PM | midnight end | parseLocal EOD | manual |
+| 125 | Insurance/Portal | P2 | Urgent KPI wrong | non-pending | pendingPreAuths only | manual |
+| 126 | Insurance/Portal | P1 | Insurance pages silent errors | No shell banner | InsuranceShell loadError | manual |
+| 127 | Insurance/Portal | P2 | Portal load error hidden | No banner | loadError+onRetry | manual |
+| 128 | Insurance/PreAuthorizations | P2 | PreAuthorizations load error hidden | No banner | loadError+onRetry | manual |
+| 129 | Insurance/Claims | P2 | Claims load error hidden | No banner | loadError+onRetry | manual |
+| 130 | Insurance/Members | P2 | Members load error hidden | No banner | loadError+onRetry | manual |
+| 131 | Insurance/FraudDetection | P2 | FraudDetection load error hidden | No banner | loadError+onRetry | manual |
+| 132 | Insurance/RiskAnalytics | P2 | RiskAnalytics load error hidden | No banner | loadError+onRetry | manual |
+| 133 | Insurance/NetworkProviders | P2 | NetworkProviders load error hidden | No banner | loadError+onRetry | manual |
+| 134 | Insurance/Reports | P2 | Reports load error hidden | No banner | loadError+onRetry | manual |
+| 135 | Insurance/Settings | P2 | Settings load error hidden | No banner | loadError+onRetry | manual |
+| 136 | Components | P2 | Load error not shown | Unused error | PortalQueryBanner.tsx | manual |
+| 137 | Pharmacy/Inventory | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 138 | Pharmacy/Dispensing | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 139 | Pharmacy/Profile | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 140 | Pharmacy/Reports | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 141 | Pharmacy/Revenue | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 142 | Pharmacy/Settings | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 143 | Pharmacy/Messages | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 144 | Lab/ResultEntry | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 145 | Lab/Referrals | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 146 | Lab/Radiology | P2 | Load error not shown | Unused error | PortalQueryBanner | manual |
+| 147 | Lab/Dashboard | P2 | Load error not shown | Unused error | PortalQueryBanner+refetch | manual |
+| 148 | Hooks/doctor-notifications | P2 | status=pending fix | Wrong/missing query | src/hooks/use-doctor-notifications.ts | manual |
+| 149 | Hooks/doctor-notifications | P2 | reviewed_at null on pre-visit fix | Wrong/missing query | src/hooks/use-doctor-notifications.ts | manual |
+| 150 | Hooks/doctor-portal-chrome | P2 | resulted+reviewed orders fix | Wrong/missing query | src/hooks/use-doctor-portal-chrome.ts | manual |
+| 151 | Hooks/doctor-portal-chrome | P2 | resulted+reviewed items fix | Wrong/missing query | src/hooks/use-doctor-portal-chrome.ts | manual |
+| 152 | Hooks/patient-dashboard | P2 | resulted+reviewed lab items fix | Wrong/missing query | src/hooks/use-patient-dashboard.ts | manual |
+| 153 | Hooks/patient-dashboard | P2 | insurance date key expiry fix | Wrong/missing query | src/hooks/use-patient-dashboard.ts | manual |
+| 154 | Hooks/patient-dashboard | P2 | care team null sort fix | Wrong/missing query | src/hooks/use-patient-dashboard.ts | manual |
+| 155 | Hooks/doctor-lab-orders | P2 | limit 200 fix | Wrong/missing query | src/hooks/use-doctor-lab-orders.ts | manual |
+| 156 | Patient/Dashboard | P2 | Load error not shown | Unused error | dashboard retry | manual |
+| 157 | Doctor/Appointments | P2 | Load error not shown | Unused error | clinic date keys | manual |
+| 158 | Doctor/Appointments | P2 | Load error not shown | Unused error | list retry | manual |
+| 159 | Lib/i18n-ui | P2 | clinicDayUtcBounds export fix | Wrong/missing query | src/lib/i18n-ui.ts | manual |
+| 160 | E2E | P1 | Missing interaction: find-doctor | No spec | e2e/portal-interactions.spec.ts | spec |
+| 161 | E2E | P1 | Missing interaction: find-clinic | No spec | e2e/portal-interactions.spec.ts | spec |
+| 162 | E2E | P1 | Missing interaction: laboratories | No spec | e2e/portal-interactions.spec.ts | spec |
+| 163 | E2E | P1 | Missing interaction: patient-cancelled | No spec | e2e/portal-interactions.spec.ts | spec |
+| 164 | E2E | P1 | Missing interaction: patient-records | No spec | e2e/portal-interactions.spec.ts | spec |
+| 165 | E2E | P1 | Missing interaction: patient-settings | No spec | e2e/portal-interactions.spec.ts | spec |
+| 166 | E2E | P1 | Missing interaction: patient-insurance | No spec | e2e/portal-interactions.spec.ts | spec |
+| 167 | E2E | P1 | Missing interaction: patient-labs | No spec | e2e/portal-interactions.spec.ts | spec |
+| 168 | E2E | P1 | Missing interaction: doctor-today | No spec | e2e/portal-interactions.spec.ts | spec |
+| 169 | E2E | P1 | Missing interaction: doctor-list | No spec | e2e/portal-interactions.spec.ts | spec |
+| 170 | E2E | P1 | Missing interaction: doctor-patients | No spec | e2e/portal-interactions.spec.ts | spec |
+| 171 | E2E | P1 | Missing interaction: doctor-schedule | No spec | e2e/portal-interactions.spec.ts | spec |
+| 172 | E2E | P1 | Missing interaction: pharmacy-dashboard | No spec | e2e/portal-interactions.spec.ts | spec |
+| 173 | E2E | P1 | Missing interaction: pharmacy-messages | No spec | e2e/portal-interactions.spec.ts | spec |
+| 174 | E2E | P1 | Missing interaction: lab-dashboard | No spec | e2e/portal-interactions.spec.ts | spec |
+| 175 | E2E | P1 | Missing interaction: insurance-preauth | No spec | e2e/portal-interactions.spec.ts | spec |
+| 176 | E2E | P1 | Missing interaction: admin-lab-cta | No spec | e2e/portal-interactions.spec.ts | spec |
+| 177 | E2E | P1 | Missing interaction: health-education | No spec | e2e/portal-interactions.spec.ts | spec |
+| 178 | E2E | P1 | Missing interaction: auth-login | No spec | e2e/portal-interactions.spec.ts | spec |
+| 179 | E2E | P1 | Missing interaction: auth-role | No spec | e2e/portal-interactions.spec.ts | spec |
+| 180 | E2E/support | P2 | pharmacy role seed | Gap | e2eUsers.pharmacy | e2e |
+| 181 | E2E/support | P2 | insurance role seed | Gap | e2eUsers.insurance | e2e |
+| 182 | E2E/support | P2 | pharmacy org id | Gap | e2ePharmacyOrgId | e2e |
+| 183 | E2E/support | P2 | insurance org id | Gap | e2eInsuranceOrgId | e2e |
+| 184 | E2E/support | P2 | pharmacy queue tables | Gap | pharmacy_* mocks | e2e |
+| 185 | E2E/support | P2 | insurance portal tables | Gap | insurance_* mocks | e2e |
+| 186 | Doctor/Dashboard | P2 | metric navigate today | Gap | /doctor/today | manual |
+| 187 | Doctor/Dashboard | P2 | metric navigate prescriptions | Gap | /doctor/prescriptions | manual |
+| 188 | Doctor/Dashboard | P2 | metric navigate lab orders | Gap | /doctor/lab-orders | manual |
+| 189 | Doctor/Dashboard | P2 | metric navigate messages | Gap | /doctor/messages | manual |
+| 190 | E2E | P1 | Wave-2 interaction suite missing | No portal-interactions spec | `e2e/portal-interactions.spec.ts` (20 tests) | spec |
+| 191 | E2E | P1 | Full regression count drift | 125 specs without wave-2 file | Suite now 145 specs all green | e2e |
+| 192 | Patient/Dashboard | P2 | Load error message hidden | Generic i18n only | Surfaces `dashboardError` string | manual |
+| 193 | Doctor/Appointments | P2 | List load error message hidden | Generic i18n only | Surfaces hook `error` string | manual |
+| 194 | Insurance/Claims | P2 | Claims workspace missing refetch on error | `error` not destructured | `error` + shell Retry | manual |
+| 195 | Pharmacy/Settings | P2 | Queue load failure conflated with toggle errors | Single local error state | `loadError` vs toggle `error` split | manual |
+| 196 | Lab/Dashboard | P2 | Duplicate bespoke error markup | Custom rose banner | Replaced with `PortalQueryBanner` | manual |
+| 197 | Hooks/doctor-dashboard | P2 | Pre-visit select omitted `reviewed_at` | Could not compute review backlog | Select includes `reviewed_at` | manual |
+| 198 | Doctor/Dashboard | P2 | Load error missing `role=alert` | Screen readers skipped banner | `role="alert"` on error panel | manual |
+| 199 | Patient/Dashboard | P2 | Load error missing `role=alert` | A11y gap | `role="alert"` on error panel | manual |
+| 200 | Doctor/Appointments | P2 | `/doctor/today` route wrong day near midnight | Browser-local date key | Clinic TZ date key via `calendarDayKeyInTimeZone` | manual |
+| 201 | Hooks/patient-dashboard | P2 | `valid_until` timestamptz broke date compare | Full ISO string vs date key | Compare `slice(0,10)` date keys | manual |
+| 202 | Hooks/doctor-lab-orders | P2 | Heavy doctors could OOM on lab history | Unbounded select | `.limit(200)` on `lab_orders` | manual |
+| 203 | Lib/i18n-ui | P2 | Calendar helpers not reusable | Private `calendarDayKeyInTimeZone` | Exported for appointments + dashboards | manual |
+| 204 | E2E/support | P2 | Pharmacy portal journeys untestable | No `pharmacy` role in mock | `E2ERole` + seeds + table stubs | e2e |
+| 205 | E2E/support | P2 | Insurance portal journeys untestable | No `insurance` role in mock | `E2ERole` + seeds + table stubs | e2e |
+| 206 | Sprint | P2 | Wave-2 ledger target | Track 100 fixes in wave 2 | Ledger #107–#206 on `cursor/bug-wave-2-3d22` | manual |

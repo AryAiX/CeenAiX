@@ -83,13 +83,14 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         .select('id, appointment_id, patient_id, completed_at, updated_at')
         .eq('doctor_id', userId)
         .eq('status', 'completed')
+        .is('reviewed_at', null)
         .order('completed_at', { ascending: false })
         .limit(12),
       supabase
         .from('patient_canonical_update_requests')
         .select('id, patient_id, display_label, created_at, updated_at')
         .eq('requires_doctor_review', true)
-        .eq('status', 'applied')
+        .eq('status', 'pending')
         .order('updated_at', { ascending: false })
         .limit(12),
     ]);

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileText, ShieldCheck, Target, TrendingUp } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
@@ -13,7 +14,7 @@ const cleanMedication = (name: string) => name.replace(/\s+\d+\s?(?:mg|iu|mcg|g)
 export const PharmacyReports = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const queue = useMemo(() => data?.queue ?? [], [data?.queue]);
 
   const prescriptionIds = useMemo(() => Array.from(new Set(queue.map((item) => item.prescriptionId))), [queue]);
@@ -93,6 +94,7 @@ export const PharmacyReports = () => {
       accent="emerald"
       variant="pharmacy"
     >
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>

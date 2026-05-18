@@ -47,7 +47,7 @@ export const DoctorDashboard: React.FC = () => {
   const locale = resolveLocale(uiLang);
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const { doctorProfile, profile, user } = useAuth();
-  const { data, loading, error } = useDoctorDashboard(user?.id);
+  const { data, loading, error, refetch } = useDoctorDashboard(user?.id);
 
   const displayName = getDisplayName(profile?.full_name, profile?.first_name) || t('shared.doctor');
   const doctorName = /^dr\.?/i.test(displayName) ? displayName : uiLang.startsWith('ar') ? `د. ${displayName}` : `Dr. ${displayName}`;
@@ -169,6 +169,7 @@ export const DoctorDashboard: React.FC = () => {
   const appointmentProgress = todayAppointments > 0 ? Math.round((completedTodayAppointments / todayAppointments) * 100) : 0;
   const metricCards = [
     {
+      id: 'appointments-today',
       icon: CalendarCheck,
       label: 'Appointments Today',
       value: formatLocaleDigits(todayAppointments, uiLang),
@@ -177,6 +178,7 @@ export const DoctorDashboard: React.FC = () => {
       progress: appointmentProgress,
     },
     {
+      id: 'prescriptions-today',
       icon: PenLine,
       label: 'Prescriptions Written',
       value: formatLocaleDigits(data?.prescriptionsToday ?? 0, uiLang),
@@ -185,6 +187,7 @@ export const DoctorDashboard: React.FC = () => {
       badge: (data?.pendingReviews ?? 0) > 0 ? 'Review' : undefined,
     },
     {
+      id: 'lab-orders-today',
       icon: FlaskConical,
       label: 'Lab Orders Today',
       value: formatLocaleDigits(data?.labOrdersToday ?? 0, uiLang),
@@ -193,6 +196,7 @@ export const DoctorDashboard: React.FC = () => {
       critical: (data?.criticalResults.length ?? 0) > 0,
     },
     {
+      id: 'unread-messages',
       icon: MessageSquare,
       label: 'Unread Messages',
       value: formatLocaleDigits(data?.unreadMessages ?? 0, uiLang),
@@ -200,6 +204,7 @@ export const DoctorDashboard: React.FC = () => {
       color: 'blue',
     },
     {
+      id: 'revenue-today',
       icon: CircleDollarSign,
       label: 'Revenue Today',
       value: data?.estimatedRevenueToday !== null && data?.estimatedRevenueToday !== undefined
@@ -212,6 +217,7 @@ export const DoctorDashboard: React.FC = () => {
       progress: appointmentProgress,
     },
     {
+      id: 'dha-status',
       icon: Users,
       label: localCopy.dhaStatus,
       value: doctorProfile?.dha_license_verified ? localCopy.statusOk : localCopy.statusPending,
@@ -224,9 +230,17 @@ export const DoctorDashboard: React.FC = () => {
     { icon: ClipboardList, label: 'Write Prescription', color: 'purple', onClick: () => navigate('/doctor/prescribe') },
     { icon: TestTube, label: 'Order Lab Test', color: 'indigo', badge: (data?.criticalResults.length ?? 0) > 0 ? `${data?.criticalResults.length} critical` : undefined, onClick: () => navigate('/doctor/labs') },
     { icon: Calendar, label: 'Block Time Off', color: 'slate', onClick: () => navigate('/doctor/schedule') },
-    { icon: Send, label: 'Send Referral', color: 'teal', onClick: () => navigate('/doctor/messages') },
-    { icon: FileText, label: 'Write Certificate', color: 'blue', onClick: () => navigate('/doctor/patients') },
-    { icon: Bot, label: 'Ask Clinical AI', color: 'indigo', onClick: () => navigate('/ai-chat') },
+    { icon: Send, label: 'Message Patient', color: 'teal', onClick: () => navigate('/doctor/messages') },
+    { icon: FileText, label: 'Patient Records', color: 'blue', onClick: () => navigate('/doctor/patients') },
+    {
+      icon: Bot,
+      label: 'Open Consultation',
+      color: 'indigo',
+      onClick: () =>
+        featuredAppointment
+          ? navigate(`/doctor/appointments/${featuredAppointment.id}`)
+          : navigate('/doctor/appointments'),
+    },
   ];
 
   const renderComplaint = (value: string | null | undefined, emptyLabel: string) => {
@@ -287,8 +301,16 @@ export const DoctorDashboard: React.FC = () => {
   return (
     <div>
       {error ? (
-        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {t('doctor.dashboard.loadError')}
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+          <p>{t('doctor.dashboard.loadError')}</p>
+          <p className="mt-1 text-xs text-amber-900/80">{error}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-2 font-semibold text-amber-900 underline"
+          >
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
         </div>
       ) : null}
 
@@ -482,13 +504,29 @@ export const DoctorDashboard: React.FC = () => {
 
           return (
           <div
-            key={card.label}
-            className={`cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-md transition-all hover:scale-[1.015] hover:shadow-xl ${
+            key={card.id}
+            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-md transition-all ${
               card.critical ? 'animate-pulse ring-2 ring-red-500' : ''
+            } ${
+              card.id === 'revenue-today' || card.id === 'dha-status'
+                ? ''
+                : 'cursor-pointer hover:scale-[1.015] hover:shadow-xl'
             }`}
             onClick={() => {
-              if (card.label === 'Appointments Today') {
+              if (card.id === 'appointments-today') {
                 navigate('/doctor/today');
+                return;
+              }
+              if (card.id === 'prescriptions-today') {
+                navigate('/doctor/prescriptions');
+                return;
+              }
+              if (card.id === 'lab-orders-today') {
+                navigate('/doctor/lab-orders');
+                return;
+              }
+              if (card.id === 'unread-messages') {
+                navigate('/doctor/messages');
               }
             }}
           >

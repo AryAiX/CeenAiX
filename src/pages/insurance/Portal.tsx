@@ -175,7 +175,17 @@ const navItemsForData = (data: InsurancePortalData | null): InsuranceNavItem[] =
   ];
 };
 
-const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; children: ReactNode }) => {
+const InsuranceShell = ({
+  data,
+  children,
+  loadError,
+  onRetry,
+}: {
+  data: InsurancePortalData | null;
+  children: ReactNode;
+  loadError?: string | null;
+  onRetry?: () => void;
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
@@ -446,7 +456,19 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
         </header>
 
         <main className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="space-y-5">{children}</div>
+          <div className="space-y-5">
+            {loadError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                <p>{loadError}</p>
+                {onRetry ? (
+                  <button type="button" onClick={onRetry} className="mt-2 font-semibold underline">
+                    Retry
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {children}
+          </div>
         </main>
       </div>
     </div>
@@ -1016,14 +1038,14 @@ const useInsurancePageData = () => {
 
 export const InsurancePortal = () => {
   const navigate = useNavigate();
-  const { data, loading, overduePreAuth, openFraud, refetch } = useInsurancePageData();
+  const { data, loading, error, overduePreAuth, openFraud, refetch } = useInsurancePageData();
   const profile = data?.profile ?? null;
   const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
   const fraudAlerts = data?.fraudAlerts ?? [];
   const aiInsights = data?.aiInsights ?? [];
   const monthlyVolume = data?.monthlyClaimsVolume ?? [];
   const pendingPreAuths = preAuths.filter((p) => p.status === 'review' || p.status === 'overdue');
-  const urgentPending = preAuths.filter((p) => p.priority === 'urgent' && p.status !== 'approved' && p.status !== 'denied').length;
+  const urgentPending = pendingPreAuths.filter((p) => p.priority === 'urgent').length;
   const standardPending = pendingPreAuths.length - urgentPending;
   const aiHigh = fraudAlerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
   const aiMedium = fraudAlerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
@@ -1076,7 +1098,7 @@ export const InsurancePortal = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <PreAuthAlert item={overduePreAuth} />
 
       {/* Hosted-style 6-tile KPI grid */}
@@ -1329,7 +1351,7 @@ export const InsurancePortal = () => {
 };
 
 export const InsurancePreAuthorizations = () => {
-  const { data, overduePreAuth, refetch } = useInsurancePageData();
+  const { data, error, overduePreAuth, refetch } = useInsurancePageData();
   const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue' | 'approved'>('all');
@@ -1406,7 +1428,7 @@ export const InsurancePreAuthorizations = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <PreAuthAlert item={overduePreAuth} />
       <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -1471,7 +1493,7 @@ export const InsurancePreAuthorizations = () => {
 };
 
 export const InsuranceClaims = () => {
-  const { data, loading, claimTotal } = useInsurancePageData();
+  const { data, loading, error, claimTotal, refetch } = useInsurancePageData();
   const claims = useMemo(() => data?.claims ?? [], [data?.claims]);
   const profile = data?.profile;
   const submitted = claims.filter((claim) => claim.status === 'submitted').length;
@@ -1507,7 +1529,7 @@ export const InsuranceClaims = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <KpiHostedCard label="Total Value" value={loading ? '...' : formatCurrency(claimTotal)} caption={`${formatNumber(claims.length)} claims this period`} tone="blue" />
         <KpiHostedCard label="Auto-Approved" value={loading ? '...' : formatNumber(approved)} caption={profile?.aiAutoApprovalPercent != null ? `${profile.aiAutoApprovalPercent}% auto-rate` : 'AI auto-approved'} tone="emerald" />
@@ -1596,7 +1618,7 @@ export const InsuranceClaims = () => {
 };
 
 export const InsuranceMembers = () => {
-  const { data, loading } = useInsurancePageData();
+  const { data, loading, error, refetch } = useInsurancePageData();
   const members = useMemo(() => data?.members ?? [], [data?.members]);
   const profile = data?.profile;
   const [search, setSearch] = useState('');
@@ -1620,7 +1642,7 @@ export const InsuranceMembers = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="Active Members" value={loading ? '...' : formatNumber(profile?.activeMembers ?? members.length)} caption="On CeenAiX platform" tone="blue" />
         {tiers.map((tier) => (
@@ -1694,7 +1716,7 @@ export const InsuranceMembers = () => {
 };
 
 export const InsuranceFraudDetection = () => {
-  const { data, loading, openFraud } = useInsurancePageData();
+  const { data, loading, error, openFraud, refetch } = useInsurancePageData();
   const alerts = data?.fraudAlerts ?? [];
   const high = alerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
   const medium = alerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
@@ -1704,7 +1726,7 @@ export const InsuranceFraudDetection = () => {
   const filtered = severityFilter === 'all' ? alerts : alerts.filter((a) => a.severity === severityFilter);
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="High Risk" value={loading ? '...' : formatNumber(high)} caption="Investigation required" tone="red" />
         <KpiHostedCard label="Medium Risk" value={loading ? '...' : formatNumber(medium)} caption="Watchlist" tone="amber" />
@@ -1743,7 +1765,7 @@ export const InsuranceFraudDetection = () => {
 };
 
 export const InsuranceRiskAnalytics = () => {
-  const { data } = useInsurancePageData();
+  const { data, error, refetch } = useInsurancePageData();
   const maxLossRatio = Math.max(...(data?.riskSegments.map((item) => item.lossRatioPercent) ?? [1]), 1);
   const savingsFound = data?.fraudAlerts.reduce((sum, alert) => sum + alert.exposureAmountAed, 0) ?? 0;
   const averageLossRatio = data?.riskSegments.length
@@ -1751,7 +1773,7 @@ export const InsuranceRiskAnalytics = () => {
     : 0;
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <SectionCard title="Risk Analytics" subtitle="Plan utilization and cost trend signals">
           <div className="space-y-4">
@@ -1781,7 +1803,7 @@ export const InsuranceRiskAnalytics = () => {
 };
 
 export const InsuranceNetworkProviders = () => {
-  const { data, loading } = useInsurancePageData();
+  const { data, loading, error, refetch } = useInsurancePageData();
   const providers = data?.networkProviders ?? [];
   const totalClaims = providers.reduce((sum, p) => sum + p.claimsCount, 0);
   const avgApproval = providers.length ? Math.round(providers.reduce((sum, p) => sum + p.approvalRatePercent, 0) / providers.length) : 0;
@@ -1792,7 +1814,7 @@ export const InsuranceNetworkProviders = () => {
   );
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="In-Network Providers" value={loading ? '...' : formatNumber(providers.length)} caption="Contracted facilities" tone="blue" />
         <KpiHostedCard label="Total Claims" value={loading ? '...' : formatNumber(totalClaims)} caption="This month" tone="emerald" />
@@ -1825,7 +1847,7 @@ export const InsuranceNetworkProviders = () => {
 };
 
 export const InsuranceReports = () => {
-  const { data, loading, claimTotal, openFraud } = useInsurancePageData();
+  const { data, loading, error, claimTotal, openFraud, refetch } = useInsurancePageData();
   const reports = data?.reportRuns ?? [];
   const fraudExposure = openFraud.reduce((sum, alert) => sum + alert.exposureAmountAed, 0);
   const ready = reports.filter((r) => r.status === 'ready').length;
@@ -1845,7 +1867,7 @@ export const InsuranceReports = () => {
   });
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="Total Reports" value={loading ? '...' : formatNumber(reports.length)} caption="Across all categories" tone="blue" />
         <KpiHostedCard label="Ready to Download" value={loading ? '...' : formatNumber(ready)} caption={`${running} running · ${failed} failed`} tone="emerald" />
@@ -1924,7 +1946,7 @@ export const InsuranceReports = () => {
 };
 
 export const InsuranceSettings = () => {
-  const { data, refetch } = useInsurancePageData();
+  const { data, error, refetch } = useInsurancePageData();
   const settings = data?.settings ?? [];
   const profile = data?.profile;
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1958,7 +1980,7 @@ export const InsuranceSettings = () => {
   });
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       {profile ? (
         <article className="rounded-2xl border border-slate-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">

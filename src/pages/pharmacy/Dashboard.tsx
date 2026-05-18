@@ -137,7 +137,7 @@ const groupPrescriptionItems = (items: PharmacyQueuePrescriptionItem[]): Pharmac
 export const PharmacyDashboard = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const [showDispensed, setShowDispensed] = useState(false);
 
   const prescriptionGroups = useMemo(() => groupPrescriptionItems(data?.queue ?? []), [data?.queue]);
@@ -254,13 +254,23 @@ export const PharmacyDashboard = () => {
       navItems={PHARMACY_NAV_ITEMS(t, {
         prescriptions: inQueue.length || undefined,
         inventory: stockAlerts.length || undefined,
-        messages: onHold || undefined,
+        messages:
+          data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
       })}
       accent="emerald"
       variant="pharmacy"
     >
       <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
-        <div className="mx-6 mt-5 flex shrink-0 items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+        {error ? (
+          <div className="mx-6 mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            <p>{error}</p>
+            <button type="button" onClick={() => void refetch()} className="mt-2 font-semibold underline">
+              Retry
+            </button>
+          </div>
+        ) : null}
+        {stockAlerts.length > 0 ? (
+          <div className="mx-6 mt-5 flex shrink-0 items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
           <div className="min-w-0 flex-1">
             <span className="text-[13px] font-semibold text-amber-800">
@@ -275,6 +285,7 @@ export const PharmacyDashboard = () => {
             View Inventory
           </Link>
         </div>
+        ) : null}
 
         <section className="mx-6 mt-4 grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {kpis.map((kpi) => {

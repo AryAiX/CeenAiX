@@ -12,6 +12,8 @@ import {
   dateTimeFormatWithNumerals,
   formatLocaleDigits,
   preVisitStatusLabel,
+  calendarDayKeyInTimeZone,
+  CLINIC_TIME_ZONE,
   resolveLocale,
 } from '../../lib/i18n-ui';
 
@@ -19,12 +21,7 @@ type AppointmentViewMode = 'list' | 'calendar';
 type AppointmentBodyTab = 'calendar' | 'list' | 'pending' | 'analytics';
 type CalendarScale = 'day' | 'week' | 'month';
 
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const formatDateKey = (date: Date) => calendarDayKeyInTimeZone(date, CLINIC_TIME_ZONE);
 
 export const DoctorAppointments: React.FC = () => {
   const { t, i18n } = useTranslation('common');
@@ -616,8 +613,16 @@ export const DoctorAppointments: React.FC = () => {
             <Skeleton className="h-44 w-full rounded-2xl" />
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('doctor.appointments.loadError')}
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700" role="alert">
+            <p>{t('doctor.appointments.loadError')}</p>
+            <p className="mt-1 text-xs text-amber-900/80">{error}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 font-semibold text-amber-900 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
           </div>
         ) : routeAppointments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">

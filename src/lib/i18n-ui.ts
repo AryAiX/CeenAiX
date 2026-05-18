@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next';
 
 export const CLINIC_TIME_ZONE = 'Asia/Dubai';
 
-const calendarDayKeyInTimeZone = (value: Date | string, timeZone: string) => {
+export const calendarDayKeyInTimeZone = (value: Date | string, timeZone: string) => {
   const date = typeof value === 'string' ? new Date(value) : value;
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -20,6 +20,15 @@ const calendarDayKeyInTimeZone = (value: Date | string, timeZone: string) => {
 
 export const isSameCalendarDayInTimeZone = (value: Date | string, reference: Date, timeZone = CLINIC_TIME_ZONE) =>
   calendarDayKeyInTimeZone(value, timeZone) === calendarDayKeyInTimeZone(reference, timeZone);
+
+/** Inclusive UTC instants for the clinic calendar day (UAE is fixed UTC+4). */
+export const clinicDayUtcBounds = (reference: Date = new Date(), timeZone = CLINIC_TIME_ZONE) => {
+  const dayKey = calendarDayKeyInTimeZone(reference, timeZone);
+  return {
+    startIso: new Date(`${dayKey}T00:00:00+04:00`).toISOString(),
+    endIso: new Date(`${dayKey}T23:59:59.999+04:00`).toISOString(),
+  };
+};
 
 export const formatRelativeTime = (t: TFunction, value: string) => {
   const date = new Date(value);
