@@ -127,112 +127,134 @@ export const DoctorNotifications: React.FC = () => {
           </div>
         </div>
 
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-teal-600" />
-            <h2 className="text-base font-semibold text-slate-900">{t('doctor.notifications.liveAttention')}</h2>
-          </div>
-
-          {liveAttentionItems.length === 0 ? (
-            <p className="text-sm text-slate-500">{t('doctor.notifications.noLiveAttention')}</p>
-          ) : (
-            <div className="space-y-3">
-              {liveAttentionItems.map((notification) => (
-                <button
-                  key={notification.id}
-                  type="button"
-                  onClick={() => navigate(notification.actionUrl)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-semibold text-slate-900">{notification.title}</p>
-                    <span className="text-xs font-semibold text-slate-500">
-                      {formatRelativeTime(t, notification.createdAt)}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
-                </button>
-              ))}
+        {liveAttentionItems.length === 0 && storedNotifications.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+              <Bell className="h-8 w-8 text-slate-400" />
             </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Bell className="h-4 w-4 text-emerald-600" />
-            <h2 className="text-base font-semibold text-slate-900">{t('doctor.notifications.logTitle')}</h2>
+            <h3 className="text-lg font-bold text-slate-900">You are all caught up!</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              No notifications at the moment. We will let you know when something needs your attention.
+            </p>
+            <button
+              type="button"
+              onClick={refetch}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </button>
           </div>
+        ) : (
+          <>
+            <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-teal-600" />
+                <h2 className="text-base font-semibold text-slate-900">{t('doctor.notifications.liveAttention')}</h2>
+              </div>
 
-          {storedNotifications.length === 0 ? (
-            <p className="text-sm text-slate-600">{t('doctor.notifications.emptyLog')}</p>
-          ) : (
-            <div className="space-y-3">
-              {storedNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${
-                    notification.is_read
-                      ? 'border-slate-200 bg-slate-50'
-                      : 'border-emerald-200 bg-emerald-50/50'
-                  }`}
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+              {liveAttentionItems.length === 0 ? (
+                <p className="text-sm text-slate-500">{t('doctor.notifications.noLiveAttention')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {liveAttentionItems.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => navigate(notification.actionUrl)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="font-semibold text-slate-900">{notification.title}</p>
-                        {(() => {
-                          const badge = getNotificationTypeBadge(notification.type);
-                          return (
-                            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
-                              {badge.label}
-                            </span>
-                          );
-                        })()}
-                        {!notification.is_read ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                            {t('doctor.notifications.unreadBadge')}
-                          </span>
-                        ) : null}
+                        <span className="text-xs font-semibold text-slate-500">
+                          {formatRelativeTime(t, notification.createdAt)}
+                        </span>
                       </div>
-                      {notification.body ? (
-                        <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                      <p className="mt-2 text-xs font-semibold text-slate-500">
-                        {formatRelativeTime(t, notification.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {notification.action_url ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(notification.action_url ?? '/doctor/dashboard')}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                        >
-                          {t('doctor.notifications.open')}
-                        </button>
-                      ) : null}
-                      {!notification.is_read ? (
-                        <button
-                          type="button"
-                          onClick={() => markRead(notification.id)}
-                          disabled={busyId === notification.id}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {busyId === notification.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCheck className="h-4 w-4" />
-                          )}
-                          <span>{t('doctor.notifications.markRead')}</span>
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
+                      <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              )}
+            </section>
+
+            <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Bell className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-base font-semibold text-slate-900">{t('doctor.notifications.logTitle')}</h2>
+              </div>
+
+              {storedNotifications.length === 0 ? (
+                <p className="text-sm text-slate-600">{t('doctor.notifications.emptyLog')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {storedNotifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`rounded-2xl border p-4 ${
+                        notification.is_read
+                          ? 'border-slate-200 bg-slate-50'
+                          : 'border-emerald-200 bg-emerald-50/50'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-slate-900">{notification.title}</p>
+                            {(() => {
+                              const badge = getNotificationTypeBadge(notification.type);
+                              return (
+                                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                                  {badge.label}
+                                </span>
+                              );
+                            })()}
+                            {!notification.is_read ? (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                {t('doctor.notifications.unreadBadge')}
+                              </span>
+                            ) : null}
+                          </div>
+                          {notification.body ? (
+                            <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
+                          ) : null}
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            {formatRelativeTime(t, notification.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {notification.action_url ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate(notification.action_url ?? '/doctor/dashboard')}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                            >
+                              {t('doctor.notifications.open')}
+                            </button>
+                          ) : null}
+                          {!notification.is_read ? (
+                            <button
+                              type="button"
+                              onClick={() => markRead(notification.id)}
+                              disabled={busyId === notification.id}
+                              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {busyId === notification.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCheck className="h-4 w-4" />
+                              )}
+                              <span>{t('doctor.notifications.markRead')}</span>
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
     </>
   );
