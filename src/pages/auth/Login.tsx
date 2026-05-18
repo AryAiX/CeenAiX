@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -21,9 +21,13 @@ import {
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { getOtpRequestErrorMessage } from '../../lib/auth-error-messages';
 import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { withTimeout } from '../../lib/with-timeout';
 
 type LoginMode = 'password' | 'otp';
 type LoginRole = 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance' | 'admin';
+
+const AUTH_REMOTE_TIMEOUT_MS = 30_000;
 
 interface RolePreset {
   title: string;
@@ -129,6 +133,15 @@ export const Login = () => {
     accountCreated ? t('auth.login.accountCreatedCheckEmail') : null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const recoveryRedirectRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recoveryRedirectRef.current !== null) {
+        window.clearTimeout(recoveryRedirectRef.current);
+      }
+    };
+  }, []);
 
   const isRecoveryMode = useMemo(() => {
     if (searchParams.get('mode') === 'recovery') {
@@ -160,10 +173,14 @@ export const Login = () => {
     resetFeedback();
     setIsSubmitting(true);
 
-    const { error } = await signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    const { error } = await withTimeout(
+      signInWithPassword({
+        email: email.trim(),
+        password,
+      }),
+      AUTH_REMOTE_TIMEOUT_MS,
+      () => new Error(t('auth.login.errors.signInTimeout'))
+    );
 
     if (error) {
       setErrorMessage(error.message);
@@ -178,10 +195,14 @@ export const Login = () => {
     setIsSubmitting(true);
 
     const normalizedPhone = phone.trim();
-    const { error } = await requestOtp({
-      phone: normalizedPhone,
-      shouldCreateUser: false,
-    });
+    const { error } = await withTimeout(
+      requestOtp({
+        phone: normalizedPhone,
+        shouldCreateUser: false,
+      }),
+      AUTH_REMOTE_TIMEOUT_MS,
+      () => new Error(t('auth.remoteTimeout'))
+    );
 
     if (error) {
       setErrorMessage(getOtpRequestErrorMessage(error.message, { isSignUp: false }));
@@ -212,7 +233,11 @@ export const Login = () => {
 
     setIsSubmitting(true);
 
-    const { error } = await updatePassword(newPassword);
+    const { error } = await withTimeout(
+      updatePassword(newPassword),
+      AUTH_REMOTE_TIMEOUT_MS,
+      () => new Error(t('auth.remoteTimeout'))
+    );
 
     if (error) {
       setErrorMessage(error.message);
@@ -223,7 +248,8 @@ export const Login = () => {
     setSuccessMessage(t('auth.login.passwordUpdatedRedirecting'));
     setIsSubmitting(false);
     // Give the user a beat to read the success banner before redirecting.
-    window.setTimeout(() => {
+    recoveryRedirectRef.current = window.setTimeout(() => {
+      recoveryRedirectRef.current = null;
       navigate(getDefaultRouteForRole(role), { replace: true });
     }, 600);
   };
@@ -336,6 +362,7 @@ export const Login = () => {
                   <input
                     type="password"
                     value={newPassword}
+                    maxLength={FORM_FIELD_LIMITS.password}
                     onChange={(event) => setNewPassword(event.target.value)}
                     className="w-full rounded-lg border border-slate-200 py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                     placeholder={t('auth.login.newPasswordPlaceholder')}
@@ -350,6 +377,7 @@ export const Login = () => {
                   <input
                     type="password"
                     value={confirmNewPassword}
+                    maxLength={FORM_FIELD_LIMITS.password}
                     onChange={(event) => setConfirmNewPassword(event.target.value)}
                     className="w-full rounded-lg border border-slate-200 py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                     placeholder={t('auth.login.repeatPasswordPlaceholder')}
@@ -436,6 +464,7 @@ export const Login = () => {
                         <input
                           type="email"
                           value={email}
+                          maxLength={FORM_FIELD_LIMITS.email}
                           onChange={(event) => setEmail(event.target.value)}
                           className="w-full rounded-lg border border-slate-200 py-2.5 ps-9 pe-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder={t('auth.login.emailPlaceholder')}
@@ -454,6 +483,7 @@ export const Login = () => {
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={password}
+                          maxLength={FORM_FIELD_LIMITS.password}
                           onChange={(event) => setPassword(event.target.value)}
                           className="w-full rounded-lg border border-slate-200 py-2.5 ps-9 pe-10 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder={t('auth.login.passwordPlaceholder')}
@@ -528,6 +558,7 @@ export const Login = () => {
                         <input
                           type="tel"
                           value={phone}
+                          maxLength={FORM_FIELD_LIMITS.phone}
                           onChange={(event) => setPhone(event.target.value)}
                           className="w-full rounded-lg border border-slate-200 py-2.5 ps-9 pe-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="+971 50 123 4567"

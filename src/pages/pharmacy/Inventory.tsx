@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -13,6 +13,7 @@ import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyInventoryDerivedItem } from '../../hooks';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType =
@@ -178,6 +179,8 @@ export const PharmacyInventory = () => {
   const { data, loading } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
   const counts = useMemo(
@@ -248,37 +251,42 @@ export const PharmacyInventory = () => {
             <button
               type="button"
               onClick={() => {
-                const header = ['id', 'generic_name', 'brand_name', 'stock_qty', 'reorder_level', 'stock_status', 'next_expiry'];
-                const escape = (v: string | number | null | undefined) => {
-                  if (v === null || v === undefined) return '';
-                  const s = String(v);
-                  return s.includes(',') || s.includes('"') || s.includes('\n')
-                    ? `"${s.replace(/"/g, '""')}"`
-                    : s;
-                };
-                const body = [
-                  header,
-                  ...rows.map((row) => [
-                    row.id,
-                    row.genericName,
-                    row.brandName,
-                    row.stockQty,
-                    row.reorderLevel,
-                    row.stockStatus,
-                    row.nextExpiry,
-                  ]),
-                ]
-                  .map((line) => line.map(escape).join(','))
-                  .join('\n');
-                const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `pharmacy-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                setExportError(null);
+                try {
+                  const header = ['id', 'generic_name', 'brand_name', 'stock_qty', 'reorder_level', 'stock_status', 'next_expiry'];
+                  const escape = (v: string | number | null | undefined) => {
+                    if (v === null || v === undefined) return '';
+                    const s = String(v);
+                    return s.includes(',') || s.includes('"') || s.includes('\n')
+                      ? `"${s.replace(/"/g, '""')}"`
+                      : s;
+                  };
+                  const body = [
+                    header,
+                    ...rows.map((row) => [
+                      row.id,
+                      row.genericName,
+                      row.brandName,
+                      row.stockQty,
+                      row.reorderLevel,
+                      row.stockStatus,
+                      row.nextExpiry,
+                    ]),
+                  ]
+                    .map((line) => line.map(escape).join(','))
+                    .join('\n');
+                  const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `pharmacy-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  setExportError(err instanceof Error ? err.message : 'Export failed.');
+                }
               }}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
             >
@@ -295,6 +303,12 @@ export const PharmacyInventory = () => {
             </a>
           </div>
         </div>
+
+        {exportError ? (
+          <div className="mx-6 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {exportError}
+          </div>
+        ) : null}
 
         <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
@@ -319,6 +333,7 @@ export const PharmacyInventory = () => {
             <input
               type="text"
               value={search}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('pharmacy.inventory.searchPh', {
                 defaultValue: 'Drug name, brand, ATC code, category...',
@@ -359,25 +374,25 @@ export const PharmacyInventory = () => {
                   item.reorderLevel > 0
                     ? Math.min(100, (item.stockQty / Math.max(item.reorderLevel * 3, 1)) * 100)
                     : 100;
+                const isBatchOpen = expandedBatchId === item.id;
 
                 return (
-                  <div
-                    key={item.id}
-                    className={`grid min-h-16 grid-cols-[2fr_1fr_1fr_80px_100px_120px_160px] items-center border-l-4 px-5 py-3.5 transition-colors hover:bg-emerald-50 ${cfg.row}`}
-                    style={{
-                      borderBottom: index < filtered.length - 1 ? '1px solid #F8FAFC' : undefined,
-                      borderLeftColor:
-                        item.stockStatus === 'out_of_stock'
-                          ? '#EF4444'
-                          : item.stockStatus === 'expiring_soon'
-                            ? '#EAB308'
-                            : item.stockStatus === 'critical'
-                              ? '#F97316'
-                              : item.stockStatus === 'low'
-                                ? '#F59E0B'
-                                : '#22C55E',
-                    }}
-                  >
+                  <Fragment key={item.id}>
+                    <div
+                      className={`grid min-h-16 grid-cols-[2fr_1fr_1fr_80px_100px_120px_160px] items-center border-b border-[#F8FAFC] border-l-4 px-5 py-3.5 transition-colors hover:bg-emerald-50 ${cfg.row} ${index === filtered.length - 1 && !isBatchOpen ? 'border-b-0' : ''}`}
+                      style={{
+                        borderLeftColor:
+                          item.stockStatus === 'out_of_stock'
+                            ? '#EF4444'
+                            : item.stockStatus === 'expiring_soon'
+                              ? '#EAB308'
+                              : item.stockStatus === 'critical'
+                                ? '#F97316'
+                                : item.stockStatus === 'low'
+                                  ? '#F59E0B'
+                                  : '#22C55E',
+                      }}
+                    >
                     <div className="pr-3">
                       <div className="flex items-center gap-2">
                         <span className="text-[13px] font-semibold text-slate-800">
@@ -458,15 +473,15 @@ export const PharmacyInventory = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => {
-                          // Surface the per-item batch list in-place via a
-                          // user-friendly toast-style alert. A full per-SKU
-                          // batches dialog ships with the inventory phase.
-                          const batches = `${item.genericName} · ${item.batchCount} batch${item.batchCount === 1 ? '' : 'es'} on hand` +
-                            (item.nextExpiry ? `\nNext expiry: ${item.nextExpiry}` : '');
-                          window.alert(batches);
-                        }}
-                        className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+                        onClick={() =>
+                          setExpandedBatchId((current) => (current === item.id ? null : item.id))
+                        }
+                        aria-expanded={isBatchOpen}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                          isBatchOpen
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                       >
                         <Eye className="h-3 w-3" />
                         Batches
@@ -484,6 +499,21 @@ export const PharmacyInventory = () => {
                       </a>
                     </div>
                   </div>
+                    {isBatchOpen ? (
+                      <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-3 text-sm text-slate-700">
+                        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">On-hand batches</div>
+                        <p className="mt-1 text-sm text-slate-800">
+                          {item.genericName} · {item.batchCount} batch{item.batchCount === 1 ? '' : 'es'} tracked for this
+                          SKU.
+                          {item.nextExpiry ? (
+                            <span className="block pt-1 text-xs text-slate-600">
+                              Next labelled expiry: <span className="font-mono font-semibold">{item.nextExpiry}</span>
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                    ) : null}
+                  </Fragment>
                 );
               })}
             </div>

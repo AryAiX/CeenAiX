@@ -1086,10 +1086,12 @@
       "statusApproved": "معتمدة",
       "statusPending": "قيد الانتظار",
       "statusReview": "قيد المراجعة",
+      "statusDenied": "مرفوض",
       "status": {
         "approved": "معتمدة",
         "pending": "قيد الانتظار",
-        "review": "قيد المراجعة"
+        "review": "قيد المراجعة",
+        "denied": "مرفوض"
       },
       "noActivity": "لا يوجد نشاط مرتبط بالتأمين بعد.",
       "fullPrice": "السعر الكامل",
@@ -1112,6 +1114,7 @@
       "uploadComingSoon": "الرفع قادم قريباً",
       "generateFromActivity": "إنشاء من النشاط",
       "viewSummary": "عرض الملخص",
+      "cardDownloadError": "تعذر تجهيز التنزيل. يُرجى المحاولة مرة أخرى.",
       "dataNote": "بيانات خطة التأمين مباشرة من patient_insurance و insurance_plans. صفوف المطالبات مقدّرة من المواعيد وطلبات المختبر والوصفات حتى ربط جداول المطالبات والموافقات المسبقة."
     },
     "documents": {

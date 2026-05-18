@@ -11,6 +11,7 @@ import {
   findDoctorSearchHaystack,
   matchesDirectorySpecialtyFilter,
 } from '../../lib/find-doctor-directory';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { GeometricBackground } from '../../components/GeometricBackground';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
@@ -157,6 +158,7 @@ export const FindDoctor: React.FC = () => {
                 type="text"
                 placeholder={t('findDoctor.searchPlaceholder')}
                 value={searchTerm}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pe-4 ps-12 text-slate-900 outline-none transition focus:border-ceenai-cyan focus:bg-white focus:ring-2 focus:ring-ceenai-cyan/20"
               />

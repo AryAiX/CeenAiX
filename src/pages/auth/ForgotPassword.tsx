@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { KeyRound, Mail } from 'lucide-react';
 import { AuthShell } from '../../components/AuthShell';
 import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { withTimeout } from '../../lib/with-timeout';
+
+const AUTH_REMOTE_TIMEOUT_MS = 30_000;
 
 export const ForgotPassword = () => {
   const { t } = useTranslation('common');
@@ -46,7 +50,17 @@ export const ForgotPassword = () => {
     resetFeedback();
     setIsSubmitting(true);
 
-    const { error } = await requestPasswordReset(email.trim());
+    let error: Error | null = null;
+    try {
+      const result = await withTimeout(
+        requestPasswordReset(email.trim()),
+        AUTH_REMOTE_TIMEOUT_MS,
+        () => new Error(t('auth.remoteTimeout'))
+      );
+      error = result.error;
+    } catch (err) {
+      error = err instanceof Error ? err : new Error(t('auth.remoteTimeout'));
+    }
 
     if (error) {
       setErrorMessage(error.message);
@@ -74,7 +88,17 @@ export const ForgotPassword = () => {
 
     setIsSubmitting(true);
 
-    const { error } = await updatePassword(password);
+    let error: Error | null = null;
+    try {
+      const result = await withTimeout(
+        updatePassword(password),
+        AUTH_REMOTE_TIMEOUT_MS,
+        () => new Error(t('auth.remoteTimeout'))
+      );
+      error = result.error;
+    } catch (err) {
+      error = err instanceof Error ? err : new Error(t('auth.remoteTimeout'));
+    }
 
     if (error) {
       setErrorMessage(error.message);
@@ -124,6 +148,7 @@ export const ForgotPassword = () => {
             <input
               type="password"
               value={password}
+              maxLength={FORM_FIELD_LIMITS.password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15"
               placeholder={t('auth.login.newPasswordPlaceholder')}
@@ -137,6 +162,7 @@ export const ForgotPassword = () => {
             <input
               type="password"
               value={confirmPassword}
+              maxLength={FORM_FIELD_LIMITS.password}
               onChange={(event) => setConfirmPassword(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15"
               placeholder={t('auth.login.repeatPasswordPlaceholder')}
@@ -161,6 +187,7 @@ export const ForgotPassword = () => {
             <input
               type="email"
               value={email}
+              maxLength={FORM_FIELD_LIMITS.email}
               onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15"
               placeholder="you@example.com"

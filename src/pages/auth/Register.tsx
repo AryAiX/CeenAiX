@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthShell } from '../../components/AuthShell';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { UserRole } from '../../types';
 
 type RegistrationMode = 'email-password' | 'phone-otp';
@@ -477,6 +478,7 @@ export const Register = () => {
                 <input
                   type="text"
                   value={fullName}
+                  maxLength={FORM_FIELD_LIMITS.personName}
                   onChange={(event) => setFullName(event.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                   placeholder={t('auth.register.fullNamePlaceholder')}
@@ -506,6 +508,7 @@ export const Register = () => {
                     <input
                       type="email"
                       value={email}
+                      maxLength={FORM_FIELD_LIMITS.email}
                       onChange={(event) => setEmail(event.target.value)}
                       className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.emailPlaceholder')}
@@ -522,6 +525,7 @@ export const Register = () => {
                     <input
                       type="tel"
                       value={phone}
+                      maxLength={FORM_FIELD_LIMITS.phone}
                       onChange={(event) => setPhone(event.target.value)}
                       className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.mobilePlaceholder')}
@@ -537,6 +541,7 @@ export const Register = () => {
                     <input
                       type="password"
                       value={password}
+                      maxLength={FORM_FIELD_LIMITS.password}
                       onChange={(event) => setPassword(event.target.value)}
                       className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.passwordPlaceholder')}
@@ -553,6 +558,7 @@ export const Register = () => {
                     <input
                       type="password"
                       value={confirmPassword}
+                      maxLength={FORM_FIELD_LIMITS.password}
                       onChange={(event) => setConfirmPassword(event.target.value)}
                       className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.confirmPasswordPlaceholder')}
@@ -571,6 +577,7 @@ export const Register = () => {
                     <input
                       type="tel"
                       value={phone}
+                      maxLength={FORM_FIELD_LIMITS.phone}
                       onChange={(event) => setPhone(event.target.value)}
                       className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
                       placeholder={t('auth.register.mobilePlaceholder')}

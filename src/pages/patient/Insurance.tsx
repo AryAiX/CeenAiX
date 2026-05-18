@@ -23,6 +23,7 @@ import {
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 
 type InsuranceTab = 'claims' | 'preauth' | 'benefits' | 'documents';
@@ -31,7 +32,9 @@ type StatusFilter = 'all' | PatientInsuranceActivity['status'];
 function statusClasses(status: PatientInsuranceActivity['status']) {
   if (status === 'approved') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   if (status === 'pending') return 'bg-amber-50 text-amber-700 border-amber-200';
-  return 'bg-blue-50 text-blue-700 border-blue-200';
+  if (status === 'denied') return 'bg-rose-50 text-rose-800 border-rose-200';
+  if (status === 'review') return 'bg-blue-50 text-blue-700 border-blue-200';
+  return 'bg-slate-50 text-slate-700 border-slate-200';
 }
 
 export const PatientInsurance = () => {
@@ -43,6 +46,7 @@ export const PatientInsurance = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showExclusions, setShowExclusions] = useState(false);
+  const [cardActionMessage, setCardActionMessage] = useState<string | null>(null);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -61,6 +65,47 @@ export const PatientInsurance = () => {
     value == null ? '—' : `AED ${formatLocaleDigits(Math.round(value), uiLang)}`;
 
   const primaryPlan = data?.primaryPlan ?? null;
+
+  const handleDownloadCard = () => {
+    setCardActionMessage(null);
+    if (primaryPlan?.cardPhotoUrl) {
+      window.open(primaryPlan.cardPhotoUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const lines = [
+      'Insurance card summary',
+      `Provider: ${primaryPlan?.providerCompany ?? '—'}`,
+      `Member: ${data?.patientName ?? '—'}`,
+      `Member ID: ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? '—'}`,
+      `Plan: ${primaryPlan?.planName ?? '—'}`,
+      `Valid until: ${formatDate(primaryPlan?.validUntil)}`,
+    ];
+    try {
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `insurance-card-summary-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch {
+      setCardActionMessage(
+        t('patient.insurance.cardDownloadError', { defaultValue: 'Could not prepare a download. Please try again.' })
+      );
+    }
+  };
+
+  const handleContactInsurer = () => {
+    const subject = encodeURIComponent(
+      `Insurance inquiry — ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? 'member'}`
+    );
+    const body = encodeURIComponent(
+      `Plan: ${primaryPlan?.planName ?? '—'}\nMember ID: ${primaryPlan?.memberId ?? '—'}\nPolicy: ${primaryPlan?.policyNumber ?? '—'}\n\n`
+    );
+    window.location.assign(`mailto:?subject=${subject}&body=${body}`);
+  };
   const coPay = primaryPlan?.coPayPercent ?? null;
   const coveredPercent = coPay == null ? null : Math.max(0, 100 - coPay);
   const annualLimit = primaryPlan?.annualLimit ?? null;
@@ -177,6 +222,12 @@ export const PatientInsurance = () => {
         </div>
       ) : null}
 
+      {cardActionMessage ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {cardActionMessage}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
@@ -189,12 +240,14 @@ export const PatientInsurance = () => {
         </div>
         <button
           type="button"
+          onClick={handleDownloadCard}
           className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
         >
           <Download className="h-4 w-4" /> {t('patient.insurance.downloadCard')}
         </button>
         <button
           type="button"
+          onClick={handleContactInsurer}
           className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
         >
           <Phone className="h-4 w-4" /> {primaryPlan?.providerCompany ?? t('patient.insurance.contactInsurer')}
@@ -343,6 +396,7 @@ export const PatientInsurance = () => {
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     value={search}
+                    maxLength={FORM_FIELD_LIMITS.searchQuery}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder={t('patient.insurance.searchActivity')}
                     className="w-full rounded-xl border border-slate-200 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -359,6 +413,7 @@ export const PatientInsurance = () => {
                     <option value="approved">{t('patient.insurance.statusApproved')}</option>
                     <option value="pending">{t('patient.insurance.statusPending')}</option>
                     <option value="review">{t('patient.insurance.statusReview')}</option>
+                    <option value="denied">{t('patient.insurance.statusDenied')}</option>
                   </select>
                 </div>
               </div>
@@ -369,12 +424,21 @@ export const PatientInsurance = () => {
                     {t('patient.insurance.noActivity')}
                   </div>
                 ) : (
-                  filteredActivity.map((item) => (
-                    <div key={item.id} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+                  filteredActivity.map((item) => {
+                    const denied = item.status === 'denied';
+                    return (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border p-5 shadow-sm ${
+                        denied ? 'border-rose-200 bg-rose-50/40' : 'border-slate-100 bg-white'
+                      }`}
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-bold text-slate-900">{item.service}</h3>
+                            <h3 className={`text-base font-bold ${denied ? 'text-slate-700 line-through decoration-slate-400' : 'text-slate-900'}`}>
+                              {item.service}
+                            </h3>
                             <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusClasses(item.status)}`}>
                               {t(`patient.insurance.status.${item.status}`)}
                             </span>
@@ -387,20 +451,29 @@ export const PatientInsurance = () => {
                         <div className="grid min-w-[260px] grid-cols-3 gap-3 text-right">
                           <div>
                             <div className="text-xs text-slate-400">{t('patient.insurance.fullPrice')}</div>
-                            <div className="font-mono font-bold text-slate-900">{money(item.totalEstimate)}</div>
+                            <div className={`font-mono font-bold ${denied ? 'text-slate-500' : 'text-slate-900'}`}>{money(item.totalEstimate)}</div>
                           </div>
                           <div>
-                            <div className="text-xs text-emerald-600">{t('patient.insurance.covered')}</div>
-                            <div className="font-mono font-bold text-emerald-700">{money(item.coveredEstimate)}</div>
+                            <div className={`text-xs ${denied ? 'text-rose-600' : 'text-emerald-600'}`}>{t('patient.insurance.covered')}</div>
+                            <div
+                              className={`font-mono font-bold ${
+                                denied ? 'text-rose-700 line-through decoration-rose-400' : 'text-emerald-700'
+                              }`}
+                            >
+                              {money(item.coveredEstimate)}
+                            </div>
                           </div>
                           <div>
-                            <div className="text-xs text-blue-600">{t('patient.insurance.patientShare')}</div>
-                            <div className="font-mono font-bold text-blue-700">{money(item.patientShareEstimate)}</div>
+                            <div className={`text-xs ${denied ? 'text-rose-600' : 'text-blue-600'}`}>{t('patient.insurance.patientShare')}</div>
+                            <div className={`font-mono font-bold ${denied ? 'text-rose-800' : 'text-blue-700'}`}>
+                              {money(item.patientShareEstimate)}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

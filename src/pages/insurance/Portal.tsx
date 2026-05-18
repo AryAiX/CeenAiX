@@ -36,6 +36,7 @@ import {
   type InsurancePreAuthorization,
 } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 type BadgeTone = 'red' | 'amber' | 'blue';
 type PillTone = 'red' | 'amber' | 'emerald' | 'blue' | 'violet' | 'slate';
@@ -1442,6 +1443,7 @@ export const InsurancePreAuthorizations = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
                 placeholder="Search request, member, provider, procedure..."
@@ -1526,6 +1528,7 @@ export const InsuranceClaims = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
                 placeholder="Search claim ref, member, or provider..."
@@ -1641,6 +1644,7 @@ export const InsuranceMembers = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
                 placeholder="Search by name, member ID, or plan..."
@@ -1765,7 +1769,7 @@ export const InsuranceRiskAnalytics = () => {
             ))}
           </div>
         </SectionCard>
-        <SectionCard title="Loss Ratio Forecast" subtitle="Current seeded period">
+        <SectionCard title="Loss Ratio Forecast" subtitle="Reporting window (live workspace)">
           <div className="grid grid-cols-2 gap-3">
             <KpiCard label="Medical loss" value={`${averageLossRatio}%`} helper="Average risk segment loss ratio" tone="amber" />
             <KpiCard label="Savings found" value={formatCurrency(savingsFound)} helper="Open fraud alert exposure" tone="emerald" />
@@ -1805,6 +1809,7 @@ export const InsuranceNetworkProviders = () => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
               placeholder="Search provider or specialty..."

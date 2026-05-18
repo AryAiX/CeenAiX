@@ -36,6 +36,7 @@ import {
   type PreVisitTemplateQuestionDraft,
 } from '../../lib/pre-visit';
 import { supabase } from '../../lib/supabase';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 interface DoctorProfileFormState {
   fullName: string;
@@ -697,6 +698,7 @@ export const DoctorProfile: React.FC = () => {
                     <input
                       type="text"
                       value={formData.fullName}
+                      maxLength={FORM_FIELD_LIMITS.personName}
                       onChange={(event) => setFormData({ ...formData, fullName: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       placeholder="Enter your full name"
@@ -719,6 +721,7 @@ export const DoctorProfile: React.FC = () => {
                       <input
                         type="tel"
                         value={formData.phone}
+                        maxLength={FORM_FIELD_LIMITS.phone}
                         onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                         placeholder="Enter your phone number"
@@ -744,6 +747,7 @@ export const DoctorProfile: React.FC = () => {
                     <input
                       type="text"
                       value={formData.licenseNumber}
+                      maxLength={FORM_FIELD_LIMITS.licenseNumber}
                       onChange={(event) =>
                         setFormData({ ...formData, licenseNumber: event.target.value })
                       }
@@ -782,6 +786,7 @@ export const DoctorProfile: React.FC = () => {
                     <label className="mb-1 block text-sm font-medium text-gray-700">Address</label>
                     <textarea
                       value={formData.address}
+                      maxLength={FORM_FIELD_LIMITS.address}
                       onChange={(event) => setFormData({ ...formData, address: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       rows={3}
@@ -793,6 +798,7 @@ export const DoctorProfile: React.FC = () => {
                     <label className="mb-1 block text-sm font-medium text-gray-700">Professional Bio</label>
                     <textarea
                       value={formData.bio}
+                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       onChange={(event) => setFormData({ ...formData, bio: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       rows={4}
@@ -1025,6 +1031,7 @@ export const DoctorProfile: React.FC = () => {
                       <input
                         type="text"
                         value={templateDraft.title}
+                        maxLength={FORM_FIELD_LIMITS.shortText}
                         onChange={(event) => updateTemplateDraft({ title: event.target.value })}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                         placeholder="Cardiology pre-visit intake"
@@ -1054,6 +1061,7 @@ export const DoctorProfile: React.FC = () => {
                     <span className="mb-1 block text-sm font-medium text-gray-700">Description</span>
                     <textarea
                       value={templateDraft.description}
+                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       onChange={(event) => updateTemplateDraft({ description: event.target.value })}
                       rows={3}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
@@ -1082,6 +1090,7 @@ export const DoctorProfile: React.FC = () => {
                             <input
                               type="text"
                               value={question.label}
+                              maxLength={FORM_FIELD_LIMITS.shortText}
                               onChange={(event) =>
                                 handleTemplateQuestionChange(index, { label: event.target.value })
                               }
@@ -1136,6 +1145,7 @@ export const DoctorProfile: React.FC = () => {
                             <input
                               type="text"
                               value={question.memoryKey ?? ''}
+                              maxLength={FORM_FIELD_LIMITS.shortText}
                               onChange={(event) =>
                                 handleTemplateQuestionChange(index, {
                                   memoryKey: event.target.value || null,
@@ -1153,6 +1163,7 @@ export const DoctorProfile: React.FC = () => {
                             <span className="mb-1 block text-sm font-medium text-gray-700">Help text</span>
                             <textarea
                               value={question.helpText ?? ''}
+                              maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                               onChange={(event) =>
                                 handleTemplateQuestionChange(index, { helpText: event.target.value })
                               }
@@ -1169,6 +1180,7 @@ export const DoctorProfile: React.FC = () => {
                               </span>
                               <textarea
                                 value={question.options.map((option) => option.label).join('\n')}
+                                maxLength={FORM_FIELD_LIMITS.chatMessage}
                                 onChange={(event) =>
                                   handleTemplateQuestionChange(index, {
                                     options: event.target.value

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -50,6 +50,7 @@ import type {
 } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type {
   AdminAiAnalyticsPayload,
   AdminAiDashboardPayload,
@@ -2139,6 +2140,7 @@ const OnboardOrganizationModal = ({
               id="org-name"
               type="text"
               value={name}
+              maxLength={FORM_FIELD_LIMITS.shortText}
               onChange={(event) => setName(event.target.value)}
               autoComplete="off"
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2156,6 +2158,7 @@ const OnboardOrganizationModal = ({
                 id="org-city"
                 type="text"
                 value={city}
+                maxLength={FORM_FIELD_LIMITS.shortText}
                 onChange={(event) => setCity(event.target.value)}
                 autoComplete="off"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2186,6 +2189,7 @@ const OnboardOrganizationModal = ({
                 id="org-contact-name"
                 type="text"
                 value={contactName}
+                maxLength={FORM_FIELD_LIMITS.personName}
                 onChange={(event) => setContactName(event.target.value)}
                 autoComplete="off"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2200,6 +2204,7 @@ const OnboardOrganizationModal = ({
                 id="org-contact-email"
                 type="email"
                 value={contactEmail}
+                maxLength={FORM_FIELD_LIMITS.email}
                 onChange={(event) => setContactEmail(event.target.value)}
                 autoComplete="off"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2215,6 +2220,7 @@ const OnboardOrganizationModal = ({
             <textarea
               id="org-notes"
               value={notes}
+              maxLength={FORM_FIELD_LIMITS.clinicalNotes}
               onChange={(event) => setNotes(event.target.value)}
               rows={3}
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2260,6 +2266,15 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [onboardKind, setOnboardKind] = useState<OrgKind>('hospital');
   const [createdToast, setCreatedToast] = useState<string | null>(null);
+  const createdToastTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (createdToastTimeoutRef.current !== null) {
+        window.clearTimeout(createdToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const openOnboard = (preset: OrgKind) => {
     setOnboardKind(preset);
@@ -2346,7 +2361,13 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
           setOnboardOpen(false);
           context.refreshOrganizations();
           setCreatedToast(`Created ${org.name} (${titleCase(org.kind)}) — status set to pending.`);
-          window.setTimeout(() => setCreatedToast(null), 5000);
+          if (createdToastTimeoutRef.current !== null) {
+            window.clearTimeout(createdToastTimeoutRef.current);
+          }
+          createdToastTimeoutRef.current = window.setTimeout(() => {
+            setCreatedToast(null);
+            createdToastTimeoutRef.current = null;
+          }, 5000);
         }}
       />
 
@@ -2357,6 +2378,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
             <Search className="mr-2 h-4 w-4 text-slate-400" />
             <input
               value={search}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search"
               className="w-full bg-transparent placeholder:text-slate-400 focus:outline-none"

@@ -15,6 +15,7 @@ import { SpecializationMultiSelect } from '../../components/SpecializationMultiS
 import { useBookableDoctors, useDoctorBookingAvailability, useQuery, useSpecializations } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { generateAvailableTimeSlots, type AvailableTimeSlot } from '../../lib/appointment-booking';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { supabase } from '../../lib/supabase';
 import { calendarWeekdayShort, dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 
@@ -538,6 +539,7 @@ export const BookAppointment: React.FC = () => {
                       <input
                         type="text"
                         value={searchTerm}
+                        maxLength={FORM_FIELD_LIMITS.searchQuery}
                         onChange={(event) => setSearchTerm(event.target.value)}
                         placeholder={t('patient.book.searchPh')}
                         className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 rtl:pl-4 rtl:pr-11"

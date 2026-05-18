@@ -76,7 +76,7 @@ export function usePatientNotifications(userId: string | null | undefined) {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(25),
       supabase
         .from('appointments')
         .select('id, doctor_id, scheduled_at, status, chief_complaint')
@@ -167,7 +167,7 @@ export function usePatientNotifications(userId: string | null | undefined) {
         .neq('sender_id', userId)
         .is('read_at', null)
         .order('sent_at', { ascending: false })
-        .limit(20);
+        .limit(15);
 
       if (unreadMessagesError) {
         throw unreadMessagesError;
@@ -204,9 +204,11 @@ export function usePatientNotifications(userId: string | null | undefined) {
       (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
 
+    const cappedDerived = derivedNotifications.slice(0, 25);
+
     return {
       notifications: (notifications ?? []) as Notification[],
-      derivedNotifications,
+      derivedNotifications: cappedDerived,
     };
   }, [userId ?? '']);
 }
