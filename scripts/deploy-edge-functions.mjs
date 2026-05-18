@@ -37,10 +37,16 @@ if (selectedDeployables.length === 0) {
   process.exit(1);
 }
 
+const projectRef = process.env.SUPABASE_PROD_PROJECT_REF?.trim();
+
 for (const deployable of selectedDeployables) {
   console.log(`\nDeploying ${deployable.name} from ${deployable.path}`);
   const [command, ...args] = deployable.deployCommand;
-  await runCommand(command, args);
+  const deployArgs =
+    projectRef && command === 'supabase' && !args.includes('--project-ref')
+      ? [...args, '--project-ref', projectRef]
+      : args;
+  await runCommand(command, deployArgs);
 }
 
 console.log('\nEdge function deployment commands completed.');

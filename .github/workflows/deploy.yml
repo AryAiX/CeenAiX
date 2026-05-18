@@ -1,13 +1,53 @@
 name: Release
 
+# Full production release on every main merge (and manual dispatch):
+# 1. Supabase — migrations, demo cleanup, reference-data verify, edge functions, auth platform
+# 2. Vercel — production frontend build + deploy
+#
+# Required GitHub secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_PROJECT_REF,
+# SUPABASE_PROD_DB_PASSWORD, VERCEL_* , VITE_SUPABASE_PROD_* .
+# Optional: SUPABASE_RESEND_SMTP_PASSWORD (applies Resend SMTP via Management API).
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 jobs:
+  supabase:
+    name: Production Supabase
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+      url: https://supabase.com/dashboard/project/${{ secrets.SUPABASE_PROD_PROJECT_REF }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      - name: Sync Supabase production (schema, ref data, functions, auth)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
+          SUPABASE_PROD_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
+          SUPABASE_RESEND_SMTP_PASSWORD: ${{ secrets.SUPABASE_RESEND_SMTP_PASSWORD }}
+        run: bash scripts/prod-release-supabase.sh
+
   deploy:
     name: Production Deploy
+    needs: supabase
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
@@ -51,8 +91,6 @@ jobs:
           VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          # Force the static Vite bundle to compile against the prod Supabase
-          # project even if the Vercel dashboard env is stale.
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_PROD_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PROD_ANON_KEY }}
           VITE_PREVIEW_PIN_GATE: "false"
@@ -71,4 +109,3 @@ jobs:
           VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-

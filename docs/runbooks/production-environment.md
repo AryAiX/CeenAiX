@@ -70,14 +70,16 @@ npx supabase db query --linked --file scripts/prod-demo-cleanup.sql --output csv
 
 If you ever need to rebuild the prod project from scratch (DR scenario), follow the same sequence after creating a new project.
 
-## Ongoing migrations (CI-driven)
+## Ongoing release (CI-driven)
 
-GitHub Actions handles migrations automatically:
+Every push to `main` runs the **Release** workflow (`.github/workflows/deploy.yml`):
 
-- **`.github/workflows/migrations.yml` job `dry-run`** runs on every PR that touches `supabase/migrations/**` and reports which migrations would apply.
-- **`.github/workflows/migrations.yml` job `apply`** runs on push to `main` when `supabase/migrations/**` changes. It links to prod, runs `supabase db push --linked --include-all`, re-runs `prod-demo-cleanup.sql` (idempotent — no-op on clean state), and deploys edge functions.
+1. **`supabase` job** — `scripts/prod-release-supabase.sh`: `db push`, `prod-demo-cleanup.sql`, `prod-release-verify.sql` (reference data guards), edge functions via `scripts/deploy-edge-functions.mjs`, auth platform via `scripts/sync-prod-auth-platform.sh` (branded templates, `site_url`, redirect allow-list).
+2. **`deploy` job** — Vercel production build and deploy (after Supabase succeeds).
 
-The workflow uses the `production` GitHub environment so you can require approvals on it (Settings → Environments → production → Required reviewers).
+PRs that touch migrations run **`.github/workflows/migrations.yml` dry-run** only (lists pending migrations on prod).
+
+The `supabase` job uses the GitHub `production` environment so you can require approvals (Settings → Environments → production → Required reviewers).
 
 ## Required GitHub secrets
 
