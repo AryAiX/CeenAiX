@@ -34,7 +34,7 @@ export const FindClinic: React.FC = () => {
 
   const { data: facilityDoctors, loading: doctorsLoading } = useFacilityDoctors(expandedFacilityId);
 
-  const facilityList = facilities ?? [];
+  const facilityList = useMemo(() => facilities ?? [], [facilities]);
 
   const toggleFacilityExpansion = (facilityId: string) => {
     setExpandedFacilityId((current) => (current === facilityId ? null : facilityId));

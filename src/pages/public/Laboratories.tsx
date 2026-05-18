@@ -22,7 +22,7 @@ export const Laboratories: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('all');
 
-  const labList = laboratories ?? [];
+  const labList = useMemo(() => laboratories ?? [], [laboratories]);
 
   const filteredLaboratories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
