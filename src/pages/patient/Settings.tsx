@@ -63,6 +63,7 @@ export const PatientSettings = () => {
   const [resetCooldown, setResetCooldown] = useState<boolean>(false);
   const [bugReport, setBugReport] = useState<string>('');
   const [bugSubmitted, setBugSubmitted] = useState<boolean>(false);
+  const [languageSaved, setLanguageSaved] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -208,12 +209,20 @@ export const PatientSettings = () => {
               onChange={(event) => {
                 updatePref('language', event.target.value);
                 void i18n.changeLanguage(event.target.value);
+                setLanguageSaved(true);
+                window.setTimeout(() => setLanguageSaved(false), 2500);
               }}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
             >
               <option value="en">English</option>
               <option value="ar">العربية</option>
             </select>
+            {languageSaved ? (
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                ✓ Language updated successfully!
+              </div>
+            ) : null}
           </div>
           {renderToggle('largeText', t('patient.settings.largeText'), t('patient.settings.largeTextBody'))}
           {renderToggle('highContrast', t('patient.settings.highContrast'), t('patient.settings.highContrastBody'))}
