@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CalendarRange, LayoutDashboard, Palette, Plug, Settings as SettingsIcon, ShieldCheck, Stethoscope, TestTube2, User } from 'lucide-react';
+import { Bell, CalendarRange, HelpCircle, LayoutDashboard, Palette, Plug, Settings as SettingsIcon, ShieldCheck, Stethoscope, TestTube2, User } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -550,6 +550,77 @@ export const DoctorSettings = () => {
                 <a href="mailto:support@ceenaix.com" className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-cyan-600 hover:text-cyan-700">
                   Contact Support →
                 </a>
+              </div>
+            </div>
+          ) : activeSection === 'help' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 mb-2">
+                <HelpCircle className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Help & Support</h2>
+                  <p className="text-sm text-slate-500">Find answers, contact support or report an issue.</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  { icon: '📖', title: 'User Guide', description: 'Step by step guides for using CeenAiX as a doctor.', link: '#' },
+                  { icon: '❓', title: 'FAQ', description: 'Answers to the most commonly asked questions.', link: '#' },
+                  { icon: '🎥', title: 'Video Tutorials', description: 'Watch short videos covering key features.', link: '#' },
+                ].map((resource) => (
+                  <a
+                    key={resource.title}
+                    href={resource.link}
+                    className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-cyan-300 hover:bg-cyan-50/40"
+                  >
+                    <span className="text-2xl">{resource.icon}</span>
+                    <p className="font-semibold text-slate-900">{resource.title}</p>
+                    <p className="text-sm text-slate-500">{resource.description}</p>
+                  </a>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-4">
+                <p className="font-semibold text-slate-900">Contact Support</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <a
+                    href="mailto:support@ceenaix.com"
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-cyan-300"
+                  >
+                    <span className="text-xl">📧</span>
+                    <div>
+                      <p className="font-semibold text-slate-900">Email Support</p>
+                      <p className="text-sm text-slate-500">support@ceenaix.com</p>
+                    </div>
+                  </a>
+                  <a
+                    href="https://wa.me/971000000000"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-cyan-300"
+                  >
+                    <span className="text-xl">💬</span>
+                    <div>
+                      <p className="font-semibold text-slate-900">WhatsApp Support</p>
+                      <p className="text-sm text-slate-500">Chat with our team</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3">
+                <p className="font-semibold text-slate-900">Report a Bug</p>
+                <textarea
+                  rows={3}
+                  placeholder="Describe the issue you encountered..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 resize-none"
+                />
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+                >
+                  Submit Report
+                </button>
               </div>
             </div>
           ) : activeSection !== 'notifications' ? (
