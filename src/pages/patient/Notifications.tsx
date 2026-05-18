@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bell, Calendar, CheckCheck, FlaskConical, Loader2, Pill, RefreshCcw, Shield, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bell, Calendar, CheckCheck, FlaskConical, Loader2, Pill, RefreshCcw, Search, Shield, Sparkles, Trash2 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -19,6 +19,34 @@ export const PatientNotifications: React.FC = () => {
   const undoTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [markAllSuccess, setMarkAllSuccess] = useState<boolean>(false);
   const [markAllError, setMarkAllError] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
+
+  const filteredNotifications = useMemo(() => {
+    return (data?.notifications ?? [])
+      .filter((n) => !deletedIds.has(n.id))
+      .filter((notification) => {
+        if (readFilter === 'unread' && notification.is_read) return false;
+        if (readFilter === 'read' && !notification.is_read) return false;
+        if (typeFilter !== 'all') {
+          const lower = notification.title.toLowerCase();
+          if (typeFilter === 'lab' && !/lab|result|test/.test(lower)) return false;
+          if (typeFilter === 'medication' && !/prescription|medication|refill|medicine/.test(lower)) return false;
+          if (typeFilter === 'appointment' && !/appointment|booking|schedule/.test(lower)) return false;
+          if (typeFilter === 'insurance' && !/insurance|claim|coverage/.test(lower)) return false;
+          if (typeFilter === 'general' && (
+            /lab|result|test|prescription|medication|refill|medicine|appointment|booking|schedule|insurance|claim|coverage/.test(lower)
+          )) return false;
+        }
+        if (searchQuery.trim()) {
+          const query = searchQuery.trim().toLowerCase();
+          const haystack = [notification.title, notification.body].filter(Boolean).join(' ').toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        return true;
+      });
+  }, [data?.notifications, deletedIds, readFilter, typeFilter, searchQuery]);
 
   const markRead = async (notificationId: string) => {
     setBusyId(notificationId);
@@ -270,29 +298,45 @@ export const PatientNotifications: React.FC = () => {
             <h2 className="text-base font-semibold text-slate-900">{t('patient.notifications.logTitle')}</h2>
           </div>
 
-          {allStoredNotifications.length === 0 ? (
-            <p className="text-sm text-slate-600">{t('patient.notifications.emptyLog')}</p>
+          <div className='mb-4 flex flex-col gap-3 md:flex-row md:items-center'>
+            <div className='relative flex-1'>
+              <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400' />
+              <input
+                type='text'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder='Search notifications...'
+                className='w-full rounded-lg border border-slate-200 py-2 pl-9 pr-4 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+              />
+            </div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className='rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+            >
+              <option value='all'>All Types</option>
+              <option value='lab'>🔬 Lab Results</option>
+              <option value='medication'>💊 Medications</option>
+              <option value='appointment'>📅 Appointments</option>
+              <option value='insurance'>🛡️ Insurance</option>
+              <option value='general'>🔔 General</option>
+            </select>
+            <select
+              value={readFilter}
+              onChange={(e) => setReadFilter(e.target.value as 'all' | 'unread' | 'read')}
+              className='rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+            >
+              <option value='all'>All</option>
+              <option value='unread'>Unread only</option>
+              <option value='read'>Read only</option>
+            </select>
+          </div>
+
+          {filteredNotifications.length === 0 ? (
+            <p className='text-sm text-slate-500'>No notifications match your filters.</p>
           ) : (
             <div className="space-y-3">
-              {allStoredNotifications.map((notification) => {
-                if (deletedIds.has(notification.id)) {
-                  return undoDeleteId === notification.id ? (
-                    <div
-                      key={notification.id}
-                      className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"
-                    >
-                      <span className="text-sm text-amber-700">Notification deleted</span>
-                      <button
-                        type="button"
-                        onClick={() => undoDelete(notification.id)}
-                        className="text-sm font-bold text-amber-700 underline hover:text-amber-900"
-                      >
-                        Undo
-                      </button>
-                    </div>
-                  ) : null;
-                }
-
+              {filteredNotifications.map((notification) => {
                 const style = getNotificationStyle(notification.title);
                 const { Icon } = style;
                 return (
@@ -366,6 +410,19 @@ export const PatientNotifications: React.FC = () => {
               })}
             </div>
           )}
+
+          {undoDeleteId ? (
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <span className="text-sm text-amber-700">Notification deleted</span>
+              <button
+                type="button"
+                onClick={() => undoDelete(undoDeleteId)}
+                className="text-sm font-bold text-amber-700 underline hover:text-amber-900"
+              >
+                Undo
+              </button>
+            </div>
+          ) : null}
         </section>
           </>
         )}
