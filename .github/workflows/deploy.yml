@@ -20,7 +20,8 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     environment:
       name: production
-      url: https://supabase.com/dashboard/project/${{ secrets.SUPABASE_PROD_PROJECT_REF }}
+      # Static URL — GitHub does not allow secrets in environment.url
+      url: https://supabase.com/dashboard/project/ziykaxyadcdmyakzvjff
 
     steps:
       - uses: actions/checkout@v4
