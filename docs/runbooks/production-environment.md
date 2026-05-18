@@ -72,14 +72,12 @@ If you ever need to rebuild the prod project from scratch (DR scenario), follow 
 
 ## Ongoing release (CI-driven)
 
-**Release** (`.github/workflows/deploy.yml`) has two triggers:
-
-| Trigger | Target | What runs |
+| Workflow | Trigger | Target |
 | --- | --- | --- |
-| Push to `main` | **Dev** — `https://dev.ceenaix.com` + Supabase `lgfaucsfiyxvmsghnpey` | `dev-release-supabase.sh` → preview Vercel build → alias `dev.ceenaix.com` |
-| **Run workflow** (manual) | **Prod** — `https://www.ceenaix.com` + Supabase `ziykaxyadcdmyakzvjff` | `prod-release-supabase.sh` (migrations, demo cleanup, ref-data verify, functions, auth) → Vercel `--prod` |
+| **Build** (`ci.yml`) | Push to `main` (after lint/typecheck/build pass) | **Dev** — `https://dev.ceenaix.com` + Supabase `lgfaucsfiyxvmsghnpey` |
+| **Release** (`deploy.yml`) | **Run workflow** only (manual) | **Prod** — `https://www.ceenaix.com` + Supabase `ziykaxyadcdmyakzvjff` |
 
-Merges to `main` never deploy prod. Use **Actions → Release → Run workflow** when you want production.
+Merges never run Release. Use **Actions → Release → Run workflow** for production only.
 
 PRs that touch migrations run **`.github/workflows/migrations.yml` dry-run** only (lists pending migrations on prod).
 
@@ -125,7 +123,7 @@ This way PR preview deployments hit dev and never accidentally write to prod.
 
 Production deploys: GitHub Actions → **Release** → **Run workflow** (prod only).
 
-Dev deploys: automatic on every push to `main` → `https://dev.ceenaix.com`.
+Dev deploys: **Build** workflow on every push to `main` → `https://dev.ceenaix.com`.
 
 ## Local development against prod (rare, read-only debugging)
 
