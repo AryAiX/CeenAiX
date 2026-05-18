@@ -14,35 +14,44 @@ export const PatientNotifications: React.FC = () => {
   const { user } = useAuth();
   const { data, loading, error, refetch } = usePatientNotifications(user?.id);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const markRead = async (notificationId: string) => {
+    if (!user?.id) return;
     setBusyId(notificationId);
+    setActionError(null);
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ is_read: true })
       .eq('id', notificationId)
-      .eq('user_id', user?.id ?? '');
+      .eq('user_id', user.id);
 
     setBusyId(null);
 
-    if (!updateError) {
-      refetch();
+    if (updateError) {
+      setActionError(updateError.message);
+      return;
     }
+    refetch();
   };
 
   const markAllRead = async () => {
+    if (!user?.id) return;
     setBusyId('all');
+    setActionError(null);
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ is_read: true })
-      .eq('user_id', user?.id ?? '')
+      .eq('user_id', user.id)
       .eq('is_read', false);
 
     setBusyId(null);
 
-    if (!updateError) {
-      refetch();
+    if (updateError) {
+      setActionError(updateError.message);
+      return;
     }
+    refetch();
   };
 
   if (loading) {
@@ -76,6 +85,18 @@ export const PatientNotifications: React.FC = () => {
         {error ? (
           <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {t('patient.notifications.loadError')}
+          </div>
+        ) : null}
+
+        {actionError ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          >
+            {t('patient.notifications.actionError', {
+              defaultValue: 'Could not update notification: {{message}}',
+              message: actionError,
+            })}
           </div>
         ) : null}
 

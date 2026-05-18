@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ScanLine, Stethoscope, Workflow } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { useAuth } from '../../lib/auth-context';
 import { useLabDashboard } from '../../hooks';
@@ -29,7 +30,7 @@ const FEATURE_CARDS = [
 export const LabRadiology = () => {
   const { t } = useTranslation('common');
   const { user } = useAuth();
-  const { data, loading } = useLabDashboard(user?.id ?? null);
+  const { data, loading, error, refetch } = useLabDashboard(user?.id ?? null);
 
   return (
     <OpsShell
@@ -39,6 +40,7 @@ export const LabRadiology = () => {
       navItems={LAB_NAV_ITEMS(t)}
       accent="emerald"
     >
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <section className="grid gap-4 md:grid-cols-3">
         <article className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div
@@ -55,6 +57,11 @@ export const LabRadiology = () => {
           </div>
           <p className="mt-4 text-3xl font-bold text-slate-900">
             {loading ? '…' : formatNumber(data?.metrics.totalActiveTests)}
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            {t('lab.radiology.kpiAcrossAllOrders', {
+              defaultValue: 'Across all lab orders (radiology-specific metrics arrive with imaging Phase).',
+            })}
           </p>
         </article>
 
@@ -74,6 +81,11 @@ export const LabRadiology = () => {
           <p className="mt-4 text-3xl font-bold text-slate-900">
             {loading ? '…' : formatNumber(data?.metrics.pendingOrders)}
           </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            {t('lab.radiology.kpiAcrossAllOrders', {
+              defaultValue: 'Across all lab orders (radiology-specific metrics arrive with imaging Phase).',
+            })}
+          </p>
         </article>
 
         <article className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -91,6 +103,11 @@ export const LabRadiology = () => {
           </div>
           <p className="mt-4 text-3xl font-bold text-slate-900">
             {loading ? '…' : formatNumber(data?.metrics.completedToday)}
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            {t('lab.radiology.kpiAcrossAllOrders', {
+              defaultValue: 'Across all lab orders (radiology-specific metrics arrive with imaging Phase).',
+            })}
           </p>
         </article>
       </section>

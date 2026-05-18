@@ -35,24 +35,23 @@ export const PatientTelemedicineConsultation = () => {
         },
       ]}
       actions={
-        data?.appointmentId ? (
-          <button
-            type="button"
-            onClick={() => navigate(`/patient/appointments/${data.appointmentId}`)}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-            <span>{t('patient.telemedicine.actionViewAppointment')}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => navigate('/patient/appointments')}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            <span>{t('patient.telemedicine.actionTalkToSupport')}</span>
-          </button>
-        )
+        // Per `docs/agent/routes-reference.md`, `/patient/appointments/:id` is
+        // not yet implemented for MVP, so both the data-present and fallback
+        // branches send the patient to the live appointments list. This avoids
+        // routing to an unmatched URL (effective 404) when the telemedicine
+        // stub is opened from an existing appointment.
+        <button
+          type="button"
+          onClick={() => navigate('/patient/appointments')}
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+        >
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+          <span>
+            {data?.appointmentId
+              ? t('patient.telemedicine.actionViewAppointment')
+              : t('patient.telemedicine.actionTalkToSupport')}
+          </span>
+        </button>
       }
     />
   );

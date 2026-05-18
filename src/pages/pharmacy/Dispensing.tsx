@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { updatePharmacyDispensingTaskStatus, usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
@@ -184,11 +186,57 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
 export const PharmacyDispensing = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const navigate = useNavigate();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  type RowStatus = Exclude<FilterType, 'all'>;
+  const nextStatusFor = (status: RowStatus): RowStatus | null => {
+    switch (status) {
+      case 'new':
+        return 'in_progress';
+      case 'in_progress':
+        return 'dispensed';
+      case 'on_hold':
+        return 'in_progress';
+      default:
+        return null;
+    }
+  };
+
+  const handleRowAction = async (rowId: string, status: RowStatus) => {
+    if (status === 'dispensed') {
+      // "View" — no write needed, just navigate to the dispensing detail.
+      navigate('/pharmacy/dispensing');
+      return;
+    }
+    const nextStatus = nextStatusFor(status);
+    if (!nextStatus) return;
+    setActionError(null);
+    setBusyId(rowId);
+    try {
+      // Map our UI status names onto the canonical workflow_status enum.
+      const workflowStatus =
+        nextStatus === 'in_progress'
+          ? 'verifying'
+          : nextStatus === 'dispensed'
+            ? 'completed'
+            : 'on_hold';
+      await updatePharmacyDispensingTaskStatus(rowId, workflowStatus);
+      refetch();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'Could not update prescription status.'
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const rows = useMemo(() => groupPrescriptionRows(data?.queue ?? []), [data?.queue]);
   const counts = useMemo(
@@ -247,7 +295,16 @@ export const PharmacyDispensing = () => {
       accent="emerald"
       variant="pharmacy"
     >
-      <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
+        <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
+        {actionError ? (
+          <div
+            role="alert"
+            className="mx-6 mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          >
+            {actionError}
+          </div>
+        ) : null}
         <div className="mx-6 mb-4 mt-5 flex shrink-0 items-center justify-between">
           <div>
             <h2 className="text-[20px] font-bold text-slate-900">Prescriptions</h2>
@@ -396,7 +453,9 @@ export const PharmacyDispensing = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                        onClick={() => void handleRowAction(row.id, row.status)}
+                        disabled={busyId === row.id || row.status === 'cancelled'}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                           row.status === 'dispensed'
                             ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             : row.status === 'on_hold'
@@ -405,10 +464,13 @@ export const PharmacyDispensing = () => {
                         }`}
                       >
                         {row.status !== 'dispensed' ? <Play className="h-3 w-3" /> : null}
-                        {cfg.action}
+                        {busyId === row.id ? '…' : cfg.action}
                       </button>
                       <button
                         type="button"
+                        onClick={() => navigate('/pharmacy/messages')}
+                        aria-label="Message the prescribing clinician"
+                        title="Open pharmacy messages"
                         className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />

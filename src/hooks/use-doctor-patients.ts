@@ -228,8 +228,11 @@ export function useDoctorPatients(userId: string | null | undefined) {
 
     const summaries = patientIds.map((patientId) => {
       const appointmentsForPatient = safeAppointments.filter((appointment) => appointment.patient_id === patientId);
+      // scheduled_at is technically nullable in the canonical schema; coalesce
+      // to an empty string so a null row can never throw out of the
+      // comparator and tank the entire patients hook.
       const ascendingAppointments = [...appointmentsForPatient].sort((left, right) =>
-        left.scheduled_at.localeCompare(right.scheduled_at)
+        (left.scheduled_at ?? '').localeCompare(right.scheduled_at ?? '')
       );
 
       const nextAppointment =

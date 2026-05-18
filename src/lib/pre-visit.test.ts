@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createAutofilledAnswer, type PreVisitAutofillContext, type PreVisitTemplateQuestionDraft } from './pre-visit';
+import {
+  createAutofilledAnswer,
+  inferAutofillSourceFromQuestion,
+  type PreVisitAutofillContext,
+  type PreVisitTemplateQuestionDraft,
+} from './pre-visit';
 
 const baseContext: PreVisitAutofillContext = {
   fullName: null,
@@ -64,6 +69,33 @@ describe('createAutofilledAnswer', () => {
       answerJson: ['Diabetes'],
       autofilled: true,
     });
+  });
+
+  it('infers the emergency contact phone source before the generic phone source', () => {
+    expect(
+      inferAutofillSourceFromQuestion({
+        key: 'emergency_phone',
+        label: 'Emergency contact phone',
+      })
+    ).toBe('patient.emergency_contact_phone');
+  });
+
+  it('still infers the patient profile phone for plain phone questions', () => {
+    expect(
+      inferAutofillSourceFromQuestion({
+        key: 'phone',
+        label: 'Mobile phone number',
+      })
+    ).toBe('profile.phone');
+  });
+
+  it('infers emergency contact name before the generic full-name source', () => {
+    expect(
+      inferAutofillSourceFromQuestion({
+        key: 'ec_name',
+        label: 'Emergency contact name',
+      })
+    ).toBe('patient.emergency_contact_name');
   });
 
   it('maps more specific canonical conditions onto broader option labels', () => {

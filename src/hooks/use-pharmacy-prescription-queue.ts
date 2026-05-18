@@ -279,6 +279,71 @@ const formatExpiry = (value: string | null) => {
   return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 };
 
+/**
+ * Toggle a `pharmacy_settings` row's `enabled` boolean. Used by the pharmacy
+ * Settings toggles so preference changes are persisted instead of being
+ * presentational only.
+ */
+export async function setPharmacySettingEnabled(
+  settingId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('pharmacy_settings')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('id', settingId);
+  if (error) throw error;
+}
+
+/**
+ * Update a pharmacy dispensing task workflow status (verifying / ready /
+ * counseling / completed / on_hold / cancelled). Wraps the canonical
+ * `pharmacy_dispensing_tasks` row write.
+ */
+export async function updatePharmacyDispensingTaskStatus(
+  taskId: string,
+  workflowStatus:
+    | 'verifying'
+    | 'ready'
+    | 'counseling'
+    | 'completed'
+    | 'on_hold'
+    | 'cancelled'
+): Promise<void> {
+  const { error } = await supabase
+    .from('pharmacy_dispensing_tasks')
+    .update({ workflow_status: workflowStatus, updated_at: new Date().toISOString() })
+    .eq('id', taskId);
+  if (error) throw error;
+}
+
+/**
+ * Persists a pharmacist reply on a `pharmacy_messages` row. The Bolt prototype
+ * silently cleared the draft; this writes back to the canonical table so the
+ * thread keeps the pharmacy response, marks it as resolved, and clears the
+ * unread counter.
+ */
+export async function sendPharmacyResponse(
+  messageId: string,
+  body: string
+): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) {
+    throw new Error('Message body is empty.');
+  }
+  const { error } = await supabase
+    .from('pharmacy_messages')
+    .update({
+      pharmacy_response: trimmed,
+      status: 'resolved',
+      unread_count: 0,
+      last_message: trimmed.slice(0, 240),
+      last_message_at: new Date().toISOString(),
+    })
+    .eq('id', messageId);
+  if (error) throw error;
+}
+
 export function usePharmacyPrescriptionQueue() {
   return useQuery<PharmacyPrescriptionQueueData>(async () => {
     const { data: organization, error: orgError } = await supabase

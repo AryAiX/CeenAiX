@@ -12,6 +12,7 @@ import {
   ListChecks,
   Zap,
 } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { useAuth } from '../../lib/auth-context';
 import { useLabDashboard } from '../../hooks';
@@ -32,7 +33,7 @@ const formatNumber = (value: number | null | undefined) =>
 export const LabDashboard = () => {
   const { t } = useTranslation('common');
   const { user } = useAuth();
-  const { data, loading, error } = useLabDashboard(user?.id ?? null);
+  const { data, loading, error, refetch } = useLabDashboard(user?.id ?? null);
 
   const kpis = useMemo(
     () => [
@@ -72,11 +73,7 @@ export const LabDashboard = () => {
       navItems={LAB_NAV_ITEMS(t)}
       accent="emerald"
     >
-      {error ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          {t('lab.dashboard.errorPrefix')} {error}
-        </div>
-      ) : null}
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => {

@@ -283,6 +283,7 @@ export function usePatientPreVisitAssessments(patientUserId: string | null | und
             .from('appointments')
             .select('id, scheduled_at, chief_complaint')
             .in('id', appointmentIds)
+            .eq('is_deleted', false)
         : Promise.resolve({ data: [], error: null }),
       doctorIds.length
         ? supabase.from('user_profiles').select('user_id, full_name').in('user_id', doctorIds)
@@ -387,6 +388,7 @@ export function usePreVisitAssessment(assessmentId: string | null | undefined) {
         .from('appointments')
         .select('id, scheduled_at, chief_complaint')
         .eq('id', assessment.appointment_id)
+        .eq('is_deleted', false)
         .maybeSingle(),
       supabase
         .from('user_profiles')

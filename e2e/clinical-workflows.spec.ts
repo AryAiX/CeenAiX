@@ -2,6 +2,8 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import {
   createE2EWorkflowState,
   e2eUsers,
+  e2eScenarioTomorrow,
+  e2eScenarioYesterday,
   installSupabaseMocks,
   seedAuthenticatedRole,
   workflowIds,
@@ -27,9 +29,25 @@ const closePage = async (page: Page) => {
   await page.close({ runBeforeUnload: true });
 };
 
-const scenarioNow = new Date('2026-05-10T12:00:00.000Z');
-const scenarioTomorrow = new Date(scenarioNow.getTime() + 24 * 60 * 60 * 1000).toISOString();
-const scenarioYesterday = new Date(scenarioNow.getTime() - 24 * 60 * 60 * 1000).toISOString();
+const scenarioTomorrow = e2eScenarioTomorrow;
+const scenarioYesterday = e2eScenarioYesterday;
+
+// The mocked doctor exposes Monday availability only. Compute the very next
+// Monday from the wall clock so date-driven assertions in the booking flow do
+// not rot as the calendar advances past hardcoded fixtures.
+const nextMondayDate = (() => {
+  const today = new Date();
+  const offset = ((1 - today.getDay() + 7) % 7) || 7;
+  const result = new Date(today);
+  result.setDate(today.getDate() + offset);
+  return result;
+})();
+const nextMondayDay = String(nextMondayDate.getDate());
+const nextMondayRescheduleIso = (() => {
+  const slot = new Date(nextMondayDate);
+  slot.setHours(9, 0, 0, 0);
+  return slot.toISOString();
+})();
 
 const seedAppointment = (
   state: E2EWorkflowState,
@@ -183,7 +201,12 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   const patientBookingPage = await openRolePage(browser, state, 'patient', '/patient/appointments/book');
   await patientBookingPage.getByPlaceholder(/name, specialty, or city/i).fill('Omar');
   await patientBookingPage.getByRole('button', { name: /Dr\. Omar Doctor/i }).click();
-  await patientBookingPage.getByRole('button', { name: /^11$/ }).click();
+  if (nextMondayDate.getMonth() !== new Date().getMonth()) {
+    await patientBookingPage.getByRole('button', { name: /next month/i }).click();
+  }
+  await patientBookingPage
+    .getByRole('button', { name: new RegExp(`^${nextMondayDay}$`) })
+    .click();
   await patientBookingPage.getByRole('button', { name: /9:00/i }).first().click();
   await patientBookingPage.locator('textarea').first().fill('Workflow headache consult');
   await patientBookingPage.locator('textarea').nth(1).fill('Light sensitivity and nausea for the past week.');
@@ -265,7 +288,8 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   );
 
   const doctorAppointmentsPage = await openRolePage(browser, state, 'doctor', '/doctor/appointments');
-  await expect(doctorAppointmentsPage.getByText('Workflow headache consult')).toBeVisible();
+  await doctorAppointmentsPage.getByRole('button', { name: /list view/i }).click();
+  await expect(doctorAppointmentsPage.getByText('Workflow headache consult').first()).toBeVisible();
   await expect(doctorAppointmentsPage.getByText(e2eUsers.patient.fullName).first()).toBeVisible();
   await closePage(doctorAppointmentsPage);
 
@@ -442,7 +466,12 @@ test('patient cannot confirm appointment until a reason is entered', async ({ br
   const page = await openRolePage(browser, state, 'patient', '/patient/appointments/book');
 
   await page.getByRole('button', { name: /Dr\. Omar Doctor/i }).click();
-  await page.getByRole('button', { name: /^11$/ }).click();
+  if (nextMondayDate.getMonth() !== new Date().getMonth()) {
+    await page.getByRole('button', { name: /next month/i }).click();
+  }
+  await page
+    .getByRole('button', { name: new RegExp(`^${nextMondayDay}$`) })
+    .click();
   await page.getByRole('button', { name: /9:00/i }).first().click();
 
   await expect(page.getByRole('button', { name: /confirm appointment/i })).toBeDisabled();
@@ -465,7 +494,7 @@ test('patient can reschedule a future appointment', async ({ browser }) => {
   const state = createE2EWorkflowState({ includeBaselineData: true });
   const page = await openRolePage(browser, state, 'patient', '/patient/appointments');
 
-  await page.evaluate(async () => {
+  await page.evaluate(async (scheduledAt) => {
     await fetch('https://placeholder.supabase.co/rest/v1/rpc/reschedule_patient_appointment', {
       method: 'POST',
       headers: {
@@ -475,13 +504,13 @@ test('patient can reschedule a future appointment', async ({ browser }) => {
       },
       body: JSON.stringify({
         p_appointment_id: '00000000-0000-4000-8000-000000000601',
-        p_scheduled_at: '2026-05-18T09:00:00.000Z',
+        p_scheduled_at: scheduledAt,
         p_duration_minutes: 30,
         p_chief_complaint: 'Rescheduled follow-up consultation',
         p_notes: 'Rescheduled from patient portal.',
       }),
     });
-  });
+  }, nextMondayRescheduleIso);
   await page.reload();
 
   await expect(page.getByText('Rescheduled follow-up consultation')).toBeVisible();
@@ -489,7 +518,7 @@ test('patient can reschedule a future appointment', async ({ browser }) => {
     expect.objectContaining({
       status: 'scheduled',
       chief_complaint: 'Rescheduled follow-up consultation',
-      scheduled_at: '2026-05-18T09:00:00.000Z',
+      scheduled_at: nextMondayRescheduleIso,
     })
   );
   await closePage(page);
@@ -506,7 +535,6 @@ test('patient no-show appears in cancelled appointments', async ({ browser }) =>
   const page = await openRolePage(browser, state, 'patient', '/patient/appointments');
 
   await page.getByRole('button', { name: /cancelled/i }).click();
-  await page.getByRole('button', { name: /past activity/i }).click();
 
   await expect(page.getByText('Missed monthly no-show')).toBeVisible();
   await expect(page.getByText(/no show/i).first()).toBeVisible();

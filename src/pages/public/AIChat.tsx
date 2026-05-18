@@ -308,6 +308,16 @@ export const AIChat: React.FC = () => {
     };
   };
 
+  const replyTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (replyTimeoutRef.current !== null) {
+        window.clearTimeout(replyTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -324,7 +334,11 @@ export const AIChat: React.FC = () => {
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
+    if (replyTimeoutRef.current !== null) {
+      window.clearTimeout(replyTimeoutRef.current);
+    }
+
+    replyTimeoutRef.current = window.setTimeout(() => {
       const { content, suggestions } = generateResponse(currentInput);
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -335,6 +349,7 @@ export const AIChat: React.FC = () => {
       };
       setMessages((prev) => [...prev, aiResponse]);
       setIsTyping(false);
+      replyTimeoutRef.current = null;
     }, 1000 + Math.random() * 1000);
   };
 

@@ -64,6 +64,15 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const [reviewingAssessment, setReviewingAssessment] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Reset the hydration flag when the route appointmentId changes so SPA
+  // navigation between two appointments never shows the previous visit's
+  // SOAP draft inside the editor.
+  useEffect(() => {
+    setHasHydratedNote(false);
+    setNoteDraft(EMPTY_NOTE);
+    setFeedback(null);
+  }, [appointmentId]);
+
   useEffect(() => {
     if (!data || hasHydratedNote) {
       return;
@@ -92,7 +101,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
   }, [data, noteDraft]);
 
   const updateAppointmentStatus = async (status: string) => {
-    if (!data) {
+    if (!data || !user?.id) {
       return;
     }
 
@@ -103,7 +112,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
       .from('appointments')
       .update({ status })
       .eq('id', data.appointment.id)
-      .eq('doctor_id', user?.id ?? '');
+      .eq('doctor_id', user.id)
+      .eq('is_deleted', false);
 
     setUpdatingAppointment(false);
 

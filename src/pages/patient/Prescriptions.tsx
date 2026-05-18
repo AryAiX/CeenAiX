@@ -125,7 +125,11 @@ const SLOT_META: Record<DoseSlotKey, { time: string; labelKey: string; noteKey?:
 
 function inferDoseSlots(item: PrescriptionItem): DoseSlotKey[] {
   const f = `${item.frequency ?? ''} ${item.instructions ?? ''}`.toLowerCase();
-  const count = estimateDosesPerDay(item.frequency);
+  // Fall back to 1/day for slot rendering when the frequency string is too
+  // unstructured to parse — the per-day estimator now returns null in that
+  // case to keep "days of supply" honest, but the dosing-slot grid still
+  // needs a baseline so the row renders.
+  const count = estimateDosesPerDay(item.frequency) ?? 1;
 
   if (/(bed|night|nocte|sleep|evening|pm)/i.test(f) && count <= 1) {
     return ['bedtime'];
@@ -206,7 +210,7 @@ export const PatientPrescriptions: React.FC = () => {
       };
     }
     const totalDoses = activeLineItems.reduce(
-      (sum, row) => sum + Math.max(1, estimateDosesPerDay(row.item.frequency)),
+      (sum, row) => sum + Math.max(1, estimateDosesPerDay(row.item.frequency) ?? 1),
       0
     );
     // No dose-level logging in DB — show 0 "taken" until adherence ships; value is data-honest.
@@ -1043,7 +1047,7 @@ export const PatientPrescriptions: React.FC = () => {
     const { item, prescription: rx } = row;
     const accent = lineAccent(item.medication_name);
     const isExpanded = expandedLineIds.has(item.id);
-    const slotCount = Math.max(1, estimateDosesPerDay(item.frequency));
+    const slotCount = Math.max(1, estimateDosesPerDay(item.frequency) ?? 1);
     const q = item.quantity;
     const daysRem = estimateDaysOfSupplyRemaining(q, item.frequency);
     const urgency = urgencyFromDaysRemaining(daysRem, q);

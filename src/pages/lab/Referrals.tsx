@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Building2, ClipboardList, FlaskConical, Gauge, Users } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { useAuth } from '../../lib/auth-context';
 import { useLabDashboard } from '../../hooks';
@@ -13,7 +14,7 @@ const formatNumber = (value: number | null | undefined) =>
 export const LabReferrals = () => {
   const { t } = useTranslation('common');
   const { user } = useAuth();
-  const { data, loading } = useLabDashboard(user?.id ?? null);
+  const { data, loading, error, refetch } = useLabDashboard(user?.id ?? null);
 
   const referrals = useMemo(() => data?.worklist ?? [], [data?.worklist]);
 
@@ -46,6 +47,7 @@ export const LabReferrals = () => {
       navItems={LAB_NAV_ITEMS(t)}
       accent="emerald"
     >
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <section className="grid gap-4 md:grid-cols-3">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;

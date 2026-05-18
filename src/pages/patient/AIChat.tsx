@@ -30,6 +30,7 @@ import {
   invokeAiChat,
   type AiChatFileAttachment,
   type AiChatStoredAttachment,
+  removeAiChatAttachments,
   uploadAiChatAttachment,
 } from '../../lib/ai';
 import { useAuth } from '../../lib/auth-context';
@@ -40,6 +41,7 @@ import {
   fetchCanonicalUpdateRequests,
   formatCanonicalValueForReview,
 } from '../../lib/canonical-record-updates';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 interface ChatMessage {
   id: string;
@@ -100,8 +102,11 @@ const classifyHba1c = (latest: number | null | undefined, previous: number | nul
     return null;
   }
 
+  // First reading: we have nothing to compare against, so call it out as a
+  // baseline rather than mislabelling it 'stable' (which implied a trend
+  // when there was none).
   if (previous === null || previous === undefined) {
-    return 'stable' as const;
+    return 'baseline' as const;
   }
 
   const delta = latest - previous;
@@ -200,6 +205,34 @@ export const PatientAIChat: React.FC = () => {
     return typeof update.metadata.sessionId === 'string' && update.metadata.sessionId === selectedSessionId;
   });
 
+  // Track the last user-driven session selection so the "clear stale
+  // messages" effect can fire on real session-switches (sidebar click) but
+  // skip the synthetic session id change that happens inside
+  // `handleSendMessage` when a brand-new session is created.
+  const lastSelectedSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isSending) {
+      // Mid-send a new session id may be assigned by the server response;
+      // keep the optimistic message + assistant reply visible until the
+      // refetch lands.
+      lastSelectedSessionRef.current = selectedSessionId;
+      return;
+    }
+    if (selectedSessionId === null) {
+      setMessages([starterMessage]);
+      lastSelectedSessionRef.current = null;
+      return;
+    }
+    if (lastSelectedSessionRef.current === selectedSessionId) {
+      return;
+    }
+    lastSelectedSessionRef.current = selectedSessionId;
+    // The user switched threads — wipe the previous transcript so no message
+    // from the prior session leaks into the new one while the fetch is in
+    // flight.
+    setMessages([]);
+  }, [isSending, selectedSessionId, starterMessage]);
+
   useEffect(() => {
     if (loading || isSending) {
       return;
@@ -271,11 +304,13 @@ export const PatientAIChat: React.FC = () => {
       return;
     }
 
+    let uploadedAttachments: AiChatFileAttachment[] = [];
+    let invokeSucceeded = false;
     try {
       setSendError(null);
       setIsSending(true);
 
-      const uploadedAttachments =
+      uploadedAttachments =
         pendingFiles.length > 0
           ? await Promise.all(pendingFiles.map((file) => uploadAiChatAttachment(user.id, file)))
           : [];
@@ -305,7 +340,9 @@ export const PatientAIChat: React.FC = () => {
         usePatientContext: true,
         mode: 'chat',
       });
+      invokeSucceeded = true;
 
+      const previousSessionId = selectedSessionId;
       setSelectedSessionId(response.sessionId);
       setRecordUpdateFeedback(null);
       setMessages((currentMessages) => [
@@ -319,13 +356,23 @@ export const PatientAIChat: React.FC = () => {
         },
       ]);
 
-      if (selectedSessionId !== null) {
+      // Always refresh after a successful exchange: when previousSessionId was
+      // null the call we just made *created* the session, so the session list
+      // needs to pick it up. When it was not null we may also have advanced
+      // the same thread; either way the panel should reload.
+      if (previousSessionId !== null || response.sessionId) {
         await refetch();
       }
 
       await refetchCanonicalUpdates();
     } catch (sendFailure) {
       setSendError(sendFailure instanceof Error ? sendFailure.message : t('patient.aiChat.sendError'));
+      // The invoke or one of the surrounding writes failed after we already
+      // pushed attachments into storage. Clean them up so we don't leak
+      // orphan objects into the medical-files bucket.
+      if (!invokeSucceeded && uploadedAttachments.length > 0) {
+        await removeAiChatAttachments(uploadedAttachments);
+      }
     } finally {
       setIsSending(false);
     }
@@ -399,7 +446,11 @@ export const PatientAIChat: React.FC = () => {
         ? `↑ ${t('patient.aiChat.hba1cRising')}`
         : hba1cTrend === 'stable'
           ? t('patient.aiChat.hba1cStable')
-          : null;
+          : hba1cTrend === 'baseline'
+            ? t('patient.aiChat.hba1cBaseline', {
+                defaultValue: 'Baseline reading on file',
+              })
+            : null;
 
   const bpStatusText =
     bpClass === 'controlled'
@@ -1015,6 +1066,7 @@ export const PatientAIChat: React.FC = () => {
                     <textarea
                       ref={textareaRef}
                       value={input}
+                      maxLength={FORM_FIELD_LIMITS.chatMessage}
                       onChange={(event) => setInput(event.target.value)}
                       rows={1}
                       placeholder={t('patient.aiChat.inputPhLong')}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Globe, HelpCircle, Lock, Settings as SettingsIcon, ShieldCheck, User } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
@@ -49,12 +49,18 @@ function normalizePrefs(value: unknown): Preferences {
 
 export const PatientSettings = () => {
   const { t, i18n } = useTranslation('common');
-  const { user } = useAuth();
+  const { user, requestPasswordReset } = useAuth();
   const { data: profile, loading, error, refetch } = useUserProfile();
   const [section, setSection] = useState<SettingsSection>('account');
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savedTimeoutRef = useRef<number | null>(null);
+  const [sendingPasswordReset, setSendingPasswordReset] = useState(false);
+  const [passwordResetMessage, setPasswordResetMessage] = useState<
+    { kind: 'success' | 'error'; text: string } | null
+  >(null);
 
   useEffect(() => {
     if (profile) {
@@ -76,20 +82,37 @@ export const PatientSettings = () => {
 
   const currentSection = sections.find((item) => item.id === section) ?? sections[0];
 
+  useEffect(() => {
+    return () => {
+      if (savedTimeoutRef.current !== null) {
+        window.clearTimeout(savedTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const savePreferences = async (nextPrefs = prefs) => {
     if (!user?.id) return;
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({ notification_preferences: nextPrefs })
       .eq('user_id', user.id);
     setSaving(false);
-    if (!updateError) {
-      setSaved(true);
-      refetch();
-      window.setTimeout(() => setSaved(false), 2500);
+    if (updateError) {
+      setSaveError(updateError.message);
+      return;
     }
+    setSaved(true);
+    refetch();
+    if (savedTimeoutRef.current !== null) {
+      window.clearTimeout(savedTimeoutRef.current);
+    }
+    savedTimeoutRef.current = window.setTimeout(() => {
+      setSaved(false);
+      savedTimeoutRef.current = null;
+    }, 2500);
   };
 
   const updatePref = <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
@@ -201,14 +224,63 @@ export const PatientSettings = () => {
     }
 
     if (section === 'security') {
+      const accountEmail = (profile?.email ?? user?.email ?? '').trim();
+      const handleSendReset = async () => {
+        if (!accountEmail) {
+          setPasswordResetMessage({
+            kind: 'error',
+            text: t('patient.settings.passwordResetMissingEmail', {
+              defaultValue: 'Add an email to your profile before requesting a password reset.',
+            }),
+          });
+          return;
+        }
+        setPasswordResetMessage(null);
+        setSendingPasswordReset(true);
+        const { error: resetError } = await requestPasswordReset(accountEmail);
+        setSendingPasswordReset(false);
+        if (resetError) {
+          setPasswordResetMessage({ kind: 'error', text: resetError.message });
+          return;
+        }
+        setPasswordResetMessage({
+          kind: 'success',
+          text: t('patient.settings.passwordResetSent', {
+            defaultValue: 'We just emailed a password reset link to {{email}}.',
+            email: accountEmail,
+          }),
+        });
+      };
+
       return (
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.securityTitle')}</h3>
             <p className="mt-2 text-sm text-slate-500">{t('patient.settings.securityBody')}</p>
-            <button type="button" className="mt-4 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-              {t('patient.settings.passwordManaged')}
+            <button
+              type="button"
+              onClick={() => void handleSendReset()}
+              disabled={sendingPasswordReset}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {sendingPasswordReset
+                ? t('patient.settings.passwordResetSending', {
+                    defaultValue: 'Sending reset link…',
+                  })
+                : t('patient.settings.passwordResetCta', {
+                    defaultValue: 'Email me a password reset link',
+                  })}
             </button>
+            {passwordResetMessage ? (
+              <p
+                className={`mt-3 text-sm ${
+                  passwordResetMessage.kind === 'error' ? 'text-red-700' : 'text-emerald-700'
+                }`}
+              >
+                {passwordResetMessage.text}
+              </p>
+            ) : null}
+            <p className="mt-3 text-xs text-slate-400">{t('patient.settings.passwordManaged')}</p>
           </div>
         </div>
       );
@@ -274,6 +346,11 @@ export const PatientSettings = () => {
             <p className="mt-1 text-sm text-slate-500">{currentSection.desc}</p>
             <div className="mt-2 h-5 text-sm">
               {saving ? <span className="text-slate-500">{t('patient.settings.saving')}</span> : null}
+              {saveError ? (
+                <span className="font-medium text-rose-600" role="alert">
+                  {saveError}
+                </span>
+              ) : null}
               {saved ? <span className="font-medium text-emerald-600">{t('patient.settings.saved')}</span> : null}
             </div>
           </div>

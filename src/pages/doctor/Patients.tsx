@@ -392,7 +392,13 @@ export const DoctorPatients: React.FC = () => {
                     {patient.risk === 'critical' ? (
                       <button
                         type="button"
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          // Acknowledgement state is patient-record-level work
+                          // and lives on the detail page; surface the user
+                          // there rather than firing a no-op on the row.
+                          event.stopPropagation();
+                          navigate(`/doctor/patients/${patient.id}`);
+                        }}
                         className="rounded bg-red-600 px-2 py-1 text-[10px] font-bold text-white transition-colors hover:bg-red-700"
                       >
                         ✅ {t('doctor.patients.acknowledge', { defaultValue: 'Acknowledge' })}
@@ -411,7 +417,11 @@ export const DoctorPatients: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(`/doctor/patients/${patient.id}`);
+                      }}
+                      aria-label={t('doctor.patients.openRecord', { defaultValue: 'Open Record' })}
                       className="rounded p-1.5 opacity-0 transition-colors hover:bg-slate-200 group-hover:opacity-100"
                     >
                       <MoreVertical className="h-4 w-4 text-slate-400" />

@@ -68,9 +68,11 @@ export function useDoctorPatientDetail(
 
     const safeAppointments = (appointments ?? []) as Appointment[];
 
-    if (safeAppointments.length === 0) {
-      return null;
-    }
+    // Previously the hook returned null when the doctor had zero
+    // non-deleted appointments with the patient, but the patient detail
+    // page is also reachable from messaging / pre-visit handoffs where
+    // an appointment may not exist yet. Load profile + clinical data
+    // regardless; downstream consumers already handle empty arrays.
 
     const [
       { data: patientProfile, error: patientProfileError },

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   Calendar,
@@ -170,20 +171,24 @@ export const PatientDocuments = () => {
             <p className="text-sm text-slate-500">{t('patient.documents.subtitle')}</p>
           </div>
         </div>
-        <button
-          type="button"
+        <Link
+          to="/patient/settings"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
         >
           <ShieldCheck className="h-4 w-4" />
           {t('patient.documents.security')}
-        </button>
-        <button
-          type="button"
+        </Link>
+        <Link
+          to="/patient/ai-chat"
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+          title={t('patient.documents.uploadHint', {
+            defaultValue:
+              'Upload a document by attaching it to the AI chat — the assistant will store and summarise it for your record.',
+          })}
         >
           <Upload className="h-4 w-4" />
           {t('patient.documents.uploadDocument')}
-        </button>
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -360,15 +365,83 @@ export const PatientDocuments = () => {
               </dl>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">
-                <Eye className="h-4 w-4" /> {t('patient.documents.view')}
-              </button>
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {selectedDocument.source === 'lab_orders' ? (
+                <Link
+                  to="/patient/lab-results"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+                </Link>
+              ) : selectedDocument.source === 'prescriptions' ? (
+                <Link
+                  to="/patient/prescriptions"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+                </Link>
+              ) : (
+                <Link
+                  to="/patient/insurance"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  <Eye className="h-4 w-4" /> {t('patient.documents.view')}
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  // Real client-side download — assembles a human-readable text
+                  // summary of the document so patients can keep a local copy
+                  // even before the full PDF renderer ships.
+                  const lines = [
+                    selectedDocument.name,
+                    `Issued by: ${selectedDocument.issuedBy}`,
+                    `Date: ${formatDate(selectedDocument.date)}`,
+                    `Contents: ${selectedDocument.contains}`,
+                    '',
+                    'View the live, signed source via the CeenAiX patient portal:',
+                    `${window.location.origin}${
+                      selectedDocument.source === 'lab_orders'
+                        ? '/patient/lab-results'
+                        : selectedDocument.source === 'prescriptions'
+                          ? '/patient/prescriptions'
+                          : '/patient/insurance'
+                    }`,
+                  ];
+                  const blob = new Blob([lines.join('\n')], {
+                    type: 'text/plain;charset=utf-8',
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = selectedDocument.fileName.replace(/\.pdf$/i, '.txt');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              >
                 <Download className="h-4 w-4" /> {t('patient.documents.download')}
               </button>
-              <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              <a
+                href={`mailto:?subject=${encodeURIComponent(
+                  selectedDocument.name
+                )}&body=${encodeURIComponent(
+                  `${selectedDocument.name}\nIssued by: ${selectedDocument.issuedBy}\nDate: ${formatDate(
+                    selectedDocument.date
+                  )}\n\nView the live source: ${window.location.origin}${
+                    selectedDocument.source === 'lab_orders'
+                      ? '/patient/lab-results'
+                      : selectedDocument.source === 'prescriptions'
+                        ? '/patient/prescriptions'
+                        : '/patient/insurance'
+                  }`
+                )}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              >
                 <Share2 className="h-4 w-4" /> {t('patient.documents.share')}
-              </button>
+              </a>
             </div>
           </div>
         </div>

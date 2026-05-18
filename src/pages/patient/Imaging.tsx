@@ -136,7 +136,38 @@ export const PatientImaging = () => {
             <h1 className="mb-2 text-3xl font-bold">{t('patient.imaging.heroTitle')}</h1>
             <p className="max-w-2xl text-violet-100">{t('patient.imaging.subtitle')}</p>
           </div>
-          <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/20">
+          <button
+            type="button"
+            onClick={() => {
+              // Real client-side export of the studies list so patients can
+              // send their imaging history to an external provider.
+              const lines = [
+                `${t('patient.imaging.title')} — ${new Date().toLocaleDateString()}`,
+                '',
+                ...studies.map((study) =>
+                  [
+                    `• ${study.modality ?? ''} ${study.studyType ?? ''}`.trim(),
+                    `  Date: ${formatDate(study.date)}`,
+                    `  Facility: ${study.facility}`,
+                    `  Status: ${study.status}`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
+                ),
+              ];
+              const body = lines.join('\n');
+              if (navigator.share) {
+                void navigator
+                  .share({ title: t('patient.imaging.title'), text: body })
+                  .catch(() => undefined);
+                return;
+              }
+              const subject = encodeURIComponent(t('patient.imaging.title'));
+              const mailto = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+              window.location.href = mailto;
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/20"
+          >
             <Share2 className="h-4 w-4" />
             {t('patient.imaging.shareStudies')}
           </button>

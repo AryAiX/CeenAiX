@@ -106,7 +106,7 @@ export function usePatientAiChat(userId: string | null | undefined, activeSessio
         .select('id, doctor_id, scheduled_at, chief_complaint')
         .eq('patient_id', userId)
         .eq('is_deleted', false)
-        .eq('status', 'scheduled')
+        .in('status', ['scheduled', 'confirmed', 'in_progress'])
         .gte('scheduled_at', new Date().toISOString())
         .order('scheduled_at', { ascending: true })
         .limit(1),

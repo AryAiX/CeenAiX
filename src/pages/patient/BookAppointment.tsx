@@ -15,6 +15,7 @@ import { SpecializationMultiSelect } from '../../components/SpecializationMultiS
 import { useBookableDoctors, useDoctorBookingAvailability, useQuery, useSpecializations } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { generateAvailableTimeSlots, type AvailableTimeSlot } from '../../lib/appointment-booking';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { supabase } from '../../lib/supabase';
 import { calendarWeekdayShort, dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 
@@ -348,62 +349,74 @@ export const BookAppointment: React.FC = () => {
     setFeedback(null);
     setIsSubmitting(true);
 
-    const bookingResult = isRescheduling
-      ? await supabase.rpc('reschedule_patient_appointment', {
-          p_appointment_id: rescheduleAppointment?.id,
-          p_scheduled_at: selectedSlot.iso,
-          p_duration_minutes: selectedSlot.durationMinutes,
-          p_chief_complaint: chiefComplaint.trim(),
-          p_notes: notes.trim(),
-        })
-      : await supabase
-          .from('appointments')
-          .insert({
-            patient_id: user.id,
-            doctor_id: selectedDoctor.userId,
-            facility_id: null,
-            type: 'in_person',
-            status: 'scheduled',
-            scheduled_at: selectedSlot.iso,
-            duration_minutes: selectedSlot.durationMinutes,
-            chief_complaint: chiefComplaint.trim(),
-            notes: notes.trim() || null,
+    try {
+      const bookingResult = isRescheduling
+        ? await supabase.rpc('reschedule_patient_appointment', {
+            p_appointment_id: rescheduleAppointment?.id,
+            p_scheduled_at: selectedSlot.iso,
+            p_duration_minutes: selectedSlot.durationMinutes,
+            p_chief_complaint: chiefComplaint.trim(),
+            p_notes: notes.trim(),
           })
+        : await supabase
+            .from('appointments')
+            .insert({
+              patient_id: user.id,
+              doctor_id: selectedDoctor.userId,
+              facility_id: null,
+              type: 'in_person',
+              status: 'scheduled',
+              scheduled_at: selectedSlot.iso,
+              duration_minutes: selectedSlot.durationMinutes,
+              chief_complaint: chiefComplaint.trim(),
+              notes: notes.trim() || null,
+            })
+            .select('id')
+            .single();
+
+      if (bookingResult.error) {
+        setFeedback({ type: 'error', message: bookingResult.error.message });
+        return;
+      }
+
+      const appointmentId = isRescheduling
+        ? rescheduleAppointment?.id ?? null
+        : bookingResult.data?.id ?? null;
+
+      if (appointmentId) {
+        const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
+          .from('appointment_pre_visit_assessments')
           .select('id')
-          .single();
+          .eq('appointment_id', appointmentId)
+          .maybeSingle();
 
-    setIsSubmitting(false);
+        if (preVisitAssessmentError) {
+          setFeedback({ type: 'error', message: preVisitAssessmentError.message });
+          return;
+        }
 
-    if (bookingResult.error) {
-      setFeedback({ type: 'error', message: bookingResult.error.message });
-      return;
-    }
-
-    const appointmentId = isRescheduling ? rescheduleAppointment?.id ?? null : bookingResult.data?.id ?? null;
-
-    if (appointmentId) {
-      const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
-        .from('appointment_pre_visit_assessments')
-        .select('id')
-        .eq('appointment_id', appointmentId)
-        .maybeSingle();
-
-      if (preVisitAssessmentError) {
-        setFeedback({ type: 'error', message: preVisitAssessmentError.message });
-        return;
+        if (preVisitAssessment?.id) {
+          navigate(`/patient/pre-visit/${preVisitAssessment.id}`, {
+            replace: true,
+          });
+          return;
+        }
       }
 
-      if (preVisitAssessment?.id) {
-        navigate(`/patient/pre-visit/${preVisitAssessment.id}`, {
-          replace: true,
-        });
-        return;
-      }
+      navigate(`/patient/appointments?${isRescheduling ? 'rescheduled=1' : 'booked=1'}`, {
+        replace: true,
+      });
+    } catch (error) {
+      setFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : t('patient.book.errReason'),
+      });
+    } finally {
+      // Always release the submit lock — previously a throw between
+      // setIsSubmitting(true) and the explicit setIsSubmitting(false) below
+      // left the button perpetually disabled.
+      setIsSubmitting(false);
     }
-
-    navigate(`/patient/appointments?${isRescheduling ? 'rescheduled=1' : 'booked=1'}`, {
-      replace: true,
-    });
   };
 
   return (
@@ -526,6 +539,7 @@ export const BookAppointment: React.FC = () => {
                       <input
                         type="text"
                         value={searchTerm}
+                        maxLength={FORM_FIELD_LIMITS.searchQuery}
                         onChange={(event) => setSearchTerm(event.target.value)}
                         placeholder={t('patient.book.searchPh')}
                         className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 rtl:pl-4 rtl:pr-11"
@@ -695,6 +709,7 @@ export const BookAppointment: React.FC = () => {
                           )
                         }
                         className="rounded-lg p-2 transition hover:bg-gray-100"
+                        aria-label={t('patient.book.previousMonth', { defaultValue: 'Previous month' })}
                       >
                         <ChevronLeft className="h-5 w-5 text-gray-700" />
                       </button>
@@ -709,6 +724,7 @@ export const BookAppointment: React.FC = () => {
                           )
                         }
                         className="rounded-lg p-2 transition hover:bg-gray-100"
+                        aria-label={t('patient.book.nextMonth', { defaultValue: 'Next month' })}
                       >
                         <ChevronRight className="h-5 w-5 text-gray-700" />
                       </button>
@@ -805,6 +821,7 @@ export const BookAppointment: React.FC = () => {
                           value={chiefComplaint}
                           onChange={(event) => setChiefComplaint(event.target.value)}
                           rows={4}
+                          maxLength={500}
                           className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                           placeholder={t('patient.book.reasonPh')}
                         />
@@ -816,6 +833,7 @@ export const BookAppointment: React.FC = () => {
                           value={notes}
                           onChange={(event) => setNotes(event.target.value)}
                           rows={3}
+                          maxLength={2000}
                           className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                           placeholder={t('patient.book.notesPh')}
                         />

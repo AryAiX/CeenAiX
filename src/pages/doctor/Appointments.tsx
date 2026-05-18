@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
@@ -12,18 +12,16 @@ import {
   dateTimeFormatWithNumerals,
   formatLocaleDigits,
   preVisitStatusLabel,
+  calendarDayKeyInTimeZone,
+  CLINIC_TIME_ZONE,
   resolveLocale,
 } from '../../lib/i18n-ui';
 
 type AppointmentViewMode = 'list' | 'calendar';
 type AppointmentBodyTab = 'calendar' | 'list' | 'pending' | 'analytics';
+type CalendarScale = 'day' | 'week' | 'month';
 
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const formatDateKey = (date: Date) => calendarDayKeyInTimeZone(date, CLINIC_TIME_ZONE);
 
 export const DoctorAppointments: React.FC = () => {
   const { t, i18n } = useTranslation('common');
@@ -55,6 +53,7 @@ export const DoctorAppointments: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
+  const [calendarScale, setCalendarScale] = useState<CalendarScale>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -159,17 +158,17 @@ export const DoctorAppointments: React.FC = () => {
     },
     [activeTab, isTodayRoute, routeAppointments, selectedCalendarDateKey, viewMode]
   );
+  // Use canonical AppointmentStatus values only. The previous list mixed in
+  // 'fulfilled', 'finished', 'checked_in' which are not in the enum, so the
+  // counters silently stayed wrong even when real rows transitioned status.
   const completedTodayCount = useMemo(
-    () =>
-      routeAppointments.filter((appointment) =>
-        ['completed', 'fulfilled', 'finished'].includes((appointment.status ?? '').toLowerCase())
-      ).length,
+    () => routeAppointments.filter((appointment) => appointment.status === 'completed').length,
     [routeAppointments]
   );
   const activeTodayCount = useMemo(
     () =>
       routeAppointments.filter((appointment) =>
-        ['in_progress', 'checked_in', 'confirmed', 'scheduled'].includes((appointment.status ?? '').toLowerCase())
+        ['in_progress', 'confirmed', 'scheduled'].includes(appointment.status)
       ).length,
     [routeAppointments]
   );
@@ -185,7 +184,18 @@ export const DoctorAppointments: React.FC = () => {
     () => routeAppointments.filter((appointment) => ['scheduled', 'confirmed'].includes(appointment.status)).length,
     [routeAppointments]
   );
+  // Re-evaluate the calendar windows every minute so the "today / this
+  // week / this month" KPIs and queue filters do not get stuck on the
+  // first mount's calendar day after a midnight rollover.
+  const [calendarTick, setCalendarTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setCalendarTick((tick) => tick + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const { startOfToday, endOfToday, startOfWeek, endOfWeek, startOfMonth, endOfMonth } = useMemo(() => {
+    // calendarTick is intentionally read so we re-derive the window after
+    // a real-world clock change without forcing a full route remount.
+    void calendarTick;
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -204,7 +214,7 @@ export const DoctorAppointments: React.FC = () => {
       startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
       endOfMonth: new Date(now.getFullYear(), now.getMonth() + 1, 1),
     };
-  }, []);
+  }, [calendarTick]);
   const todayAppointmentsForStats = useMemo(
     () =>
       appointments.filter((appointment) => {
@@ -234,10 +244,18 @@ export const DoctorAppointments: React.FC = () => {
     [monthAppointments]
   );
   const todayDone = todayAppointmentsForStats.filter((appointment) => appointment.status === 'completed').length;
-  const todayActive = todayAppointmentsForStats.filter((appointment) => ['in_progress', 'checked_in'].includes(appointment.status)).length;
-  const todayUpcoming = todayAppointmentsForStats.filter((appointment) => ['scheduled', 'confirmed'].includes(appointment.status)).length;
+  // Canonical AppointmentStatus enum: scheduled / confirmed / in_progress /
+  // completed / cancelled / no_show. The previous list used 'checked_in'
+  // which is not in the enum; remove it and keep parity with the week-level
+  // 'remaining' metric below.
+  const todayActive = todayAppointmentsForStats.filter((appointment) => appointment.status === 'in_progress').length;
+  const todayUpcoming = todayAppointmentsForStats.filter((appointment) =>
+    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
+  ).length;
   const weekDone = weekAppointments.filter((appointment) => appointment.status === 'completed').length;
-  const weekRemaining = weekAppointments.filter((appointment) => ['scheduled', 'confirmed', 'checked_in', 'in_progress'].includes(appointment.status)).length;
+  const weekRemaining = weekAppointments.filter((appointment) =>
+    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
+  ).length;
   const consultationFee = doctorProfile?.consultation_fee ?? 0;
   const weekRevenue = weekDone * consultationFee;
   const todayRemainingRevenue = todayUpcoming * consultationFee;
@@ -259,6 +277,41 @@ export const DoctorAppointments: React.FC = () => {
       }, new Map()),
     [weekAppointments]
   );
+  const selectedDayAppointments = useMemo(() => {
+    const key = formatDateKey(selectedCalendarDate);
+    return appointments
+      .filter((appointment) => formatDateKey(new Date(appointment.scheduled_at)) === key)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [appointments, selectedCalendarDate]);
+  const monthGridDays = useMemo(() => {
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    const gridStart = new Date(monthStart);
+    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+    const gridEnd = new Date(monthEnd);
+    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+    const totalDays = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86_400_000) + 1;
+    return Array.from({ length: totalDays }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      return date;
+    });
+  }, [currentMonth]);
+  const monthAppointmentsByDate = useMemo(() => {
+    const start = monthGridDays[0];
+    const end = monthGridDays[monthGridDays.length - 1];
+    if (!start || !end) return new Map<string, typeof appointments>();
+    const startTs = start.getTime();
+    const endTs = end.getTime() + 86_400_000;
+    return appointments.reduce<Map<string, typeof appointments>>((map, appointment) => {
+      const scheduled = new Date(appointment.scheduled_at);
+      const ts = scheduled.getTime();
+      if (ts < startTs || ts >= endTs) return map;
+      const key = formatDateKey(scheduled);
+      map.set(key, [...(map.get(key) ?? []), appointment]);
+      return map;
+    }, new Map());
+  }, [appointments, monthGridDays]);
   const appointmentTabs: Array<{ id: AppointmentBodyTab; label: string; icon: typeof CalendarDays }> = [
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'list', label: 'List', icon: List },
@@ -273,6 +326,51 @@ export const DoctorAppointments: React.FC = () => {
     } else if (tab === 'list') {
       setViewMode('list');
     }
+  };
+
+  const downloadAppointmentsCsv = () => {
+    const header = ['id', 'patient', 'scheduled_at', 'status', 'type', 'chief_complaint'];
+    const lines = routeAppointments.map((appointment) => {
+      const patient = patientNameById.get(appointment.patient_id) ?? '';
+      const cells = [
+        appointment.id,
+        patient,
+        appointment.scheduled_at,
+        appointment.status,
+        appointment.type,
+        appointment.chief_complaint ?? '',
+      ];
+      return cells.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+    });
+    const csv = [header.join(','), ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `doctor-appointments-${todayDateKey}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleKpiCardAction = (action: 'today' | 'week' | 'pending' | 'analytics' | 'profile') => {
+    if (action === 'today') {
+      navigate('/doctor/today');
+      return;
+    }
+    if (action === 'week') {
+      setCalendarScale('week');
+      handleTabChange('calendar');
+      return;
+    }
+    if (action === 'pending') {
+      handleTabChange('pending');
+      return;
+    }
+    if (action === 'analytics') {
+      handleTabChange('analytics');
+      return;
+    }
+    navigate('/doctor/profile');
   };
 
   const handleMonthChange = (offset: number) => {
@@ -314,7 +412,7 @@ export const DoctorAppointments: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => navigate('/patient/book-appointment')}
+                onClick={() => navigate('/doctor/patients')}
                 className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-teal-700"
               >
                 <Plus className="h-4 w-4" />
@@ -322,6 +420,7 @@ export const DoctorAppointments: React.FC = () => {
               </button>
               <button
                 type="button"
+                onClick={downloadAppointmentsCsv}
                 className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Download className="h-4 w-4" />
@@ -380,6 +479,7 @@ export const DoctorAppointments: React.FC = () => {
             {[
               {
                 label: "Today's Appointments",
+                action: 'today' as const,
                 value: todayAppointmentsForStats.length,
                 sub: `${formatLocaleDigits(todayDone, uiLang)} done · ${formatLocaleDigits(todayActive, uiLang)} active · ${formatLocaleDigits(todayUpcoming, uiLang)} upcoming`,
                 icon: CalendarCheck,
@@ -389,6 +489,7 @@ export const DoctorAppointments: React.FC = () => {
               },
               {
                 label: 'This Week',
+                action: 'week' as const,
                 value: weekAppointments.length,
                 sub: `${formatLocaleDigits(weekDone, uiLang)} done · ${formatLocaleDigits(weekRemaining, uiLang)} remaining`,
                 icon: Calendar,
@@ -397,6 +498,7 @@ export const DoctorAppointments: React.FC = () => {
               },
               {
                 label: 'Pending Requests',
+                action: 'pending' as const,
                 value: pendingRequestCount,
                 sub: `${formatLocaleDigits(pendingRequestCount, uiLang)} live from scheduled/confirmed bookings`,
                 icon: Bell,
@@ -406,6 +508,7 @@ export const DoctorAppointments: React.FC = () => {
               },
               {
                 label: 'No-Shows This Month',
+                action: 'analytics' as const,
                 value: monthNoShows,
                 sub: `${monthAppointments.length > 0 ? formatLocaleDigits(Math.round((monthNoShows / monthAppointments.length) * 1000) / 10, uiLang) : '0'}% rate · Live status`,
                 icon: UserX,
@@ -414,6 +517,7 @@ export const DoctorAppointments: React.FC = () => {
               },
               {
                 label: 'Week Revenue',
+                action: 'profile' as const,
                 value: consultationFee > 0 ? `AED ${formatLocaleDigits(weekRevenue, uiLang)}` : 'AED --',
                 sub: consultationFee > 0 ? `AED ${formatLocaleDigits(todayRemainingRevenue, uiLang)} remaining today` : 'Set consultation fee in profile',
                 icon: TrendingUp,
@@ -427,6 +531,7 @@ export const DoctorAppointments: React.FC = () => {
                 <button
                   key={card.label}
                   type="button"
+                  onClick={() => handleKpiCardAction(card.action)}
                   className={`cursor-pointer rounded-xl border bg-white p-5 text-left transition-transform hover:scale-[1.02] ${
                     card.urgent ? 'animate-pulse border-2 border-amber-200' : 'border-slate-200'
                   }`}
@@ -508,8 +613,16 @@ export const DoctorAppointments: React.FC = () => {
             <Skeleton className="h-44 w-full rounded-2xl" />
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('doctor.appointments.loadError')}
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700" role="alert">
+            <p>{t('doctor.appointments.loadError')}</p>
+            <p className="mt-1 text-xs text-amber-900/80">{error}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 font-semibold text-amber-900 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
           </div>
         ) : routeAppointments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
@@ -560,22 +673,49 @@ export const DoctorAppointments: React.FC = () => {
 
                   <div className="flex items-center gap-2 overflow-x-auto">
                     <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
-                      <button type="button" className="rounded px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-colors hover:text-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCalendarScale('day');
+                          setViewMode('calendar');
+                          handleTabChange('calendar');
+                        }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                          calendarScale === 'day' && activeTab === 'calendar'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
                         📅 Day
                       </button>
                       <button
                         type="button"
                         onClick={() => {
+                          setCalendarScale('week');
                           setViewMode('calendar');
                           handleTabChange('calendar');
                         }}
                         className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
-                          activeTab === 'calendar' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                          calendarScale === 'week' && activeTab === 'calendar'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
-                        📆 Week ●
+                        📆 Week
                       </button>
-                      <button type="button" className="rounded px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-colors hover:text-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCalendarScale('month');
+                          setViewMode('calendar');
+                          handleTabChange('calendar');
+                        }}
+                        className={`rounded px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                          calendarScale === 'month' && activeTab === 'calendar'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
                         📅 Month
                       </button>
                     </div>
@@ -609,7 +749,144 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             ) : null}
 
-            {!isTodayRoute && activeTab === 'calendar' ? (
+            {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'day' ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() - 1);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                    aria-label={t('doctor.appointments.previousDay', { defaultValue: 'Previous day' })}
+                  >
+                    ← Previous day
+                  </button>
+                  <div className="text-sm font-bold text-slate-900">
+                    {selectedCalendarDate.toLocaleDateString(
+                      locale,
+                      dtOpts({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() + 1);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                    aria-label={t('doctor.appointments.nextDay', { defaultValue: 'Next day' })}
+                  >
+                    Next day →
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {selectedDayAppointments.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-3 py-6 text-center text-sm text-slate-400">
+                      {t('doctor.appointments.dayEmpty', {
+                        defaultValue: 'No appointments scheduled for this day.',
+                      })}
+                    </div>
+                  ) : (
+                    selectedDayAppointments.map((appointment) => (
+                      <button
+                        key={appointment.id}
+                        type="button"
+                        onClick={() => navigate(`/doctor/appointments/${appointment.id}`)}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-teal-200 hover:bg-teal-50/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-teal-50 px-3 py-2 font-mono text-xs font-bold text-teal-700">
+                            {new Date(appointment.scheduled_at).toLocaleTimeString(
+                              locale,
+                              dtOpts({ hour: 'numeric', minute: '2-digit' })
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">
+                              {patientNameById.get(appointment.patient_id) ?? t('shared.patient')}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {appointment.chief_complaint ?? appointmentTypeLabel(t, appointment.type)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {appointmentStatusLabel(t, appointment.status)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'month' ? (
+              <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                    <div key={day} className="py-2">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {monthGridDays.map((date) => {
+                    const dateKey = formatDateKey(date);
+                    const inMonth = date.getMonth() === currentMonth.getMonth();
+                    const isToday = dateKey === todayDateKey;
+                    const dayAppointments = monthAppointmentsByDate.get(dateKey) ?? [];
+                    return (
+                      <button
+                        key={dateKey}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCalendarDate(date);
+                          setCalendarScale('day');
+                        }}
+                        className={`min-h-[90px] rounded-lg border p-2 text-left transition hover:border-teal-200 hover:bg-teal-50/30 ${
+                          !inMonth
+                            ? 'border-transparent bg-slate-50/50 text-slate-300'
+                            : isToday
+                              ? 'border-teal-300 bg-teal-50/40'
+                              : 'border-slate-100 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className={`font-bold ${isToday ? 'text-teal-700' : ''}`}>
+                            {formatLocaleDigits(date.getDate(), uiLang)}
+                          </span>
+                          {dayAppointments.length > 0 ? (
+                            <span className="rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white">
+                              {formatLocaleDigits(dayAppointments.length, uiLang)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          {dayAppointments.slice(0, 2).map((appointment) => (
+                            <p
+                              key={appointment.id}
+                              className="line-clamp-1 text-[10px] text-slate-500"
+                            >
+                              {new Date(appointment.scheduled_at).toLocaleTimeString(
+                                locale,
+                                dtOpts({ hour: 'numeric', minute: '2-digit' })
+                              )}{' '}
+                              {patientNameById.get(appointment.patient_id) ?? ''}
+                            </p>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'week' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
                 <div className="grid min-w-[980px] grid-cols-7 gap-3">
                   {weekDays.map((date) => {
@@ -646,7 +923,7 @@ export const DoctorAppointments: React.FC = () => {
                                     ? 'border-emerald-200 bg-emerald-50'
                                     : appointment.status === 'in_progress'
                                       ? 'border-teal-200 bg-teal-100'
-                                      : (appointment.status as string) === 'checked_in'
+                                      : appointment.status === 'confirmed'
                                         ? 'border-blue-200 bg-blue-50'
                                         : 'border-white bg-white'
                                 }`}
@@ -715,12 +992,33 @@ export const DoctorAppointments: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completion rate</p>
                   <p className="mt-3 text-3xl font-bold text-slate-900">
-                    {routeAppointments.length > 0
-                      ? `${formatLocaleDigits(Math.round((completedCount / routeAppointments.length) * 100), uiLang)}%`
-                      : '0%'}
+                    {/*
+                      Denominator is appointments that actually had the chance
+                      to complete. Cancelled / no-show rows are excluded so a
+                      busy clinic with frequent no-shows doesn't appear to be
+                      missing completions it never had.
+                    */}
+                    {(() => {
+                      const eligible = routeAppointments.filter(
+                        (appointment) =>
+                          appointment.status !== 'cancelled' &&
+                          appointment.status !== 'no_show'
+                      ).length;
+                      return eligible > 0
+                        ? `${formatLocaleDigits(Math.round((completedCount / eligible) * 100), uiLang)}%`
+                        : '0%';
+                    })()}
                   </p>
                   <p className="mt-2 text-sm text-slate-500">
-                    {formatLocaleDigits(completedCount, uiLang)} completed of {formatLocaleDigits(routeAppointments.length, uiLang)}
+                    {formatLocaleDigits(completedCount, uiLang)} completed of{' '}
+                    {formatLocaleDigits(
+                      routeAppointments.filter(
+                        (appointment) =>
+                          appointment.status !== 'cancelled' &&
+                          appointment.status !== 'no_show'
+                      ).length,
+                      uiLang
+                    )}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

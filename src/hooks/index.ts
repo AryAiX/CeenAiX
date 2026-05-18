@@ -29,6 +29,9 @@ export { useMedicationCatalogSearch } from './use-medication-catalog-search';
 export { useLabTestCatalogSearch } from './use-lab-test-catalog-search';
 export { useDoctorSchedule } from './use-doctor-schedule';
 export { useBookableDoctors } from './use-bookable-doctors';
+export { usePublicFacilities } from './use-public-facilities';
+export { useFacilityDoctors } from './use-facility-doctors';
+export { usePublicLaboratories } from './use-public-laboratories';
 export { useDoctorBookingAvailability } from './use-doctor-booking-availability';
 export { useSpecializations, useDoctorSpecializationIds } from './use-specializations';
 export { useDoctorPreVisitTemplates, usePatientPreVisitAssessments, usePreVisitAssessment } from './use-pre-visit';
@@ -50,7 +53,12 @@ export type {
   LabPriority,
   NabidhStatus,
 } from './use-lab-ops-portal';
-export { usePharmacyPrescriptionQueue } from './use-pharmacy-prescription-queue';
+export {
+  sendPharmacyResponse,
+  setPharmacySettingEnabled,
+  updatePharmacyDispensingTaskStatus,
+  usePharmacyPrescriptionQueue,
+} from './use-pharmacy-prescription-queue';
 export type {
   PharmacyClaimLedgerItem,
   PharmacyFacilityProfile,
@@ -62,7 +70,12 @@ export type {
   PharmacySettingItem,
   PharmacyStaffMember,
 } from './use-pharmacy-prescription-queue';
-export { useInsurancePortal } from './use-insurance-portal';
+export {
+  approvePreAuthorization,
+  bulkApprovePreAuthorizations,
+  setInsuranceSettingEnabled,
+  useInsurancePortal,
+} from './use-insurance-portal';
 export type {
   InsuranceAiInsight,
   InsuranceClaim,

@@ -1086,10 +1086,12 @@
       "statusApproved": "Approved",
       "statusPending": "Pending",
       "statusReview": "In review",
+      "statusDenied": "Denied",
       "status": {
         "approved": "Approved",
         "pending": "Pending",
-        "review": "In review"
+        "review": "In review",
+        "denied": "Denied"
       },
       "noActivity": "No insurance-linked activity found yet.",
       "fullPrice": "Full price",
@@ -1112,6 +1114,7 @@
       "uploadComingSoon": "Upload coming soon",
       "generateFromActivity": "Generate from activity",
       "viewSummary": "View summary",
+      "cardDownloadError": "Could not prepare a download. Please try again.",
       "dataNote": "Insurance plan data is live from patient_insurance and insurance_plans. Claim rows are estimated from appointments, lab orders, and prescriptions until the claims/pre-authorization tables are connected."
     },
     "documents": {

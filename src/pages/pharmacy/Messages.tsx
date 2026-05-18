@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, CheckCircle2, Info, Send } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { sendPharmacyResponse, usePharmacyPrescriptionQueue } from '../../hooks';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 interface PharmacyMessage {
@@ -35,8 +36,12 @@ const initialsFor = (name: string) =>
 
 export const PharmacyMessages = () => {
   const { t } = useTranslation('common');
-  const { data } = usePharmacyPrescriptionQueue();
+  const { data, error: loadError, refetch } = usePharmacyPrescriptionQueue();
   const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState<
+    { kind: 'success' | 'error'; text: string } | null
+  >(null);
   const messages = useMemo<PharmacyMessage[]>(() => {
     return (data?.messages ?? []).map((message) => {
       const contactTime = new Date(message.lastMessageAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -75,6 +80,33 @@ export const PharmacyMessages = () => {
   const style = selected ? typeStyles[selected.type] : null;
   const fallbackName = t('pharmacy.messages.fallbackName', { defaultValue: 'Pharmacy' });
 
+  const handleSendDraft = async () => {
+    if (!selected || draft.trim().length === 0) return;
+    setFeedback(null);
+    setSending(true);
+    try {
+      await sendPharmacyResponse(selected.id, draft);
+      setDraft('');
+      setFeedback({
+        kind: 'success',
+        text: t('pharmacy.messages.sendSuccess', {
+          defaultValue: 'Reply saved on the thread and marked resolved.',
+        }),
+      });
+      refetch();
+    } catch (error) {
+      setFeedback({
+        kind: 'error',
+        text:
+          error instanceof Error
+            ? error.message
+            : t('pharmacy.messages.sendError', { defaultValue: 'Could not send reply.' }),
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <OpsShell
       title={t('pharmacy.messages.title', { defaultValue: 'Messages' })}
@@ -88,6 +120,7 @@ export const PharmacyMessages = () => {
       accent="emerald"
       variant="pharmacy"
     >
+      <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />
       <div className="flex min-h-full bg-slate-50">
         <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white">
           <div className="shrink-0 border-b border-slate-100 px-4 py-4">
@@ -193,7 +226,13 @@ export const PharmacyMessages = () => {
           )}
 
           <div className="shrink-0 border-t border-slate-200 bg-white p-4">
-            <div className="flex items-center gap-2">
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSendDraft();
+              }}
+            >
               <input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -201,16 +240,29 @@ export const PharmacyMessages = () => {
                   defaultValue: 'Type a secure pharmacy response...',
                 })}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none"
+                aria-label={t('pharmacy.messages.responsePlaceholder', {
+                  defaultValue: 'Type a secure pharmacy response...',
+                })}
+                disabled={sending}
               />
               <button
-                type="button"
-                onClick={() => setDraft('')}
-                className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                type="submit"
+                disabled={sending || draft.trim().length === 0}
+                className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                 aria-label={t('messaging.sendMessage', { defaultValue: 'Send message' })}
               >
                 <Send className="h-4 w-4" />
               </button>
-            </div>
+            </form>
+            {feedback ? (
+              <p
+                className={`mt-2 text-[11px] ${
+                  feedback.kind === 'error' ? 'text-rose-600' : 'text-emerald-600'
+                }`}
+              >
+                {feedback.text}
+              </p>
+            ) : null}
           </div>
         </main>
       </div>

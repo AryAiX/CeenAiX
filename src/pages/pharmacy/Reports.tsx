@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileText, ShieldCheck, Target, TrendingUp } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
@@ -13,7 +14,7 @@ const cleanMedication = (name: string) => name.replace(/\s+\d+\s?(?:mg|iu|mcg|g)
 export const PharmacyReports = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const queue = useMemo(() => data?.queue ?? [], [data?.queue]);
 
   const prescriptionIds = useMemo(() => Array.from(new Set(queue.map((item) => item.prescriptionId))), [queue]);
@@ -93,6 +94,7 @@ export const PharmacyReports = () => {
       accent="emerald"
       variant="pharmacy"
     >
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -106,12 +108,71 @@ export const PharmacyReports = () => {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => {
+                const queue = data?.queue ?? [];
+                const header = ['rx_id', 'patient_name', 'prescriber', 'medication', 'workflow_status', 'received_at', 'priority'];
+                const escape = (v: string | number | null | undefined) => {
+                  if (v === null || v === undefined) return '';
+                  const s = String(v);
+                  return s.includes(',') || s.includes('"') || s.includes('\n')
+                    ? `"${s.replace(/"/g, '""')}"`
+                    : s;
+                };
+                const body = [
+                  header,
+                  ...queue.map((item) => [
+                    item.id,
+                    item.patientName,
+                    item.prescriber,
+                    item.medication,
+                    item.workflowStatus,
+                    item.receivedAt,
+                    item.priority,
+                  ]),
+                ]
+                  .map((line) => line.map(escape).join(','))
+                  .join('\n');
+                const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `pharmacy-dispensing-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
               className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
             >
               <Download className="h-4 w-4" /> {t('pharmacy.reports.exportLedger', { defaultValue: 'Export Dispensing Ledger' })}
             </button>
             <button
               type="button"
+              onClick={() => {
+                const queue = data?.queue ?? [];
+                const summary = [
+                  `DHA Monthly Pharmacy Report — ${monthYear}`,
+                  `Pharmacy: ${pharmacyName}`,
+                  '',
+                  `Total prescriptions handled: ${queue.length}`,
+                  `Dispensed: ${queue.filter((item) => item.workflowStatus === 'dispensed').length}`,
+                  `On hold: ${queue.filter((item) => item.workflowStatus === 'on_hold').length}`,
+                  `Cancelled: ${queue.filter((item) => item.workflowStatus === 'cancelled').length}`,
+                  '',
+                  'Source: live pharmacy_dispensing_tasks (canonical CeenAiX schema).',
+                ];
+                const blob = new Blob([summary.join('\n')], {
+                  type: 'text/plain;charset=utf-8',
+                });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `dha-monthly-${new Date().toISOString().slice(0, 7)}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
               <Download className="h-4 w-4" /> {t('pharmacy.reports.dhaMonthly', { defaultValue: 'DHA Monthly Report' })}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -49,6 +49,8 @@ import type {
   CreateOrganizationInput,
 } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type {
   AdminAiAnalyticsPayload,
   AdminAiDashboardPayload,
@@ -583,7 +585,13 @@ const AdminShell = ({
                 {context.dashboard.issues.length} issues detected
               </span>
             ) : null}
-            <button className="relative rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/audit')}
+              className="relative rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+              aria-label="Open audit log"
+              title="Open audit log"
+            >
               <Bell className="h-4 w-4" />
               {context.dashboard?.issues.length ? (
                 <span className="absolute -right-1 -top-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
@@ -730,6 +738,22 @@ const issueIconTone = (severity: string) => {
   return 'bg-blue-100 text-blue-600';
 };
 
+const issueCtaRoute = (ctaKind: string | null, category: string | null): string => {
+  const kind = (ctaKind ?? '').toLowerCase();
+  const cat = (category ?? '').toLowerCase();
+  if (kind.includes('license') || cat === 'license') return '/admin/doctors';
+  if (kind.includes('security') || cat === 'security') return '/admin/security';
+  if (kind.includes('integration') || cat === 'integration') return '/admin/integrations';
+  if (kind.includes('compliance') || cat === 'compliance') return '/admin/compliance';
+  if (kind.includes('audit')) return '/admin/audit';
+  if (kind.includes('revenue') || kind.includes('billing')) return '/admin/revenue';
+  if (kind.includes('nabidh')) return '/admin/nabidh';
+  if (kind.includes('user')) return '/admin/users';
+  if (kind.includes('org') || kind.includes('tenant')) return '/admin/organizations';
+  if (kind.includes('ai')) return '/admin/ai-analytics';
+  return '/admin/diagnostics';
+};
+
 const RevenueBars = ({
   revenueDaily,
 }: {
@@ -845,35 +869,56 @@ const SystemHealthCard = ({ context }: { context: AdminContext }) => {
 };
 
 const QuickActions = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
-  const actions = [
+  const actions: Array<{ label: string; value: string; icon: LucideIcon; href: string }> = [
     {
       label: 'Verify Doctor',
       value: `${formatNumber(ctx?.pending_doctors ?? 0)} pending`,
       icon: Stethoscope,
+      href: '/admin/doctors',
     },
     {
       label: 'Approve Org',
       value: `${formatNumber(context.organizations.filter((org) => org.status === 'pending').length)} requests`,
       icon: Building2,
+      href: '/admin/organizations',
     },
     {
       label: 'Platform Revenue',
       value: `${formatAed(ctx?.revenue_today_aed ?? 0)} today`,
       icon: CircleDollarSign,
+      href: '/admin/revenue',
     },
-    { label: 'AI Dashboard', value: `${formatNumber(ctx?.ai_sessions_today ?? 0)} sessions`, icon: Bot },
-    { label: 'DHA Compliance', value: `Score: ${ctx?.dha_score?.toFixed(1) ?? '—'}%`, icon: ShieldCheck },
+    {
+      label: 'AI Dashboard',
+      value: `${formatNumber(ctx?.ai_sessions_today ?? 0)} sessions`,
+      icon: Bot,
+      href: '/admin/ai-analytics',
+    },
+    {
+      label: 'DHA Compliance',
+      value: `Score: ${ctx?.dha_score?.toFixed(1) ?? '—'}%`,
+      icon: ShieldCheck,
+      href: '/admin/compliance',
+    },
     {
       label: 'Fraud Review',
       value: `${context.insurancePartners.reduce((acc, p) => acc + p.fraud_alert_count, 0)} flagged`,
       icon: AlertTriangle,
+      href: '/admin/insurance',
     },
-    { label: 'Generate Report', value: 'April 2026', icon: FileText },
+    {
+      label: 'Generate Report',
+      value: 'April 2026',
+      icon: FileText,
+      href: '/admin/revenue',
+    },
     {
       label: 'System Logs',
       value: `${formatNumber(degradedServiceCount(context.systemHealth))} degraded`,
       icon: Terminal,
+      href: '/admin/diagnostics',
     },
   ];
   return (
@@ -886,7 +931,9 @@ const QuickActions = ({ context }: { context: AdminContext }) => {
           const Icon = action.icon;
           return (
             <button
+              type="button"
               key={action.label}
+              onClick={() => navigate(action.href)}
               className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-teal-300 hover:bg-teal-50/30"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -905,6 +952,7 @@ const QuickActions = ({ context }: { context: AdminContext }) => {
 };
 
 const DashboardView = ({ context }: { context: AdminContext }) => {
+  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const issues = context.dashboard?.issues ?? [];
   const portals = context.dashboard?.portals ?? [];
@@ -945,7 +993,14 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
                     ) : null}
                   </div>
                   {issue.cta_label ? (
-                    <button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = issueCtaRoute(issue.cta_kind, issue.category);
+                        navigate(target);
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                    >
                       {issue.cta_label}
                     </button>
                   ) : null}
@@ -1446,18 +1501,12 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Insurance: All</option>
-            </select>
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Region: All UAE</option>
-            </select>
-            <button className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              More Filters
-            </button>
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Sort: Newest</option>
-            </select>
+            {/*
+              Insurance / Region / "More Filters" / Sort selectors had only
+              a single inert option; removed so the toolbar isn't dishonest
+              about controls that did nothing. Real multi-faceted filtering
+              ships when the admin_patients RPC accepts those parameters.
+            */}
           </div>
         </div>
 
@@ -1572,12 +1621,11 @@ const PatientsView = ({ context }: { context: AdminContext }) => {
           <span>
             Showing {filtered.length} of {formatNumber(ctx?.total_patients ?? patients.length)} patients
           </span>
-          <div className="flex items-center gap-2">
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-700">1</button>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700">2</button>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700">…</button>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700">1,930</button>
-          </div>
+          {/*
+            Real pagination ships once the admin patients RPC supports
+            offset/limit; for now the list is paged client-side on the
+            current `filtered` set inside this view via the search input.
+          */}
         </div>
       </Card>
     </div>
@@ -1596,6 +1644,31 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
   const doctors = context.doctors;
   const [filter, setFilter] = useState<DoctorFilter>('all');
   const [search, setSearch] = useState('');
+  const [busyDoctorId, setBusyDoctorId] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const setDoctorVerificationStatus = async (doctorId: string, verified: boolean) => {
+    setVerifyError(null);
+    setBusyDoctorId(doctorId);
+    const nowIso = new Date().toISOString();
+    const update = verified
+      ? { dha_license_verified: true, dha_verified_at: nowIso, updated_at: nowIso }
+      : { dha_license_verified: false, dha_verified_at: null, updated_at: nowIso };
+    const { error: updateError } = await supabase
+      .from('doctor_profiles')
+      .update(update)
+      .eq('user_id', doctorId);
+    setBusyDoctorId(null);
+    if (updateError) {
+      setVerifyError(updateError.message);
+      return;
+    }
+    // No central refresh on AdminContext; refresh the organizations slice as
+    // a side-effect — the doctors RPC has no per-call refetch surface here.
+    // The doctor's verification badge updates after the next admin route
+    // navigation in the meantime.
+    context.refreshOrganizations();
+  };
 
   const filtered = useMemo(() => {
     let rows = doctors;
@@ -1633,6 +1706,14 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
 
   return (
     <div className="space-y-5">
+      {verifyError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {verifyError}
+        </div>
+      ) : null}
       <PageHeader title="Doctors" subtitle="DHA license verification & platform-wide doctor management">
         <button
           type="button"
@@ -1663,7 +1744,10 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=doctor')}
+          // Force the register page to sign-out the admin first (?reset=1)
+          // so the existing session doesn't bounce them back to /auth/onboarding
+          // before the new doctor record can be created.
+          onClick={() => navigate('/auth/register?role=doctor&reset=1')}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Add Doctor
@@ -1871,8 +1955,20 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
                   <td className="px-3 py-3">
                     {row.status_label === 'pending' ? (
                       <div className="flex gap-1">
-                        <button className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white">OK</button>
-                        <button className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => void setDoctorVerificationStatus(row.id, true)}
+                          disabled={busyDoctorId === row.id}
+                          className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busyDoctorId === row.id ? '…' : 'OK'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setDoctorVerificationStatus(row.id, false)}
+                          disabled={busyDoctorId === row.id}
+                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
                           Reject
                         </button>
                       </div>
@@ -2044,6 +2140,7 @@ const OnboardOrganizationModal = ({
               id="org-name"
               type="text"
               value={name}
+              maxLength={FORM_FIELD_LIMITS.shortText}
               onChange={(event) => setName(event.target.value)}
               autoComplete="off"
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2061,6 +2158,7 @@ const OnboardOrganizationModal = ({
                 id="org-city"
                 type="text"
                 value={city}
+                maxLength={FORM_FIELD_LIMITS.shortText}
                 onChange={(event) => setCity(event.target.value)}
                 autoComplete="off"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2091,6 +2189,7 @@ const OnboardOrganizationModal = ({
                 id="org-contact-name"
                 type="text"
                 value={contactName}
+                maxLength={FORM_FIELD_LIMITS.personName}
                 onChange={(event) => setContactName(event.target.value)}
                 autoComplete="off"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2105,6 +2204,7 @@ const OnboardOrganizationModal = ({
                 id="org-contact-email"
                 type="email"
                 value={contactEmail}
+                maxLength={FORM_FIELD_LIMITS.email}
                 onChange={(event) => setContactEmail(event.target.value)}
                 autoComplete="off"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2120,6 +2220,7 @@ const OnboardOrganizationModal = ({
             <textarea
               id="org-notes"
               value={notes}
+              maxLength={FORM_FIELD_LIMITS.clinicalNotes}
               onChange={(event) => setNotes(event.target.value)}
               rows={3}
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
@@ -2165,6 +2266,15 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [onboardKind, setOnboardKind] = useState<OrgKind>('hospital');
   const [createdToast, setCreatedToast] = useState<string | null>(null);
+  const createdToastTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (createdToastTimeoutRef.current !== null) {
+        window.clearTimeout(createdToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const openOnboard = (preset: OrgKind) => {
     setOnboardKind(preset);
@@ -2251,7 +2361,13 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
           setOnboardOpen(false);
           context.refreshOrganizations();
           setCreatedToast(`Created ${org.name} (${titleCase(org.kind)}) — status set to pending.`);
-          window.setTimeout(() => setCreatedToast(null), 5000);
+          if (createdToastTimeoutRef.current !== null) {
+            window.clearTimeout(createdToastTimeoutRef.current);
+          }
+          createdToastTimeoutRef.current = window.setTimeout(() => {
+            setCreatedToast(null);
+            createdToastTimeoutRef.current = null;
+          }, 5000);
         }}
       />
 
@@ -2262,6 +2378,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
             <Search className="mr-2 h-4 w-4 text-slate-400" />
             <input
               value={search}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search"
               className="w-full bg-transparent placeholder:text-slate-400 focus:outline-none"
@@ -2361,6 +2478,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
 };
 
 const OrganizationCard = ({ org }: { org: Organization }) => {
+  const navigate = useNavigate();
   const dha = org.notes?.match(/DHA-[A-Z]-\d{4}-\d{3,}/)?.[0] ?? '—';
   const nabidh = org.notes?.toLowerCase().includes('nabidh connected') ? 'connected' : 'disconnected';
   const kindTone =
@@ -2404,18 +2522,8 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
           <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{org.seats_used}</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
-          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Monthly Trans.</dt>
-          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">
-            {org.kind === 'hospital'
-              ? '12,470'
-              : org.kind === 'pharmacy'
-                ? '8,920'
-                : org.kind === 'lab'
-                  ? '11,230'
-                  : org.kind === 'clinic'
-                    ? '0'
-                    : '5,200'}
-          </dd>
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Type</dt>
+          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{titleCase(org.kind)}</dd>
         </div>
         <div className="col-span-2 rounded-xl bg-slate-50 p-2">
           <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">NABIDH Status</dt>
@@ -2425,10 +2533,40 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
         </div>
       </dl>
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">View</button>
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">Edit</button>
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">Billing</button>
-        <button className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50">Audit</button>
+        <button
+          type="button"
+          onClick={() => {
+            // No per-org detail page yet, so surface the user-management page
+            // pre-filtered to this organisation's name — that's the closest
+            // working roster view today.
+            navigate(`/admin/users?org=${encodeURIComponent(org.name)}`);
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+        >
+          View
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/organizations')}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+          title="Edit organization details in the onboarding workspace"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/revenue')}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+        >
+          Billing
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/audit')}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
+        >
+          Audit
+        </button>
       </div>
     </Card>
   );
@@ -2514,7 +2652,9 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=insurance')}
+          // Same admin sign-out-and-register flow as Add Doctor — otherwise
+          // an authenticated super_admin would be bounced to /auth/onboarding.
+          onClick={() => navigate('/auth/register?role=insurance&reset=1')}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Onboard Insurer
@@ -2528,7 +2668,16 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
               {damanWarning.api_warning_label ||
                 `${damanWarning.insurer_name} API degraded — ${damanWarning.api_latency_ms}ms avg response since 1:20 PM`}
             </span>
-            <button className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white">Notify</button>
+            <a
+              href={`mailto:?subject=${encodeURIComponent(
+                `Insurer integration alert — ${damanWarning.insurer_name}`
+              )}&body=${encodeURIComponent(
+                `${damanWarning.insurer_name} API is reporting degraded status (${damanWarning.api_status}, latency ${damanWarning.api_latency_ms ?? '—'}ms).\n\nPlease investigate.`
+              )}`}
+              className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white"
+            >
+              Notify
+            </a>
           </div>
         </Card>
       ) : null}
@@ -2743,16 +2892,75 @@ const AiView = ({ context }: { context: AdminContext }) => {
           ✅ All AI systems operational · {ctx?.ai_avg_response_sec?.toFixed(1) ?? '—'}s avg ·{' '}
           {ctx?.ai_uptime_pct?.toFixed(2) ?? '—'}% uptime
         </Pill>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        {/* The AI analytics RPC only returns a single window; the chips
+            below are intentionally view-state placeholders until the hook
+            supports a date filter. Once it does, the same buttons can set
+            local state and refetch — keeping callsites stable. */}
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
           today
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
           week
         </button>
-        <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
           month
         </button>
-        <button className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700">
+        <button
+          type="button"
+          onClick={() => {
+            const lines = [
+              'CeenAiX AI Analytics export',
+              `Generated ${new Date().toISOString()}`,
+              '',
+              `Sessions today: ${ctx?.ai_sessions_today ?? '—'}`,
+              `Sessions this month: ${ctx?.ai_sessions_month ?? '—'}`,
+              `Sessions all-time: ${ctx?.ai_sessions_alltime ?? '—'}`,
+              `Active now: ${ctx?.ai_active_now ?? '—'}`,
+              `Avg response: ${ctx?.ai_avg_response_sec ?? '—'}s`,
+              `Uptime: ${ctx?.ai_uptime_pct ?? '—'}%`,
+              `Safety flags today: ${ctx?.ai_safety_flags_today ?? '—'}`,
+              '',
+              'Languages:',
+              ...langs.map((l) => `- ${l.label}: ${l.sessions} sessions (${l.percent ?? '—'}%)`),
+              '',
+              'Topics:',
+              ...topics.map((t) => `- ${t.label}: ${t.sessions ?? '—'} sessions`),
+              '',
+              'Portals:',
+              ...portals.map((p) => `- ${p.label}: ${p.sessions ?? '—'} sessions`),
+            ];
+            const blob = new Blob([lines.join('\n')], {
+              type: 'text/plain;charset=utf-8',
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-analytics-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }}
+          className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+        >
           Export AI Report
         </button>
       </PageHeader>

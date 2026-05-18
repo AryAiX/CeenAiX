@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -183,9 +183,21 @@ export const PatientAppointments: React.FC = () => {
     [preVisitAssessments]
   );
 
-  const isUpcoming = (appointment: Appointment) =>
-    UPCOMING_STATUSES.has(appointment.status) &&
-    new Date(appointment.scheduled_at).getTime() >= Date.now();
+  // Tick once a minute so memos that depend on "now" (upcoming / past
+  // classification, next teleconsult banner) refresh without needing the
+  // user to navigate away and back.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const isUpcoming = useCallback(
+    (appointment: Appointment) =>
+      UPCOMING_STATUSES.has(appointment.status) &&
+      new Date(appointment.scheduled_at).getTime() >= nowTick,
+    [nowTick]
+  );
 
   const filteredAppointments = useMemo(() => {
     const normalizedSpecialty = specialtyQuery.trim().toLowerCase();
@@ -198,11 +210,9 @@ export const PatientAppointments: React.FC = () => {
       return new Date(y, m - 1, d, 0, 0, 0, 0);
     };
     const fromTs = dateFrom ? parseLocal(dateFrom)?.getTime() ?? null : null;
-    const toTs = dateTo
-      ? (parseLocal(dateTo)?.getTime() ?? null) !== null
-        ? parseLocal(dateTo)!.getTime() + 24 * 60 * 60 * 1000 - 1
-        : null
-      : null;
+    const endOfDay = dateTo ? parseLocal(dateTo) : null;
+    const toTs =
+      endOfDay !== null ? endOfDay.getTime() + 24 * 60 * 60 * 1000 - 1 : null;
 
     return appointments.filter((appointment) => {
       const scheduledTs = new Date(appointment.scheduled_at).getTime();
@@ -228,17 +238,31 @@ export const PatientAppointments: React.FC = () => {
 
       return true;
     });
-  }, [appointments, statusFilter, typeFilter, specialtyQuery, providerQuery, dateFrom, dateTo, doctorProfileById]);
+  }, [appointments, statusFilter, typeFilter, specialtyQuery, providerQuery, dateFrom, dateTo, doctorProfileById, isUpcoming]);
 
   const upcomingAppointments = useMemo(
     () => filteredAppointments.filter(isUpcoming),
+    [filteredAppointments, isUpcoming]
+  );
+
+  // "Past" means the visit's scheduled time has gone by AND it isn't sitting
+  // in an active status (scheduled/confirmed/in_progress). Without the time
+  // check, a future cancelled appointment would otherwise be misfiled as
+  // past instead of cancelled-and-upcoming.
+  const cancelledAppointments = useMemo(
+    () => filteredAppointments.filter((appointment) => CANCELLED_STATUSES.has(appointment.status)),
     [filteredAppointments]
   );
 
   const pastAppointments = useMemo(
     () =>
-      filteredAppointments.filter((appointment) => !isUpcoming(appointment)),
-    [filteredAppointments]
+      filteredAppointments.filter(
+        (appointment) =>
+          !CANCELLED_STATUSES.has(appointment.status) &&
+          !isUpcoming(appointment) &&
+          new Date(appointment.scheduled_at).getTime() < nowTick
+      ),
+    [filteredAppointments, isUpcoming, nowTick]
   );
 
   const appointmentDaysInMonth = useMemo(() => {
@@ -914,7 +938,10 @@ export const PatientAppointments: React.FC = () => {
   const showPreVisitCompletedBanner = searchParams.get('previsit') === 'completed';
   const isLoadingPage = loading || doctorProfilesLoading;
   const totalFilteredEmpty =
-    !isLoadingPage && upcomingAppointments.length === 0 && pastAppointments.length === 0;
+    !isLoadingPage &&
+    upcomingAppointments.length === 0 &&
+    cancelledAppointments.length === 0 &&
+    pastAppointments.length === 0;
   const hasAnyAppointments = appointments.length > 0;
 
   return (
@@ -1011,7 +1038,7 @@ export const PatientAppointments: React.FC = () => {
 
           <div className="flex-1 min-w-0">
             {isLoadingPage ? (
-              <div className="space-y-6">
+              <div className="min-h-[24rem] space-y-6">
                 <Skeleton className="h-48 w-full rounded-2xl" />
                 <Skeleton className="h-48 w-full rounded-2xl" />
               </div>
@@ -1078,6 +1105,24 @@ export const PatientAppointments: React.FC = () => {
                     </div>
                   )}
                 </section>
+
+                {cancelledAppointments.length > 0 ? (
+                  <section>
+                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
+                          {t('patient.appointments.filterCancelled')}
+                        </h2>
+                        <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
+                          {cancelledAppointments.length}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {cancelledAppointments.map(renderAppointmentCard)}
+                    </div>
+                  </section>
+                ) : null}
 
                 {renderPastTable()}
               </div>

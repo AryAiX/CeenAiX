@@ -59,10 +59,12 @@ export const PatientDashboard: React.FC = () => {
     [i18n.language]
   );
   const { profile, user } = useAuth();
-  const { data: dashboardData, loading: dashboardLoading, error: dashboardError } = usePatientDashboard(
-    user?.id,
-    i18n.language
-  );
+  const {
+    data: dashboardData,
+    loading: dashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
+  } = usePatientDashboard(user?.id, i18n.language);
 
   const displayName =
     getDisplayName(profile?.full_name, profile?.first_name, user?.email) || t('patient.dashboard.greetingFallback');
@@ -323,7 +325,13 @@ export const PatientDashboard: React.FC = () => {
         iconBg: 'bg-teal-50',
         iconColor: 'text-teal-600',
         label: localCopy.medicationsLabel,
-        value: `${formatLocaleDigits(takenCount, i18n.language)}/${formatLocaleDigits(Math.max(medications.length, 1), i18n.language)}`,
+        // Show "0" instead of "0/1" when the patient has zero medications;
+        // forcing a denominator of 1 made an empty list look like a missed
+        // dose tracker.
+        value:
+          medications.length > 0
+            ? `${formatLocaleDigits(takenCount, i18n.language)}/${formatLocaleDigits(medications.length, i18n.language)}`
+            : formatLocaleDigits(0, i18n.language),
         badge: localCopy.todayBadge,
         badgeColor: 'bg-teal-50 text-teal-700',
         trend: 'up' as const,
@@ -373,8 +381,16 @@ export const PatientDashboard: React.FC = () => {
   return (
     <>
       {dashboardError ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {t('patient.dashboard.loadError')}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+          <p>{t('patient.dashboard.loadError')}</p>
+          <p className="mt-1 text-xs text-amber-900/80">{dashboardError}</p>
+          <button
+            type="button"
+            onClick={() => void refetchDashboard()}
+            className="mt-2 font-semibold text-amber-900 underline"
+          >
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
         </div>
       ) : null}
 
@@ -467,7 +483,7 @@ export const PatientDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="divide-y divide-slate-50">
+            <div className="min-h-[12.5rem] divide-y divide-slate-50">
               {dashboardLoading ? (
                 <>
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>

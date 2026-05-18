@@ -1,11 +1,11 @@
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
-import type { Appointment } from '../types';
+import type { Appointment, AppointmentStatus } from '../types';
 
 interface UseAppointmentsOptions {
   role: 'patient' | 'doctor';
   userId: string;
-  status?: string;
+  status?: AppointmentStatus;
 }
 
 /**

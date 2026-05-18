@@ -5,6 +5,7 @@ import {
   hydratePrescriptionItemsWithCatalog,
   loadMedicationCatalogRowsForPrescriptionItems,
 } from '../lib/medication-catalog';
+import { calendarDayKeyInTimeZone, CLINIC_TIME_ZONE } from '../lib/i18n-ui';
 import { useQuery } from './use-query';
 import type { NotificationType, PrescriptionItem } from '../types';
 
@@ -407,8 +408,16 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           (appointment) =>
             UPCOMING_STATUSES.has(appointment.status) && new Date(appointment.scheduled_at).getTime() >= now.getTime()
         );
+        // "Last visit" must be a visit that actually happened — exclude
+        // cancelled and no-show rows so they don't masquerade as the most
+        // recent encounter on the care-team timeline.
         const lastDoctorAppointment =
-          appointmentsForDoctor.length > 0 ? appointmentsForDoctor[appointmentsForDoctor.length - 1] : null;
+          [...appointmentsForDoctor]
+            .reverse()
+            .find(
+              (appointment) =>
+                appointment.status !== 'cancelled' && appointment.status !== 'no_show'
+            ) ?? null;
         const doctorProfile = doctorProfilesById.get(doctorId);
 
         return {
@@ -433,7 +442,16 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           return 1;
         }
 
-        return new Date(right.lastAppointmentAt ?? 0).getTime() - new Date(left.lastAppointmentAt ?? 0).getTime();
+        if (!left.lastAppointmentAt && !right.lastAppointmentAt) {
+          return 0;
+        }
+        if (!left.lastAppointmentAt) {
+          return 1;
+        }
+        if (!right.lastAppointmentAt) {
+          return -1;
+        }
+        return new Date(right.lastAppointmentAt).getTime() - new Date(left.lastAppointmentAt).getTime();
       })
       .slice(0, 3);
 
@@ -582,8 +600,9 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
       const annualLimit = planRow?.annual_limit ?? null;
       const annualLimitUsed = Number(primaryInsurance.annual_limit_used ?? 0);
       const remainingAmount = annualLimit !== null ? Math.max(annualLimit - annualLimitUsed, 0) : null;
-      const nowDateKey = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
-      const validUntil = primaryInsurance.valid_until;
+      const nowDateKey = calendarDayKeyInTimeZone(now, CLINIC_TIME_ZONE);
+      const validUntilRaw = primaryInsurance.valid_until;
+      const validUntilDateKey = validUntilRaw ? validUntilRaw.slice(0, 10) : null;
 
       insurance = {
         providerCompany: planRow?.provider_company ?? insuranceProviderFallback(),
@@ -596,8 +615,8 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
         annualLimitUsed,
         remainingAmount,
         validFrom: primaryInsurance.valid_from ?? null,
-        validUntil,
-        isActive: validUntil ? validUntil >= nowDateKey : true,
+        validUntil: validUntilRaw,
+        isActive: validUntilDateKey ? validUntilDateKey >= nowDateKey : true,
       };
     }
 
@@ -625,7 +644,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
         .from('lab_order_items')
         .select('id, test_name, test_code, result_value, result_unit, is_abnormal, resulted_at')
         .in('lab_order_id', labOrderIds)
-        .eq('status', 'resulted')
+        .in('status', ['resulted', 'reviewed'])
         .not('resulted_at', 'is', null)
         .order('resulted_at', { ascending: false })
         .limit(20);

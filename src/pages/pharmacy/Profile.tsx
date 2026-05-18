@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ShieldCheck, Store, UserRound, type LucideIcon } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -10,7 +11,7 @@ export const PharmacyProfile = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const { profile, user } = useAuth();
-  const { data } = usePharmacyPrescriptionQueue();
+  const { data, error, refetch } = usePharmacyPrescriptionQueue();
   const fallbackName = t('pharmacy.profile.fallbackName', { defaultValue: 'Pharmacy' });
   const pendingLabel = t('pharmacy.profile.fallbackPending', { defaultValue: 'Pending' });
   const displayName =
@@ -44,6 +45,7 @@ export const PharmacyProfile = () => {
       accent="emerald"
       variant="pharmacy"
     >
+      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">
         <div className="max-w-4xl">
           <h2 className="mb-5 text-[20px] font-bold text-slate-900">

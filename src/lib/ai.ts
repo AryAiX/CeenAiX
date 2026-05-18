@@ -95,6 +95,19 @@ export async function invokeAiChat(input: {
     );
   }
 
+  const payload = data as Record<string, unknown>;
+  const assistantMessage = payload.assistantMessage;
+  if (
+    typeof payload.sessionId !== 'string' ||
+    !assistantMessage ||
+    typeof assistantMessage !== 'object' ||
+    typeof (assistantMessage as { content?: unknown }).content !== 'string'
+  ) {
+    throw new Error(
+      i18n.t('ai.errors.invalidChatResponse', { defaultValue: 'AI chat returned an invalid response.' })
+    );
+  }
+
   return data as AiChatResponsePayload;
 }
 
@@ -194,6 +207,34 @@ export async function uploadAiChatAttachment(userId: string, file: File): Promis
     mimeType: file.type || 'application/octet-stream',
     size: file.size,
   };
+}
+
+/**
+ * Best-effort rollback for storage objects that were uploaded but whose
+ * downstream invoke (or DB write) failed. Used to keep the medical-files
+ * bucket from accumulating orphaned objects.
+ */
+export async function removeAiChatAttachments(
+  attachments: ReadonlyArray<AiChatFileAttachment>
+): Promise<void> {
+  if (attachments.length === 0) return;
+  const byBucket = new Map<string, string[]>();
+  for (const attachment of attachments) {
+    const paths = byBucket.get(attachment.bucket) ?? [];
+    paths.push(attachment.path);
+    byBucket.set(attachment.bucket, paths);
+  }
+  await Promise.all(
+    Array.from(byBucket.entries()).map(async ([bucket, paths]) => {
+      const { error } = await supabase.storage.from(bucket).remove(paths);
+      if (error) {
+        // Cleanup is best-effort; surface only as a console warning so a
+        // failed rollback never masks the original invoke failure for the
+        // caller.
+        console.warn('[ai-chat] orphan attachment rollback failed', error);
+      }
+    })
+  );
 }
 
 const createTemplateDocumentPath = (doctorUserId: string, fileName: string) => {

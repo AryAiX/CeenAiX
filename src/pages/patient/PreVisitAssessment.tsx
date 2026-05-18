@@ -86,6 +86,16 @@ export const PatientPreVisitAssessment: React.FC = () => {
     }
   }, [data?.pendingCanonicalUpdates.length]);
 
+  // Reset the hydration flag whenever the route assessmentId changes so a
+  // second pre-visit opened in the same SPA session does not display the
+  // previous assessment's answers.
+  useEffect(() => {
+    setHasHydratedAnswers(false);
+    setAnswers([]);
+    setShowCanonicalUpdateReview(false);
+    setFeedback(null);
+  }, [assessmentId]);
+
   useEffect(() => {
     if (!data || hasHydratedAnswers) {
       return;
@@ -370,6 +380,11 @@ export const PatientPreVisitAssessment: React.FC = () => {
         throw summaryError;
       }
 
+      // Crucial: when there are no canonical-update drafts to review, we
+      // still need to flip the assessment row from `in_progress` to
+      // `completed`. Otherwise the doctor's queue keeps marking the intake
+      // as outstanding even after the patient pressed "Finish".
+      await persistAssessment('completed');
       navigate('/patient/appointments?previsit=completed', { replace: true });
     } catch (error) {
       setFeedback({

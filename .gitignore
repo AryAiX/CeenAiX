@@ -42,3 +42,5 @@ supabase/.temp/bundle-*.sql
 # structure via .gitkeep / README files, but the PNG baselines change with
 # every port pass and are regenerated on demand.
 docs/ui-parity/**/*.png
+.last-run.json
+playwright-report/

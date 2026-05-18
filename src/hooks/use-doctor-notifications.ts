@@ -53,6 +53,18 @@ export function useDoctorNotifications(userId: string | null | undefined) {
       return null;
     }
 
+    const { data: rosterRows, error: rosterError } = await supabase
+      .from('appointments')
+      .select('patient_id')
+      .eq('doctor_id', userId)
+      .eq('is_deleted', false);
+
+    if (rosterError) throw rosterError;
+
+    const allowedPatientIds = new Set(
+      (rosterRows ?? []).map((row) => row.patient_id).filter((id): id is string => Boolean(id))
+    );
+
     const [
       { data: notifications, error: notificationsError },
       { data: conversations, error: conversationsError },
@@ -64,20 +76,21 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
-      supabase.from('conversations').select('id'),
+        .limit(25),
+      supabase.from('conversations').select('id').contains('participant_ids', [userId]),
       supabase
         .from('appointment_pre_visit_assessments')
         .select('id, appointment_id, patient_id, completed_at, updated_at')
         .eq('doctor_id', userId)
         .eq('status', 'completed')
+        .is('reviewed_at', null)
         .order('completed_at', { ascending: false })
         .limit(12),
       supabase
         .from('patient_canonical_update_requests')
         .select('id, patient_id, display_label, created_at, updated_at')
         .eq('requires_doctor_review', true)
-        .eq('status', 'applied')
+        .eq('status', 'pending')
         .order('updated_at', { ascending: false })
         .limit(12),
     ]);
@@ -99,7 +112,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         .neq('sender_id', userId)
         .is('read_at', null)
         .order('sent_at', { ascending: false })
-        .limit(20);
+        .limit(15);
 
       if (unreadMessagesError) {
         throw unreadMessagesError;
@@ -152,6 +165,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
             .from('appointments')
             .select('id, chief_complaint')
             .in('id', assessmentAppointmentIds)
+            .eq('is_deleted', false)
         : Promise.resolve({ data: [], error: null }),
     ]);
 
@@ -178,7 +192,11 @@ export function useDoctorNotifications(userId: string | null | undefined) {
     }
 
     const reviewPatientIds = Array.from(
-      new Set((doctorReviewUpdates ?? []).map((update) => update.patient_id))
+      new Set(
+        (doctorReviewUpdates ?? [])
+          .map((update) => update.patient_id)
+          .filter((patientId) => allowedPatientIds.has(patientId))
+      )
     );
     const { data: reviewPatientProfiles, error: reviewPatientProfilesError } = reviewPatientIds.length
       ? await supabase.from('user_profiles').select('user_id, full_name').in('user_id', reviewPatientIds)
@@ -193,11 +211,16 @@ export function useDoctorNotifications(userId: string | null | undefined) {
     );
 
     for (const update of doctorReviewUpdates ?? []) {
+      if (!allowedPatientIds.has(update.patient_id)) {
+        continue;
+      }
       derivedNotifications.push({
         id: `patient-update-${update.id}`,
         kind: 'patient_update',
         title: chartUpdateTitle(reviewPatientNameById.get(update.patient_id) ?? patientFallback()),
-        body: chartUpdateBody(update.display_label.toLowerCase()),
+        // display_label is nullable in the canonical schema; coalesce so a
+        // stray null row doesn't crash the entire notifications hook.
+        body: chartUpdateBody((update.display_label ?? 'record').toLowerCase()),
         createdAt: update.updated_at ?? update.created_at,
         actionUrl: `/doctor/patients/${update.patient_id}`,
       });
@@ -209,7 +232,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
 
     return {
       notifications: (notifications ?? []) as Notification[],
-      derivedNotifications,
+      derivedNotifications: derivedNotifications.slice(0, 25),
     };
   }, [userId ?? '']);
 }

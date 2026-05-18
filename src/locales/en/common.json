@@ -640,6 +640,7 @@
     }
   },
   "auth": {
+    "remoteTimeout": "This is taking too long. Check your connection and try again.",
     "shell": {
       "headline": "Dubai's leading integrated healthcare platform",
       "subhead": "One platform. Every stakeholder. Full DHA compliance across patient, clinical, pharmacy, lab, insurance, and admin workflows.",
@@ -715,7 +716,8 @@
       "passwordUpdatedRedirecting": "Password updated successfully. Redirecting to your account...",
       "errors": {
         "passwordShort": "Use at least 8 characters for your new password.",
-        "passwordMismatch": "The new password and confirmation do not match."
+        "passwordMismatch": "The new password and confirmation do not match.",
+        "signInTimeout": "Sign-in is taking too long. Check your connection and try again."
       }
     },
     "register": {

@@ -30,7 +30,7 @@ export interface PatientInsuranceActivity {
   totalEstimate: number;
   patientShareEstimate: number;
   coveredEstimate: number;
-  status: 'approved' | 'pending' | 'review';
+  status: 'approved' | 'pending' | 'review' | 'denied';
   source: 'appointments' | 'lab_orders' | 'prescriptions';
 }
 
@@ -105,18 +105,21 @@ export function usePatientInsurance(userId: string | null | undefined) {
         .from('appointments')
         .select('id, type, status, scheduled_at, chief_complaint')
         .eq('patient_id', userId)
+        .eq('is_deleted', false)
         .order('scheduled_at', { ascending: false })
         .limit(6),
       supabase
         .from('lab_orders')
         .select('id, status, ordered_at, lab_order_items (test_name)')
         .eq('patient_id', userId)
+        .eq('is_deleted', false)
         .order('ordered_at', { ascending: false })
         .limit(6),
       supabase
         .from('prescriptions')
         .select('id, status, prescribed_at, prescription_items (medication_name)')
         .eq('patient_id', userId)
+        .eq('is_deleted', false)
         .order('prescribed_at', { ascending: false })
         .limit(6),
     ]);
@@ -185,7 +188,12 @@ export function usePatientInsurance(userId: string | null | undefined) {
         totalEstimate: total,
         patientShareEstimate: split.patientShare,
         coveredEstimate: split.covered,
-        status: row.status === 'completed' ? 'approved' : 'pending',
+        status:
+          row.status === 'completed'
+            ? 'approved'
+            : row.status === 'cancelled' || row.status === 'no_show'
+              ? 'denied'
+              : 'pending',
         source: 'appointments',
       };
     });

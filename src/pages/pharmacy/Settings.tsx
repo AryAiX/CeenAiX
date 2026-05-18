@@ -1,14 +1,35 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, DatabaseZap, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { setPharmacySettingEnabled, usePharmacyPrescriptionQueue } from '../../hooks';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 export const PharmacySettings = () => {
   const { t } = useTranslation('common');
-  const { data } = usePharmacyPrescriptionQueue();
+  const { data, error: loadError, refetch } = usePharmacyPrescriptionQueue();
   const settings = data?.settings ?? [];
   const fallbackName = t('pharmacy.settings.fallbackName', { defaultValue: 'Pharmacy' });
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = async (settingId: string, nextEnabled: boolean) => {
+    setError(null);
+    setBusyId(settingId);
+    try {
+      await setPharmacySettingEnabled(settingId, nextEnabled);
+      refetch();
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error
+          ? toggleError.message
+          : t('pharmacy.settings.toggleError', { defaultValue: 'Could not update preference.' })
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <OpsShell
@@ -26,6 +47,7 @@ export const PharmacySettings = () => {
       variant="pharmacy"
     >
       <div className="min-h-full bg-slate-50 p-6">
+        <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />
         <div className="max-w-3xl">
           <div className="mb-5">
             <h2 className="text-[20px] font-bold text-slate-900">
@@ -36,6 +58,15 @@ export const PharmacySettings = () => {
               {t('pharmacy.settings.portalPreferences', { defaultValue: 'portal preferences' })}
             </div>
           </div>
+
+          {error ? (
+            <div
+              role="alert"
+              className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            >
+              {error}
+            </div>
+          ) : null}
 
           <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[
@@ -80,7 +111,9 @@ export const PharmacySettings = () => {
                 </div>
                 <button
                   type="button"
-                  className={`relative h-6 w-12 shrink-0 rounded-full transition-colors ${
+                  onClick={() => void handleToggle(setting.id, !setting.enabled)}
+                  disabled={busyId === setting.id}
+                  className={`relative h-6 w-12 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     setting.enabled ? 'bg-emerald-500' : 'bg-slate-200'
                   }`}
                   aria-pressed={setting.enabled}

@@ -383,6 +383,67 @@ const emptyData = (): InsurancePortalData => ({
   monthlyClaimsVolume: [],
 });
 
+/**
+ * Approve the supplied pre-authorization rows in a single UPDATE roundtrip.
+ * Used by the dashboard "Bulk Approve AI Recommended" action — sets status
+ * and the approved amount equal to the requested amount so the queue
+ * immediately reflects the decision.
+ */
+export async function bulkApprovePreAuthorizations(
+  preAuthIds: ReadonlyArray<{ id: string; requestedAmountAed: number | null }>
+): Promise<void> {
+  if (preAuthIds.length === 0) return;
+  const now = new Date().toISOString();
+  // Run sequentially so each row's approved_amount can mirror its own
+  // requested amount (a single multi-row UPDATE with the SAME value is wrong).
+  for (const row of preAuthIds) {
+    const { error } = await supabase
+      .from('insurance_pre_authorizations')
+      .update({
+        status: 'approved',
+        approved_amount_aed: row.requestedAmountAed ?? 0,
+        decision_at: now,
+      })
+      .eq('id', row.id);
+    if (error) throw error;
+  }
+}
+
+/**
+ * Toggle an `insurance_settings` row's `enabled` boolean. Used by the
+ * Insurance Settings page so officer preferences are persisted to the
+ * canonical table.
+ */
+export async function setInsuranceSettingEnabled(
+  settingId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('insurance_settings')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('id', settingId);
+  if (error) throw error;
+}
+
+/**
+ * Approve a single pre-authorization row. Returns the updated row id so the
+ * caller can drop it from any in-flight selection state without refetching.
+ */
+export async function approvePreAuthorization(
+  preAuthId: string,
+  requestedAmountAed: number | null
+): Promise<void> {
+  const { error } = await supabase
+    .from('insurance_pre_authorizations')
+    .update({
+      status: 'approved',
+      approved_amount_aed: requestedAmountAed ?? 0,
+      decision_at: new Date().toISOString(),
+    })
+    .eq('id', preAuthId);
+  if (error) throw error;
+}
+
 export function useInsurancePortal() {
   return useQuery<InsurancePortalData>(async () => {
     const { data: userResult, error: userError } = await supabase.auth.getUser();

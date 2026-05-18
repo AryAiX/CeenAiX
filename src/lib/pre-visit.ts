@@ -137,7 +137,7 @@ const AUTOFILL_SOURCE_LABELS = new Map<string, string>(
   PRE_VISIT_AUTOFILL_SOURCE_OPTIONS.map((option) => [option.value, `From your record: ${option.label}`])
 );
 
-const inferAutofillSourceFromQuestion = (question: { key: string; label: string }) => {
+export const inferAutofillSourceFromQuestion = (question: { key: string; label: string }) => {
   const normalized = `${question.key} ${question.label}`.toLowerCase();
 
   if (normalized.includes('full name') || normalized.includes('patient name')) {
@@ -152,6 +152,22 @@ const inferAutofillSourceFromQuestion = (question: { key: string; label: string 
     return 'profile.gender';
   }
 
+  // Match more-specific emergency-contact phrases BEFORE the generic
+  // `phone` / `contact` / `name` branches, otherwise the broader rule
+  // wins and "Emergency contact phone" autofills with the patient's own
+  // profile.phone instead of the emergency contact phone number.
+  if (normalized.includes('emergency contact phone')) {
+    return 'patient.emergency_contact_phone';
+  }
+
+  if (normalized.includes('emergency contact name')) {
+    return 'patient.emergency_contact_name';
+  }
+
+  if (normalized.includes('emergency contact')) {
+    return 'patient.emergency_contact';
+  }
+
   if (normalized.includes('phone')) {
     return 'profile.phone';
   }
@@ -162,18 +178,6 @@ const inferAutofillSourceFromQuestion = (question: { key: string; label: string 
 
   if (normalized.includes('blood type')) {
     return 'patient.blood_type';
-  }
-
-  if (normalized.includes('emergency contact name')) {
-    return 'patient.emergency_contact_name';
-  }
-
-  if (normalized.includes('emergency contact phone')) {
-    return 'patient.emergency_contact_phone';
-  }
-
-  if (normalized.includes('emergency contact')) {
-    return 'patient.emergency_contact';
   }
 
   if (normalized.includes('allerg')) {

@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -23,6 +23,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  approvePreAuthorization,
+  bulkApprovePreAuthorizations,
+  setInsuranceSettingEnabled,
   useInsurancePortal,
   type InsuranceAiInsight,
   type InsuranceClaim,
@@ -33,6 +36,7 @@ import {
   type InsurancePreAuthorization,
 } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 type BadgeTone = 'red' | 'amber' | 'blue';
 type PillTone = 'red' | 'amber' | 'emerald' | 'blue' | 'violet' | 'slate';
@@ -171,7 +175,17 @@ const navItemsForData = (data: InsurancePortalData | null): InsuranceNavItem[] =
   ];
 };
 
-const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; children: ReactNode }) => {
+const InsuranceShell = ({
+  data,
+  children,
+  loadError,
+  onRetry,
+}: {
+  data: InsurancePortalData | null;
+  children: ReactNode;
+  loadError?: string | null;
+  onRetry?: () => void;
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
@@ -291,7 +305,7 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
 
         {!collapsed ? (
           <div className="mx-3 mb-3 rounded-xl border border-white/[0.05] bg-black/20 p-3">
-            <div className="mb-1 font-mono text-[10px] text-[#93C5E8]">{formatCurrency(claimValue)} claims · current seed period</div>
+            <div className="mb-1 font-mono text-[10px] text-[#93C5E8]">{formatCurrency(claimValue)} claims · live workspace total</div>
             <div className="mb-1.5 flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[9px] text-red-300">{openFraud} fraud alerts open</span>
@@ -352,19 +366,89 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button className="hidden items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 transition hover:bg-red-100 md:flex">
+            <button
+              type="button"
+              onClick={() => navigate('/insurance/fraud')}
+              className="hidden items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 transition hover:bg-red-100 md:flex"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-xs font-semibold text-red-600">{openFraud} Fraud Alerts</span>
             </button>
-            <button className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200 md:flex">
+            <button
+              type="button"
+              onClick={() => {
+                // Real CSV export over the current pre-authorization workload
+                // so officers can hand the queue to spreadsheets / DHA tooling.
+                const rows = data?.preAuthorizations ?? [];
+                const header = [
+                  'ref',
+                  'patient',
+                  'clinician',
+                  'provider',
+                  'procedure',
+                  'priority',
+                  'status',
+                  'requested_aed',
+                  'approved_aed',
+                  'ai_recommendation',
+                  'ai_confidence',
+                  'sla_due_at',
+                ];
+                const escape = (v: string | number | null | undefined) => {
+                  if (v === null || v === undefined) return '';
+                  const s = String(v);
+                  return s.includes(',') || s.includes('"') || s.includes('\n')
+                    ? `"${s.replace(/"/g, '""')}"`
+                    : s;
+                };
+                const body = [header, ...rows.map((row) => [
+                  row.externalRef,
+                  row.patientName,
+                  row.clinicianName,
+                  row.providerName,
+                  row.procedureName,
+                  row.priority,
+                  row.status,
+                  row.requestedAmountAed ?? '',
+                  row.approvedAmountAed ?? '',
+                  row.aiRecommendation ?? '',
+                  row.aiConfidencePercent ?? '',
+                  row.slaDueAt ?? '',
+                ])]
+                  .map((line) => line.map(escape).join(','))
+                  .join('\n');
+                const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `insurance-pre-auths-${new Date()
+                  .toISOString()
+                  .slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200 md:flex"
+            >
               <Download className="h-3.5 w-3.5 text-slate-500" />
               <span className="text-xs text-slate-500">Export</span>
             </button>
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 transition hover:bg-slate-200">
+            <button
+              type="button"
+              onClick={() => navigate('/insurance/preauth')}
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 transition hover:bg-slate-200"
+              aria-label="Open pending pre-authorizations"
+            >
               <Bell className="h-4 w-4 text-slate-600" />
               {urgentPreAuth ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" /> : null}
             </button>
-            <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200">
+            <button
+              type="button"
+              onClick={() => navigate('/insurance/settings')}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 transition hover:bg-slate-200"
+              aria-label="Open insurance settings"
+            >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E3A5F] text-xs font-bold text-white">{officerInitials || 'IO'}</div>
               <ChevronDown className="h-3 w-3 text-slate-400" />
             </button>
@@ -372,7 +456,19 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
         </header>
 
         <main className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="space-y-5">{children}</div>
+          <div className="space-y-5">
+            {loadError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                <p>{loadError}</p>
+                {onRetry ? (
+                  <button type="button" onClick={onRetry} className="mt-2 font-semibold underline">
+                    Retry
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {children}
+          </div>
         </main>
       </div>
     </div>
@@ -380,6 +476,7 @@ const InsuranceShell = ({ data, children }: { data: InsurancePortalData | null; 
 };
 
 const PreAuthAlert = ({ item }: { item: InsurancePreAuthorization | null }) => {
+  const navigate = useNavigate();
   if (!item) return null;
 
   return (
@@ -397,7 +494,13 @@ const PreAuthAlert = ({ item }: { item: InsurancePreAuthorization | null }) => {
             </div>
           </div>
         </div>
-        <button className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Review urgent case</button>
+        <button
+          type="button"
+          onClick={() => navigate('/insurance/preauth')}
+          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+        >
+          Review urgent case
+        </button>
       </div>
     </section>
   );
@@ -583,8 +686,33 @@ const ageGenderShort = (age: number | null, gender: string | null) => {
   return `${age}${g}`;
 };
 
-const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; max?: number }) => {
+const PreAuthHostedTable = ({
+  rows,
+  max,
+  onApproved,
+}: {
+  rows: InsurancePreAuthorization[];
+  max?: number;
+  onApproved?: () => void;
+}) => {
+  const navigate = useNavigate();
   const visible = max ? rows.slice(0, max) : rows;
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const handleRowApprove = async (row: InsurancePreAuthorization) => {
+    setRowError(null);
+    setRowBusyId(row.id);
+    try {
+      await approvePreAuthorization(row.id, row.requestedAmountAed);
+      onApproved?.();
+    } catch (error) {
+      setRowError(error instanceof Error ? error.message : 'Approval failed.');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-100">
       <div className="overflow-x-auto">
@@ -663,8 +791,25 @@ const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; 
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex flex-wrap justify-end gap-1.5">
-                      <button className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700">Approve</button>
-                      <button className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">Review</button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRowApprove(row)}
+                        disabled={rowBusyId === row.id || row.status === 'approved'}
+                        className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {row.status === 'approved'
+                          ? 'Approved'
+                          : rowBusyId === row.id
+                            ? '…'
+                            : 'Approve'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/insurance/preauth')}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        Review
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -678,6 +823,9 @@ const PreAuthHostedTable = ({ rows, max }: { rows: InsurancePreAuthorization[]; 
           </tbody>
         </table>
       </div>
+      {rowError ? (
+        <p className="px-3 py-2 text-[11px] font-semibold text-rose-600">{rowError}</p>
+      ) : null}
     </div>
   );
 };
@@ -698,14 +846,46 @@ const AiInsightCard = ({ insight }: { insight: InsuranceAiInsight }) => {
       ) : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {insight.primaryActionLabel ? (
-          <button className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f]">
-            {insight.primaryActionLabel}
-          </button>
+          insight.primaryActionUrl ? (
+            <a
+              href={insight.primaryActionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f]"
+            >
+              {insight.primaryActionLabel}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="A primary action target has not been provided for this insight."
+              className="rounded-lg bg-[#1E3A5F] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#27537f] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {insight.primaryActionLabel}
+            </button>
+          )
         ) : null}
         {insight.secondaryActionLabel ? (
-          <button className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">
-            {insight.secondaryActionLabel}
-          </button>
+          insight.secondaryActionUrl ? (
+            <a
+              href={insight.secondaryActionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
+            >
+              {insight.secondaryActionLabel}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="A secondary action target has not been provided for this insight."
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {insight.secondaryActionLabel}
+            </button>
+          )
         ) : null}
       </div>
     </div>
@@ -727,8 +907,20 @@ const FraudAlertCard = ({ alert }: { alert: InsuranceFraudAlert }) => {
         Amount at risk: {formatCurrency(alert.exposureAmountAed)}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <button className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700">Investigate</button>
-        <button className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100">Freeze Claims</button>
+        <Link
+          to="/insurance/fraud"
+          className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700"
+        >
+          Investigate
+        </Link>
+        <button
+          type="button"
+          disabled
+          title="Claims freeze action is wired in the dedicated fraud workspace; bulk row controls are coming in a later release."
+          className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Freeze Claims
+        </button>
       </div>
     </div>
   );
@@ -846,18 +1038,47 @@ const useInsurancePageData = () => {
 
 export const InsurancePortal = () => {
   const navigate = useNavigate();
-  const { data, loading, overduePreAuth, openFraud } = useInsurancePageData();
+  const { data, loading, error, overduePreAuth, openFraud, refetch } = useInsurancePageData();
   const profile = data?.profile ?? null;
   const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
   const fraudAlerts = data?.fraudAlerts ?? [];
   const aiInsights = data?.aiInsights ?? [];
   const monthlyVolume = data?.monthlyClaimsVolume ?? [];
   const pendingPreAuths = preAuths.filter((p) => p.status === 'review' || p.status === 'overdue');
-  const urgentPending = preAuths.filter((p) => p.priority === 'urgent' && p.status !== 'approved' && p.status !== 'denied').length;
+  const urgentPending = pendingPreAuths.filter((p) => p.priority === 'urgent').length;
   const standardPending = pendingPreAuths.length - urgentPending;
   const aiHigh = fraudAlerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
   const aiMedium = fraudAlerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
-  const aiBulkApproveCount = preAuths.filter((p) => p.aiRecommendation === 'approve' && p.aiConfidencePercent != null && p.aiConfidencePercent >= 95 && p.status !== 'approved').length;
+  const aiBulkApprove = useMemo(
+    () =>
+      preAuths.filter(
+        (p) =>
+          p.aiRecommendation === 'approve' &&
+          p.aiConfidencePercent != null &&
+          p.aiConfidencePercent >= 95 &&
+          p.status !== 'approved'
+      ),
+    [preAuths]
+  );
+  const aiBulkApproveCount = aiBulkApprove.length;
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const handleBulkApprove = async () => {
+    if (aiBulkApprove.length === 0) return;
+    setBulkError(null);
+    setBulkBusy(true);
+    try {
+      await bulkApprovePreAuthorizations(
+        aiBulkApprove.map((row) => ({ id: row.id, requestedAmountAed: row.requestedAmountAed }))
+      );
+      refetch();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Bulk approval failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue'>('all');
   const filtered = useMemo(() => {
@@ -877,7 +1098,7 @@ export const InsurancePortal = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <PreAuthAlert item={overduePreAuth} />
 
       {/* Hosted-style 6-tile KPI grid */}
@@ -971,13 +1192,29 @@ export const InsurancePortal = () => {
                 <h2 className="text-[15px] font-bold text-slate-900">Pre-Authorization Queue</h2>
                 <p className="mt-0.5 text-xs text-slate-400">{pendingPreAuths.length} pending · DHA response required</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
-                  Bulk Approve AI Recommended ({aiBulkApproveCount})
-                </button>
-                <button onClick={() => navigate('/insurance/preauth')} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
-                  View All →
-                </button>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkApprove()}
+                    disabled={bulkBusy || aiBulkApproveCount === 0}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {bulkBusy
+                      ? 'Approving…'
+                      : `Bulk Approve AI Recommended (${aiBulkApproveCount})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/insurance/preauth')}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    View All →
+                  </button>
+                </div>
+                {bulkError ? (
+                  <p className="text-[11px] font-semibold text-rose-600">{bulkError}</p>
+                ) : null}
               </div>
             </div>
             <div className="border-b border-slate-100 px-5 py-3">
@@ -994,7 +1231,7 @@ export const InsurancePortal = () => {
               </div>
             </div>
             <div className="p-5">
-              <PreAuthHostedTable rows={filtered} max={5} />
+              <PreAuthHostedTable rows={filtered} max={5} onApproved={refetch} />
               {filtered.length > 5 ? (
                 <button onClick={() => navigate('/insurance/preauth')} className="mt-3 w-full rounded-lg bg-slate-50 px-4 py-2 text-xs font-bold text-[#1E3A5F] hover:bg-slate-100">
                   Show {filtered.length - 5} more pre-auths →
@@ -1114,10 +1351,12 @@ export const InsurancePortal = () => {
 };
 
 export const InsurancePreAuthorizations = () => {
-  const { data, overduePreAuth } = useInsurancePageData();
+  const { data, error, overduePreAuth, refetch } = useInsurancePageData();
   const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'urgent' | 'review' | 'deny' | 'overdue' | 'approved'>('all');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const filtered = useMemo(() => {
     let rows = preAuths;
     if (filter === 'urgent') rows = rows.filter((p) => p.priority === 'urgent');
@@ -1138,7 +1377,46 @@ export const InsurancePreAuthorizations = () => {
     return rows;
   }, [preAuths, filter, search]);
 
-  const aiBulkApprove = preAuths.filter((p) => p.aiRecommendation === 'approve' && (p.aiConfidencePercent ?? 0) >= 95).length;
+  const aiBulkApproveRows = useMemo(
+    () =>
+      preAuths.filter(
+        (p) =>
+          p.aiRecommendation === 'approve' &&
+          (p.aiConfidencePercent ?? 0) >= 95 &&
+          p.status !== 'approved'
+      ),
+    [preAuths]
+  );
+  const aiBulkApprove = aiBulkApproveRows.length;
+
+  const handleBulkApprove = async () => {
+    if (aiBulkApproveRows.length === 0) return;
+    setBulkError(null);
+    setBulkBusy(true);
+    try {
+      await bulkApprovePreAuthorizations(
+        aiBulkApproveRows.map((row) => ({
+          id: row.id,
+          requestedAmountAed: row.requestedAmountAed,
+        }))
+      );
+      refetch();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Bulk approval failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  /**
+   * Lightweight client-side triage: surfaces every row that the AI flagged
+   * for human review and snaps the filter to the "AI: Review" tab so the
+   * officer can work the queue. This is a working in-browser action; once a
+   * server-side triage Edge Function ships, the same handler can call it.
+   */
+  const handleRunAiTriage = () => {
+    setFilter('review');
+  };
 
   const filterTabs: Array<{ id: typeof filter; label: string; count: number }> = [
     { id: 'all', label: 'All', count: preAuths.length },
@@ -1150,7 +1428,7 @@ export const InsurancePreAuthorizations = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <PreAuthAlert item={overduePreAuth} />
       <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -1158,13 +1436,27 @@ export const InsurancePreAuthorizations = () => {
             <h2 className="text-[15px] font-bold text-slate-900">Pre-Authorizations</h2>
             <p className="mt-0.5 text-xs text-slate-400">Review urgent, high, and routine authorization requests</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
-              Bulk Approve AI Recommended ({aiBulkApprove})
-            </button>
-            <button className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f]">
-              Run AI triage
-            </button>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleBulkApprove()}
+                disabled={bulkBusy || aiBulkApprove === 0}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {bulkBusy ? 'Approving…' : `Bulk Approve AI Recommended (${aiBulkApprove})`}
+              </button>
+              <button
+                type="button"
+                onClick={handleRunAiTriage}
+                className="rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f]"
+              >
+                Run AI triage
+              </button>
+            </div>
+            {bulkError ? (
+              <p className="text-[11px] font-semibold text-rose-600">{bulkError}</p>
+            ) : null}
           </div>
         </div>
         <div className="border-b border-slate-100 px-5 py-3">
@@ -1173,6 +1465,7 @@ export const InsurancePreAuthorizations = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
                 placeholder="Search request, member, provider, procedure..."
@@ -1192,7 +1485,7 @@ export const InsurancePreAuthorizations = () => {
           </div>
         </div>
         <div className="p-5">
-          <PreAuthHostedTable rows={filtered} />
+          <PreAuthHostedTable rows={filtered} onApproved={refetch} />
         </div>
       </article>
     </InsuranceShell>
@@ -1200,7 +1493,7 @@ export const InsurancePreAuthorizations = () => {
 };
 
 export const InsuranceClaims = () => {
-  const { data, loading, claimTotal } = useInsurancePageData();
+  const { data, loading, error, claimTotal, refetch } = useInsurancePageData();
   const claims = useMemo(() => data?.claims ?? [], [data?.claims]);
   const profile = data?.profile;
   const submitted = claims.filter((claim) => claim.status === 'submitted').length;
@@ -1236,7 +1529,7 @@ export const InsuranceClaims = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <KpiHostedCard label="Total Value" value={loading ? '...' : formatCurrency(claimTotal)} caption={`${formatNumber(claims.length)} claims this period`} tone="blue" />
         <KpiHostedCard label="Auto-Approved" value={loading ? '...' : formatNumber(approved)} caption={profile?.aiAutoApprovalPercent != null ? `${profile.aiAutoApprovalPercent}% auto-rate` : 'AI auto-approved'} tone="emerald" />
@@ -1257,6 +1550,7 @@ export const InsuranceClaims = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
                 placeholder="Search claim ref, member, or provider..."
@@ -1324,7 +1618,7 @@ export const InsuranceClaims = () => {
 };
 
 export const InsuranceMembers = () => {
-  const { data, loading } = useInsurancePageData();
+  const { data, loading, error, refetch } = useInsurancePageData();
   const members = useMemo(() => data?.members ?? [], [data?.members]);
   const profile = data?.profile;
   const [search, setSearch] = useState('');
@@ -1348,7 +1642,7 @@ export const InsuranceMembers = () => {
   ];
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="Active Members" value={loading ? '...' : formatNumber(profile?.activeMembers ?? members.length)} caption="On CeenAiX platform" tone="blue" />
         {tiers.map((tier) => (
@@ -1372,6 +1666,7 @@ export const InsuranceMembers = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
                 placeholder="Search by name, member ID, or plan..."
@@ -1421,7 +1716,7 @@ export const InsuranceMembers = () => {
 };
 
 export const InsuranceFraudDetection = () => {
-  const { data, loading, openFraud } = useInsurancePageData();
+  const { data, loading, error, openFraud, refetch } = useInsurancePageData();
   const alerts = data?.fraudAlerts ?? [];
   const high = alerts.filter((a) => a.severity === 'high' && a.status !== 'resolved').length;
   const medium = alerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length;
@@ -1431,7 +1726,7 @@ export const InsuranceFraudDetection = () => {
   const filtered = severityFilter === 'all' ? alerts : alerts.filter((a) => a.severity === severityFilter);
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="High Risk" value={loading ? '...' : formatNumber(high)} caption="Investigation required" tone="red" />
         <KpiHostedCard label="Medium Risk" value={loading ? '...' : formatNumber(medium)} caption="Watchlist" tone="amber" />
@@ -1470,7 +1765,7 @@ export const InsuranceFraudDetection = () => {
 };
 
 export const InsuranceRiskAnalytics = () => {
-  const { data } = useInsurancePageData();
+  const { data, error, refetch } = useInsurancePageData();
   const maxLossRatio = Math.max(...(data?.riskSegments.map((item) => item.lossRatioPercent) ?? [1]), 1);
   const savingsFound = data?.fraudAlerts.reduce((sum, alert) => sum + alert.exposureAmountAed, 0) ?? 0;
   const averageLossRatio = data?.riskSegments.length
@@ -1478,7 +1773,7 @@ export const InsuranceRiskAnalytics = () => {
     : 0;
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <SectionCard title="Risk Analytics" subtitle="Plan utilization and cost trend signals">
           <div className="space-y-4">
@@ -1496,7 +1791,7 @@ export const InsuranceRiskAnalytics = () => {
             ))}
           </div>
         </SectionCard>
-        <SectionCard title="Loss Ratio Forecast" subtitle="Current seeded period">
+        <SectionCard title="Loss Ratio Forecast" subtitle="Reporting window (live workspace)">
           <div className="grid grid-cols-2 gap-3">
             <KpiCard label="Medical loss" value={`${averageLossRatio}%`} helper="Average risk segment loss ratio" tone="amber" />
             <KpiCard label="Savings found" value={formatCurrency(savingsFound)} helper="Open fraud alert exposure" tone="emerald" />
@@ -1508,7 +1803,7 @@ export const InsuranceRiskAnalytics = () => {
 };
 
 export const InsuranceNetworkProviders = () => {
-  const { data, loading } = useInsurancePageData();
+  const { data, loading, error, refetch } = useInsurancePageData();
   const providers = data?.networkProviders ?? [];
   const totalClaims = providers.reduce((sum, p) => sum + p.claimsCount, 0);
   const avgApproval = providers.length ? Math.round(providers.reduce((sum, p) => sum + p.approvalRatePercent, 0) / providers.length) : 0;
@@ -1519,7 +1814,7 @@ export const InsuranceNetworkProviders = () => {
   );
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="In-Network Providers" value={loading ? '...' : formatNumber(providers.length)} caption="Contracted facilities" tone="blue" />
         <KpiHostedCard label="Total Claims" value={loading ? '...' : formatNumber(totalClaims)} caption="This month" tone="emerald" />
@@ -1536,6 +1831,7 @@ export const InsuranceNetworkProviders = () => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
               placeholder="Search provider or specialty..."
@@ -1551,7 +1847,7 @@ export const InsuranceNetworkProviders = () => {
 };
 
 export const InsuranceReports = () => {
-  const { data, loading, claimTotal, openFraud } = useInsurancePageData();
+  const { data, loading, error, claimTotal, openFraud, refetch } = useInsurancePageData();
   const reports = data?.reportRuns ?? [];
   const fraudExposure = openFraud.reduce((sum, alert) => sum + alert.exposureAmountAed, 0);
   const ready = reports.filter((r) => r.status === 'ready').length;
@@ -1571,7 +1867,7 @@ export const InsuranceReports = () => {
   });
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiHostedCard label="Total Reports" value={loading ? '...' : formatNumber(reports.length)} caption="Across all categories" tone="blue" />
         <KpiHostedCard label="Ready to Download" value={loading ? '...' : formatNumber(ready)} caption={`${running} running · ${failed} failed`} tone="emerald" />
@@ -1599,6 +1895,35 @@ export const InsuranceReports = () => {
                   </div>
                   <div className="flex gap-2">
                     <button
+                      type="button"
+                      onClick={() => {
+                        // Real download of the report metadata using only
+                        // the canonical fields the hook surfaced. A richer
+                        // PDF renderer can replace this without changing
+                        // the callsite.
+                        const lines = [
+                          report.reportName,
+                          `Status: ${report.status}`,
+                          `Period: ${report.periodLabel}`,
+                          '',
+                          `Generated by CeenAiX insurance portal · ${new Date().toLocaleString()}`,
+                        ];
+                        const blob = new Blob([lines.join('\n')], {
+                          type: 'text/plain;charset=utf-8',
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `${report.reportName
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')}-${new Date()
+                          .toISOString()
+                          .slice(0, 10)}.txt`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                      }}
                       disabled={report.status !== 'ready'}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#27537f] disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
@@ -1621,9 +1946,26 @@ export const InsuranceReports = () => {
 };
 
 export const InsuranceSettings = () => {
-  const { data } = useInsurancePageData();
+  const { data, error, refetch } = useInsurancePageData();
   const settings = data?.settings ?? [];
   const profile = data?.profile;
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  const handleToggleSetting = async (settingId: string, nextEnabled: boolean) => {
+    setSettingsError(null);
+    setBusyId(settingId);
+    try {
+      await setInsuranceSettingEnabled(settingId, nextEnabled);
+      refetch();
+    } catch (error) {
+      setSettingsError(
+        error instanceof Error ? error.message : 'Could not update insurance setting.'
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const grouped: Record<string, typeof settings> = {};
   settings.forEach((s) => {
@@ -1638,7 +1980,7 @@ export const InsuranceSettings = () => {
   });
 
   return (
-    <InsuranceShell data={data}>
+    <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       {profile ? (
         <article className="rounded-2xl border border-slate-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1665,6 +2007,14 @@ export const InsuranceSettings = () => {
         </article>
       ) : null}
       <div className="space-y-5">
+        {settingsError ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          >
+            {settingsError}
+          </div>
+        ) : null}
         {Object.entries(grouped).map(([category, items]) => (
           <article key={category} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-5 py-4">
@@ -1678,9 +2028,16 @@ export const InsuranceSettings = () => {
                     <div className="text-sm font-semibold text-slate-900">{setting.title}</div>
                     <div className="text-xs text-slate-500">{setting.description}</div>
                   </div>
-                  <div className={`relative h-6 w-12 shrink-0 rounded-full transition ${setting.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleSetting(setting.id, !setting.enabled)}
+                    disabled={busyId === setting.id}
+                    aria-pressed={setting.enabled}
+                    aria-label={setting.enabled ? 'Disable preference' : 'Enable preference'}
+                    className={`relative h-6 w-12 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-60 ${setting.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                  >
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${setting.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                  </div>
+                  </button>
                 </div>
               ))}
             </div>

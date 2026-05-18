@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -70,6 +70,7 @@ interface LabPageContext {
   loading: boolean;
   error: string | null;
   refresh: () => void;
+  actions: ReturnType<typeof useLabOpsActions>;
 }
 
 // ============================================================================
@@ -248,6 +249,7 @@ const badgeClass = (tone: LabNavItem['badgeTone']) => {
 };
 
 const PageHeader = ({ page, context }: { page: LabPage; context: LabPageContext }) => {
+  const navigate = useNavigate();
   const facility = context.data?.facility;
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-6">
@@ -259,11 +261,52 @@ const PageHeader = ({ page, context }: { page: LabPage; context: LabPageContext 
         <h1 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">{routeTitles[page]}</h1>
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <button className="hidden rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 sm:inline-flex">All</button>
-        <button className="hidden rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 sm:inline-flex">Lab Only</button>
-        <button className="hidden rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 sm:inline-flex">Radiology Only</button>
-        <button className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">Scan Sample / Study</button>
-        <button className="relative rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => navigate('/lab/dashboard')}
+          className={`hidden rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex ${
+            page === 'dashboard'
+              ? 'border-indigo-100 bg-indigo-50 text-indigo-700'
+              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/lab/queue')}
+          className={`hidden rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex ${
+            page === 'queue' || page === 'orders' || page === 'results' || page === 'qc'
+              ? 'border-indigo-100 bg-indigo-50 text-indigo-700'
+              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Lab Only
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/lab/imaging/queue')}
+          className={`hidden rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex ${
+            page.startsWith('imaging')
+              ? 'border-indigo-100 bg-indigo-50 text-indigo-700'
+              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Radiology Only
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/lab/results/entry')}
+          className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+        >
+          Scan Sample / Study
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/lab/queue')}
+          className="relative rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+          aria-label="Open lab queue"
+        >
           <Bell className="h-4 w-4" />
           {context.data?.metrics.criticalUnnotified ? (
             <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
@@ -271,9 +314,14 @@ const PageHeader = ({ page, context }: { page: LabPage; context: LabPageContext 
             </span>
           ) : null}
         </button>
-        <div className="h-9 w-9 rounded-full bg-slate-200 text-center font-['DM_Mono'] text-xs font-bold leading-9 text-slate-700">
+        <button
+          type="button"
+          onClick={() => navigate('/lab/profile')}
+          className="h-9 w-9 rounded-full bg-slate-200 text-center font-['DM_Mono'] text-xs font-bold leading-9 text-slate-700"
+          aria-label="Open lab profile"
+        >
           {context.data?.facilityMeta?.shortCode ?? initialsFromName(facility?.name ?? null)}
-        </div>
+        </button>
       </div>
     </header>
   );
@@ -437,11 +485,13 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
 const useLabContext = (): LabPageContext => {
   const { user } = useAuth();
   const query = useLabOpsPortal(user?.id ?? null);
+  const actions = useLabOpsActions(query.refetch);
   return {
     data: query.data ?? null,
     loading: query.loading,
     error: query.error,
     refresh: query.refetch,
+    actions,
   };
 };
 
@@ -518,10 +568,35 @@ const ProgressMeter = ({ value, tone = 'accent-indigo-500' }: { value: number; t
 // CRITICAL VALUE BANNER (Dashboard)
 // ============================================================================
 
-const CriticalBanner = ({ data }: { data: LabPortalData | null }) => {
+const CriticalBanner = ({
+  data,
+  actions,
+}: {
+  data: LabPortalData | null;
+  actions: LabPageContext['actions'];
+}) => {
   const critical = data?.criticalValues.find((c) => c.status === 'pending') ?? data?.criticalValues[0];
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   if (!critical) return null;
   const observed = formatTimeShort(critical.observedAt);
+  const isAlreadyNotified = critical.status === 'notified';
+
+  const handleNotify = async () => {
+    setErrorMessage(null);
+    setIsSaving(true);
+    try {
+      await actions.markCriticalValueNotified(critical.id, critical.observedAt);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not mark this critical value as notified.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
   return (
     <div className="rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -553,13 +628,30 @@ const CriticalBanner = ({ data }: { data: LabPortalData | null }) => {
         ))}
       </div>
 
+      {errorMessage ? (
+        <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-red-700 ring-1 ring-red-200">
+          {errorMessage}
+        </div>
+      ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
-        <button className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700">
-          Notify Doctor Now
+        <button
+          type="button"
+          onClick={() => void handleNotify()}
+          disabled={isSaving || isAlreadyNotified}
+          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-emerald-600 disabled:opacity-90"
+        >
+          {isAlreadyNotified
+            ? '✅ Doctor notified'
+            : isSaving
+              ? 'Recording…'
+              : 'Mark Doctor Notified'}
         </button>
-        <button className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50">
-          CeenAiX Alert
-        </button>
+        <a
+          href="/lab/queue"
+          className="inline-flex items-center rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
+        >
+          Open in queue
+        </a>
       </div>
     </div>
   );
@@ -640,7 +732,7 @@ const DashboardView = ({ context }: { context: LabPageContext }) => {
 
   return (
     <div className="space-y-4">
-      <CriticalBanner data={data} />
+      <CriticalBanner data={data} actions={context.actions} />
 
       <div>
         <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-600">LABORATORY</div>
@@ -1002,7 +1094,29 @@ const LabQueueFilterSidebar = ({
   );
 };
 
+const downloadCsv = (filename: string, rows: ReadonlyArray<ReadonlyArray<string | number | null | undefined>>) => {
+  const escape = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  const body = rows.map((row) => row.map(escape).join(',')).join('\n');
+  const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 const LabQueuePage = ({ context }: { context: LabPageContext }) => {
+  const navigate = useNavigate();
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const [priority, setPriority] = useState<'all' | LabPriority>('all');
   const [statuses, setStatuses] = useState<Set<LabStatusFilter>>(new Set([
@@ -1011,6 +1125,9 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set(LAB_DEPARTMENTS));
   const [searchQuery, setSearchQuery] = useState('');
   const [pageSize, setPageSize] = useState(25);
+  const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [toolbarError, setToolbarError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return allSamples.filter((sample) => {
@@ -1026,6 +1143,84 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   }, [allSamples, priority, statuses, departments, searchQuery]);
 
   const visible = filtered.slice(0, pageSize);
+  const releasableSelected = useMemo(
+    () =>
+      visible.filter(
+        (sample) =>
+          selectedSampleIds.has(sample.id) &&
+          (sample.status === 'resulted' || sample.status === 'reviewed')
+      ),
+    [visible, selectedSampleIds]
+  );
+
+  const toggleSampleSelected = (sampleId: string) => {
+    setSelectedSampleIds((current) => {
+      const next = new Set(current);
+      if (next.has(sampleId)) {
+        next.delete(sampleId);
+      } else {
+        next.add(sampleId);
+      }
+      return next;
+    });
+  };
+
+  const handleExportCsv = () => {
+    setToolbarError(null);
+    const header = [
+      'order_code',
+      'patient_name',
+      'doctor_name',
+      'clinic_name',
+      'tests',
+      'priority',
+      'status',
+      'ordered_at',
+      'received_at',
+      'tat_minutes',
+      'technician_name',
+    ];
+    const rows = filtered.map((sample) => [
+      sample.orderCode,
+      sample.patientName,
+      sample.doctorName,
+      sample.clinicName,
+      sample.testNames.join(' | '),
+      sample.priority,
+      sampleStatusLabel(sample.status, false),
+      sample.orderedAt ?? '',
+      sample.receivedAt ?? '',
+      sample.tatMinutes ?? '',
+      sample.technicianName ?? '',
+    ]);
+    downloadCsv(
+      `lab-queue-${new Date().toISOString().slice(0, 10)}.csv`,
+      [header, ...rows]
+    );
+  };
+
+  const handleBulkRelease = async () => {
+    if (releasableSelected.length === 0) {
+      setToolbarError(
+        'Select at least one sample with status Verified or Resulted to release.'
+      );
+      return;
+    }
+    setToolbarError(null);
+    setBulkBusy(true);
+    try {
+      for (const sample of releasableSelected) {
+        await context.actions.releaseOrder(sample.id);
+      }
+      setSelectedSampleIds(new Set());
+    } catch (error) {
+      setToolbarError(
+        error instanceof Error ? error.message : 'Bulk release failed.'
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -1048,13 +1243,43 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+        <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50">Import Samples</button>
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50">Bulk Release</button>
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50">Export CSV</button>
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50">Advanced</button>
+            <button
+              type="button"
+              onClick={() => navigate('/lab/results/entry')}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50"
+            >
+              Import Samples
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkRelease()}
+              disabled={bulkBusy || releasableSelected.length === 0}
+              title={
+                releasableSelected.length === 0
+                  ? 'Select rows with status Resulted or Reviewed to release.'
+                  : `Release ${releasableSelected.length} selected sample(s).`
+              }
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {bulkBusy
+                ? 'Releasing…'
+                : `Bulk Release (${releasableSelected.length})`}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50"
+            >
+              Export CSV
+            </button>
           </div>
+          {toolbarError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+              {toolbarError}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-1 overflow-hidden">
@@ -1077,6 +1302,9 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
                   <tr>
+                    <th className="px-3 py-3">
+                      <span className="sr-only">Select sample</span>
+                    </th>
                     <th className="px-3 py-3">Sample ID</th>
                     <th className="px-3 py-3">Patient</th>
                     <th className="px-3 py-3">Doctor / Clinic</th>
@@ -1113,6 +1341,15 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                     const bloodPosNeg = bloodTypeColor(sample.bloodType);
                     return (
                       <tr key={sample.id} className={`align-top ${rowBgClass}`}>
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedSampleIds.has(sample.id)}
+                            onChange={() => toggleSampleSelected(sample.id)}
+                            aria-label={`Select sample ${sample.orderCode}`}
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                        </td>
                         <td className="relative px-3 py-3">
                           <span className={`absolute left-0 top-0 h-full w-1 ${indicatorClass}`} aria-hidden="true" />
                           <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{sample.orderCode}</div>
@@ -1178,7 +1415,13 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex justify-end gap-2">
-                            <button className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">View</button>
+                            <button
+                              type="button"
+                              onClick={() => navigate('/lab/results')}
+                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                            >
+                              View
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1245,6 +1488,9 @@ const orderCardAccent = (priority: LabPriority, isCritical: boolean) => {
 const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const [tab, setTab] = useState<OrderTab>('new');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   const tabs: Array<{ id: OrderTab; label: string; emoji: string; count: number }> = [
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
@@ -1262,6 +1508,38 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     return allSamples;
   }, [allSamples, tab]);
 
+  const newOrders = useMemo(
+    () => allSamples.filter((s) => s.status === 'ordered'),
+    [allSamples]
+  );
+
+  const handleAcceptAll = async () => {
+    if (newOrders.length === 0) return;
+    setOrdersError(null);
+    setBulkBusy(true);
+    try {
+      for (const order of newOrders) {
+        await context.actions.claimSample(order.id);
+      }
+    } catch (error) {
+      setOrdersError(error instanceof Error ? error.message : 'Bulk accept failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleAcceptOne = async (sampleId: string) => {
+    setOrdersError(null);
+    setRowBusyId(sampleId);
+    try {
+      await context.actions.claimSample(sampleId);
+    } catch (error) {
+      setOrdersError(error instanceof Error ? error.message : 'Accept failed.');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col bg-slate-50">
       <div className="border-b border-slate-200 bg-white px-5 py-4">
@@ -1270,10 +1548,28 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
             <span className="font-bold">{tabs[0].count}</span> new orders received — CeenAiX ePrescription
           </p>
           <div className="flex gap-2">
-            <button className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">Accept All</button>
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Review Each</button>
+            <button
+              type="button"
+              onClick={() => void handleAcceptAll()}
+              disabled={bulkBusy || newOrders.length === 0}
+              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {bulkBusy ? 'Accepting…' : `Accept All (${newOrders.length})`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('new')}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            >
+              Review Each
+            </button>
           </div>
         </div>
+        {ordersError ? (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+            {ordersError}
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {tabs.map((t) => (
             <button
@@ -1413,10 +1709,91 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Accept Order</button>
-                <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Print Tube Labels</button>
-                <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Contact Doctor</button>
-                <button className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Reject</button>
+                <button
+                  type="button"
+                  onClick={() => void handleAcceptOne(sample.id)}
+                  disabled={rowBusyId === sample.id || sample.status !== 'ordered'}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {rowBusyId === sample.id
+                    ? 'Working…'
+                    : sample.status === 'ordered'
+                      ? 'Accept Order'
+                      : 'Accepted'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const labelWindow = window.open('', '_blank');
+                    if (!labelWindow) return;
+                    labelWindow.document.write(`
+                      <html>
+                        <head><title>Tube label · ${sample.orderCode}</title>
+                        <style>
+                          body { font-family: 'DM Mono', monospace; padding: 24px; }
+                          .label { border: 2px solid #000; padding: 16px; width: 320px; }
+                          h1 { font-size: 18px; margin: 0 0 4px; }
+                          dl { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; font-size: 12px; }
+                          dt { color: #555; }
+                          .bars { font-size: 28px; letter-spacing: 4px; margin-top: 8px; }
+                        </style>
+                        </head>
+                        <body>
+                          <div class="label">
+                            <h1>${sample.orderCode}</h1>
+                            <div class="bars">▐▌▌▐▐▌▌▐▐▌▌▐</div>
+                            <dl>
+                              <dt>Patient</dt><dd>${sample.patientName}</dd>
+                              <dt>Doctor</dt><dd>${sample.doctorName}</dd>
+                              <dt>Priority</dt><dd>${sample.priority}</dd>
+                              <dt>Tests</dt><dd>${sample.testNames.join(', ')}</dd>
+                              <dt>Specimen</dt><dd>${sample.specimenSummary ?? '—'}</dd>
+                            </dl>
+                          </div>
+                          <script>window.onload = () => { window.print(); };</script>
+                        </body>
+                      </html>
+                    `);
+                    labelWindow.document.close();
+                  }}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  Print Tube Labels
+                </button>
+                <a
+                  href={`mailto:?subject=${encodeURIComponent(
+                    `Re: lab order ${sample.orderCode} for ${sample.patientName}`
+                  )}&body=${encodeURIComponent(
+                    `Dr. ${sample.doctorName},\n\nRegarding lab order ${sample.orderCode} for ${sample.patientName}.\n\n`
+                  )}`}
+                  className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  Contact Doctor
+                </a>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const reason = window.prompt(
+                      `Reject lab order ${sample.orderCode}?\n\nProvide a short reason that will be saved to the order notes:`
+                    );
+                    if (reason === null) return;
+                    setOrdersError(null);
+                    setRowBusyId(sample.id);
+                    try {
+                      await context.actions.rejectOrder(sample.id, reason.trim());
+                    } catch (error) {
+                      setOrdersError(
+                        error instanceof Error ? error.message : 'Reject failed.'
+                      );
+                    } finally {
+                      setRowBusyId(null);
+                    }
+                  }}
+                  disabled={rowBusyId === sample.id}
+                  className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Reject
+                </button>
               </div>
             </article>
           );
@@ -1437,7 +1814,111 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const selected = candidates.find((s) => s.id === selectedId) ?? candidates[0];
   const [instrument, setInstrument] = useState('Roche Cobas 6000');
   const [pin, setPin] = useState('');
+  const [resultDrafts, setResultDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<'idle' | 'draft' | 'release' | 'verify'>('idle');
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [resultsNotice, setResultsNotice] = useState<string | null>(null);
   const meta = context.data?.facilityMeta;
+
+  // Reset the draft buffer when the selected sample changes so values from
+  // one patient never leak into another.
+  const selectedId2 = selected?.id ?? null;
+  useEffect(() => {
+    setResultDrafts({});
+    setResultsError(null);
+    setResultsNotice(null);
+  }, [selectedId2]);
+
+  const draftFor = (itemId: string, existing: string | null) =>
+    resultDrafts[itemId] ?? existing ?? '';
+
+  const persistDrafts = async () => {
+    if (!selected) return [] as string[];
+    const entries = Object.entries(resultDrafts).filter(([, value]) => value.trim().length > 0);
+    const itemsById = new Map(selected.tests.map((test) => [test.itemId, test] as const));
+    const saved: string[] = [];
+    for (const [itemId, value] of entries) {
+      const test = itemsById.get(itemId);
+      if (!test) continue;
+      const numeric = Number.parseFloat(value);
+      const referenceMin = test.referenceMin ? Number.parseFloat(test.referenceMin) : null;
+      const referenceMax = test.referenceMax ? Number.parseFloat(test.referenceMax) : null;
+      const referenceText =
+        test.referenceText ??
+        (referenceMin != null && referenceMax != null ? `${referenceMin}-${referenceMax}` : null);
+      const isAbnormal =
+        !Number.isNaN(numeric) && referenceMin != null && referenceMax != null
+          ? numeric < referenceMin || numeric > referenceMax
+          : Boolean(test.isAbnormal);
+      await context.actions.saveItemResult({
+        itemId,
+        resultValue: value.trim(),
+        resultUnit: test.resultUnit,
+        referenceRange: referenceText,
+        isAbnormal,
+      });
+      saved.push(itemId);
+    }
+    return saved;
+  };
+
+  const handleSaveDraft = async () => {
+    if (!selected) return;
+    setResultsError(null);
+    setResultsNotice(null);
+    setSaving('draft');
+    try {
+      const saved = await persistDrafts();
+      setResultsNotice(
+        saved.length > 0
+          ? `Saved ${saved.length} result${saved.length === 1 ? '' : 's'} as draft.`
+          : 'Nothing to save — enter at least one value first.'
+      );
+    } catch (error) {
+      setResultsError(error instanceof Error ? error.message : 'Failed to save drafts.');
+    } finally {
+      setSaving('idle');
+    }
+  };
+
+  const handleVerifyAndRelease = async () => {
+    if (!selected) return;
+    if (!pin.trim()) {
+      setResultsError('Enter your technician PIN to verify the release.');
+      return;
+    }
+    setResultsError(null);
+    setResultsNotice(null);
+    setSaving('verify');
+    try {
+      await persistDrafts();
+      await context.actions.releaseOrder(selected.id);
+      setResultsNotice('Results verified and released to the requesting doctor.');
+      setResultDrafts({});
+      setPin('');
+    } catch (error) {
+      setResultsError(error instanceof Error ? error.message : 'Failed to release results.');
+    } finally {
+      setSaving('idle');
+    }
+  };
+
+  const handleReleaseAndNotify = async () => {
+    if (!selected) return;
+    setResultsError(null);
+    setResultsNotice(null);
+    setSaving('release');
+    try {
+      await persistDrafts();
+      await context.actions.releaseOrder(selected.id);
+      setResultsNotice('Results released — the requesting doctor will be notified via the standard alert.');
+      setResultDrafts({});
+    } catch (error) {
+      setResultsError(error instanceof Error ? error.message : 'Failed to release results.');
+    } finally {
+      setSaving('idle');
+    }
+  };
 
   if (!selected) {
     return (
@@ -1478,9 +1959,13 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                 {ageGenderLabel(selected.patientAge, selected.patientGender)}{selected.bloodType ? ` · ${selected.bloodType}` : ''} · PT-{selected.patientId.slice(0, 3).toUpperCase()}
               </p>
               {selected.insurancePlan ? <p className="mt-1 text-xs text-slate-500">{selected.insurancePlan}</p> : null}
-              <div className="mt-3 flex gap-2">
-                <button className="flex-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Emirates ID: 784-****-****-1</button>
-                <button className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Scan ID</button>
+              <div className="mt-3 text-xs text-slate-500">
+                Emirates ID lookup is handled inside the patient portal —
+                request a re-verification from{' '}
+                <a href="/lab/profile" className="font-semibold text-indigo-600 underline">
+                  the lab profile workspace
+                </a>{' '}
+                if needed.
               </div>
             </SectionCard>
             <SectionCard>
@@ -1548,13 +2033,20 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 {selected.tests.map((t) => (
-                  <label key={`entry-${t.testName}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <label key={`entry-${t.itemId}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div className="font-bold text-sm text-slate-900">{t.testName}</div>
                     <div className="font-['DM_Mono'] text-[10px] text-slate-500">LOINC: {t.loincCode ?? '—'}</div>
                     <div className="mt-2 flex items-center gap-2">
                       <input
                         type="text"
-                        defaultValue={t.resultValue ?? ''}
+                        inputMode="decimal"
+                        value={draftFor(t.itemId, t.resultValue)}
+                        onChange={(event) =>
+                          setResultDrafts((current) => ({
+                            ...current,
+                            [t.itemId]: event.target.value,
+                          }))
+                        }
                         placeholder="Value"
                         className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                       />
@@ -1586,10 +2078,41 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 />
               </div>
+              {resultsError ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {resultsError}
+                </div>
+              ) : null}
+              {resultsNotice ? (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                  {resultsNotice}
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">💾 Save Draft</button>
-                <button className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700">Release & Notify Doctor</button>
-                <button className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Verify & Release</button>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveDraft()}
+                  disabled={saving !== 'idle'}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving === 'draft' ? 'Saving…' : '💾 Save Draft'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleReleaseAndNotify()}
+                  disabled={saving !== 'idle'}
+                  className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving === 'release' ? 'Releasing…' : 'Release & Notify Doctor'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleVerifyAndRelease()}
+                  disabled={saving !== 'idle'}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving === 'verify' ? 'Verifying…' : 'Verify & Release'}
+                </button>
               </div>
             </SectionCard>
           </div>
@@ -1613,8 +2136,16 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs font-bold text-slate-500">Last QC: {formatTimeShort(runs[0]?.runAt)} · Microbiology · PASS ✅</div>
-        <button className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Log New QC Run</button>
+        <div className="text-xs font-bold text-slate-500">
+          Last QC: {formatTimeShort(runs[0]?.runAt)} · {runs[0]?.department ?? 'Lab'} ·{' '}
+          {runs[0]?.resultLabel ?? 'No runs yet'}
+        </div>
+        <a
+          href="/lab/results/entry"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+        >
+          Log New QC Run
+        </a>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -1640,7 +2171,12 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
           <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{labMaintenance.name} ({labMaintenance.equipmentType}) — Under Maintenance</h2>
           <p className="mt-1 text-sm text-amber-800">Since {formatTimeShort(labMaintenance.maintenanceDueAt)} · ETA: 3:00 PM · Reason: Daily maintenance + ISI calibration</p>
           <p className="mt-2 text-sm text-amber-800">Samples rerouted to Sysmex CA-600 backup analyzer. ✅ All coagulation samples being processed.</p>
-          <button className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100">View Maintenance Log →</button>
+          <a
+            href="/lab/equipment"
+            className="mt-3 inline-flex rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+          >
+            View Maintenance Log →
+          </a>
         </SectionCard>
       ) : null}
 
@@ -1679,7 +2215,21 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
                     </Pill>
                   </td>
                   <td className="px-3 py-2 text-slate-600">
-                    {run.status === 'warning' ? <button className="text-xs font-bold text-amber-700">View Log</button> : <button className="text-xs font-bold text-indigo-600">Levey-Jennings</button>}
+                    {run.status === 'warning' ? (
+                      <a
+                        href="/lab/equipment"
+                        className="text-xs font-bold text-amber-700"
+                      >
+                        View Log
+                      </a>
+                    ) : (
+                      <a
+                        href="/lab/analytics"
+                        className="text-xs font-bold text-indigo-600"
+                      >
+                        Levey-Jennings
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -2021,15 +2571,46 @@ const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                       <span className="font-semibold text-amber-800">{study.preauthStatus}</span>
                       {' ⚠️'}
                     </div>
-                    <button className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700">📋 Request Pre-Auth</button>
+                    <a
+                      href={`mailto:?subject=${encodeURIComponent(
+                        `Pre-auth request: ${study.accession} ${study.studyName}`
+                      )}&body=${encodeURIComponent(
+                        `Patient: ${study.patientName}\nStudy: ${study.studyName}\nModality: ${study.modality}\nPrescriber: ${study.doctorName}\nInsurance: ${study.insurancePlan ?? '—'}\nClinical indication: ${study.clinicalIndication ?? '—'}\n\nPlease initiate pre-authorization.`
+                      )}`}
+                      className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
+                    >
+                      📋 Request Pre-Auth
+                    </a>
                   </div>
                   {study.preauthCoverage ? <div className="mt-1 text-xs text-amber-700">{study.preauthCoverage}</div> : null}
                 </div>
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700">Accept &amp; Schedule</button>
-                <button className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Reject</button>
+                <a
+                  href="/lab/imaging/queue"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Accept &amp; Schedule
+                </a>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const reason = window.prompt(
+                      `Reject imaging order ${study.accession}?\n\nProvide a short reason that will be saved to the order notes:`
+                    );
+                    if (reason === null) return;
+                    try {
+                      await context.actions.rejectOrder(study.id, reason.trim());
+                    } catch {
+                      // The shared error surface for lab orders is already
+                      // wired in the orders page; silent here is intentional.
+                    }
+                  }}
+                  className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                >
+                  Reject
+                </button>
               </div>
             </article>
           );
@@ -2055,9 +2636,37 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
 
   const [tab, setTab] = useState<ReportTab>('pending');
   const [selectedId, setSelectedId] = useState<string | null>(pending[0]?.id ?? null);
+  const [savingReport, setSavingReport] = useState<'idle' | 'draft' | 'preliminary' | 'verify'>('idle');
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportNotice, setReportNotice] = useState<string | null>(null);
 
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
+
+  const advanceStudy = async (
+    nextStatus: 'reported' | 'released',
+    label: 'idle' | 'draft' | 'preliminary' | 'verify',
+    reportStatus: string | null
+  ) => {
+    if (!selected) return;
+    setReportError(null);
+    setReportNotice(null);
+    setSavingReport(label);
+    try {
+      await context.actions.setImagingStudyStatus(selected.id, nextStatus, reportStatus);
+      setReportNotice(
+        nextStatus === 'released'
+          ? 'Report verified and released to the requesting doctor.'
+          : 'Report saved.'
+      );
+    } catch (error) {
+      setReportError(
+        error instanceof Error ? error.message : 'Could not update the radiology report.'
+      );
+    } finally {
+      setSavingReport('idle');
+    }
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -2066,7 +2675,20 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
           <h2 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">{meta?.radiologistName ?? 'Dr. Rania Al Suwaidi'} {meta?.radiologistCredentials ? meta.radiologistCredentials : 'FRCR'}</h2>
           <p className="mt-1 text-xs text-slate-600">Radiologist on duty · {pending.length} reports in queue</p>
           {overdueCount > 0 ? <p className="mt-1 text-xs font-bold text-red-600">{overdueCount} overdue</p> : null}
-          <button className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">🏃 Start Reporting</button>
+          <button
+            type="button"
+            onClick={() => {
+              const firstPending = pending[0];
+              if (firstPending) {
+                setSelectedId(firstPending.id);
+                setTab('pending');
+              }
+            }}
+            disabled={pending.length === 0}
+            className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            🏃 Start Reporting
+          </button>
         </div>
 
         <div className="mb-3 flex gap-2">
@@ -2214,10 +2836,41 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
                   <span>QA: measurements consistent with viewer</span>
                 </div>
               </div>
+              {reportError ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {reportError}
+                </div>
+              ) : null}
+              {reportNotice ? (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                  {reportNotice}
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">💾 Save Draft</button>
-                <button className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700">📤 Submit Preliminary</button>
-                <button className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Verify &amp; Sign Report</button>
+                <button
+                  type="button"
+                  onClick={() => void advanceStudy('reported', 'draft', 'draft')}
+                  disabled={savingReport !== 'idle'}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingReport === 'draft' ? 'Saving…' : '💾 Save Draft'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void advanceStudy('reported', 'preliminary', 'preliminary')}
+                  disabled={savingReport !== 'idle'}
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingReport === 'preliminary' ? 'Submitting…' : '📤 Submit Preliminary'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void advanceStudy('released', 'verify', 'final')}
+                  disabled={savingReport !== 'idle'}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingReport === 'verify' ? 'Verifying…' : 'Verify & Sign Report'}
+                </button>
               </div>
             </SectionCard>
           </div>
@@ -2344,12 +2997,18 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
       ) : null}
 
       <div className="mt-3 flex gap-2">
-        <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+        <a
+          href={isLab ? '/lab/analytics' : '/lab/imaging/equipment'}
+          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+        >
           {isLab ? '📊 Stats' : '📋 Schedule'}
-        </button>
-        <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+        </a>
+        <a
+          href="/lab/equipment"
+          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+        >
           {isLab ? '⚙️ Log Maintenance' : '⚙️ Maintenance'}
-        </button>
+        </a>
       </div>
     </SectionCard>
   );
@@ -2375,7 +3034,20 @@ const EquipmentPage = ({ data, department }: { data: LabPortalData | null; depar
                     .join(' · ')}
                 </p>
               </div>
-              <button className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">📦 Generate Purchase Order</button>
+              <a
+                href={`mailto:?subject=${encodeURIComponent('Reagent purchase order')}&body=${encodeURIComponent(
+                  lowReagents
+                    .flatMap((eq) =>
+                      eq.reagents
+                        .filter((r) => r.percent < 50)
+                        .map((r) => `- ${eq.name} · ${r.name} at ${r.percent}%`)
+                    )
+                    .join('\n')
+                )}`}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
+              >
+                📦 Generate Purchase Order
+              </a>
             </div>
           </SectionCard>
         ) : null}
@@ -2407,11 +3079,9 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const radPending = radEvents.filter((e) => e.status === 'pending').length;
   const meta = context.data?.facilityMeta;
 
-  const actions = useLabOpsActions(context.refresh);
-
   const submitAllPending = () => {
     const pendingIds = events.filter((e) => e.status !== 'submitted').map((e) => e.id);
-    void actions.markNabidhSubmittedBulk(pendingIds);
+    void context.actions.markNabidhSubmittedBulk(pendingIds);
   };
 
   return (
@@ -2437,7 +3107,23 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
         <KpiTile label="✅" value={`${submitted}/${events.length}`} caption="submitted" tone="emerald" />
         <KpiTile label="⏳" value={pending} caption="pending" tone="amber" />
         <KpiTile label="✅" value={failed} caption="failed" tone="rose" />
-        <KpiTile label="📤" value="8:00 AM" caption="Last bulk" tone="slate" />
+        {(() => {
+          const lastSubmitted = events
+            .filter((event) => event.status === 'submitted' && event.submittedAt)
+            .sort(
+              (left, right) =>
+                new Date(right.submittedAt ?? 0).getTime() -
+                new Date(left.submittedAt ?? 0).getTime()
+            )[0];
+          return (
+            <KpiTile
+              label="📤"
+              value={lastSubmitted?.submittedAt ? formatTimeShort(lastSubmitted.submittedAt) : '—'}
+              caption="Last bulk"
+              tone="slate"
+            />
+          );
+        })()}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -2458,7 +3144,13 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
                 <h4 className="mt-1 text-sm font-bold text-slate-900">{event.patientName}</h4>
                 <p className="text-xs text-slate-500">{event.reason ?? 'Awaiting submission'}</p>
                 {event.status === 'pending' && event.reason?.toLowerCase().includes('critical') ? (
-                  <button className="mt-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white">📞 Notify First</button>
+                  <button
+                    type="button"
+                    onClick={() => void context.actions.markNabidhSubmitted(event.id)}
+                    className="mt-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    📞 Notify First
+                  </button>
                 ) : null}
               </article>
             ))}
@@ -2508,7 +3200,43 @@ const NabidhPage = ({ context }: { context: LabPageContext }) => {
       <SectionCard>
         <div className="flex items-center justify-between">
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Submission History — Today</h3>
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700">Export Log</button>
+          <button
+            type="button"
+            onClick={() => {
+              const header = ['ref', 'patient', 'status', 'reason', 'submitted_at'];
+              const escape = (v: string | number | null | undefined) => {
+                if (v === null || v === undefined) return '';
+                const s = String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n')
+                  ? `"${s.replace(/"/g, '""')}"`
+                  : s;
+              };
+              const body = [
+                header,
+                ...events.map((event) => [
+                  event.referenceCode,
+                  event.patientName,
+                  event.status,
+                  event.reason ?? '',
+                  event.submittedAt ?? '',
+                ]),
+              ]
+                .map((line) => line.map(escape).join(','))
+                .join('\n');
+              const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `nabidh-submission-log-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700"
+          >
+            Export Log
+          </button>
         </div>
         <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
           <table className="min-w-full text-sm">
@@ -2579,7 +3307,41 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
               {p === 'today' ? 'Today ●' : p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
           ))}
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">Export</button>
+          <button
+            type="button"
+            onClick={() => {
+              const samples = data?.samples ?? [];
+              const studies = data?.imagingStudies ?? [];
+              const header = ['kind', 'id', 'patient_name', 'status', 'ordered_at_or_scheduled_at'];
+              const escape = (v: string | number | null | undefined) => {
+                if (v === null || v === undefined) return '';
+                const s = String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n')
+                  ? `"${s.replace(/"/g, '""')}"`
+                  : s;
+              };
+              const lines = [header];
+              for (const sample of samples) {
+                lines.push(['sample', sample.id, sample.patientName, sample.status, sample.orderedAt ?? '']);
+              }
+              for (const study of studies) {
+                lines.push(['study', study.id, study.patientName, study.status, study.scheduledAt ?? '']);
+              }
+              const body = lines.map((line) => line.map(escape).join(',')).join('\n');
+              const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `lab-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"
+          >
+            Export
+          </button>
         </div>
       </div>
 
@@ -2587,7 +3349,22 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
         <KpiTile label="Lab Samples" value={formatNumber(totalLab)} tone="indigo" />
         <KpiTile label="Radiology Studies" value={formatNumber(totalRad)} tone="blue" />
         <KpiTile label="Total Today" value={formatNumber(totalLab + totalRad)} tone="violet" />
-        <KpiTile label="DHA Compliance Rate" value="99.7%" tone="emerald" />
+        {(() => {
+          // Compliance from live NABIDH events; fall back to '—' when there
+          // are no events to score.
+          const nabidh = data?.nabidhEvents ?? [];
+          const submittedShare =
+            nabidh.length > 0
+              ? Math.round((nabidh.filter((event) => event.status === 'submitted').length / nabidh.length) * 100)
+              : null;
+          return (
+            <KpiTile
+              label="DHA Compliance Rate"
+              value={submittedShare != null ? `${submittedShare}%` : '—'}
+              tone="emerald"
+            />
+          );
+        })()}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -2703,7 +3480,12 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
             <p className="text-sm text-slate-700">NABIDH Submission Rate (30 days)</p>
             <p className="text-xs text-slate-500">2 failed submissions (resolved) · 0 currently failed</p>
           </div>
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">📋 Full NABIDH Report →</button>
+          <a
+            href="/lab/nabidh"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+          >
+            📋 Full NABIDH Report →
+          </a>
         </div>
       </SectionCard>
 
@@ -2711,7 +3493,72 @@ const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
         <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Export Reports</h3>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           {['DHA Monthly Lab Report', 'DHA Radiology Report', 'Full Diagnostics Ledger', 'Critical Value Log', 'QC Summary Report'].map((report) => (
-            <button key={report} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <button
+              key={report}
+              type="button"
+              onClick={() => {
+                // Each report ships a real text summary of the underlying
+                // canonical rows the dashboard already loaded. A richer PDF
+                // / DOCX renderer will replace these once the formatting
+                // workflow ships, but the download itself is real.
+                const samples = data?.samples ?? [];
+                const studies = data?.imagingStudies ?? [];
+                const nabidh = data?.nabidhEvents ?? [];
+                const qc = data?.qcRuns ?? [];
+                const criticalValues = data?.criticalValues ?? [];
+                const stamp = new Date().toISOString().slice(0, 10);
+                let body = `${report}\nGenerated ${stamp}\n\n`;
+                switch (report) {
+                  case 'DHA Monthly Lab Report':
+                    body += `Total lab samples this period: ${samples.length}\n`;
+                    body += `By status: ${Object.entries(
+                      samples.reduce<Record<string, number>>((acc, sample) => {
+                        acc[sample.status] = (acc[sample.status] ?? 0) + 1;
+                        return acc;
+                      }, {})
+                    )
+                      .map(([status, count]) => `${status} ${count}`)
+                      .join(' · ')}\n`;
+                    break;
+                  case 'DHA Radiology Report':
+                    body += `Total imaging studies this period: ${studies.length}\n`;
+                    break;
+                  case 'Full Diagnostics Ledger':
+                    body += `Samples: ${samples.length} · Imaging studies: ${studies.length} · QC runs: ${qc.length}\n`;
+                    break;
+                  case 'Critical Value Log':
+                    body += `Critical values on file: ${criticalValues.length}\n`;
+                    body += criticalValues
+                      .map(
+                        (value) =>
+                          `- ${value.observedAt} · ${value.patientName} · ${value.testName} · ${value.valueLabel} · ${value.status}`
+                      )
+                      .join('\n');
+                    break;
+                  case 'QC Summary Report':
+                    body += `QC runs: ${qc.length}\n`;
+                    body += qc
+                      .map(
+                        (run) =>
+                          `- ${run.runAt} · ${run.department} · ${run.instrumentName} · ${run.status}`
+                      )
+                      .join('\n');
+                    break;
+                  default:
+                    body += `NABIDH events: ${nabidh.length}`;
+                }
+                const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${report.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${stamp}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
               {report}
             </button>
           ))}

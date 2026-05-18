@@ -19,6 +19,7 @@ import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks/use-pharmacy-prescription-queue';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
+import { compareStockAlerts } from './stock-alerts';
 
 const formatNumber = (value: number | null | undefined, language: string) =>
   typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
@@ -136,7 +137,7 @@ const groupPrescriptionItems = (items: PharmacyQueuePrescriptionItem[]): Pharmac
 export const PharmacyDashboard = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const [showDispensed, setShowDispensed] = useState(false);
 
   const prescriptionGroups = useMemo(() => groupPrescriptionItems(data?.queue ?? []), [data?.queue]);
@@ -168,12 +169,11 @@ export const PharmacyDashboard = () => {
           severity: item.status,
           expiryMonth: item.expiryMonth,
         }))
-        .sort((a, b) => {
-          const order = ['atorvastatin', 'metformin', 'bisoprolol', 'warfarin'];
-          const aIndex = order.findIndex((name) => a.item.toLowerCase().includes(name));
-          const bIndex = order.findIndex((name) => b.item.toLowerCase().includes(name));
-          return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
-        }) ?? [],
+        // Sort by clinical urgency (out → low → near_expiry), then by
+        // remaining stock ascending. The previous ordering keyed off a
+        // hardcoded drug-name priority list (atorvastatin/metformin/…) which
+        // reshuffled real low-stock alerts based on Bolt prototype copy.
+        .sort(compareStockAlerts) ?? [],
     [data?.inventory]
   );
   const onHold = onHoldPrescriptions.length;
@@ -187,7 +187,7 @@ export const PharmacyDashboard = () => {
           .slice(0, 4)
           .map((alert) => {
             if (alert.severity === 'out') {
-              return `${alert.item}${/atorvastatin/i.test(alert.item) && !/20mg/i.test(alert.item) ? ' 20mg' : ''} OUT OF STOCK`;
+              return `${alert.item} OUT OF STOCK`;
             }
 
             if (alert.severity === 'near_expiry') {
@@ -254,13 +254,23 @@ export const PharmacyDashboard = () => {
       navItems={PHARMACY_NAV_ITEMS(t, {
         prescriptions: inQueue.length || undefined,
         inventory: stockAlerts.length || undefined,
-        messages: onHold || undefined,
+        messages:
+          data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
       })}
       accent="emerald"
       variant="pharmacy"
     >
       <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
-        <div className="mx-6 mt-5 flex shrink-0 items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+        {error ? (
+          <div className="mx-6 mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            <p>{error}</p>
+            <button type="button" onClick={() => void refetch()} className="mt-2 font-semibold underline">
+              Retry
+            </button>
+          </div>
+        ) : null}
+        {stockAlerts.length > 0 ? (
+          <div className="mx-6 mt-5 flex shrink-0 items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
           <div className="min-w-0 flex-1">
             <span className="text-[13px] font-semibold text-amber-800">
@@ -275,6 +285,7 @@ export const PharmacyDashboard = () => {
             View Inventory
           </Link>
         </div>
+        ) : null}
 
         <section className="mx-6 mt-4 grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {kpis.map((kpi) => {

@@ -5,6 +5,7 @@ import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
 import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save } from 'lucide-react';
 import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { supabase } from '../../lib/supabase';
 
 interface FamilyMember {
@@ -32,6 +33,7 @@ export const Profile: React.FC = () => {
   const [emiratesIdBack, setEmiratesIdBack] = useState<string>('');
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingInsurance, setIsEditingInsurance] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
@@ -67,10 +69,13 @@ export const Profile: React.FC = () => {
       .select('blood_type, emergency_contact_name, emergency_contact_phone')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (mounted) {
-          setPatientProfile(data);
+      .then(({ data, error: fetchError }) => {
+        if (!mounted) return;
+        if (fetchError) {
+          setSaveError(fetchError.message);
+          return;
         }
+        setPatientProfile(data);
       });
     return () => {
       mounted = false;
@@ -98,6 +103,9 @@ export const Profile: React.FC = () => {
       provider: primaryInsurance?.providerCompany ?? '',
       policyNumber: primaryInsurance?.policyNumber ?? '',
       memberId: primaryInsurance?.memberId ?? '',
+      // The canonical `patient_insurance` row has no `group_number` column;
+      // the network type (e.g. "Premium Plus", "Network B") is the closest
+      // human-meaningful identifier we surface alongside the policy number.
       groupNumber: primaryInsurance?.networkType ?? '',
       coverageType: primaryInsurance?.coverageType ?? '',
       validFrom: primaryInsurance?.validFrom ?? '',
@@ -108,7 +116,8 @@ export const Profile: React.FC = () => {
 
   const savePersonalInfo = async () => {
     if (!user?.id) return;
-    await supabase
+    setSaveError(null);
+    const { error: profileError } = await supabase
       .from('user_profiles')
       .update({
         full_name: personalInfo.fullName,
@@ -117,7 +126,11 @@ export const Profile: React.FC = () => {
         avatar_url: profileImage || null,
       })
       .eq('user_id', user.id);
-    await supabase.from('patient_profiles').upsert(
+    if (profileError) {
+      setSaveError(profileError.message);
+      return;
+    }
+    const { error: patientError } = await supabase.from('patient_profiles').upsert(
       {
         user_id: user.id,
         blood_type: personalInfo.bloodType || null,
@@ -126,6 +139,10 @@ export const Profile: React.FC = () => {
       },
       { onConflict: 'user_id' }
     );
+    if (patientError) {
+      setSaveError(patientError.message);
+      return;
+    }
     await refetchProfile();
     setPatientProfile({
       blood_type: personalInfo.bloodType || null,
@@ -140,7 +157,8 @@ export const Profile: React.FC = () => {
       setIsEditingInsurance(false);
       return;
     }
-    await supabase
+    setSaveError(null);
+    const { error: insuranceError } = await supabase
       .from('patient_insurance')
       .update({
         policy_number: insuranceInfo.policyNumber || null,
@@ -150,6 +168,10 @@ export const Profile: React.FC = () => {
         valid_until: insuranceInfo.validUntil || null,
       })
       .eq('id', insurance.primaryPlan.id);
+    if (insuranceError) {
+      setSaveError(insuranceError.message);
+      return;
+    }
     setIsEditingInsurance(false);
   };
 
@@ -175,7 +197,11 @@ export const Profile: React.FC = () => {
   };
 
   const handleScanEmiratesId = () => {
-    alert(t('patient.profile.scanAlert'));
+    // True ID-card OCR is a Phase 2 capability; until then, route the
+    // user through the standard image-upload picker so that the action
+    // remains useful (capture / attach photo) rather than firing a
+    // dead-end alert that blocks the page.
+    handleImageUpload('emiratesFront');
   };
 
   const addFamilyMember = () => {
@@ -208,6 +234,18 @@ export const Profile: React.FC = () => {
         </h1>
         <p className="mt-2 text-[15px] text-slate-400">{t('patient.profile.subtitle')}</p>
       </div>
+
+      {saveError ? (
+        <div
+          role="alert"
+          className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {t('patient.profile.saveError', {
+            defaultValue: 'We could not save your changes: {{message}}',
+            message: saveError,
+          })}
+        </div>
+      ) : null}
 
       <div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -344,6 +382,7 @@ export const Profile: React.FC = () => {
                       <input
                         type="text"
                         disabled={!isEditingPersonal}
+                        maxLength={FORM_FIELD_LIMITS.personName}
                         value={personalInfo.fullName}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -357,6 +396,7 @@ export const Profile: React.FC = () => {
                       <input
                         type="text"
                         disabled={!isEditingPersonal}
+                        maxLength={FORM_FIELD_LIMITS.emiratesId}
                         value={personalInfo.emiratesId}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emiratesId: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -376,6 +416,7 @@ export const Profile: React.FC = () => {
                       />
                       {!isEditingPersonal && (
                         <button
+                          type="button"
                           onClick={() => setIsEditingPersonal(true)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
@@ -405,6 +446,7 @@ export const Profile: React.FC = () => {
                       </select>
                       {!isEditingPersonal && (
                         <button
+                          type="button"
                           onClick={() => setIsEditingPersonal(true)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
@@ -417,6 +459,7 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.allergies')}</label>
                     <textarea
                       disabled={!isEditingPersonal}
+                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       value={personalInfo.allergies}
                       onChange={(e) => setPersonalInfo({ ...personalInfo, allergies: e.target.value })}
                       rows={3}
@@ -428,6 +471,7 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.chronicConditions')}</label>
                     <textarea
                       disabled={!isEditingPersonal}
+                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       value={personalInfo.chronicConditions}
                       onChange={(e) => setPersonalInfo({ ...personalInfo, chronicConditions: e.target.value })}
                       rows={3}
@@ -441,6 +485,7 @@ export const Profile: React.FC = () => {
                       <input
                         type="text"
                         disabled={!isEditingPersonal}
+                        maxLength={FORM_FIELD_LIMITS.personName}
                         value={personalInfo.emergencyContactName}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emergencyContactName: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -448,6 +493,7 @@ export const Profile: React.FC = () => {
                       />
                       {!isEditingPersonal && (
                         <button
+                          type="button"
                           onClick={() => setIsEditingPersonal(true)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
@@ -462,6 +508,7 @@ export const Profile: React.FC = () => {
                       <input
                         type="tel"
                         disabled={!isEditingPersonal}
+                        maxLength={FORM_FIELD_LIMITS.phone}
                         value={personalInfo.emergencyContactPhone}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emergencyContactPhone: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -469,6 +516,7 @@ export const Profile: React.FC = () => {
                       />
                       {!isEditingPersonal && (
                         <button
+                          type="button"
                           onClick={() => setIsEditingPersonal(true)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
@@ -580,6 +628,7 @@ export const Profile: React.FC = () => {
                     <input
                       type="text"
                       disabled={!isEditingInsurance}
+                      maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.provider}
                       onChange={(e) => setInsuranceInfo({ ...insuranceInfo, provider: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -591,6 +640,7 @@ export const Profile: React.FC = () => {
                     <input
                       type="text"
                       disabled={!isEditingInsurance}
+                      maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.policyNumber}
                       onChange={(e) => setInsuranceInfo({ ...insuranceInfo, policyNumber: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -602,6 +652,7 @@ export const Profile: React.FC = () => {
                     <input
                       type="text"
                       disabled={!isEditingInsurance}
+                      maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.memberId}
                       onChange={(e) => setInsuranceInfo({ ...insuranceInfo, memberId: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -613,6 +664,7 @@ export const Profile: React.FC = () => {
                     <input
                       type="text"
                       disabled={!isEditingInsurance}
+                      maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.groupNumber}
                       onChange={(e) => setInsuranceInfo({ ...insuranceInfo, groupNumber: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -624,6 +676,7 @@ export const Profile: React.FC = () => {
                     <input
                       type="text"
                       disabled={!isEditingInsurance}
+                      maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.coverageType}
                       onChange={(e) => setInsuranceInfo({ ...insuranceInfo, coverageType: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
@@ -741,6 +794,7 @@ export const Profile: React.FC = () => {
                         <input
                           type="text"
                           value={newFamilyMember.name || ''}
+                          maxLength={FORM_FIELD_LIMITS.personName}
                           onChange={(e) => setNewFamilyMember({ ...newFamilyMember, name: e.target.value })}
                           className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 bg-white font-medium"
                           placeholder={t('patient.profile.phMemberName')}

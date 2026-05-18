@@ -7,7 +7,13 @@ import {
   getOtpRequestErrorMessage,
   getOtpVerificationErrorMessage,
 } from '../../lib/auth-error-messages';
-import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
+import {
+  getDefaultRouteForRole,
+  useAuth,
+} from '../../lib/auth-context';
+import { withTimeout } from '../../lib/with-timeout';
+
+const AUTH_REMOTE_TIMEOUT_MS = 30_000;
 
 export const VerifyOTP = () => {
   const { t } = useTranslation('common');
@@ -59,20 +65,29 @@ export const VerifyOTP = () => {
 
     setIsSubmitting(true);
 
-    const verificationResult =
-      type === 'sms' && phone
-        ? await verifyOtp({
-            token: token.trim(),
-            phone,
-            type: 'sms',
-          })
-        : type === 'email' && email
-          ? await verifyOtp({
+    let verificationResult: { error: Error | null };
+    try {
+      const pending =
+        type === 'sms' && phone
+          ? verifyOtp({
               token: token.trim(),
-              email,
-              type: 'email',
+              phone,
+              type: 'sms',
             })
-          : { error: new Error(t('auth.otp.errors.noDestination')) };
+          : type === 'email' && email
+            ? verifyOtp({
+                token: token.trim(),
+                email,
+                type: 'email',
+              })
+            : Promise.resolve({ error: new Error(t('auth.otp.errors.noDestination')) });
+
+      verificationResult = await withTimeout(pending, AUTH_REMOTE_TIMEOUT_MS, () => new Error(t('auth.remoteTimeout')));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : t('auth.remoteTimeout'));
+      setIsSubmitting(false);
+      return;
+    }
 
     if (verificationResult.error) {
       setErrorMessage(getOtpVerificationErrorMessage(verificationResult.error.message));
@@ -94,10 +109,20 @@ export const VerifyOTP = () => {
 
     setIsResending(true);
 
-    const { error } = await requestOtp({
-      phone,
-      shouldCreateUser: shouldGoToOnboarding,
-    });
+    let error: Error | null = null;
+    try {
+      const result = await withTimeout(
+        requestOtp({
+          phone,
+          shouldCreateUser: shouldGoToOnboarding,
+        }),
+        AUTH_REMOTE_TIMEOUT_MS,
+        () => new Error(t('auth.remoteTimeout'))
+      );
+      error = result.error;
+    } catch (err) {
+      error = err instanceof Error ? err : new Error(t('auth.remoteTimeout'));
+    }
 
     if (error) {
       setErrorMessage(getOtpRequestErrorMessage(error.message, { isSignUp: shouldGoToOnboarding }));

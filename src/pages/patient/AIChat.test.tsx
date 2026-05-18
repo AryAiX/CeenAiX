@@ -247,7 +247,11 @@ describe('PatientAIChat', () => {
 
     expect(screen.getByText('Used: Hypertension')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Book an appointment' })).toBeInTheDocument();
-    expect(refetch).not.toHaveBeenCalled();
+    // The first send creates a new session; the patient chat now refetches
+    // its session list so the brand-new session shows up in the sidebar.
+    await waitFor(() => {
+      expect(refetch).toHaveBeenCalled();
+    });
   });
 
   it('shows pending chat-derived record updates for the active session', async () => {
