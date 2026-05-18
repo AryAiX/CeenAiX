@@ -75,6 +75,17 @@ export const Profile: React.FC = () => {
     cardImage: '',
   });
 
+  const [insuranceInfoSnapshot, setInsuranceInfoSnapshot] = useState({
+    provider: '',
+    policyNumber: '',
+    memberId: '',
+    groupNumber: '',
+    coverageType: '',
+    validFrom: '',
+    validUntil: '',
+    cardImage: '',
+  });
+
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({});
@@ -700,19 +711,41 @@ export const Profile: React.FC = () => {
                     <p className="text-violet-100 text-sm mt-1">{t('patient.profile.insuranceSub')}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (isEditingInsurance) {
-                      void saveInsuranceInfo();
-                    } else {
+                {isEditingInsurance ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInsuranceInfo(insuranceInfoSnapshot);
+                        setIsEditingInsurance(false);
+                      }}
+                      className="flex items-center space-x-2 px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/30 rounded-xl hover:bg-white/20 transition-all duration-200 font-medium"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>{t('shared.cancel')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveInsuranceInfo()}
+                      className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                    >
+                      <Save className="w-5 h-5" />
+                      <span>{t('patient.profile.saveChanges')}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInsuranceInfoSnapshot(insuranceInfo);
                       setIsEditingInsurance(true);
-                    }
-                  }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-                >
-                  {isEditingInsurance ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                  <span>{isEditingInsurance ? t('patient.profile.saveChanges') : t('patient.profile.editInsurance')}</span>
-                </button>
+                    }}
+                    className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                    <span>{t('patient.profile.editInsurance')}</span>
+                  </button>
+                )}
               </div>
               <div className="p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
