@@ -64,6 +64,7 @@ export const PatientSettings = () => {
   const [bugReport, setBugReport] = useState<string>('');
   const [bugSubmitted, setBugSubmitted] = useState<boolean>(false);
   const [languageSaved, setLanguageSaved] = useState(false);
+  const [showLiveChatModal, setShowLiveChatModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (profile) {
@@ -311,7 +312,7 @@ export const PatientSettings = () => {
               </div>
               <button
                 type="button"
-                onClick={() => alert('Live chat coming soon!')}
+                onClick={() => setShowLiveChatModal(true)}
                 className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
               >
                 Start Chat
@@ -524,6 +525,74 @@ export const PatientSettings = () => {
           </div>,
           document.body
         )}
+
+      {showLiveChatModal
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4"
+              onClick={() => setShowLiveChatModal(false)}
+            >
+              <div
+                className="w-full max-w-sm rounded-2xl bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-emerald-600" />
+                    <h2 className="text-lg font-bold text-slate-900">Live Chat</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowLiveChatModal(false)}
+                    className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="space-y-4 px-6 py-5">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
+                    🚀 Live chat is coming soon! In the meantime please use one of the options below to reach our support team.
+                  </div>
+                  <div className="space-y-3">
+                    <a
+                      href="mailto:support@ceenaix.com"
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition hover:bg-slate-50"
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
+                        <Mail className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Email Support</p>
+                        <p className="text-xs text-slate-500">support@ceenaix.com</p>
+                      </div>
+                    </a>
+                    <a
+                      href="tel:+97140000000"
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition hover:bg-slate-50"
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50">
+                        <Phone className="h-4 w-4 text-violet-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Phone Support</p>
+                        <p className="text-xs text-slate-500">+971 4 000 0000</p>
+                      </div>
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowLiveChatModal(false)}
+                    className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
