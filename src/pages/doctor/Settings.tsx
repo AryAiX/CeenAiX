@@ -629,22 +629,24 @@ export const DoctorSettings = () => {
             </div>
           ) : null}
 
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-center gap-3">
-              <Bell className="h-6 w-6 text-cyan-600" />
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">{t('doctor.settings.featureNotificationsTitle')}</h2>
-                <p className="text-sm text-slate-500">{saving ? 'Saving...' : t('doctor.settings.featureNotificationsBody')}</p>
+          {activeSection === 'notifications' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <div className="mb-5 flex items-center gap-3">
+                <Bell className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">{t('doctor.settings.featureNotificationsTitle')}</h2>
+                  <p className="text-sm text-slate-500">{saving ? 'Saving...' : t('doctor.settings.featureNotificationsBody')}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <ToggleRow prefKey="email" title="Email notifications" body="Appointment, lab, and patient message updates." />
+                <ToggleRow prefKey="sms" title="SMS alerts" body="Urgent schedule changes and critical-result notifications." />
+                <ToggleRow prefKey="push" title="Portal notifications" body="In-app updates while you are using CeenAiX." />
+                <ToggleRow prefKey="autoConfirmFollowUps" title="Auto-confirm follow-ups" body="Reserve follow-up workflow preference for future scheduling automation." />
+                <ToggleRow prefKey="shareCalendar" title="Share calendar availability" body="Expose active availability slots to patient booking surfaces." />
               </div>
             </div>
-            <div className="space-y-4">
-              <ToggleRow prefKey="email" title="Email notifications" body="Appointment, lab, and patient message updates." />
-              <ToggleRow prefKey="sms" title="SMS alerts" body="Urgent schedule changes and critical-result notifications." />
-              <ToggleRow prefKey="push" title="Portal notifications" body="In-app updates while you are using CeenAiX." />
-              <ToggleRow prefKey="autoConfirmFollowUps" title="Auto-confirm follow-ups" body="Reserve follow-up workflow preference for future scheduling automation." />
-              <ToggleRow prefKey="shareCalendar" title="Share calendar availability" body="Expose active availability slots to patient booking surfaces." />
-            </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>
