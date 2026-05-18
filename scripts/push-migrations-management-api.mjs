@@ -48,14 +48,26 @@ const api = async (path, options = {}) => {
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Management API ${options.method ?? 'GET'} ${path} failed (${response.status}): ${
-        typeof body === 'string' ? body : JSON.stringify(body)
-      }`,
+    const message =
+      typeof body === 'string' ? body : JSON.stringify(body);
+    const error = new Error(
+      `Management API ${options.method ?? 'GET'} ${path} failed (${response.status}): ${message}`,
     );
+    error.status = response.status;
+    error.body = message;
+    throw error;
   }
 
   return body;
+};
+
+const isBenignMigrationError = (error) => {
+  const text = String(error.body ?? error.message ?? '').toLowerCase();
+  return (
+    text.includes('already exists') ||
+    text.includes('duplicate key') ||
+    text.includes('already been registered')
+  );
 };
 
 const listRemoteMigrations = async () => {
@@ -85,23 +97,35 @@ const listLocalMigrations = async () => {
 const applyMigration = async (migration) => {
   const query = await readFile(migration.path, 'utf8');
   console.log(`Applying ${migration.filename} …`);
-  await api(`/projects/${projectRef}/database/migrations`, {
-    method: 'POST',
-    body: JSON.stringify({
-      query,
-      name: migration.name,
-    }),
-  });
-  console.log(`  ✓ ${migration.version} ${migration.name}`);
+  try {
+    await api(`/projects/${projectRef}/database/migrations`, {
+      method: 'POST',
+      body: JSON.stringify({
+        query,
+        name: migration.name,
+      }),
+    });
+    console.log(`  ✓ ${migration.version} ${migration.name}`);
+  } catch (error) {
+    if (isBenignMigrationError(error)) {
+      console.warn(`  ↷ skipped ${migration.filename} (schema already present on remote)`);
+      return;
+    }
+    throw error;
+  }
 };
 
 const main = async () => {
   console.log(`Listing remote migrations on ${projectRef} …`);
   const remote = await listRemoteMigrations();
   const remoteVersions = new Set(remote.map((row) => String(row.version)));
+  const remoteNames = new Set(remote.map((row) => String(row.name)));
 
   const local = await listLocalMigrations();
-  const pending = local.filter((migration) => !remoteVersions.has(migration.version));
+  const pending = local.filter(
+    (migration) =>
+      !remoteVersions.has(migration.version) && !remoteNames.has(migration.name),
+  );
 
   if (pending.length === 0) {
     console.log('No pending migrations to apply.');

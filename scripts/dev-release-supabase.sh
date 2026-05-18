@@ -76,14 +76,14 @@ cd "${ROOT_DIR}"
 
 if ! apply_migrations_management_api; then
   echo "Management API migration apply failed." >&2
-  if DEV_DATABASE_URL="$(build_dev_database_url 2>/dev/null || true)" && [[ -n "${DEV_DATABASE_URL}" ]]; then
+  if [[ "${DEV_DB_PUSH_FALLBACK:-}" == "true" ]] && DEV_DATABASE_URL="$(build_dev_database_url 2>/dev/null || true)" && [[ -n "${DEV_DATABASE_URL}" ]]; then
     if ! command -v supabase >/dev/null 2>&1; then
       echo "supabase CLI not found for fallback" >&2
       exit 1
     fi
     apply_migrations_cli "${DEV_DATABASE_URL}" || exit 1
   else
-    echo "No fallback: set SUPABASE_DEV_DB_PASSWORD or fix SUPABASE_ACCESS_TOKEN." >&2
+    echo "Dev migrations use SUPABASE_ACCESS_TOKEN only (set DEV_DB_PUSH_FALLBACK=true to try db push)." >&2
     exit 1
   fi
 fi
