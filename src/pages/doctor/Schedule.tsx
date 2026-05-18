@@ -1,4 +1,5 @@
 import React, { useMemo, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Ban,
@@ -88,6 +89,10 @@ export const DoctorSchedule: React.FC = () => {
   const [isSavingBlockedSlot, setIsSavingBlockedSlot] = useState(false);
   const [busyAvailabilityId, setBusyAvailabilityId] = useState<string | null>(null);
   const [busyBlockedSlotId, setBusyBlockedSlotId] = useState<string | null>(null);
+  const [showDeleteAvailabilityModal, setShowDeleteAvailabilityModal] = useState(false);
+  const [deleteAvailabilityId, setDeleteAvailabilityId] = useState<string | null>(null);
+  const [showDeleteBlockedSlotModal, setShowDeleteBlockedSlotModal] = useState(false);
+  const [deleteBlockedSlotId, setDeleteBlockedSlotId] = useState<string | null>(null);
 
   const availabilities = useMemo(() => data?.availabilities ?? [], [data?.availabilities]);
   const blockedSlots = useMemo(() => data?.blockedSlots ?? [], [data?.blockedSlots]);
@@ -170,26 +175,26 @@ export const DoctorSchedule: React.FC = () => {
     refetch();
   };
 
-  const handleAvailabilityDelete = async (availabilityId: string) => {
-    if (!window.confirm('Delete this recurring availability window?')) {
-      return;
-    }
+  const handleAvailabilityDelete = (availabilityId: string) => {
+    setDeleteAvailabilityId(availabilityId);
+    setShowDeleteAvailabilityModal(true);
+  };
 
+  const confirmAvailabilityDelete = async () => {
+    if (!deleteAvailabilityId) return;
     setFeedback(null);
-    setBusyAvailabilityId(availabilityId);
-
+    setBusyAvailabilityId(deleteAvailabilityId);
+    setShowDeleteAvailabilityModal(false);
     const { error: deleteError } = await supabase
       .from('doctor_availability')
       .delete()
-      .eq('id', availabilityId);
-
+      .eq('id', deleteAvailabilityId);
     setBusyAvailabilityId(null);
-
+    setDeleteAvailabilityId(null);
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
-
     setSuccess('Availability window removed.');
     refetch();
   };
@@ -230,23 +235,26 @@ export const DoctorSchedule: React.FC = () => {
     refetch();
   };
 
-  const handleBlockedSlotDelete = async (blockedSlotId: string) => {
-    if (!window.confirm('Remove this blocked time from your schedule?')) {
-      return;
-    }
+  const handleBlockedSlotDelete = (blockedSlotId: string) => {
+    setDeleteBlockedSlotId(blockedSlotId);
+    setShowDeleteBlockedSlotModal(true);
+  };
 
+  const confirmBlockedSlotDelete = async () => {
+    if (!deleteBlockedSlotId) return;
     setFeedback(null);
-    setBusyBlockedSlotId(blockedSlotId);
-
-    const { error: deleteError } = await supabase.from('blocked_slots').delete().eq('id', blockedSlotId);
-
+    setBusyBlockedSlotId(deleteBlockedSlotId);
+    setShowDeleteBlockedSlotModal(false);
+    const { error: deleteError } = await supabase
+      .from('blocked_slots')
+      .delete()
+      .eq('id', deleteBlockedSlotId);
     setBusyBlockedSlotId(null);
-
+    setDeleteBlockedSlotId(null);
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
-
     setSuccess('Blocked time removed.');
     refetch();
   };
@@ -631,6 +639,50 @@ export const DoctorSchedule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {showDeleteAvailabilityModal ? createPortal(
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+          onClick={() => setShowDeleteAvailabilityModal(false)}>
+          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className='text-lg font-bold text-slate-900'>Delete Availability Window</h3>
+            <p className='mt-2 text-sm text-slate-600'>Are you sure you want to delete this recurring availability window? This action cannot be undone.</p>
+            <div className='mt-5 flex gap-3'>
+              <button type='button' onClick={() => setShowDeleteAvailabilityModal(false)}
+                className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
+                Cancel
+              </button>
+              <button type='button' onClick={confirmAvailabilityDelete}
+                className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
+      {showDeleteBlockedSlotModal ? createPortal(
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+          onClick={() => setShowDeleteBlockedSlotModal(false)}>
+          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className='text-lg font-bold text-slate-900'>Remove Blocked Time</h3>
+            <p className='mt-2 text-sm text-slate-600'>Are you sure you want to remove this blocked time from your schedule?</p>
+            <div className='mt-5 flex gap-3'>
+              <button type='button' onClick={() => setShowDeleteBlockedSlotModal(false)}
+                className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
+                Cancel
+              </button>
+              <button type='button' onClick={confirmBlockedSlotDelete}
+                className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 };
