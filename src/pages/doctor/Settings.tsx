@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CalendarRange, Settings as SettingsIcon, ShieldCheck, Stethoscope } from 'lucide-react';
+import { Bell, CalendarRange, Settings as SettingsIcon, ShieldCheck, Stethoscope, User } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -166,7 +166,60 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' ? (
+          {activeSection === 'general' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 mb-2">
+                <SettingsIcon className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">General</h2>
+                  <p className="text-sm text-slate-500">Overview of your account and quick access to your profile.</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-2xl font-bold text-white">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() ?? 'D'}
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-slate-900">{profile?.full_name ?? 'Doctor'}</p>
+                    <p className="text-sm text-slate-500">{profile?.email ?? 'No email provided'}</p>
+                    <p className="text-sm text-slate-500">{doctorProfile?.specialization ?? 'No specialization set'}</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">License Number</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{doctorProfile?.license_number ?? 'Not provided'}</p>
+                  </div>
+                  <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">DHA Status</p>
+                    <p className={`mt-1 text-sm font-semibold ${doctorProfile?.dha_license_verified ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {doctorProfile?.dha_license_verified ? '✅ Verified' : '⏳ Pending Verification'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Phone</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{profile?.phone ?? 'Not provided'}</p>
+                  </div>
+                  <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Address</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{profile?.address ?? 'Not provided'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/doctor/profile')}
+                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+              >
+                <User className="h-4 w-4" />
+                Edit Full Profile
+              </button>
+            </div>
+          ) : activeSection !== 'notifications' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               This section is reserved for real profile, security, device, integration, and clinical workspace settings as those tables become available. Notifications below remain fully persisted.
             </div>
