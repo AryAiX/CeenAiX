@@ -861,6 +861,10 @@ export const PatientLabResults: React.FC = () => {
 
                       <button
                         type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleTest(item.id);
+                        }}
                         className="text-xs font-medium text-teal-600 hover:text-teal-700"
                       >
                         {isExpanded
