@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -166,6 +167,8 @@ export const PatientPrescriptions: React.FC = () => {
   const [pausedReminderIds, setPausedReminderIds] = useState<Set<string>>(new Set());
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [deletedReminderIds, setDeletedReminderIds] = useState<Set<string>>(new Set());
+  const [showDeleteReminderModal, setShowDeleteReminderModal] = useState(false);
+  const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
   const [reminderTimes, setReminderTimes] = useState<Record<string, string>>({});
   const [editingTime, setEditingTime] = useState('');
   const [showMissedDoseAnalysis, setShowMissedDoseAnalysis] = useState(false);
@@ -844,12 +847,8 @@ export const PatientPrescriptions: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this reminder?')) {
-                          setDeletedReminderIds((prev) => new Set([...prev, reminder.id]));
-                          if (editingReminderId === reminder.id) {
-                            setEditingReminderId(null);
-                          }
-                        }
+                        setDeletingReminderId(reminder.id);
+                        setShowDeleteReminderModal(true);
                       }}
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-all hover:bg-red-50"
                     >
@@ -1778,6 +1777,74 @@ export const PatientPrescriptions: React.FC = () => {
       <div className="mt-6 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-700">
         {t('patient.prescriptions.footerNoteData')}
       </div>
+
+      {showDeleteReminderModal && deletingReminderId
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              onClick={() => {
+                setShowDeleteReminderModal(false);
+                setDeletingReminderId(null);
+              }}
+            >
+              <div
+                className="w-full max-w-sm rounded-2xl bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                  <h2 className="text-lg font-bold text-slate-900">Delete Reminder</h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteReminderModal(false);
+                      setDeletingReminderId(null);
+                    }}
+                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-4 px-6 py-5">
+                  <p className="text-sm text-slate-600">
+                    Are you sure you want to delete this reminder? This action cannot be undone.
+                  </p>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    ⚠️ You can always set up a new reminder from the reminders tab.
+                  </div>
+                </div>
+                <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteReminderModal(false);
+                      setDeletingReminderId(null);
+                    }}
+                    className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (deletingReminderId) {
+                        setDeletedReminderIds((prev) => new Set([...prev, deletingReminderId]));
+                        if (editingReminderId === deletingReminderId) {
+                          setEditingReminderId(null);
+                        }
+                      }
+                      setShowDeleteReminderModal(false);
+                      setDeletingReminderId(null);
+                    }}
+                    className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+                  >
+                    Delete Reminder
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
