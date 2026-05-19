@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -90,7 +90,9 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const [noteDraft, setNoteDraft] = useState<ConsultationNoteDraft>(EMPTY_NOTE);
   const [hasHydratedNote, setHasHydratedNote] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [savingNote, setSavingNote] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [updatingAppointment, setUpdatingAppointment] = useState(false);
   const [reviewingAssessment, setReviewingAssessment] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -111,6 +113,42 @@ export const DoctorAppointmentDetail: React.FC = () => {
     });
     setHasHydratedNote(true);
   }, [data, hasHydratedNote]);
+
+  const autoSaveNote = async (draft: ConsultationNoteDraft) => {
+    if (!data || !user?.id) return;
+    setAutoSaveStatus('saving');
+    const payload = {
+      appointment_id: data.appointment.id,
+      doctor_id: user.id,
+      subjective: draft.subjective.trim() || null,
+      objective: draft.objective.trim() || null,
+      assessment: draft.assessment.trim() || null,
+      plan: draft.plan.trim() || null,
+      doctor_approved: draft.doctorApproved,
+      is_deleted: false,
+    };
+    const operation = data.consultationNote
+      ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
+      : supabase.from('consultation_notes').insert(payload);
+    const { error: noteError } = await operation;
+    if (!noteError) {
+      setAutoSaveStatus('saved');
+      window.setTimeout(() => setAutoSaveStatus('idle'), 2500);
+    } else {
+      setAutoSaveStatus('idle');
+    }
+  };
+
+  useEffect(() => {
+    if (!hasHydratedNote) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      void autoSaveNote(noteDraft);
+    }, 3000);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [noteDraft, hasHydratedNote]);
 
   const patientName = data?.patientProfile?.full_name?.trim() || t('shared.patient');
 
@@ -726,7 +764,15 @@ export const DoctorAppointmentDetail: React.FC = () => {
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">{t('doctor.appointmentDetail.soapTitle')}</h3>
-                <p className="text-sm text-slate-600">{t('doctor.appointmentDetail.soapSub')}</p>
+                <p className="text-sm text-slate-600">
+                  {autoSaveStatus === 'saving' ? (
+                    <span className="text-amber-600">⏳ Auto-saving...</span>
+                  ) : autoSaveStatus === 'saved' ? (
+                    <span className="text-emerald-600">✓ Auto-saved</span>
+                  ) : (
+                    t('doctor.appointmentDetail.soapSub')
+                  )}
+                </p>
               </div>
               <button
                 type="button"
