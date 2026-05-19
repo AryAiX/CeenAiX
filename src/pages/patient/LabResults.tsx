@@ -1769,7 +1769,11 @@ export const PatientLabResults: React.FC = () => {
         className="grid grid-cols-2 gap-4 animate-slideUp md:grid-cols-5"
         style={{ animationDelay: '80ms' }}
       >
-        <div className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left w-full"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100">
               <FlaskConical className="h-7 w-7 text-teal-600" />
@@ -1784,9 +1788,13 @@ export const PatientLabResults: React.FC = () => {
           <div className="text-xs font-medium text-teal-600">
             {t('patient.labResults.statAcrossVisits', { count: resultedOrders.length })}
           </div>
-        </div>
+        </button>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('recent')}
+          className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left w-full"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle className="h-7 w-7 text-emerald-600" />
@@ -1817,9 +1825,13 @@ export const PatientLabResults: React.FC = () => {
               {t('patient.labResults.statLastVisitNever')}
             </div>
           )}
-        </div>
+        </button>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => { setActiveTab('history'); setHistoryFilter('abnormal'); }}
+          className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left w-full"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
               <AlertTriangle className="h-7 w-7 text-amber-600" />
@@ -1834,12 +1846,12 @@ export const PatientLabResults: React.FC = () => {
           <div className="text-xs font-medium text-amber-600">
             {t('patient.labResults.statFlaggedAbnormal')}
           </div>
-        </div>
+        </button>
 
-        <div
-          className={`rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md ${
-            upcomingOrders.length > 0 ? 'animate-glow' : ''
-          }`}
+        <button
+          type="button"
+          onClick={() => setActiveTab('upcoming')}
+          className={`rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left w-full ${upcomingOrders.length > 0 ? 'animate-glow' : ''}`}
         >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
@@ -1861,9 +1873,13 @@ export const PatientLabResults: React.FC = () => {
               {t('patient.labResults.statOrderedPending')}
             </div>
           )}
-        </div>
+        </button>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('reports')}
+          className="rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left w-full"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100">
               <Building2 className="h-7 w-7 text-purple-600" />
@@ -1896,7 +1912,7 @@ export const PatientLabResults: React.FC = () => {
               })}
             </div>
           ) : null}
-        </div>
+        </button>
       </div>
 
       <div
