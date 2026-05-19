@@ -1579,7 +1579,11 @@ export const PatientPrescriptions: React.FC = () => {
         className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 animate-slideUp xl:grid-cols-5"
         style={{ animationDelay: '80ms' }}
       >
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('active')}
+          className="w-full cursor-pointer rounded-2xl bg-white p-6 text-left shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
               <Pill className="h-7 w-7 text-blue-600" />
@@ -1594,9 +1598,13 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="text-xs font-medium text-teal-600">
             {t('patient.prescriptions.kpiForCarePlans', { count: String(activePlanCount) })}
           </div>
-        </div>
+        </button>
 
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('schedule')}
+          className="w-full cursor-pointer rounded-2xl bg-white p-6 text-left shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle className="h-7 w-7 text-emerald-600" />
@@ -1621,9 +1629,13 @@ export const PatientPrescriptions: React.FC = () => {
               style={{ width: `${todayProgress}%` }}
             />
           </div>
-        </div>
+        </button>
 
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('reminders')}
+          className="w-full cursor-pointer rounded-2xl bg-white p-6 text-left shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100">
               <TrendingUp className="h-7 w-7 text-teal-600" />
@@ -1638,9 +1650,13 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="text-xs font-medium text-slate-500">
             {t('patient.prescriptions.kpiAdherenceFromPickup', { dispensed: String(dispensedCount) })}
           </div>
-        </div>
+        </button>
 
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveTab('active')}
+          className="w-full cursor-pointer rounded-2xl bg-white p-6 text-left shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
               <RefreshCw className="h-7 w-7 text-amber-600" />
@@ -1667,7 +1683,7 @@ export const PatientPrescriptions: React.FC = () => {
                   })
               : t('patient.prescriptions.kpiRefillNone')}
           </div>
-        </div>
+        </button>
 
         <div
           className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
@@ -1793,7 +1809,7 @@ export const PatientPrescriptions: React.FC = () => {
               >
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                   <h2 className="text-lg font-bold text-slate-900">Delete Reminder</h2>
-                  <button
+          <button
                     type="button"
                     onClick={() => {
                       setShowDeleteReminderModal(false);
@@ -1813,7 +1829,7 @@ export const PatientPrescriptions: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
-                  <button
+          <button
                     type="button"
                     onClick={() => {
                       setShowDeleteReminderModal(false);
@@ -1823,7 +1839,7 @@ export const PatientPrescriptions: React.FC = () => {
                   >
                     Cancel
                   </button>
-                  <button
+          <button
                     type="button"
                     onClick={() => {
                       if (deletingReminderId) {
