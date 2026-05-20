@@ -72,67 +72,6 @@ export const PharmacyReports = () => {
     },
   ];
 
-  const handleExportLedger = () => {
-    const headers = ['Prescription ID', 'Patient Name', 'Medication', 'Prescriber', 'Priority', 'Status', 'Wait Minutes', 'Insurance Provider', 'Copay AED', 'Received At'];
-    const csvRows = queue.map((item) => [
-      item.prescriptionId,
-      item.patientName,
-      item.medication,
-      item.prescriber,
-      item.priority,
-      item.workflowStatus,
-      item.waitMinutes,
-      item.insuranceProvider,
-      item.copayAed,
-      item.receivedAt,
-    ]);
-    const csvContent = [headers, ...csvRows]
-      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dispensing-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportDHA = () => {
-    const headers = ['Record ID', 'Patient Name', 'Medication', 'Prescriber', 'Dispensed', 'Insurance Provider', 'Copay AED', 'Controlled Substance', 'Received At'];
-    const csvRows = queue.map((item) => [
-      item.prescriptionId,
-      item.patientName,
-      item.medication,
-      item.prescriber,
-      item.isDispensed ? 'Yes' : 'No',
-      item.insuranceProvider,
-      item.copayAed,
-      item.allergyFlag ? 'Yes' : 'No',
-      item.receivedAt,
-    ]);
-    const summary = [
-      [],
-      ['SUMMARY'],
-      ['Total Records', queue.length],
-      ['Dispensed', dispensedIds],
-      ['Compliance %', `${data?.reportMetrics.controlledCompliancePercent ?? 0}%`],
-      ['Pharmacy', pharmacyName],
-      ['License', data?.profile?.licenseNumber ?? 'Pending'],
-      ['Report Date', new Date().toLocaleDateString()],
-    ];
-    const csvContent = [headers, ...csvRows, ...summary]
-      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `DHA-monthly-report-${new Date().toISOString().slice(0, 7)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <OpsShell
       title="Reports"
@@ -155,10 +94,10 @@ export const PharmacyReports = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={handleExportLedger} className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200">
+            <button className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200">
               <Download className="h-4 w-4" /> Export Dispensing Ledger
             </button>
-            <button type="button" onClick={handleExportDHA} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
+            <button className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
               <Download className="h-4 w-4" /> DHA Monthly Report
             </button>
           </div>
@@ -259,7 +198,7 @@ export const PharmacyReports = () => {
             {[
               ['Total dispensing records', totalPrescriptions],
               ['Submitted to DHA', `${data?.reportMetrics.dhaSubmittedCount ?? 0} ✅`],
-              ['Controlled substance records', data?.inventory.filter((item) => item.isControlled).length ?? 0],
+              ['Controlled substance records', data?.inventory.filter((item) => /warfarin/i.test(item.name)).length ?? 0],
               ['Last submitted', data?.reportMetrics.lastSubmittedLabel ?? 'No submissions'],
             ].map(([label, value]) => (
               <div key={label as string} className="rounded-xl bg-slate-50 p-3">
