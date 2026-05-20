@@ -178,6 +178,7 @@ export const PharmacyInventory = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [orderedItem, setOrderedItem] = useState<string | null>(null);
+  const [selectedBatchItem, setSelectedBatchItem] = useState<InventoryRow | null>(null);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
   const counts = useMemo(
@@ -480,6 +481,7 @@ export const PharmacyInventory = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
+                        onClick={() => setSelectedBatchItem(item)}
                         className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
                       >
                         <Eye className="h-3 w-3" />
@@ -501,6 +503,71 @@ export const PharmacyInventory = () => {
           </div>
         </section>
       </div>
+
+      {selectedBatchItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-[16px] font-bold text-slate-900">
+                  {selectedBatchItem.genericName} {selectedBatchItem.strength}
+                </h3>
+                <div className="text-[12px] text-slate-400">{selectedBatchItem.brandName} · {selectedBatchItem.form} · {selectedBatchItem.atcCode}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedBatchItem(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 grid grid-cols-3 gap-3">
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
+                <div className="font-mono text-[18px] font-bold text-slate-800">{formatNumber(selectedBatchItem.stockQty)}</div>
+                <div className="text-[10px] text-slate-400">Total Units</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
+                <div className="font-mono text-[18px] font-bold text-slate-800">{selectedBatchItem.batchCount}</div>
+                <div className="text-[10px] text-slate-400">Batches</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
+                <div className="font-mono text-[18px] font-bold text-slate-800">{selectedBatchItem.daysSupply ?? '—'}d</div>
+                <div className="text-[10px] text-slate-400">Days Supply</div>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Batch Summary</div>
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-slate-600">Reorder Level</span>
+                <span className="font-mono font-semibold text-slate-800">{formatNumber(selectedBatchItem.reorderLevel)} {selectedBatchItem.unit}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[12px]">
+                <span className="text-slate-600">Next Expiry</span>
+                <span className="font-mono font-semibold text-slate-800">{selectedBatchItem.nextExpiry ?? 'Not available'}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[12px]">
+                <span className="text-slate-600">Stock Status</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${stockConfig[selectedBatchItem.stockStatus].pill}`}>
+                  {stockConfig[selectedBatchItem.stockStatus].label}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedBatchItem(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {orderedItem ? (
         <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 shadow-lg">
