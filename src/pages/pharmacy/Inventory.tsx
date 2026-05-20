@@ -176,6 +176,7 @@ export const PharmacyInventory = () => {
   const { data, loading } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
   const counts = useMemo(
@@ -297,6 +298,7 @@ export const PharmacyInventory = () => {
             </button>
             <button
               type="button"
+              onClick={() => setShowReceiveModal(true)}
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
               <Plus className="h-4 w-4" />
@@ -492,6 +494,29 @@ export const PharmacyInventory = () => {
           </div>
         </section>
       </div>
+
+      {showReceiveModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-[16px] font-bold text-slate-900">Receive Stock</h3>
+            <p className="mb-4 text-[13px] text-slate-500">
+              To receive new stock, please contact your supplier or pharmacist in charge to process a stock delivery. Once confirmed, stock levels will be updated in the system.
+            </p>
+            <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-700">
+              Pharmacist in Charge: {data?.profile?.pharmacistInCharge ?? 'Not assigned'}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowReceiveModal(false)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </OpsShell>
   );
 };
