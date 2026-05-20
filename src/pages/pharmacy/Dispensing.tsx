@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
@@ -207,6 +207,17 @@ export const PharmacyDispensing = () => {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [updatedId, setUpdatedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleAction = async (row: PrescriptionListRow) => {
     const next = nextWorkflowStatus(row.status);
@@ -323,7 +334,7 @@ export const PharmacyDispensing = () => {
             ))}
           </div>
 
-          <div className="relative ml-auto">
+          <div className="relative ml-auto" ref={sortMenuRef}>
             <button
               type="button"
               onClick={() => setShowSortMenu((current) => !current)}
