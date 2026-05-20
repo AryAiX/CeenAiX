@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
@@ -208,6 +208,14 @@ export const PharmacyDispensing = () => {
   const [updatedId, setUpdatedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id) {
+      setSearch(id);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
