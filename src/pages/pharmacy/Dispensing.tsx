@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
-import { supabase } from '../../lib/supabase';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'cancelled';
@@ -139,20 +137,12 @@ const inferPrescriptionStatus = (items: PharmacyQueuePrescriptionItem[]): Prescr
     return 'cancelled';
   }
 
-  if (items.every((item) => item.workflowStatus === 'cancelled')) {
-    return 'cancelled';
-  }
-
   if (items.every((item) => item.isDispensed)) {
     return 'dispensed';
   }
 
-  if (items.some((item) => item.workflowStatus === 'on_hold')) {
+  if (items.some((item) => item.status === 'ready' || item.quantity === 0)) {
     return 'on_hold';
-  }
-
-  if (items.some((item) => item.workflowStatus === 'in_progress')) {
-    return 'in_progress';
   }
 
   return 'new';
@@ -190,61 +180,13 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
   });
 };
 
-const nextWorkflowStatus = (status: PrescriptionListRow['status']): string | null => {
-  if (status === 'new') return 'in_progress';
-  if (status === 'in_progress') return 'dispensed';
-  if (status === 'on_hold') return 'in_progress';
-  return null;
-};
-
 export const PharmacyDispensing = () => {
   const { t } = useTranslation('common');
-  const navigate = useNavigate();
-  const { data, loading, refetch } = usePharmacyPrescriptionQueue();
+  const { data, loading } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [updatedId, setUpdatedId] = useState<string | null>(null);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const sortMenuRef = useRef<HTMLDivElement>(null);
-  const [searchParams] = useSearchParams();
-
-  useEffect(() => {
-    const id = searchParams.get('id');
-    if (id) {
-      setSearch(id);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
-        setShowSortMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleAction = async (row: PrescriptionListRow) => {
-    const next = nextWorkflowStatus(row.status);
-    if (!next) return;
-
-    setUpdating(row.id);
-    const { error } = await supabase
-      .from('pharmacy_dispensing_tasks')
-      .update({ workflow_status: next })
-      .eq('id', row.id);
-
-    setUpdating(null);
-
-    if (!error) {
-      refetch();
-      setUpdatedId(row.id);
-      setTimeout(() => setUpdatedId((current) => (current === row.id ? null : current)), 2000);
-    }
-  };
 
   const rows = useMemo(() => groupPrescriptionRows(data?.queue ?? []), [data?.queue]);
   const counts = useMemo(
@@ -342,7 +284,7 @@ export const PharmacyDispensing = () => {
             ))}
           </div>
 
-          <div className="relative ml-auto" ref={sortMenuRef}>
+          <div className="relative ml-auto">
             <button
               type="button"
               onClick={() => setShowSortMenu((current) => !current)}
@@ -450,9 +392,7 @@ export const PharmacyDispensing = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        disabled={row.status === 'dispensed' || updating === row.id}
-                        onClick={() => handleAction(row)}
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:opacity-60 ${
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
                           row.status === 'dispensed'
                             ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             : row.status === 'on_hold'
@@ -463,12 +403,8 @@ export const PharmacyDispensing = () => {
                         {row.status !== 'dispensed' ? <Play className="h-3 w-3" /> : null}
                         {cfg.action}
                       </button>
-                      {updatedId === row.id ? (
-                        <span className="text-[11px] font-semibold text-emerald-600">✓ Updated</span>
-                      ) : null}
                       <button
                         type="button"
-                        onClick={() => navigate('/pharmacy/messages')}
                         className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
