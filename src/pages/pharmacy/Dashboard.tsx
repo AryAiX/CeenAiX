@@ -497,9 +497,9 @@ export const PharmacyDashboard = () => {
                 <div className="mb-2 text-[11px] italic text-amber-600">
                   {onHold > 0 ? 'Awaiting response...' : 'Clear'}
                 </div>
-                <span className="rounded-md bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                <Link to="/pharmacy/messages" className="rounded-md bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
                   Follow Up
-                </span>
+                </Link>
               </div>
               <div className="px-5 py-4">
                 <div className="mb-0.5 text-[12px] font-semibold text-slate-700">Patient notifications</div>
