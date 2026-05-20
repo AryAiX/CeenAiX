@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
+import { supabase } from '../../lib/supabase';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'cancelled';
@@ -188,13 +190,42 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
   });
 };
 
+const nextWorkflowStatus = (status: PrescriptionListRow['status']): string | null => {
+  if (status === 'new') return 'in_progress';
+  if (status === 'in_progress') return 'dispensed';
+  if (status === 'on_hold') return 'in_progress';
+  return null;
+};
+
 export const PharmacyDispensing = () => {
   const { t } = useTranslation('common');
-  const { data, loading } = usePharmacyPrescriptionQueue();
+  const navigate = useNavigate();
+  const { data, loading, refetch } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [updatedId, setUpdatedId] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  const handleAction = async (row: PrescriptionListRow) => {
+    const next = nextWorkflowStatus(row.status);
+    if (!next) return;
+
+    setUpdating(row.id);
+    const { error } = await supabase
+      .from('pharmacy_dispensing_tasks')
+      .update({ workflow_status: next })
+      .eq('id', row.id);
+
+    setUpdating(null);
+
+    if (!error) {
+      refetch();
+      setUpdatedId(row.id);
+      setTimeout(() => setUpdatedId((current) => (current === row.id ? null : current)), 2000);
+    }
+  };
 
   const rows = useMemo(() => groupPrescriptionRows(data?.queue ?? []), [data?.queue]);
   const counts = useMemo(
@@ -400,7 +431,9 @@ export const PharmacyDispensing = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                        disabled={row.status === 'dispensed' || updating === row.id}
+                        onClick={() => handleAction(row)}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:opacity-60 ${
                           row.status === 'dispensed'
                             ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             : row.status === 'on_hold'
@@ -411,8 +444,12 @@ export const PharmacyDispensing = () => {
                         {row.status !== 'dispensed' ? <Play className="h-3 w-3" /> : null}
                         {cfg.action}
                       </button>
+                      {updatedId === row.id ? (
+                        <span className="text-[11px] font-semibold text-emerald-600">✓ Updated</span>
+                      ) : null}
                       <button
                         type="button"
+                        onClick={() => navigate('/pharmacy/messages')}
                         className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
