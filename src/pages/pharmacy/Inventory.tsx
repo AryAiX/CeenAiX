@@ -176,9 +176,6 @@ export const PharmacyInventory = () => {
   const { data, loading } = usePharmacyPrescriptionQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
-  const [showReceiveModal, setShowReceiveModal] = useState(false);
-  const [orderedItem, setOrderedItem] = useState<string | null>(null);
-  const [selectedBatchItem, setSelectedBatchItem] = useState<InventoryRow | null>(null);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
   const counts = useMemo(
@@ -221,59 +218,6 @@ export const PharmacyInventory = () => {
 
   const lowOrCritical = counts.low + counts.critical;
 
-  const handleExportCSV = () => {
-    const headers = [
-      'Drug Name',
-      'Brand',
-      'Strength',
-      'Form',
-      'ATC Code',
-      'Category',
-      'Stock Qty',
-      'Unit',
-      'Reorder Level',
-      'Days Supply',
-      'Status',
-      'Controlled',
-      'DHA Formulary',
-      'Next Expiry',
-    ];
-
-    const csvRows = filtered.map((item) => [
-      item.genericName,
-      item.brandName,
-      item.strength,
-      item.form,
-      item.atcCode,
-      item.category,
-      item.stockQty,
-      item.unit,
-      item.reorderLevel,
-      item.daysSupply ?? '—',
-      stockConfig[item.stockStatus].label,
-      item.isControlled ? 'Yes' : 'No',
-      item.isDHAFormulary ? 'Yes' : 'No',
-      item.nextExpiry ?? '—',
-    ]);
-
-    const csvContent = [headers, ...csvRows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `inventory-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleOrder = (itemId: string, _itemName: string) => {
-    setOrderedItem(itemId);
-    setTimeout(() => setOrderedItem(null), 3000);
-  };
-
   return (
     <OpsShell
       title={t('pharmacy.inventory.title')}
@@ -297,7 +241,6 @@ export const PharmacyInventory = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={handleExportCSV}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
             >
               <Download className="h-4 w-4" />
@@ -305,7 +248,6 @@ export const PharmacyInventory = () => {
             </button>
             <button
               type="button"
-              onClick={() => setShowReceiveModal(true)}
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
               <Plus className="h-4 w-4" />
@@ -316,25 +258,18 @@ export const PharmacyInventory = () => {
 
         <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
-            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
-            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
-            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
-            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
+            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50' },
+            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50' },
+            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50' },
+            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50' },
           ].map((stat) => (
-            <button
-              key={stat.label}
-              type="button"
-              onClick={() => setFilter(stat.filterKey as FilterType)}
-              className={`rounded-xl border px-4 py-3 shadow-sm text-left transition-all cursor-pointer hover:ring-2 hover:ring-emerald-300 ${stat.bg} ${
-                filter === stat.filterKey ? 'ring-2 ring-emerald-500 border-emerald-300' : 'border-slate-100'
-              }`}
-            >
+            <div key={stat.label} className={`rounded-xl border border-slate-100 px-4 py-3 shadow-sm ${stat.bg}`}>
               <div className={`font-mono text-[22px] font-bold ${stat.color}`}>
                 {loading ? '…' : formatNumber(stat.value)}
               </div>
               <div className="mt-0.5 text-[11px] text-slate-500">{stat.label}</div>
-            </button>
+            </div>
           ))}
         </section>
 
@@ -481,7 +416,6 @@ export const PharmacyInventory = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setSelectedBatchItem(item)}
                         className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
                       >
                         <Eye className="h-3 w-3" />
@@ -489,11 +423,10 @@ export const PharmacyInventory = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleOrder(item.id, `${item.genericName} ${item.strength}`)}
                         className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
                       >
                         <ShoppingCart className="h-3 w-3" />
-                        {orderedItem === item.id ? '✓ Flagged' : 'Order'}
+                        Order
                       </button>
                     </div>
                   </div>
@@ -503,101 +436,6 @@ export const PharmacyInventory = () => {
           </div>
         </section>
       </div>
-
-      {selectedBatchItem ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <h3 className="text-[16px] font-bold text-slate-900">
-                  {selectedBatchItem.genericName} {selectedBatchItem.strength}
-                </h3>
-                <div className="text-[12px] text-slate-400">{selectedBatchItem.brandName} · {selectedBatchItem.form} · {selectedBatchItem.atcCode}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedBatchItem(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mb-4 grid grid-cols-3 gap-3">
-              <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
-                <div className="font-mono text-[18px] font-bold text-slate-800">{formatNumber(selectedBatchItem.stockQty)}</div>
-                <div className="text-[10px] text-slate-400">Total Units</div>
-              </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
-                <div className="font-mono text-[18px] font-bold text-slate-800">{selectedBatchItem.batchCount}</div>
-                <div className="text-[10px] text-slate-400">Batches</div>
-              </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
-                <div className="font-mono text-[18px] font-bold text-slate-800">{selectedBatchItem.daysSupply ?? '—'}d</div>
-                <div className="text-[10px] text-slate-400">Days Supply</div>
-              </div>
-            </div>
-
-            <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Batch Summary</div>
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-slate-600">Reorder Level</span>
-                <span className="font-mono font-semibold text-slate-800">{formatNumber(selectedBatchItem.reorderLevel)} {selectedBatchItem.unit}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-[12px]">
-                <span className="text-slate-600">Next Expiry</span>
-                <span className="font-mono font-semibold text-slate-800">{selectedBatchItem.nextExpiry ?? 'Not available'}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-[12px]">
-                <span className="text-slate-600">Stock Status</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${stockConfig[selectedBatchItem.stockStatus].pill}`}>
-                  {stockConfig[selectedBatchItem.stockStatus].label}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedBatchItem(null)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {orderedItem ? (
-        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 shadow-lg">
-          <div className="text-[13px] font-semibold text-emerald-700">✓ Order flagged for pharmacist in charge</div>
-          <div className="text-[11px] text-emerald-600">Stock request has been noted for review</div>
-        </div>
-      ) : null}
-
-      {showReceiveModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-[16px] font-bold text-slate-900">Receive Stock</h3>
-            <p className="mb-4 text-[13px] text-slate-500">
-              To receive new stock, please contact your supplier or pharmacist in charge to process a stock delivery. Once confirmed, stock levels will be updated in the system.
-            </p>
-            <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-700">
-              Pharmacist in Charge: {data?.profile?.pharmacistInCharge ?? 'Not assigned'}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowReceiveModal(false)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </OpsShell>
   );
 };
