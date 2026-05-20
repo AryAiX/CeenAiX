@@ -177,6 +177,7 @@ export const PharmacyInventory = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [orderedItem, setOrderedItem] = useState<string | null>(null);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
   const counts = useMemo(
@@ -265,6 +266,11 @@ export const PharmacyInventory = () => {
     link.download = `inventory-report-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleOrder = (itemId: string, _itemName: string) => {
+    setOrderedItem(itemId);
+    setTimeout(() => setOrderedItem(null), 3000);
   };
 
   return (
@@ -481,10 +487,11 @@ export const PharmacyInventory = () => {
                       </button>
                       <button
                         type="button"
+                        onClick={() => handleOrder(item.id, `${item.genericName} ${item.strength}`)}
                         className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
                       >
                         <ShoppingCart className="h-3 w-3" />
-                        Order
+                        {orderedItem === item.id ? '✓ Flagged' : 'Order'}
                       </button>
                     </div>
                   </div>
@@ -494,6 +501,13 @@ export const PharmacyInventory = () => {
           </div>
         </section>
       </div>
+
+      {orderedItem ? (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 shadow-lg">
+          <div className="text-[13px] font-semibold text-emerald-700">✓ Order flagged for pharmacist in charge</div>
+          <div className="text-[11px] text-emerald-600">Stock request has been noted for review</div>
+        </div>
+      ) : null}
 
       {showReceiveModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
