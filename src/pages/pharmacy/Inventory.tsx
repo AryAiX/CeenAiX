@@ -314,18 +314,25 @@ export const PharmacyInventory = () => {
 
         <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50' },
-            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50' },
-            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50' },
+            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
+            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
+            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
+            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
+            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
           ].map((stat) => (
-            <div key={stat.label} className={`rounded-xl border border-slate-100 px-4 py-3 shadow-sm ${stat.bg}`}>
+            <button
+              key={stat.label}
+              type="button"
+              onClick={() => setFilter(stat.filterKey as FilterType)}
+              className={`cursor-pointer rounded-xl border px-4 py-3 shadow-sm text-left transition-all hover:ring-2 hover:ring-emerald-300 ${stat.bg} ${
+                filter === stat.filterKey ? 'ring-2 ring-emerald-500 border-emerald-300' : 'border-slate-100'
+              }`}
+            >
               <div className={`font-mono text-[22px] font-bold ${stat.color}`}>
                 {loading ? '…' : formatNumber(stat.value, uiLang)}
               </div>
               <div className="mt-0.5 text-[11px] text-slate-500">{stat.label}</div>
-            </div>
+            </button>
           ))}
         </section>
 
