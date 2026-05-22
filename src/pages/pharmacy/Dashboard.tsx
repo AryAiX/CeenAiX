@@ -499,7 +499,7 @@ export const PharmacyDashboard = () => {
                 <MessageSquare className="h-4 w-4 text-slate-500" />
                 <h3 className="text-[14px] font-bold text-slate-800">Messages</h3>
               </div>
-              <span className="text-[12px] font-medium text-emerald-600">View All →</span>
+              <Link to="/pharmacy/messages" className="text-[12px] font-medium text-emerald-600">View All →</Link>
             </div>
             <div className="divide-y divide-slate-50">
               <div className="bg-amber-50 px-5 py-4">
