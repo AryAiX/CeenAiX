@@ -512,20 +512,43 @@ export const PharmacyInventory = () => {
                       </a>
                     </div>
                   </div>
-                    {isBatchOpen ? (
-                      <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-3 text-sm text-slate-700">
-                        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">On-hand batches</div>
-                        <p className="mt-1 text-sm text-slate-800">
-                          {item.genericName} · {item.batchCount} batch{item.batchCount === 1 ? '' : 'es'} tracked for this
-                          SKU.
-                          {item.nextExpiry ? (
-                            <span className="block pt-1 text-xs text-slate-600">
-                              Next labelled expiry: <span className="font-mono font-semibold">{item.nextExpiry}</span>
-                            </span>
-                          ) : null}
-                        </p>
+                {isBatchOpen ? (
+                  <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-4">
+                    <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">On-hand batches</div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                        <div className="text-[10px] text-slate-400">Current Stock</div>
+                        <div className="font-mono text-[15px] font-bold text-slate-800">
+                          {formatNumber(item.stockQty, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                        </div>
                       </div>
-                    ) : null}
+                      <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                        <div className="text-[10px] text-slate-400">Reorder Level</div>
+                        <div className="font-mono text-[15px] font-bold text-slate-800">
+                          {formatNumber(item.reorderLevel, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                        <div className="text-[10px] text-slate-400">Batches</div>
+                        <div className="font-mono text-[15px] font-bold text-slate-800">
+                          {item.batchCount} <span className="text-[10px] font-normal text-slate-400">batch{item.batchCount === 1 ? '' : 'es'}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                        <div className="text-[10px] text-slate-400">Next Expiry</div>
+                        <div className="font-mono text-[15px] font-bold text-slate-800">
+                          {item.nextExpiry ?? '—'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${stockConfig[item.stockStatus].pill}`}>
+                        {stockConfig[item.stockStatus].label}
+                      </span>
+                      <span className="text-[11px] text-slate-500">{item.genericName} {item.strength} · {item.form}</span>
+                    </div>
+                  </div>
+                ) : null}
                   </Fragment>
                 );
               })}
