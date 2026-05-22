@@ -454,13 +454,17 @@ export const PharmacyInventory = () => {
 
                     <div>
                       {item.daysSupply != null ? (
-                        <span
-                          className={`font-mono text-[13px] font-bold ${
-                            item.daysSupply < 5 ? 'text-red-700' : 'text-amber-700'
-                          }`}
-                        >
-                          {item.daysSupply}d
-                        </span>
+                <span
+                  className={`font-mono text-[13px] font-bold ${
+                    item.daysSupply < 5
+                      ? 'text-red-700'
+                      : item.daysSupply < 15
+                        ? 'text-amber-700'
+                        : 'text-emerald-600'
+                  }`}
+                >
+                  {item.daysSupply}d
+                </span>
                       ) : (
                         <span className="text-xs text-slate-300">—</span>
                       )}
