@@ -297,10 +297,19 @@ export const PharmacyDashboard = () => {
                   ? 'border-slate-100 text-amber-600 bg-amber-50'
                   : 'border-slate-100 text-emerald-600 bg-emerald-50';
 
+            const kpiRoutes: Record<string, string> = {
+              'Prescriptions Today': '/pharmacy/dispensing',
+              'In Queue': '/pharmacy/dispensing',
+              'Stock Alerts': '/pharmacy/inventory',
+              'Revenue Today': '/pharmacy/revenue',
+              'DHA Status': '/pharmacy/reports',
+            };
+
             return (
-              <article
+              <Link
                 key={kpi.label}
-                className={`rounded-xl border bg-white p-4 shadow-sm ${
+                to={kpiRoutes[kpi.label] ?? '/pharmacy'}
+                className={`cursor-pointer rounded-xl border bg-white p-4 shadow-sm hover:ring-2 hover:ring-emerald-300 ${
                   kpi.tone === 'blue' ? 'border-blue-300' : 'border-slate-100'
                 }`}
               >
@@ -338,7 +347,7 @@ export const PharmacyDashboard = () => {
                     />
                   </div>
                 ) : null}
-              </article>
+              </Link>
             );
           })}
         </section>
