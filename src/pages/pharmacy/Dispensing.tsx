@@ -140,12 +140,20 @@ const inferPrescriptionStatus = (items: PharmacyQueuePrescriptionItem[]): Prescr
     return 'cancelled';
   }
 
+  if (items.every((item) => item.workflowStatus === 'cancelled')) {
+    return 'cancelled';
+  }
+
   if (items.every((item) => item.isDispensed)) {
     return 'dispensed';
   }
 
-  if (items.some((item) => item.status === 'ready' || item.quantity === 0)) {
+  if (items.some((item) => item.workflowStatus === 'on_hold')) {
     return 'on_hold';
+  }
+
+  if (items.some((item) => item.workflowStatus === 'in_progress')) {
+    return 'in_progress';
   }
 
   return 'new';
