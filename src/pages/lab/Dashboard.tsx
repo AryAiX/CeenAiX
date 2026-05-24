@@ -17,6 +17,7 @@ import { OpsShell } from '../../components/OpsShell';
 import { useAuth } from '../../lib/auth-context';
 import { useLabDashboard } from '../../hooks';
 import type { LabWorklistItem } from '../../hooks/use-lab-dashboard';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { LAB_NAV_ITEMS } from './navItems';
 
 const STATUS_PILL: Record<LabWorklistItem['status'], string> = {
@@ -27,11 +28,11 @@ const STATUS_PILL: Record<LabWorklistItem['status'], string> = {
   reviewed: 'bg-slate-100 text-slate-600 ring-slate-200',
 };
 
-const formatNumber = (value: number | null | undefined) =>
-  typeof value === 'number' ? value.toLocaleString() : '—';
+const formatNumber = (value: number | null | undefined, language: string) =>
+  typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
 
 export const LabDashboard = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
   const { data, loading, error, refetch } = useLabDashboard(user?.id ?? null);
 
@@ -98,7 +99,7 @@ export const LabDashboard = () => {
                 </div>
               </div>
               <p className="mt-4 text-3xl font-bold text-slate-900">
-                {loading ? '…' : formatNumber(kpi.value)}
+                {loading ? '…' : formatNumber(kpi.value, i18n.language)}
               </p>
             </article>
           );
@@ -113,7 +114,7 @@ export const LabDashboard = () => {
                 {t('lab.dashboard.worklistHeading')}
               </h2>
               <p className="mt-1 text-lg font-bold text-slate-900">
-                {formatNumber(data?.worklist?.length ?? 0)} {t('lab.dashboard.worklistCountLabel')}
+                {formatNumber(data?.worklist?.length ?? 0, i18n.language)} {t('lab.dashboard.worklistCountLabel')}
               </p>
             </div>
             <Link
@@ -166,21 +167,21 @@ export const LabDashboard = () => {
               <Gauge className="h-4 w-4 text-emerald-500" />
               <span className="flex-1">{t('lab.dashboard.turnaroundLabel')}</span>
               <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.totalActiveTests)}
+                {formatNumber(data?.metrics.totalActiveTests, i18n.language)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
               <Clock className="h-4 w-4 text-blue-500" />
               <span className="flex-1">{t('lab.dashboard.collectedLabel')}</span>
               <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.collectedOrders)}
+                {formatNumber(data?.metrics.collectedOrders, i18n.language)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               <span className="flex-1">{t('lab.dashboard.criticalLabel')}</span>
               <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.stat)}
+                {formatNumber(data?.metrics.stat, i18n.language)}
               </span>
             </div>
           </div>

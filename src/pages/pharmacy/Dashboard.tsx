@@ -20,6 +20,10 @@ import type { PharmacyQueuePrescriptionItem } from '../../hooks/use-pharmacy-pre
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 import { compareStockAlerts } from './stock-alerts';
+import {
+  dashboardQueueStatusForWorkflow,
+  inferPrescriptionWorkflowStatus,
+} from './prescription-status';
 
 const formatNumber = (value: number | null | undefined, language: string) =>
   typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
@@ -127,7 +131,7 @@ const groupPrescriptionItems = (items: PharmacyQueuePrescriptionItem[]): Pharmac
         return (sum ?? 0) + (item.quantity ?? 0);
       }, null),
       priority: first.priority,
-      status: isDispensed ? 'counseling' : isOnHold ? 'ready' : 'verifying',
+      status: dashboardQueueStatusForWorkflow(inferPrescriptionWorkflowStatus(group)),
       isDispensed,
       isOnHold,
     };

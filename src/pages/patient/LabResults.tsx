@@ -358,7 +358,7 @@ export const PatientLabResults: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error } = usePatientLabResults(user?.id);
+  const { data, loading, error, refetch } = usePatientLabResults(user?.id);
 
   const [activeTab, setActiveTab] = useState<LabTab>('recent');
   const [expandedTests, setExpandedTests] = useState<string[]>([]);
@@ -1291,7 +1291,11 @@ export const PatientLabResults: React.FC = () => {
           <div className="mt-6 flex justify-center gap-3">
             <button
               type="button"
-              className="rounded-lg bg-teal-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-teal-700"
+              disabled
+              title={t('patient.labResults.addToCalendarComingSoon', {
+                defaultValue: 'Add to calendar — coming soon',
+              })}
+              className="cursor-not-allowed rounded-lg bg-teal-600/50 px-6 py-3 text-sm font-medium text-white opacity-70"
             >
               {t('patient.labResults.upcomingAddToCalendar')}
             </button>
@@ -1536,11 +1540,20 @@ export const PatientLabResults: React.FC = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setBookingConfirmed(true)}
-                        className="w-full rounded-lg bg-teal-600 px-6 py-3 font-bold text-white transition-colors hover:bg-teal-700"
+                        disabled
+                        title={t('patient.labResults.bookingComingSoon', {
+                          defaultValue: 'Lab booking is not wired in MVP — contact your lab to schedule.',
+                        })}
+                        className="w-full cursor-not-allowed rounded-lg bg-teal-600/50 px-6 py-3 font-bold text-white opacity-70"
                       >
                         {t('patient.labResults.upcomingConfirmBtn')}
                       </button>
+                      <p className="mt-2 text-center text-xs text-slate-500">
+                        {t('patient.labResults.bookingComingSoonNote', {
+                          defaultValue:
+                            'Online lab booking is not available yet. Call the lab or message your doctor to schedule collection.',
+                        })}
+                      </p>
                     </div>
                   </div>
                 ) : null}
@@ -1764,8 +1777,12 @@ export const PatientLabResults: React.FC = () => {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          {t('patient.labResults.loadError')}
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700" role="alert">
+          <p>{t('patient.labResults.loadError')}</p>
+          <p className="mt-1 text-xs text-amber-900/80">{error}</p>
+          <button type="button" onClick={() => void refetch()} className="mt-2 font-semibold text-amber-900 underline">
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
         </div>
       ) : null}
 

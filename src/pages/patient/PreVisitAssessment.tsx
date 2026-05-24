@@ -11,6 +11,7 @@ import {
   formatCanonicalValueForReview,
   stageCanonicalUpdateRequests,
 } from '../../lib/canonical-record-updates';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatPreVisitStatus, type PreVisitAnswerDraft, type PreVisitTemplateQuestionDraft } from '../../lib/pre-visit';
 import { buildPatientMemoryValue } from '../../lib/patient-memory';
 import { supabase } from '../../lib/supabase';
@@ -416,8 +417,6 @@ export const PatientPreVisitAssessment: React.FC = () => {
         await dismissCanonicalUpdateRequests(pendingCanonicalUpdates.map((update) => update.id));
       }
 
-      await persistAssessment('completed');
-
       const appointmentLabel = formatAppointmentLabel(
         data.assessment.appointment.scheduledAt,
         data.assessment.appointment.doctorName,
@@ -451,6 +450,8 @@ export const PatientPreVisitAssessment: React.FC = () => {
         throw summaryError;
       }
 
+      await persistAssessment('completed');
+
       navigate('/patient/appointments?previsit=completed', { replace: true });
     } catch (error) {
       setFeedback({
@@ -478,7 +479,16 @@ export const PatientPreVisitAssessment: React.FC = () => {
             <Loader2 className="h-6 w-6 animate-spin text-ceenai-cyan" />
           </div>
         ) : error ? (
-          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</div>
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm text-red-700" role="alert">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-3 font-semibold text-red-800 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
         ) : !data ? (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm">
             <p className="text-lg font-semibold text-gray-900">Pre-visit assessment not found</p>
@@ -515,6 +525,7 @@ export const PatientPreVisitAssessment: React.FC = () => {
 
             {feedback ? (
               <div
+                role="alert"
                 className={`rounded-2xl border px-4 py-3 text-sm ${
                   feedback.type === 'success'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -564,6 +575,7 @@ export const PatientPreVisitAssessment: React.FC = () => {
                       {question.type === 'long_text' ? (
                         <textarea
                           rows={5}
+                          maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                           value={textValue}
                           onChange={(event) => updateAnswer(question, event.target.value)}
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-ceenai-cyan focus:ring-2 focus:ring-ceenai-cyan/20"
@@ -574,6 +586,7 @@ export const PatientPreVisitAssessment: React.FC = () => {
                       {question.type === 'short_text' || question.type === 'number' || question.type === 'date' ? (
                         <input
                           type={question.type === 'number' ? 'number' : question.type === 'date' ? 'date' : 'text'}
+                          maxLength={question.type === 'number' ? undefined : FORM_FIELD_LIMITS.shortText}
                           value={textValue}
                           onChange={(event) => updateAnswer(question, event.target.value)}
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-ceenai-cyan focus:ring-2 focus:ring-ceenai-cyan/20"

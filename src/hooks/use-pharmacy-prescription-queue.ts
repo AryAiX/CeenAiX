@@ -257,6 +257,7 @@ const workflowToQueueStatus = (
 ): PharmacyQueuePrescriptionItem['status'] => {
   if (status === 'dispensed') return 'counseling';
   if (status === 'on_hold' || status === 'cancelled') return 'ready';
+  if (status === 'in_progress') return 'verifying';
   return 'verifying';
 };
 
@@ -296,19 +297,13 @@ export async function setPharmacySettingEnabled(
 }
 
 /**
- * Update a pharmacy dispensing task workflow status (verifying / ready /
- * counseling / completed / on_hold / cancelled). Wraps the canonical
+ * Update a pharmacy dispensing task workflow status (`new` / `in_progress` /
+ * `on_hold` / `dispensed` / `cancelled`). Wraps the canonical
  * `pharmacy_dispensing_tasks` row write.
  */
 export async function updatePharmacyDispensingTaskStatus(
   taskId: string,
-  workflowStatus:
-    | 'verifying'
-    | 'ready'
-    | 'counseling'
-    | 'completed'
-    | 'on_hold'
-    | 'cancelled'
+  workflowStatus: PharmacyQueuePrescriptionItem['workflowStatus']
 ): Promise<void> {
   const { error } = await supabase
     .from('pharmacy_dispensing_tasks')

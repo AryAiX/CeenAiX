@@ -97,6 +97,36 @@ export const workflowIds = {
   preVisitAssessment: '00000000-0000-4000-8000-00000000f701',
   labOrder: '00000000-0000-4000-8000-00000000f901',
   labOrderItem: '00000000-0000-4000-8000-00000000f911',
+  aiChatSession: 'ai-session-e2e',
+};
+
+const defaultPharmacyDispensingTasks = (): JsonRecord[] => [
+  {
+    id: 'pharmacy-task-e2e',
+    organization_id: e2ePharmacyOrgId,
+    external_ref: 'RX-E2E-001',
+    patient_name: e2eUsers.patient.fullName,
+    prescriber_name: e2eUsers.doctor.fullName,
+    medication_name: 'Metformin 500mg',
+    quantity: 30,
+    priority: 'routine',
+    workflow_status: 'new',
+    received_at: yesterday,
+    insurance_provider: 'CeenAiX Gold',
+    copay_aed: 25,
+    allergy_flag: false,
+    assigned_to: e2eUsers.pharmacy.fullName,
+    updated_at: yesterday,
+  },
+];
+
+let mutablePharmacyDispensingTasks: JsonRecord[] | null = null;
+
+const pharmacyDispensingTaskRows = () => {
+  if (!mutablePharmacyDispensingTasks) {
+    mutablePharmacyDispensingTasks = defaultPharmacyDispensingTasks();
+  }
+  return mutablePharmacyDispensingTasks;
 };
 
 export interface E2EWorkflowState {
@@ -361,6 +391,8 @@ const tableRows = (
   state?: E2EWorkflowState
 ): JsonRecord[] => {
   switch (table) {
+    case 'organizations':
+      return organizationsForState(state);
     case 'user_profiles':
       return userProfiles(profileCompleted);
     case 'patient_profiles':
@@ -414,7 +446,7 @@ const tableRows = (
           day_of_week: 1,
           start_time: '09:00',
           end_time: '17:00',
-          slot_minutes: 30,
+          slot_duration_minutes: 30,
           is_active: true,
         },
       ];
@@ -449,7 +481,7 @@ const tableRows = (
           frequency_code: 'QD',
           duration: '30 days',
           instructions: 'Take after breakfast',
-          dispense_status: 'pending',
+          is_dispensed: false,
           created_at: yesterday,
         },
       ];
@@ -518,7 +550,7 @@ const tableRows = (
           sender_id: doctorId,
           body: 'Your results are ready for review.',
           sent_at: yesterday,
-          read_at: role === 'patient' ? null : yesterday,
+          is_read: role === 'patient',
           created_at: yesterday,
         },
       ];
@@ -532,7 +564,7 @@ const tableRows = (
           title: 'E2E notification',
           body: 'A test notification for the browser suite.',
           type: 'appointment',
-          read_at: null,
+          is_read: false,
           created_at: yesterday,
         },
       ];
@@ -541,9 +573,9 @@ const tableRows = (
         {
           id: 'condition-e2e',
           patient_id: patientId,
-          name: 'Type 2 Diabetes',
+          condition_name: 'Type 2 Diabetes',
           status: 'active',
-          diagnosed_at: '2024-01-15',
+          diagnosed_date: '2024-01-15',
           is_deleted: false,
           created_at: yesterday,
         },
@@ -556,7 +588,6 @@ const tableRows = (
           allergen: 'Penicillin',
           reaction: 'Rash',
           severity: 'moderate',
-          is_active: true,
           is_deleted: false,
           created_at: yesterday,
         },
@@ -611,33 +642,33 @@ const tableRows = (
           id: 'vitals-e2e',
           patient_id: patientId,
           recorded_at: yesterday,
-          blood_pressure_systolic: 118,
-          blood_pressure_diastolic: 76,
+          systolic_bp: 118,
+          diastolic_bp: 76,
           heart_rate: 72,
         },
       ];
     case 'specializations':
       return [{ id: 'specialization-e2e', name: 'Family Medicine', is_active: true }];
     case 'doctor_specializations':
-      return [{ doctor_id: doctorId, specialization_id: 'specialization-e2e' }];
+      return [{ doctor_user_id: doctorId, specialization_id: 'specialization-e2e' }];
     case 'ai_chat_sessions':
       return [
         {
-          id: 'ai-session-e2e',
-          patient_id: patientId,
-          title: 'E2E health chat',
+          id: workflowIds.aiChatSession,
+          user_id: patientId,
+          session_token: '00000000-0000-4000-8000-00000000a101',
+          started_at: yesterday,
           created_at: yesterday,
-          updated_at: yesterday,
         },
       ];
     case 'ai_chat_messages':
       return [
         {
           id: 'ai-message-e2e',
-          session_id: 'ai-session-e2e',
+          session_id: workflowIds.aiChatSession,
           role: 'assistant',
           content: 'AI-generated guidance appears here.',
-          metadata: { aiGenerated: true },
+          attachments: [],
           created_at: yesterday,
         },
       ];
@@ -691,24 +722,7 @@ const tableRows = (
         },
       ];
     case 'pharmacy_dispensing_tasks':
-      return [
-        {
-          id: 'pharmacy-task-e2e',
-          organization_id: e2ePharmacyOrgId,
-          external_ref: 'RX-E2E-001',
-          patient_name: e2eUsers.patient.fullName,
-          prescriber_name: e2eUsers.doctor.fullName,
-          medication_name: 'Metformin 500mg',
-          quantity: 30,
-          priority: 'routine',
-          workflow_status: 'new',
-          received_at: yesterday,
-          insurance_provider: 'CeenAiX Gold',
-          copay_aed: 25,
-          allergy_flag: false,
-          assigned_to: e2eUsers.pharmacy.fullName,
-        },
-      ];
+      return pharmacyDispensingTaskRows();
     case 'pharmacy_inventory_items':
       return [
         {
@@ -746,11 +760,15 @@ const tableRows = (
         {
           id: 'pharmacy-message-e2e',
           organization_id: e2ePharmacyOrgId,
-          sender_name: e2eUsers.doctor.fullName,
-          subject: 'Prior authorization question',
-          preview: 'Please confirm coverage for Metformin refill.',
-          unread: 1,
-          received_at: yesterday,
+          contact_name: e2eUsers.doctor.fullName,
+          specialty: 'Family Medicine',
+          message_type: 'doctor',
+          status: 'awaiting',
+          unread_count: 1,
+          last_message: 'Please confirm coverage for Metformin refill.',
+          contact_message: 'Please confirm coverage for Metformin refill.',
+          pharmacy_response: null,
+          last_message_at: yesterday,
         },
       ];
     case 'pharmacy_settings':
@@ -1521,7 +1539,8 @@ const rpcPayload = (
           item.status_label = 'Normal';
           item.result_value = (payload as JsonRecord | null)?.result_value ?? null;
           item.result_unit = (payload as JsonRecord | null)?.result_unit ?? null;
-          item.numeric_value = Number((payload as JsonRecord | null)?.result_value ?? null);
+          const numeric = Number((payload as JsonRecord | null)?.result_value ?? null);
+          item.numeric_value = Number.isFinite(numeric) ? numeric : null;
           item.reference_range = (payload as JsonRecord | null)?.reference_range ?? null;
           item.is_abnormal = Boolean((payload as JsonRecord | null)?.is_abnormal);
           item.resulted_at = now.toISOString();
@@ -1542,6 +1561,17 @@ const rpcPayload = (
         }
       });
       return { ok: true };
+    case 'doctor_review_lab_order': {
+      const targetOrderId = (payload as JsonRecord | null)?.target_order_id as string | undefined;
+      state?.labActionLog.push(`doctor_review:${targetOrderId ?? ''}`);
+      state?.labOrders.forEach((order) => {
+        if (order.id === targetOrderId && order.status === 'resulted') {
+          order.status = 'reviewed';
+          order.reviewed_at = now.toISOString();
+        }
+      });
+      return { ok: true };
+    }
     default:
       return null;
   }
@@ -1553,6 +1583,8 @@ const roleFromAuthHeader = (authorization: string | undefined): E2ERole | null =
   if (token === 'e2e-doctor') return 'doctor';
   if (token === 'e2e-super_admin') return 'super_admin';
   if (token === 'e2e-lab') return 'lab';
+  if (token === 'e2e-pharmacy') return 'pharmacy';
+  if (token === 'e2e-insurance') return 'insurance';
   return null;
 };
 
@@ -1571,6 +1603,56 @@ const json = (route: Route, body: unknown, status = 200) =>
 
 const isObjectResponse = (route: Route) =>
   route.request().headers().accept?.includes('application/vnd.pgrst.object') ?? false;
+
+const filterRestRows = (rows: JsonRecord[], url: URL): JsonRecord[] => {
+  let result = [...rows];
+
+  for (const [param, rawValue] of url.searchParams.entries()) {
+    if (param === 'select' || param === 'order' || param === 'limit' || param === 'offset') {
+      continue;
+    }
+
+    if (rawValue.startsWith('eq.')) {
+      const expected = rawValue.slice(3);
+      result = result.filter((row) => String(row[param] ?? '') === expected);
+      continue;
+    }
+
+    if (rawValue === 'is.false') {
+      result = result.filter((row) => row[param] === false);
+      continue;
+    }
+
+    if (rawValue === 'is.true') {
+      result = result.filter((row) => row[param] === true);
+      continue;
+    }
+
+    if (rawValue.startsWith('in.(') && rawValue.endsWith(')')) {
+      const values = rawValue
+        .slice(4, -1)
+        .split(',')
+        .map((value) => value.trim());
+      result = result.filter((row) => values.includes(String(row[param] ?? '')));
+      continue;
+    }
+
+    if (rawValue.startsWith('gte.')) {
+      const expected = rawValue.slice(4);
+      result = result.filter((row) => String(row[param] ?? '') >= expected);
+    }
+  }
+
+  const limitParam = url.searchParams.get('limit');
+  if (limitParam) {
+    const limit = Number(limitParam);
+    if (Number.isFinite(limit) && limit > 0) {
+      result = result.slice(0, limit);
+    }
+  }
+
+  return result;
+};
 
 const currentTableRow = (
   table: string,
@@ -1659,7 +1741,10 @@ const handleRestRoute = async (
   }
 
   const currentUser = userForRequest(route, fallbackRole);
-  const rows = tableRows(table, currentUser.role, profileCompleted, state);
+  const rows = filterRestRows(
+    tableRows(table, currentUser.role, profileCompleted, state),
+    url
+  );
 
   if (method !== 'GET' && method !== 'HEAD') {
     const payload = parsePostData(route);
@@ -1738,7 +1823,7 @@ const handleRestRoute = async (
         ...notification,
         id: `notification-workflow-${state.notifications.length + index + 1}`,
         created_at: now.toISOString(),
-        read_at: null,
+        is_read: false,
       }));
       state.notifications.push(...insertedNotifications);
       await json(route, isObjectResponse(route) ? insertedNotifications[0] ?? {} : insertedNotifications);
@@ -1771,6 +1856,23 @@ const handleRestRoute = async (
       });
       await json(route, isObjectResponse(route) ? state.preVisitAssessments[0] ?? {} : state.preVisitAssessments);
       return;
+    }
+
+    if (method === 'PATCH' && table === 'pharmacy_dispensing_tasks') {
+      const [taskPatch] = asArray(payload);
+      const idFilter = url.searchParams.get('id');
+      const taskId = idFilter?.startsWith('eq.') ? idFilter.slice(3) : null;
+      const tasks = pharmacyDispensingTaskRows();
+      const index = taskId ? tasks.findIndex((row) => row.id === taskId) : 0;
+      if (index >= 0) {
+        tasks[index] = {
+          ...tasks[index],
+          ...taskPatch,
+          updated_at: now.toISOString(),
+        };
+        await json(route, isObjectResponse(route) ? tasks[index] : [tasks[index]]);
+        return;
+      }
     }
 
     if (state && (method === 'POST' || method === 'PATCH') && table === 'appointment_pre_visit_summaries') {
@@ -1822,7 +1924,7 @@ export async function installSupabaseMocks(
   await page.route(`${SUPABASE_URL}/rest/v1/**`, (route) =>
     handleRestRoute(route, fallbackRole, profileCompleted, state)
   );
-  await page.route(`${SUPABASE_URL}/functions/v1/**`, (route) => {
+  await page.route(`${SUPABASE_URL}/functions/v1/**`, async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/functions/v1/ai-document-analyze')) {
       return json(route, {
@@ -1830,6 +1932,48 @@ export async function installSupabaseMocks(
         keyPoints: ['Patient reports headache symptoms before the visit.'],
         riskFlags: [],
         pendingQuestions: [],
+      });
+    }
+
+    if (url.pathname.endsWith('/functions/v1/ai-chat')) {
+      let sessionId = workflowIds.aiChatSession;
+      try {
+        const body = route.request().postDataJSON() as { sessionId?: string | null; message?: string };
+        if (body.sessionId) {
+          sessionId = body.sessionId;
+        }
+      } catch {
+        // Use default session id for malformed bodies.
+      }
+      const createdAt = new Date().toISOString();
+      return json(route, {
+        sessionId,
+        assistantMessage: {
+          id: `ai-assistant-${Date.now()}`,
+          content:
+            'AI-generated: Based on your records, stay hydrated and follow up if symptoms worsen. This reply is mocked for E2E.',
+          createdAt,
+          attachments: [
+            {
+              type: 'response_metadata',
+              intent: 'general_health',
+              usedPatientContext: true,
+              mode: 'chat',
+              recommendedSpecialty: null,
+              evidence: [],
+              suggestedActions: [],
+              nextAppointmentId: null,
+              nextAppointmentLabel: null,
+            },
+          ],
+        },
+        contextSummary: {
+          conditionsCount: 1,
+          allergiesCount: 1,
+          activeMedicationCount: 1,
+          recentAppointmentsCount: 1,
+          labResultCount: 1,
+        },
       });
     }
 

@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, Info, Send } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { sendPharmacyResponse, usePharmacyPrescriptionQueue } from '../../hooks';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 interface PharmacyMessage {
@@ -236,6 +237,7 @@ export const PharmacyMessages = () => {
               <input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
+                maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                 placeholder={t('pharmacy.messages.responsePlaceholder', {
                   defaultValue: 'Type a secure pharmacy response...',
                 })}
@@ -256,6 +258,7 @@ export const PharmacyMessages = () => {
             </form>
             {feedback ? (
               <p
+                role="alert"
                 className={`mt-2 text-[11px] ${
                   feedback.kind === 'error' ? 'text-rose-600' : 'text-emerald-600'
                 }`}

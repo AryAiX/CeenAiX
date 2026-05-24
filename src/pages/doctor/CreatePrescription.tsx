@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -14,6 +14,7 @@ import type {
   MedicationCatalogSuggestion,
 } from '../../types';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import {
   getMedicationCatalogDisplayNameAr,
   getMedicationCatalogDisplayNameEn,
@@ -437,6 +438,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                 })
               }
               placeholder={t('doctor.createPrescription.searchMedicationPlaceholder')}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               className={`w-full rounded-2xl border py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:ring-2 rtl:pl-4 rtl:pr-11 ${
                 showErrors && !item.medicationName
                   ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20'
@@ -535,6 +537,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                 type="text"
                 value={translationDraft}
                 onChange={(event) => setTranslationDraft(event.target.value)}
+                maxLength={FORM_FIELD_LIMITS.shortText}
                 className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
               />
             </label>
@@ -573,6 +576,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                     setNewMedicationDraft((current) => ({ ...current, genericNameEn: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -586,6 +590,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                     setNewMedicationDraft((current) => ({ ...current, brandNameEn: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -599,6 +604,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                     setNewMedicationDraft((current) => ({ ...current, displayNameAr: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -612,6 +618,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                     setNewMedicationDraft((current) => ({ ...current, strength: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -625,6 +632,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                     setNewMedicationDraft((current) => ({ ...current, dosageForm: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -638,6 +646,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
                     setNewMedicationDraft((current) => ({ ...current, manufacturer: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
             </div>
@@ -764,6 +773,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
           <input
             type="number"
             min="1"
+            max={FORM_FIELD_LIMITS.doseNumberMax}
             value={item.quantity}
             onChange={(event) => onChange(item.id, { quantity: event.target.value })}
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
@@ -780,6 +790,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
             onChange={(event) =>
               onChange(item.id, { dosage: normalizeMedicationDosageValue(event.target.value) })
             }
+            maxLength={FORM_FIELD_LIMITS.shortText}
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </label>
@@ -835,6 +846,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
             rows={4}
             value={item.instructions}
             onChange={(event) => onChange(item.id, { instructions: event.target.value })}
+            maxLength={FORM_FIELD_LIMITS.clinicalNotes}
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </label>
@@ -859,6 +871,7 @@ export const CreatePrescription: React.FC = () => {
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const navigateAfterSaveTimer = useRef<number | null>(null);
   const selectedPatient = useMemo(
     () => patients.find((patient) => patient.id === patientId) ?? null,
     [patientId, patients]
@@ -869,6 +882,12 @@ export const CreatePrescription: React.FC = () => {
       setPatientId(patients[0].id);
     }
   }, [patientId, patients]);
+
+  useEffect(() => {
+    return () => {
+      if (navigateAfterSaveTimer.current) clearTimeout(navigateAfterSaveTimer.current);
+    };
+  }, []);
 
   const { data: vocabData } = useQuery<PrescriptionClinicalVocabRow[]>(
     async () => {
@@ -1057,7 +1076,8 @@ export const CreatePrescription: React.FC = () => {
     setSaving(false);
     setShowValidationErrors(false);
     setFeedback({ type: 'success', message: t('doctor.createPrescription.saveSuccess') });
-    window.setTimeout(() => {
+    if (navigateAfterSaveTimer.current) clearTimeout(navigateAfterSaveTimer.current);
+    navigateAfterSaveTimer.current = window.setTimeout(() => {
       navigate('/doctor/prescriptions');
     }, 2000);
   };
@@ -1077,6 +1097,7 @@ export const CreatePrescription: React.FC = () => {
         </div>
         {feedback ? (
           <div
+            role="alert"
             className={`rounded-xl border px-4 py-3 text-sm ${
               feedback.type === 'success'
                 ? 'border-emerald-100 bg-emerald-50 text-emerald-700'

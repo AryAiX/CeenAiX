@@ -66,6 +66,43 @@ export interface AiChatResponsePayload {
   contextSummary: AiChatContextSummary | null;
 }
 
+const getFriendlyAiChatErrorMessage = async (error: unknown) => {
+  if (error instanceof FunctionsHttpError) {
+    const status = error.context.status;
+
+    try {
+      const body = await error.context.clone().json();
+      if (body && typeof body.error === 'string' && body.error.trim().length > 0) {
+        return body.error.trim();
+      }
+    } catch {
+      // Ignore parse failures and fall back to status-based messaging below.
+    }
+
+    if (status === 401 || status === 403) {
+      return i18n.t('ai.errors.sessionExpired', {
+        defaultValue: 'Your session expired while contacting the AI service. Refresh and try again.',
+      });
+    }
+
+    if (status >= 500) {
+      return i18n.t('ai.errors.serviceUnavailable', {
+        defaultValue: 'The AI chat service is temporarily unavailable. Please try again shortly.',
+      });
+    }
+  }
+
+  if (error instanceof FunctionsFetchError || error instanceof FunctionsRelayError) {
+    return i18n.t('ai.errors.network', {
+      defaultValue: 'We could not reach the AI chat service. Check your connection and try again.',
+    });
+  }
+
+  return i18n.t('ai.errors.generic', {
+    defaultValue: 'We could not complete the AI chat request. Please try again.',
+  });
+};
+
 export async function invokeAiChat(input: {
   message: string;
   sessionId?: string | null;
@@ -86,7 +123,7 @@ export async function invokeAiChat(input: {
   });
 
   if (error) {
-    throw error;
+    throw new Error(await getFriendlyAiChatErrorMessage(error));
   }
 
   if (!data || typeof data !== 'object') {
@@ -182,12 +219,22 @@ async function invokeAiDocumentAnalyze<T>(input: Record<string, unknown>): Promi
   return data as T;
 }
 
+const AI_CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+
 const createAttachmentPath = (userId: string, fileName: string) => {
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '-');
   return `${userId}/ai-chat/${crypto.randomUUID()}-${sanitizedName}`;
 };
 
 export async function uploadAiChatAttachment(userId: string, file: File): Promise<AiChatFileAttachment> {
+  if (file.size > AI_CHAT_ATTACHMENT_MAX_BYTES) {
+    throw new Error(
+      i18n.t('ai.errors.attachmentTooLarge', {
+        defaultValue: 'Attachments must be 10 MB or smaller.',
+      })
+    );
+  }
+
   const path = createAttachmentPath(userId, file.name);
   const { error } = await supabase.storage.from('medical-files').upload(path, file, {
     cacheControl: '3600',

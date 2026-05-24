@@ -7,13 +7,15 @@ import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorLabOrders } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, labOrderStatusLabel, resolveLocale } from '../../lib/i18n-ui';
+import { supabase } from '../../lib/supabase';
 
 export const DoctorLabOrders: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error } = useDoctorLabOrders(user?.id);
+  const { data, loading, error, refetch } = useDoctorLabOrders(user?.id);
   const labOrders = useMemo(() => data ?? [], [data]);
   const locale = resolveLocale(i18n.language);
   const uiLang = i18n.language ?? 'en';
@@ -23,6 +25,8 @@ export const DoctorLabOrders: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'critical' | 'pending' | 'results' | 'scheduled'>('critical');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printLabOrderId, setPrintLabOrderId] = useState<string | null>(null);
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const hasCriticalResult = useCallback(
     (labOrder: (typeof labOrders)[number]) =>
@@ -105,6 +109,35 @@ export const DoctorLabOrders: React.FC = () => {
     }
   }, [activeTab, criticalCount, labOrders.length, loading]);
 
+  const handleMarkReviewed = async (labOrderId: string) => {
+    setActionFeedback(null);
+    setReviewBusyId(labOrderId);
+    try {
+      const { error: reviewError } = await supabase.rpc('doctor_review_lab_order', {
+        target_order_id: labOrderId,
+        overall_comment: null,
+      });
+      if (reviewError) {
+        throw reviewError;
+      }
+      setActionFeedback({
+        type: 'success',
+        message: t('doctor.labOrders.reviewedSuccess', { defaultValue: 'Lab order marked as reviewed.' }),
+      });
+      await refetch();
+    } catch (reviewFailure) {
+      setActionFeedback({
+        type: 'error',
+        message:
+          reviewFailure instanceof Error
+            ? reviewFailure.message
+            : t('doctor.labOrders.reviewError', { defaultValue: 'Could not mark lab order reviewed.' }),
+      });
+    } finally {
+      setReviewBusyId(null);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -140,8 +173,28 @@ export const DoctorLabOrders: React.FC = () => {
 
       <div className="space-y-6">
         {error ? (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {error}
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700" role="alert">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 font-semibold text-amber-900 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
+        ) : null}
+
+        {actionFeedback ? (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              actionFeedback.type === 'success'
+                ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                : 'border-red-100 bg-red-50 text-red-600'
+            }`}
+            role="alert"
+          >
+            {actionFeedback.message}
           </div>
         ) : null}
 
@@ -255,6 +308,7 @@ export const DoctorLabOrders: React.FC = () => {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder={t('doctor.labOrders.searchPlaceholder')}
+                  maxLength={FORM_FIELD_LIMITS.searchQuery}
                   className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 rtl:pl-4 rtl:pr-10"
                 />
               </div>
@@ -355,6 +409,39 @@ export const DoctorLabOrders: React.FC = () => {
                         <Printer className="h-4 w-4" />
                         <span>Print / CSV</span>
                       </button>
+                      {labOrder.status === 'resulted' ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkReviewed(labOrder.id)}
+                          disabled={reviewBusyId === labOrder.id}
+                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>{t('doctor.labOrders.markReviewed', { defaultValue: 'Mark reviewed' })}</span>
+                        </button>
+                      ) : labOrder.status === 'reviewed' ? (
+                        <button
+                          type="button"
+                          disabled
+                          title={t('doctor.labOrders.alreadyReviewed', { defaultValue: 'Already reviewed' })}
+                          className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>{t('doctor.labOrders.markReviewed', { defaultValue: 'Mark reviewed' })}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title={t('doctor.labOrders.markReviewedUnavailable', {
+                            defaultValue: 'Mark reviewed — available when results are released',
+                          })}
+                          className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-400 opacity-70"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>{t('doctor.labOrders.markReviewed', { defaultValue: 'Mark reviewed' })}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 

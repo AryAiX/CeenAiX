@@ -325,8 +325,11 @@ export const DoctorSchedule: React.FC = () => {
         ) : null}
 
         {error ? (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Doctor schedule data could not be loaded yet.
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+            <p>{error}</p>
+            <button type="button" onClick={() => void refetch()} className="mt-2 font-semibold text-amber-900 underline">
+              Retry
+            </button>
           </div>
         ) : null}
 
@@ -682,6 +685,7 @@ export const DoctorSchedule: React.FC = () => {
                     onChange={(event) =>
                       setBlockedSlotForm((current) => ({ ...current, reason: event.target.value }))
                     }
+                    maxLength={500}
                     rows={3}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
                     placeholder="Optional note for your own reference"

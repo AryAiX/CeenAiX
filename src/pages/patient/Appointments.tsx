@@ -21,6 +21,7 @@ import {
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, usePatientPreVisitAssessments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import {
   appointmentStatusLabel,
   calendarWeekdayShort,
@@ -671,6 +672,7 @@ export const PatientAppointments: React.FC = () => {
           value={specialtyQuery}
           onChange={(event) => setSpecialtyQuery(event.target.value)}
           placeholder={t('patient.appointments.searchSpecialtyPh')}
+          maxLength={FORM_FIELD_LIMITS.searchQuery}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
       </div>
@@ -684,6 +686,7 @@ export const PatientAppointments: React.FC = () => {
           value={providerQuery}
           onChange={(event) => setProviderQuery(event.target.value)}
           placeholder={t('patient.appointments.searchProviderPh')}
+          maxLength={FORM_FIELD_LIMITS.searchQuery}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
       </div>
@@ -1017,6 +1020,7 @@ export const PatientAppointments: React.FC = () => {
 
         {feedback ? (
           <div
+            role="alert"
             className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
               feedback.type === 'success'
                 ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
@@ -1028,8 +1032,19 @@ export const PatientAppointments: React.FC = () => {
         ) : null}
 
         {error || doctorProfilesError ? (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {t('patient.appointments.loadError')}
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+            <p>{t('patient.appointments.loadError')}</p>
+            {error ? <p className="mt-1 text-xs text-amber-900/80">{error}</p> : null}
+            {doctorProfilesError ? (
+              <p className="mt-1 text-xs text-amber-900/80">{doctorProfilesError}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 font-semibold text-amber-900 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
           </div>
         ) : null}
 

@@ -28,6 +28,7 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { formatCanonicalValueForReview } from '../../lib/canonical-record-updates';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatMedicationDetailLine } from '../../lib/medication-display';
 
 interface ConsultationNoteDraft {
@@ -68,7 +69,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       if (prescriptionIds.length === 0) return [];
       const { data: items, error: itemsError } = await supabase
         .from('prescription_items')
-        .select('id, prescription_id, medication_name, dosage, frequency, duration_days')
+        .select('id, prescription_id, medication_name, dosage, frequency, duration')
         .in('prescription_id', prescriptionIds);
       if (itemsError) throw itemsError;
       return items ?? [];
@@ -94,6 +95,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveIdleTimer = useRef<number | null>(null);
+  const noteSavedTimer = useRef<number | null>(null);
   const [updatingAppointment, setUpdatingAppointment] = useState(false);
   const [reviewingAssessment, setReviewingAssessment] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -145,9 +148,11 @@ export const DoctorAppointmentDetail: React.FC = () => {
       const { error: noteError } = await operation;
       if (!noteError) {
         setAutoSaveStatus('saved');
-        window.setTimeout(() => setAutoSaveStatus('idle'), 2500);
+        if (autoSaveIdleTimer.current) clearTimeout(autoSaveIdleTimer.current);
+        autoSaveIdleTimer.current = window.setTimeout(() => setAutoSaveStatus('idle'), 2500);
       } else {
         setAutoSaveStatus('idle');
+        setFeedback({ type: 'error', message: noteError.message });
       }
     },
     [data, user?.id]
@@ -163,6 +168,13 @@ export const DoctorAppointmentDetail: React.FC = () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
   }, [noteDraft, hasHydratedNote, autoSaveNote]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveIdleTimer.current) clearTimeout(autoSaveIdleTimer.current);
+      if (noteSavedTimer.current) clearTimeout(noteSavedTimer.current);
+    };
+  }, []);
 
   const patientName = data?.patientProfile?.full_name?.trim() || t('shared.patient');
 
@@ -243,13 +255,24 @@ export const DoctorAppointmentDetail: React.FC = () => {
       return;
     }
     setNoteSaved(true);
-    window.setTimeout(() => setNoteSaved(false), 3000);
+    if (noteSavedTimer.current) clearTimeout(noteSavedTimer.current);
+    noteSavedTimer.current = window.setTimeout(() => setNoteSaved(false), 3000);
     setFeedback({ type: 'success', message: t('doctor.appointmentDetail.noteSaved') });
     refetch();
   };
 
   const markPreVisitReviewed = async () => {
     if (!data?.preVisitAssessment) {
+      return;
+    }
+
+    if (data.preVisitAssessment.status !== 'completed') {
+      setFeedback({
+        type: 'error',
+        message: t('doctor.appointmentDetail.preVisitNotCompleted', {
+          defaultValue: 'Pre-visit intake must be completed before it can be marked reviewed.',
+        }),
+      });
       return;
     }
 
@@ -296,8 +319,15 @@ export const DoctorAppointmentDetail: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">{t('doctor.appointmentDetail.titleFallback')}</h1>
           <p className="mt-1 text-sm text-slate-500">{t('doctor.appointmentDetail.loadError')}</p>
         </div>
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          {error ?? t('doctor.appointmentDetail.notFound')}
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700" role="alert">
+          <p>{error ?? t('doctor.appointmentDetail.notFound')}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-2 font-semibold text-amber-900 underline"
+          >
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
         </div>
       </>
     );
@@ -337,6 +367,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       <div className="space-y-6">
         {feedback ? (
           <div
+            role="alert"
             className={`rounded-2xl border px-4 py-3 text-sm ${
               feedback.type === 'success'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
@@ -705,12 +736,12 @@ export const DoctorAppointmentDetail: React.FC = () => {
                                     <span className="text-sm">💊</span>
                                     <div>
                                       <p className="text-sm font-semibold text-slate-800">{item.medication_name}</p>
-                                      {(item.dosage || item.frequency || item.duration_days) ? (
+                                      {(item.dosage || item.frequency || item.duration) ? (
                                         <p className="text-xs text-slate-500">
                                           {[
                                             item.dosage,
                                             item.frequency,
-                                            item.duration_days ? `${item.duration_days} days` : null,
+                                            item.duration,
                                           ].filter(Boolean).join(' · ')}
                                         </p>
                                       ) : null}
@@ -810,6 +841,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </span>
                 <textarea
                   rows={5}
+                  maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                   value={noteDraft.subjective}
                   onChange={(event) => setNoteDraft((current) => ({ ...current, subjective: event.target.value }))}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
@@ -822,6 +854,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </span>
                 <textarea
                   rows={5}
+                  maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                   value={noteDraft.objective}
                   onChange={(event) => setNoteDraft((current) => ({ ...current, objective: event.target.value }))}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
@@ -834,6 +867,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </span>
                 <textarea
                   rows={5}
+                  maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                   value={noteDraft.assessment}
                   onChange={(event) => setNoteDraft((current) => ({ ...current, assessment: event.target.value }))}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
@@ -846,6 +880,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </span>
                 <textarea
                   rows={5}
+                  maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                   value={noteDraft.plan}
                   onChange={(event) => setNoteDraft((current) => ({ ...current, plan: event.target.value }))}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"

@@ -6,14 +6,17 @@ import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { updatePharmacyDispensingTaskStatus, usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
+import { inferPrescriptionWorkflowStatus } from './prescription-status';
 
 type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'cancelled';
 type SortType = 'newest' | 'oldest' | 'patient' | 'status';
 
 interface PrescriptionListRow {
   id: string;
+  taskIds: string[];
   patientName: string;
   patientInitials: string;
   avatarClass: string;
@@ -135,21 +138,8 @@ const receivedMeta = (waitMinutes: number) => {
   return { receivedAt, receivedTimeAgo: `${hours}h ${minutes}min ago`, receivedTime };
 };
 
-const inferPrescriptionStatus = (items: PharmacyQueuePrescriptionItem[]): PrescriptionListRow['status'] => {
-  if (items.length === 0) {
-    return 'cancelled';
-  }
-
-  if (items.every((item) => item.isDispensed)) {
-    return 'dispensed';
-  }
-
-  if (items.some((item) => item.status === 'ready' || item.quantity === 0)) {
-    return 'on_hold';
-  }
-
-  return 'new';
-};
+const inferPrescriptionStatus = (items: PharmacyQueuePrescriptionItem[]): PrescriptionListRow['status'] =>
+  inferPrescriptionWorkflowStatus(items);
 
 const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): PrescriptionListRow[] => {
   const groups = new Map<string, PharmacyQueuePrescriptionItem[]>();
@@ -167,6 +157,7 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
 
     return {
       id: prescriptionId,
+      taskIds: group.map((item) => item.id),
       patientName: first.patientName,
       patientInitials: initialsFor(first.patientName),
       avatarClass: avatarClassFor(prescriptionId),
@@ -209,25 +200,22 @@ export const PharmacyDispensing = () => {
     }
   };
 
-  const handleRowAction = async (rowId: string, status: RowStatus) => {
-    if (status === 'dispensed') {
-      // "View" — no write needed, just navigate to the dispensing detail.
-      navigate('/pharmacy/dispensing');
+  const handleRowAction = async (row: PrescriptionListRow, status: RowStatus) => {
+    if (status === 'dispensed' || status === 'cancelled') {
       return;
     }
     const nextStatus = nextStatusFor(status);
     if (!nextStatus) return;
     setActionError(null);
-    setBusyId(rowId);
+    setBusyId(row.id);
     try {
-      // Map our UI status names onto the canonical workflow_status enum.
-      const workflowStatus =
+      const workflowStatus: Parameters<typeof updatePharmacyDispensingTaskStatus>[1] =
         nextStatus === 'in_progress'
-          ? 'verifying'
+          ? 'in_progress'
           : nextStatus === 'dispensed'
-            ? 'completed'
+            ? 'dispensed'
             : 'on_hold';
-      await updatePharmacyDispensingTaskStatus(rowId, workflowStatus);
+      await Promise.all(row.taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, workflowStatus)));
       refetch();
     } catch (error) {
       setActionError(
@@ -324,6 +312,7 @@ export const PharmacyDispensing = () => {
               placeholder={t('pharmacy.dispensing.searchPh', {
                 defaultValue: 'Patient name, Rx number, doctor...',
               })}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
           </div>
@@ -453,7 +442,7 @@ export const PharmacyDispensing = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => void handleRowAction(row.id, row.status)}
+                        onClick={() => void handleRowAction(row, row.status)}
                         disabled={busyId === row.id || row.status === 'cancelled'}
                         className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                           row.status === 'dispensed'

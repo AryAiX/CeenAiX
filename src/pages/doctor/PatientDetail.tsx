@@ -83,8 +83,15 @@ export const DoctorPatientDetail: React.FC = () => {
           <p className="mt-1 text-sm text-slate-500">{t('doctor.patientDetail.loadError')}</p>
         </div>
         <div>
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm text-amber-700">
-            {error ?? t('doctor.patientDetail.notFound')}
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm text-amber-700" role="alert">
+            <p>{error ?? t('doctor.patientDetail.notFound')}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 font-semibold text-amber-900 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
           </div>
         </div>
       </>

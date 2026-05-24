@@ -161,7 +161,7 @@ export const PatientPrescriptions: React.FC = () => {
       })
     );
   const { user } = useAuth();
-  const { data, loading, error } = usePatientPrescriptions(user?.id);
+  const { data, loading, error, refetch } = usePatientPrescriptions(user?.id);
   const { data: primaryInsurance, loading: insuranceLoading } = usePatientPrimaryInsurance(user?.id);
   const { data: allergyRows } = usePatientDashboardAlert(user?.id);
   const [expandedLineIds, setExpandedLineIds] = useState<Set<string>>(new Set());
@@ -1350,8 +1350,16 @@ export const PatientPrescriptions: React.FC = () => {
   return (
     <div className="animate-fadeIn">
       {error ? (
-        <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('patient.prescriptions.loadError')}
+        <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <p>{t('patient.prescriptions.loadError')}</p>
+          <p className="mt-1 text-xs text-red-800/80">{error}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-2 font-semibold text-red-800 underline"
+          >
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
         </div>
       ) : null}
 

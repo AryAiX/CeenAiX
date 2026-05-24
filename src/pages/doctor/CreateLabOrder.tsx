@@ -19,6 +19,7 @@ import {
   getLabTestSuggestionDisplayNameEn,
 } from '../../lib/lab-test-catalog';
 import { appointmentPickerLabel } from '../../lib/i18n-ui';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { supabase } from '../../lib/supabase';
 
 interface DraftLabOrderItem {
@@ -321,6 +322,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                 })
               }
               placeholder={t('doctor.createLabOrder.searchTestPlaceholder')}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               className={`w-full rounded-2xl border py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition rtl:pl-4 rtl:pr-11 ${
                 showErrors && !item.testName
                   ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20'
@@ -527,6 +529,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, displayNameEn: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -540,6 +543,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, displayNameAr: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -553,6 +557,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, sourceCode: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.icdCode}
                 />
               </label>
               <label className="block">
@@ -566,6 +571,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, shortNameEn: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -579,6 +585,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, specimen: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block">
@@ -592,6 +599,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, property: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
               <label className="block md:col-span-2">
@@ -605,6 +613,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                     setNewTestDraft((current) => ({ ...current, category: event.target.value }))
                   }
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                 />
               </label>
             </div>
@@ -780,6 +789,7 @@ export const CreateLabOrder: React.FC = () => {
       <div className="mx-auto w-full max-w-5xl space-y-6">
         {feedback ? (
           <div
+            role="alert"
             className={`rounded-xl border px-4 py-3 text-sm ${
               feedback.type === 'success'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'

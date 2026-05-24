@@ -202,7 +202,17 @@ export const PatientAIChat: React.FC = () => {
       return false;
     }
 
-    return typeof update.metadata.sessionId === 'string' && update.metadata.sessionId === selectedSessionId;
+    const sessionUserMessageIds = new Set(
+      messages.filter((message) => message.role === 'user').map((message) => message.id)
+    );
+
+    if (sessionUserMessageIds.has(update.sourceRecordId)) {
+      return true;
+    }
+
+    return (
+      typeof update.metadata.sessionId === 'string' && update.metadata.sessionId === selectedSessionId
+    );
   });
 
   // Track the last user-driven session selection so the "clear stale
@@ -284,7 +294,19 @@ export const PatientAIChat: React.FC = () => {
       return;
     }
 
-    setPendingFiles((currentFiles) => [...currentFiles, ...selectedFiles].slice(0, 4));
+    setPendingFiles((currentFiles) => {
+      const oversized = selectedFiles.find((file) => file.size > 10 * 1024 * 1024);
+      if (oversized) {
+        setSendError(
+          t('ai.errors.attachmentTooLarge', {
+            defaultValue: 'Attachments must be 10 MB or smaller.',
+          })
+        );
+        return currentFiles;
+      }
+
+      return [...currentFiles, ...selectedFiles].slice(0, 4);
+    });
     event.target.value = '';
   };
 
@@ -306,6 +328,7 @@ export const PatientAIChat: React.FC = () => {
 
     let uploadedAttachments: AiChatFileAttachment[] = [];
     let invokeSucceeded = false;
+    const attachmentsBeforeSend = pendingFiles;
     try {
       setSendError(null);
       setIsSending(true);
@@ -367,6 +390,13 @@ export const PatientAIChat: React.FC = () => {
       await refetchCanonicalUpdates();
     } catch (sendFailure) {
       setSendError(sendFailure instanceof Error ? sendFailure.message : t('patient.aiChat.sendError'));
+      setMessages((currentMessages) =>
+        currentMessages.filter((message) => !message.id.startsWith('temp-user-'))
+      );
+      if (!options?.submittedMessage) {
+        setInput(nextMessage);
+      }
+      setPendingFiles(attachmentsBeforeSend);
       // The invoke or one of the surrounding writes failed after we already
       // pushed attachments into storage. Clean them up so we don't leak
       // orphan objects into the medical-files bucket.
@@ -909,14 +939,18 @@ export const PatientAIChat: React.FC = () => {
                               <div className="mt-2 flex items-center gap-2 opacity-60 transition-opacity hover:opacity-100">
                                 <button
                                   type="button"
-                                  className="p-1.5 text-white/30 transition hover:text-white/70"
+                                  disabled
+                                  title={t('patient.aiChat.feedbackComingSoon', { defaultValue: 'Feedback — coming soon' })}
+                                  className="cursor-not-allowed p-1.5 text-white/20"
                                   aria-label="thumbs up"
                                 >
                                   <ThumbsUp className="h-4 w-4" />
                                 </button>
                                 <button
                                   type="button"
-                                  className="p-1.5 text-white/30 transition hover:text-white/70"
+                                  disabled
+                                  title={t('patient.aiChat.feedbackComingSoon', { defaultValue: 'Feedback — coming soon' })}
+                                  className="cursor-not-allowed p-1.5 text-white/20"
                                   aria-label="thumbs down"
                                 >
                                   <ThumbsDown className="h-4 w-4" />
@@ -935,14 +969,20 @@ export const PatientAIChat: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  className="p-1.5 text-white/30 transition hover:text-white/70"
+                                  disabled
+                                  title={t('patient.aiChat.shareComingSoon', { defaultValue: 'Share — coming soon' })}
+                                  className="cursor-not-allowed p-1.5 text-white/20"
                                   aria-label="share"
                                 >
                                   <Share2 className="h-4 w-4" />
                                 </button>
                                 <button
                                   type="button"
-                                  className="p-1.5 text-white/30 transition hover:text-white/70"
+                                  disabled
+                                  title={t('patient.aiChat.regenerateComingSoon', {
+                                    defaultValue: 'Regenerate — coming soon',
+                                  })}
+                                  className="cursor-not-allowed p-1.5 text-white/20"
                                   aria-label="regenerate"
                                 >
                                   <RotateCcw className="h-4 w-4" />
@@ -1007,7 +1047,7 @@ export const PatientAIChat: React.FC = () => {
             <div className="border-t border-white/5 bg-slate-900/80 px-4 py-6 backdrop-blur-xl sm:px-8">
               <form onSubmit={handleSubmit} className="mx-auto max-w-4xl">
                 {sendError ? (
-                  <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+                  <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200" role="alert">
                     {sendError}
                   </div>
                 ) : null}

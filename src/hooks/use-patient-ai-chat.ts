@@ -151,7 +151,8 @@ export function usePatientAiChat(userId: string | null | undefined, activeSessio
         .from('ai_chat_messages')
         .select('id, session_id, role, content, created_at, attachments')
         .in('session_id', sessionIds)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(400);
 
       if (messagesError) {
         throw messagesError;
