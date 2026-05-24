@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, MessageSquare, Plus, Search, TestTube2 } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, MessageSquare, Plus, Printer, Search, TestTube2, Users, X } from 'lucide-react';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorLabOrders } from '../../hooks';
@@ -20,6 +21,8 @@ export const DoctorLabOrders: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'critical' | 'pending' | 'results' | 'scheduled'>('critical');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printLabOrderId, setPrintLabOrderId] = useState<string | null>(null);
 
   const hasCriticalResult = useCallback(
     (labOrder: (typeof labOrders)[number]) =>
@@ -87,6 +90,7 @@ export const DoctorLabOrders: React.FC = () => {
     [labOrders]
   );
   const firstCriticalOrder = useMemo(() => labOrders.find(hasCriticalResult) ?? null, [hasCriticalResult, labOrders]);
+  const printLabOrder = labOrders.find((o) => o.id === printLabOrderId) ?? null;
   const firstCriticalItem = firstCriticalOrder?.items.find((item) => item.is_abnormal && item.status === 'resulted') ?? null;
   const labTabs = [
     { id: 'critical' as const, label: 'Critical', count: criticalCount, icon: AlertTriangle },
@@ -174,28 +178,42 @@ export const DoctorLabOrders: React.FC = () => {
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('critical')}
+            className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-red-300 text-left w-full"
+          >
             <p className="text-sm font-medium text-slate-500">Critical results</p>
             <p className="mt-2 text-2xl font-bold text-red-600">{formatLocaleDigits(criticalCount, uiLang)}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <p className="mt-1 text-xs text-red-400">Click to review</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('results')}
+            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-teal-200 text-left w-full"
+          >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.totalOrders')}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">
-              {formatLocaleDigits(labOrders.length, uiLang)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(labOrders.length, uiLang)}</p>
+            <p className="mt-1 text-xs text-teal-400">Click to view all</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pending')}
+            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-amber-200 text-left w-full"
+          >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.pendingResults')}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">
-              {formatLocaleDigits(pendingResults, uiLang)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(pendingResults, uiLang)}</p>
+            <p className="mt-1 text-xs text-amber-400">Click to view pending</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('scheduled')}
+            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-blue-200 text-left w-full"
+          >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.linkedPatients')}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">
-              {formatLocaleDigits(uniquePatients, uiLang)}
-            </p>
-          </div>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(uniquePatients, uiLang)}</p>
+            <p className="mt-1 text-xs text-blue-400">Click to view scheduled</p>
+          </button>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -304,6 +322,14 @@ export const DoctorLabOrders: React.FC = () => {
                     <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
+                        onClick={() => navigate(`/doctor/patients/${labOrder.patient_id}`)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        <Users className="h-4 w-4" />
+                        <span>View Patient</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => navigate(`/doctor/messages?patient=${labOrder.patient_id}`)}
                         className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
                       >
@@ -317,6 +343,17 @@ export const DoctorLabOrders: React.FC = () => {
                       >
                         <Plus className="h-4 w-4" />
                         <span>{t('doctor.labOrders.reorder')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrintLabOrderId(labOrder.id);
+                          setShowPrintModal(true);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <Printer className="h-4 w-4" />
+                        <span>Print / CSV</span>
                       </button>
                     </div>
                   </div>
@@ -361,6 +398,120 @@ export const DoctorLabOrders: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showPrintModal && printLabOrder
+        ? createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <Printer className="h-5 w-5 text-slate-600" />
+                    <h2 className="text-base font-bold text-slate-900">Print or Download Lab Order</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowPrintModal(false); setPrintLabOrderId(null); }}
+                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Summary */}
+                <div className="border-b border-slate-100 px-6 py-4">
+                  <p className="text-sm font-bold text-slate-900">{printLabOrder.patientName}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Ordered:{' '}
+                    {new Date(printLabOrder.ordered_at).toLocaleDateString(locale, dtOpts({ year: 'numeric', month: 'short', day: 'numeric' }))}
+                  </p>
+                  <span className="mt-2 inline-block rounded-full bg-slate-100 px-3 py-0.5 text-xs font-semibold text-slate-700">
+                    {labOrderStatusLabel(t, printLabOrder.status)}
+                  </span>
+                  <ul className="mt-3 space-y-1">
+                    {printLabOrder.items.map((item) => (
+                      <li key={item.id} className="text-xs text-slate-600">
+                        · {item.test_name}{item.test_code ? ` (${item.test_code})` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Action cards */}
+                <div className="grid grid-cols-2 gap-4 px-6 py-5">
+                  {/* Print */}
+                  <div className="flex flex-col rounded-xl border border-slate-200 p-4">
+                    <p className="text-2xl">🖨️</p>
+                    <p className="mt-2 text-sm font-bold text-slate-900">Print Lab Order</p>
+                    <p className="mt-1 text-xs text-slate-500">Open your browser print dialog to print this lab order</p>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+                    >
+                      Print Now
+                    </button>
+                  </div>
+
+                  {/* CSV */}
+                  <div className="flex flex-col rounded-xl border border-slate-200 p-4">
+                    <p className="text-2xl">📊</p>
+                    <p className="mt-2 text-sm font-bold text-slate-900">Download as CSV</p>
+                    <p className="mt-1 text-xs text-slate-500">Download a CSV file with all test results</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const header = 'Patient Name,Ordered Date,Status,Test Name,Test Code,Result Value,Result Unit,Reference Range,Is Abnormal,Result Status';
+                        const rows = printLabOrder.items.map((item) =>
+                          [
+                            printLabOrder.patientName,
+                            new Date(printLabOrder.ordered_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                            printLabOrder.status,
+                            item.test_name,
+                            item.test_code ?? '',
+                            item.result_value ?? '',
+                            item.result_unit ?? '',
+                            item.reference_range ?? '',
+                            item.is_abnormal ? 'Yes' : 'No',
+                            item.status,
+                          ]
+                            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+                            .join(',')
+                        );
+                        const csv = [header, ...rows].join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `lab-order-${printLabOrder.id}.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="mt-4 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-700"
+                    >
+                      Download CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Disclaimer + close */}
+                <div className="border-t border-slate-100 px-6 py-4">
+                  <p className="text-xs text-amber-600">
+                    ⚠️ These results are for clinical use only. Always verify with the ordering physician.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setShowPrintModal(false); setPrintLabOrderId(null); }}
+                    className="mt-3 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 };

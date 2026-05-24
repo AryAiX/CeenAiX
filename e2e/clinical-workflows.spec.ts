@@ -563,7 +563,7 @@ test('doctor cannot create lab order without selecting a patient', async ({ brow
 
   await page.getByRole('button', { name: /save lab order/i }).click();
 
-  await expect(page.getByText(/select a patient/i)).toBeVisible();
+  await expect(page.getByText(/select a patient/i).first()).toBeVisible();
   expect(state.labOrders).toHaveLength(0);
   await closePage(page);
 });

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Ban,
@@ -51,13 +52,7 @@ const INITIAL_AVAILABILITY_FORM: AvailabilityFormState = {
   slotDurationMinutes: '30',
 };
 
-const getTodayDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, '0');
-  const day = `${now.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
 const INITIAL_BLOCKED_SLOT_FORM = (): BlockedSlotFormState => ({
   blockedDate: getTodayDate(),
@@ -81,7 +76,7 @@ const formatTimeLabel = (value: string, language: string) => {
 };
 
 export const DoctorSchedule: React.FC = () => {
-  const { t, i18n } = useTranslation('common');
+  const { i18n } = useTranslation('common');
   const locale = resolveLocale(i18n.language);
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(i18n.language, options);
   const { user } = useAuth();
@@ -94,6 +89,12 @@ export const DoctorSchedule: React.FC = () => {
   const [isSavingBlockedSlot, setIsSavingBlockedSlot] = useState(false);
   const [busyAvailabilityId, setBusyAvailabilityId] = useState<string | null>(null);
   const [busyBlockedSlotId, setBusyBlockedSlotId] = useState<string | null>(null);
+  const [showDeleteAvailabilityModal, setShowDeleteAvailabilityModal] = useState(false);
+  const [deleteAvailabilityId, setDeleteAvailabilityId] = useState<string | null>(null);
+  const [showDeleteBlockedSlotModal, setShowDeleteBlockedSlotModal] = useState(false);
+  const [deleteBlockedSlotId, setDeleteBlockedSlotId] = useState<string | null>(null);
+  const [editingAvailabilityId, setEditingAvailabilityId] = useState<string | null>(null);
+  const [editAvailabilityForm, setEditAvailabilityForm] = useState<AvailabilityFormState>(INITIAL_AVAILABILITY_FORM);
 
   const availabilities = useMemo(() => data?.availabilities ?? [], [data?.availabilities]);
   const blockedSlots = useMemo(() => data?.blockedSlots ?? [], [data?.blockedSlots]);
@@ -117,18 +118,18 @@ export const DoctorSchedule: React.FC = () => {
     setFeedback(null);
 
     if (!user) {
-      setError(t('doctor.schedule.errAuthAvailability', { defaultValue: 'You need to be signed in as a doctor to manage availability.' }));
+      setError('You need to be signed in as a doctor to manage availability.');
       return;
     }
 
     if (availabilityForm.startTime >= availabilityForm.endTime) {
-      setError(t('doctor.schedule.errEndAfterStart', { defaultValue: 'Availability end time must be later than the start time.' }));
+      setError('Availability end time must be later than the start time.');
       return;
     }
 
     const slotDurationMinutes = Number(availabilityForm.slotDurationMinutes);
     if (!Number.isFinite(slotDurationMinutes) || slotDurationMinutes <= 0) {
-      setError(t('doctor.schedule.errSlotDuration', { defaultValue: 'Choose a valid slot duration.' }));
+      setError('Choose a valid slot duration.');
       return;
     }
 
@@ -152,7 +153,7 @@ export const DoctorSchedule: React.FC = () => {
     }
 
     setAvailabilityForm(INITIAL_AVAILABILITY_FORM);
-    setSuccess(t('doctor.schedule.succAvailabilityAdded', { defaultValue: 'Weekly availability window added.' }));
+    setSuccess('Weekly availability window added.');
     refetch();
   };
 
@@ -172,41 +173,66 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
-    setSuccess(
-      nextIsActive
-        ? t('doctor.schedule.succAvailabilityActivated', { defaultValue: 'Availability activated.' })
-        : t('doctor.schedule.succAvailabilityPaused', { defaultValue: 'Availability paused.' })
-    );
+    setSuccess(nextIsActive ? 'Availability activated.' : 'Availability paused.');
     refetch();
   };
 
-  const handleAvailabilityDelete = async (availabilityId: string) => {
-    if (
-      !window.confirm(
-        t('doctor.schedule.confirmDeleteAvailability', {
-          defaultValue: 'Delete this recurring availability window?',
-        })
-      )
-    ) {
+  const handleAvailabilityEdit = (entry: typeof availabilities[number]) => {
+    setEditingAvailabilityId(entry.id);
+    setEditAvailabilityForm({
+      dayOfWeek: String(entry.day_of_week),
+      startTime: entry.start_time,
+      endTime: entry.end_time,
+      slotDurationMinutes: String(entry.slot_duration_minutes),
+    });
+  };
+
+  const handleAvailabilityUpdate = async (availabilityId: string) => {
+    if (editAvailabilityForm.startTime >= editAvailabilityForm.endTime) {
+      setError('End time must be later than start time.');
       return;
     }
-
     setFeedback(null);
     setBusyAvailabilityId(availabilityId);
+    const { error: updateError } = await supabase
+      .from('doctor_availability')
+      .update({
+        start_time: editAvailabilityForm.startTime,
+        end_time: editAvailabilityForm.endTime,
+        slot_duration_minutes: Number(editAvailabilityForm.slotDurationMinutes),
+      })
+      .eq('id', availabilityId);
+    setBusyAvailabilityId(null);
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+    setEditingAvailabilityId(null);
+    setSuccess('Availability window updated.');
+    refetch();
+  };
 
+  const handleAvailabilityDelete = (availabilityId: string) => {
+    setDeleteAvailabilityId(availabilityId);
+    setShowDeleteAvailabilityModal(true);
+  };
+
+  const confirmAvailabilityDelete = async () => {
+    if (!deleteAvailabilityId) return;
+    setFeedback(null);
+    setBusyAvailabilityId(deleteAvailabilityId);
+    setShowDeleteAvailabilityModal(false);
     const { error: deleteError } = await supabase
       .from('doctor_availability')
       .delete()
-      .eq('id', availabilityId);
-
+      .eq('id', deleteAvailabilityId);
     setBusyAvailabilityId(null);
-
+    setDeleteAvailabilityId(null);
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
-
-    setSuccess(t('doctor.schedule.succAvailabilityRemoved', { defaultValue: 'Availability window removed.' }));
+    setSuccess('Availability window removed.');
     refetch();
   };
 
@@ -215,12 +241,12 @@ export const DoctorSchedule: React.FC = () => {
     setFeedback(null);
 
     if (!user) {
-      setError(t('doctor.schedule.errAuthBlock', { defaultValue: 'You need to be signed in as a doctor to block time.' }));
+      setError('You need to be signed in as a doctor to block time.');
       return;
     }
 
     if (blockedSlotForm.startTime >= blockedSlotForm.endTime) {
-      setError(t('doctor.schedule.errBlockEndAfterStart', { defaultValue: 'Blocked slot end time must be later than the start time.' }));
+      setError('Blocked slot end time must be later than the start time.');
       return;
     }
 
@@ -242,35 +268,40 @@ export const DoctorSchedule: React.FC = () => {
     }
 
     setBlockedSlotForm(INITIAL_BLOCKED_SLOT_FORM());
-    setSuccess(t('doctor.schedule.succBlockAdded', { defaultValue: 'Blocked time added to your schedule.' }));
+    setSuccess('Blocked time added to your schedule.');
     refetch();
   };
 
-  const handleBlockedSlotDelete = async (blockedSlotId: string) => {
-    if (
-      !window.confirm(
-        t('doctor.schedule.confirmRemoveBlock', {
-          defaultValue: 'Remove this blocked time from your schedule?',
-        })
-      )
-    ) {
-      return;
-    }
+  const handleBlockedSlotDelete = (blockedSlotId: string) => {
+    setDeleteBlockedSlotId(blockedSlotId);
+    setShowDeleteBlockedSlotModal(true);
+  };
 
+  const confirmBlockedSlotDelete = async () => {
+    if (!deleteBlockedSlotId) return;
     setFeedback(null);
-    setBusyBlockedSlotId(blockedSlotId);
-
-    const { error: deleteError } = await supabase.from('blocked_slots').delete().eq('id', blockedSlotId);
-
+    setBusyBlockedSlotId(deleteBlockedSlotId);
+    setShowDeleteBlockedSlotModal(false);
+    const { error: deleteError } = await supabase
+      .from('blocked_slots')
+      .delete()
+      .eq('id', deleteBlockedSlotId);
     setBusyBlockedSlotId(null);
-
+    setDeleteBlockedSlotId(null);
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
-
-    setSuccess(t('doctor.schedule.succBlockRemoved', { defaultValue: 'Blocked time removed.' }));
+    setSuccess('Blocked time removed.');
     refetch();
+  };
+
+  const calculateSlots = (startTime: string, endTime: string, slotDurationMinutes: number): number => {
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+    const totalMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+    if (totalMinutes <= 0 || slotDurationMinutes <= 0) return 0;
+    return Math.floor(totalMinutes / slotDurationMinutes);
   };
 
   return (
@@ -438,7 +469,9 @@ export const DoctorSchedule: React.FC = () => {
                       <div className="mb-3 flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900">{day.label}</h3>
                         <span className="text-xs font-medium text-gray-500">
-                          {day.entries.length === 0 ? 'Unavailable' : `${day.entries.length} window${day.entries.length === 1 ? '' : 's'}`}
+                          {day.entries.length === 0
+                            ? 'Unavailable'
+                            : `${day.entries.length} window${day.entries.length === 1 ? '' : 's'} · ${day.entries.reduce((total, entry) => total + calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes), 0)} slots`}
                         </span>
                       </div>
 
@@ -449,57 +482,133 @@ export const DoctorSchedule: React.FC = () => {
                           {day.entries.map((entry) => {
                             const isBusy = busyAvailabilityId === entry.id;
                             return (
-                              <div
-                                key={entry.id}
-                                className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div
-                                    className={`rounded-lg p-2 ${
-                                      entry.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                                    }`}
-                                  >
-                                    <Clock3 className="h-4 w-4" />
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      {formatTimeLabel(entry.start_time, i18n.language)} to {formatTimeLabel(entry.end_time, i18n.language)}
-                                    </p>
+                              <React.Fragment key={entry.id}>
+                                <div className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+                                  <div className="flex items-start gap-3">
+                                    <div
+                                      className={`rounded-lg p-2 ${
+                                        entry.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                      }`}
+                                    >
+                                      <Clock3 className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-gray-900">
+                                        {formatTimeLabel(entry.start_time, i18n.language)} to {formatTimeLabel(entry.end_time, i18n.language)}
+                                      </p>
                                     <p className="mt-1 text-sm text-gray-600">
                                       {entry.slot_duration_minutes} minute slots
+                                      <span className='ml-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700'>
+                                        {calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes)} slots available
+                                      </span>
                                     </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                        entry.is_active
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : 'bg-gray-200 text-gray-700'
+                                      }`}
+                                    >
+                                      {entry.is_active ? 'Active' : 'Paused'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      disabled={isBusy}
+                                      onClick={() => handleAvailabilityToggle(entry.id, !entry.is_active)}
+                                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {entry.is_active ? 'Pause' : 'Activate'}
+                                    </button>
+                                    <button
+                                      type='button'
+                                      disabled={isBusy}
+                                      onClick={() => handleAvailabilityEdit(entry)}
+                                      className='rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60'
+                                    >
+                                      ✏️ Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isBusy}
+                                      onClick={() => handleAvailabilityDelete(entry.id)}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Delete</span>
+                                    </button>
                                   </div>
                                 </div>
 
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span
-                                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                      entry.is_active
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : 'bg-gray-200 text-gray-700'
-                                    }`}
-                                  >
-                                    {entry.is_active ? 'Active' : 'Paused'}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    disabled={isBusy}
-                                    onClick={() => handleAvailabilityToggle(entry.id, !entry.is_active)}
-                                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {entry.is_active ? 'Pause' : 'Activate'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={isBusy}
-                                    onClick={() => handleAvailabilityDelete(entry.id)}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
-                              </div>
+                                {editingAvailabilityId === entry.id ? (
+                                  <div className='mt-2 rounded-xl border border-teal-200 bg-teal-50 p-5 space-y-4'>
+                                    <div className='flex items-center justify-between'>
+                                      <p className='text-sm font-bold text-teal-800'>✏️ Edit Availability Window</p>
+                                      <button
+                                        type='button'
+                                        onClick={() => setEditingAvailabilityId(null)}
+                                        className='text-slate-400 hover:text-slate-600 text-sm'
+                                      >
+                                        ✕ Close
+                                      </button>
+                                    </div>
+                                    <div className='grid gap-4 sm:grid-cols-3'>
+                                      <label className='block'>
+                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>Start Time</span>
+                                        <input
+                                          type='time'
+                                          value={editAvailabilityForm.startTime}
+                                          onChange={(e) => setEditAvailabilityForm((prev) => ({ ...prev, startTime: e.target.value }))}
+                                          className='w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+                                        />
+                                      </label>
+                                      <label className='block'>
+                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>End Time</span>
+                                        <input
+                                          type='time'
+                                          value={editAvailabilityForm.endTime}
+                                          onChange={(e) => setEditAvailabilityForm((prev) => ({ ...prev, endTime: e.target.value }))}
+                                          className='w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+                                        />
+                                      </label>
+                                      <label className='block'>
+                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>Slot Duration</span>
+                                        <select
+                                          value={editAvailabilityForm.slotDurationMinutes}
+                                          onChange={(e) => setEditAvailabilityForm((prev) => ({ ...prev, slotDurationMinutes: e.target.value }))}
+                                          className='w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+                                        >
+                                          <option value='15'>15 min</option>
+                                          <option value='20'>20 min</option>
+                                          <option value='30'>30 min</option>
+                                          <option value='45'>45 min</option>
+                                          <option value='60'>60 min</option>
+                                        </select>
+                                      </label>
+                                    </div>
+                                    <div className='flex gap-3 pt-1'>
+                                      <button
+                                        type='button'
+                                        onClick={() => handleAvailabilityUpdate(entry.id)}
+                                        disabled={busyAvailabilityId === entry.id}
+                                        className='rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60'
+                                      >
+                                        Save Changes
+                                      </button>
+                                      <button
+                                        type='button'
+                                        onClick={() => setEditingAvailabilityId(null)}
+                                        className='rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50'
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </React.Fragment>
                             );
                           })}
                         </div>
@@ -567,9 +676,7 @@ export const DoctorSchedule: React.FC = () => {
                 </div>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {t('doctor.schedule.reasonLabel', { defaultValue: 'Reason' })}
-                  </span>
+                  <span className="text-sm font-semibold text-gray-700">Reason</span>
                   <textarea
                     value={blockedSlotForm.reason}
                     onChange={(event) =>
@@ -577,9 +684,7 @@ export const DoctorSchedule: React.FC = () => {
                     }
                     rows={3}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                    placeholder={t('doctor.schedule.reasonPh', {
-                      defaultValue: 'Optional note for your own reference',
-                    })}
+                    placeholder="Optional note for your own reference"
                   />
                 </label>
 
@@ -657,6 +762,50 @@ export const DoctorSchedule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {showDeleteAvailabilityModal ? createPortal(
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+          onClick={() => setShowDeleteAvailabilityModal(false)}>
+          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className='text-lg font-bold text-slate-900'>Delete Availability Window</h3>
+            <p className='mt-2 text-sm text-slate-600'>Are you sure you want to delete this recurring availability window? This action cannot be undone.</p>
+            <div className='mt-5 flex gap-3'>
+              <button type='button' onClick={() => setShowDeleteAvailabilityModal(false)}
+                className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
+                Cancel
+              </button>
+              <button type='button' onClick={confirmAvailabilityDelete}
+                className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
+      {showDeleteBlockedSlotModal ? createPortal(
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+          onClick={() => setShowDeleteBlockedSlotModal(false)}>
+          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className='text-lg font-bold text-slate-900'>Remove Blocked Time</h3>
+            <p className='mt-2 text-sm text-slate-600'>Are you sure you want to remove this blocked time from your schedule?</p>
+            <div className='mt-5 flex gap-3'>
+              <button type='button' onClick={() => setShowDeleteBlockedSlotModal(false)}
+                className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
+                Cancel
+              </button>
+              <button type='button' onClick={confirmBlockedSlotDelete}
+                className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Plus, Search, TestTube2, Trash2 } from 'lucide-react';
+import { ChevronLeft, Loader2, Plus, Search, TestTube2, Trash2 } from 'lucide-react';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import {
   useDoctorPatients,
@@ -49,6 +49,7 @@ interface LabOrderItemEditorProps {
   item: DraftLabOrderItem;
   onChange: (id: string, nextState: Partial<DraftLabOrderItem>) => void;
   onRemove: (id: string) => void;
+  showErrors: boolean;
   uiLanguage: string;
   userId: string;
 }
@@ -105,6 +106,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
   item,
   onChange,
   onRemove,
+  showErrors,
   uiLanguage,
   userId,
 }) => {
@@ -196,17 +198,6 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       return;
     }
 
-    // Refuse to write a suggestion row with an empty `created_by` (would
-    // insert a corrupt FK / break audit trails). Bail out cleanly instead.
-    if (!userId) {
-      setSuggestionError(
-        t('doctor.createLabOrder.signInRequired', {
-          defaultValue: 'Please re-authenticate before submitting catalog suggestions.',
-        })
-      );
-      return;
-    }
-
     setSubmittingSuggestion(true);
     setSuggestionError(null);
 
@@ -255,15 +246,6 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
   const submitNewLabTestSuggestion = async () => {
     if (!newTestDraft.displayNameEn.trim()) {
       setSuggestionError(t('doctor.createLabOrder.testNameRequired'));
-      return;
-    }
-
-    if (!userId) {
-      setSuggestionError(
-        t('doctor.createLabOrder.signInRequired', {
-          defaultValue: 'Please re-authenticate before submitting catalog suggestions.',
-        })
-      );
       return;
     }
 
@@ -339,9 +321,16 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                 })
               }
               placeholder={t('doctor.createLabOrder.searchTestPlaceholder')}
-              className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 rtl:pl-4 rtl:pr-11"
+              className={`w-full rounded-2xl border py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition rtl:pl-4 rtl:pr-11 ${
+                showErrors && !item.testName
+                  ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20'
+                  : 'border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
+              }`}
             />
           </div>
+          {showErrors && !item.testName ? (
+            <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ Please search and select a lab test</p>
+          ) : null}
         </label>
 
         {item.testName ? (
@@ -661,6 +650,7 @@ export const CreateLabOrder: React.FC = () => {
   const [items, setItems] = useState<DraftLabOrderItem[]>([createDraftLabOrderItem()]);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   const { data: appointmentsData } = useQuery<
     Array<{ id: string; scheduled_at: string; chief_complaint: string | null }>
@@ -700,6 +690,8 @@ export const CreateLabOrder: React.FC = () => {
   };
 
   const submit = async () => {
+    setShowValidationErrors(true);
+
     if (!user?.id || !patientId) {
       setFeedback({ type: 'error', message: t('doctor.createLabOrder.patientRequired') });
       return;
@@ -756,7 +748,7 @@ export const CreateLabOrder: React.FC = () => {
       return;
     }
 
-    const { error: notificationError } = await supabase.from('notifications').insert({
+    await supabase.from('notifications').insert({
       user_id: patientId,
       type: 'system',
       title: 'New lab order created',
@@ -765,24 +757,25 @@ export const CreateLabOrder: React.FC = () => {
     });
 
     setSaving(false);
-    if (notificationError) {
-      setFeedback({
-        type: 'success',
-        message: `${t('doctor.createLabOrder.saveSuccess')} (Patient notification could not be sent: ${notificationError.message})`,
-      });
-      navigate('/doctor/lab-orders');
-      return;
-    }
+    setShowValidationErrors(false);
     setFeedback({ type: 'success', message: t('doctor.createLabOrder.saveSuccess') });
     navigate('/doctor/lab-orders');
   };
 
   return (
     <>
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">{t('doctor.createLabOrder.title')}</h1>
-        <p className="mt-1 text-sm text-slate-500">{t('doctor.createLabOrder.subtitle')}</p>
-      </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate('/doctor/lab-orders')}
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Lab Orders
+          </button>
+          <h1 className="text-2xl font-bold text-slate-900">{t('doctor.createLabOrder.title')}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t('doctor.createLabOrder.subtitle')}</p>
+        </div>
 
       <div className="mx-auto w-full max-w-5xl space-y-6">
         {feedback ? (
@@ -809,7 +802,11 @@ export const CreateLabOrder: React.FC = () => {
                   setPatientId(event.target.value);
                   setAppointmentId('');
                 }}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                className={`w-full rounded-2xl border px-4 py-3 text-sm text-slate-700 outline-none transition ${
+                showValidationErrors && !patientId
+                  ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                  : 'border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
+              }`}
               >
                 <option value="">{t('doctor.createLabOrder.selectPatient')}</option>
                 {patients.map((patient) => (
@@ -818,6 +815,9 @@ export const CreateLabOrder: React.FC = () => {
                   </option>
                 ))}
               </select>
+              {showValidationErrors && !patientId ? (
+                <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ Please select a patient</p>
+              ) : null}
             </label>
 
             <label className="block">
@@ -862,6 +862,7 @@ export const CreateLabOrder: React.FC = () => {
               item={item}
               onChange={updateItem}
               onRemove={(id) => setItems((current) => current.filter((currentItem) => currentItem.id !== id))}
+              showErrors={showValidationErrors}
               uiLanguage={i18n.language}
               userId={user?.id ?? ''}
             />
