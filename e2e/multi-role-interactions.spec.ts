@@ -2,7 +2,9 @@ import { expect, test, type Browser } from '@playwright/test';
 import {
   createE2EWorkflowState,
   e2eUsers,
+  getE2eWorkflowSnapshot,
   installSupabaseMocks,
+  resetPharmacyDispensingTasks,
   seedAuthenticatedRole,
   workflowIds,
   type E2ERole,
@@ -217,21 +219,15 @@ test('multi-role interaction: patient booking propagates to doctor, lab, insuran
   ).toBeVisible();
   await patientLabResultsPage.close({ runBeforeUnload: true });
 
-  // 6. Insurance portal must still render (no console errors, no thrown
-  //    exceptions) when querying the same workflow state. Insurance does not
-  //    yet have a wired claim-write surface but the dashboard should hydrate
-  //    against the canonical schema without crashing.
-  const insurancePage = await openRolePage(
-    browser,
-    state,
-    'super_admin' /* insurance role uses the same mock identity tooling */,
-    '/insurance/portal'
-  );
-  trackErrors(insurancePage, 'super_admin');
-  // The role guard for /insurance/* expects role=insurance; super_admin will
-  // hit the AccessDenied route — assert at least that we never end up on a
-  // blank screen and that the route guard is honored.
-  await expect(insurancePage).toHaveURL(/\/(insurance\/portal|access-denied)(?:[?#].*)?$/);
+  // 6. Insurance portal hydrates claims/members against canonical fixtures.
+  resetPharmacyDispensingTasks();
+  const workflowSnapshot = getE2eWorkflowSnapshot(state);
+  expect(workflowSnapshot.appointments.length).toBeGreaterThan(0);
+
+  const insurancePage = await openRolePage(browser, state, 'insurance', '/insurance/portal');
+  trackErrors(insurancePage, 'insurance');
+  await expect(insurancePage).toHaveURL(/\/insurance\/portal(?:[?#].*)?$/);
+  await expect(insurancePage.getByText(/CLM-E2E-001|CeenAiX Gold/i).first()).toBeVisible();
   await insurancePage.close({ runBeforeUnload: true });
 
   // 7. Admin dashboard surfaces the canonical context payload (and the live

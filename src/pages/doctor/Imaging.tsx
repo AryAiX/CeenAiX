@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Clock, Layers, ListChecks, Scan, Search, Workflow } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorLabOrders } from '../../hooks';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 
@@ -25,7 +26,7 @@ export const DoctorImaging = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error } = useDoctorLabOrders(user?.id);
+  const { data, loading, error, refetch } = useDoctorLabOrders(user?.id);
   const uiLang = i18n.language ?? 'en';
   const [activeStatus, setActiveStatus] = useState<'all' | 'pending' | 'reported' | 'abnormal'>('all');
   const [modalityFilter, setModalityFilter] = useState('all');
@@ -85,8 +86,18 @@ export const DoctorImaging = () => {
   return (
     <div className="animate-fadeIn space-y-6">
       {error ? (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('doctor.imaging.loadError', { defaultValue: 'Imaging queue could not be loaded right now.' })}
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 font-semibold underline"
+          >
+            Retry
+          </button>
         </div>
       ) : null}
 
@@ -168,6 +179,7 @@ export const DoctorImaging = () => {
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 placeholder={t('doctor.imaging.searchPh', {
                   defaultValue: 'Search patient, modality, study...',
                 })}

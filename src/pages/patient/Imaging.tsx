@@ -38,7 +38,7 @@ function isImagingName(name: string): boolean {
 export const PatientImaging = () => {
   const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
-  const { data: labOrders, loading, error } = usePatientLabResults(user?.id);
+  const { data: labOrders, loading, error, refetch } = usePatientLabResults(user?.id);
   const [activeTab, setActiveTab] = useState<ImagingTab>('recent');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -121,8 +121,18 @@ export const PatientImaging = () => {
   return (
     <div className="animate-fadeIn space-y-6">
       {error ? (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('patient.imaging.loadError')}
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 font-semibold underline"
+          >
+            Retry
+          </button>
         </div>
       ) : null}
 

@@ -344,7 +344,10 @@ export const Login = () => {
               <p className="mb-6 text-sm text-slate-500">{t('auth.login.descriptionRecovery')}</p>
 
               {errorMessage ? (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div
+                  role="alert"
+                  className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                >
                   {errorMessage}
                 </div>
               ) : null}
@@ -443,7 +446,10 @@ export const Login = () => {
                 </p>
 
                 {errorMessage ? (
-                  <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <div
+                    role="alert"
+                    className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  >
                     {errorMessage}
                   </div>
                 ) : null}

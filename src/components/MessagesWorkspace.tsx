@@ -24,6 +24,7 @@ import {
   serializeMessageBodyParts,
   trimMessageDraft,
 } from '../lib/messaging';
+import { FORM_FIELD_LIMITS } from '../lib/form-field-limits';
 import { Skeleton } from './Skeleton';
 
 interface MessagesWorkspaceProps {
@@ -572,6 +573,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               placeholder={t(`${namespace}.searchPlaceholder`)}
               className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200 rtl:pl-4 rtl:pr-11"
             />
@@ -660,17 +662,26 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
       <div className="flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
         {conversationError ? (
-          <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+          <div
+            role="alert"
+            className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700"
+          >
             {conversationError}
           </div>
         ) : null}
         {threadError ? (
-          <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+          <div
+            role="alert"
+            className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700"
+          >
             {threadError}
           </div>
         ) : null}
         {actionError ? (
-          <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+          <div
+            role="alert"
+            className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800"
+          >
             {actionError}
           </div>
         ) : null}

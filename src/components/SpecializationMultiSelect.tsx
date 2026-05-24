@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react';
 import type { Specialization } from '../types';
+import { FORM_FIELD_LIMITS } from '../lib/form-field-limits';
 import { getSelectedSpecializations } from '../lib/doctor-specializations';
 
 interface SpecializationMultiSelectProps {
@@ -95,6 +96,7 @@ export const SpecializationMultiSelect = ({
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            maxLength={FORM_FIELD_LIMITS.searchQuery}
             disabled={disabled || loading}
             className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-gray-900 outline-none transition focus:border-ceenai-cyan focus:ring-4 focus:ring-ceenai-cyan/10 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder={placeholder}

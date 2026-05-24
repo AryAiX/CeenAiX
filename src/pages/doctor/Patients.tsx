@@ -4,6 +4,7 @@ import { FileText, MoreVertical, Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorPatients } from '../../hooks';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import type { DoctorPatientRisk, DoctorPatientSummary } from '../../hooks/use-doctor-patients';
@@ -139,7 +140,7 @@ export const DoctorPatients: React.FC = () => {
   const [viewMode, setViewMode] = useState<PatientViewMode>('list');
   const [filterActive, setFilterActive] = useState<PatientFilter>('all');
   const [sortBy, setSortBy] = useState<PatientSort>('lastVisit');
-  const { data, loading, error } = useDoctorPatients(user?.id);
+  const { data, loading, error, refetch } = useDoctorPatients(user?.id);
   const rawPatients = useMemo(() => data ?? [], [data]);
   const uiLang = i18n.language ?? 'en';
   const todayKey = new Date().toDateString();
@@ -218,6 +219,7 @@ export const DoctorPatients: React.FC = () => {
             })}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            maxLength={FORM_FIELD_LIMITS.searchQuery}
             className="h-12 w-full rounded-lg border border-slate-200 pl-12 pr-4 text-[14px] outline-none focus:ring-2 focus:ring-teal-500 rtl:pl-4 rtl:pr-12"
           />
         </div>
@@ -286,8 +288,18 @@ export const DoctorPatients: React.FC = () => {
           <Skeleton className="mt-3 h-16 w-full rounded-xl" />
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {t('doctor.patients.loadError')}
+        <div
+          role="alert"
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 font-semibold underline"
+          >
+            Retry
+          </button>
         </div>
       ) : filteredPatients.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm">

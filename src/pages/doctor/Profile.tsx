@@ -611,6 +611,7 @@ export const DoctorProfile: React.FC = () => {
         </div>
         {!isEditing ? (
           <button
+            type="button"
             onClick={() => setIsEditing(true)}
             className="flex items-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-700"
           >
@@ -678,7 +679,10 @@ export const DoctorProfile: React.FC = () => {
 
             <div className="px-8 py-6">
               {errorMessage ? (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div
+                  role="alert"
+                  className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                >
                   {errorMessage}
                 </div>
               ) : null}
@@ -808,6 +812,7 @@ export const DoctorProfile: React.FC = () => {
 
                   <div className="flex gap-3 pt-4">
                     <button
+                      type="button"
                       onClick={handleSave}
                       disabled={saving}
                       className="flex items-center gap-2 rounded-lg bg-teal-600 px-6 py-2 text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
@@ -816,6 +821,7 @@ export const DoctorProfile: React.FC = () => {
                       {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                     <button
+                      type="button"
                       onClick={handleCancel}
                       disabled={saving}
                       className="flex items-center gap-2 rounded-lg border border-gray-300 px-6 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
@@ -964,7 +970,10 @@ export const DoctorProfile: React.FC = () => {
 
             <div className="space-y-6 px-8 py-6">
               {templateErrorMessage ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                >
                   {templateErrorMessage}
                 </div>
               ) : null}
@@ -976,8 +985,18 @@ export const DoctorProfile: React.FC = () => {
               ) : null}
 
               {preVisitTemplatesError ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div
+                  role="alert"
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                >
                   {preVisitTemplatesError}
+                  <button
+                    type="button"
+                    onClick={() => void refetchPreVisitTemplates()}
+                    className="ml-2 font-semibold underline"
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : null}
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, BookOpen, Search } from 'lucide-react';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 interface Article {
   id: string;
@@ -122,6 +123,7 @@ export const HealthEducation: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  maxLength={FORM_FIELD_LIMITS.searchQuery}
                   placeholder="Search for health topics..."
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pl-12 pr-4 text-slate-900 outline-none transition focus:border-ceenai-cyan focus:bg-white focus:ring-2 focus:ring-ceenai-cyan/20"
                 />
@@ -156,7 +158,7 @@ export const HealthEducation: React.FC = () => {
             {filteredArticles.map((article) => (
               <div
                 key={article.id}
-                className="group card-hover cursor-pointer overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
+                className="group card-hover overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
               >
                 <div className="relative h-52 overflow-hidden">
                   <img
@@ -179,7 +181,12 @@ export const HealthEducation: React.FC = () => {
                   <p className="line-clamp-3 text-sm text-slate-600">
                     {article.excerpt}
                   </p>
-                  <button className="mt-4 flex items-center space-x-1 text-sm font-semibold text-ceenai-blue transition-colors hover:text-ceenai-blue-dark">
+                  <button
+                    type="button"
+                    disabled
+                    title="Full article reader — coming soon"
+                    className="mt-4 flex cursor-not-allowed items-center space-x-1 text-sm font-semibold text-slate-400 opacity-80"
+                  >
                     <span>Read more</span>
                     <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                   </button>
@@ -196,7 +203,8 @@ export const HealthEducation: React.FC = () => {
             Create a free account to get AI-powered health recommendations tailored to your needs
           </p>
           <button
-            onClick={() => navigate('/auth')}
+            type="button"
+            onClick={() => navigate('/auth/login')}
             className="rounded-full bg-white px-8 py-3 font-bold text-slate-950 transition-colors hover:bg-slate-100"
           >
             Get Started Free

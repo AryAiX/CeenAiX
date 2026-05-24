@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Building2 } from 'lucide-react';
+import { Building2, RefreshCcw } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { useAdminOrganizations } from '../../hooks';
 import { ADMIN_NAV_ITEMS } from './navItems';
@@ -22,7 +22,7 @@ const STATUS_BADGE: Record<OrganizationStatus, string> = {
 
 export const AdminOrganizations = () => {
   const { t } = useTranslation('common');
-  const { data, loading, error } = useAdminOrganizations();
+  const { data, loading, error, refetch } = useAdminOrganizations();
   const orgs = data ?? [];
 
   return (
@@ -34,8 +34,19 @@ export const AdminOrganizations = () => {
       accent="slate"
     >
       {error ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
           Failed to load organizations: {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       ) : null}
 

@@ -83,8 +83,18 @@ export const PatientNotifications: React.FC = () => {
 
       <div className="space-y-6">
         {error ? (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('patient.notifications.loadError')}
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+          >
+            {error}
+            <button
+              type="button"
+              onClick={refetch}
+              className="ml-2 font-semibold underline"
+            >
+              Retry
+            </button>
           </div>
         ) : null}
 

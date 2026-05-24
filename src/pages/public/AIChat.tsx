@@ -397,7 +397,7 @@ export const AIChat: React.FC = () => {
                 {t('public.guestAiChat.assistantLead')}{' '}
                 <button
                   type="button"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => navigate('/auth/login')}
                   className="font-semibold text-ceenai-blue underline hover:text-ceenai-blue-dark"
                 >
                   {t('public.guestAiChat.createAccountCta')}

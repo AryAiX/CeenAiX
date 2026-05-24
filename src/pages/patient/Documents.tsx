@@ -19,14 +19,15 @@ import {
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientInsurance, usePatientLabResults, usePatientPrescriptions } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 
 export const PatientDocuments = () => {
   const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
-  const { data: labOrders, loading: labsLoading } = usePatientLabResults(user?.id);
-  const { data: prescriptions, loading: prescriptionsLoading } = usePatientPrescriptions(user?.id);
-  const { data: insurance, loading: insuranceLoading } = usePatientInsurance(user?.id);
+  const { data: labOrders, loading: labsLoading, error: labsError, refetch: refetchLabs } = usePatientLabResults(user?.id);
+  const { data: prescriptions, loading: prescriptionsLoading, error: rxError, refetch: refetchRx } = usePatientPrescriptions(user?.id);
+  const { data: insurance, loading: insuranceLoading, error: insuranceError, refetch: refetchInsurance } = usePatientInsurance(user?.id);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'all' | PatientDocument['category']>('all');
@@ -130,6 +131,12 @@ export const PatientDocuments = () => {
 
   const selectedDocument = filtered.find((doc) => doc.id === selectedId) ?? null;
   const loading = labsLoading || prescriptionsLoading || insuranceLoading;
+  const loadError = labsError ?? rxError ?? insuranceError;
+  const handleRetry = () => {
+    void refetchLabs();
+    void refetchRx();
+    void refetchInsurance();
+  };
   const categories: Array<{ id: 'all' | PatientDocument['category']; label: string; count: number }> = [
     { id: 'all', label: t('patient.documents.filterAll'), count: documents.length },
     {
@@ -161,6 +168,14 @@ export const PatientDocuments = () => {
 
   return (
     <div className="animate-fadeIn space-y-6">
+      {loadError ? (
+        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {loadError}
+          <button type="button" onClick={handleRetry} className="ml-2 font-semibold underline">
+            {t('shared.retry', { defaultValue: 'Retry' })}
+          </button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-100">
@@ -223,6 +238,7 @@ export const PatientDocuments = () => {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               placeholder={t('patient.documents.searchPlaceholder')}
               className="w-full rounded-xl border border-slate-200 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
             />

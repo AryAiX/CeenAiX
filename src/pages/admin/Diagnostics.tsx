@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { Flag, Settings2, Terminal } from 'lucide-react';
+import { Flag, RefreshCcw, Settings2, Terminal } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { useAdminDiagnostics } from '../../hooks';
 import { ADMIN_NAV_ITEMS } from './navItems';
 
 export const AdminDiagnostics = () => {
   const { t } = useTranslation('common');
-  const { data, loading, error } = useAdminDiagnostics();
+  const { data, loading, error, refetch } = useAdminDiagnostics();
 
   const flags = data?.featureFlags ?? [];
   const settings = data?.platformSettings ?? [];
@@ -20,8 +20,19 @@ export const AdminDiagnostics = () => {
       accent="slate"
     >
       {error ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
           Failed to load diagnostics: {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       ) : null}
 

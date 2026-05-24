@@ -261,8 +261,10 @@ export const Profile: React.FC = () => {
                     )}
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleImageUpload('profile')}
                     className="absolute bottom-0 right-0 bg-gradient-to-br from-blue-600 to-blue-700 text-white p-3 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-200 ring-4 ring-white"
+                    aria-label={t('patient.profile.changePhoto', { defaultValue: 'Change profile photo' })}
                   >
                     <Camera className="w-4 h-4" />
                   </button>
@@ -361,6 +363,7 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     if (isEditingPersonal) {
                       void savePersonalInfo();
@@ -541,6 +544,7 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={handleScanEmiratesId}
                   className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
@@ -608,6 +612,7 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     if (isEditingInsurance) {
                       void saveInsuranceInfo();
@@ -730,6 +735,7 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowAddFamily(true)}
                   className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
@@ -773,8 +779,10 @@ export const Profile: React.FC = () => {
                               </div>
                             </div>
                             <button
+                              type="button"
                               onClick={() => removeFamilyMember(member.id)}
                               className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                              aria-label={t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member' })}
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
@@ -837,12 +845,14 @@ export const Profile: React.FC = () => {
                     </div>
                     <div className="flex space-x-3 mt-6">
                       <button
+                        type="button"
                         onClick={addFamilyMember}
                         className="px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:shadow-xl hover:scale-105 transition-all duration-200 font-semibold"
                       >
                         {t('patient.profile.addMember')}
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setShowAddFamily(false);
                           setNewFamilyMember({});

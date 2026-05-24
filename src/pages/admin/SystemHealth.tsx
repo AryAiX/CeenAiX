@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, CheckCircle2, XCircle } from 'lucide-react';
+import { Activity, CheckCircle2, RefreshCcw, XCircle } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { useAdminSystemHealth } from '../../hooks';
 import { ADMIN_NAV_ITEMS } from './navItems';
@@ -36,7 +36,7 @@ const overallStatusFromSnapshots = (snapshots: ServiceHealthSnapshot[]): Service
 
 export const AdminSystemHealth = () => {
   const { t } = useTranslation('common');
-  const { data, loading, error } = useAdminSystemHealth();
+  const { data, loading, error, refetch } = useAdminSystemHealth();
 
   const allSnapshots = useMemo<ServiceHealthSnapshot[]>(() => {
     if (!data) return [];
@@ -54,8 +54,19 @@ export const AdminSystemHealth = () => {
       accent="slate"
     >
       {error ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
           Failed to load system health: {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       ) : null}
 

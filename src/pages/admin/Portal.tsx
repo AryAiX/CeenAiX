@@ -105,6 +105,7 @@ interface AdminContext {
   loading: boolean;
   error: string | null;
   refreshOrganizations: () => void;
+  refetchAll: () => void;
 }
 
 interface AdminNavItem {
@@ -362,6 +363,20 @@ const useAdminContextValue = (): AdminContext => {
       aiDashboard.loading,
     error,
     refreshOrganizations: organizations.refetch,
+    refetchAll: () => {
+      void metrics.refetch();
+      void users.refetch();
+      void organizations.refetch();
+      void compliance.refetch();
+      void systemHealth.refetch();
+      void aiAnalytics.refetch();
+      void diagnostics.refetch();
+      void dashboard.refetch();
+      void doctors.refetch();
+      void patients.refetch();
+      void insurancePartners.refetch();
+      void aiDashboard.refetch();
+    },
   };
 };
 
@@ -607,8 +622,18 @@ const AdminShell = ({
 
         <main className="flex-1 overflow-y-auto px-6 py-5">
           {context.error ? (
-            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <div
+              role="alert"
+              className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+            >
               Failed to load admin data: {context.error}
+              <button
+                type="button"
+                onClick={() => context.refetchAll()}
+                className="ml-2 font-semibold underline"
+              >
+                Retry
+              </button>
             </div>
           ) : null}
           {children}
@@ -2229,7 +2254,7 @@ const OnboardOrganizationModal = ({
           </div>
 
           {error ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {error}
             </div>
           ) : null}

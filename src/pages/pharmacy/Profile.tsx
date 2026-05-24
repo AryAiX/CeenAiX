@@ -186,6 +186,18 @@ export const PharmacyProfile = () => {
                   </div>
                 ))}
               </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled
+                  title={t('pharmacy.profile.editLicenseComingSoon', {
+                    defaultValue: 'License editing is managed by facility admins — coming soon',
+                  })}
+                  className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-400 opacity-80"
+                >
+                  {t('pharmacy.profile.editLicense', { defaultValue: 'Edit license details' })}
+                </button>
+              </div>
             </article>
           </section>
         </div>

@@ -11,7 +11,7 @@ export const DoctorEarnings = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const { user, doctorProfile } = useAuth();
-  const { data, loading, error } = useDoctorDashboard(user?.id);
+  const { data, loading, error, refetch } = useDoctorDashboard(user?.id);
   const uiLang = i18n.language ?? 'en';
   const fee = doctorProfile?.consultation_fee ?? 0;
   const completedToday = data?.completedTodayAppointments ?? 0;
@@ -36,8 +36,18 @@ export const DoctorEarnings = () => {
   return (
     <div className="animate-fadeIn space-y-6">
       {error ? (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('doctor.earnings.loadError', 'Earnings data could not be loaded right now.')}
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 font-semibold underline"
+          >
+            Retry
+          </button>
         </div>
       ) : null}
 
@@ -126,6 +136,18 @@ export const DoctorEarnings = () => {
               {t(`doctor.earnings.placeholder.${activeTab}`, {
                 defaultValue: `${activeTab[0].toUpperCase() + activeTab.slice(1)} will use the billing, claims, and payout tables once that data model is available. Current revenue values stay bound to live appointments and doctor profile fees.`,
               })}
+            </div>
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                disabled
+                title={t('doctor.earnings.exportComingSoon', {
+                  defaultValue: 'Billing exports arrive with the dedicated revenue model.',
+                })}
+                className="cursor-not-allowed rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-400 opacity-80"
+              >
+                {t('doctor.earnings.exportTab', { defaultValue: 'Export tab data' })}
+              </button>
             </div>
           </div>
         ) : null}

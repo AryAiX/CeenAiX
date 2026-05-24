@@ -3,6 +3,7 @@ import { AlertTriangle, KeyRound, ShieldAlert, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
+import { FORM_FIELD_LIMITS } from '../lib/form-field-limits';
 import { supabase } from '../lib/supabase';
 
 const DELETE_TOKEN = 'DELETE';
@@ -22,6 +23,7 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
@@ -74,9 +76,8 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
       return;
     }
 
-    const shouldDelete = window.confirm(t('accountSecurity.confirmDeleteDialog'));
-
-    if (!shouldDelete) {
+    if (!confirmDeleteOpen) {
+      setConfirmDeleteOpen(true);
       return;
     }
 
@@ -128,6 +129,7 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                maxLength={FORM_FIELD_LIMITS.password}
                 className={`w-full rounded-xl border-2 border-gray-200 px-4 py-3 transition-all ${focusClass}`}
                 placeholder={t('accountSecurity.newPasswordPlaceholder')}
               />
@@ -140,6 +142,7 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
+                maxLength={FORM_FIELD_LIMITS.password}
                 className={`w-full rounded-xl border-2 border-gray-200 px-4 py-3 transition-all ${focusClass}`}
                 placeholder={t('accountSecurity.confirmPasswordPlaceholder')}
               />
@@ -147,7 +150,10 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
           </div>
 
           {passwordError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div
+              role="alert"
+              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
               {passwordError}
             </div>
           ) : null}
@@ -197,16 +203,29 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
             <input
               type="text"
               value={deleteConfirmation}
-              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              onChange={(event) => {
+                setDeleteConfirmation(event.target.value);
+                setConfirmDeleteOpen(false);
+              }}
+              maxLength={FORM_FIELD_LIMITS.shortText}
               className={`w-full rounded-xl border-2 border-red-200 bg-white px-4 py-3 transition-all ${focusClass}`}
               placeholder={t('accountSecurity.deleteInputPlaceholder')}
             />
           </div>
 
           {deleteError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-700">
+            <div
+              role="alert"
+              className="mt-4 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-700"
+            >
               {deleteError}
             </div>
+          ) : null}
+
+          {confirmDeleteOpen ? (
+            <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {t('accountSecurity.confirmDeleteDialog')}
+            </p>
           ) : null}
 
           <button
@@ -215,7 +234,11 @@ export const AccountSecurityPanel = ({ tone = 'patient' }: AccountSecurityPanelP
             disabled={isDeletingAccount}
             className="mt-5 inline-flex items-center justify-center rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isDeletingAccount ? t('accountSecurity.deletingAccount') : t('accountSecurity.deleteButton')}
+            {isDeletingAccount
+              ? t('accountSecurity.deletingAccount')
+              : confirmDeleteOpen
+                ? t('accountSecurity.confirmDeleteButton', { defaultValue: 'Confirm permanent deletion' })
+                : t('accountSecurity.deleteButton')}
           </button>
         </div>
       </div>

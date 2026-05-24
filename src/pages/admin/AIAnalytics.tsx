@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { BrainCircuit, MessageSquare, ShieldAlert, Sparkles } from 'lucide-react';
+import { BrainCircuit, MessageSquare, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { useAdminAiAnalytics } from '../../hooks';
 import { ADMIN_NAV_ITEMS } from './navItems';
@@ -9,7 +9,7 @@ const formatNumber = (value: number | null | undefined) =>
 
 export const AdminAiAnalytics = () => {
   const { t } = useTranslation('common');
-  const { data, loading, error } = useAdminAiAnalytics();
+  const { data, loading, error, refetch } = useAdminAiAnalytics();
 
   const sessions = data?.sessions ?? null;
   const messages = data?.messages ?? null;
@@ -51,8 +51,19 @@ export const AdminAiAnalytics = () => {
       accent="slate"
     >
       {error ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
           Failed to load AI analytics: {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       ) : null}
 

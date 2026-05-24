@@ -132,6 +132,27 @@ test.describe('ops portal interactions', () => {
     await expect(page.locator('body')).not.toContainText(/Application error/i);
   });
 
+  test('insurance claims workspace lists seeded claims', async ({ page }) => {
+    await openAuthed(page, 'insurance', '/insurance/claims');
+    await expect(page.getByText(/CLM-E2E-001/i).first()).toBeVisible();
+  });
+
+  test('patient documents page renders derived document library', async ({ page }) => {
+    await openAuthed(page, 'patient', '/patient/documents');
+    await expect(page.getByRole('heading', { name: /documents/i }).first()).toBeVisible();
+    await expect(page.locator('body')).not.toContainText(/Cannot read properties/i);
+  });
+
+  test('patient messages workspace lists seeded conversation', async ({ page }) => {
+    await openAuthed(page, 'patient', '/patient/messages');
+    await expect(page.getByText(/Care coordination/i).first()).toBeVisible();
+  });
+
+  test('admin dashboard metrics render without RPC null crash', async ({ page }) => {
+    await openAuthed(page, 'super_admin', '/admin/dashboard');
+    await expect(page.getByText(/1,220|1220|Patients|Maya Admin/i).first()).toBeVisible();
+  });
+
   test('admin organizations page supports onboard lab CTA', async ({ page }) => {
     await openAuthed(page, 'super_admin', '/admin/organizations');
     await expect(page.getByRole('button', { name: /onboard lab/i })).toBeVisible();

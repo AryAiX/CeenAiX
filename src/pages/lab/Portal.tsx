@@ -457,7 +457,7 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
 
         <main className="flex-1 overflow-hidden">
           {context.error ? (
-            <div className="m-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <div className="m-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">
               Failed to load lab operations data: {context.error}
             </div>
           ) : null}
@@ -621,7 +621,7 @@ const CriticalBanner = ({
       </div>
 
       {errorMessage ? (
-        <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-red-700 ring-1 ring-red-200">
+        <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-red-700 ring-1 ring-red-200" role="alert">
           {errorMessage}
         </div>
       ) : null}
@@ -1274,7 +1274,10 @@ const LabQueuePage = ({ context }: { context: LabPageContext }) => {
             </button>
           </div>
           {toolbarError ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700"
+            >
               {toolbarError}
             </div>
           ) : null}
@@ -1561,7 +1564,10 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
           </div>
         </div>
         {ordersError ? (
-          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+          <div
+            role="alert"
+            className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700"
+          >
             {ordersError}
           </div>
         ) : null}
@@ -2072,7 +2078,7 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                 />
               </div>
               {resultsError ? (
-                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
                   {resultsError}
                 </div>
               ) : null}
@@ -2833,7 +2839,7 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
                 </div>
               </div>
               {reportError ? (
-                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
                   {reportError}
                 </div>
               ) : null}

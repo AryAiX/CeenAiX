@@ -129,6 +129,229 @@ const pharmacyDispensingTaskRows = () => {
   return mutablePharmacyDispensingTasks;
 };
 
+export function resetPharmacyDispensingTasks(): void {
+  mutablePharmacyDispensingTasks = defaultPharmacyDispensingTasks();
+}
+
+let mutableConversationRows: JsonRecord[] | null = null;
+let mutableMessageRows: JsonRecord[] | null = null;
+
+const defaultConversationRows = (): JsonRecord[] => [
+  {
+    id: conversationId,
+    subject: 'Care coordination',
+    participant_ids: [patientId, doctorId],
+    created_by: patientId,
+    last_message_at: yesterday,
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+];
+
+const defaultMessageRows = (): JsonRecord[] => [
+  {
+    id: 'message-e2e',
+    conversation_id: conversationId,
+    sender_id: doctorId,
+    body: 'Your results are ready for review.',
+    sent_at: yesterday,
+    is_read: false,
+    created_at: yesterday,
+  },
+];
+
+const mutableConversations = () => {
+  if (!mutableConversationRows) {
+    mutableConversationRows = defaultConversationRows();
+  }
+  return mutableConversationRows;
+};
+
+const mutableMessages = () => {
+  if (!mutableMessageRows) {
+    mutableMessageRows = defaultMessageRows();
+  }
+  return mutableMessageRows;
+};
+
+const insuranceOrgTableRows = (table: string): JsonRecord[] => {
+  const orgId = e2eInsuranceOrgId;
+  switch (table) {
+    case 'insurance_claims':
+      return [
+        {
+          id: 'insurance-claim-e2e-1',
+          organization_id: orgId,
+          external_ref: 'CLM-E2E-001',
+          patient_name: e2eUsers.patient.fullName,
+          plan_name: 'CeenAiX Gold',
+          plan_tier: 'gold',
+          claim_type: 'outpatient',
+          provider_name: 'CeenAiX Clinic',
+          amount_aed: 420,
+          status: 'approved',
+          submitted_at: yesterday,
+        },
+        {
+          id: 'insurance-claim-e2e-2',
+          organization_id: orgId,
+          external_ref: 'CLM-E2E-002',
+          patient_name: e2eUsers.patient.fullName,
+          plan_name: 'CeenAiX Gold',
+          plan_tier: 'gold',
+          claim_type: 'pharmacy',
+          provider_name: 'CarePlus Pharmacy E2E',
+          amount_aed: 85,
+          status: 'under_review',
+          submitted_at: now.toISOString(),
+        },
+      ];
+    case 'insurance_members':
+      return [
+        {
+          id: 'insurance-member-e2e',
+          organization_id: orgId,
+          external_member_id: 'MEM-E2E-001',
+          patient_name: e2eUsers.patient.fullName,
+          plan_name: 'CeenAiX Gold',
+          utilization_percent: 42,
+          claim_count: 6,
+          risk_level: 'low',
+          is_active: true,
+        },
+      ];
+    case 'insurance_fraud_alerts':
+      return [
+        {
+          id: 'insurance-fraud-e2e',
+          organization_id: orgId,
+          external_ref: 'FRD-E2E-001',
+          subject_name: 'Unknown provider batch',
+          subject_type: 'provider',
+          reason: 'Duplicate billing pattern detected by AI',
+          score: 78,
+          exposure_amount_aed: 2400,
+          severity: 'medium',
+          status: 'open',
+        },
+      ];
+    case 'insurance_network_providers':
+      return [
+        {
+          id: 'insurance-network-e2e',
+          organization_id: orgId,
+          provider_name: 'CeenAiX Clinic',
+          specialty: 'Family Medicine',
+          claims_count: 128,
+          approval_rate_percent: 94,
+          average_cost_aed: 380,
+          performance_flag: 'preferred',
+          denial_rate_percent: 3,
+          fraud_score: 'low',
+          network_note: 'High-quality primary care partner',
+        },
+      ];
+    case 'insurance_risk_segments':
+      return [
+        {
+          id: 'insurance-risk-e2e',
+          organization_id: orgId,
+          segment_name: 'Gold — chronic care',
+          utilization_percent: 58,
+          loss_ratio_percent: 62,
+          forecast_note: 'Stable utilization with preventive outreach',
+        },
+      ];
+    case 'insurance_report_runs':
+      return [
+        {
+          id: 'insurance-report-e2e',
+          organization_id: orgId,
+          report_name: 'Monthly claims summary',
+          period_label: 'May 2026',
+          status: 'ready',
+          storage_url: null,
+        },
+      ];
+    case 'insurance_settings':
+      return [
+        {
+          id: 'insurance-setting-e2e',
+          organization_id: orgId,
+          setting_key: 'ai_auto_triage',
+          title: 'AI auto-triage',
+          description: 'Route low-risk claims to straight-through processing',
+          enabled: true,
+          created_at: yesterday,
+        },
+      ];
+    case 'insurance_ai_insights':
+      return [
+        {
+          id: 'insurance-insight-e2e',
+          organization_id: orgId,
+          insight_type: 'preventive',
+          title: 'Diabetes screening gap',
+          description: '412 Gold members overdue for HbA1c screening.',
+          savings_label: 'AED 180K–240K',
+          savings_aed_min: 180000,
+          savings_aed_max: 240000,
+          subject_ref: 'segment-chronic',
+          primary_action_label: 'Launch outreach',
+          primary_action_url: 'https://ceenaix.test/insurance/preauth',
+          secondary_action_label: null,
+          secondary_action_url: null,
+          display_order: 1,
+        },
+      ];
+    case 'insurance_monthly_claims_volume':
+      return [
+        {
+          id: 'insurance-volume-e2e-1',
+          organization_id: orgId,
+          year: 2026,
+          month: 4,
+          month_label: 'Apr',
+          claims_count: 820,
+          claims_value_aed: 240000,
+          growth_pct: 2,
+          is_current_month: false,
+        },
+        {
+          id: 'insurance-volume-e2e-2',
+          organization_id: orgId,
+          year: 2026,
+          month: 5,
+          month_label: 'May',
+          claims_count: 860,
+          claims_value_aed: 255000,
+          growth_pct: 3,
+          is_current_month: true,
+        },
+      ];
+    default:
+      return [];
+  }
+};
+
+/** Deep-cloned workflow + pharmacy queue snapshot for multi-actor assertions. */
+export function getE2eWorkflowSnapshot(state: E2EWorkflowState) {
+  return {
+    organizations: cloneRows(state.organizations),
+    appointments: cloneRows(state.appointments),
+    preVisitAssessments: cloneRows(state.preVisitAssessments),
+    preVisitAnswers: cloneRows(state.preVisitAnswers),
+    preVisitSummaries: cloneRows(state.preVisitSummaries),
+    labOrders: cloneRows(state.labOrders),
+    labOrderItems: cloneRows(state.labOrderItems),
+    notifications: cloneRows(state.notifications),
+    labActionLog: [...state.labActionLog],
+    pharmacyDispensingTasks: cloneRows(pharmacyDispensingTaskRows()),
+    conversations: cloneRows(mutableConversations()),
+    messages: cloneRows(mutableMessages()),
+  };
+}
+
 export interface E2EWorkflowState {
   organizations: JsonRecord[];
   appointments: JsonRecord[];
@@ -531,29 +754,17 @@ const tableRows = (
     case 'lab_test_catalog_suggestions':
       return [];
     case 'conversations':
-      return [
-        {
-          id: conversationId,
-          subject: 'Care coordination',
-          participant_ids: [patientId, doctorId],
-          created_by: patientId,
-          last_message_at: yesterday,
-          created_at: yesterday,
-          updated_at: yesterday,
-        },
-      ];
+      return mutableConversations();
     case 'messages':
-      return [
-        {
-          id: 'message-e2e',
-          conversation_id: conversationId,
-          sender_id: doctorId,
-          body: 'Your results are ready for review.',
-          sent_at: yesterday,
-          is_read: role === 'patient',
-          created_at: yesterday,
-        },
-      ];
+      return mutableMessages().map((row) => ({
+        ...row,
+        is_read:
+          row.is_read === true
+            ? true
+            : role === 'patient' && row.sender_id === doctorId
+              ? false
+              : row.is_read ?? false,
+      }));
     case 'notifications':
       return state?.notifications.length
         ? state.notifications
@@ -622,6 +833,12 @@ const tableRows = (
           patient_id: patientId,
           insurance_plan_id: 'insurance-plan-e2e',
           member_id: 'MEM-E2E-001',
+          policy_number: 'POL-E2E-001',
+          is_primary: true,
+          annual_limit_used: 12500,
+          card_photo_url: null,
+          valid_from: '2026-01-01',
+          valid_until: '2026-12-31',
           status: 'active',
         },
       ];
@@ -630,10 +847,31 @@ const tableRows = (
         {
           id: 'insurance-plan-e2e',
           name: 'CeenAiX Gold',
-          provider: 'CeenAiX Insurance',
+          provider_company: 'CeenAiX Insurance',
+          coverage_type: 'comprehensive',
+          annual_limit: 150000,
+          co_pay_percentage: 20,
+          network_type: 'premium',
           premium_amount: 750,
           coverage_summary: 'Comprehensive outpatient coverage',
           is_active: true,
+        },
+      ];
+    case 'consultation_notes':
+      return [
+        {
+          id: 'consultation-note-e2e',
+          appointment_id: appointmentId,
+          doctor_id: doctorId,
+          patient_id: patientId,
+          subjective: 'Patient reports stable symptoms.',
+          objective: 'Vitals within normal limits.',
+          assessment: 'Condition stable on current plan.',
+          plan: 'Continue medications; follow up in 3 months.',
+          status: 'draft',
+          is_deleted: false,
+          created_at: yesterday,
+          updated_at: yesterday,
         },
       ];
     case 'patient_vitals':
@@ -695,6 +933,11 @@ const tableRows = (
           user_id: e2eUsers.insurance.id,
           is_active: true,
         },
+        {
+          organization_id: e2ePharmacyOrgId,
+          user_id: e2eUsers.pharmacy.id,
+          is_active: true,
+        },
       ];
     case 'pharmacy_facility_profiles':
       return [
@@ -719,6 +962,7 @@ const tableRows = (
           role_title: 'Pharmacist',
           credential_number: 'PHA-E2E',
           shift_status: 'on_shift',
+          created_at: yesterday,
         },
       ];
     case 'pharmacy_dispensing_tasks':
@@ -742,17 +986,27 @@ const tableRows = (
         },
       ];
     case 'pharmacy_inventory_batches':
-      return [];
+      return [
+        {
+          id: 'inventory-batch-e2e',
+          inventory_item_id: 'inventory-e2e',
+          quantity_on_hand: 120,
+          expiry_date: '2027-06-30',
+        },
+      ];
     case 'pharmacy_claims':
       return [
         {
           id: 'pharmacy-claim-e2e',
           organization_id: e2ePharmacyOrgId,
+          dispensing_task_id: 'pharmacy-task-e2e',
           external_ref: 'CLM-E2E-001',
+          payer_name: 'CeenAiX Gold',
           patient_name: e2eUsers.patient.fullName,
           amount_aed: 120,
           status: 'paid',
           submitted_at: yesterday,
+          paid_at: yesterday,
         },
       ];
     case 'pharmacy_messages':
@@ -772,7 +1026,17 @@ const tableRows = (
         },
       ];
     case 'pharmacy_settings':
-      return [];
+      return [
+        {
+          id: 'pharmacy-setting-e2e',
+          organization_id: e2ePharmacyOrgId,
+          setting_key: 'auto_dispense_low_risk',
+          title: 'Auto-dispense low-risk refills',
+          description: 'Queue routine refills without manual triage',
+          enabled: true,
+          created_at: yesterday,
+        },
+      ];
     case 'insurance_payer_profiles':
       return [
         {
@@ -845,7 +1109,7 @@ const tableRows = (
     case 'insurance_settings':
     case 'insurance_ai_insights':
     case 'insurance_monthly_claims_volume':
-      return [];
+      return insuranceOrgTableRows(table);
     default:
       return [];
   }
@@ -1067,7 +1331,8 @@ const updateAppointment = (
 const rpcPayload = (
   rpcName: string,
   state?: E2EWorkflowState,
-  payload?: unknown
+  payload?: unknown,
+  currentUser?: E2EUser
 ): JsonRecord | JsonRecord[] | null => {
   switch (rpcName) {
     case 'admin_get_metrics':
@@ -1095,8 +1360,13 @@ const rpcPayload = (
           activeIncidents: 2,
         },
       };
-    case 'admin_list_users':
-      return Object.values(e2eUsers).map((user) => ({
+    case 'admin_list_users': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      const searchText =
+        typeof input.search_text === 'string' ? input.search_text.trim().toLowerCase() : '';
+      const filterRole = typeof input.filter_role === 'string' ? input.filter_role : null;
+      const maxRows = typeof input.max_rows === 'number' ? input.max_rows : 50;
+      let users = Object.values(e2eUsers).map((user) => ({
         user_id: user.id,
         email: user.email,
         full_name: user.fullName,
@@ -1105,6 +1375,18 @@ const rpcPayload = (
         created_at: yesterday,
         last_sign_in_at: yesterday,
       }));
+      if (filterRole) {
+        users = users.filter((user) => user.role === filterRole);
+      }
+      if (searchText) {
+        users = users.filter(
+          (user) =>
+            user.full_name.toLowerCase().includes(searchText) ||
+            user.email.toLowerCase().includes(searchText)
+        );
+      }
+      return users.slice(0, maxRows);
+    }
     case 'admin_list_organizations':
       return organizationsForState(state);
     case 'admin_create_organization': {
@@ -1572,8 +1854,80 @@ const rpcPayload = (
       });
       return { ok: true };
     }
+    case 'get_doctor_booked_appointments': {
+      const doctorFilter = (payload as JsonRecord | null)?.p_doctor_id;
+      const rows = (state?.appointments ?? appointmentRows).filter(
+        (row) =>
+          row.doctor_id === doctorFilter &&
+          row.is_deleted !== true &&
+          !['cancelled', 'no_show'].includes(String(row.status ?? ''))
+      );
+      return rows.map((row) => ({
+        id: row.id,
+        scheduled_at: row.scheduled_at,
+        duration_minutes: row.duration_minutes ?? 30,
+        status: row.status,
+      }));
+    }
+    case 'mark_conversation_messages_read': {
+      const conversationIdValue = (payload as JsonRecord | null)?.p_conversation_id;
+      mutableMessages().forEach((message) => {
+        if (message.conversation_id === conversationIdValue) {
+          message.is_read = true;
+        }
+      });
+      return { ok: true };
+    }
+    case 'get_or_create_direct_conversation': {
+      const otherUserId = (payload as JsonRecord | null)?.p_other_user_id;
+      const subject =
+        typeof (payload as JsonRecord | null)?.p_subject === 'string'
+          ? (payload as JsonRecord | null)?.p_subject
+          : 'Care coordination';
+      const selfId = currentUser?.id ?? patientId;
+      const participantIds = [selfId, otherUserId].filter(Boolean).sort();
+      const existing = mutableConversations().find((conversation) => {
+        const ids = Array.isArray(conversation.participant_ids)
+          ? [...conversation.participant_ids].sort()
+          : [];
+        return ids.length === participantIds.length && ids.every((id, index) => id === participantIds[index]);
+      });
+      if (existing?.id) {
+        return existing.id;
+      }
+      const created = {
+        id: `conversation-created-${mutableConversations().length + 1}`,
+        subject,
+        participant_ids: participantIds,
+        created_by: selfId,
+        last_message_at: now.toISOString(),
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      mutableConversations().push(created);
+      return created.id;
+    }
+    case 'mark_doctor_reported_medications_reviewed':
+      return { ok: true };
+    case 'apply_patient_canonical_update_requests':
+      return ((payload as JsonRecord | null)?.p_request_ids as string[] | undefined)?.map((id) => ({
+        id,
+        status: 'applied',
+      })) ?? [];
+    case 'delete_current_user_account':
+      return { ok: true };
     default:
-      return null;
+      if (
+        rpcName.startsWith('admin_list_') ||
+        rpcName.endsWith('_directory') ||
+        rpcName.endsWith('_partners')
+      ) {
+        return [];
+      }
+      if (rpcName.startsWith('admin_get_')) {
+        return { generatedAt: now.toISOString() };
+      }
+      return { ok: true };
   }
 };
 
@@ -1603,6 +1957,39 @@ const json = (route: Route, body: unknown, status = 200) =>
 
 const isObjectResponse = (route: Route) =>
   route.request().headers().accept?.includes('application/vnd.pgrst.object') ?? false;
+
+const applyRelationEmbeds = (table: string, rows: JsonRecord[], url: URL): JsonRecord[] => {
+  const select = url.searchParams.get('select') ?? '';
+  if (!select.includes('(')) {
+    return rows;
+  }
+
+  if (table === 'patient_insurance' && select.includes('insurance_plans')) {
+    const plans = tableRows('insurance_plans', 'patient', true) as JsonRecord[];
+    return rows.map((row) => ({
+      ...row,
+      insurance_plans: plans.find((plan) => plan.id === row.insurance_plan_id) ?? null,
+    }));
+  }
+
+  if (table === 'lab_orders' && select.includes('lab_order_items')) {
+    const items = tableRows('lab_order_items', 'patient', true) as JsonRecord[];
+    return rows.map((row) => ({
+      ...row,
+      lab_order_items: items.filter((item) => item.lab_order_id === row.id),
+    }));
+  }
+
+  if (table === 'prescriptions' && select.includes('prescription_items')) {
+    const items = tableRows('prescription_items', 'patient', true) as JsonRecord[];
+    return rows.map((row) => ({
+      ...row,
+      prescription_items: items.filter((item) => item.prescription_id === row.id),
+    }));
+  }
+
+  return rows;
+};
 
 const filterRestRows = (rows: JsonRecord[], url: URL): JsonRecord[] => {
   let result = [...rows];
@@ -1640,6 +2027,33 @@ const filterRestRows = (rows: JsonRecord[], url: URL): JsonRecord[] => {
     if (rawValue.startsWith('gte.')) {
       const expected = rawValue.slice(4);
       result = result.filter((row) => String(row[param] ?? '') >= expected);
+      continue;
+    }
+
+    if (rawValue.startsWith('lte.')) {
+      const expected = rawValue.slice(4);
+      result = result.filter((row) => String(row[param] ?? '') <= expected);
+      continue;
+    }
+
+    if (rawValue.startsWith('neq.')) {
+      const expected = rawValue.slice(4);
+      result = result.filter((row) => String(row[param] ?? '') !== expected);
+      continue;
+    }
+
+    if (rawValue.startsWith('contains.(') && rawValue.endsWith(')')) {
+      const values = rawValue
+        .slice(10, -1)
+        .split(',')
+        .map((value) => value.trim().replace(/^"|"$/g, ''));
+      result = result.filter((row) => {
+        const field = row[param];
+        if (!Array.isArray(field)) {
+          return false;
+        }
+        return values.every((value) => field.includes(value));
+      });
     }
   }
 
@@ -1735,14 +2149,16 @@ const handleRestRoute = async (
     return;
   }
 
+  const currentUser = userForRequest(route, fallbackRole);
+
   if (url.pathname.includes('/rest/v1/rpc/')) {
-    await json(route, rpcPayload(table, state, parsePostData(route)));
+    await json(route, rpcPayload(table, state, parsePostData(route), currentUser));
     return;
   }
 
-  const currentUser = userForRequest(route, fallbackRole);
-  const rows = filterRestRows(
-    tableRows(table, currentUser.role, profileCompleted, state),
+  const rows = applyRelationEmbeds(
+    table,
+    filterRestRows(tableRows(table, currentUser.role, profileCompleted, state), url),
     url
   );
 
@@ -1888,6 +2304,124 @@ const handleRestRoute = async (
       return;
     }
 
+    if (method === 'POST' && table === 'messages') {
+      const insertedMessages = asArray(payload).map((message, index) => ({
+        ...message,
+        id: `message-created-${mutableMessages().length + index + 1}`,
+        sent_at: now.toISOString(),
+        created_at: now.toISOString(),
+        is_read: false,
+      }));
+      mutableMessages().push(...insertedMessages);
+      const conversationIdValue = insertedMessages[0]?.conversation_id;
+      if (conversationIdValue) {
+        mutableConversations().forEach((conversation) => {
+          if (conversation.id === conversationIdValue) {
+            conversation.last_message_at = now.toISOString();
+            conversation.updated_at = now.toISOString();
+          }
+        });
+      }
+      await json(route, isObjectResponse(route) ? insertedMessages[0] ?? {} : insertedMessages);
+      return;
+    }
+
+    if (method === 'POST' && table === 'conversations') {
+      const [conversationPayload] = asArray(payload);
+      const conversation = {
+        ...conversationPayload,
+        id: `conversation-created-${mutableConversations().length + 1}`,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      mutableConversations().push(conversation);
+      await json(route, isObjectResponse(route) ? conversation : [conversation]);
+      return;
+    }
+
+    if ((method === 'POST' || method === 'PATCH') && table === 'notifications') {
+      if (method === 'POST') {
+        const inserted = asArray(payload).map((notification, index) => ({
+          ...notification,
+          id: `notification-created-${index + 1}`,
+          created_at: now.toISOString(),
+        }));
+        await json(route, isObjectResponse(route) ? inserted[0] ?? {} : inserted);
+        return;
+      }
+      const [patch] = asArray(payload);
+      await json(route, isObjectResponse(route) ? patch ?? {} : [patch]);
+      return;
+    }
+
+    if ((method === 'POST' || method === 'PATCH') && table === 'consultation_notes') {
+      const [notePayload] = asArray(payload);
+      const note = {
+        ...notePayload,
+        id: notePayload.id ?? 'consultation-note-e2e',
+        updated_at: now.toISOString(),
+        created_at: notePayload.created_at ?? now.toISOString(),
+      };
+      await json(route, isObjectResponse(route) ? note : [note]);
+      return;
+    }
+
+    if (method === 'PATCH' && table === 'insurance_pre_authorizations') {
+      const [patch] = asArray(payload);
+      const idFilter = url.searchParams.get('id');
+      const rowId = idFilter?.startsWith('eq.') ? idFilter.slice(3) : 'preauth-e2e';
+      const merged = {
+        id: rowId,
+        organization_id: e2eInsuranceOrgId,
+        external_ref: 'PA-E2E-001',
+        patient_name: e2eUsers.patient.fullName,
+        status: 'approved',
+        ...patch,
+        updated_at: now.toISOString(),
+      };
+      await json(route, isObjectResponse(route) ? merged : [merged]);
+      return;
+    }
+
+    if (method === 'PATCH' && table === 'pharmacy_messages') {
+      const [patch] = asArray(payload);
+      const idFilter = url.searchParams.get('id');
+      const messageId = idFilter?.startsWith('eq.') ? idFilter.slice(3) : null;
+      const messages = tableRows('pharmacy_messages', currentUser.role, profileCompleted) as JsonRecord[];
+      const index = messageId ? messages.findIndex((row) => row.id === messageId) : 0;
+      if (index >= 0) {
+        messages[index] = { ...messages[index], ...patch, updated_at: now.toISOString() };
+        await json(route, isObjectResponse(route) ? messages[index] : [messages[index]]);
+        return;
+      }
+    }
+
+    if (method === 'PATCH' && table === 'insurance_settings') {
+      const [patch] = asArray(payload);
+      const idFilter = url.searchParams.get('id');
+      const settingId = idFilter?.startsWith('eq.') ? idFilter.slice(3) : null;
+      const settings = insuranceOrgTableRows('insurance_settings');
+      const index = settingId ? settings.findIndex((row) => row.id === settingId) : 0;
+      if (index >= 0) {
+        settings[index] = { ...settings[index], ...patch, updated_at: now.toISOString() };
+        await json(route, isObjectResponse(route) ? settings[index] : [settings[index]]);
+        return;
+      }
+    }
+
+    if (method === 'PATCH' && table === 'conversations') {
+      const [patch] = asArray(payload);
+      const idFilter = url.searchParams.get('id');
+      const convId = idFilter?.startsWith('eq.') ? idFilter.slice(3) : null;
+      const conversations = mutableConversations();
+      const index = convId ? conversations.findIndex((row) => row.id === convId) : 0;
+      if (index >= 0) {
+        conversations[index] = { ...conversations[index], ...patch, updated_at: now.toISOString() };
+        await json(route, isObjectResponse(route) ? conversations[index] : [conversations[index]]);
+        return;
+      }
+    }
+
     const body = isObjectResponse(route) ? currentTableRow(table, rows, currentUser, profileCompleted, url) ?? {} : rows;
     await json(route, body);
     return;
@@ -1919,6 +2453,9 @@ export async function installSupabaseMocks(
   const fallbackRole = options.role ?? 'patient';
   const profileCompleted = options.profileCompleted ?? true;
   const state = options.state;
+
+  mutableConversationRows = null;
+  mutableMessageRows = null;
 
   await page.route(`${SUPABASE_URL}/auth/v1/**`, (route) => handleAuthRoute(route, fallbackRole));
   await page.route(`${SUPABASE_URL}/rest/v1/**`, (route) =>

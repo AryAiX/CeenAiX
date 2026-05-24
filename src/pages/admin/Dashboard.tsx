@@ -8,6 +8,7 @@ import {
   CalendarCheck,
   FileText,
   LayoutDashboard,
+  RefreshCcw,
   ShieldCheck,
   Users,
 } from 'lucide-react';
@@ -20,7 +21,7 @@ const formatNumber = (value: number | null | undefined) =>
 
 export const AdminDashboard = () => {
   const { t } = useTranslation('common');
-  const { data, loading, error } = useAdminMetrics();
+  const { data, loading, error, refetch } = useAdminMetrics();
 
   const totals = data?.totals ?? null;
 
@@ -45,8 +46,19 @@ export const AdminDashboard = () => {
       accent="slate"
     >
       {error ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
           Failed to load admin metrics: {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       ) : null}
 

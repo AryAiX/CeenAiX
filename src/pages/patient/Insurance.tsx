@@ -41,7 +41,7 @@ export const PatientInsurance = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error } = usePatientInsurance(user?.id);
+  const { data, loading, error, refetch } = usePatientInsurance(user?.id);
   const [tab, setTab] = useState<InsuranceTab>('claims');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -217,13 +217,26 @@ export const PatientInsurance = () => {
   return (
     <div className="animate-fadeIn space-y-5">
       {error ? (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('patient.insurance.loadError')}
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 font-semibold underline"
+          >
+            Retry
+          </button>
         </div>
       ) : null}
 
       {cardActionMessage ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
           {cardActionMessage}
         </div>
       ) : null}

@@ -18,6 +18,7 @@ import { usePatientRecords } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { PATIENT_RECORD_FIELD_LIMITS } from '../../lib/patient-records';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { supabase } from '../../lib/supabase';
 import type { AllergySeverity, ConditionStatus } from '../../types';
 
@@ -532,6 +533,7 @@ export const PatientRecords: React.FC = () => {
                 placeholder={t('patient.records.searchPh')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
             </div>
@@ -603,14 +605,25 @@ export const PatientRecords: React.FC = () => {
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                 : 'border-red-200 bg-red-50 text-red-800'
             }`}
+            role="alert"
           >
             {feedback.message}
           </div>
         ) : null}
 
         {error ? (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {t('patient.records.loadError')}
+          <div
+            role="alert"
+            className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {error}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="ml-2 font-semibold underline"
+            >
+              Retry
+            </button>
           </div>
         ) : null}
 

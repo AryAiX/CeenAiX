@@ -1,8 +1,9 @@
 import { useDeferredValue, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search } from 'lucide-react';
+import { RefreshCcw, Search } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
 import { useAdminUsers } from '../../hooks';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { ADMIN_NAV_ITEMS } from './navItems';
 import type { UserRole } from '../../types';
 
@@ -25,7 +26,7 @@ export const AdminUsers = () => {
   const [role, setRole] = useState<'' | UserRole>('');
   const search = useDeferredValue(searchInput);
 
-  const { data, loading, error } = useAdminUsers({ search, role: role || null, limit: 100 });
+  const { data, loading, error, refetch } = useAdminUsers({ search, role: role || null, limit: 100 });
   const rows = data ?? [];
 
   return (
@@ -44,6 +45,7 @@ export const AdminUsers = () => {
               type="search"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
+              maxLength={FORM_FIELD_LIMITS.searchQuery}
               placeholder="Search name, email, phone"
               className="w-full bg-transparent outline-none placeholder:text-slate-400"
             />
@@ -67,7 +69,17 @@ export const AdminUsers = () => {
         </div>
 
         {error ? (
-          <div className="p-4 text-sm text-rose-700">Failed to load users: {error}</div>
+          <div className="p-4 text-sm text-rose-700" role="alert">
+            Failed to load users: {error}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="ml-2 inline-flex items-center gap-1 font-semibold underline"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              Retry
+            </button>
+          </div>
         ) : null}
 
         <div className="overflow-x-auto">

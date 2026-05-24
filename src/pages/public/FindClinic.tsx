@@ -11,6 +11,7 @@ import { useFacilityDoctors, usePublicFacilities } from '../../hooks';
 import type { PublicFacility } from '../../types/facility';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 const DEFAULT_FACILITY_IMAGE =
   'https://images.pexels.com/photos/668300/pexels-photo-668300.jpeg?auto=compress&cs=tinysrgb&w=800';
@@ -164,6 +165,7 @@ export const FindClinic: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  maxLength={FORM_FIELD_LIMITS.searchQuery}
                   placeholder="Search by name, location, or specialty..."
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pl-12 pr-4 text-slate-900 outline-none transition focus:border-ceenai-cyan focus:bg-white focus:ring-2 focus:ring-ceenai-cyan/20"
                 />
@@ -171,6 +173,7 @@ export const FindClinic: React.FC = () => {
             </div>
 
             <button
+              type="button"
               onClick={() => setShowFilters(!showFilters)}
               className="md:self-end rounded-2xl border border-slate-200 bg-slate-50 px-6 py-3 font-medium text-slate-700 transition-all hover:bg-slate-100"
             >

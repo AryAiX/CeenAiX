@@ -42,6 +42,9 @@ export const PatientTelemedicineConsultation = () => {
         // stub is opened from an existing appointment.
         <button
           type="button"
+          title={t('patient.telemedicine.actionTooltip', {
+            defaultValue: 'Opens your live appointments list — video visit launches in a later release.',
+          })}
           onClick={() => navigate('/patient/appointments')}
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
         >

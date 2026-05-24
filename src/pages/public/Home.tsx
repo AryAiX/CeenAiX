@@ -429,7 +429,10 @@ export const Home = () => {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/patient/dashboard')}
+                onClick={() => navigate('/auth/portal-access?intent=login')}
+                title={t('home.landing.hero.demoTooltip', {
+                  defaultValue: 'Sign in to explore the patient dashboard demo.',
+                })}
                 className="group px-8 py-4 bg-white/10 backdrop-blur-sm border border-white/30 text-white rounded-2xl font-bold text-base hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
               >
                 <Play className="w-4 h-4" /> {t('home.landing.hero.ctaSecondary')}

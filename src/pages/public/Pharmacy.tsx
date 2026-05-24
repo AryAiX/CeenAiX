@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 import { formatLocaleDecimal, formatLocaleDigits, formatLocalePhoneDisplay } from '../../lib/i18n-ui';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { MapPin, Clock, Phone, Star, Search, ShoppingCart, Package, Pill } from 'lucide-react';
 
 type StoreKey = 'lifeCare' | 'mediplus' | 'healthFirst' | 'city' | 'wellness' | 'quickMed';
@@ -171,6 +172,7 @@ export const Pharmacy: React.FC = () => {
                 placeholder={t('pharmacyPage.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 className="w-full rounded-2xl border-2 border-gray-200 bg-white py-4 pe-4 ps-12 text-lg transition-colors focus:border-cyan-500 focus:outline-none"
               />
             </div>

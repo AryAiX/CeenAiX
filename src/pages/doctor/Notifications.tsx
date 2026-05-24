@@ -15,9 +15,11 @@ export const DoctorNotifications: React.FC = () => {
   const { user } = useAuth();
   const { data, loading, error, refetch } = useDoctorNotifications(user?.id);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const markRead = async (notificationId: string) => {
     setBusyId(notificationId);
+    setActionError(null);
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -26,13 +28,16 @@ export const DoctorNotifications: React.FC = () => {
 
     setBusyId(null);
 
-    if (!updateError) {
-      refetch();
+    if (updateError) {
+      setActionError(updateError.message);
+      return;
     }
+    refetch();
   };
 
   const markAllRead = async () => {
     setBusyId('all');
+    setActionError(null);
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -41,9 +46,11 @@ export const DoctorNotifications: React.FC = () => {
 
     setBusyId(null);
 
-    if (!updateError) {
-      refetch();
+    if (updateError) {
+      setActionError(updateError.message);
+      return;
     }
+    refetch();
   };
 
   if (loading) {
@@ -75,8 +82,24 @@ export const DoctorNotifications: React.FC = () => {
 
       <div className="space-y-6">
         {error ? (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+          >
             {error}
+            <button
+              type="button"
+              onClick={refetch}
+              className="ml-2 font-semibold underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
+
+        {actionError ? (
+          <div role="alert" className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {actionError}
           </div>
         ) : null}
 

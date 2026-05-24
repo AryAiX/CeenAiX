@@ -273,6 +273,18 @@ export const Insurance: React.FC = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
+                <div className="flex justify-end border-b border-gray-100 px-4 py-3">
+                  <button
+                    type="button"
+                    disabled
+                    title={t('insurancePage.exportCompareComingSoon', {
+                      defaultValue: 'PDF plan comparison export — coming soon',
+                    })}
+                    className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-400 opacity-80"
+                  >
+                    {t('insurancePage.exportCompare', { defaultValue: 'Export comparison PDF' })}
+                  </button>
+                </div>
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>

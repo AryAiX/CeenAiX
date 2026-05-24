@@ -273,6 +273,7 @@ export const PatientSettings = () => {
             </button>
             {passwordResetMessage ? (
               <p
+                role="alert"
                 className={`mt-3 text-sm ${
                   passwordResetMessage.kind === 'error' ? 'text-red-700' : 'text-emerald-700'
                 }`}
@@ -297,8 +298,18 @@ export const PatientSettings = () => {
   return (
     <div className="animate-fadeIn space-y-6">
       {error ? (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('patient.settings.loadError')}
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="ml-2 font-semibold underline"
+          >
+            Retry
+          </button>
         </div>
       ) : null}
 

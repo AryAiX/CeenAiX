@@ -152,7 +152,10 @@ export const VerifyOTP = () => {
       }
     >
       {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {errorMessage}
         </div>
       ) : null}
@@ -183,6 +186,7 @@ export const VerifyOTP = () => {
             pattern="[0-9]*"
             value={token}
             onChange={(event) => setToken(event.target.value.replace(/\D/g, '').slice(0, 6))}
+            maxLength={6}
             className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-center text-2xl font-semibold tracking-[0.4em] text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15"
             placeholder="000000"
             autoComplete="one-time-code"

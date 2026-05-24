@@ -14,6 +14,7 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { formatMedicationDetailLine } from '../../lib/medication-display';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 export const DoctorPrescriptions: React.FC = () => {
   const { t, i18n } = useTranslation('common');
@@ -25,7 +26,7 @@ export const DoctorPrescriptions: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'history'>('all');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printPrescriptionId, setPrintPrescriptionId] = useState<string | null>(null);
-  const { data, loading, error } = useDoctorPrescriptions(user?.id);
+  const { data, loading, error, refetch } = useDoctorPrescriptions(user?.id);
   const prescriptions = useMemo(() => data ?? [], [data]);
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString(
@@ -172,8 +173,18 @@ export const DoctorPrescriptions: React.FC = () => {
 
       <div>
         {error ? (
-          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('doctor.prescriptions.loadError')}
+          <div
+            role="alert"
+            className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+          >
+            {error}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="ml-2 font-semibold underline"
+            >
+              Retry
+            </button>
           </div>
         ) : null}
 
@@ -246,6 +257,7 @@ export const DoctorPrescriptions: React.FC = () => {
                 placeholder={t('doctor.prescriptions.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                maxLength={FORM_FIELD_LIMITS.searchQuery}
                 className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-4 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 rtl:pl-4 rtl:pr-10"
               />
             </div>

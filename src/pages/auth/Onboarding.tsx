@@ -11,6 +11,7 @@ import {
 } from '../../lib/doctor-specializations';
 import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { UserRole } from '../../types';
 
 interface OnboardingFormState {
@@ -381,7 +382,10 @@ export const Onboarding = () => {
             <p className="mb-6 text-sm text-slate-500">{t('auth.onboarding.description')}</p>
 
             {errorMessage ? (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div
+                role="alert"
+                className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
                 {errorMessage}
               </div>
             ) : null}
@@ -401,6 +405,7 @@ export const Onboarding = () => {
                   type="text"
                   value={form.fullName}
                   onChange={(event) => updateField('fullName', event.target.value)}
+                  maxLength={FORM_FIELD_LIMITS.personName}
                   className={inputClass}
                   placeholder={t('auth.onboarding.fields.fullNamePlaceholder')}
                   autoComplete="name"
@@ -418,6 +423,7 @@ export const Onboarding = () => {
                     type="email"
                     value={form.email}
                     onChange={(event) => updateField('email', event.target.value)}
+                    maxLength={FORM_FIELD_LIMITS.email}
                     className={`${inputClass} ${user?.email ? 'bg-slate-50 text-slate-500' : ''}`}
                     placeholder={t('auth.onboarding.fields.emailPlaceholder')}
                     autoComplete="email"
@@ -435,6 +441,7 @@ export const Onboarding = () => {
                       type="tel"
                       value={form.phone}
                       onChange={(event) => updateField('phone', event.target.value)}
+                      maxLength={FORM_FIELD_LIMITS.phone}
                       className={inputClass}
                       placeholder={t('auth.register.mobilePlaceholder')}
                       autoComplete="tel"
@@ -451,6 +458,7 @@ export const Onboarding = () => {
                   type="text"
                   value={form.city}
                   onChange={(event) => updateField('city', event.target.value)}
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                   className={inputClass}
                   placeholder={t('auth.onboarding.fields.cityPlaceholder')}
                 />
@@ -463,6 +471,7 @@ export const Onboarding = () => {
                 <textarea
                   value={form.address}
                   onChange={(event) => updateField('address', event.target.value)}
+                  maxLength={FORM_FIELD_LIMITS.address}
                   rows={3}
                   className={inputClass}
                   placeholder={t('auth.onboarding.fields.addressPlaceholder')}
@@ -479,6 +488,7 @@ export const Onboarding = () => {
                       type="text"
                       value={form.emergencyContactName}
                       onChange={(event) => updateField('emergencyContactName', event.target.value)}
+                      maxLength={FORM_FIELD_LIMITS.personName}
                       className={inputClass}
                       placeholder={t('auth.onboarding.fields.emergencyNamePlaceholder')}
                     />
@@ -492,6 +502,7 @@ export const Onboarding = () => {
                       type="tel"
                       value={form.emergencyContactPhone}
                       onChange={(event) => updateField('emergencyContactPhone', event.target.value)}
+                      maxLength={FORM_FIELD_LIMITS.phone}
                       className={inputClass}
                       placeholder={t('auth.onboarding.fields.emergencyPhonePlaceholder')}
                     />
@@ -523,6 +534,7 @@ export const Onboarding = () => {
                       type="text"
                       value={form.licenseNumber}
                       onChange={(event) => updateField('licenseNumber', event.target.value)}
+                      maxLength={FORM_FIELD_LIMITS.licenseNumber}
                       className={inputClass}
                       placeholder={t('auth.onboarding.fields.licensePlaceholder')}
                     />
@@ -535,6 +547,7 @@ export const Onboarding = () => {
                     <textarea
                       value={form.bio}
                       onChange={(event) => updateField('bio', event.target.value)}
+                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       rows={4}
                       className={inputClass}
                       placeholder={t('auth.onboarding.fields.bioPlaceholder')}

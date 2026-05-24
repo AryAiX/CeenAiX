@@ -9,6 +9,7 @@ import {
   isPreviewPinGateEnabled,
   PREVIEW_ACCESS_CHANGED_EVENT,
 } from '../lib/preview-access';
+import { FORM_FIELD_LIMITS } from '../lib/form-field-limits';
 
 interface PreviewPinGateProps {
   children: ReactNode;
@@ -76,6 +77,7 @@ export const PreviewPinGate = ({ children }: PreviewPinGateProps) => {
               autoComplete="off"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
+              maxLength={FORM_FIELD_LIMITS.shortText}
               className="w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-slate-500 focus:border-cyan-400/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               placeholder="••••"
               aria-invalid={Boolean(error)}

@@ -196,6 +196,7 @@ export const PortalAccess = () => {
                   type="button"
                   onClick={() => handleSelect(role.id, role.enabled)}
                   disabled={!role.enabled}
+                  title={role.enabled ? undefined : t('auth.roleAccess.comingSoon')}
                   aria-disabled={!role.enabled}
                   className={`group relative flex items-start gap-4 rounded-xl border-2 p-4 text-start transition-all ${
                     role.enabled
