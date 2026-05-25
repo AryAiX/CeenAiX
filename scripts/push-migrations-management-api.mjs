@@ -11,6 +11,8 @@ import { resolve, join } from 'node:path';
 
 const API_BASE = 'https://api.supabase.com/v1';
 
+const dryRun = process.argv.includes('--dry-run');
+
 const projectRef =
   process.argv.find((arg, index) => process.argv[index - 1] === '--project-ref') ||
   process.env.SUPABASE_DEV_PROJECT_REF ||
@@ -129,6 +131,14 @@ const main = async () => {
 
   if (pending.length === 0) {
     console.log('No pending migrations to apply.');
+    return;
+  }
+
+  if (dryRun) {
+    console.log(`Dry-run: ${pending.length} pending migration(s) would be applied:`);
+    for (const migration of pending) {
+      console.log(`  - ${migration.filename}`);
+    }
     return;
   }
 

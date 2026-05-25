@@ -3,7 +3,8 @@ name: Release
 # Manual production release only (Actions → Release → Run workflow).
 # Does NOT run on push/merge. Dev deploys via the Build workflow (ci.yml).
 #
-# Secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_* , VERCEL_* , VITE_SUPABASE_PROD_* .
+# Secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_PROJECT_REF, VERCEL_* , VITE_SUPABASE_PROD_* .
+# Optional: SUPABASE_PROD_DB_PASSWORD (CLI fallback only), SUPABASE_RESEND_SMTP_PASSWORD
 # Optional: SUPABASE_RESEND_SMTP_PASSWORD
 
 on:

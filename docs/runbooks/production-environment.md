@@ -91,7 +91,7 @@ These are configured in **Repository → Settings → Secrets and variables → 
 | --- | --- | --- |
 | `SUPABASE_ACCESS_TOKEN` | Lets the CLI authenticate non-interactively | Configured from the logged-in Supabase CLI token |
 | `SUPABASE_PROD_PROJECT_REF` | Identifies the prod project to migrations.yml | `ziykaxyadcdmyakzvjff` |
-| `SUPABASE_PROD_DB_PASSWORD` | Lets `supabase db push` authenticate (manual prod release) | Configured from the generated prod DB password |
+| `SUPABASE_PROD_DB_PASSWORD` | **Optional** — CLI pooler fallback only if Management API apply fails | Dashboard → Database password for prod project |
 | `SUPABASE_DEV_PROJECT_REF` | Dev project for main-push deploys | `lgfaucsfiyxvmsghnpey` |
 | `SUPABASE_DEV_DB_PASSWORD` | Dev Postgres password (URL-encoded automatically in CI) | Dashboard → Database password for `lgfaucsfiyxvmsghnpey` |
 | `SUPABASE_DEV_DATABASE_URL` | Optional full URL override | Prefer `SUPABASE_DEV_DB_PASSWORD`; CI builds pooler URL (session mode, encoded password) |
@@ -152,7 +152,7 @@ mv .env.local.prod-snapshot .env.local
 supabase start
 supabase db reset --linked=false   # local only
 # 3. Commit + open PR. CI will dry-run migrations.yml.
-# 4. On merge, migrations.yml auto-applies to prod.
+# 4. On merge, run Actions → Release to apply migrations to prod (Management API).
 ```
 
 ### Rotating the prod DB password
@@ -207,4 +207,4 @@ npx supabase db query --linked --file scripts/prod-counts.sql --output csv
 - **Migration history drift between dev and prod**: dev has 22 migrations that pre-date 2026-02 and aren't in this repo (legacy). Recommend `supabase db pull --linked --project-ref lgfaucsfiyxvmsghnpey` in a separate cleanup PR.
 - **Mixed migrations remain a hazard**: any future migration that mixes schema and demo inserts will land in prod and need a new entry in `scripts/prod-demo-cleanup.sql`. **Discipline:** keep schema and demo seeds in separate migration files going forward.
 - **Edge functions** are deployed automatically by `migrations.yml`. Make sure they read env vars (not hard-coded keys) when port-forwarded.
-- **DB password location**: the generated prod password is stored in GitHub secret `SUPABASE_PROD_DB_PASSWORD` and locally in `/tmp/ceenaix-prod-db-password.txt` on the dev machine for CLI maintenance.
+- **Release migrations**: `prod-release-supabase.sh` applies schema via **Management API** (`SUPABASE_ACCESS_TOKEN` only). `SUPABASE_PROD_DB_PASSWORD` is optional for local CLI fallback (`PROD_DB_PUSH_FALLBACK=true`).
