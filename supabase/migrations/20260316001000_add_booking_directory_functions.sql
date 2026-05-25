@@ -33,7 +33,7 @@ AS $$
   FROM public.user_profiles up
   JOIN public.doctor_profiles dp
     ON dp.user_id = up.user_id
-  JOIN public.doctor_availability da
+  LEFT JOIN public.doctor_availability da
     ON da.doctor_id = up.user_id
    AND da.is_active = true
   LEFT JOIN public.doctor_specializations ds
