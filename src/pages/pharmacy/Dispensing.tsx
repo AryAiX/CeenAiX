@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown, MessageSquare, Play, Search } from 'lucide-react';
+import { ChevronDown, MessageSquare, Play, Search, X } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { updatePharmacyDispensingTaskStatus, usePharmacyPrescriptionQueue } from '../../hooks';
@@ -362,8 +362,18 @@ export const PharmacyDispensing = () => {
                 defaultValue: 'Patient name, Rx number, doctor...',
               })}
               maxLength={FORM_FIELD_LIMITS.searchQuery}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -371,7 +381,10 @@ export const PharmacyDispensing = () => {
               <button
                 key={key}
                 type="button"
-                onClick={() => setFilter(key)}
+                onClick={() => {
+                  setFilter(key);
+                  setSearch('');
+                }}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                   filter === key
                     ? 'bg-emerald-600 text-white'
