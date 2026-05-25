@@ -401,8 +401,14 @@ export const PharmacyDashboard = () => {
                 </div>
 
                 <div className="shrink-0">
-                  <span className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white">
-                    Dispense
+                  <span className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white ${
+                    item.status === 'counseling'
+                      ? 'bg-slate-400'
+                      : item.status === 'ready'
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-600'
+                  }`}>
+                    {item.status === 'counseling' ? 'View' : item.status === 'ready' ? 'Resume' : 'Dispense'}
                   </span>
                 </div>
               </Link>
