@@ -18,6 +18,8 @@ export interface PatientPrescriptionRecord extends Prescription {
   doctorName: string;
   doctorSpecialty: string | null;
   items: PrescriptionItem[];
+  pharmacyStatus: 'not_sent' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'cancelled' | null;
+  pharmacyName: string | null;
 }
 
 export function usePatientPrescriptions(userId: string | null | undefined) {
@@ -50,6 +52,7 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
       { data: prescriptionItems, error: prescriptionItemsError },
       { data: userProfiles, error: userProfilesError },
       { data: doctorProfiles, error: doctorProfilesError },
+      { data: dispensingTasks },
     ] = await Promise.all([
       supabase
         .from('prescription_items')
@@ -58,6 +61,11 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
         .order('created_at', { ascending: true }),
       supabase.from('user_profiles').select('user_id, full_name').in('user_id', doctorIds),
       supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', doctorIds),
+      supabase
+        .from('pharmacy_dispensing_tasks')
+        .select('prescription_id, workflow_status, organization_id')
+        .in('prescription_id', prescriptionIds)
+        .order('received_at', { ascending: false }),
     ]);
 
     if (prescriptionItemsError) {
@@ -89,6 +97,16 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
       (doctorProfiles ?? []).map((doctorProfile) => [doctorProfile.user_id, doctorProfile.specialization ?? null])
     );
 
+    const pharmacyStatusByPrescriptionId = new Map<string, { status: string; organizationId: string }>();
+    for (const task of dispensingTasks ?? []) {
+      if (!pharmacyStatusByPrescriptionId.has(task.prescription_id)) {
+        pharmacyStatusByPrescriptionId.set(task.prescription_id, {
+          status: task.workflow_status,
+          organizationId: task.organization_id,
+        });
+      }
+    }
+
     const doctorProfileById = new Map<string, DoctorPrescriptionProfile>(
       (userProfiles ?? []).map((userProfile) => [
         userProfile.user_id,
@@ -101,12 +119,17 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
 
     return safePrescriptions.map((prescription) => {
       const doctorProfile = doctorProfileById.get(prescription.doctor_id);
+      const pharmacyTask = pharmacyStatusByPrescriptionId.get(prescription.id);
 
       return {
         ...prescription,
         doctorName: doctorProfile?.fullName ?? doctorFallback(),
         doctorSpecialty: doctorProfile?.specialty ?? null,
         items: itemsByPrescriptionId.get(prescription.id) ?? [],
+        pharmacyStatus: prescription.pharmacy_organization_id
+          ? ((pharmacyTask?.status ?? 'new') as PatientPrescriptionRecord['pharmacyStatus'])
+          : 'not_sent',
+        pharmacyName: null,
       };
     });
   }, [userId]);
