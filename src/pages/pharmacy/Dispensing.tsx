@@ -450,8 +450,10 @@ export const PharmacyDispensing = () => {
                       <div className="truncate text-[11px] text-slate-400">CeenAiX care team</div>
                     </div>
 
-                    <div className="pr-3">
-                      <div className="truncate text-[12px] text-slate-600">{row.drugs.join(', ') || '—'}</div>
+                    <div className="pr-3 min-w-0">
+                      <div className="truncate text-[12px] text-slate-600" title={row.drugs.join(', ')}>
+                        {row.drugs.join(', ') || '—'}
+                      </div>
                       <div className="font-mono text-[10px] text-slate-400">RX-{row.id.slice(0, 8).toUpperCase()}</div>
                     </div>
 
