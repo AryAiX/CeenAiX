@@ -342,7 +342,7 @@ test.describe('three-actor care pathways', () => {
   test('patient → doctor → lab: lab order propagates to lab worklist', async ({ browser }) => {
     const state = createE2EWorkflowState();
     const appointment = seedAppointment(state, { chief_complaint: 'Three-actor lab pathway' });
-    const labOrder = seedLabOrder(state, { appointment_id: appointment.id });
+    seedLabOrder(state, { appointment_id: appointment.id });
     await runActorChain(browser, state, [
       {
         role: 'patient',
@@ -588,7 +588,7 @@ test.describe('four-actor and five-actor journeys', () => {
     test.setTimeout(90_000);
     const state = createE2EWorkflowState();
     const appointment = seedAppointment(state, { chief_complaint: 'Four-actor lab release' });
-    const labOrder = seedLabOrder(state, { appointment_id: appointment.id, status: 'resulted' });
+    seedLabOrder(state, { appointment_id: appointment.id, status: 'resulted' });
     await runActorChain(browser, state, [
       {
         role: 'patient',
