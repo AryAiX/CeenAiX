@@ -370,7 +370,7 @@ export const PharmacyDashboard = () => {
             return (
               <Link
                 key={item.id}
-                to="/pharmacy/dispensing"
+                to={`/pharmacy/dispensing?id=${item.id}`}
                 className={`flex min-h-20 items-center gap-4 border-b border-slate-50 border-l-4 px-5 transition hover:bg-emerald-50 ${cfg.border}`}
               >
                 <div className="w-[90px] shrink-0">
