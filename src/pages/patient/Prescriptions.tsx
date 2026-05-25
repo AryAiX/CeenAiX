@@ -1281,14 +1281,34 @@ export const PatientPrescriptions: React.FC = () => {
                   <div className="text-sm" aria-hidden>🏪</div>
                   <div className="flex-1">
                     <div className="text-xs font-medium text-slate-600">
-                      {pharmacySentId === rx.id ? 'Sent to Pharmacy ✅' : t('patient.prescriptions.pharmacyFollowUpTitle')}
+                      {rx.pharmacyStatus === 'dispensed'
+                        ? '💊 Ready for Pickup!'
+                        : rx.pharmacyStatus === 'in_progress'
+                          ? '⚙️ Pharmacy is preparing your medication'
+                          : rx.pharmacyStatus === 'on_hold'
+                            ? '⚠️ Pharmacy has a question about your prescription'
+                            : rx.pharmacyStatus === 'cancelled'
+                              ? '❌ Prescription cancelled — contact your doctor'
+                              : rx.pharmacyStatus === 'new' || pharmacySentId === rx.id
+                                ? '✅ Prescription received by pharmacy — being reviewed'
+                                : t('patient.prescriptions.pharmacyFollowUpTitle')}
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      {pharmacySentId === rx.id ? 'Your prescription has been sent. The pharmacy will prepare your medication.' : t('patient.prescriptions.pharmacyFollowUpBody')}
+                      {rx.pharmacyStatus === 'dispensed'
+                        ? 'Your medication is ready. Please visit the pharmacy to collect it.'
+                        : rx.pharmacyStatus === 'in_progress'
+                          ? 'The pharmacist is currently preparing your medication.'
+                          : rx.pharmacyStatus === 'on_hold'
+                            ? 'The pharmacy may contact you or your doctor for clarification.'
+                            : rx.pharmacyStatus === 'cancelled'
+                              ? 'This prescription was cancelled by the pharmacy.'
+                              : rx.pharmacyStatus === 'new' || pharmacySentId === rx.id
+                                ? 'The pharmacist will verify your prescription and check stock availability.'
+                                : t('patient.prescriptions.pharmacyFollowUpBody')}
                     </div>
                   </div>
                 </div>
-                {pharmacySentId !== rx.id ? (
+                {rx.pharmacyStatus === 'not_sent' && pharmacySentId !== rx.id ? (
                   <button
                     type="button"
                     onClick={() => void handleOpenPharmacyModal(rx.id)}
