@@ -84,6 +84,7 @@ interface PharmacyKpi {
   helper: string;
   icon: LucideIcon;
   tone: 'emerald' | 'blue' | 'amber';
+  route: string;
 }
 
 interface PharmacyDashboardPrescription {
@@ -215,6 +216,7 @@ export const PharmacyDashboard = () => {
         helper: `${formatNumber(dispensedPrescriptions.length, uiLang)} dispensed · ${formatNumber(inQueue.length, uiLang)} in queue · ${formatNumber(onHold, uiLang)} on hold`,
         icon: Pill,
         tone: 'emerald',
+        route: '/pharmacy/dispensing',
       },
       {
         label: 'In Queue',
@@ -224,6 +226,7 @@ export const PharmacyDashboard = () => {
           : 'No active wait time',
         icon: Clock,
         tone: 'blue',
+        route: '/pharmacy/dispensing',
       },
       {
         label: 'Stock Alerts',
@@ -231,6 +234,7 @@ export const PharmacyDashboard = () => {
         helper: `${stockAlerts.filter((item) => item.severity === 'out').length} out of stock · ${stockAlerts.filter((item) => item.severity === 'low').length} low · ${stockAlerts.filter((item) => item.severity === 'near_expiry').length} expiring`,
         icon: AlertTriangle,
         tone: 'amber',
+        route: '/pharmacy/inventory',
       },
       {
         label: 'Revenue Today',
@@ -238,6 +242,7 @@ export const PharmacyDashboard = () => {
         helper: `${formatNumber(data?.claims.filter((claim) => claim.status === 'paid').length ?? 0, uiLang)} paid claims from pharmacy_claims`,
         icon: CircleDollarSign,
         tone: 'emerald',
+        route: '/pharmacy/revenue',
       },
       {
         label: 'DHA Status',
@@ -245,6 +250,7 @@ export const PharmacyDashboard = () => {
         helper: `${formatNumber(data?.reportMetrics.dhaSubmittedCount ?? 0, uiLang)} dispensing records ready for DHA reporting`,
         icon: ShieldCheck,
         tone: 'emerald',
+        route: '/pharmacy/reports',
       },
     ],
     [data?.claims, data?.profile?.dhaConnected, data?.reportMetrics.dhaSubmittedCount, dispensedPrescriptions.length, inQueue.length, oldestQueueItem, onHold, paidRevenue, prescriptionsToday, stockAlerts, uiLang]
@@ -302,9 +308,10 @@ export const PharmacyDashboard = () => {
                   : 'border-slate-100 text-emerald-600 bg-emerald-50';
 
             return (
-              <article
+              <Link
                 key={kpi.label}
-                className={`rounded-xl border bg-white p-4 shadow-sm ${
+                to={kpi.route}
+                className={`block rounded-xl border bg-white p-4 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer ${
                   kpi.tone === 'blue' ? 'border-blue-300' : 'border-slate-100'
                 }`}
               >
@@ -342,7 +349,7 @@ export const PharmacyDashboard = () => {
                     />
                   </div>
                 ) : null}
-              </article>
+              </Link>
             );
           })}
         </section>
