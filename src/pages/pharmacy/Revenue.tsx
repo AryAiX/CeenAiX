@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CircleDollarSign, CreditCard, Download, FileCheck2, ReceiptText } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
@@ -132,6 +133,7 @@ export const PharmacyRevenue = () => {
               icon: CircleDollarSign,
               color: 'text-emerald-600',
               bg: 'bg-emerald-50',
+              route: '/pharmacy/revenue',
             },
             {
               label: t('pharmacy.revenue.kpiProjected', { defaultValue: 'Projected Queue Value' }),
@@ -143,6 +145,7 @@ export const PharmacyRevenue = () => {
               icon: ReceiptText,
               color: 'text-teal-600',
               bg: 'bg-teal-50',
+              route: '/pharmacy/dispensing',
             },
             {
               label: t('pharmacy.revenue.kpiReview', { defaultValue: 'Claims In Review' }),
@@ -151,6 +154,7 @@ export const PharmacyRevenue = () => {
               icon: FileCheck2,
               color: 'text-amber-600',
               bg: 'bg-amber-50',
+              route: '/pharmacy/revenue',
             },
             {
               label: t('pharmacy.revenue.kpiAvg', { defaultValue: 'Average Rx Value' }),
@@ -162,18 +166,19 @@ export const PharmacyRevenue = () => {
               icon: CreditCard,
               color: 'text-blue-600',
               bg: 'bg-blue-50',
+              route: '/pharmacy/revenue',
             },
           ].map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <article key={kpi.label} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <Link key={kpi.label} to={kpi.route} className="block rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer">
                 <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${kpi.bg}`}>
                   <Icon className={`h-5 w-5 ${kpi.color}`} />
                 </div>
                 <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{loading ? '...' : kpi.value}</div>
                 <div className="text-[12px] text-slate-500">{kpi.label}</div>
                 <div className="mt-0.5 text-xs text-slate-400">{kpi.helper}</div>
-              </article>
+              </Link>
             );
           })}
         </section>
