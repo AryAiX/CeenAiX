@@ -48,7 +48,7 @@ export const PharmacySettings = () => {
     >
       <div className="min-h-full bg-slate-50 p-6">
         <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />
-        <div className="max-w-3xl">
+        <div className="w-full">
           <div className="mb-5">
             <h2 className="text-[20px] font-bold text-slate-900">
               {t('pharmacy.settings.title', { defaultValue: 'Settings' })}
@@ -68,7 +68,7 @@ export const PharmacySettings = () => {
             </div>
           ) : null}
 
-          <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-3">
             {[
               [
                 t('pharmacy.settings.cardNotifications', { defaultValue: 'Notifications' }),
@@ -100,7 +100,7 @@ export const PharmacySettings = () => {
           </div>
         ) : null}
 
-          <section className="space-y-4">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {settings.map((setting) => (
               <article
                 key={setting.title}
