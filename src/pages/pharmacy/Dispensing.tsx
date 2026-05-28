@@ -203,6 +203,7 @@ export const PharmacyDispensing = () => {
   const [holdModalRow, setHoldModalRow] = useState<PrescriptionListRow | null>(null);
   const [holdReason, setHoldReason] = useState('');
   const [holdNote, setHoldNote] = useState('');
+  const [viewModalRow, setViewModalRow] = useState<PrescriptionListRow | null>(null);
 
   useEffect(() => {
     const id = searchParams.get('id');
@@ -539,8 +540,14 @@ export const PharmacyDispensing = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => void handleRowAction(row, row.status)}
-                        disabled={busyId === row.id || row.status === 'cancelled'}
+                        onClick={() => {
+                          if (row.status === 'dispensed' || row.status === 'cancelled') {
+                            setViewModalRow(row);
+                          } else {
+                            void handleRowAction(row, row.status);
+                          }
+                        }}
+                        disabled={busyId === row.id && row.status !== 'dispensed' && row.status !== 'cancelled'}
                         className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                           row.status === 'dispensed'
                             ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -549,7 +556,7 @@ export const PharmacyDispensing = () => {
                               : 'bg-emerald-600 text-white hover:bg-emerald-700'
                         }`}
                       >
-                        {row.status !== 'dispensed' ? <Play className="h-3 w-3" /> : null}
+                        {row.status !== 'dispensed' && row.status !== 'cancelled' ? <Play className="h-3 w-3" /> : null}
                         {busyId === row.id ? '…' : cfg.action}
                       </button>
                       {(row.status === 'new' || row.status === 'in_progress') ? (
@@ -652,6 +659,114 @@ export const PharmacyDispensing = () => {
                 className="flex-1 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busyId === holdModalRow.id ? 'Saving...' : 'Confirm Hold'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+      {viewModalRow ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-[13px] font-bold text-white ${viewModalRow.avatarClass}`}>
+                  {viewModalRow.patientInitials}
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">{viewModalRow.patientName}</h2>
+                  <p className="mt-0.5 font-mono text-xs text-slate-400">RX-{viewModalRow.id.slice(0, 8).toUpperCase()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                  viewModalRow.status === 'dispensed'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {viewModalRow.status === 'dispensed' ? 'DISPENSED ✅' : 'CANCELLED'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setViewModalRow(null)}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 px-6 py-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Patient</div>
+                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.patientName}</div>
+                  {viewModalRow.hasAllergyFlag ? (
+                    <div className="mt-1 text-[11px] text-red-600">⚠️ Allergy flag on record</div>
+                  ) : null}
+                </div>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Doctor</div>
+                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.doctorName}</div>
+                  <div className="text-[11px] text-slate-400">CeenAiX care team</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Pharmacy</div>
+                  <div className="text-sm font-semibold text-slate-800">{data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'}</div>
+                  <div className="text-[11px] text-slate-400">{data?.profile?.licenseNumber ?? 'DHA Licensed'}</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">DHA Reference</div>
+                  <div className="font-mono text-sm font-bold text-slate-800">DHA-{viewModalRow.id.slice(0, 8).toUpperCase()}</div>
+                  <div className="text-[11px] text-emerald-600">Ready for DHA reporting ✅</div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-100 px-4 py-3">
+                <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-400">Medications</div>
+                <div className="space-y-1">
+                  {viewModalRow.drugs.map((drug, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm text-slate-700">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                      {drug}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Insurance</div>
+                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.insurance}</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Copay</div>
+                  <div className="font-mono text-sm font-bold text-emerald-600">AED {formatNumber(viewModalRow.copay, uiLang)}</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Priority</div>
+                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.priority.toUpperCase()}</div>
+                </div>
+              </div>
+
+              {viewModalRow.status === 'dispensed' ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  ✅ Medication dispensed successfully. Patient has been notified for pickup.
+                </div>
+              ) : (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  ❌ This prescription was cancelled.
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setViewModalRow(null)}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Close
               </button>
             </div>
           </div>
