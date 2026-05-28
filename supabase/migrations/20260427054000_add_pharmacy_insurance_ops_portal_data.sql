@@ -426,6 +426,19 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Pharmacy facility profile: allow pharmacy ops staff to update their own profile
+DROP POLICY IF EXISTS "pharmacy_facility_profiles_ops_update" ON public.pharmacy_facility_profiles;
+CREATE POLICY "pharmacy_facility_profiles_ops_update"
+  ON public.pharmacy_facility_profiles
+  FOR UPDATE
+  TO authenticated
+  USING (
+    is_current_user_ops_org(organization_id, 'pharmacy'::text)
+  )
+  WITH CHECK (
+    is_current_user_ops_org(organization_id, 'pharmacy'::text)
+  );
+
 INSERT INTO public.organizations (slug, name, kind, city, country, primary_contact_name, primary_contact_email, seats_allocated, seats_used, status, notes)
 VALUES
   ('al-shifa-pharmacy', 'Al Shifa Pharmacy', 'pharmacy', 'Dubai', 'AE', 'Rania Hassan', 'pharmacy@ceenaix.local', 12, 3, 'active', 'DHA-PHARM-2019-003481'),
