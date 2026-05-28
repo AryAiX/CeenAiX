@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, MessageSquare, Play, Search, X } from 'lucide-react';
@@ -175,6 +176,17 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
   });
 };
 
+const HOLD_REASONS = [
+  { value: 'out_of_stock', label: '🔴 Out of Stock' },
+  { value: 'insurance_issue', label: '🛡️ Insurance Issue' },
+  { value: 'allergy_concern', label: '⚠️ Allergy Concern' },
+  { value: 'doctor_clarification', label: '📋 Doctor Clarification Needed' },
+  { value: 'substitution_required', label: '🔄 Substitution Required' },
+  { value: 'incomplete_prescription', label: '📄 Incomplete Prescription' },
+  { value: 'patient_not_reachable', label: '👤 Patient Not Reachable' },
+  { value: 'other', label: '🔧 Other' },
+];
+
 export const PharmacyDispensing = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
@@ -188,6 +200,9 @@ export const PharmacyDispensing = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+  const [holdModalRow, setHoldModalRow] = useState<PrescriptionListRow | null>(null);
+  const [holdReason, setHoldReason] = useState('');
+  const [holdNote, setHoldNote] = useState('');
 
   useEffect(() => {
     const id = searchParams.get('id');
@@ -220,12 +235,15 @@ export const PharmacyDispensing = () => {
     }
   };
 
-  const handleOnHold = async (row: PrescriptionListRow) => {
+  const handleOnHold = async (row: PrescriptionListRow, _reason: string, _note: string) => {
     setActionError(null);
     setBusyId(row.id);
     try {
       await Promise.all(row.taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, 'on_hold')));
       refetch();
+      setHoldModalRow(null);
+      setHoldReason('');
+      setHoldNote('');
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : 'Could not update prescription status.'
@@ -537,7 +555,11 @@ export const PharmacyDispensing = () => {
                       {(row.status === 'new' || row.status === 'in_progress') ? (
                         <button
                           type="button"
-                          onClick={() => void handleOnHold(row)}
+                          onClick={() => {
+                            setHoldModalRow(row);
+                            setHoldReason('');
+                            setHoldNote('');
+                          }}
                           disabled={busyId === row.id}
                           title="Put on hold"
                           className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-amber-600 border border-amber-300 bg-amber-50 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -562,6 +584,80 @@ export const PharmacyDispensing = () => {
           </div>
         </div>
       </div>
+      {holdModalRow ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Put Prescription On Hold</h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {holdModalRow.patientName} · {holdModalRow.drugs.slice(0, 2).join(', ')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHoldModalRow(null)}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Reason for Hold <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {HOLD_REASONS.map((reason) => (
+                    <button
+                      key={reason.value}
+                      type="button"
+                      onClick={() => setHoldReason(reason.value)}
+                      className={`rounded-lg border px-4 py-2.5 text-left text-sm transition ${
+                        holdReason === reason.value
+                          ? 'border-amber-400 bg-amber-50 font-semibold text-amber-800'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {reason.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Additional Notes <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <textarea
+                  value={holdNote}
+                  onChange={(e) => setHoldNote(e.target.value)}
+                  rows={3}
+                  placeholder="Add any additional details..."
+                  className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setHoldModalRow(null)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!holdReason || busyId === holdModalRow.id}
+                onClick={() => void handleOnHold(holdModalRow, holdReason, holdNote)}
+                className="flex-1 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busyId === holdModalRow.id ? 'Saving...' : 'Confirm Hold'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </OpsShell>
   );
 };
