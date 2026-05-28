@@ -480,7 +480,7 @@ export const PharmacyDashboard = () => {
                       </div>
                     </div>
                     <Link
-                      to="/pharmacy/inventory"
+                      to={`/pharmacy/inventory?id=${alert.id}`}
                       className={`shrink-0 rounded-md px-2.5 py-1 text-[10px] font-semibold ${
                         alert.severity === 'out'
                           ? 'bg-red-100 text-red-700 hover:bg-red-200'

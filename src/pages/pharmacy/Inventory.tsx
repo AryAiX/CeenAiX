@@ -1,5 +1,6 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Download,
@@ -182,6 +183,14 @@ export const PharmacyInventory = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id) {
+      setSearch(id);
+    }
+  }, [searchParams]);
   const [exportError, setExportError] = useState<string | null>(null);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
@@ -206,6 +215,7 @@ export const PharmacyInventory = () => {
     return rows.filter((item) => {
       const matchesSearch =
         !query ||
+        item.id.toLowerCase().includes(query) ||
         item.genericName.toLowerCase().includes(query) ||
         item.brandName.toLowerCase().includes(query) ||
         item.atcCode.toLowerCase().includes(query) ||
@@ -366,7 +376,10 @@ export const PharmacyInventory = () => {
               <button
                 key={key}
                 type="button"
-                onClick={() => setFilter(key)}
+                onClick={() => {
+                  setFilter(key);
+                  setSearch('');
+                }}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                   filter === key
                     ? 'bg-emerald-600 text-white'
