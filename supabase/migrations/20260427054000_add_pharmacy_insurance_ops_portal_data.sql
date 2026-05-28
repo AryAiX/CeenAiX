@@ -426,6 +426,37 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Organization staff members: allow pharmacy ops staff to manage their own staff
+DROP POLICY IF EXISTS "organization_staff_members_ops_insert" ON public.organization_staff_members;
+CREATE POLICY "organization_staff_members_ops_insert"
+  ON public.organization_staff_members
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    is_current_user_ops_org(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_staff_members_ops_update" ON public.organization_staff_members;
+CREATE POLICY "organization_staff_members_ops_update"
+  ON public.organization_staff_members
+  FOR UPDATE
+  TO authenticated
+  USING (
+    is_current_user_ops_org(organization_id)
+  )
+  WITH CHECK (
+    is_current_user_ops_org(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_staff_members_ops_delete" ON public.organization_staff_members;
+CREATE POLICY "organization_staff_members_ops_delete"
+  ON public.organization_staff_members
+  FOR DELETE
+  TO authenticated
+  USING (
+    is_current_user_ops_org(organization_id)
+  );
+
 -- Pharmacy facility profile: allow pharmacy ops staff to update their own profile
 DROP POLICY IF EXISTS "pharmacy_facility_profiles_ops_update" ON public.pharmacy_facility_profiles;
 CREATE POLICY "pharmacy_facility_profiles_ops_update"
