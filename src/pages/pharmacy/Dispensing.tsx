@@ -220,6 +220,21 @@ export const PharmacyDispensing = () => {
     }
   };
 
+  const handleOnHold = async (row: PrescriptionListRow) => {
+    setActionError(null);
+    setBusyId(row.id);
+    try {
+      await Promise.all(row.taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, 'on_hold')));
+      refetch();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'Could not update prescription status.'
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleRowAction = async (row: PrescriptionListRow, status: RowStatus) => {
     if (status === 'dispensed' || status === 'cancelled') {
       return;
@@ -430,7 +445,7 @@ export const PharmacyDispensing = () => {
         <div className="mx-6 mb-6 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <div className="min-w-[1120px]">
-              <div className="grid grid-cols-[100px_1.2fr_1fr_1.25fr_110px_120px_140px] border-b border-slate-100 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400">
+              <div className="grid grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_160px] border-b border-slate-100 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400">
                 <div>Received</div>
                 <div>Patient</div>
                 <div>Doctor</div>
@@ -454,7 +469,7 @@ export const PharmacyDispensing = () => {
                 return (
                   <div
                     key={row.id}
-                    className={`grid min-h-16 grid-cols-[100px_1.2fr_1fr_1.25fr_110px_120px_140px] items-center border-l-4 px-5 py-3 transition-colors hover:bg-emerald-50 ${cfg.border}`}
+                    className={`grid min-h-16 grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_160px] items-center border-l-4 px-5 py-3 transition-colors hover:bg-emerald-50 ${cfg.border}`}
                     style={{
                       borderBottom: index < sorted.length - 1 ? '1px solid #F8FAFC' : undefined,
                     }}
@@ -484,7 +499,7 @@ export const PharmacyDispensing = () => {
 
                     <div className="pr-3 min-w-0">
                       <div className="truncate text-[12px] text-slate-600" title={row.drugs.join(', ')}>
-                        {row.drugs.join(', ') || '—'}
+                        {row.drugs.map(drug => drug.length > 20 ? drug.slice(0, 20) + '…' : drug).join(', ') || '—'}
                       </div>
                       <div className="font-mono text-[10px] text-slate-400">RX-{row.id.slice(0, 8).toUpperCase()}</div>
                     </div>
@@ -519,6 +534,17 @@ export const PharmacyDispensing = () => {
                         {row.status !== 'dispensed' ? <Play className="h-3 w-3" /> : null}
                         {busyId === row.id ? '…' : cfg.action}
                       </button>
+                      {(row.status === 'new' || row.status === 'in_progress') ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleOnHold(row)}
+                          disabled={busyId === row.id}
+                          title="Put on hold"
+                          className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-amber-600 border border-amber-300 bg-amber-50 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Hold
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => navigate('/pharmacy/messages')}
