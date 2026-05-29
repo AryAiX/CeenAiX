@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import {
   LayoutDashboard, Stethoscope, CalendarDays, DollarSign, Settings,
   ChevronLeft, ChevronRight, LogOut, Users, BarChart2, Building2,
@@ -40,12 +41,9 @@ function navigate(href: string) {
 const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleCollapse, activeTab }) => {
   const [signingOut, setSigningOut] = useState(false);
 
-  function handleSignOut() {
+  async function handleSignOut() {
     setSigningOut(true);
-    setTimeout(() => {
-      window.history.pushState({}, '', '/login');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    }, 600);
+    await supabase.auth.signOut();
   }
 
   return (
