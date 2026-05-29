@@ -19,7 +19,6 @@ import {
   Menu,
   MessageCircle,
   Pill,
-  Play,
   Shield,
   Star,
   Stethoscope,
@@ -30,11 +29,237 @@ import {
 } from 'lucide-react';
 import { useInView, useCounter } from '../../hooks';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import LandingDemoLaunchSection from '../../components/LandingDemoLaunchSection';
 
 /* ------------------------------------------------------------------------- */
 /*  Marketing landing page — layout preserved; routing via react-router and   */
 /*  copy via i18next. Shared useInView / useCounter hooks drive animations.   */
 /* ------------------------------------------------------------------------- */
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+const LAUNCH_DATE = new Date('2026-08-01T09:00:00+04:00');
+
+function getTimeLeft(target: Date) {
+  const diff = Math.max(0, target.getTime() - Date.now());
+  return {
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+}
+
+function HeroCountdown() {
+  const [time, setTime] = useState(() => getTimeLeft(LAUNCH_DATE));
+  useEffect(() => {
+    const id = setInterval(() => { if (!document.hidden) setTime(getTimeLeft(LAUNCH_DATE)); }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  const units = [
+    { val: time.days, label: 'DAYS' },
+    { val: time.hours, label: 'HRS' },
+    { val: time.minutes, label: 'MIN' },
+    { val: time.seconds, label: 'SEC' },
+  ];
+  return (
+    <div className="flex items-center gap-2 mb-5" aria-live="off">
+      {units.map(({ val, label }, i) => (
+        <div key={label} className="flex items-center gap-2">
+          <div className="text-center">
+            <div className="font-mono text-xl font-bold text-white tabular-nums bg-white/10 border border-white/15 rounded-xl px-2.5 py-1 min-w-[44px] text-center">
+              {String(val).padStart(2, '0')}
+            </div>
+            <div className="text-white/35 text-[9px] font-bold tracking-wider mt-1">{label}</div>
+          </div>
+          {i < 3 && <span className="text-white/30 font-bold text-lg -mt-3">:</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HeroNotifyForm() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) { setError('Please fill in both fields.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Please enter a valid email.'); return; }
+    setSubmitting(true); setError('');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/leads/launch-notify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, preferred_language: 'en', consent: true }),
+      });
+      const data = await res.json();
+      if (data.success) { setDone(true); }
+      else { setError('Something went wrong. Please try again.'); }
+    } catch { setError('Something went wrong. Please try again.'); }
+    finally { setSubmitting(false); }
+  };
+
+  if (done) {
+    return (
+      <div className="flex items-center gap-3 py-2 px-4 rounded-2xl bg-teal-500/20 border border-teal-400/30" role="status">
+        <div className="w-8 h-8 rounded-full bg-teal-500/30 flex items-center justify-center flex-shrink-0">
+          <Check className="w-4 h-4 text-teal-400" />
+        </div>
+        <div>
+          <p className="text-white text-sm font-semibold">You're on the list!</p>
+          <p className="text-white/50 text-xs">We'll email {email} at launch.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2.5" noValidate>
+      <input type="text" name="website" tabIndex={-1} aria-hidden="true"
+        className="absolute opacity-0 pointer-events-none w-0 h-0" style={{ clipPath: 'inset(50%)' }} autoComplete="off" />
+      <div className="grid grid-cols-2 gap-2.5">
+        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
+          autoComplete="given-name"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@work.com"
+          autoComplete="email" dir="ltr"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+      </div>
+      {error && <p className="text-rose-400 text-xs">{error}</p>}
+      <button type="submit" disabled={submitting} aria-busy={submitting}
+        className="w-full py-2.5 rounded-xl border-2 border-teal-400/60 text-teal-300 font-bold text-sm hover:bg-teal-500/20 active:scale-[0.98] disabled:opacity-50 transition-all duration-150 flex items-center justify-center gap-2">
+        {submitting ? <><span className="w-4 h-4 border-2 border-teal-300/40 border-t-teal-300 rounded-full animate-spin inline-block" />Submitting…</> : 'Notify me at launch'}
+      </button>
+    </form>
+  );
+}
+
+function HeroDemoForm() {
+  const [form, setForm] = useState({ name: '', email: '', org: '', role: '', interests: [] as string[] });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+  const [step, setStep] = useState<'form' | 'interests'>('form');
+
+  const interests = ['Patient portal', 'Doctor portal', 'Pharmacy', 'Lab & Radiology', 'Telemedicine', 'NABIDH', 'AI assist', 'Insurance'];
+  const roles = ['Owner / Founder', 'Medical Director', 'Clinic Manager', 'IT / Operations', 'Procurement', 'Investor', 'Other'];
+
+  const toggleInterest = (item: string) =>
+    setForm(f => ({
+      ...f,
+      interests: f.interests.includes(item) ? f.interests.filter(i => i !== item) : [...f.interests, item],
+    }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.org.trim() || !form.role) {
+      setError('Please complete all fields.'); return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError('Please enter a valid email.'); return;
+    }
+    setSubmitting(true); setError('');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/leads/demo-request`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: form.name, email: form.email, phone: 'N/A',
+          organization_name: form.org, role: form.role, organization_type: 'Other',
+          country: 'Dubai', team_size: '1–10', interests: form.interests,
+          preferred_language: 'English', consent: true, override_free_email: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) { setDone(true); }
+      else { setError(Object.values(data.errors ?? {}).join(' ') || 'Something went wrong.'); }
+    } catch { setError('Something went wrong. Please try again.'); }
+    finally { setSubmitting(false); }
+  };
+
+  if (done) {
+    return (
+      <div className="flex flex-col items-center text-center py-4 gap-3" role="status">
+        <div className="w-12 h-12 rounded-full bg-teal-500/20 border border-teal-400/30 flex items-center justify-center">
+          <Check className="w-6 h-6 text-teal-400" />
+        </div>
+        <div>
+          <p className="text-white font-bold">Demo request received!</p>
+          <p className="text-white/50 text-sm">We'll reach out to {form.email} within one business day.</p>
+        </div>
+        <a href="#demo-launch" className="text-teal-400 text-sm underline hover:text-teal-300">
+          Want the full form? Fill in more details →
+        </a>
+      </div>
+    );
+  }
+
+  if (step === 'interests') {
+    return (
+      <div className="space-y-4">
+        <p className="text-white/60 text-sm">What are you most interested in? <span className="text-white/40">(optional)</span></p>
+        <div className="flex flex-wrap gap-2">
+          {interests.map(item => {
+            const sel = form.interests.includes(item);
+            return (
+              <button key={item} type="button" onClick={() => toggleInterest(item)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-150
+                  ${sel ? 'bg-teal-500/30 border-teal-400/60 text-teal-300' : 'bg-white/8 border-white/15 text-white/60 hover:border-teal-400/40 hover:text-white/80'}`}>
+                {item}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={() => setStep('form')}
+            className="flex-none px-4 py-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:border-white/30 transition-all">
+            ← Back
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/25 active:scale-[0.98] disabled:opacity-50 transition-all duration-150 flex items-center justify-center gap-2">
+            {submitting ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />Sending…</> : 'Request demo →'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={e => { e.preventDefault(); if (!form.name.trim() || !form.email.trim() || !form.org.trim() || !form.role) { setError('Please complete all fields.'); return; } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Please enter a valid email.'); return; } setError(''); setStep('interests'); }} className="space-y-3" noValidate>
+      <input type="text" name="website" tabIndex={-1} aria-hidden="true"
+        className="absolute opacity-0 pointer-events-none w-0 h-0" style={{ clipPath: 'inset(50%)' }} autoComplete="off" />
+      <div className="grid grid-cols-2 gap-2.5">
+        <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          placeholder="Full name" autoComplete="name"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+        <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+          placeholder="Work email" autoComplete="email" dir="ltr"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+      </div>
+      <input type="text" value={form.org} onChange={e => setForm(f => ({ ...f, org: e.target.value }))}
+        placeholder="Organization name" autoComplete="organization"
+        className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+      <div className="relative">
+        <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all appearance-none text-white [&>option]:bg-slate-800 [&>option]:text-white">
+          <option value="" className="text-white/40">Your role</option>
+          {roles.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+      </div>
+      {error && <p className="text-rose-400 text-xs">{error}</p>}
+      <button type="submit"
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2">
+        Next: choose interests →
+      </button>
+    </form>
+  );
+}
 
 interface StatCounterProps {
   value: number;
@@ -248,13 +473,6 @@ export const Home = () => {
   const goSignIn = () => navigate('/auth/portal-access?intent=login');
   const goRegister = () => navigate('/auth/portal-access?intent=register');
 
-  const heroAvatars = [
-    'https://images.pexels.com/photos/5214961/pexels-photo-5214961.jpeg?auto=compress&cs=tinysrgb&w=80',
-    'https://images.pexels.com/photos/3768726/pexels-photo-3768726.jpeg?auto=compress&cs=tinysrgb&w=80',
-    'https://images.pexels.com/photos/6129967/pexels-photo-6129967.jpeg?auto=compress&cs=tinysrgb&w=80',
-    'https://images.pexels.com/photos/4225920/pexels-photo-4225920.jpeg?auto=compress&cs=tinysrgb&w=80',
-  ];
-
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
       {/*
@@ -378,201 +596,137 @@ export const Home = () => {
       </nav>
 
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
+      <section className="relative min-h-screen flex flex-col overflow-hidden">
         <div className="absolute inset-0">
           <img
             src="https://images.pexels.com/photos/3845810/pexels-photo-3845810.jpeg?auto=compress&cs=tinysrgb&w=1920"
-            alt={t('home.landing.hero.altHeroBg')}
+            alt="Healthcare"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-cyan-900/75 to-blue-900/85" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/95 via-teal-950/85 to-slate-900/90" />
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
         </div>
+        <div className="absolute top-32 left-1/4 w-[600px] h-[600px] rounded-full bg-teal-500/8 blur-[120px] pointer-events-none animate-blob" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-500/6 blur-[100px] pointer-events-none animate-blob" style={{ animationDelay: '5s' }} />
 
-        <div className="absolute top-20 right-20 w-96 h-96 bg-cyan-400/10 rounded-full animate-blob blur-3xl" />
-        <div
-          className="absolute bottom-20 left-20 w-80 h-80 bg-blue-400/10 rounded-full animate-blob blur-3xl"
-          style={{ animationDelay: '4s' }}
-        />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 grid lg:grid-cols-2 gap-12 items-center">
-          <div
-            ref={heroRef.ref}
-            className={`opacity-0-init ${heroRef.inView ? 'animate-fade-up' : ''}`}
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-400/20 border border-cyan-400/30 backdrop-blur-sm mb-6">
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-cyan-300 text-sm font-semibold tracking-wide uppercase">
-                {t('home.landing.hero.badge')}
+        <div className="relative flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-28 pb-16">
+          <div ref={heroRef.ref} className={`flex flex-wrap items-center justify-center gap-3 mb-10 opacity-0-init ${heroRef.inView ? 'animate-fade-up' : ''}`}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-400/15 border border-teal-400/30 backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+              <span className="text-teal-300 text-xs font-bold tracking-widest uppercase">Pre-Launch · GCC Healthcare AI</span>
+            </div>
+            {['DHA Path B', 'NABIDH-ready', 'UAE-hosted', 'Bilingual'].map(b => (
+              <span key={b} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 text-xs font-medium backdrop-blur-sm">
+                <Check className="w-3 h-3 text-teal-400" />{b}
               </span>
-            </div>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[1.05] mb-6">
-              {t('home.landing.hero.titleLine1')}
-              <br />
-              <span className="shimmer-text">
-                {t('home.landing.hero.titleLine2Part1')}
-                <br />
-                {t('home.landing.hero.titleLine2Part2')}
-              </span>
-            </h1>
-            <p className="text-lg text-cyan-100/80 mb-8 leading-relaxed max-w-lg">
-              {t('home.landing.hero.lead')}
-            </p>
-            <div className="flex flex-wrap gap-4 mb-10">
-              <button
-                type="button"
-                onClick={goRegister}
-                className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-bold text-base hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-300 flex items-center gap-2"
-              >
-                {t('home.landing.hero.ctaPrimary')}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform rtl:rotate-180 rtl:group-hover:-translate-x-1" />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/auth/portal-access?intent=login')}
-                title={t('home.landing.hero.demoTooltip', {
-                  defaultValue: 'Sign in to explore the patient dashboard demo.',
-                })}
-                className="group px-8 py-4 bg-white/10 backdrop-blur-sm border border-white/30 text-white rounded-2xl font-bold text-base hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" /> {t('home.landing.hero.ctaSecondary')}
-              </button>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex -space-x-3">
-                {heroAvatars.map((src) => (
-                  <img
-                    key={src}
-                    src={src}
-                    alt={t('home.landing.hero.altAvatars')}
-                    className="w-10 h-10 rounded-full border-2 border-white object-cover"
-                  />
-                ))}
-              </div>
-              <div>
-                <div className="flex items-center gap-1 mb-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <p className="text-white/70 text-sm">
-                  {t('home.landing.hero.trustBefore')}
-                  <span className="text-white font-semibold">
-                    {t('home.landing.hero.trustCount')}
-                  </span>
-                  {t('home.landing.hero.trustAfter')}
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Portal cards floating panel */}
-          <div
-            className={`opacity-0-init ${heroRef.inView ? 'animate-slide-left delay-300' : ''}`}
-          >
-            <div className="relative">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-between mb-5">
+          <div className={`text-center mb-14 opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-100' : ''}`}>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.04] tracking-tight mb-5">
+              The UAE's AI Healthcare<br />
+              <span className="shimmer-text">Platform is Coming</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-white/55 max-w-2xl mx-auto leading-relaxed">
+              DHA-compliant · NABIDH-certified · Built for clinics, hospitals, pharmacies, labs & insurers across the GCC.
+            </p>
+          </div>
+
+          <div className={`grid lg:grid-cols-2 gap-5 max-w-5xl mx-auto opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-200' : ''}`}>
+            <div className="relative rounded-3xl overflow-hidden bg-white/[0.06] backdrop-blur-2xl border border-white/15 shadow-2xl">
+              <div className="h-1 w-full bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-500" />
+              <div className="p-7">
+                <div className="flex items-start justify-between mb-5">
                   <div>
-                    <p className="text-white font-bold text-lg">
-                      {t('home.landing.hero.panelTitle')}
-                    </p>
-                    <p className="text-cyan-200/70 text-sm">
-                      {t('home.landing.hero.panelSubtitle')}
-                    </p>
+                    <p className="text-teal-400 text-xs font-bold uppercase tracking-widest mb-1">Personalized walkthrough</p>
+                    <h2 className="text-2xl font-bold text-white">Request a demo</h2>
+                    <p className="text-white/50 text-sm mt-1 leading-relaxed">30-min tailored demo for your team. Available in English or Arabic.</p>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-cyan-400/20 flex items-center justify-center">
-                    <Globe2 className="w-5 h-5 text-cyan-300" />
+                  <div className="w-11 h-11 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center flex-shrink-0 ms-3">
+                    <Stethoscope className="w-5 h-5 text-teal-400" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <HeroDemoForm />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5">
+              <div className="relative rounded-3xl overflow-hidden bg-white/[0.06] backdrop-blur-2xl border border-white/15 shadow-2xl flex-1">
+                <div className="h-1 w-full bg-gradient-to-r from-cyan-500 via-sky-400 to-cyan-500" />
+                <div className="p-7">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-cyan-400 text-xs font-bold uppercase tracking-widest mb-1">Launching soon</p>
+                      <h2 className="text-2xl font-bold text-white">Be the first to know</h2>
+                      <p className="text-white/50 text-sm mt-1">One email when we launch. No spam.</p>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center flex-shrink-0 ms-3">
+                      <Bell className="w-5 h-5 text-cyan-400" />
+                    </div>
+                  </div>
+                  <HeroCountdown />
+                  <HeroNotifyForm />
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-white/[0.06] backdrop-blur-2xl border border-white/15 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">Try the live platform</p>
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"/>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"/>
+                    </span>
+                    Live
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
                   {portals.map((p, i) => {
                     const Icon = p.icon;
                     return (
-                      <button
-                        type="button"
-                        key={p.label}
-                        onClick={() => navigate(p.path)}
-                        className={`portal-btn flex items-center gap-3 p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/30 group ${
-                          activePortal === i ? 'ring-2 ring-cyan-400/60 bg-white/20' : ''
-                        }`}
-                      >
-                        <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center flex-shrink-0 shadow-lg`}
-                        >
-                          <Icon className="w-4 h-4 text-white" />
+                      <button key={i} type="button" onClick={() => navigate(p.path)}
+                        className={`portal-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/25 group ${activePortal === i ? 'ring-1 ring-teal-400/50 bg-white/12' : ''}`}>
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center shadow-lg`}>
+                          <Icon className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <span className="text-white text-xs font-semibold leading-tight">
-                          {p.label}
-                        </span>
+                        <span className="text-white/70 text-[10px] font-semibold leading-tight text-center">{p.label}</span>
                       </button>
                     );
                   })}
                 </div>
-
-                <div className="mt-4 flex items-center justify-between px-2">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                    </span>
-                    <span className="text-white/60 text-xs">
-                      {t('home.landing.hero.statusOperational')}
-                    </span>
-                  </div>
-                  <span className="text-white/40 text-xs">
-                    {t('home.landing.hero.statusUptime')}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                className="absolute -top-8 -right-8 bg-white rounded-2xl shadow-2xl p-3.5 w-56 landing-float"
-                style={{ animationDelay: '1s' }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
-                    <Bell className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">
-                      {t('home.landing.hero.notifyLabResultsTitle')}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {t('home.landing.hero.notifyLabResultsBody')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="absolute -bottom-6 -left-8 bg-white rounded-2xl shadow-2xl p-3.5 w-52 landing-float"
-                style={{ animationDelay: '2.5s' }}
-              >
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
-                    <Brain className="w-4 h-4 text-white" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-800">
-                    {t('home.landing.hero.notifyAiInsightTitle')}
-                  </p>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {t('home.landing.hero.notifyAiInsightBody')}
-                </p>
-                <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full w-3/4" />
-                </div>
               </div>
             </div>
           </div>
+
+          <div className={`mt-10 flex flex-wrap items-center justify-center gap-6 opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-300' : ''}`}>
+            <div className="flex items-center gap-3">
+              <div className="flex -space-x-2.5">
+                {['https://images.pexels.com/photos/5214961/pexels-photo-5214961.jpeg?auto=compress&cs=tinysrgb&w=80',
+                  'https://images.pexels.com/photos/3768726/pexels-photo-3768726.jpeg?auto=compress&cs=tinysrgb&w=80',
+                  'https://images.pexels.com/photos/6129967/pexels-photo-6129967.jpeg?auto=compress&cs=tinysrgb&w=80',
+                  'https://images.pexels.com/photos/4225920/pexels-photo-4225920.jpeg?auto=compress&cs=tinysrgb&w=80'].map((src, i) => (
+                  <img key={i} src={src} alt="" className="w-8 h-8 rounded-full border-2 border-slate-900 object-cover" />
+                ))}
+              </div>
+              <div>
+                <div className="flex items-center gap-0.5 mb-0.5">
+                  {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />)}
+                </div>
+                <p className="text-white/50 text-xs">Trusted by <span className="text-white/80 font-semibold">50,000+</span> patients</p>
+              </div>
+            </div>
+            <div className="h-8 w-px bg-white/10 hidden sm:block" />
+            <p className="text-white/40 text-xs">Already on the list? We'll email you at launch.</p>
+            <div className="h-8 w-px bg-white/10 hidden sm:block" />
+            <button type="button" onClick={() => navigate('/auth/portal-access?intent=login')} className="flex items-center gap-2 text-white/60 hover:text-white text-sm font-semibold transition-colors">
+              Sign in to platform <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
-          <span className="text-white/50 text-xs tracking-widest uppercase">
-            {t('home.landing.hero.scroll')}
-          </span>
-          <ChevronDown className="w-5 h-5 text-white/50" />
+        <div className="relative pb-8 flex flex-col items-center gap-1.5 animate-bounce">
+          <span className="text-white/30 text-xs tracking-widest uppercase">Explore</span>
+          <ChevronDown className="w-4 h-4 text-white/30" />
         </div>
       </section>
 
@@ -1032,6 +1186,9 @@ export const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Demo Request & Launch Notification */}
+      <LandingDemoLaunchSection />
 
       {/* Final CTA */}
       <section className="relative py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
