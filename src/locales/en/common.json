@@ -828,6 +828,10 @@
         "admin": {
           "title": "Platform Admin",
           "description": "Monitor platform health, users & organization management"
+        },
+        "clinic": {
+          "title": "Clinic / Hospital",
+          "description": "Manage doctors, appointments, pricing & clinic operations"
         }
       }
     },

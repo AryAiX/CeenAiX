@@ -13,7 +13,7 @@ import {
   UserRound,
 } from 'lucide-react';
 
-type PortalRole = 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance' | 'admin';
+type PortalRole = 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance' | 'admin' | 'clinic';
 
 interface RoleOption {
   id: PortalRole;
@@ -82,6 +82,15 @@ const roleOptions: RoleOption[] = [
     borderClass: 'border-rose-200 hover:border-rose-300',
     enabled: true,
   },
+  {
+    id: 'clinic',
+    titleKey: 'auth.roleAccess.roles.clinic.title',
+    descriptionKey: 'auth.roleAccess.roles.clinic.description',
+    icon: Building2,
+    accentClass: 'text-teal-700 bg-teal-50',
+    borderClass: 'border-teal-200 hover:border-teal-300',
+    enabled: true,
+  },
 ];
 
 export const PortalAccess = () => {
@@ -111,6 +120,11 @@ export const PortalAccess = () => {
 
     if (role === 'admin') {
       navigate('/auth/login?role=admin');
+      return;
+    }
+
+    if (role === 'clinic') {
+      navigate('/auth/login?role=clinic');
       return;
     }
 
