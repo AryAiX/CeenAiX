@@ -106,6 +106,7 @@ import {
   InsuranceRiskAnalytics,
   InsuranceSettings,
 } from '../pages/insurance/Portal';
+import ClinicPortal from '../pages/clinic/ClinicPortal';
 import { AppointmentDesignShowcase } from '../pages/AppointmentDesignShowcase';
 import { AccessDenied } from '../pages/system/AccessDenied';
 
@@ -621,5 +622,37 @@ export const router = createBrowserRouter([
   {
     path: '/insurance/settings',
     element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsuranceSettings />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/dashboard',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/doctors',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/appointments',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/patients',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/pricing',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/analytics',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/messages',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '/clinic/settings',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
   },
 ]);
