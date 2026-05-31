@@ -868,7 +868,11 @@ export const CreatePrescription: React.FC = () => {
   const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
   const [appointmentId, setAppointmentId] = useState(searchParams.get('appointment') ?? '');
   const [status, setStatus] = useState<'active' | 'completed' | 'cancelled'>('active');
-  const [items, setItems] = useState<DraftPrescriptionItem[]>([createDraftPrescriptionItem()]);
+  const [items, setItems] = useState<DraftPrescriptionItem[]>(() => {
+    const first = createDraftPrescriptionItem();
+    const prefillMedication = searchParams.get('medication')?.trim();
+    return [prefillMedication ? { ...first, medicationName: prefillMedication } : first];
+  });
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);

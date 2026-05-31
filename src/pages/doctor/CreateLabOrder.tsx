@@ -659,7 +659,11 @@ export const CreateLabOrder: React.FC = () => {
   const patients = useMemo(() => patientsData ?? [], [patientsData]);
   const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
   const [appointmentId, setAppointmentId] = useState(searchParams.get('appointment') ?? '');
-  const [items, setItems] = useState<DraftLabOrderItem[]>([createDraftLabOrderItem()]);
+  const [items, setItems] = useState<DraftLabOrderItem[]>(() => {
+    const first = createDraftLabOrderItem();
+    const prefillTest = searchParams.get('test')?.trim();
+    return [prefillTest ? { ...first, testName: prefillTest } : first];
+  });
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);

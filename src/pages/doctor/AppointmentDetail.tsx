@@ -10,11 +10,15 @@ import {
   MessageSquare,
   Pill,
   Save,
+  Sparkles,
   TestTube2,
   User,
   X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
+import { useConsultationScribeController } from '../../hooks/use-consultation-scribe-controller';
+import { AiScribePanel, ConsentModal, RecordingControlBar } from '../../components/consultation';
+import type { AppliedSoap } from '../../components/consultation';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { useDoctorAppointmentDetail, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -56,8 +60,16 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const { appointmentId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { data, loading, error, refetch } = useDoctorAppointmentDetail(user?.id, appointmentId);
+
+  const scribe = useConsultationScribeController({
+    appointmentId,
+    doctorId: user?.id,
+    patientId: data?.appointment.patient_id ?? null,
+    clinicId: data?.appointment.facility_id ?? null,
+  });
+  const [workspaceTab, setWorkspaceTab] = useState<'workspace' | 'scribe'>('workspace');
 
   const prescriptionIds = useMemo(
     () => (data?.prescriptions ?? []).map((p) => p.id),
@@ -111,7 +123,58 @@ export const DoctorAppointmentDetail: React.FC = () => {
     setAutoSaveStatus('idle');
     setNoteSaved(false);
     setShowCancelModal(false);
+    setWorkspaceTab('workspace');
   }, [appointmentId]);
+
+  const applySoapFromScribe = useCallback(
+    (soap: AppliedSoap) => {
+      setNoteDraft((current) => ({
+        ...current,
+        subjective: soap.subjective,
+        objective: soap.objective,
+        assessment: soap.assessment,
+        plan: soap.plan,
+      }));
+      setWorkspaceTab('workspace');
+      setFeedback({ type: 'success', message: t('doctor.consultationScribe.scribe.soapApplied') });
+    },
+    [t]
+  );
+
+  const approveAndSaveFromScribe = useCallback(
+    async (soap: AppliedSoap) => {
+      if (!data || !user?.id) return;
+      const payload = {
+        appointment_id: data.appointment.id,
+        doctor_id: user.id,
+        subjective: soap.subjective.trim() || null,
+        objective: soap.objective.trim() || null,
+        assessment: soap.assessment.trim() || null,
+        plan: soap.plan.trim() || null,
+        doctor_approved: true,
+        is_deleted: false,
+      };
+      const operation = data.consultationNote
+        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
+        : supabase.from('consultation_notes').insert(payload);
+      const { error: noteError } = await operation;
+      if (noteError) {
+        setFeedback({ type: 'error', message: noteError.message });
+        return;
+      }
+      setNoteDraft({
+        subjective: soap.subjective,
+        objective: soap.objective,
+        assessment: soap.assessment,
+        plan: soap.plan,
+        doctorApproved: true,
+      });
+      await scribe.markApproved();
+      setFeedback({ type: 'success', message: t('doctor.consultationScribe.scribe.approvedSaved') });
+      refetch();
+    },
+    [data, user?.id, scribe, t, refetch]
+  );
 
   useEffect(() => {
     if (!data || hasHydratedNote) {
@@ -177,6 +240,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
   }, []);
 
   const patientName = data?.patientProfile?.full_name?.trim() || t('shared.patient');
+  const doctorName = profile?.full_name?.trim() || t('shared.doctor', { defaultValue: 'Doctor' });
 
   const noteCompletion = useMemo(() => {
     if (!data) {
@@ -364,7 +428,50 @@ export const DoctorAppointmentDetail: React.FC = () => {
         <p className="mt-1 text-sm text-slate-500">{patientName}</p>
       </div>
 
-      <div className="space-y-6">
+      <div className="mt-6 space-y-6">
+        <RecordingControlBar controller={scribe} patientName={patientName} />
+
+        {scribe.feedback ? (
+          <div
+            role="alert"
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              scribe.feedback.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`}
+          >
+            {scribe.feedback.message}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2 border-b border-slate-200">
+          {(['workspace', 'scribe'] as const).map((tabId) => (
+            <button
+              key={tabId}
+              type="button"
+              onClick={() => setWorkspaceTab(tabId)}
+              className={`relative -mb-px px-4 py-3 text-sm font-semibold transition ${
+                workspaceTab === tabId ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                {tabId === 'scribe' ? <Sparkles className="h-4 w-4" /> : null}
+                {tabId === 'workspace'
+                  ? t('doctor.consultationScribe.tabWorkspace')
+                  : t('doctor.consultationScribe.tabScribe')}
+                {tabId === 'scribe' && scribe.data?.recording ? (
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                ) : null}
+              </span>
+              {workspaceTab === tabId ? (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-blue-600" />
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        {workspaceTab === 'workspace' ? (
+        <div className="space-y-6">
         {feedback ? (
           <div
             role="alert"
@@ -901,7 +1008,28 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </div>
           </section>
         </div>
+        </div>
+        ) : (
+          <AiScribePanel
+            controller={scribe}
+            patientId={data.appointment.patient_id}
+            appointmentId={data.appointment.id}
+            doctorName={doctorName}
+            approvalDateLabel={(iso) =>
+              new Date(iso).toLocaleDateString(locale, dtOpts({ year: 'numeric', month: 'long', day: 'numeric' }))
+            }
+            onApplySoap={applySoapFromScribe}
+            onApproveAndSave={approveAndSaveFromScribe}
+          />
+        )}
       </div>
+
+      <ConsentModal
+        open={scribe.consentOpen}
+        patientName={patientName}
+        onClose={scribe.closeConsent}
+        onConfirm={(input) => void scribe.startWithConsent(input)}
+      />
 
       {showCancelModal ? createPortal(
         <div
