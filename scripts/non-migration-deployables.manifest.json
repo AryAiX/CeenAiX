@@ -62,6 +62,23 @@
       ],
       "requiredSecrets": [],
       "notes": "Authenticated RxNorm-backed medication catalog enrichment for prescribing metadata."
+    },
+    {
+      "id": "supabase-edge-function-consultation-scribe",
+      "type": "supabase-edge-function",
+      "name": "consultation-scribe",
+      "path": "supabase/functions/consultation-scribe",
+      "deployCommand": [
+        "supabase",
+        "functions",
+        "deploy",
+        "consultation-scribe",
+        "--no-verify-jwt"
+      ],
+      "requiredSecrets": [
+        "OPENAI_API_KEY"
+      ],
+      "notes": "Doctor AI Scribe: Whisper transcription, GPT-4o SOAP note generation, and smart-suggestion extraction for consultation recordings."
     }
   ]
 }
