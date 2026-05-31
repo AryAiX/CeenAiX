@@ -141,7 +141,21 @@ export async function installScribeRoutes(page: Page, state: ScribeState) {
   });
 
   await page.route('**/functions/v1/consultation-scribe', async (route) => {
+    const contentType = route.request().headers()['content-type'] ?? '';
+    if (contentType.includes('multipart/form-data')) {
+      // Live audio chunk → canned transcript segment.
+      return json(route, { text: 'Patient reports chest tightness and a cough.', language: 'en' });
+    }
     const body = route.request().postDataJSON() as { task?: string };
+    if (body.task === 'live_cues') {
+      return json(route, {
+        cues: [
+          { kind: 'question', text: 'Ask whether the chest tightness radiates to the arm or jaw.' },
+          { kind: 'red_flag', text: 'Chest tightness + cough — consider cardiac vs respiratory causes.' },
+          { kind: 'reminder', text: 'Patient history notes a penicillin allergy.' },
+        ],
+      });
+    }
     if (body.task === 'transcribe') {
       state.transcript = sampleTranscript();
       if (state.recording) state.recording = { ...state.recording, status: 'ready' };
