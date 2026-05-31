@@ -51,7 +51,7 @@ export const useClinicPortalActions = () => {
       p_schedule_json: input.schedule_json,
     });
     if (error) throw error;
-    return data as { success: boolean; mode: string };
+    return data as { success: boolean; mode: string; invitation_id?: string; staff_id?: string };
   }, []);
 
   const updateFacility = useCallback(async (facilityId: string, patch: Record<string, unknown>) => {

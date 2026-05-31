@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { ClinicPageLayout } from '../../components/ClinicPageLayout';
 import { useClinicPortal, useClinicPortalActions } from '../../hooks/use-clinic-portal';
+import { sendClinicDoctorInvitation } from '../../lib/clinic-doctor-invite';
 
 export const ClinicDoctors = () => {
   const { t } = useTranslation('common');
@@ -46,6 +47,17 @@ export const ClinicDoctors = () => {
         service_ids: data?.services.slice(0, 1).map((s) => s.id) ?? [],
         schedule_json: { days: ['Mon', 'Tue', 'Wed', 'Thu'], hours: '09:00-17:00' },
       });
+      if (result.mode === 'invited' && result.invitation_id) {
+        const emailResult = await sendClinicDoctorInvitation(result.invitation_id);
+        if (!emailResult.success) {
+          setMessage(
+            emailResult.error ??
+              t('clinic.doctors.inviteEmailFailed'),
+          );
+          await refetch();
+          return;
+        }
+      }
       setMessage(
         result.mode === 'linked'
           ? t('clinic.doctors.linkedSuccess')
