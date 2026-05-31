@@ -1286,7 +1286,6 @@
       "footerHint": "Patient detail and full chart routes can attach to this live patient list next.",
       "unknown": "Unknown",
       "noInsurance": "No insurance",
-      "insuranceOnFile": "Insurance on file",
       "noConditions": "No active conditions",
       "noVisits": "No visits",
       "today": "Today",
@@ -1471,7 +1470,7 @@
         "idle": "Not recording",
         "recording": "Recording",
         "paused": "Paused",
-        "processing": "Processing\u2026",
+        "processing": "Processing…",
         "ready": "Ready for review",
         "approved": "Approved",
         "start": "Start Recording",
@@ -1481,7 +1480,10 @@
         "stop": "Stop & Process",
         "discard": "Discard",
         "micLabel": "Microphone",
-        "notSupported": "Audio recording isn't supported in this browser."
+        "notSupported": "Audio recording isn't supported in this browser.",
+        "modeRecord": "Record",
+        "modeLive": "Live",
+        "startLive": "Start Live Scribe"
       },
       "consent": {
         "title": "Patient Consent Required",
@@ -1500,7 +1502,7 @@
       },
       "transcript": {
         "empty": "The transcript will appear here after processing.",
-        "transcribing": "Transcribing audio\u2026",
+        "transcribing": "Transcribing audio…",
         "speakerDoctor": "Doctor",
         "speakerPatient": "Patient",
         "speakerUnknown": "Speaker",
@@ -1510,8 +1512,8 @@
       "scribe": {
         "emptyTitle": "No recording yet",
         "emptyBody": "Start the AI Scribe to capture this consultation. The AI will transcribe the audio and draft a SOAP note for your review.",
-        "transcribing": "Transcribing audio and preparing the note\u2026",
-        "generating": "Drafting the clinical note\u2026",
+        "transcribing": "Transcribing audio and preparing the note…",
+        "generating": "Drafting the clinical note…",
         "notProcessed": "This recording hasn't been processed yet.",
         "transcribeDraft": "Transcribe & draft note",
         "transcriptColumn": "Transcript",
@@ -1545,11 +1547,21 @@
       "suggestions": {
         "title": "Smart suggestions",
         "subtitle": "AI-detected actions from the conversation. Nothing is added automatically.",
-        "loading": "Scanning the conversation for suggestions\u2026",
+        "loading": "Scanning the conversation for suggestions…",
         "dismiss": "Dismiss",
         "addLabOrder": "Add to lab orders",
         "addMedication": "Add to prescriptions",
         "updateAllergies": "Update allergies"
+      },
+      "live": {
+        "title": "Live session",
+        "listening": "Transcribing…",
+        "transcript": "Live transcript",
+        "waiting": "Listening… the transcript will appear here.",
+        "cues": "AI copilot cues",
+        "cuesEmpty": "Cues will appear as the conversation develops.",
+        "dismiss": "Dismiss",
+        "diarizationNote": "Speaker labels are approximate on a single microphone. Connect dual mics for precise doctor/patient separation."
       }
     },
     "createPrescription": {

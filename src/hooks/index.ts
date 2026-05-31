@@ -27,6 +27,8 @@ export type {
   UseAudioRecorderResult,
 } from './use-audio-recorder';
 export { useConsultationScribe } from './use-consultation-scribe';
+export { useLiveTranscription } from './use-live-transcription';
+export type { LiveTranscriptEntry, UseLiveTranscriptionResult } from './use-live-transcription';
 export type {
   ConsultationScribeData,
   ConsultationScribeActions,
