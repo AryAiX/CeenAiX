@@ -1007,7 +1007,8 @@
         "specializationRequired": "Select at least one specialization to complete doctor onboarding.",
         "specializationsSaveFailed": "Failed to save doctor specializations."
       },
-      "successSaved": "Onboarding saved. Redirecting to your dashboard..."
+      "successSaved": "Onboarding saved. Redirecting to your dashboard...",
+      "clinicInviteClaimed": "Your clinic invitation was applied. Clinic-managed pricing and services are now active."
     }
   },
   "doctorProfile": {
@@ -1110,6 +1111,7 @@
       "submitInvite": "Send invitation",
       "linkedSuccess": "Doctor linked to your clinic.",
       "inviteSuccess": "Invitation recorded. The doctor will receive onboarding instructions.",
+      "inviteEmailFailed": "Invitation saved but the email could not be sent. Retry from the doctor record or contact support.",
       "detailTitle": "Doctor profile",
       "notFound": "Doctor not found",
       "general": "General practice",

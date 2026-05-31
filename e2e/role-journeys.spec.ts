@@ -90,10 +90,24 @@ const adminRoutes: RouteCase[] = [
   { name: 'security', path: '/admin/security' },
   { name: 'platform settings', path: '/admin/platform-settings' },
   { name: 'system health', path: '/admin/system-health' },
+  { name: 'clinics', path: '/admin/clinics' },
   { name: 'organizations', path: '/admin/organizations' },
   { name: 'users', path: '/admin/users' },
   { name: 'diagnostics', path: '/admin/diagnostics' },
   { name: 'AI analytics', path: '/admin/ai-analytics' },
+];
+
+const clinicRoutes: RouteCase[] = [
+  { name: 'dashboard', path: '/clinic/dashboard' },
+  { name: 'doctors', path: '/clinic/doctors' },
+  { name: 'appointments', path: '/clinic/appointments' },
+  { name: 'patients', path: '/clinic/patients' },
+  { name: 'services', path: '/clinic/services' },
+  { name: 'pricing', path: '/clinic/pricing' },
+  { name: 'schedule', path: '/clinic/schedule' },
+  { name: 'analytics', path: '/clinic/analytics' },
+  { name: 'billing', path: '/clinic/billing' },
+  { name: 'settings', path: '/clinic/settings' },
 ];
 
 const labRoutes: RouteCase[] = [
@@ -121,18 +135,26 @@ const protectedEntryRoutes: Array<{ role: E2ERole; path: string }> = [
   { role: 'doctor', path: '/doctor/dashboard' },
   { role: 'super_admin', path: '/admin/dashboard' },
   { role: 'lab', path: '/lab/dashboard' },
+  { role: 'clinic', path: '/clinic/dashboard' },
 ];
 
 const wrongRoleChecks: Array<{ role: E2ERole; path: string }> = [
   { role: 'patient', path: '/doctor/dashboard' },
   { role: 'patient', path: '/admin/dashboard' },
   { role: 'patient', path: '/lab/dashboard' },
+  { role: 'patient', path: '/clinic/dashboard' },
   { role: 'doctor', path: '/patient/dashboard' },
   { role: 'doctor', path: '/admin/dashboard' },
   { role: 'doctor', path: '/lab/dashboard' },
+  { role: 'doctor', path: '/clinic/dashboard' },
   { role: 'super_admin', path: '/patient/dashboard' },
+  { role: 'super_admin', path: '/clinic/dashboard' },
   { role: 'lab', path: '/doctor/dashboard' },
   { role: 'lab', path: '/admin/dashboard' },
+  { role: 'lab', path: '/clinic/dashboard' },
+  { role: 'clinic', path: '/patient/dashboard' },
+  { role: 'clinic', path: '/doctor/dashboard' },
+  { role: 'clinic', path: '/admin/dashboard' },
 ];
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -269,6 +291,19 @@ test.describe('lab end-to-end portal coverage', () => {
     test(`lab staff can use ${route.name}`, async ({ page }) => {
       await installSupabaseMocks(page, { role: 'lab' });
       await seedAuthenticatedRole(page, 'lab');
+
+      await page.goto(route.path);
+
+      await expectProtectedPage(page, route.path);
+    });
+  }
+});
+
+test.describe('clinic end-to-end portal coverage', () => {
+  for (const route of clinicRoutes) {
+    test(`clinic admin can use ${route.name}`, async ({ page }) => {
+      await installSupabaseMocks(page, { role: 'clinic' });
+      await seedAuthenticatedRole(page, 'clinic');
 
       await page.goto(route.path);
 

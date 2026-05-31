@@ -285,8 +285,16 @@ export const Onboarding = () => {
       }
     }
 
+    let successText = t('auth.onboarding.successSaved');
+    if (activeRole === 'doctor') {
+      const { data: claimResult } = await supabase.rpc('claim_clinic_doctor_invitation');
+      if (claimResult && typeof claimResult === 'object' && (claimResult as { claimed?: boolean }).claimed) {
+        successText = t('auth.onboarding.clinicInviteClaimed');
+      }
+    }
+
     await refreshProfile();
-    setSuccessMessage(t('auth.onboarding.successSaved'));
+    setSuccessMessage(successText);
     setIsSubmitting(false);
     navigate(getDefaultRouteForRole(activeRole), { replace: true });
   };

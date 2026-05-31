@@ -108,6 +108,8 @@ export {
   useAdminMetrics,
   useAdminUsers,
   useAdminOrganizations,
+  useAdminClinics,
+  useAdminUnlinkedDoctors,
   useAdminCompliance,
   useAdminSystemHealth,
   useAdminAiAnalytics,
@@ -118,6 +120,10 @@ export {
   useAdminInsurancePartners,
   useAdminAiDashboard,
   createOrganization,
+  onboardClinic,
+  setClinicStatus,
+  linkDoctorToClinic,
+  fetchAdminClinicDoctors,
 } from './use-admin-dashboard';
 export type {
   AdminComplianceData,

@@ -1,6 +1,21 @@
 {
   "deployables": [
     {
+      "id": "supabase-edge-function-clinic-doctor-invite",
+      "type": "supabase-edge-function",
+      "name": "clinic-doctor-invite",
+      "path": "supabase/functions/clinic-doctor-invite",
+      "deployCommand": [
+        "supabase",
+        "functions",
+        "deploy",
+        "clinic-doctor-invite",
+        "--no-verify-jwt"
+      ],
+      "requiredSecrets": [],
+      "notes": "Sends Supabase Auth invite emails for pending clinic_doctor_invitations rows."
+    },
+    {
       "id": "supabase-edge-function-leads",
       "type": "supabase-edge-function",
       "name": "leads",

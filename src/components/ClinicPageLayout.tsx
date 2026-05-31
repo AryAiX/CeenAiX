@@ -62,7 +62,6 @@ export const ClinicPageLayout = ({ title, subtitle, actions, children }: ClinicP
       navItems={filteredNav}
       actions={actions}
       accent="emerald"
-      variant="pharmacy"
     >
       {children}
     </OpsShell>

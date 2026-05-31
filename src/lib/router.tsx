@@ -70,6 +70,7 @@ import {
   AdminSystemHealth,
   AdminUsers,
 } from '../pages/admin/Portal';
+import { AdminClinics } from '../pages/admin/Clinics';
 import {
   LabAnalytics,
   LabDashboard,
@@ -445,6 +446,12 @@ export const router = createBrowserRouter([
     path: '/admin/system-health',
     element: (
       <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminSystemHealth />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/clinics',
+    element: (
+      <ProtectedRoute allowedRoles={['super_admin']}>{withLayout(<AdminClinics />)}</ProtectedRoute>
     ),
   },
   {

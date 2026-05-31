@@ -1,6 +1,14 @@
 import type { Page, Route } from '@playwright/test';
 
-export type E2ERole = 'patient' | 'doctor' | 'super_admin' | 'lab' | 'pharmacy' | 'insurance';
+export type E2ERole =
+  | 'patient'
+  | 'doctor'
+  | 'super_admin'
+  | 'lab'
+  | 'pharmacy'
+  | 'insurance'
+  | 'clinic'
+  | 'clinic_manager';
 
 interface E2EUser {
   id: string;
@@ -77,7 +85,27 @@ export const e2eUsers: Record<E2ERole, E2EUser> = {
     firstName: 'Noura',
     lastName: 'Insurance',
   },
+  clinic: {
+    id: '00000000-0000-4000-8000-000000000b01',
+    email: 'clinic.admin.e2e@ceenaix.test',
+    role: 'clinic',
+    fullName: 'Sara Clinic Admin',
+    firstName: 'Sara',
+    lastName: 'Clinic Admin',
+  },
+  clinic_manager: {
+    id: '00000000-0000-4000-8000-000000000b03',
+    email: 'clinic.manager.e2e@ceenaix.test',
+    role: 'clinic_manager',
+    fullName: 'Khalid Clinic Manager',
+    firstName: 'Khalid',
+    lastName: 'Clinic Manager',
+  },
 };
+
+export const e2eClinicFacilityId = '00000000-0000-4000-8000-000000000b02';
+export const e2eClinicStaffId = '00000000-0000-4000-8000-000000000b04';
+export const e2eClinicServiceId = '00000000-0000-4000-8000-000000000b05';
 
 export const e2ePharmacyOrgId = '00000000-0000-4000-8000-000000000701';
 export const e2eInsuranceOrgId = '00000000-0000-4000-8000-000000000801';
@@ -85,6 +113,8 @@ export const e2eInsuranceOrgId = '00000000-0000-4000-8000-000000000801';
 const patientId = e2eUsers.patient.id;
 const doctorId = e2eUsers.doctor.id;
 const adminId = e2eUsers.super_admin.id;
+const clinicAdminId = e2eUsers.clinic.id;
+const clinicManagerId = e2eUsers.clinic_manager.id;
 const labUserId = e2eUsers.lab.id;
 const labId = '00000000-0000-4000-8000-000000000501';
 const appointmentId = '00000000-0000-4000-8000-000000000601';
@@ -121,6 +151,10 @@ const defaultPharmacyDispensingTasks = (): JsonRecord[] => [
 ];
 
 let mutablePharmacyDispensingTasks: JsonRecord[] | null = null;
+let mutableClinicFacilities: JsonRecord[] | null = null;
+let mutableClinicInvitations: JsonRecord[] | null = null;
+let mutableFacilityStaff: JsonRecord[] | null = null;
+let mutablePricingAudit: JsonRecord[] | null = null;
 
 const pharmacyDispensingTaskRows = () => {
   if (!mutablePharmacyDispensingTasks) {
@@ -132,6 +166,183 @@ const pharmacyDispensingTaskRows = () => {
 export function resetPharmacyDispensingTasks(): void {
   mutablePharmacyDispensingTasks = defaultPharmacyDispensingTasks();
 }
+
+export function resetClinicFixtures(): void {
+  mutableClinicFacilities = null;
+  mutableClinicInvitations = null;
+  mutableFacilityStaff = null;
+  mutablePricingAudit = null;
+}
+
+const defaultClinicFacilities = (): JsonRecord[] => [
+  {
+    id: e2eClinicFacilityId,
+    name: 'CeenAiX Family Clinic E2E',
+    name_en: 'CeenAiX Family Clinic E2E',
+    name_ar: 'عيادة سين إيه إكس E2E',
+    facility_type: 'clinic',
+    address: 'Dubai Healthcare City',
+    city: 'Dubai',
+    phone: '+971 4 111 2222',
+    email: 'clinic@ceenaix.test',
+    license_number: 'DHA-C-E2E-001',
+    organization_id: 'org-e2e',
+    is_active: true,
+    is_deleted: false,
+    operating_hours: { mon: '08:00-18:00' },
+    branding: { primary_color: '#0D9488' },
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+];
+
+const clinicFacilities = () => {
+  if (!mutableClinicFacilities) {
+    mutableClinicFacilities = defaultClinicFacilities();
+  }
+  return mutableClinicFacilities;
+};
+
+const defaultFacilityStaff = (): JsonRecord[] => [
+  {
+    id: e2eClinicStaffId,
+    facility_id: e2eClinicFacilityId,
+    doctor_user_id: doctorId,
+    invitation_status: 'active',
+    consultation_fee: 350,
+    telemedicine_fee: 280,
+    follow_up_fee: 200,
+    slot_duration_min: 30,
+    schedule_json: { days: ['Mon', 'Tue', 'Wed'], hours: '09:00-17:00' },
+    service_ids: [e2eClinicServiceId],
+    clinic_managed_pricing: true,
+    invitation_email: e2eUsers.doctor.email,
+    is_available: true,
+    is_active: true,
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+];
+
+const facilityStaffRows = () => {
+  if (!mutableFacilityStaff) {
+    mutableFacilityStaff = defaultFacilityStaff();
+  }
+  return mutableFacilityStaff;
+};
+
+const defaultFacilityServices = (): JsonRecord[] => [
+  {
+    id: e2eClinicServiceId,
+    facility_id: e2eClinicFacilityId,
+    name_en: 'General Consultation',
+    name_ar: 'استشارة عامة',
+    default_duration_min: 30,
+    default_price: 350,
+    currency: 'AED',
+    category: 'consultation',
+    is_active: true,
+    is_deleted: false,
+    created_at: yesterday,
+    updated_at: yesterday,
+  },
+];
+
+const clinicInvitations = () => {
+  if (!mutableClinicInvitations) {
+    mutableClinicInvitations = [];
+  }
+  return mutableClinicInvitations;
+};
+
+const pricingAuditRows = () => {
+  if (!mutablePricingAudit) {
+    mutablePricingAudit = [];
+  }
+  return mutablePricingAudit;
+};
+
+const clinicPortalRoleForUser = (user: E2EUser): 'clinic_admin' | 'clinic_manager' =>
+  user.id === clinicManagerId ? 'clinic_manager' : 'clinic_admin';
+
+const buildClinicPortalSnapshot = (user: E2EUser): JsonRecord => {
+  const facility = clinicFacilities()[0];
+  const staff = facilityStaffRows();
+  const services = defaultFacilityServices();
+  const portalRole = clinicPortalRoleForUser(user);
+  const clinicAppointments = appointmentRows.map((appt) => ({
+    id: appt.id,
+    doctor_id: appt.doctor_id,
+    patient_id: appt.patient_id,
+    status: appt.status,
+    type: appt.type,
+    scheduled_at: appt.scheduled_at,
+    duration_minutes: appt.duration_minutes,
+    chief_complaint: appt.chief_complaint,
+    doctor_name: e2eUsers.doctor.fullName,
+    patient_name: e2eUsers.patient.fullName,
+    patient_phone: '+971500000000',
+  }));
+
+  return {
+    facility_id: e2eClinicFacilityId,
+    portal_role: portalRole,
+    facility,
+    doctors: staff.map((row) => ({
+      staff_id: row.id,
+      doctor_user_id: row.doctor_user_id,
+      invitation_status: row.invitation_status,
+      consultation_fee: row.consultation_fee,
+      telemedicine_fee: row.telemedicine_fee,
+      follow_up_fee: row.follow_up_fee,
+      slot_duration_min: row.slot_duration_min,
+      schedule_json: row.schedule_json,
+      service_ids: row.service_ids,
+      clinic_managed_pricing: row.clinic_managed_pricing,
+      is_available: row.is_available,
+      is_active: row.is_active,
+      full_name: e2eUsers.doctor.fullName,
+      email: e2eUsers.doctor.email,
+      avatar_url: null,
+      license_number: 'DHA-E2E-DOCTOR',
+      specialization: 'Family Medicine',
+      years_of_experience: 12,
+      profile_consultation_fee: 350,
+      appointments_this_month: 2,
+    })),
+    services,
+    appointments: clinicAppointments,
+    kpis: {
+      total_doctors: staff.length,
+      active_doctors: staff.filter((row) => row.invitation_status === 'active').length,
+      appointments_this_month: clinicAppointments.length,
+      revenue_this_month: 700,
+      pending_invitations: clinicInvitations().filter((inv) => inv.status === 'pending').length,
+    },
+    pricing_audit: pricingAuditRows(),
+  };
+};
+
+const adminListClinicsPayload = (): JsonRecord[] =>
+  clinicFacilities().map((facility) => ({
+    facility_id: facility.id,
+    name: facility.name,
+    name_en: facility.name_en,
+    name_ar: facility.name_ar,
+    city: facility.city,
+    address: facility.address,
+    phone: facility.phone,
+    email: facility.email,
+    license_number: facility.license_number,
+    is_active: facility.is_active,
+    organization_id: facility.organization_id,
+    organization_name: 'CeenAiX Clinic',
+    organization_status: 'active',
+    doctor_count: facilityStaffRows().filter((row) => row.facility_id === facility.id && row.is_active).length,
+    admin_count: 1,
+    pending_invitations: clinicInvitations().filter((inv) => inv.status === 'pending').length,
+    created_at: facility.created_at,
+  }));
 
 let mutableConversationRows: JsonRecord[] | null = null;
 let mutableMessageRows: JsonRecord[] | null = null;
@@ -430,7 +641,7 @@ const asSupabaseUser = (user: E2EUser): JsonRecord => ({
 const userProfile = (user: E2EUser, profileCompleted = true): JsonRecord => ({
   id: `profile-${user.id}`,
   user_id: user.id,
-  role: user.role,
+  role: user.role === 'clinic_manager' ? 'clinic' : user.role,
   full_name: user.fullName,
   first_name: user.firstName,
   last_name: user.lastName,
@@ -1110,6 +1321,37 @@ const tableRows = (
     case 'insurance_ai_insights':
     case 'insurance_monthly_claims_volume':
       return insuranceOrgTableRows(table);
+    case 'facilities':
+      return clinicFacilities();
+    case 'facility_staff':
+      return facilityStaffRows();
+    case 'facility_services':
+      return defaultFacilityServices();
+    case 'clinic_portal_members':
+      return [
+        {
+          id: 'clinic-member-admin-e2e',
+          facility_id: e2eClinicFacilityId,
+          user_id: clinicAdminId,
+          portal_role: 'clinic_admin',
+          is_active: true,
+          created_at: yesterday,
+          updated_at: yesterday,
+        },
+        {
+          id: 'clinic-member-manager-e2e',
+          facility_id: e2eClinicFacilityId,
+          user_id: clinicManagerId,
+          portal_role: 'clinic_manager',
+          is_active: true,
+          created_at: yesterday,
+          updated_at: yesterday,
+        },
+      ];
+    case 'clinic_doctor_invitations':
+      return clinicInvitations();
+    case 'clinic_pricing_audit_log':
+      return pricingAuditRows();
     default:
       return [];
   }
@@ -1916,6 +2158,164 @@ const rpcPayload = (
       })) ?? [];
     case 'delete_current_user_account':
       return { ok: true };
+    case 'get_clinic_portal_snapshot':
+      return currentUser ? buildClinicPortalSnapshot(currentUser) : buildClinicPortalSnapshot(e2eUsers.clinic);
+    case 'clinic_member_can_manage':
+      return currentUser?.id === clinicAdminId || currentUser?.id === clinicManagerId || currentUser?.role === 'super_admin';
+    case 'clinic_member_is_admin':
+      return currentUser?.id === clinicAdminId || currentUser?.role === 'super_admin';
+    case 'current_user_clinic_facility_id':
+      return currentUser?.role === 'clinic' || currentUser?.role === 'clinic_manager' || currentUser?.id === clinicAdminId || currentUser?.id === clinicManagerId
+        ? e2eClinicFacilityId
+        : null;
+    case 'clinic_invite_doctor': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      const email = String(input.p_email ?? '').trim().toLowerCase();
+      if (email === e2eUsers.doctor.email) {
+        return { success: true, mode: 'linked', staff_id: e2eClinicStaffId };
+      }
+      const invitation = {
+        id: `invitation-e2e-${clinicInvitations().length + 1}`,
+        facility_id: e2eClinicFacilityId,
+        invited_by: clinicAdminId,
+        email,
+        full_name: String(input.p_full_name ?? 'Invited Doctor'),
+        payload: input,
+        status: 'pending',
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+        email_sent_at: null,
+        last_email_error: null,
+      };
+      clinicInvitations().push(invitation);
+      return { success: true, mode: 'invited', invitation_id: invitation.id };
+    }
+    case 'log_clinic_pricing_change': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      pricingAuditRows().push({
+        id: `audit-e2e-${pricingAuditRows().length + 1}`,
+        facility_id: input.p_facility_id,
+        entity_type: input.p_entity_type,
+        entity_id: input.p_entity_id,
+        field_name: input.p_field_name,
+        old_value: input.p_old_value,
+        new_value: input.p_new_value,
+        changed_at: now.toISOString(),
+      });
+      return null;
+    }
+    case 'claim_clinic_doctor_invitation': {
+      const email = currentUser?.email?.toLowerCase();
+      const invitation = clinicInvitations().find(
+        (row) => row.status === 'pending' && String(row.email).toLowerCase() === email,
+      );
+      if (!invitation) {
+        return { claimed: false, reason: 'no_invitation' };
+      }
+      invitation.status = 'accepted';
+      return { claimed: true, staff_id: e2eClinicStaffId, facility_id: e2eClinicFacilityId };
+    }
+    case 'admin_list_clinics':
+      return adminListClinicsPayload();
+    case 'admin_onboard_clinic': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      const facilityId = `facility-created-${clinicFacilities().length + 1}`;
+      const orgId = `org-clinic-created-${clinicFacilities().length + 1}`;
+      const createdFacility = {
+        id: facilityId,
+        name: String(input.p_name_en ?? 'New Clinic E2E'),
+        name_en: String(input.p_name_en ?? 'New Clinic E2E'),
+        name_ar: String(input.p_name_ar ?? 'عيادة جديدة'),
+        facility_type: 'clinic',
+        address: String(input.p_address ?? 'Dubai Healthcare City'),
+        city: String(input.p_city ?? 'Dubai'),
+        phone: input.p_phone ?? null,
+        email: input.p_email ?? null,
+        license_number: input.p_license_number ?? null,
+        organization_id: orgId,
+        is_active: true,
+        is_deleted: false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      clinicFacilities().push(createdFacility);
+      state?.organizations.push({
+        id: orgId,
+        slug: 'new-clinic-e2e',
+        name: String(input.p_organization_name ?? input.p_name_en ?? 'New Clinic E2E'),
+        kind: 'clinic',
+        city: String(input.p_city ?? 'Dubai'),
+        country: 'UAE',
+        status: 'active',
+        seats_allocated: 5,
+        seats_used: 0,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      });
+      return {
+        success: true,
+        facility_id: facilityId,
+        organization_id: orgId,
+        organization_slug: 'new-clinic-e2e',
+        admin_linked: false,
+      };
+    }
+    case 'admin_set_clinic_status': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      clinicFacilities().forEach((facility) => {
+        if (facility.id === input.p_facility_id) {
+          facility.is_active = input.p_is_active === true;
+          facility.updated_at = now.toISOString();
+        }
+      });
+      return { success: true, is_active: input.p_is_active === true };
+    }
+    case 'admin_list_unlinked_doctors':
+      return [];
+    case 'admin_link_doctor_to_clinic': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      const staffId = `staff-linked-${facilityStaffRows().length + 1}`;
+      facilityStaffRows().push({
+        id: staffId,
+        facility_id: input.p_facility_id,
+        doctor_user_id: input.p_doctor_user_id,
+        invitation_status: 'active',
+        consultation_fee: 350,
+        telemedicine_fee: 280,
+        follow_up_fee: 200,
+        clinic_managed_pricing: true,
+        is_available: true,
+        is_active: true,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      });
+      return { success: true, staff_id: staffId };
+    }
+    case 'admin_get_clinic_doctors': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      return facilityStaffRows()
+        .filter((row) => row.facility_id === input.p_facility_id)
+        .map((row) => ({
+          staff_id: row.id,
+          doctor_user_id: row.doctor_user_id,
+          full_name: e2eUsers.doctor.fullName,
+          email: e2eUsers.doctor.email,
+          specialization: 'Family Medicine',
+          invitation_status: row.invitation_status,
+          consultation_fee: row.consultation_fee,
+          is_available: row.is_available,
+        }));
+    }
+    case 'clinic_mark_doctor_invitation_email_sent': {
+      const input = (payload && typeof payload === 'object' ? payload : {}) as JsonRecord;
+      clinicInvitations().forEach((invitation) => {
+        if (invitation.id === input.p_invitation_id) {
+          invitation.email_sent_at = input.p_error ? invitation.email_sent_at : now.toISOString();
+          invitation.last_email_error = input.p_error ?? null;
+        }
+      });
+      return null;
+    }
     default:
       if (
         rpcName.startsWith('admin_list_') ||
@@ -1939,6 +2339,8 @@ const roleFromAuthHeader = (authorization: string | undefined): E2ERole | null =
   if (token === 'e2e-lab') return 'lab';
   if (token === 'e2e-pharmacy') return 'pharmacy';
   if (token === 'e2e-insurance') return 'insurance';
+  if (token === 'e2e-clinic') return 'clinic';
+  if (token === 'e2e-clinic_manager') return 'clinic_manager';
   return null;
 };
 
@@ -1977,6 +2379,15 @@ const applyRelationEmbeds = (table: string, rows: JsonRecord[], url: URL): JsonR
     return rows.map((row) => ({
       ...row,
       lab_order_items: items.filter((item) => item.lab_order_id === row.id),
+    }));
+  }
+
+  if (table === 'facility_staff' && select.includes('facilities')) {
+    const facilities = clinicFacilities();
+    return rows.map((row) => ({
+      ...row,
+      facilities:
+        facilities.find((facility) => facility.id === row.facility_id) ?? null,
     }));
   }
 
@@ -2456,6 +2867,7 @@ export async function installSupabaseMocks(
 
   mutableConversationRows = null;
   mutableMessageRows = null;
+  resetClinicFixtures();
 
   await page.route(`${SUPABASE_URL}/auth/v1/**`, (route) => handleAuthRoute(route, fallbackRole));
   await page.route(`${SUPABASE_URL}/rest/v1/**`, (route) =>
@@ -2463,6 +2875,29 @@ export async function installSupabaseMocks(
   );
   await page.route(`${SUPABASE_URL}/functions/v1/**`, async (route) => {
     const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/functions/v1/clinic-doctor-invite')) {
+      let invitationId = 'invitation-e2e-1';
+      try {
+        const body = route.request().postDataJSON() as { invitation_id?: string };
+        if (body.invitation_id) {
+          invitationId = body.invitation_id;
+        }
+      } catch {
+        // keep default invitation id
+      }
+      clinicInvitations().forEach((invitation) => {
+        if (invitation.id === invitationId) {
+          invitation.email_sent_at = now.toISOString();
+        }
+      });
+      return json(route, {
+        success: true,
+        mode: 'invited',
+        invitation_id: invitationId,
+        email: 'pending.doctor@ceenaix.test',
+      });
+    }
+
     if (url.pathname.endsWith('/functions/v1/ai-document-analyze')) {
       return json(route, {
         summaryText: 'AI-generated E2E pre-visit summary for recurrent headaches.',

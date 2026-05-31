@@ -16,6 +16,13 @@ import type {
   Organization,
   PlatformSetting,
 } from '../types';
+import type {
+  AdminClinicDoctorRecord,
+  AdminClinicRecord,
+  AdminOnboardClinicInput,
+  AdminOnboardClinicResult,
+  AdminUnlinkedDoctorRecord,
+} from '../types/admin-clinics';
 
 /**
  * Admin platform metrics — aggregate counts powering /admin/dashboard.
@@ -266,4 +273,78 @@ export function useAdminAiDashboard() {
     }
     return (data as AdminAiDashboardPayload | null) ?? null;
   }, []);
+}
+
+/**
+ * Clinic facilities directory for /admin/clinics.
+ */
+export function useAdminClinics() {
+  return useQuery<AdminClinicRecord[]>(async () => {
+    const { data, error } = await supabase.rpc('admin_list_clinics');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminClinicRecord[]) ?? [];
+  }, []);
+}
+
+export function useAdminUnlinkedDoctors() {
+  return useQuery<AdminUnlinkedDoctorRecord[]>(async () => {
+    const { data, error } = await supabase.rpc('admin_list_unlinked_doctors');
+    if (error) {
+      throw error;
+    }
+    return (data as AdminUnlinkedDoctorRecord[]) ?? [];
+  }, []);
+}
+
+export async function fetchAdminClinicDoctors(facilityId: string): Promise<AdminClinicDoctorRecord[]> {
+  const { data, error } = await supabase.rpc('admin_get_clinic_doctors', {
+    p_facility_id: facilityId,
+  });
+  if (error) {
+    throw error;
+  }
+  return (data as AdminClinicDoctorRecord[]) ?? [];
+}
+
+export async function onboardClinic(input: AdminOnboardClinicInput): Promise<AdminOnboardClinicResult> {
+  const { data, error } = await supabase.rpc('admin_onboard_clinic', {
+    p_name_en: input.name_en,
+    p_name_ar: input.name_ar ?? null,
+    p_address: input.address ?? null,
+    p_city: input.city ?? 'Dubai',
+    p_phone: input.phone ?? null,
+    p_email: input.email ?? null,
+    p_license_number: input.license_number ?? null,
+    p_admin_email: input.admin_email ?? null,
+    p_admin_name: input.admin_name ?? null,
+    p_organization_name: input.organization_name ?? null,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as AdminOnboardClinicResult;
+}
+
+export async function setClinicStatus(facilityId: string, isActive: boolean) {
+  const { data, error } = await supabase.rpc('admin_set_clinic_status', {
+    p_facility_id: facilityId,
+    p_is_active: isActive,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as { success: boolean; is_active: boolean };
+}
+
+export async function linkDoctorToClinic(facilityId: string, doctorUserId: string) {
+  const { data, error } = await supabase.rpc('admin_link_doctor_to_clinic', {
+    p_facility_id: facilityId,
+    p_doctor_user_id: doctorUserId,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as { success: boolean; staff_id: string };
 }
