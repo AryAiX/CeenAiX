@@ -91,6 +91,22 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
 
           {showStart && recorder.isSupported ? (
             <>
+              <div className="inline-flex rounded-xl border border-slate-200 p-0.5" role="group">
+                {(['recorded', 'live'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => controller.setMode(m)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                      controller.mode === m ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {m === 'recorded'
+                      ? t('doctor.consultationScribe.controlBar.modeRecord')
+                      : t('doctor.consultationScribe.controlBar.modeLive')}
+                  </button>
+                ))}
+              </div>
               {recorder.devices.length > 1 ? (
                 <label className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-600">
                   <Mic className="h-3.5 w-3.5" />
@@ -120,7 +136,9 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
                 <span>
                   {isReady || isApproved
                     ? t('doctor.consultationScribe.controlBar.startNew')
-                    : t('doctor.consultationScribe.controlBar.start')}
+                    : controller.mode === 'live'
+                      ? t('doctor.consultationScribe.controlBar.startLive')
+                      : t('doctor.consultationScribe.controlBar.start')}
                 </span>
               </button>
             </>
