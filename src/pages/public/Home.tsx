@@ -19,7 +19,6 @@ import {
   Menu,
   MessageCircle,
   Pill,
-  Play,
   Shield,
   Star,
   Stethoscope,
@@ -30,11 +29,52 @@ import {
 } from 'lucide-react';
 import { useInView, useCounter } from '../../hooks';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { LandingDemoLaunchSection } from '../../components/LandingDemoLaunchSection';
+import { getMarketingLaunchTimeLeft } from '../../lib/marketing-leads';
 
 /* ------------------------------------------------------------------------- */
 /*  Marketing landing page — layout preserved; routing via react-router and   */
 /*  copy via i18next. Shared useInView / useCounter hooks drive animations.   */
 /* ------------------------------------------------------------------------- */
+
+const BRAND_LOGO = '/og-preview.svg';
+
+function scrollToDemoLaunch(tab: 'demo' | 'notify' = 'demo') {
+  window.location.hash = tab === 'notify' ? '#notify-me' : '#demo';
+  document.getElementById('demo-launch')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function HeroCountdown() {
+  const { t } = useTranslation('common');
+  const [time, setTime] = useState(() => getMarketingLaunchTimeLeft());
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!document.hidden) setTime(getMarketingLaunchTimeLeft());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  const units = [
+    { val: time.days, label: t('home.landing.prelaunch.countdownDays') },
+    { val: time.hours, label: t('home.landing.prelaunch.countdownHours') },
+    { val: time.minutes, label: t('home.landing.prelaunch.countdownMinutes') },
+    { val: time.seconds, label: t('home.landing.prelaunch.countdownSeconds') },
+  ];
+  return (
+    <div className="flex items-center gap-2 mb-5" aria-live="off">
+      {units.map(({ val, label }, i) => (
+        <div key={label} className="flex items-center gap-2">
+          <div className="text-center">
+            <div className="font-mono text-xl font-bold text-white tabular-nums bg-white/10 border border-white/15 rounded-xl px-2.5 py-1 min-w-[44px] text-center">
+              {String(val).padStart(2, '0')}
+            </div>
+            <div className="text-white/35 text-[9px] font-bold tracking-wider mt-1">{label}</div>
+          </div>
+          {i < 3 && <span className="text-white/30 font-bold text-lg -mt-3">:</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface StatCounterProps {
   value: number;
@@ -245,15 +285,13 @@ export const Home = () => {
     [t]
   );
 
+  const trustBadges = useMemo(
+    () => t('home.landing.prelaunch.trustBadges', { returnObjects: true }) as string[],
+    [t],
+  );
+
   const goSignIn = () => navigate('/auth/portal-access?intent=login');
   const goRegister = () => navigate('/auth/portal-access?intent=register');
-
-  const heroAvatars = [
-    'https://images.pexels.com/photos/5214961/pexels-photo-5214961.jpeg?auto=compress&cs=tinysrgb&w=80',
-    'https://images.pexels.com/photos/3768726/pexels-photo-3768726.jpeg?auto=compress&cs=tinysrgb&w=80',
-    'https://images.pexels.com/photos/6129967/pexels-photo-6129967.jpeg?auto=compress&cs=tinysrgb&w=80',
-    'https://images.pexels.com/photos/4225920/pexels-photo-4225920.jpeg?auto=compress&cs=tinysrgb&w=80',
-  ];
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
@@ -307,7 +345,7 @@ export const Home = () => {
               className="flex items-center gap-3"
             >
               <img
-                src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
+                src={BRAND_LOGO}
                 alt="CeenAiX"
                 className="w-11 h-11 object-contain"
               />
@@ -378,201 +416,144 @@ export const Home = () => {
       </nav>
 
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
+      <section className="relative min-h-screen flex flex-col overflow-hidden">
         <div className="absolute inset-0">
           <img
             src="https://images.pexels.com/photos/3845810/pexels-photo-3845810.jpeg?auto=compress&cs=tinysrgb&w=1920"
-            alt={t('home.landing.hero.altHeroBg')}
+            alt={t('home.landing.prelaunch.altHeroBg')}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-cyan-900/75 to-blue-900/85" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/95 via-teal-950/85 to-slate-900/90" />
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
         </div>
+        <div className="absolute top-32 left-1/4 w-[600px] h-[600px] rounded-full bg-teal-500/8 blur-[120px] pointer-events-none animate-blob" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-500/6 blur-[100px] pointer-events-none animate-blob" style={{ animationDelay: '5s' }} />
 
-        <div className="absolute top-20 right-20 w-96 h-96 bg-cyan-400/10 rounded-full animate-blob blur-3xl" />
-        <div
-          className="absolute bottom-20 left-20 w-80 h-80 bg-blue-400/10 rounded-full animate-blob blur-3xl"
-          style={{ animationDelay: '4s' }}
-        />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 grid lg:grid-cols-2 gap-12 items-center">
-          <div
-            ref={heroRef.ref}
-            className={`opacity-0-init ${heroRef.inView ? 'animate-fade-up' : ''}`}
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-400/20 border border-cyan-400/30 backdrop-blur-sm mb-6">
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-cyan-300 text-sm font-semibold tracking-wide uppercase">
-                {t('home.landing.hero.badge')}
+        <div className="relative flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-28 pb-16">
+          <div ref={heroRef.ref} className={`flex flex-wrap items-center justify-center gap-3 mb-10 opacity-0-init ${heroRef.inView ? 'animate-fade-up' : ''}`}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-400/15 border border-teal-400/30 backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+              <span className="text-teal-300 text-xs font-bold tracking-widest uppercase">
+                {t('home.landing.prelaunch.badge')}
               </span>
             </div>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[1.05] mb-6">
-              {t('home.landing.hero.titleLine1')}
-              <br />
-              <span className="shimmer-text">
-                {t('home.landing.hero.titleLine2Part1')}
-                <br />
-                {t('home.landing.hero.titleLine2Part2')}
+            {trustBadges.map((b) => (
+              <span key={b} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 text-xs font-medium backdrop-blur-sm">
+                <Check className="w-3 h-3 text-teal-400" />{b}
               </span>
-            </h1>
-            <p className="text-lg text-cyan-100/80 mb-8 leading-relaxed max-w-lg">
-              {t('home.landing.hero.lead')}
-            </p>
-            <div className="flex flex-wrap gap-4 mb-10">
-              <button
-                type="button"
-                onClick={goRegister}
-                className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-bold text-base hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-300 flex items-center gap-2"
-              >
-                {t('home.landing.hero.ctaPrimary')}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform rtl:rotate-180 rtl:group-hover:-translate-x-1" />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/auth/portal-access?intent=login')}
-                title={t('home.landing.hero.demoTooltip', {
-                  defaultValue: 'Sign in to explore the patient dashboard demo.',
-                })}
-                className="group px-8 py-4 bg-white/10 backdrop-blur-sm border border-white/30 text-white rounded-2xl font-bold text-base hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" /> {t('home.landing.hero.ctaSecondary')}
-              </button>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex -space-x-3">
-                {heroAvatars.map((src) => (
-                  <img
-                    key={src}
-                    src={src}
-                    alt={t('home.landing.hero.altAvatars')}
-                    className="w-10 h-10 rounded-full border-2 border-white object-cover"
-                  />
-                ))}
-              </div>
-              <div>
-                <div className="flex items-center gap-1 mb-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <p className="text-white/70 text-sm">
-                  {t('home.landing.hero.trustBefore')}
-                  <span className="text-white font-semibold">
-                    {t('home.landing.hero.trustCount')}
-                  </span>
-                  {t('home.landing.hero.trustAfter')}
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Portal cards floating panel */}
-          <div
-            className={`opacity-0-init ${heroRef.inView ? 'animate-slide-left delay-300' : ''}`}
-          >
-            <div className="relative">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-between mb-5">
+          <div className={`text-center mb-14 opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-100' : ''}`}>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.04] tracking-tight mb-5">
+              {t('home.landing.prelaunch.titleLine1')}
+              <br />
+              <span className="shimmer-text">{t('home.landing.prelaunch.titleLine2')}</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-white/55 max-w-2xl mx-auto leading-relaxed">
+              {t('home.landing.prelaunch.lead')}
+            </p>
+          </div>
+
+          <div className={`grid lg:grid-cols-2 gap-5 max-w-5xl mx-auto opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-200' : ''}`}>
+            <div className="relative rounded-3xl overflow-hidden bg-white/[0.06] backdrop-blur-2xl border border-white/15 shadow-2xl">
+              <div className="h-1 w-full bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-500" />
+              <div className="p-7">
+                <div className="flex items-start justify-between mb-5">
                   <div>
-                    <p className="text-white font-bold text-lg">
-                      {t('home.landing.hero.panelTitle')}
+                    <p className="text-teal-400 text-xs font-bold uppercase tracking-widest mb-1">
+                      {t('home.landing.prelaunch.demoEyebrow')}
                     </p>
-                    <p className="text-cyan-200/70 text-sm">
-                      {t('home.landing.hero.panelSubtitle')}
-                    </p>
+                    <h2 className="text-2xl font-bold text-white">{t('home.landing.prelaunch.demoTitle')}</h2>
+                    <p className="text-white/50 text-sm mt-1 leading-relaxed">{t('home.landing.prelaunch.demoBody')}</p>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-cyan-400/20 flex items-center justify-center">
-                    <Globe2 className="w-5 h-5 text-cyan-300" />
+                  <div className="w-11 h-11 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center flex-shrink-0 ms-3">
+                    <Stethoscope className="w-5 h-5 text-teal-400" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => scrollToDemoLaunch('demo')}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+                >
+                  {t('home.landing.prelaunch.demoCta')}
+                  <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5">
+              <div className="relative rounded-3xl overflow-hidden bg-white/[0.06] backdrop-blur-2xl border border-white/15 shadow-2xl flex-1">
+                <div className="h-1 w-full bg-gradient-to-r from-cyan-500 via-sky-400 to-cyan-500" />
+                <div className="p-7">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-cyan-400 text-xs font-bold uppercase tracking-widest mb-1">
+                        {t('home.landing.prelaunch.notifyEyebrow')}
+                      </p>
+                      <h2 className="text-2xl font-bold text-white">{t('home.landing.prelaunch.notifyTitle')}</h2>
+                      <p className="text-white/50 text-sm mt-1">{t('home.landing.prelaunch.notifyBody')}</p>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center flex-shrink-0 ms-3">
+                      <Bell className="w-5 h-5 text-cyan-400" />
+                    </div>
+                  </div>
+                  <HeroCountdown />
+                  <button
+                    type="button"
+                    onClick={() => scrollToDemoLaunch('notify')}
+                    className="w-full py-2.5 rounded-xl border-2 border-teal-400/60 text-teal-300 font-bold text-sm hover:bg-teal-500/20 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+                  >
+                    {t('home.landing.prelaunch.notifyCta')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-white/[0.06] backdrop-blur-2xl border border-white/15 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
+                    {t('home.landing.prelaunch.portalsEyebrow')}
+                  </p>
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"/>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"/>
+                    </span>
+                    {t('home.landing.prelaunch.portalsLive')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
                   {portals.map((p, i) => {
                     const Icon = p.icon;
                     return (
-                      <button
-                        type="button"
-                        key={p.label}
-                        onClick={() => navigate(p.path)}
-                        className={`portal-btn flex items-center gap-3 p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/30 group ${
-                          activePortal === i ? 'ring-2 ring-cyan-400/60 bg-white/20' : ''
-                        }`}
-                      >
-                        <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center flex-shrink-0 shadow-lg`}
-                        >
-                          <Icon className="w-4 h-4 text-white" />
+                      <button key={i} type="button" onClick={() => navigate(p.path)}
+                        className={`portal-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/25 group ${activePortal === i ? 'ring-1 ring-teal-400/50 bg-white/12' : ''}`}>
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center shadow-lg`}>
+                          <Icon className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <span className="text-white text-xs font-semibold leading-tight">
-                          {p.label}
-                        </span>
+                        <span className="text-white/70 text-[10px] font-semibold leading-tight text-center">{p.label}</span>
                       </button>
                     );
                   })}
                 </div>
-
-                <div className="mt-4 flex items-center justify-between px-2">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                    </span>
-                    <span className="text-white/60 text-xs">
-                      {t('home.landing.hero.statusOperational')}
-                    </span>
-                  </div>
-                  <span className="text-white/40 text-xs">
-                    {t('home.landing.hero.statusUptime')}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                className="absolute -top-8 -right-8 bg-white rounded-2xl shadow-2xl p-3.5 w-56 landing-float"
-                style={{ animationDelay: '1s' }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
-                    <Bell className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">
-                      {t('home.landing.hero.notifyLabResultsTitle')}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {t('home.landing.hero.notifyLabResultsBody')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="absolute -bottom-6 -left-8 bg-white rounded-2xl shadow-2xl p-3.5 w-52 landing-float"
-                style={{ animationDelay: '2.5s' }}
-              >
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
-                    <Brain className="w-4 h-4 text-white" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-800">
-                    {t('home.landing.hero.notifyAiInsightTitle')}
-                  </p>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {t('home.landing.hero.notifyAiInsightBody')}
-                </p>
-                <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full w-3/4" />
-                </div>
               </div>
             </div>
           </div>
+
+          <div className={`mt-10 flex flex-wrap items-center justify-center gap-6 opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-300' : ''}`}>
+            <p className="text-white/50 text-sm">{t('home.landing.prelaunch.portalsHint')}</p>
+            <div className="h-8 w-px bg-white/10 hidden sm:block" />
+            <p className="text-white/40 text-xs">{t('home.landing.prelaunch.earlyAccess')}</p>
+            <div className="h-8 w-px bg-white/10 hidden sm:block" />
+            <button type="button" onClick={goSignIn} className="flex items-center gap-2 text-white/60 hover:text-white text-sm font-semibold transition-colors">
+              {t('home.landing.prelaunch.signInCta')} <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+            </button>
+          </div>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
-          <span className="text-white/50 text-xs tracking-widest uppercase">
-            {t('home.landing.hero.scroll')}
-          </span>
-          <ChevronDown className="w-5 h-5 text-white/50" />
+        <div className="relative pb-8 flex flex-col items-center gap-1.5 animate-bounce">
+          <span className="text-white/30 text-xs tracking-widest uppercase">{t('home.landing.prelaunch.scroll')}</span>
+          <ChevronDown className="w-4 h-4 text-white/30" />
         </div>
       </section>
 
@@ -587,27 +568,27 @@ export const Home = () => {
         </div>
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
           <StatCounter
-            value={50000}
-            suffix="+"
-            label={t('home.landing.stats.patientsLabel')}
+            value={6}
+            suffix=""
+            label={t('home.landing.prelaunch.stats.portalsLabel')}
             active={statsRef.inView}
           />
           <StatCounter
-            value={200}
-            suffix="+"
-            label={t('home.landing.stats.facilitiesLabel')}
+            value={2}
+            suffix=""
+            label={t('home.landing.prelaunch.stats.languagesLabel')}
             active={statsRef.inView}
           />
           <StatCounter
-            value={1000000}
-            suffix="+"
-            label={t('home.landing.stats.consultationsLabel')}
+            value={2}
+            suffix=""
+            label={t('home.landing.prelaunch.stats.complianceLabel')}
             active={statsRef.inView}
           />
           <StatCounter
             value={99}
             suffix=".9%"
-            label={t('home.landing.stats.uptimeLabel')}
+            label={t('home.landing.prelaunch.stats.uptimeLabel')}
             active={statsRef.inView}
           />
         </div>
@@ -1033,6 +1014,9 @@ export const Home = () => {
         </div>
       </section>
 
+      {/* Demo Request & Launch Notification */}
+      <LandingDemoLaunchSection />
+
       {/* Final CTA */}
       <section className="relative py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="absolute inset-0">
@@ -1090,7 +1074,7 @@ export const Home = () => {
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-5">
                 <img
-                  src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
+                  src={BRAND_LOGO}
                   alt="CeenAiX"
                   className="w-10 h-10 object-contain"
                 />
@@ -1157,7 +1141,7 @@ export const Home = () => {
               <ul className="space-y-3 text-slate-500 text-sm">
                 {(
                   [
-                    { key: 'privacy' as const, href: '#security' },
+                    { key: 'privacy' as const, href: '/privacy' },
                     { key: 'terms' as const, href: '#security' },
                     { key: 'compliance' as const, href: '#security' },
                     { key: 'nabidh' as const, href: '#security' },
