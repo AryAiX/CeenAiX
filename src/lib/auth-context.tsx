@@ -99,6 +99,7 @@ const VALID_ROLES: readonly UserRole[] = [
   'pharmacy',
   'lab',
   'insurance',
+  'clinic',
   'facility_admin',
   'super_admin',
 ];
@@ -200,6 +201,10 @@ export const getDefaultRouteForRole = (role: UserRole | null | undefined) => {
 
   if (role === 'insurance') {
     return '/insurance/dashboard';
+  }
+
+  if (role === 'clinic') {
+    return '/clinic/dashboard';
   }
 
   if (role === 'super_admin' || role === 'facility_admin') {

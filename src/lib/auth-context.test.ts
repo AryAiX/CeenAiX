@@ -8,6 +8,7 @@ describe('getDefaultRouteForRole', () => {
     ['pharmacy', '/pharmacy/dashboard'],
     ['lab', '/lab/dashboard'],
     ['insurance', '/insurance/dashboard'],
+    ['clinic', '/clinic/dashboard'],
     ['super_admin', '/admin/dashboard'],
     ['facility_admin', '/admin/dashboard'],
   ] as const)('routes %s to %s', (role, expected) => {

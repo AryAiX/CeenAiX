@@ -756,6 +756,8 @@
       "roleLabDesc": "معالجة العينات وإدارة التصوير وإرساليات نابض",
       "roleInsuranceTitle": "التأمين",
       "roleInsuranceDesc": "مراجعة المطالبات والموافقات المسبقة ومزودي الشبكة",
+      "roleClinicTitle": "عيادة / مستشفى",
+      "roleClinicDesc": "إدارة الأطباء والأسعار والجداول وإعدادات العيادة",
       "roleAdminTitle": "مشرف المنصة",
       "roleAdminDesc": "مراقبة صحة المنصة والمستخدمين وإدارة المؤسسات",
       "changeRole": "تغيير الدور",
@@ -913,6 +915,10 @@
           "title": "التأمين",
           "description": "مراجعة المطالبات والموافقات المسبقة وشبكات المزودين"
         },
+        "clinic": {
+          "title": "عيادة / مستشفى",
+          "description": "إدارة الأطباء والأسعار والجداول وإعدادات العيادة"
+        },
         "admin": {
           "title": "مسؤول المنصة",
           "description": "مراقبة صحة المنصة والمستخدمين وإدارة المؤسسات"
@@ -1028,6 +1034,151 @@
     "deletingAccount": "جاري حذف الحساب...",
     "errorTypeDelete": "اكتب DELETE لتأكيد حذف الحساب.",
     "confirmDeleteDialog": "حذف هذا الحساب الآن؟ لا يمكن التراجع. الحسابات التي تحتوي على بيانات سريرية أو رعاية مشتركة لا يمكن حذفها ذاتياً."
+  },
+  "clinic": {
+    "portalEyebrow": "بوابة العيادة",
+    "facilityFallback": "عيادتك",
+    "loading": "جاري تحميل بيانات العيادة…",
+    "errors": {
+      "loadFailed": "تعذر تحميل بوابة العيادة",
+      "generic": "حدث خطأ. يرجى المحاولة مرة أخرى."
+    },
+    "actions": {
+      "retry": "إعادة المحاولة",
+      "save": "حفظ التغييرات",
+      "saving": "جاري الحفظ…",
+      "cancel": "إلغاء",
+      "view": "عرض",
+      "saveChanges": "حفظ"
+    },
+    "filters": {
+      "allStatuses": "جميع الحالات",
+      "allDoctors": "جميع الأطباء"
+    },
+    "nav": {
+      "dashboard": "لوحة التحكم",
+      "doctors": "الأطباء",
+      "appointments": "المواعيد",
+      "patients": "المرضى",
+      "services": "الخدمات",
+      "pricing": "التسعير",
+      "schedule": "الجدول",
+      "messages": "الرسائل",
+      "analytics": "التحليلات",
+      "billing": "الفوترة والإيرادات",
+      "settings": "الإعدادات"
+    },
+    "dashboard": {
+      "title": "لوحة العيادة",
+      "subtitle": "نظرة تشغيلية",
+      "totalDoctors": "إجمالي الأطباء",
+      "activeDoctors": "الأطباء النشطون",
+      "appointmentsMonth": "مواعيد هذا الشهر",
+      "revenueMonth": "إيرادات هذا الشهر",
+      "addDoctor": "إضافة طبيب",
+      "updatePricing": "تحديث الأسعار",
+      "viewSchedule": "عرض الجدول",
+      "recentActivity": "النشاط الأخير",
+      "noActivity": "لا توجد مواعيد حديثة بعد.",
+      "doctorsOverview": "نظرة على الأطباء",
+      "apptsShort": "موعد"
+    },
+    "doctors": {
+      "title": "إدارة الأطباء",
+      "subtitle": "إدارة الكادر الطبي في عيادتك",
+      "addDoctor": "إضافة طبيب",
+      "search": "بحث عن الأطباء…",
+      "colName": "الاسم",
+      "colSpecialty": "التخصص",
+      "colStatus": "الحالة",
+      "colFee": "رسوم الاستشارة",
+      "colAppts": "مواعيد/شهر",
+      "empty": "لا يوجد أطباء مرتبطون بهذه العيادة بعد.",
+      "fieldName": "الاسم الكامل",
+      "fieldEmail": "البريد الإلكتروني",
+      "fieldPhone": "الهاتف",
+      "fieldLicense": "رخصة هيئة الصحة",
+      "fieldSpecialty": "التخصص",
+      "fieldConsultFee": "رسوم حضورية (درهم)",
+      "fieldTeleFee": "رسوم عن بُعد (درهم)",
+      "fieldFollowUpFee": "رسوم متابعة (درهم)",
+      "submitInvite": "إرسال الدعوة",
+      "linkedSuccess": "تم ربط الطبيب بعيادتك.",
+      "inviteSuccess": "تم تسجيل الدعوة.",
+      "detailTitle": "ملف الطبيب",
+      "notFound": "الطبيب غير موجود",
+      "general": "طب عام",
+      "overview": "نظرة عامة",
+      "pricingTab": "تسعير تديره العيادة",
+      "pricingSaved": "تم تحديث الأسعار.",
+      "upcomingAppts": "المواعيد القادمة والحديثة"
+    },
+    "appointments": {
+      "title": "المواعيد",
+      "subtitle": "عرض مواعيد العيادة",
+      "patient": "المريض",
+      "doctor": "الطبيب",
+      "when": "الوقت",
+      "status": "الحالة",
+      "cancel": "إلغاء"
+    },
+    "patients": {
+      "title": "المرضى",
+      "subtitle": "مرضى هذه العيادة",
+      "name": "المريض",
+      "phone": "الهاتف",
+      "visits": "الزيارات",
+      "unknown": "مريض غير معروف"
+    },
+    "services": {
+      "title": "دليل الخدمات",
+      "subtitle": "خدمات العيادة",
+      "nameEn": "الاسم (إنجليزي)",
+      "nameAr": "الاسم (عربي)",
+      "price": "السعر الافتراضي (درهم)",
+      "add": "إضافة خدمة"
+    },
+    "pricing": {
+      "title": "إدارة التسعير",
+      "subtitle": "الأسعار الافتراضية وتخصيصات الأطباء",
+      "clinicDefaults": "أسعار العيادة الافتراضية",
+      "defaultPrice": "السعر الافتراضي",
+      "duration": "المدة",
+      "doctorMatrix": "مصفوفة أسعار الأطباء",
+      "auditLog": "سجل تغييرات الأسعار",
+      "noAudit": "لا توجد تغييرات مسجلة بعد."
+    },
+    "schedule": {
+      "title": "نظرة على الجدول",
+      "subtitle": "توفر الأطباء",
+      "hours": "الساعات",
+      "slot": "مدة الموعد"
+    },
+    "messages": {
+      "title": "الرسائل",
+      "subtitle": "اتصالات العيادة",
+      "comingSoon": "رسائل العيادة قادمة قريباً."
+    },
+    "analytics": {
+      "title": "التحليلات",
+      "subtitle": "رؤى الأداء",
+      "bySpecialty": "الأطباء حسب التخصص",
+      "appointmentsTrend": "مواعيد الشهر",
+      "thisMonth": "مجدولة أو مكتملة هذا الشهر"
+    },
+    "billing": {
+      "title": "الفوترة والإيرادات",
+      "subtitle": "لمشرف العيادة فقط",
+      "monthSummary": "إيرادات الزيارات المكتملة (تقديري)",
+      "byDoctor": "الإيرادات حسب الطبيب"
+    },
+    "settings": {
+      "title": "إعدادات العيادة",
+      "phone": "الهاتف",
+      "email": "البريد الإلكتروني",
+      "website": "الموقع",
+      "trn": "الرقم الضريبي"
+    }
   },
   "previewPinGate": {
     "title": "وصول المعاينة",

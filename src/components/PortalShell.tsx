@@ -34,7 +34,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
-import { useDoctorPortalChrome } from '../hooks';
+import { useDoctorPortalChrome, useDoctorClinicMembership } from '../hooks';
 import { usePatientDashboardAlert } from '../hooks/use-patient-dashboard-alert';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -122,6 +122,7 @@ export const PortalShell = ({
     role === 'patient' && location.pathname === '/patient/dashboard' && !patientAlertDismissed;
   const { data: patientDashboardAlerts } = usePatientDashboardAlert(showPatientDashboardAlert ? user?.id : null);
   const { data: doctorChromeData } = useDoctorPortalChrome(role === 'doctor' ? user?.id : null);
+  const { data: doctorClinicMembership } = useDoctorClinicMembership(role === 'doctor' ? user?.id : null);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -495,7 +496,11 @@ export const PortalShell = ({
   });
   const doctorSpecialty = doctorProfile?.specialization?.trim() || t('shared.doctor');
   const doctorLocation = profile?.city?.trim() || 'Dubai Healthcare City';
-  const doctorFacility = profile?.address?.trim() || doctorLocation;
+  const doctorFacility =
+    doctorClinicMembership?.facilities?.name_en ??
+    doctorClinicMembership?.facilities?.name ??
+    profile?.address?.trim() ??
+    doctorLocation;
   const doctorLicense = doctorProfile?.license_number?.trim() || 'License pending';
   const todayAppointmentsCount = doctorChromeData?.todayAppointmentsCount ?? 0;
   const completedTodayAppointmentsCount = doctorChromeData?.completedTodayAppointmentsCount ?? 0;

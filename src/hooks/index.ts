@@ -29,6 +29,8 @@ export { useMedicationCatalogSearch } from './use-medication-catalog-search';
 export { useLabTestCatalogSearch } from './use-lab-test-catalog-search';
 export { useDoctorSchedule } from './use-doctor-schedule';
 export { useBookableDoctors } from './use-bookable-doctors';
+export { useClinicPortal, useClinicPortalActions, useDoctorClinicMembership } from './use-clinic-portal';
+export type { DoctorClinicMembership } from './use-clinic-portal';
 export { usePublicFacilities } from './use-public-facilities';
 export { useFacilityDoctors } from './use-facility-doctors';
 export { usePublicLaboratories } from './use-public-laboratories';

@@ -25,7 +25,7 @@ import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { withTimeout } from '../../lib/with-timeout';
 
 type LoginMode = 'password' | 'otp';
-type LoginRole = 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance' | 'admin';
+type LoginRole = 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance' | 'clinic' | 'admin';
 
 const AUTH_REMOTE_TIMEOUT_MS = 30_000;
 
@@ -75,6 +75,13 @@ const getRolePresets = (t: (key: string) => string): Record<LoginRole, RolePrese
     bgClass: 'bg-amber-50',
     borderClass: 'border-amber-200',
   },
+  clinic: {
+    title: t('auth.login.roleClinicTitle'),
+    icon: Building2,
+    colorClass: 'text-teal-700',
+    bgClass: 'bg-teal-50',
+    borderClass: 'border-teal-200',
+  },
   admin: {
     title: t('auth.login.roleAdminTitle'),
     icon: Building2,
@@ -90,6 +97,7 @@ const isLoginRole = (value: string | null): value is LoginRole =>
   value === 'pharmacy' ||
   value === 'lab' ||
   value === 'insurance' ||
+  value === 'clinic' ||
   value === 'admin';
 
 export const Login = () => {

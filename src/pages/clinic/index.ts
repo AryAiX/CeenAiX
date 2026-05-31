@@ -1,0 +1,12 @@
+export { ClinicDashboard } from './Dashboard';
+export { ClinicDoctors } from './Doctors';
+export { ClinicDoctorDetail } from './DoctorDetail';
+export { ClinicAppointments } from './Appointments';
+export { ClinicPatients } from './Patients';
+export { ClinicServices } from './Services';
+export { ClinicPricing } from './Pricing';
+export { ClinicSchedule } from './Schedule';
+export { ClinicMessages } from './Messages';
+export { ClinicAnalytics } from './Analytics';
+export { ClinicBilling } from './Billing';
+export { ClinicSettings } from './Settings';

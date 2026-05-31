@@ -756,6 +756,8 @@
       "roleLabDesc": "Process samples, manage imaging & NABIDH submissions",
       "roleInsuranceTitle": "Insurance",
       "roleInsuranceDesc": "Review claims, pre-authorizations & network providers",
+      "roleClinicTitle": "Clinic / Hospital",
+      "roleClinicDesc": "Manage doctors, pricing, schedules, and clinic settings",
       "roleAdminTitle": "Platform Admin",
       "roleAdminDesc": "Monitor platform health, users & organization management",
       "changeRole": "Change role",
@@ -913,6 +915,10 @@
           "title": "Insurance",
           "description": "Review claims, pre-authorizations & network providers"
         },
+        "clinic": {
+          "title": "Clinic / Hospital",
+          "description": "Manage doctors, pricing, schedules, and clinic settings"
+        },
         "admin": {
           "title": "Platform Admin",
           "description": "Monitor platform health, users & organization management"
@@ -1028,6 +1034,151 @@
     "deletingAccount": "Deleting account...",
     "errorTypeDelete": "Type DELETE to confirm account deletion.",
     "confirmDeleteDialog": "Delete this account now? This cannot be undone. Accounts with clinical or shared care data cannot self-delete."
+  },
+  "clinic": {
+    "portalEyebrow": "Clinic Portal",
+    "facilityFallback": "Your clinic",
+    "loading": "Loading clinic data…",
+    "errors": {
+      "loadFailed": "Unable to load clinic portal",
+      "generic": "Something went wrong. Please try again."
+    },
+    "actions": {
+      "retry": "Retry",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "view": "View",
+      "saveChanges": "Save"
+    },
+    "filters": {
+      "allStatuses": "All statuses",
+      "allDoctors": "All doctors"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "doctors": "Doctors",
+      "appointments": "Appointments",
+      "patients": "Patients",
+      "services": "Services",
+      "pricing": "Pricing",
+      "schedule": "Schedule",
+      "messages": "Messages",
+      "analytics": "Analytics",
+      "billing": "Billing & Revenue",
+      "settings": "Settings"
+    },
+    "dashboard": {
+      "title": "Clinic dashboard",
+      "subtitle": "Operational overview",
+      "totalDoctors": "Total doctors",
+      "activeDoctors": "Active doctors",
+      "appointmentsMonth": "Appointments this month",
+      "revenueMonth": "Revenue this month",
+      "addDoctor": "Add doctor",
+      "updatePricing": "Update pricing",
+      "viewSchedule": "View schedule",
+      "recentActivity": "Recent activity",
+      "noActivity": "No recent appointments yet.",
+      "doctorsOverview": "Doctors overview",
+      "apptsShort": "appts"
+    },
+    "doctors": {
+      "title": "Doctor management",
+      "subtitle": "Manage medical staff affiliated with your clinic",
+      "addDoctor": "Add doctor",
+      "search": "Search doctors…",
+      "colName": "Name",
+      "colSpecialty": "Specialization",
+      "colStatus": "Status",
+      "colFee": "Consultation fee",
+      "colAppts": "Appts / month",
+      "empty": "No doctors linked to this clinic yet.",
+      "fieldName": "Full name",
+      "fieldEmail": "Work email",
+      "fieldPhone": "Phone",
+      "fieldLicense": "DHA license",
+      "fieldSpecialty": "Specialization",
+      "fieldConsultFee": "In-person fee (AED)",
+      "fieldTeleFee": "Telemedicine fee (AED)",
+      "fieldFollowUpFee": "Follow-up fee (AED)",
+      "submitInvite": "Send invitation",
+      "linkedSuccess": "Doctor linked to your clinic.",
+      "inviteSuccess": "Invitation recorded. The doctor will receive onboarding instructions.",
+      "detailTitle": "Doctor profile",
+      "notFound": "Doctor not found",
+      "general": "General practice",
+      "overview": "Overview",
+      "pricingTab": "Clinic-managed pricing",
+      "pricingSaved": "Pricing updated.",
+      "upcomingAppts": "Upcoming & recent appointments"
+    },
+    "appointments": {
+      "title": "Appointments",
+      "subtitle": "Clinic-wide appointment view",
+      "patient": "Patient",
+      "doctor": "Doctor",
+      "when": "When",
+      "status": "Status",
+      "cancel": "Cancel"
+    },
+    "patients": {
+      "title": "Patients",
+      "subtitle": "Patients seen at this clinic",
+      "name": "Patient",
+      "phone": "Phone",
+      "visits": "Visits",
+      "unknown": "Unknown patient"
+    },
+    "services": {
+      "title": "Services catalog",
+      "subtitle": "Clinic-wide services doctors can offer",
+      "nameEn": "Name (English)",
+      "nameAr": "Name (Arabic)",
+      "price": "Default price (AED)",
+      "add": "Add service"
+    },
+    "pricing": {
+      "title": "Pricing management",
+      "subtitle": "Clinic defaults and doctor overrides",
+      "clinicDefaults": "Clinic default pricing",
+      "defaultPrice": "Default price",
+      "duration": "Duration",
+      "doctorMatrix": "Doctor pricing matrix",
+      "auditLog": "Pricing audit log",
+      "noAudit": "No pricing changes logged yet."
+    },
+    "schedule": {
+      "title": "Schedule overview",
+      "subtitle": "Doctor availability across the clinic",
+      "hours": "Hours",
+      "slot": "Slot duration"
+    },
+    "messages": {
+      "title": "Messages",
+      "subtitle": "Clinic communications",
+      "comingSoon": "Clinic messaging is coming in a follow-up release."
+    },
+    "analytics": {
+      "title": "Analytics",
+      "subtitle": "Performance insights",
+      "bySpecialty": "Doctors by specialization",
+      "appointmentsTrend": "Monthly appointments",
+      "thisMonth": "Scheduled or completed this month"
+    },
+    "billing": {
+      "title": "Billing & revenue",
+      "subtitle": "Clinic Admin only",
+      "monthSummary": "Completed visit revenue (estimate)",
+      "byDoctor": "Revenue by doctor"
+    },
+    "settings": {
+      "title": "Clinic settings",
+      "phone": "Phone",
+      "email": "Email",
+      "website": "Website",
+      "trn": "Tax registration number (TRN)"
+    }
   },
   "previewPinGate": {
     "title": "Preview access",

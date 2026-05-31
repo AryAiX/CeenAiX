@@ -107,6 +107,20 @@ import {
   InsuranceRiskAnalytics,
   InsuranceSettings,
 } from '../pages/insurance/Portal';
+import {
+  ClinicAnalytics,
+  ClinicAppointments,
+  ClinicBilling,
+  ClinicDashboard,
+  ClinicDoctorDetail,
+  ClinicDoctors,
+  ClinicMessages,
+  ClinicPatients,
+  ClinicPricing,
+  ClinicSchedule,
+  ClinicServices,
+  ClinicSettings,
+} from '../pages/clinic';
 import { AppointmentDesignShowcase } from '../pages/AppointmentDesignShowcase';
 import { AccessDenied } from '../pages/system/AccessDenied';
 
@@ -626,5 +640,57 @@ export const router = createBrowserRouter([
   {
     path: '/insurance/settings',
     element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsuranceSettings />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/dashboard',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicDashboard />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/doctors',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicDoctors />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/doctors/:staffId',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicDoctorDetail />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/appointments',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicAppointments />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/patients',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicPatients />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/services',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicServices />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/pricing',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicPricing />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/schedule',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicSchedule />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/messages',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicMessages />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/analytics',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicAnalytics />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/billing',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicBilling />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic/settings',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicSettings />)}</ProtectedRoute>,
+  },
+  {
+    path: '/clinic',
+    element: <ProtectedRoute allowedRoles={['clinic']}>{withLayout(<ClinicDashboard />)}</ProtectedRoute>,
   },
 ]);
