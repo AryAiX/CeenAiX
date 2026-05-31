@@ -7,14 +7,17 @@ import { usePatientPrescriptions } from './use-patient-prescriptions';
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }));
 
 describe('usePatientPrescriptions', () => {
   const fromMock = vi.mocked(supabase.from);
+  const rpcMock = vi.mocked(supabase.rpc);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    rpcMock.mockResolvedValue({ data: [], error: null } as never);
   });
 
   it('returns an empty list when no user is provided', async () => {
@@ -42,6 +45,7 @@ describe('usePatientPrescriptions', () => {
           deleted_at: null,
           created_at: '2026-02-10T05:15:00Z',
           updated_at: '2026-02-10T05:15:00Z',
+          pharmacy_organization_id: null,
         },
       ],
       error: null,
@@ -83,6 +87,10 @@ describe('usePatientPrescriptions', () => {
       ],
       error: null,
     });
+    const dispensingTasksBuilder = createSupabaseQueryBuilder({
+      data: [],
+      error: null,
+    });
 
     fromMock.mockImplementation(
       ((table: string) => {
@@ -100,6 +108,10 @@ describe('usePatientPrescriptions', () => {
 
         if (table === 'doctor_profiles') {
           return doctorProfilesBuilder;
+        }
+
+        if (table === 'pharmacy_dispensing_tasks') {
+          return dispensingTasksBuilder;
         }
 
         throw new Error(`Unexpected table ${table}`);
@@ -124,8 +136,11 @@ describe('usePatientPrescriptions', () => {
         deleted_at: null,
         created_at: '2026-02-10T05:15:00Z',
         updated_at: '2026-02-10T05:15:00Z',
+        pharmacy_organization_id: null,
         doctorName: 'Doctor 1',
         doctorSpecialty: 'General Surgery',
+        pharmacyStatus: 'not_sent',
+        pharmacyName: null,
         items: [
           {
             id: 'item-1',
@@ -148,5 +163,6 @@ describe('usePatientPrescriptions', () => {
     expect(itemsBuilder.in).toHaveBeenCalledWith('prescription_id', ['prescription-1']);
     expect(userProfilesBuilder.in).toHaveBeenCalledWith('user_id', ['doctor-1']);
     expect(doctorProfilesBuilder.in).toHaveBeenCalledWith('user_id', ['doctor-1']);
+    expect(rpcMock).toHaveBeenCalledWith('list_active_pharmacies');
   });
 });

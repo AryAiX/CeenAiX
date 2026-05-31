@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CircleDollarSign, CreditCard, Download, FileCheck2, ReceiptText } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
@@ -34,6 +35,7 @@ export const PharmacyRevenue = () => {
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(8);
   const rows = useMemo<RevenuePrescription[]>(
     () =>
       (data?.claims ?? []).map((claim) => ({
@@ -132,6 +134,7 @@ export const PharmacyRevenue = () => {
               icon: CircleDollarSign,
               color: 'text-emerald-600',
               bg: 'bg-emerald-50',
+              route: '/pharmacy/revenue',
             },
             {
               label: t('pharmacy.revenue.kpiProjected', { defaultValue: 'Projected Queue Value' }),
@@ -143,6 +146,7 @@ export const PharmacyRevenue = () => {
               icon: ReceiptText,
               color: 'text-teal-600',
               bg: 'bg-teal-50',
+              route: '/pharmacy/dispensing',
             },
             {
               label: t('pharmacy.revenue.kpiReview', { defaultValue: 'Claims In Review' }),
@@ -151,6 +155,7 @@ export const PharmacyRevenue = () => {
               icon: FileCheck2,
               color: 'text-amber-600',
               bg: 'bg-amber-50',
+              route: '/pharmacy/revenue',
             },
             {
               label: t('pharmacy.revenue.kpiAvg', { defaultValue: 'Average Rx Value' }),
@@ -162,18 +167,19 @@ export const PharmacyRevenue = () => {
               icon: CreditCard,
               color: 'text-blue-600',
               bg: 'bg-blue-50',
+              route: '/pharmacy/revenue',
             },
           ].map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <article key={kpi.label} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <Link key={kpi.label} to={kpi.route} className="block rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer">
                 <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${kpi.bg}`}>
                   <Icon className={`h-5 w-5 ${kpi.color}`} />
                 </div>
                 <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{loading ? '...' : kpi.value}</div>
                 <div className="text-[12px] text-slate-500">{kpi.label}</div>
                 <div className="mt-0.5 text-xs text-slate-400">{kpi.helper}</div>
-              </article>
+              </Link>
             );
           })}
         </section>
@@ -216,7 +222,7 @@ export const PharmacyRevenue = () => {
               </div>
             </div>
             <div className="divide-y divide-slate-100">
-              {rows.slice(0, 8).map((row) => (
+              {rows.slice(0, visibleCount).map((row) => (
                 <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_100px_90px_90px] items-center gap-3 px-5 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-slate-800">{row.patientName}</div>
@@ -231,7 +237,9 @@ export const PharmacyRevenue = () => {
                         ? 'bg-emerald-50 text-emerald-700'
                         : row.status === 'review'
                           ? 'bg-amber-50 text-amber-700'
-                          : 'bg-blue-50 text-blue-700'
+                          : row.status === 'denied'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-blue-50 text-blue-700'
                     }`}
                   >
                     {t(`pharmacy.revenue.status.${row.status}`, { defaultValue: row.status })}
@@ -246,6 +254,17 @@ export const PharmacyRevenue = () => {
                 </div>
               ))}
             </div>
+            {rows.length > visibleCount ? (
+              <div className="border-t border-slate-100 px-5 py-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((current) => current + 8)}
+                  className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200"
+                >
+                  Show More ({rows.length - visibleCount} remaining)
+                </button>
+              </div>
+            ) : null}
             {selectedClaim ? (
               <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 text-sm text-slate-700">
                 <p className="font-semibold text-slate-900">{selectedClaim.patientName}</p>

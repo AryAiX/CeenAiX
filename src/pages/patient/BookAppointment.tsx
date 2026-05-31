@@ -383,6 +383,26 @@ export const BookAppointment: React.FC = () => {
         ? rescheduleAppointment?.id ?? null
         : bookingResult.data?.id ?? null;
 
+      if (appointmentId && !isRescheduling) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'appointment',
+          title: '📅 Appointment confirmed!',
+          body: `Your appointment with ${selectedDoctor.fullName} has been confirmed for ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
+          action_url: '/patient/appointments',
+        });
+      }
+
+      if (appointmentId && isRescheduling) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'appointment',
+          title: '📅 Appointment rescheduled!',
+          body: `Your appointment with ${selectedDoctor.fullName} has been rescheduled to ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
+          action_url: '/patient/appointments',
+        });
+      }
+
       if (appointmentId) {
         const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
           .from('appointment_pre_visit_assessments')

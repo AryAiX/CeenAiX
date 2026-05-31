@@ -48,7 +48,7 @@ export const PharmacySettings = () => {
     >
       <div className="min-h-full bg-slate-50 p-6">
         <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />
-        <div className="max-w-3xl">
+        <div className="w-full">
           <div className="mb-5">
             <h2 className="text-[20px] font-bold text-slate-900">
               {t('pharmacy.settings.title', { defaultValue: 'Settings' })}
@@ -68,7 +68,7 @@ export const PharmacySettings = () => {
             </div>
           ) : null}
 
-          <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-3">
             {[
               [
                 t('pharmacy.settings.cardNotifications', { defaultValue: 'Notifications' }),
@@ -100,7 +100,7 @@ export const PharmacySettings = () => {
           </div>
         ) : null}
 
-          <section className="space-y-4">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {settings.map((setting) => (
               <article
                 key={setting.title}
@@ -115,26 +115,26 @@ export const PharmacySettings = () => {
                     <div className="mt-0.5 text-xs text-slate-400">{setting.description}</div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleToggle(setting.id, !setting.enabled)}
-                  disabled={busyId === setting.id}
-                  className={`relative h-6 w-12 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    setting.enabled ? 'bg-emerald-500' : 'bg-slate-200'
-                  }`}
-                  aria-pressed={setting.enabled}
-                  aria-label={
-                    setting.enabled
-                      ? t('pharmacy.settings.toggleOn', { defaultValue: 'On' })
-                      : t('pharmacy.settings.toggleOff', { defaultValue: 'Off' })
-                  }
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      setting.enabled ? 'translate-x-6 rtl:-translate-x-6' : 'translate-x-0.5 rtl:-translate-x-0.5'
+                  <button
+                    type="button"
+                    onClick={() => void handleToggle(setting.id, !setting.enabled)}
+                    disabled={busyId === setting.id}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                      setting.enabled ? 'bg-emerald-500' : 'bg-slate-200'
                     }`}
-                  />
-                </button>
+                    aria-pressed={setting.enabled}
+                    aria-label={
+                      setting.enabled
+                        ? t('pharmacy.settings.toggleOn', { defaultValue: 'On' })
+                        : t('pharmacy.settings.toggleOff', { defaultValue: 'Off' })
+                    }
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        setting.enabled ? 'translate-x-5 rtl:-translate-x-5' : 'translate-x-0 rtl:translate-x-0'
+                      }`}
+                    />
+                  </button>
               </article>
             ))}
           </section>

@@ -84,6 +84,7 @@ interface PharmacyKpi {
   helper: string;
   icon: LucideIcon;
   tone: 'emerald' | 'blue' | 'amber';
+  route: string;
 }
 
 interface PharmacyDashboardPrescription {
@@ -215,6 +216,7 @@ export const PharmacyDashboard = () => {
         helper: `${formatNumber(dispensedPrescriptions.length, uiLang)} dispensed · ${formatNumber(inQueue.length, uiLang)} in queue · ${formatNumber(onHold, uiLang)} on hold`,
         icon: Pill,
         tone: 'emerald',
+        route: '/pharmacy/dispensing',
       },
       {
         label: 'In Queue',
@@ -224,6 +226,7 @@ export const PharmacyDashboard = () => {
           : 'No active wait time',
         icon: Clock,
         tone: 'blue',
+        route: '/pharmacy/dispensing',
       },
       {
         label: 'Stock Alerts',
@@ -231,6 +234,7 @@ export const PharmacyDashboard = () => {
         helper: `${stockAlerts.filter((item) => item.severity === 'out').length} out of stock · ${stockAlerts.filter((item) => item.severity === 'low').length} low · ${stockAlerts.filter((item) => item.severity === 'near_expiry').length} expiring`,
         icon: AlertTriangle,
         tone: 'amber',
+        route: '/pharmacy/inventory',
       },
       {
         label: 'Revenue Today',
@@ -238,6 +242,7 @@ export const PharmacyDashboard = () => {
         helper: `${formatNumber(data?.claims.filter((claim) => claim.status === 'paid').length ?? 0, uiLang)} paid claims from pharmacy_claims`,
         icon: CircleDollarSign,
         tone: 'emerald',
+        route: '/pharmacy/revenue',
       },
       {
         label: 'DHA Status',
@@ -245,6 +250,7 @@ export const PharmacyDashboard = () => {
         helper: `${formatNumber(data?.reportMetrics.dhaSubmittedCount ?? 0, uiLang)} dispensing records ready for DHA reporting`,
         icon: ShieldCheck,
         tone: 'emerald',
+        route: '/pharmacy/reports',
       },
     ],
     [data?.claims, data?.profile?.dhaConnected, data?.reportMetrics.dhaSubmittedCount, dispensedPrescriptions.length, inQueue.length, oldestQueueItem, onHold, paidRevenue, prescriptionsToday, stockAlerts, uiLang]
@@ -302,9 +308,10 @@ export const PharmacyDashboard = () => {
                   : 'border-slate-100 text-emerald-600 bg-emerald-50';
 
             return (
-              <article
+              <Link
                 key={kpi.label}
-                className={`rounded-xl border bg-white p-4 shadow-sm ${
+                to={kpi.route}
+                className={`block rounded-xl border bg-white p-4 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer ${
                   kpi.tone === 'blue' ? 'border-blue-300' : 'border-slate-100'
                 }`}
               >
@@ -342,7 +349,7 @@ export const PharmacyDashboard = () => {
                     />
                   </div>
                 ) : null}
-              </article>
+              </Link>
             );
           })}
         </section>
@@ -363,7 +370,7 @@ export const PharmacyDashboard = () => {
             return (
               <Link
                 key={item.id}
-                to="/pharmacy/dispensing"
+                to={`/pharmacy/dispensing?id=${item.id}`}
                 className={`flex min-h-20 items-center gap-4 border-b border-slate-50 border-l-4 px-5 transition hover:bg-emerald-50 ${cfg.border}`}
               >
                 <div className="w-[90px] shrink-0">
@@ -394,8 +401,14 @@ export const PharmacyDashboard = () => {
                 </div>
 
                 <div className="shrink-0">
-                  <span className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white">
-                    Dispense
+                  <span className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white ${
+                    item.status === 'counseling'
+                      ? 'bg-slate-400'
+                      : item.status === 'ready'
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-600'
+                  }`}>
+                    {item.status === 'counseling' ? 'View' : item.status === 'ready' ? 'Resume' : 'Dispense'}
                   </span>
                 </div>
               </Link>
@@ -467,7 +480,7 @@ export const PharmacyDashboard = () => {
                       </div>
                     </div>
                     <Link
-                      to="/pharmacy/inventory"
+                      to={`/pharmacy/inventory?id=${alert.id}`}
                       className={`shrink-0 rounded-md px-2.5 py-1 text-[10px] font-semibold ${
                         alert.severity === 'out'
                           ? 'bg-red-100 text-red-700 hover:bg-red-200'
@@ -494,7 +507,7 @@ export const PharmacyDashboard = () => {
                 <MessageSquare className="h-4 w-4 text-slate-500" />
                 <h3 className="text-[14px] font-bold text-slate-800">Messages</h3>
               </div>
-              <span className="text-[12px] font-medium text-emerald-600">View All →</span>
+              <Link to="/pharmacy/messages" className="text-[12px] font-medium text-emerald-600">View All →</Link>
             </div>
             <div className="divide-y divide-slate-50">
               <div className="bg-amber-50 px-5 py-4">
@@ -507,9 +520,9 @@ export const PharmacyDashboard = () => {
                 <div className="mb-2 text-[11px] italic text-amber-600">
                   {onHold > 0 ? 'Awaiting response...' : 'Clear'}
                 </div>
-                <span className="rounded-md bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                <Link to="/pharmacy/messages" className="rounded-md bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
                   Follow Up
-                </span>
+                </Link>
               </div>
               <div className="px-5 py-4">
                 <div className="mb-0.5 text-[12px] font-semibold text-slate-700">Patient notifications</div>

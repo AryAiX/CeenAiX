@@ -303,12 +303,23 @@ export async function setPharmacySettingEnabled(
  */
 export async function updatePharmacyDispensingTaskStatus(
   taskId: string,
-  workflowStatus: PharmacyQueuePrescriptionItem['workflowStatus']
+  workflowStatus: PharmacyQueuePrescriptionItem['workflowStatus'],
+  options?: { holdReasonCode?: string; holdNote?: string }
 ): Promise<void> {
-  const { error } = await supabase
-    .from('pharmacy_dispensing_tasks')
-    .update({ workflow_status: workflowStatus, updated_at: new Date().toISOString() })
-    .eq('id', taskId);
+  const payload: Record<string, unknown> = {
+    workflow_status: workflowStatus,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (workflowStatus === 'on_hold') {
+    payload.hold_reason_code = options?.holdReasonCode ?? null;
+    payload.hold_note = options?.holdNote?.trim() || null;
+  } else {
+    payload.hold_reason_code = null;
+    payload.hold_note = null;
+  }
+
+  const { error } = await supabase.from('pharmacy_dispensing_tasks').update(payload).eq('id', taskId);
   if (error) throw error;
 }
 

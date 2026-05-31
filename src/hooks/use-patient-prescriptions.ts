@@ -14,10 +14,59 @@ interface DoctorPrescriptionProfile {
   specialty: string | null;
 }
 
+export type PatientPharmacyWorkflowStatus =
+  | 'not_sent'
+  | 'new'
+  | 'in_progress'
+  | 'on_hold'
+  | 'dispensed'
+  | 'cancelled';
+
 export interface PatientPrescriptionRecord extends Prescription {
   doctorName: string;
   doctorSpecialty: string | null;
   items: PrescriptionItem[];
+  pharmacyStatus: PatientPharmacyWorkflowStatus | null;
+  pharmacyName: string | null;
+}
+
+interface DispensingTaskRow {
+  prescription_id: string;
+  workflow_status: string;
+  organization_id: string;
+}
+
+interface ActivePharmacyRow {
+  id: string;
+  name: string;
+  city: string | null;
+}
+
+export function aggregatePharmacyWorkflowStatus(
+  tasks: Pick<DispensingTaskRow, 'workflow_status'>[]
+): PatientPharmacyWorkflowStatus {
+  if (tasks.length === 0) {
+    return 'new';
+  }
+
+  const statuses = new Set(tasks.map((task) => task.workflow_status));
+  if (statuses.has('on_hold')) {
+    return 'on_hold';
+  }
+  if (statuses.has('cancelled') && statuses.size === 1) {
+    return 'cancelled';
+  }
+  if (statuses.has('in_progress')) {
+    return 'in_progress';
+  }
+  if (statuses.has('new')) {
+    return 'new';
+  }
+  if (statuses.has('dispensed')) {
+    return 'dispensed';
+  }
+
+  return 'new';
 }
 
 export function usePatientPrescriptions(userId: string | null | undefined) {
@@ -50,6 +99,8 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
       { data: prescriptionItems, error: prescriptionItemsError },
       { data: userProfiles, error: userProfilesError },
       { data: doctorProfiles, error: doctorProfilesError },
+      { data: dispensingTasks, error: dispensingTasksError },
+      { data: activePharmacies, error: activePharmaciesError },
     ] = await Promise.all([
       supabase
         .from('prescription_items')
@@ -58,6 +109,11 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
         .order('created_at', { ascending: true }),
       supabase.from('user_profiles').select('user_id, full_name').in('user_id', doctorIds),
       supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', doctorIds),
+      supabase
+        .from('pharmacy_dispensing_tasks')
+        .select('prescription_id, workflow_status, organization_id')
+        .in('prescription_id', prescriptionIds),
+      supabase.rpc('list_active_pharmacies'),
     ]);
 
     if (prescriptionItemsError) {
@@ -70,6 +126,14 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
 
     if (doctorProfilesError) {
       throw doctorProfilesError;
+    }
+
+    if (dispensingTasksError) {
+      throw dispensingTasksError;
+    }
+
+    if (activePharmaciesError) {
+      throw activePharmaciesError;
     }
 
     const hydratedPrescriptionItems = hydratePrescriptionItemsWithCatalog(
@@ -89,6 +153,17 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
       (doctorProfiles ?? []).map((doctorProfile) => [doctorProfile.user_id, doctorProfile.specialization ?? null])
     );
 
+    const tasksByPrescriptionId = new Map<string, DispensingTaskRow[]>();
+    for (const task of (dispensingTasks ?? []) as DispensingTaskRow[]) {
+      const existing = tasksByPrescriptionId.get(task.prescription_id) ?? [];
+      existing.push(task);
+      tasksByPrescriptionId.set(task.prescription_id, existing);
+    }
+
+    const pharmacyNameById = new Map(
+      ((activePharmacies ?? []) as ActivePharmacyRow[]).map((pharmacy) => [pharmacy.id, pharmacy.name])
+    );
+
     const doctorProfileById = new Map<string, DoctorPrescriptionProfile>(
       (userProfiles ?? []).map((userProfile) => [
         userProfile.user_id,
@@ -101,12 +176,18 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
 
     return safePrescriptions.map((prescription) => {
       const doctorProfile = doctorProfileById.get(prescription.doctor_id);
+      const tasks = tasksByPrescriptionId.get(prescription.id) ?? [];
+      const pharmacyOrgId = prescription.pharmacy_organization_id ?? tasks[0]?.organization_id ?? null;
 
       return {
         ...prescription,
         doctorName: doctorProfile?.fullName ?? doctorFallback(),
         doctorSpecialty: doctorProfile?.specialty ?? null,
         items: itemsByPrescriptionId.get(prescription.id) ?? [],
+        pharmacyStatus: prescription.pharmacy_organization_id
+          ? aggregatePharmacyWorkflowStatus(tasks)
+          : 'not_sent',
+        pharmacyName: pharmacyOrgId ? (pharmacyNameById.get(pharmacyOrgId) ?? null) : null,
       };
     });
   }, [userId]);

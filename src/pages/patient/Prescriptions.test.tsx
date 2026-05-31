@@ -64,6 +64,8 @@ describe('PatientPrescriptions', () => {
           updated_at: '2026-02-10T05:15:00Z',
           doctorName: 'Doctor 1',
           doctorSpecialty: 'General Surgery',
+          pharmacyStatus: 'not_sent',
+          pharmacyName: null,
           items: [
             {
               id: 'item-1',
@@ -108,6 +110,8 @@ describe('PatientPrescriptions', () => {
           updated_at: '2026-01-18T07:45:00Z',
           doctorName: 'Doctor 1',
           doctorSpecialty: 'General Surgery',
+          pharmacyStatus: 'not_sent',
+          pharmacyName: null,
           items: [
             {
               id: 'item-3',
@@ -177,6 +181,8 @@ describe('PatientPrescriptions', () => {
           updated_at: '2026-02-10T05:15:00Z',
           doctorName: 'Doctor 1',
           doctorSpecialty: 'General Surgery',
+          pharmacyStatus: 'not_sent',
+          pharmacyName: null,
           items: [
             {
               id: 'item-1',
@@ -254,6 +260,8 @@ describe('PatientPrescriptions', () => {
           updated_at: '2026-02-10T05:15:00Z',
           doctorName: 'Doctor 1',
           doctorSpecialty: 'General Surgery',
+          pharmacyStatus: 'not_sent',
+          pharmacyName: null,
           items: [
             {
               id: 'item-1',

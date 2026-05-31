@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Download, FileText, ShieldCheck, Target, TrendingUp } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
@@ -52,6 +53,7 @@ export const PharmacyReports = () => {
       icon: FileText,
       color: 'text-teal-600',
       bg: 'bg-teal-50',
+      route: '/pharmacy/dispensing',
     },
     {
       label: t('pharmacy.reports.kpiAccuracy', { defaultValue: 'Dispensing accuracy' }),
@@ -62,6 +64,7 @@ export const PharmacyReports = () => {
       icon: Target,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
+      route: '/pharmacy/dispensing',
     },
     {
       label: t('pharmacy.reports.kpiApproval', { defaultValue: 'Insurance approval rate' }),
@@ -69,6 +72,7 @@ export const PharmacyReports = () => {
       icon: TrendingUp,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
+      route: '/pharmacy/revenue',
     },
     {
       label: t('pharmacy.reports.kpiCompliance', { defaultValue: 'Controlled substance compliance' }),
@@ -78,6 +82,7 @@ export const PharmacyReports = () => {
       icon: ShieldCheck,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
+      route: '/pharmacy/inventory',
     },
   ];
 
@@ -184,14 +189,14 @@ export const PharmacyReports = () => {
           {kpis.map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <article key={kpi.label} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <Link key={kpi.label} to={kpi.route} className="block rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer">
                 <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${kpi.bg}`}>
                   <Icon className={`h-5 w-5 ${kpi.color}`} />
                 </div>
                 <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{kpi.value}</div>
                 <div className="text-[12px] text-slate-500">{kpi.label}</div>
                 {kpi.sub ? <div className="mt-0.5 text-xs text-emerald-600">{kpi.sub} ✅</div> : null}
-              </article>
+              </Link>
             );
           })}
         </section>

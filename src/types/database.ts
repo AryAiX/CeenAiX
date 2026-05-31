@@ -128,6 +128,7 @@ export interface Prescription extends BaseRecord, SoftDeletable {
   patient_id: string;
   doctor_id: string;
   appointment_id: string | null;
+  pharmacy_organization_id?: string | null;
   status: PrescriptionStatus;
   prescribed_at: string;
 }

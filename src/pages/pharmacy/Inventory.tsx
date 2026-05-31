@@ -1,5 +1,6 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Download,
@@ -8,6 +9,7 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  X,
 } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
@@ -181,6 +183,14 @@ export const PharmacyInventory = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id) {
+      setSearch(id);
+    }
+  }, [searchParams]);
   const [exportError, setExportError] = useState<string | null>(null);
   const rows = useMemo(() => toInventoryRows(data?.inventory ?? []), [data?.inventory]);
 
@@ -205,6 +215,7 @@ export const PharmacyInventory = () => {
     return rows.filter((item) => {
       const matchesSearch =
         !query ||
+        item.id.toLowerCase().includes(query) ||
         item.genericName.toLowerCase().includes(query) ||
         item.brandName.toLowerCase().includes(query) ||
         item.atcCode.toLowerCase().includes(query) ||
@@ -314,18 +325,25 @@ export const PharmacyInventory = () => {
 
         <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50' },
-            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50' },
-            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50' },
+            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
+            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
+            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
+            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
+            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
           ].map((stat) => (
-            <div key={stat.label} className={`rounded-xl border border-slate-100 px-4 py-3 shadow-sm ${stat.bg}`}>
+            <button
+              key={stat.label}
+              type="button"
+              onClick={() => setFilter(stat.filterKey as FilterType)}
+              className={`rounded-xl border px-4 py-3 shadow-sm text-left transition-all cursor-pointer hover:ring-2 hover:ring-emerald-300 ${stat.bg} ${
+                filter === stat.filterKey ? 'ring-2 ring-emerald-500 border-emerald-300' : 'border-slate-100'
+              }`}
+            >
               <div className={`font-mono text-[22px] font-bold ${stat.color}`}>
                 {loading ? '…' : formatNumber(stat.value, uiLang)}
               </div>
               <div className="mt-0.5 text-[11px] text-slate-500">{stat.label}</div>
-            </div>
+            </button>
           ))}
         </section>
 
@@ -340,15 +358,28 @@ export const PharmacyInventory = () => {
               placeholder={t('pharmacy.inventory.searchPh', {
                 defaultValue: 'Drug name, brand, ATC code, category...',
               })}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {(Object.keys(filterLabels) as FilterType[]).map((key) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => setFilter(key)}
+                onClick={() => {
+                  setFilter(key);
+                  setSearch('');
+                }}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                   filter === key
                     ? 'bg-emerald-600 text-white'
@@ -449,7 +480,11 @@ export const PharmacyInventory = () => {
                       {item.daysSupply != null ? (
                         <span
                           className={`font-mono text-[13px] font-bold ${
-                            item.daysSupply < 5 ? 'text-red-700' : 'text-amber-700'
+                            item.daysSupply < 5
+                              ? 'text-red-700'
+                              : item.daysSupply < 15
+                                ? 'text-amber-700'
+                                : 'text-emerald-600'
                           }`}
                         >
                           {item.daysSupply}d
@@ -502,17 +537,40 @@ export const PharmacyInventory = () => {
                     </div>
                   </div>
                     {isBatchOpen ? (
-                      <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-3 text-sm text-slate-700">
-                        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">On-hand batches</div>
-                        <p className="mt-1 text-sm text-slate-800">
-                          {item.genericName} · {item.batchCount} batch{item.batchCount === 1 ? '' : 'es'} tracked for this
-                          SKU.
-                          {item.nextExpiry ? (
-                            <span className="block pt-1 text-xs text-slate-600">
-                              Next labelled expiry: <span className="font-mono font-semibold">{item.nextExpiry}</span>
-                            </span>
-                          ) : null}
-                        </p>
+                      <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-4">
+                        <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">On-hand batches</div>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                            <div className="text-[10px] text-slate-400">Current Stock</div>
+                            <div className="font-mono text-[15px] font-bold text-slate-800">
+                              {formatNumber(item.stockQty, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                            <div className="text-[10px] text-slate-400">Reorder Level</div>
+                            <div className="font-mono text-[15px] font-bold text-slate-800">
+                              {formatNumber(item.reorderLevel, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                            <div className="text-[10px] text-slate-400">Batches</div>
+                            <div className="font-mono text-[15px] font-bold text-slate-800">
+                              {item.batchCount} <span className="text-[10px] font-normal text-slate-400">batch{item.batchCount === 1 ? '' : 'es'}</span>
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                            <div className="text-[10px] text-slate-400">Next Expiry</div>
+                            <div className="font-mono text-[15px] font-bold text-slate-800">
+                              {item.nextExpiry ?? '—'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${stockConfig[item.stockStatus].pill}`}>
+                            {stockConfig[item.stockStatus].label}
+                          </span>
+                          <span className="text-[11px] text-slate-500">{item.genericName} {item.strength} · {item.form}</span>
+                        </div>
                       </div>
                     ) : null}
                   </Fragment>
