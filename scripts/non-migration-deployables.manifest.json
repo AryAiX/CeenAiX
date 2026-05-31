@@ -1,7 +1,21 @@
 {
   "deployables": [
     {
-      "id": "supabase-edge-function-ai-chat",
+      "id": "supabase-edge-function-leads",
+      "type": "supabase-edge-function",
+      "name": "leads",
+      "path": "supabase/functions/leads",
+      "deployCommand": [
+        "supabase",
+        "functions",
+        "deploy",
+        "leads",
+        "--no-verify-jwt"
+      ],
+      "requiredSecrets": [],
+      "notes": "Public marketing demo and launch-notify lead capture."
+    },
+    {
       "type": "supabase-edge-function",
       "name": "ai-chat",
       "path": "supabase/functions/ai-chat",

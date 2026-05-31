@@ -1,37 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   Check, ChevronDown, Bell, Stethoscope, Shield, Globe,
   Calendar, Users, Building2, Loader2, ExternalLink,
   Share2, CheckCircle2, AlertCircle,
 } from 'lucide-react';
+import {
+  fetchLaunchLeadCount,
+  getMarketingLaunchTimeLeft,
+  MARKETING_LAUNCH_DATE,
+  MARKETING_LEADS_COUNTER_FLOOR,
+  submitDemoRequest,
+  submitLaunchNotify,
+} from '../lib/marketing-leads';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
-
-const LAUNCH_DATE: Date | null = new Date('2026-08-01T09:00:00+04:00');
-const COUNTER_FLOOR = 25;
-
-function apiUrl(path: string) {
-  return `${SUPABASE_URL}/functions/v1/leads${path}`;
-}
-
-function apiHeaders() {
-  return {
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    'Content-Type': 'application/json',
-  };
-}
-
-function getTimeLeft(target: Date) {
-  const diff = Math.max(0, target.getTime() - Date.now());
-  return {
-    days: Math.floor(diff / 86400000),
-    hours: Math.floor((diff % 86400000) / 3600000),
-    minutes: Math.floor((diff % 3600000) / 60000),
-    seconds: Math.floor((diff % 60000) / 1000),
-    done: diff === 0,
-  };
-}
+const BRAND_LOGO = '/og-preview.svg';
 
 function sessionGet(key: string) {
   try { return JSON.parse(sessionStorage.getItem(key) ?? 'null'); } catch { return null; }
@@ -130,20 +114,21 @@ function SegmentedControl({
 }
 
 function Countdown({ target }: { target: Date }) {
-  const [time, setTime] = useState(() => getTimeLeft(target));
+  const { t } = useTranslation('common');
+  const [time, setTime] = useState(() => getMarketingLaunchTimeLeft(target));
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!document.hidden) setTime(getTimeLeft(target));
+      if (!document.hidden) setTime(getMarketingLaunchTimeLeft(target));
     }, 1000);
     return () => clearInterval(id);
   }, [target]);
 
   const units = [
-    { val: time.days, label: 'DAYS' },
-    { val: time.hours, label: 'HOURS' },
-    { val: time.minutes, label: 'MINUTES' },
-    { val: time.seconds, label: 'SECONDS' },
+    { val: time.days, label: t('home.landing.prelaunch.countdownDays') },
+    { val: time.hours, label: t('home.landing.prelaunch.countdownHours') },
+    { val: time.minutes, label: t('home.landing.prelaunch.countdownMinutes') },
+    { val: time.seconds, label: t('home.landing.prelaunch.countdownSeconds') },
   ];
 
   return (
@@ -242,12 +227,7 @@ function DemoRequestCard({
     setSubmitting(true);
     setErrors({});
     try {
-      const res = await fetch(apiUrl('/demo-request'), {
-        method: 'POST',
-        headers: apiHeaders(),
-        body: JSON.stringify({ ...form, override_free_email: freeEmailOverridden }),
-      });
-      const data = await res.json();
+      const data = await submitDemoRequest({ ...form, override_free_email: freeEmailOverridden });
       if (data.success) {
         setSuccess(true);
         setSuccessData({ name: form.full_name.split(' ')[0], email: form.email });
@@ -487,7 +467,7 @@ function DemoRequestCard({
                 onChange={e => { set('consent', e.target.checked); setTouched(t => ({ ...t, consent: true })); }}
                 className="sr-only" aria-invalid={!!errors.consent} />
               I agree to be contacted by AryAiX about CeenAiX. I can unsubscribe anytime.{' '}
-              <a href="/privacy" className="underline text-teal-600 hover:text-teal-700">Privacy Policy</a>
+              <Link to="/privacy" className="underline text-teal-600 hover:text-teal-700">Privacy Policy</Link>
             </span>
           </label>
           {touched.consent && errors.consent && <FieldError msg={errors.consent} />}
@@ -532,13 +512,13 @@ function LaunchNotifyCard({
 }: {
   onSuccess: () => void; scrollToDemo: () => void;
 }) {
+  const { t } = useTranslation('common');
   const [form, setForm] = useState<NotifyForm>(() => sessionGet('notify_form') ?? NOTIFY_DEFAULTS);
   const [errors, setErrors] = useState<Partial<Record<keyof NotifyForm | '_global', string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof NotifyForm, boolean>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successEmail, setSuccessEmail] = useState('');
-  const [alreadySub, setAlreadySub] = useState(false);
 
   useEffect(() => { sessionSet('notify_form', form); }, [form]);
 
@@ -561,16 +541,10 @@ function LaunchNotifyCard({
     setSubmitting(true);
     setErrors({});
     try {
-      const res = await fetch(apiUrl('/launch-notify'), {
-        method: 'POST',
-        headers: apiHeaders(),
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
+      const data = await submitLaunchNotify(form);
       if (data.success) {
         setSuccess(true);
         setSuccessEmail(form.email);
-        setAlreadySub(!!data.alreadySubscribed);
         sessionClear('notify_form');
         onSuccess();
       } else {
@@ -593,8 +567,7 @@ function LaunchNotifyCard({
   };
 
   const handleCalendar = () => {
-    if (!LAUNCH_DATE) return;
-    const date = LAUNCH_DATE.toISOString().split('T')[0].replace(/-/g, '');
+    const date = MARKETING_LAUNCH_DATE.toISOString().split('T')[0].replace(/-/g, '');
     const ics = [
       'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
       `DTSTART;VALUE=DATE:${date}`, `DTEND;VALUE=DATE:${date}`,
@@ -616,22 +589,20 @@ function LaunchNotifyCard({
           <CheckCircle2 className="w-8 h-8 text-teal-600" />
         </div>
         <h3 className="text-xl font-bold text-slate-900 mb-1">
-          {alreadySub ? "Thanks — you're already on our list." : "You're on the list."}
+          {t('home.landing.leads.notifySuccessTitle')}
         </h3>
-        {!alreadySub && (
-          <p className="text-sm text-slate-500 mb-5 max-w-xs leading-relaxed">
-            We'll email {successEmail} the moment CeenAiX launches.{' '}
-            <button type="button" onClick={scrollToDemo} className="text-teal-600 underline font-semibold">
-              Request a personalized demo →
-            </button>
-          </p>
-        )}
+        <p className="text-sm text-slate-500 mb-5 max-w-xs leading-relaxed">
+          {t('home.landing.leads.notifySuccessBody', { email: successEmail })}{' '}
+          <button type="button" onClick={scrollToDemo} className="text-teal-600 underline font-semibold">
+            {t('home.landing.leads.tabDemo')} →
+          </button>
+        </p>
         <div className="flex gap-3 flex-wrap justify-center">
           <button type="button" onClick={handleShare}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
             <Share2 className="w-4 h-4" /> Share with a colleague
           </button>
-          {LAUNCH_DATE && (
+          {MARKETING_LAUNCH_DATE && (
             <button type="button" onClick={handleCalendar}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
               <Calendar className="w-4 h-4" /> Add to calendar
@@ -655,9 +626,9 @@ function LaunchNotifyCard({
         </div>
       </div>
 
-      {LAUNCH_DATE && (
+      {MARKETING_LAUNCH_DATE && (
         <div className="mb-4 rounded-2xl bg-teal-50 border border-teal-100 px-4 overflow-hidden">
-          <Countdown target={LAUNCH_DATE} />
+          <Countdown target={MARKETING_LAUNCH_DATE} />
         </div>
       )}
 
@@ -744,21 +715,21 @@ function LaunchNotifyCard({
 // ─── Trust Strip ─────────────────────────────────────────────────────────────
 
 function TrustStrip() {
+  const { t } = useTranslation('common');
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(apiUrl('/count'), { headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
-      .then(r => r.json())
-      .then(d => { if (d.visible) setCount(d.count); })
-      .catch(() => { });
+    void fetchLaunchLeadCount().then(({ visible, count: leadCount }) => {
+      if (visible) setCount(leadCount);
+    });
   }, []);
 
   return (
     <div className="mt-8 rounded-2xl border border-slate-100 bg-white/60 backdrop-blur-sm p-5">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-          <img src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM copy.png" alt="AryAiX" className="w-6 h-6 object-contain opacity-70" />
-          Backed by AryAiX · Built in Dubai
+          <img src={BRAND_LOGO} alt="AryAiX" className="w-6 h-6 object-contain opacity-70" />
+          {t('home.landing.leads.backedBy')}
         </div>
         <div className="flex items-center gap-6">
           {[
@@ -772,16 +743,18 @@ function TrustStrip() {
             </div>
           ))}
         </div>
-        {count !== null && count >= COUNTER_FLOOR && (
+        {count !== null && count >= MARKETING_LEADS_COUNTER_FLOOR && (
           <div className="flex items-center gap-1.5 text-sm font-semibold text-teal-700">
             <Users className="w-4 h-4" />
-            {count} healthcare leaders already on the launch list
+            {t('home.landing.leads.countLabel', { count })}
           </div>
         )}
       </div>
       <p className="mt-3 text-center text-xs text-slate-400">
-        We never share your email.{' '}
-        <a href="/privacy" className="underline hover:text-slate-600">Read our Privacy Policy</a>
+        {t('home.landing.leads.privacyNote')}{' '}
+        <Link to="/privacy" className="underline hover:text-slate-600">
+          {t('home.landing.leads.privacyLink')}
+        </Link>
       </p>
     </div>
   );
@@ -789,7 +762,8 @@ function TrustStrip() {
 
 // ─── Main Section ─────────────────────────────────────────────────────────────
 
-export default function LandingDemoLaunchSection() {
+export function LandingDemoLaunchSection() {
+  const { t } = useTranslation('common');
   const [mobileTab, setMobileTab] = useState<'demo' | 'notify'>('demo');
   const demoRef = useRef<HTMLDivElement>(null);
   const notifyRef = useRef<HTMLDivElement>(null);
@@ -815,7 +789,7 @@ export default function LandingDemoLaunchSection() {
     setTimeout(() => demoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   };
 
-  const TRUST_STRIP = ['DHA Path B', 'NABIDH-ready', 'UAE-hosted', 'HIPAA-aligned', 'Bilingual'];
+  const trustStrip = t('home.landing.leads.trustStrip', { returnObjects: true }) as string[];
 
   return (
     <section
@@ -835,16 +809,18 @@ export default function LandingDemoLaunchSection() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-100 border border-teal-200 mb-5">
             <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-teal-700 text-xs font-bold uppercase tracking-widest">Coming soon · GCC healthcare AI</span>
+            <span className="text-teal-700 text-xs font-bold uppercase tracking-widest">
+              {t('home.landing.leads.sectionEyebrow')}
+            </span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 leading-tight">
-            Be first to see CeenAiX in action
+            {t('home.landing.leads.sectionTitle')}
           </h2>
           <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-6 leading-relaxed">
-            Request a private demo for your clinic, hospital, or pharmacy — or sign up to be notified the day we launch.
+            {t('home.landing.leads.sectionLead')}
           </p>
           <div className="flex flex-wrap justify-center gap-2 mb-6">
-            {TRUST_STRIP.map(item => (
+            {trustStrip.map((item) => (
               <TrustBadge key={item}><Check className="w-3 h-3" />{item}</TrustBadge>
             ))}
           </div>
@@ -857,7 +833,7 @@ export default function LandingDemoLaunchSection() {
               className={`flex-1 py-3 text-sm font-bold transition-all duration-150
                 ${mobileTab === tab ? 'bg-teal-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
               aria-pressed={mobileTab === tab}>
-              {tab === 'demo' ? 'Request a demo' : 'Notify me at launch'}
+              {tab === 'demo' ? t('home.landing.leads.tabDemo') : t('home.landing.leads.tabNotify')}
             </button>
           ))}
         </div>

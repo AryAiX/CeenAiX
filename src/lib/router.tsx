@@ -9,6 +9,7 @@ import { FindDoctor } from '../pages/public/FindDoctor';
 import { FindClinic } from '../pages/public/FindClinic';
 import { Insurance } from '../pages/public/Insurance';
 import { HealthEducation } from '../pages/public/HealthEducation';
+import { PrivacyPolicy } from '../pages/public/PrivacyPolicy';
 import { Laboratories } from '../pages/public/Laboratories';
 import { Pharmacy } from '../pages/public/Pharmacy';
 import { Login } from '../pages/auth/Login';
@@ -133,6 +134,10 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: withLayout(<Home />),
+  },
+  {
+    path: '/privacy',
+    element: withLayout(<PrivacyPolicy />),
   },
   {
     path: '/appointment-showcase',
