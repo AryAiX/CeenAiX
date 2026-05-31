@@ -6,6 +6,7 @@ import type {
   ConsultationConsentLog,
   ConsultationConsentMethod,
   ConsultationRecording,
+  ConsultationRecordingMode,
   ConsultationTranscript,
   TranscriptSegment,
 } from '../types';
@@ -27,6 +28,7 @@ export interface CreateRecordingInput {
   informedPatient: boolean;
   verbalConsent: boolean;
   signatureImageUrl: string | null;
+  mode?: ConsultationRecordingMode;
 }
 
 export interface ConsultationScribeActions {
@@ -46,6 +48,11 @@ export interface ConsultationScribeActions {
   }) => Promise<void>;
   discardRecording: (recording: ConsultationRecording) => Promise<void>;
   updateTranscriptSegments: (transcriptId: string, segments: TranscriptSegment[]) => Promise<void>;
+  saveTranscriptText: (input: {
+    recordingId: string;
+    fullText: string;
+    segments: TranscriptSegment[];
+  }) => Promise<void>;
   markNoteApproved: (input: {
     recordingId: string;
     noteId: string;
@@ -146,6 +153,7 @@ export function useConsultationScribe(
         patient_id: input.patientId,
         clinic_id: input.clinicId,
         status: 'recording',
+        mode: input.mode ?? 'recorded',
         started_at: new Date().toISOString(),
       })
       .select('*')
@@ -230,6 +238,28 @@ export function useConsultationScribe(
     []
   );
 
+  const saveTranscriptText = useCallback<ConsultationScribeActions['saveTranscriptText']>(
+    async (input) => {
+      const { data: existing } = await supabase
+        .from('consultation_transcripts')
+        .select('id')
+        .eq('recording_id', input.recordingId)
+        .maybeSingle();
+      const payload = {
+        recording_id: input.recordingId,
+        full_text: input.fullText,
+        segments: input.segments,
+        model_used: 'whisper-1-live',
+      };
+      const operation = existing
+        ? supabase.from('consultation_transcripts').update(payload).eq('id', existing.id)
+        : supabase.from('consultation_transcripts').insert(payload);
+      const { error } = await operation;
+      if (error) throw error;
+    },
+    []
+  );
+
   const markNoteApproved = useCallback<ConsultationScribeActions['markNoteApproved']>(async (input) => {
     const now = new Date().toISOString();
     const { error: noteError } = await supabase
@@ -257,6 +287,7 @@ export function useConsultationScribe(
     attachAudioAndProcess,
     discardRecording,
     updateTranscriptSegments,
+    saveTranscriptText,
     markNoteApproved,
   };
 

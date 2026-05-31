@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   extractSmartSuggestions,
+  fetchLiveCues,
   generateClinicalNote,
   transcribeConsultation,
   uploadConsultationAudio,
@@ -10,11 +11,14 @@ import type {
   ClinicalNotePromptTemplate,
   ConsultationConsentMethod,
   ConsultationRecording,
+  ConsultationRecordingMode,
+  LiveCue,
   SmartSuggestion,
   TranscriptSegment,
 } from '../types';
 import { useAudioRecorder } from './use-audio-recorder';
 import { useConsultationScribe } from './use-consultation-scribe';
+import { useLiveTranscription, type LiveTranscriptEntry } from './use-live-transcription';
 
 export interface ScribeConsentInput {
   informedPatient: boolean;
@@ -56,6 +60,13 @@ export interface ConsultationScribeController {
   dismissSuggestion: (id: string) => void;
   markApproved: () => Promise<void>;
   relabelSegments: (segments: TranscriptSegment[]) => Promise<void>;
+  mode: ConsultationRecordingMode;
+  setMode: (mode: ConsultationRecordingMode) => void;
+  liveEntries: LiveTranscriptEntry[];
+  liveTranscriptText: string;
+  liveTranscribing: boolean;
+  liveCues: LiveCue[];
+  dismissCue: (id: string) => void;
 }
 
 export function useConsultationScribeController(input: {
@@ -75,15 +86,56 @@ export function useConsultationScribeController(input: {
   const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<ScribeFeedback>(null);
+  const [mode, setMode] = useState<ConsultationRecordingMode>('recorded');
+  const [liveCues, setLiveCues] = useState<LiveCue[]>([]);
+  const [dismissedCues, setDismissedCues] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setActiveRecording(null);
     setSuggestions([]);
     setDismissed(new Set());
     setFeedback(null);
+    setMode('recorded');
+    setLiveCues([]);
+    setDismissedCues(new Set());
   }, [input.appointmentId]);
 
   const currentRecording = activeRecording ?? data?.recording ?? null;
+
+  const live = useLiveTranscription({
+    stream: recorder.stream,
+    active: mode === 'live' && recorder.status === 'recording',
+    recordingId: currentRecording?.id ?? null,
+  });
+
+  const liveTranscriptRef = useRef('');
+  liveTranscriptRef.current = live.transcriptText;
+  const liveEntriesRef = useRef<LiveTranscriptEntry[]>([]);
+  liveEntriesRef.current = live.entries;
+
+  // Poll the live-cue engine while a live session is actively recording.
+  useEffect(() => {
+    if (mode !== 'live' || recorder.status !== 'recording' || !currentRecording?.id) {
+      return;
+    }
+    const recordingId = currentRecording.id;
+    let cancelled = false;
+    const tick = async () => {
+      const transcript = liveTranscriptRef.current.trim();
+      if (transcript.length < 20) return;
+      try {
+        const result = await fetchLiveCues({ recordingId, transcript });
+        if (!cancelled) setLiveCues(result.cues);
+      } catch {
+        // Cues are best-effort; ignore failures.
+      }
+    };
+    const interval = setInterval(() => void tick(), 18000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [mode, recorder.status, currentRecording?.id]);
   const isProcessing = isTranscribing || isGenerating;
 
   const openConsent = useCallback(() => setConsentOpen(true), []);
@@ -109,6 +161,7 @@ export function useConsultationScribeController(input: {
           informedPatient: consent.informedPatient,
           verbalConsent: consent.verbalConsent,
           signatureImageUrl: consent.signatureImageUrl,
+          mode,
         });
         setActiveRecording(recording);
         refetch();
@@ -119,7 +172,7 @@ export function useConsultationScribeController(input: {
         });
       }
     },
-    [actions, input.appointmentId, input.doctorId, input.patientId, input.clinicId, recorder, refetch]
+    [actions, input.appointmentId, input.doctorId, input.patientId, input.clinicId, recorder, refetch, mode]
   );
 
   const stopAndProcess = useCallback(async () => {
@@ -153,13 +206,39 @@ export function useConsultationScribeController(input: {
       });
       refetch();
 
-      setIsTranscribing(true);
-      await transcribeConsultation({ recordingId: recording.id });
-      setIsTranscribing(false);
+      if (mode === 'live') {
+        // Live mode already built a transcript from streamed chunks; give the
+        // final segment a moment to land, persist the transcript, then generate
+        // the note from that text instead of re-running Whisper on the full file.
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const entries = liveEntriesRef.current;
+        const fullText = liveTranscriptRef.current.trim();
+        const segments = entries.map((entry, index) => ({
+          speaker: 'unknown' as const,
+          start_ms: index * 7000,
+          end_ms: (index + 1) * 7000,
+          text: entry.text,
+          confidence: 1,
+        }));
+        if (fullText) {
+          await actions.saveTranscriptText({ recordingId: recording.id, fullText, segments });
+        }
+        setIsGenerating(true);
+        await generateClinicalNote({
+          recordingId: recording.id,
+          outputLanguage: 'en',
+          transcriptOverride: fullText || null,
+        });
+        setIsGenerating(false);
+      } else {
+        setIsTranscribing(true);
+        await transcribeConsultation({ recordingId: recording.id });
+        setIsTranscribing(false);
 
-      setIsGenerating(true);
-      await generateClinicalNote({ recordingId: recording.id, outputLanguage: 'en' });
-      setIsGenerating(false);
+        setIsGenerating(true);
+        await generateClinicalNote({ recordingId: recording.id, outputLanguage: 'en' });
+        setIsGenerating(false);
+      }
 
       refetch();
       void fetchSuggestionsFor(recording.id);
@@ -174,7 +253,7 @@ export function useConsultationScribeController(input: {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions, currentRecording, input.doctorId, recorder, refetch]);
+  }, [actions, currentRecording, input.doctorId, recorder, refetch, mode]);
 
   const retryProcessing = useCallback(async () => {
     const recording = currentRecording;
@@ -221,6 +300,7 @@ export function useConsultationScribeController(input: {
     }
     setActiveRecording(null);
     setSuggestions([]);
+    setLiveCues([]);
     refetch();
     setFeedback({ type: 'success', message: 'Recording discarded.' });
   }, [actions, currentRecording, recorder, refetch]);
@@ -307,9 +387,18 @@ export function useConsultationScribeController(input: {
     refetch();
   }, [actions, currentRecording, data?.note, input.doctorId, refetch]);
 
+  const dismissCue = useCallback((id: string) => {
+    setDismissedCues((current) => new Set(current).add(id));
+  }, []);
+
   const visibleSuggestions = useMemo(
     () => suggestions.filter((suggestion) => !dismissed.has(suggestion.id)),
     [suggestions, dismissed]
+  );
+
+  const visibleCues = useMemo(
+    () => liveCues.filter((cue) => !dismissedCues.has(cue.id)),
+    [liveCues, dismissedCues]
   );
 
   return {
@@ -336,5 +425,12 @@ export function useConsultationScribeController(input: {
     dismissSuggestion,
     markApproved,
     relabelSegments,
+    mode,
+    setMode,
+    liveEntries: live.entries,
+    liveTranscriptText: live.transcriptText,
+    liveTranscribing: live.isTranscribing,
+    liveCues: visibleCues,
+    dismissCue,
   };
 }

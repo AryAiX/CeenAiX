@@ -9,6 +9,7 @@ export interface MockSupabaseResult<T> {
 export interface MockSupabaseQueryBuilder<T> extends PromiseLike<MockSupabaseResult<T>> {
   select: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
+  neq: ReturnType<typeof vi.fn>;
   gte: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
   is: ReturnType<typeof vi.fn>;

@@ -99,9 +99,13 @@ export type ConsultationRecordingStatus =
 
 export type ConsultationConsentMethod = 'verbal' | 'signed';
 
+export type ConsultationRecordingMode = 'recorded' | 'live';
+
 export type TranscriptSpeaker = 'doctor' | 'patient' | 'unknown';
 
 export type SmartSuggestionKind = 'lab_order' | 'medication' | 'allergy' | 'referral' | 'follow_up';
+
+export type LiveCueKind = 'question' | 'red_flag' | 'reminder';
 
 export type ClinicalNotePromptTemplate =
   | 'general'

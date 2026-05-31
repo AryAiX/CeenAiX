@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useConsultationScribeController } from '../../hooks/use-consultation-scribe-controller';
-import { AiScribePanel, ConsentModal, RecordingControlBar } from '../../components/consultation';
+import { AiScribePanel, ConsentModal, LiveSessionPanel, RecordingControlBar } from '../../components/consultation';
 import type { AppliedSoap } from '../../components/consultation';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { useDoctorAppointmentDetail, useQuery } from '../../hooks';
@@ -430,6 +430,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
 
       <div className="mt-6 space-y-6">
         <RecordingControlBar controller={scribe} patientName={patientName} />
+        <LiveSessionPanel controller={scribe} />
 
         {scribe.feedback ? (
           <div

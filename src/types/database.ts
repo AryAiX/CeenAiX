@@ -28,10 +28,12 @@ import type {
   PatientReportedMedicationReviewStatus,
   ConsultationRecordingStatus,
   ConsultationConsentMethod,
+  ConsultationRecordingMode,
   TranscriptSpeaker,
   ClinicalNotePromptTemplate,
   ClinicalNoteOutputLanguage,
   SmartSuggestionKind,
+  LiveCueKind,
 } from './enums';
 
 /** Base fields present on most tables */
@@ -1028,6 +1030,7 @@ export interface ConsultationRecording extends BaseRecord, SoftDeletable {
   duration_seconds: number;
   language_detected: string | null;
   status: ConsultationRecordingStatus;
+  mode: ConsultationRecordingMode;
   started_at: string;
   ended_at: string | null;
 }
@@ -1120,4 +1123,10 @@ export interface SmartSuggestion {
   label: string;
   detail: string | null;
   value: Record<string, unknown>;
+}
+
+export interface LiveCue {
+  id: string;
+  kind: LiveCueKind;
+  text: string;
 }

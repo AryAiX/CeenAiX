@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-type TaskType = 'transcribe' | 'generate_note' | 'suggestions';
+type TaskType = 'transcribe' | 'generate_note' | 'suggestions' | 'live_transcribe_chunk' | 'live_cues';
 
 interface RequestBody {
   task?: TaskType;
@@ -14,6 +14,7 @@ interface RequestBody {
   outputLanguage?: string;
   customInstructions?: string | null;
   transcriptOverride?: string | null;
+  transcript?: string | null;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -456,6 +457,93 @@ async function runSuggestions(args: {
   return { suggestions };
 }
 
+
+async function runLiveChunkTranscription(args: {
+  openAiApiKey: string;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'verbose_json');
+  formData.append('file', args.file, args.file.name || 'chunk.webm');
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${args.openAiApiKey}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Live chunk transcription failed: ${errorText}`);
+  }
+
+  const payload = (await response.json()) as { text?: string; language?: string };
+  return {
+    text: typeof payload.text === 'string' ? payload.text.trim() : '',
+    language: typeof payload.language === 'string' ? payload.language : null,
+  };
+}
+
+async function runLiveCues(args: {
+  openAiApiKey: string;
+  adminClient: SupabaseClientLike;
+  recording: Record<string, unknown>;
+  transcript: string;
+}) {
+  const transcriptText = asString(args.transcript);
+  if (!transcriptText) {
+    return { cues: [] };
+  }
+
+  const patientHistory = await loadPatientHistoryContext(args.adminClient, args.recording.patient_id as string);
+  const schema = '{"cues":[{"kind":"question|red_flag|reminder","text":"string"}]}';
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${args.openAiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'You are a real-time clinical copilot listening to a live doctor-patient consultation.',
+            'Using the running transcript and the patient history, surface a few concise, high-value cues for the doctor.',
+            'kind must be one of: question (a useful follow-up question to ask now), red_flag (a safety concern to consider), reminder (a relevant fact from the patient history).',
+            'Only use information supported by the transcript or the provided patient history. Do not invent facts. Do not give definitive diagnoses.',
+            'Return at most 5 cues, shortest first. If nothing is useful yet, return an empty array.',
+            `Return strict JSON matching: ${schema}`,
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: ['Patient history context:', patientHistory, '', 'Live transcript so far:', transcriptText].join('\n'),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Live cue generation failed: ${errorText}`);
+  }
+
+  const completion = await response.json();
+  const content = completion?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    return { cues: [] };
+  }
+  const parsed = extractFirstJsonObject(content);
+  const cues = Array.isArray(parsed.cues) ? parsed.cues : [];
+  return { cues };
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -489,6 +577,28 @@ Deno.serve(async (request) => {
     }
     const doctorId = authData.user.id;
 
+    const contentType = request.headers.get('content-type') ?? '';
+
+    // Live audio chunks arrive as multipart/form-data so we can stream raw bytes
+    // straight to Whisper without a storage round-trip.
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      const recordingId = form.get('recordingId');
+      const audio = form.get('audio');
+      if (typeof recordingId !== 'string') {
+        return json({ error: 'recordingId is required.' }, 400);
+      }
+      const recording = await loadRecordingForDoctor(adminClient, recordingId, doctorId);
+      if (!recording) {
+        return json({ error: 'Recording not found or you are not the treating doctor.' }, 403);
+      }
+      if (!(audio instanceof File)) {
+        return json({ error: 'audio chunk is required.' }, 400);
+      }
+      const result = await runLiveChunkTranscription({ openAiApiKey, file: audio });
+      return json(result);
+    }
+
     const body = (await request.json()) as RequestBody;
     if (!body.recordingId) {
       return json({ error: 'recordingId is required.' }, 400);
@@ -500,6 +610,16 @@ Deno.serve(async (request) => {
     }
 
     const ip = request.headers.get('x-forwarded-for');
+
+    if (body.task === 'live_cues') {
+      const result = await runLiveCues({
+        openAiApiKey,
+        adminClient,
+        recording,
+        transcript: typeof body.transcript === 'string' ? body.transcript : '',
+      });
+      return json(result);
+    }
 
     if (body.task === 'transcribe') {
       await adminClient

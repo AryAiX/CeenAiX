@@ -6,6 +6,7 @@ import {
   normalizeClinicalNoteDiagnoses,
   normalizeClinicalNoteFollowUp,
   normalizeClinicalNoteMedications,
+  normalizeLiveCues,
   normalizeSmartSuggestions,
   normalizeTranscriptSegments,
 } from './consultation-scribe';
@@ -105,5 +106,25 @@ describe('normalizeSmartSuggestions', () => {
     expect(result[0]).toMatchObject({ kind: 'medication', label: 'Lisinopril 10mg' });
     expect(result[1]).toMatchObject({ kind: 'follow_up', label: 'Schedule follow-up' });
     expect(result[1].id).toBe('suggestion-1');
+  });
+});
+
+describe('normalizeLiveCues', () => {
+  it('keeps valid cues, defaults unknown kinds to reminder, and assigns ids', () => {
+    const result = normalizeLiveCues([
+      { kind: 'red_flag', text: 'Chest pain + diaphoresis — consider ACS' },
+      { kind: 'question', text: 'Ask about radiation of the pain' },
+      { kind: 'bogus', text: 'On warfarin' },
+      { text: '' },
+      'nope',
+    ]);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ kind: 'red_flag' });
+    expect(result[2]).toMatchObject({ kind: 'reminder', text: 'On warfarin', id: 'cue-2' });
+  });
+
+  it('returns empty for non-arrays', () => {
+    expect(normalizeLiveCues(null)).toEqual([]);
+    expect(normalizeLiveCues({})).toEqual([]);
   });
 });
