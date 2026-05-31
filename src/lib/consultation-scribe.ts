@@ -13,6 +13,8 @@ import type {
   ClinicalNoteOutputLanguage,
   ClinicalNotePromptTemplate,
   ConsultationTranscript,
+  LiveCue,
+  LiveCueKind,
   SmartSuggestion,
   TranscriptSegment,
   TranscriptSpeaker,
@@ -334,3 +336,68 @@ export async function extractSmartSuggestions(input: {
   });
   return { suggestions: normalizeSmartSuggestions(result.suggestions) };
 }
+
+// ---------------------------------------------------------------------------
+// Live mode (near-real-time chunked Whisper + live cues)
+// ---------------------------------------------------------------------------
+
+const VALID_CUE_KINDS: ReadonlySet<LiveCueKind> = new Set(['question', 'red_flag', 'reminder']);
+
+export function normalizeLiveCues(value: unknown): LiveCue[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((raw, index): LiveCue | null => {
+      if (!raw || typeof raw !== 'object') return null;
+      const candidate = raw as Record<string, unknown>;
+      const text = asString(candidate.text);
+      if (!text) return null;
+      const kind =
+        typeof candidate.kind === 'string' && VALID_CUE_KINDS.has(candidate.kind as LiveCueKind)
+          ? (candidate.kind as LiveCueKind)
+          : 'reminder';
+      return { id: asString(candidate.id) ?? `cue-${index}`, kind, text };
+    })
+    .filter((cue): cue is LiveCue => cue !== null);
+}
+
+export interface LiveChunkResult {
+  text: string;
+  language: string | null;
+}
+
+/**
+ * Send a single self-contained audio segment to the scribe Edge Function for a
+ * Whisper pass. Used by live mode to build a near-real-time transcript.
+ */
+export async function transcribeLiveChunk(input: {
+  recordingId: string;
+  blob: Blob;
+}): Promise<LiveChunkResult> {
+  const formData = new FormData();
+  formData.append('recordingId', input.recordingId);
+  const extension = audioExtensionForMimeType(input.blob.type);
+  formData.append('audio', input.blob, `chunk.${extension}`);
+
+  const { data, error } = await supabase.functions.invoke('consultation-scribe', { body: formData });
+  if (error) {
+    throw new Error(await getFriendlyScribeError(error));
+  }
+  const payload = (data ?? {}) as Record<string, unknown>;
+  return {
+    text: typeof payload.text === 'string' ? payload.text : '',
+    language: typeof payload.language === 'string' ? payload.language : null,
+  };
+}
+
+export async function fetchLiveCues(input: {
+  recordingId: string;
+  transcript: string;
+}): Promise<{ cues: LiveCue[] }> {
+  const result = await invokeScribe<{ cues: unknown }>({
+    task: 'live_cues',
+    recordingId: input.recordingId,
+    transcript: input.transcript,
+  });
+  return { cues: normalizeLiveCues(result.cues) };
+}
+
