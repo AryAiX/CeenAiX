@@ -29,6 +29,7 @@ export const createSupabaseQueryBuilder = <T>(
 
   builder.select = vi.fn(() => builder);
   builder.eq = vi.fn(() => builder);
+  builder.neq = vi.fn(() => builder);
   builder.gte = vi.fn(() => builder);
   builder.in = vi.fn(() => builder);
   builder.is = vi.fn(() => builder);
