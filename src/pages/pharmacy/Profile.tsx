@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, ShieldCheck, Store, Trash2, UserRound, type LucideIcon } from 'lucide-react';
+import { Plus, ShieldCheck, Store, Trash2, Upload, UserRound, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
@@ -49,6 +49,9 @@ export const PharmacyProfile = () => {
     dha_connected: false,
     nabidh_connected: false,
   });
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffSaving, setStaffSaving] = useState(false);
@@ -193,6 +196,41 @@ export const PharmacyProfile = () => {
     }
   };
 
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Please upload an image file.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('Image must be under 2MB.');
+      return;
+    }
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `pharmacy-logo-${data?.organization?.id}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('pharmacy-logos')
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from('pharmacy-logos')
+        .getPublicUrl(fileName);
+      const { error: updateError } = await supabase
+        .from('pharmacy_facility_profiles')
+        .update({ logo_url: urlData.publicUrl })
+        .eq('organization_id', data?.organization?.id);
+      if (updateError) throw updateError;
+      void refetch();
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : 'Could not upload logo.');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const operationRows: Array<[string, string | number, LucideIcon, string]> = [
     [t('pharmacy.profile.opPending', { defaultValue: 'Pending prescriptions' }), formatLocaleDigits(data?.pendingPrescriptions ?? 0, uiLang), UserRound, '/pharmacy/dispensing'],
     [t('pharmacy.profile.opAlerts', { defaultValue: 'Inventory alerts' }), formatLocaleDigits(data?.lowStockAlerts ?? 0, uiLang), ShieldCheck, '/pharmacy/inventory'],
@@ -228,13 +266,43 @@ export const PharmacyProfile = () => {
 
           <section className="mb-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-5">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-xl font-bold text-white">
-                {pharmacyName
-                  .split(/\s+/)
-                  .map((part) => part[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
+              <div className="flex flex-col items-center gap-1">
+                <div className="relative">
+                  {data?.profile?.logoUrl ? (
+                    <img
+                      src={data.profile.logoUrl}
+                      alt={pharmacyName}
+                      className="h-16 w-16 rounded-2xl object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-xl font-bold text-white">
+                      {pharmacyName
+                        .split(/\s+/)
+                        .map((part) => part[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  <label className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-emerald-600 shadow-md transition hover:bg-emerald-700">
+                    <Upload className="h-3 w-3 text-white" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleLogoUpload(file);
+                      }}
+                    />
+                  </label>
+                </div>
+                {logoUploading ? (
+                  <div className="text-xs text-emerald-600">Uploading...</div>
+                ) : null}
+                {logoError ? (
+                  <div className="text-xs text-red-500">{logoError}</div>
+                ) : null}
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">{pharmacyName}</h3>
