@@ -94,6 +94,15 @@ export const PharmacySettings = () => {
             ))}
           </section>
 
+          {settings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                <SlidersHorizontal className="h-6 w-6 text-slate-400" />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-slate-600">No settings found</p>
+              <p className="mt-1 text-xs text-slate-400">Pharmacy settings will appear here once configured</p>
+            </div>
+          ) : null}
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {settings.map((setting) => (
               <article
