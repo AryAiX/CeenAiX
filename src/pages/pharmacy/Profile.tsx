@@ -36,6 +36,10 @@ export const PharmacyProfile = () => {
     address: '',
     operating_hours: '',
     pharmacist_in_charge: '',
+    phone: '',
+    email: '',
+    website: '',
+    emergency_contact: '',
   });
 
   const [staffModalOpen, setStaffModalOpen] = useState(false);
@@ -58,6 +62,10 @@ export const PharmacyProfile = () => {
       address: data?.profile?.address ?? '',
       operating_hours: data?.profile?.operatingHours ?? '',
       pharmacist_in_charge: data?.profile?.pharmacistInCharge ?? '',
+      phone: data?.profile?.phone ?? '',
+      email: data?.profile?.email ?? '',
+      website: data?.profile?.website ?? '',
+      emergency_contact: data?.profile?.emergencyContact ?? '',
     });
     setEditError(null);
     setEditSuccess(false);
@@ -77,6 +85,10 @@ export const PharmacyProfile = () => {
           address: editForm.address,
           operating_hours: editForm.operating_hours,
           pharmacist_in_charge: editForm.pharmacist_in_charge,
+          phone: editForm.phone || null,
+          email: editForm.email || null,
+          website: editForm.website || null,
+          emergency_contact: editForm.emergency_contact || null,
         })
         .eq('organization_id', data?.organization?.id);
       if (error) throw error;
@@ -256,6 +268,22 @@ export const PharmacyProfile = () => {
                     ? `${t('pharmacy.profile.connected', { defaultValue: 'Connected' })} ✅`
                     : t('pharmacy.profile.notConnected', { defaultValue: 'Not connected' }),
                 ],
+                [
+                  t('pharmacy.profile.fieldPhone', { defaultValue: 'Phone' }),
+                  data?.profile?.phone ?? pendingLabel,
+                ],
+                [
+                  t('pharmacy.profile.fieldEmail', { defaultValue: 'Email' }),
+                  data?.profile?.email ?? pendingLabel,
+                ],
+                [
+                  t('pharmacy.profile.fieldWebsite', { defaultValue: 'Website' }),
+                  data?.profile?.website ?? pendingLabel,
+                ],
+                [
+                  t('pharmacy.profile.fieldEmergencyContact', { defaultValue: 'Emergency Contact' }),
+                  data?.profile?.emergencyContact ?? pendingLabel,
+                ],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-slate-50 p-3">
                   <div className="mb-0.5 text-xs text-slate-400">{label}</div>
@@ -409,6 +437,10 @@ export const PharmacyProfile = () => {
                 { label: 'Address', key: 'address', type: 'text', placeholder: 'Al Barsha 1, Dubai, UAE' },
                 { label: 'Operating Hours', key: 'operating_hours', type: 'text', placeholder: '8 AM - 10 PM (Sun-Sat)' },
                 { label: 'Pharmacist-in-Charge', key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan' },
+                { label: 'Phone', key: 'phone', type: 'tel', placeholder: '+971 4 123 4567' },
+                { label: 'Email', key: 'email', type: 'email', placeholder: 'info@alshifapharmacy.ae' },
+                { label: 'Website', key: 'website', type: 'text', placeholder: 'www.alshifapharmacy.ae' },
+                { label: 'Emergency Contact', key: 'emergency_contact', type: 'text', placeholder: '+971 50 999 8888' },
               ].map((field) => (
                 <div key={field.key}>
                   <label className="mb-1 block text-xs font-semibold text-slate-600">{field.label}</label>
