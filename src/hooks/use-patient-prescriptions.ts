@@ -28,6 +28,7 @@ export interface PatientPrescriptionRecord extends Prescription {
   items: PrescriptionItem[];
   pharmacyStatus: PatientPharmacyWorkflowStatus | null;
   pharmacyName: string | null;
+  pharmacyOrganizationId: string | null;
 }
 
 interface DispensingTaskRow {
@@ -188,6 +189,7 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
           ? aggregatePharmacyWorkflowStatus(tasks)
           : 'not_sent',
         pharmacyName: pharmacyOrgId ? (pharmacyNameById.get(pharmacyOrgId) ?? null) : null,
+        pharmacyOrganizationId: pharmacyOrgId,
       };
     });
   }, [userId]);

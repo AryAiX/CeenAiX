@@ -1397,10 +1397,10 @@ export const PatientPrescriptions: React.FC = () => {
                 >
                   <MessageSquare className="h-4 w-4" /> {t('patient.messages.messagePrescriber')}
                 </button>
-                {rx.pharmacy_organization_id ? (
+                {rx.pharmacyOrganizationId ? (
                   <button
                     type="button"
-                    onClick={() => void handleMessagePharmacy(rx.pharmacy_organization_id!)}
+                    onClick={() => void handleMessagePharmacy(rx.pharmacyOrganizationId!)}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-600 transition-all duration-300 hover:bg-emerald-50"
                   >
                     <MessageSquare className="h-4 w-4" /> Message Pharmacy
