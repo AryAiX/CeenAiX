@@ -22,6 +22,13 @@ export interface PharmacyFacilityProfile {
   pharmacistInCharge: string | null;
   dhaConnected: boolean;
   nabidhConnected: boolean;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  emergencyContact: string | null;
+  workingHoursJson: Record<string, unknown> | null;
+  logoUrl: string | null;
+  description: string | null;
 }
 
 export interface PharmacyStaffMember {
@@ -145,6 +152,13 @@ interface ProfileRow {
   pharmacist_in_charge: string | null;
   dha_connected: boolean;
   nabidh_connected: boolean;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  emergency_contact: string | null;
+  working_hours_json: Record<string, unknown> | null;
+  logo_url: string | null;
+  description: string | null;
 }
 
 interface StaffRow {
@@ -377,7 +391,7 @@ export function usePharmacyPrescriptionQueue() {
     ] = await Promise.all([
       supabase
         .from('pharmacy_facility_profiles')
-        .select('display_name, license_number, license_valid_until, address, operating_hours, pharmacist_in_charge, dha_connected, nabidh_connected')
+        .select('display_name, license_number, license_valid_until, address, operating_hours, pharmacist_in_charge, dha_connected, nabidh_connected, phone, email, website, emergency_contact, working_hours_json, logo_url, description')
         .eq('organization_id', org.id)
         .maybeSingle(),
       supabase
@@ -529,6 +543,13 @@ export function usePharmacyPrescriptionQueue() {
             pharmacistInCharge: (profileResult.data as ProfileRow).pharmacist_in_charge,
             dhaConnected: (profileResult.data as ProfileRow).dha_connected,
             nabidhConnected: (profileResult.data as ProfileRow).nabidh_connected,
+            phone: (profileResult.data as ProfileRow).phone,
+            email: (profileResult.data as ProfileRow).email,
+            website: (profileResult.data as ProfileRow).website,
+            emergencyContact: (profileResult.data as ProfileRow).emergency_contact,
+            workingHoursJson: (profileResult.data as ProfileRow).working_hours_json,
+            logoUrl: (profileResult.data as ProfileRow).logo_url,
+            description: (profileResult.data as ProfileRow).description,
           }
         : null,
       staff: ((staffResult.data ?? []) as StaffRow[]).map((staff) => ({
