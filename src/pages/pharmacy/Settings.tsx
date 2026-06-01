@@ -19,7 +19,7 @@ export const PharmacySettings = () => {
     setBusyId(settingId);
     try {
       await setPharmacySettingEnabled(settingId, nextEnabled);
-      refetch();
+      void refetch();
     } catch (toggleError) {
       setError(
         toggleError instanceof Error
