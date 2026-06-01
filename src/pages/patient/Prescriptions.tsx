@@ -293,6 +293,25 @@ export const PatientPrescriptions: React.FC = () => {
     }
   };
 
+  const handleMessagePharmacy = async (pharmacyOrgId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id')
+        .eq('role', 'pharmacy')
+        .eq('organization_id', pharmacyOrgId)
+        .limit(1)
+        .maybeSingle();
+      if (!error && data?.user_id) {
+        navigate(`/patient/messages?pharmacy=${data.user_id}`);
+      } else {
+        navigate('/patient/messages');
+      }
+    } catch {
+      navigate('/patient/messages');
+    }
+  };
+
   const handleSelectPharmacy = async (pharmacyId: string) => {
     if (!pharmacyModalPrescriptionId) return;
     setSendingToPharmacy(true);
@@ -1382,7 +1401,7 @@ export const PatientPrescriptions: React.FC = () => {
                 {rx.pharmacy_organization_id ? (
                   <button
                     type="button"
-                    onClick={() => navigate(`/patient/messages?pharmacy=${rx.pharmacy_organization_id}`)}
+                    onClick={() => void handleMessagePharmacy(rx.pharmacy_organization_id!)}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-600 transition-all duration-300 hover:bg-emerald-50"
                   >
                     <MessageSquare className="h-4 w-4" /> Message Pharmacy
