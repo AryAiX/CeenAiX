@@ -296,9 +296,8 @@ export const PatientPrescriptions: React.FC = () => {
   const handleMessagePharmacy = async (pharmacyOrgId: string) => {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('organization_members')
         .select('user_id')
-        .eq('role', 'pharmacy')
         .eq('organization_id', pharmacyOrgId)
         .limit(1)
         .maybeSingle();
