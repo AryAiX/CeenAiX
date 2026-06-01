@@ -81,7 +81,10 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const { user } = useAuth();
   const namespace = role === 'patient' ? 'patient.messages' : role === 'pharmacy' ? 'pharmacy.messages' : 'doctor.messages';
   const composeParam = role === 'patient' ? 'doctor' : role === 'pharmacy' ? 'patient' : 'patient';
-  const composeTargetId = searchParams.get(composeParam);
+  const pharmacyParam = searchParams.get('pharmacy');
+  const composeTargetId = role === 'patient' 
+    ? (pharmacyParam ?? searchParams.get('doctor')) 
+    : searchParams.get(composeParam);
   const [searchQuery, setSearchQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [doctorComposerBody, setDoctorComposerBody] = useState('');
