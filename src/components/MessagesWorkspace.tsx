@@ -29,7 +29,7 @@ import {
 import { Skeleton } from './Skeleton';
 
 interface MessagesWorkspaceProps {
-  role: 'patient' | 'doctor';
+  role: 'patient' | 'doctor' | 'pharmacy';
 }
 
 interface AttachmentPreview {
@@ -79,8 +79,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
-  const namespace = role === 'patient' ? 'patient.messages' : 'doctor.messages';
-  const composeParam = role === 'patient' ? 'doctor' : 'patient';
+  const namespace = role === 'patient' ? 'patient.messages' : role === 'pharmacy' ? 'pharmacy.messages' : 'doctor.messages';
+  const composeParam = role === 'patient' ? 'doctor' : role === 'pharmacy' ? 'patient' : 'patient';
   const composeTargetId = searchParams.get(composeParam);
   const [searchQuery, setSearchQuery] = useState('');
   const [draft, setDraft] = useState('');
@@ -716,6 +716,15 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
           composerButton: 'bg-emerald-600 hover:bg-emerald-700',
           ownBubble: 'border-emerald-200 bg-emerald-600 text-white',
         }
+      : role === 'pharmacy'
+      ? {
+          selected: 'border-emerald-200 bg-emerald-50',
+          badge: 'bg-emerald-100 text-emerald-700',
+          button: 'from-emerald-800 to-emerald-600',
+          composerBorder: 'focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20',
+          composerButton: 'bg-emerald-600 hover:bg-emerald-700',
+          ownBubble: 'border-emerald-200 bg-emerald-600 text-white',
+        }
       : {
           selected: 'border-cyan-200 bg-cyan-50',
           badge: 'bg-cyan-100 text-cyan-700',
@@ -1211,10 +1220,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   className={`mt-3 rounded-full px-3 py-1 text-xs font-semibold ${
                     role === 'patient'
                       ? 'bg-teal-100 text-teal-700'
+                      : role === 'pharmacy'
+                      ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-blue-100 text-blue-700'
                   }`}
                 >
-                  {role === 'patient' ? 'Doctor' : 'Patient'}
+                  {role === 'patient' ? 'Doctor' : role === 'pharmacy' ? 'Patient' : 'Patient'}
                 </span>
               </div>
 
