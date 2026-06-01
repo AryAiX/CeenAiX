@@ -13,6 +13,7 @@ export const PharmacySettings = () => {
   const fallbackName = t('pharmacy.settings.fallbackName', { defaultValue: 'Pharmacy' });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successId, setSuccessId] = useState<string | null>(null);
 
   const handleToggle = async (settingId: string, nextEnabled: boolean) => {
     setError(null);
@@ -20,6 +21,8 @@ export const PharmacySettings = () => {
     try {
       await setPharmacySettingEnabled(settingId, nextEnabled);
       void refetch();
+      setSuccessId(settingId);
+      setTimeout(() => setSuccessId(null), 2000);
     } catch (toggleError) {
       setError(
         toggleError instanceof Error
@@ -116,6 +119,11 @@ export const PharmacySettings = () => {
                   <div>
                     <div className="text-sm font-semibold text-slate-800">{setting.title}</div>
                     <div className="mt-0.5 text-xs text-slate-400">{setting.description}</div>
+                    {successId === setting.id ? (
+                      <div className="mt-1 text-xs font-semibold text-emerald-600">
+                        ✅ Saved successfully!
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                   <button
