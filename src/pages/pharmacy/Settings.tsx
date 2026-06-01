@@ -94,12 +94,6 @@ export const PharmacySettings = () => {
             ))}
           </section>
 
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-            {error}
-          </div>
-        ) : null}
-
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {settings.map((setting) => (
               <article
