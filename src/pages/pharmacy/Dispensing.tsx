@@ -7,6 +7,7 @@ import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { updatePharmacyDispensingTaskStatus, usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
+import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
@@ -186,12 +187,60 @@ const HOLD_REASONS = [
   { value: 'other', label: '🔧 Other' },
 ];
 
+const getHoldReasonLabel = (value: string): string => {
+  return HOLD_REASONS.find((r) => r.value === value)?.label ?? value;
+};
+
+const sendHoldNotificationAndMessage = async (
+  patientUserId: string,
+  _patientName: string,
+  medications: string[],
+  holdReasonCode: string,
+  holdNote: string,
+  pharmacyName: string,
+  pharmacyUserId: string | null
+) => {
+  const reasonLabel = getHoldReasonLabel(holdReasonCode).replace(/^[^\s]+\s/, '');
+  const medList = medications.slice(0, 2).join(', ');
+  const messageBody = `Your prescription for ${medList} has been placed on hold.\n\nReason: ${reasonLabel}${holdNote ? `\n\nNote: ${holdNote}` : ''}\n\nPlease contact us if you have any questions.`;
+
+  const { supabase } = await import('../../lib/supabase');
+
+  await supabase.from('notifications').insert({
+    user_id: patientUserId,
+    type: 'medication',
+    title: '⏸️ Prescription On Hold',
+    body: `Your prescription for ${medList} is on hold: ${reasonLabel}. Tap to message the pharmacy.`,
+    action_url: '/patient/messages',
+  });
+
+  if (pharmacyUserId) {
+    const { data: conversation } = await supabase
+      .rpc('ensure_direct_conversation', {
+        p_other_user_id: patientUserId,
+        p_subject: `Prescription Update — ${medList}`,
+      });
+
+    if (conversation?.id) {
+      await supabase.from('messages').insert({
+        conversation_id: conversation.id,
+        sender_id: pharmacyUserId,
+        body: messageBody,
+        is_deleted: false,
+      });
+    }
+  }
+
+  void pharmacyName;
+};
+
 export const PharmacyDispensing = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
@@ -247,6 +296,27 @@ export const PharmacyDispensing = () => {
           })
         )
       );
+
+      const patientUserId = data?.queue?.find(
+        (item) => item.prescriptionId === row.id
+      )?.patientUserId ?? null;
+
+      if (patientUserId) {
+        try {
+          await sendHoldNotificationAndMessage(
+            patientUserId,
+            row.patientName,
+            row.drugs,
+            holdReason,
+            holdNote,
+            data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy',
+            user?.id ?? null
+          );
+        } catch {
+          // Notification failure should not block the hold action
+        }
+      }
+
       refetch();
       setHoldModalRow(null);
       setHoldReason('');
