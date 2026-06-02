@@ -442,6 +442,14 @@ export const BookAppointment: React.FC = () => {
   return (
     <>
       <div>
+        <button
+          type="button"
+          onClick={() => navigate('/patient/appointments')}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-700"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          {t('patient.appointments.title')}
+        </button>
         <h1 className="text-2xl font-bold text-slate-900">
           {isRescheduling ? t('patient.book.titleReschedule') : t('patient.book.title')}
         </h1>
