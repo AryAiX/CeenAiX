@@ -1569,18 +1569,15 @@ export const PatientLabResults: React.FC = () => {
                       </div>
                       <button
                         type="button"
-                        disabled
-                        title={t('patient.labResults.bookingComingSoon', {
-                          defaultValue: 'Lab booking is not wired in MVP — contact your lab to schedule.',
-                        })}
-                        className="w-full cursor-not-allowed rounded-lg bg-teal-600/50 px-6 py-3 font-bold text-white opacity-70"
+                        onClick={() => navigate('/patient/messages')}
+                        className="w-full rounded-lg bg-teal-600 px-6 py-3 font-bold text-white transition-colors hover:bg-teal-700"
                       >
                         {t('patient.labResults.upcomingConfirmBtn')}
                       </button>
                       <p className="mt-2 text-center text-xs text-slate-500">
                         {t('patient.labResults.bookingComingSoonNote', {
                           defaultValue:
-                            'Online lab booking is not available yet. Call the lab or message your doctor to schedule collection.',
+                            'Online lab booking is not available yet. Message your doctor to schedule collection.',
                         })}
                       </p>
                     </div>
