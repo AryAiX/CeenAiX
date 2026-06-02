@@ -928,9 +928,8 @@ export const PatientDashboard: React.FC = () => {
 
             <button
               type="button"
-              disabled
-              title={localCopy.unavailable}
-              className="w-full text-center text-xs font-semibold text-teal-600 opacity-50 disabled:cursor-not-allowed"
+              onClick={() => navigate('/patient/insurance')}
+              className="w-full text-center text-xs font-semibold text-teal-600 transition-colors hover:text-teal-700"
             >
               {localCopy.viewFullDetails}
             </button>
