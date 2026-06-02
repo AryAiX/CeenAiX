@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -65,6 +65,12 @@ export const PatientDashboard: React.FC = () => {
     error: dashboardError,
     refetch: refetchDashboard,
   } = usePatientDashboard(user?.id, i18n.language);
+
+  const [locallyTakenIds, setLocallyTakenIds] = useState<Set<string>>(new Set());
+
+  const handleMarkTaken = (medicationId: string) => {
+    setLocallyTakenIds((prev) => new Set([...prev, medicationId]));
+  };
 
   const displayName =
     getDisplayName(profile?.full_name, profile?.first_name, user?.email) || t('patient.dashboard.greetingFallback');
@@ -207,7 +213,7 @@ export const PatientDashboard: React.FC = () => {
   );
   const healthScoreValue = dashboardData?.healthScore ?? (profile?.profile_completed ? 78 : 64);
   const adherenceValue = dashboardData?.adherencePercentage ?? (medications.length > 0 ? 87 : 72);
-  const takenCount = medications.filter((medication) => medication.isDispensed).length;
+  const takenCount = medications.filter((medication) => medication.isDispensed || locallyTakenIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
       ? Math.min(100, Math.round(((insurance.annualLimitUsed ?? 0) / insurance.annualLimit) * 100))
@@ -491,50 +497,52 @@ export const PatientDashboard: React.FC = () => {
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>
                 </>
               ) : medications.length > 0 ? (
-                medications.map((medication) => (
-                  <div key={medication.id} className="flex items-center gap-3 px-6 py-4">
-                    <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${medication.isDispensed ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-slate-900">
-                        <MedicationNameDisplay
-                          canonicalName={medication.medicationName}
-                          localizedName={medication.medicationNameAr}
-                          language={i18n.language ?? 'en'}
-                          primaryClassName="inline"
-                          secondaryClassName="inline ml-1 text-xs font-normal text-slate-500"
-                        />
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {formatMedicationDetailLine(t, i18n.language, {
-                          dosage: medication.dosage,
-                          frequency: medication.frequency,
-                          duration: medication.duration,
-                          detail: medication.detail,
-                          frequencyFromVocab: medication.frequencyFromVocab ?? undefined,
-                          durationFromVocab: medication.durationFromVocab ?? undefined,
-                        })}
-                      </p>
-                    </div>
-                    {medication.isDispensed ? (
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                medications.map((medication) => {
+                  const isTaken = medication.isDispensed || locallyTakenIds.has(medication.id);
+                  return (
+                    <div key={medication.id} className="flex items-center gap-3 px-6 py-4">
+                      <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${isTaken ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-900">
+                          <MedicationNameDisplay
+                            canonicalName={medication.medicationName}
+                            localizedName={medication.medicationNameAr}
+                            language={i18n.language ?? 'en'}
+                            primaryClassName="inline"
+                            secondaryClassName="inline ml-1 text-xs font-normal text-slate-500"
+                          />
                         </div>
-                        {isArabic ? 'تم التناول' : 'Taken'}
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {formatMedicationDetailLine(t, i18n.language, {
+                            dosage: medication.dosage,
+                            frequency: medication.frequency,
+                            duration: medication.duration,
+                            detail: medication.detail,
+                            frequencyFromVocab: medication.frequencyFromVocab ?? undefined,
+                            durationFromVocab: medication.durationFromVocab ?? undefined,
+                          })}
+                        </p>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        title={localCopy.unavailable}
-                        className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white opacity-50 transition-colors disabled:cursor-not-allowed"
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        {isArabic ? 'تأكيد' : 'Mark Taken'}
-                      </button>
-                    )}
-                  </div>
-                ))
+                      {isTaken ? (
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          </div>
+                          {isArabic ? 'تم التناول' : 'Taken'}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkTaken(medication.id)}
+                          className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {isArabic ? 'تأكيد' : 'Mark Taken'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <div className="px-6 py-8 text-center">
                   <Pill className="mx-auto mb-3 h-8 w-8 text-slate-300" />
