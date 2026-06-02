@@ -1291,11 +1291,40 @@ export const PatientLabResults: React.FC = () => {
           <div className="mt-6 flex justify-center gap-3">
             <button
               type="button"
-              disabled
-              title={t('patient.labResults.addToCalendarComingSoon', {
-                defaultValue: 'Add to calendar — coming soon',
-              })}
-              className="cursor-not-allowed rounded-lg bg-teal-600/50 px-6 py-3 text-sm font-medium text-white opacity-70"
+              onClick={() => {
+                if (!upcomingPrimary) return;
+                const start = upcomingPrimary.due_by
+                  ? new Date(upcomingPrimary.due_by)
+                  : new Date();
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                const toIcs = (d: Date) =>
+                  d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                const icsContent = [
+                  'BEGIN:VCALENDAR',
+                  'VERSION:2.0',
+                  'PRODID:-//CeenAiX//LabResults//EN',
+                  'BEGIN:VEVENT',
+                  `UID:lab-${upcomingPrimary.id}@ceenaix`,
+                  `DTSTAMP:${toIcs(new Date())}`,
+                  `DTSTART:${toIcs(start)}`,
+                  `DTEND:${toIcs(end)}`,
+                  `SUMMARY:Lab Tests at ${upcomingPrimary.labName ?? 'Lab'}`,
+                  `DESCRIPTION:${upcomingPrimary.parentItems.map((i) => i.test_name).join(', ')}`,
+                  `LOCATION:${upcomingPrimary.labAddress ?? upcomingPrimary.labCity ?? ''}`,
+                  'END:VEVENT',
+                  'END:VCALENDAR',
+                ].join('\r\n');
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = `lab-booking-${upcomingPrimary.id}.ics`;
+                document.body.appendChild(anchor);
+                anchor.click();
+                document.body.removeChild(anchor);
+                URL.revokeObjectURL(url);
+              }}
+              className="rounded-lg bg-teal-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-teal-700"
             >
               {t('patient.labResults.upcomingAddToCalendar')}
             </button>
