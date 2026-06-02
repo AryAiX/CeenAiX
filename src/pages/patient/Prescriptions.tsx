@@ -178,6 +178,7 @@ export const PatientPrescriptions: React.FC = () => {
   const [pausedReminderIds, setPausedReminderIds] = useState<Set<string>>(new Set());
   const [deletedReminderIds, setDeletedReminderIds] = useState<Set<string>>(new Set());
   const [undoReminderId, setUndoReminderId] = useState<string | null>(null);
+  const [showMissedDoseAnalysis, setShowMissedDoseAnalysis] = useState(false);
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -969,13 +970,39 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <button type="button" className="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-slate-50">
+          <button
+            type="button"
+            onClick={() => setShowMissedDoseAnalysis((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-slate-50"
+          >
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <TrendingUp className="h-5 w-5 text-teal-600" />
               {t('patient.prescriptions.missedDoseAnalysis')}
             </div>
-            <div className="text-slate-400">▼</div>
+            {showMissedDoseAnalysis
+              ? <ChevronUp className="h-4 w-4 text-slate-400" />
+              : <ChevronDown className="h-4 w-4 text-slate-400" />}
           </button>
+          {showMissedDoseAnalysis ? (
+            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  { label: 'This Week', value: '0', color: 'text-emerald-600' },
+                  { label: 'This Month', value: '0', color: 'text-emerald-600' },
+                  { label: 'Streak', value: `${formatLocaleDigits(dispensedCount, uiLang)} days`, color: 'text-teal-600' },
+                  { label: 'Adherence', value: `${formatLocaleDigits(monthlyAdherencePercent, uiLang)}%`, color: 'text-teal-600' },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-lg bg-slate-50 p-3 text-center">
+                    <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
+                    <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 text-center">
+                {t('patient.prescriptions.adherenceNote')}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     );
