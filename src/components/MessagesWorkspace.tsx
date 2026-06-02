@@ -85,6 +85,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const composeTargetId = role === 'patient' 
     ? (pharmacyParam ?? searchParams.get('doctor')) 
     : searchParams.get(composeParam);
+  const draftParam = searchParams.get('draft');
   const [searchQuery, setSearchQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [doctorComposerBody, setDoctorComposerBody] = useState('');
@@ -100,6 +101,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const undoTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const bootstrappedTargetRef = useRef<string | null>(null);
+  const draftPrefillRef = useRef<string | null>(null);
   const doctorComposerRef = useRef<HTMLDivElement | null>(null);
   const doctorComposerSelectionRef = useRef<Range | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -144,6 +146,13 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       }
     })();
   }, [composeParam, composeTargetId, ensureDirectConversation, namespace, navigate, role, t, user?.id]);
+
+  useEffect(() => {
+    if (!draftParam || !activeConversationId) return;
+    if (draftPrefillRef.current === activeConversationId) return;
+    draftPrefillRef.current = activeConversationId;
+    setDraft(decodeURIComponent(draftParam));
+  }, [draftParam, activeConversationId]);
 
   useEffect(() => {
     setSentAttachments((prev) => {
