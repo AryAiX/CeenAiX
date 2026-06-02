@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  Video,
   Search,
   Stethoscope,
 } from 'lucide-react';
@@ -95,6 +96,7 @@ export const BookAppointment: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [didInitializeReschedule, setDidInitializeReschedule] = useState(false);
   const [didInitializeAiPrefill, setDidInitializeAiPrefill] = useState(false);
+  const [appointmentType, setAppointmentType] = useState<'in_person' | 'virtual'>('in_person');
 
   const isDoctorSelectionLocked = useMemo(
     () =>
@@ -364,7 +366,7 @@ export const BookAppointment: React.FC = () => {
               patient_id: user.id,
               doctor_id: selectedDoctor.userId,
               facility_id: null,
-              type: 'in_person',
+              type: appointmentType,
               status: 'scheduled',
               scheduled_at: selectedSlot.iso,
               duration_minutes: selectedSlot.durationMinutes,
@@ -839,6 +841,38 @@ export const BookAppointment: React.FC = () => {
                             <p className="mt-1 text-sm text-gray-600">{t('patient.book.noSlotsSub')}</p>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">
+                        {t('patient.book.appointmentType', { defaultValue: 'Appointment Type' })}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentType('in_person')}
+                          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-semibold transition ${
+                            appointmentType === 'in_person'
+                              ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-cyan-300 hover:bg-cyan-50/50'
+                          }`}
+                        >
+                          <MapPin className="h-5 w-5" />
+                          {t('patient.appointments.filterInPerson', { defaultValue: 'In Person' })}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentType('virtual')}
+                          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-semibold transition ${
+                            appointmentType === 'virtual'
+                              ? 'border-violet-500 bg-violet-50 text-violet-700'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-violet-300 hover:bg-violet-50/50'
+                          }`}
+                        >
+                          <Video className="h-5 w-5" />
+                          {t('patient.appointments.filterTeleconsult', { defaultValue: 'Teleconsult' })}
+                        </button>
                       </div>
                     </div>
 
