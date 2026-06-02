@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +18,7 @@ import {
   Sparkles,
   User,
   Video,
+  X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, usePatientPreVisitAssessments, useQuery } from '../../hooks';
@@ -111,6 +113,10 @@ export const PatientAppointments: React.FC = () => {
   const appointments = useMemo(() => appointmentsData ?? [], [appointmentsData]);
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellingAppointmentId, setCancellingAppointmentId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
   const { data: preVisitAssessmentsData } = usePatientPreVisitAssessments(user?.id);
   const preVisitAssessments = useMemo(
     () => preVisitAssessmentsData ?? [],
@@ -325,7 +331,7 @@ export const PatientAppointments: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [nextTeleconsult, t, i18n.language]);
 
-  const handleCancelAppointment = async (appointmentId: string) => {
+  const handleCancelAppointment = async (appointmentId: string, _reason?: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
 
@@ -342,6 +348,13 @@ export const PatientAppointments: React.FC = () => {
 
     setFeedback({ type: 'success', message: t('patient.appointments.cancelSuccess') });
     refetch();
+  };
+
+  const resetCancelModal = () => {
+    setShowCancelModal(false);
+    setCancellingAppointmentId(null);
+    setCancelReason('');
+    setCancelCustomReason('');
   };
 
   const handleGetDirections = (doctorProfile: DoctorAppointmentProfile | undefined) => {
@@ -536,13 +549,14 @@ export const PatientAppointments: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleCancelAppointment(appointment.id)}
+                    onClick={() => {
+                      setCancellingAppointmentId(appointment.id);
+                      setShowCancelModal(true);
+                    }}
                     disabled={busyAppointmentId === appointment.id}
                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-60"
                   >
-                    {busyAppointmentId === appointment.id
-                      ? t('patient.appointments.cancelling')
-                      : t('patient.appointments.cancel')}
+                    {t('patient.appointments.cancel')}
                   </button>
                 </>
               ) : null}
@@ -936,6 +950,138 @@ export const PatientAppointments: React.FC = () => {
     </div>
   );
 
+  const CANCEL_REASONS = [
+    'Schedule conflict',
+    'Feeling better',
+    'Found another doctor',
+    'Personal reasons',
+    'Other',
+  ] as const;
+
+  const renderCancelModal = () => {
+    if (!showCancelModal || !cancellingAppointmentId) return null;
+
+    const appointment = appointments.find((a) => a.id === cancellingAppointmentId);
+    if (!appointment) return null;
+
+    const doctorProfile = doctorProfileById.get(appointment.doctor_id);
+    const doctorName = doctorProfile?.fullName ?? t('shared.doctor');
+    const appointmentDate = new Date(appointment.scheduled_at);
+    const isBusy = busyAppointmentId === cancellingAppointmentId;
+    const canConfirm =
+      cancelReason !== '' &&
+      (cancelReason !== 'Other' || cancelCustomReason.trim() !== '');
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={resetCancelModal}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <h2 className="text-lg font-semibold text-gray-900">Cancel Appointment</h2>
+            </div>
+            <button
+              type="button"
+              onClick={resetCancelModal}
+              aria-label="Close"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-5">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <p className="font-semibold text-slate-900">{doctorName}</p>
+              <p className="text-sm text-slate-600 mt-1">
+                {appointmentDate.toLocaleDateString(
+                  locale,
+                  dtOpts({ month: 'long', day: '2-digit', year: 'numeric' })
+                )}
+                {' · '}
+                {appointmentDate.toLocaleTimeString(
+                  locale,
+                  dtOpts({ hour: 'numeric', minute: '2-digit' })
+                )}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                Reason for cancellation
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {CANCEL_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setCancelReason(reason)}
+                    className={`px-3 py-2 rounded-lg border text-sm font-medium text-left transition-colors ${
+                      cancelReason === reason
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-teal-300 hover:bg-teal-50/40'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea
+              value={cancelCustomReason}
+              onChange={(e) => setCancelCustomReason(e.target.value)}
+              placeholder="Add additional details (optional)..."
+              required={cancelReason === 'Other'}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              ⚠️ Cancelling within 24 hours of your appointment may incur a cancellation fee.
+            </div>
+          </div>
+
+          <div className="flex gap-3 px-6 pb-6">
+            <button
+              type="button"
+              onClick={resetCancelModal}
+              className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+            >
+              Keep Appointment
+            </button>
+            <button
+              type="button"
+              disabled={!canConfirm || isBusy}
+              onClick={async () => {
+                const reason = cancelReason === 'Other' ? cancelCustomReason.trim() : cancelReason;
+                await handleCancelAppointment(cancellingAppointmentId, reason);
+                resetCancelModal();
+              }}
+              className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isBusy ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Cancelling…
+                </>
+              ) : (
+                'Confirm Cancellation'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   const showSuccessBanner = searchParams.get('booked') === '1';
   const showRescheduledBanner = searchParams.get('rescheduled') === '1';
   const showPreVisitCompletedBanner = searchParams.get('previsit') === 'completed';
@@ -1153,6 +1299,8 @@ export const PatientAppointments: React.FC = () => {
         }
         .animate-pulse-border { animation: pulse-border 2s ease-in-out infinite; }
       `}</style>
+
+      {renderCancelModal()}
     </>
   );
 };
