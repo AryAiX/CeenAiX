@@ -238,7 +238,7 @@ export const PatientDashboard: React.FC = () => {
         icon: FlaskConical,
         label: localCopy.labsShort,
         colorClass: 'text-violet-600 bg-violet-50 hover:bg-violet-100',
-        action: () => navigate('/patient/records'),
+        action: () => navigate('/patient/lab-results'),
       },
       {
         icon: Bot,
@@ -943,12 +943,8 @@ export const PatientDashboard: React.FC = () => {
                 <button
                   key={action.label}
                   type="button"
-                  onClick={action.label === localCopy.labsShort ? undefined : action.action}
-                  disabled={action.label === localCopy.labsShort}
-                  title={action.label === localCopy.labsShort ? localCopy.unavailable : undefined}
-                  className={`flex flex-col items-center gap-2 rounded-xl py-4 text-xs font-semibold transition-colors ${
-                    action.label === localCopy.labsShort ? 'cursor-not-allowed opacity-50' : ''
-                  } ${action.colorClass}`}
+                  onClick={action.action}
+                  className={`flex flex-col items-center gap-2 rounded-xl py-4 text-xs font-semibold transition-colors ${action.colorClass}`}
                 >
                   <action.icon className="h-5 w-5" />
                   {action.label}
