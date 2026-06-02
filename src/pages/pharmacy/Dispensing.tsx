@@ -624,11 +624,14 @@ export const PharmacyDispensing = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          const patientId = data?.queue?.find(
+                          const queueItem = data?.queue?.find(
                             (item) => item.prescriptionId === row.id
-                          )?.assignedTo ?? null;
-                          if (patientId) {
-                            navigate(`/pharmacy/messages?patient=${patientId}`);
+                          );
+                          const patientUserId = queueItem?.patientUserId ?? null;
+                          const medList = row.drugs.slice(0, 2).join(', ');
+                          const draftText = `Regarding your prescription for ${medList}: `;
+                          if (patientUserId) {
+                            navigate(`/pharmacy/messages?patient=${patientUserId}&draft=${encodeURIComponent(draftText)}`);
                           } else {
                             navigate('/pharmacy/messages');
                           }
