@@ -51,6 +51,24 @@ const getDisplayName = (fullName: string | null | undefined, firstName: string |
   return '';
 };
 
+const AI_HEALTH_TIPS_EN = [
+  'Your recent readings have improved compared with last week. Keep your medication and diet routine steady to stay on track for your target.',
+  'Staying hydrated helps regulate blood pressure. Aim for at least 8 glasses of water throughout the day.',
+  'Even a 20-minute walk after meals can meaningfully lower your post-meal blood sugar levels over time.',
+  'Consistent sleep of 7–8 hours per night supports both blood pressure control and metabolic health.',
+  'Reducing sodium intake to under 2,300 mg per day can help bring systolic blood pressure down by up to 5 mmHg.',
+  'Stress hormones directly raise blood sugar. Short breathing exercises or mindfulness can help manage daily spikes.',
+];
+
+const AI_HEALTH_TIPS_AR = [
+  'تحسنت قراءاتك الأخيرة مقارنة بالأسبوع الماضي. حافظ على روتين الدواء والغذاء للوصول إلى الهدف في الأشهر المقبلة.',
+  'يساعد شرب كميات كافية من الماء في تنظيم ضغط الدم. احرص على تناول 8 أكواب على مدار اليوم.',
+  'المشي لمدة 20 دقيقة بعد الوجبات يقلل بشكل ملحوظ من مستوى السكر في الدم بعد الأكل.',
+  'النوم المنتظم من 7 إلى 8 ساعات يوميًا يدعم صحة ضغط الدم والتمثيل الغذائي.',
+  'تقليل تناول الصوديوم إلى أقل من 2300 ملغ يوميًا قد يخفض الضغط الانقباضي بمقدار 5 ملم زئبق.',
+  'هرمونات التوتر ترفع نسبة السكر في الدم مباشرة. تمارين التنفس أو التأمل تساعد في التحكم بالارتفاعات اليومية.',
+];
+
 export const PatientDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('common');
@@ -76,6 +94,17 @@ export const PatientDashboard: React.FC = () => {
   const [bpModalOpen, setBpModalOpen] = useState(false);
   const [bpSystolic, setBpSystolic] = useState('');
   const [bpDiastolic, setBpDiastolic] = useState('');
+
+  const [aiTipIndex, setAiTipIndex] = useState(0);
+
+  const handleRefreshTip = () => {
+    setAiTipIndex((prev) => {
+      const tips = isArabic ? AI_HEALTH_TIPS_AR : AI_HEALTH_TIPS_EN;
+      let next = Math.floor(Math.random() * tips.length);
+      if (next === prev && tips.length > 1) next = (prev + 1) % tips.length;
+      return next;
+    });
+  };
 
   const handleBpSave = () => {
     setBpModalOpen(false);
@@ -371,9 +400,7 @@ export const PatientDashboard: React.FC = () => {
       takenCount,
     ]
   );
-  const aiTip = isArabic
-    ? 'تحسنت قراءاتك الأخيرة مقارنة بالأسبوع الماضي. حافظ على روتين الدواء والغذاء للوصول إلى الهدف في الأشهر المقبلة.'
-    : 'Your recent readings have improved compared with last week. Keep your medication and diet routine steady to stay on track for your target.';
+  const aiTip = (isArabic ? AI_HEALTH_TIPS_AR : AI_HEALTH_TIPS_EN)[aiTipIndex] ?? '';
   const hba1cChartPoints = hba1cHistory.slice(-6).map((point) => point.value);
   const hba1cLinePath = buildLinePath(hba1cChartPoints, 600, 160, 5.5, 8.5);
   const hba1cAreaPath = buildAreaPath(hba1cChartPoints, 600, 160, 5.5, 8.5);
@@ -990,9 +1017,9 @@ export const PatientDashboard: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title={localCopy.unavailable}
-                    className="rounded-lg p-1.5 text-slate-400 opacity-50 transition-colors disabled:cursor-not-allowed"
+                    onClick={handleRefreshTip}
+                    title={isArabic ? 'نصيحة أخرى' : 'Another tip'}
+                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                   </button>
