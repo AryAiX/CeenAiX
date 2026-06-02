@@ -180,6 +180,7 @@ export const PatientPrescriptions: React.FC = () => {
   const [undoReminderId, setUndoReminderId] = useState<string | null>(null);
   const [showMissedDoseAnalysis, setShowMissedDoseAnalysis] = useState(false);
   const [locallyTakenScheduleIds, setLocallyTakenScheduleIds] = useState<Set<string>>(new Set());
+  const [pharmacyError, setPharmacyError] = useState<string | null>(null);
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -321,16 +322,21 @@ export const PatientPrescriptions: React.FC = () => {
   const handleSelectPharmacy = async (pharmacyId: string) => {
     if (!pharmacyModalPrescriptionId) return;
     setSendingToPharmacy(true);
+    setPharmacyError(null);
     try {
       const { error } = await supabase.rpc('assign_prescription_pharmacy', {
         p_prescription_id: pharmacyModalPrescriptionId,
         p_pharmacy_organization_id: pharmacyId,
       });
-      if (!error) {
-        setPharmacySentId(pharmacyModalPrescriptionId);
-        setPharmacyModalPrescriptionId(null);
-        void refetch();
+      if (error) {
+        setPharmacyError(error.message);
+        return;
       }
+      setPharmacySentId(pharmacyModalPrescriptionId);
+      setPharmacyModalPrescriptionId(null);
+      void refetch();
+    } catch (err) {
+      setPharmacyError(err instanceof Error ? err.message : 'Could not send to pharmacy. Please try again.');
     } finally {
       setSendingToPharmacy(false);
     }
@@ -1898,13 +1904,18 @@ export const PatientPrescriptions: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setPharmacyModalPrescriptionId(null)}
+                    onClick={() => { setPharmacyModalPrescriptionId(null); setPharmacyError(null); }}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                   >
                     ✕
                   </button>
                 </div>
                 <div className="divide-y divide-slate-100 px-4 py-3">
+                  {pharmacyError ? (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {pharmacyError}
+                    </div>
+                  ) : null}
                   {loadingPharmacies ? (
                     <div className="py-8 text-center text-sm text-slate-400">{t('patient.prescriptions.pharmacyAssignLoading')}</div>
                   ) : pharmacyList.length === 0 ? (
@@ -1937,7 +1948,7 @@ export const PatientPrescriptions: React.FC = () => {
                 <div className="border-t border-slate-100 px-6 py-4">
                   <button
                     type="button"
-                    onClick={() => setPharmacyModalPrescriptionId(null)}
+                    onClick={() => { setPharmacyModalPrescriptionId(null); setPharmacyError(null); }}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     {t('patient.prescriptions.pharmacyAssignCancel')}
