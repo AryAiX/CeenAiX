@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -176,6 +176,13 @@ export const PatientRecords: React.FC = () => {
   const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<RecordEntry | null>(null);
   const [showFormSwitchWarning, setShowFormSwitchWarning] = useState(false);
   const [pendingForm, setPendingForm] = useState<RecordCategory | null>(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    if (feedback.type !== 'success') return;
+    const timer = setTimeout(() => setFeedback(null), 4000);
+    return () => clearTimeout(timer);
+  }, [feedback]);
 
   const conditions = useMemo(() => data?.conditions ?? [], [data?.conditions]);
   const allergies = useMemo(() => data?.allergies ?? [], [data?.allergies]);
