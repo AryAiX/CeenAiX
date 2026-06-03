@@ -29,103 +29,38 @@ import {
 } from 'lucide-react';
 import { useInView, useCounter } from '../../hooks';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
-import { LandingDemoLaunchSection } from '../../components/LandingDemoLaunchSection';
-import { getMarketingLaunchTimeLeft } from '../../lib/marketing-leads';
+import LandingDemoLaunchSection from '../../components/LandingDemoLaunchSection';
 
 /* ------------------------------------------------------------------------- */
 /*  Marketing landing page — layout preserved; routing via react-router and   */
 /*  copy via i18next. Shared useInView / useCounter hooks drive animations.   */
 /* ------------------------------------------------------------------------- */
 
-const BRAND_LOGO = '/og-preview.svg';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+const LAUNCH_DATE = new Date('2026-08-01T09:00:00+04:00');
 
-const HERO_ROLES = [
-  'Owner / Founder', 'CEO', 'Medical Director', 'Clinic Manager',
-  'IT', 'Operations', 'Procurement', 'Investor', 'Other',
-];
-
-function HeroDemoForm({ onNext }: { onNext: () => void }) {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [orgName, setOrgName] = useState('');
-  const [role, setRole] = useState('');
-
-  const handleNext = (e: React.FormEvent) => {
-    e.preventDefault();
-    onNext();
+function getTimeLeft(target: Date) {
+  const diff = Math.max(0, target.getTime() - Date.now());
+  return {
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
   };
-
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white placeholder-white/40 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-400/30 transition-all duration-150';
-  const selectCls = 'w-full px-3.5 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-400/30 transition-all duration-150 appearance-none';
-
-  return (
-    <form onSubmit={handleNext} className="space-y-3 mt-2">
-      <div className="grid grid-cols-2 gap-3">
-        <input
-          type="text"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          placeholder="Full name"
-          className={inputCls}
-        />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Work email"
-          className={inputCls}
-          dir="ltr"
-        />
-      </div>
-      <input
-        type="text"
-        value={orgName}
-        onChange={(e) => setOrgName(e.target.value)}
-        placeholder="Organization name"
-        className={inputCls}
-      />
-      <div className="relative">
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className={selectCls}
-        >
-          <option value="" className="bg-slate-900">Your role</option>
-          {HERO_ROLES.map((r) => (
-            <option key={r} value={r} className="bg-slate-900">{r}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-      </div>
-      <button
-        type="submit"
-        className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
-      >
-        Next: choose interests →
-      </button>
-    </form>
-  );
-}
-
-function scrollToDemoLaunch(tab: 'demo' | 'notify' = 'demo') {
-  window.location.hash = tab === 'notify' ? '#notify-me' : '#demo';
-  document.getElementById('demo-launch')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function HeroCountdown() {
-  const { t } = useTranslation('common');
-  const [time, setTime] = useState(() => getMarketingLaunchTimeLeft());
+  const [time, setTime] = useState(() => getTimeLeft(LAUNCH_DATE));
   useEffect(() => {
-    const id = setInterval(() => {
-      if (!document.hidden) setTime(getMarketingLaunchTimeLeft());
-    }, 1000);
+    const id = setInterval(() => { if (!document.hidden) setTime(getTimeLeft(LAUNCH_DATE)); }, 1000);
     return () => clearInterval(id);
   }, []);
   const units = [
-    { val: time.days, label: t('home.landing.prelaunch.countdownDays') },
-    { val: time.hours, label: t('home.landing.prelaunch.countdownHours') },
-    { val: time.minutes, label: t('home.landing.prelaunch.countdownMinutes') },
-    { val: time.seconds, label: t('home.landing.prelaunch.countdownSeconds') },
+    { val: time.days, label: 'DAYS' },
+    { val: time.hours, label: 'HRS' },
+    { val: time.minutes, label: 'MIN' },
+    { val: time.seconds, label: 'SEC' },
   ];
   return (
     <div className="flex items-center gap-2 mb-5" aria-live="off">
@@ -141,6 +76,188 @@ function HeroCountdown() {
         </div>
       ))}
     </div>
+  );
+}
+
+function HeroNotifyForm() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) { setError('Please fill in both fields.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Please enter a valid email.'); return; }
+    setSubmitting(true); setError('');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/leads/launch-notify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, preferred_language: 'en', consent: true }),
+      });
+      const data = await res.json();
+      if (data.success) { setDone(true); }
+      else { setError('Something went wrong. Please try again.'); }
+    } catch { setError('Something went wrong. Please try again.'); }
+    finally { setSubmitting(false); }
+  };
+
+  if (done) {
+    return (
+      <div className="flex items-center gap-3 py-2 px-4 rounded-2xl bg-teal-500/20 border border-teal-400/30" role="status">
+        <div className="w-8 h-8 rounded-full bg-teal-500/30 flex items-center justify-center flex-shrink-0">
+          <Check className="w-4 h-4 text-teal-400" />
+        </div>
+        <div>
+          <p className="text-white text-sm font-semibold">You're on the list!</p>
+          <p className="text-white/50 text-xs">We'll email {email} at launch.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2.5" noValidate>
+      <input type="text" name="website" tabIndex={-1} aria-hidden="true"
+        className="absolute opacity-0 pointer-events-none w-0 h-0" style={{ clipPath: 'inset(50%)' }} autoComplete="off" />
+      <div className="grid grid-cols-2 gap-2.5">
+        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
+          autoComplete="given-name"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@work.com"
+          autoComplete="email" dir="ltr"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+      </div>
+      {error && <p className="text-rose-400 text-xs">{error}</p>}
+      <button type="submit" disabled={submitting} aria-busy={submitting}
+        className="w-full py-2.5 rounded-xl border-2 border-teal-400/60 text-teal-300 font-bold text-sm hover:bg-teal-500/20 active:scale-[0.98] disabled:opacity-50 transition-all duration-150 flex items-center justify-center gap-2">
+        {submitting ? <><span className="w-4 h-4 border-2 border-teal-300/40 border-t-teal-300 rounded-full animate-spin inline-block" />Submitting…</> : 'Notify me at launch'}
+      </button>
+    </form>
+  );
+}
+
+function HeroDemoForm() {
+  const [form, setForm] = useState({ name: '', email: '', org: '', role: '', interests: [] as string[] });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+  const [step, setStep] = useState<'form' | 'interests'>('form');
+
+  const interests = ['Patient portal', 'Doctor portal', 'Pharmacy', 'Lab & Radiology', 'Telemedicine', 'NABIDH', 'AI assist', 'Insurance'];
+  const roles = ['Owner / Founder', 'Medical Director', 'Clinic Manager', 'IT / Operations', 'Procurement', 'Investor', 'Other'];
+
+  const toggleInterest = (item: string) =>
+    setForm(f => ({
+      ...f,
+      interests: f.interests.includes(item) ? f.interests.filter(i => i !== item) : [...f.interests, item],
+    }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.org.trim() || !form.role) {
+      setError('Please complete all fields.'); return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError('Please enter a valid email.'); return;
+    }
+    setSubmitting(true); setError('');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/leads/demo-request`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: form.name, email: form.email, phone: 'N/A',
+          organization_name: form.org, role: form.role, organization_type: 'Other',
+          country: 'Dubai', team_size: '1–10', interests: form.interests,
+          preferred_language: 'English', consent: true, override_free_email: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) { setDone(true); }
+      else { setError(Object.values(data.errors ?? {}).join(' ') || 'Something went wrong.'); }
+    } catch { setError('Something went wrong. Please try again.'); }
+    finally { setSubmitting(false); }
+  };
+
+  if (done) {
+    return (
+      <div className="flex flex-col items-center text-center py-4 gap-3" role="status">
+        <div className="w-12 h-12 rounded-full bg-teal-500/20 border border-teal-400/30 flex items-center justify-center">
+          <Check className="w-6 h-6 text-teal-400" />
+        </div>
+        <div>
+          <p className="text-white font-bold">Demo request received!</p>
+          <p className="text-white/50 text-sm">We'll reach out to {form.email} within one business day.</p>
+        </div>
+        <a href="#demo-launch" className="text-teal-400 text-sm underline hover:text-teal-300">
+          Want the full form? Fill in more details →
+        </a>
+      </div>
+    );
+  }
+
+  if (step === 'interests') {
+    return (
+      <div className="space-y-4">
+        <p className="text-white/60 text-sm">What are you most interested in? <span className="text-white/40">(optional)</span></p>
+        <div className="flex flex-wrap gap-2">
+          {interests.map(item => {
+            const sel = form.interests.includes(item);
+            return (
+              <button key={item} type="button" onClick={() => toggleInterest(item)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-150
+                  ${sel ? 'bg-teal-500/30 border-teal-400/60 text-teal-300' : 'bg-white/8 border-white/15 text-white/60 hover:border-teal-400/40 hover:text-white/80'}`}>
+                {item}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={() => setStep('form')}
+            className="flex-none px-4 py-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:border-white/30 transition-all">
+            ← Back
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/25 active:scale-[0.98] disabled:opacity-50 transition-all duration-150 flex items-center justify-center gap-2">
+            {submitting ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />Sending…</> : 'Request demo →'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={e => { e.preventDefault(); if (!form.name.trim() || !form.email.trim() || !form.org.trim() || !form.role) { setError('Please complete all fields.'); return; } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Please enter a valid email.'); return; } setError(''); setStep('interests'); }} className="space-y-3" noValidate>
+      <input type="text" name="website" tabIndex={-1} aria-hidden="true"
+        className="absolute opacity-0 pointer-events-none w-0 h-0" style={{ clipPath: 'inset(50%)' }} autoComplete="off" />
+      <div className="grid grid-cols-2 gap-2.5">
+        <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          placeholder="Full name" autoComplete="name"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+        <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+          placeholder="Work email" autoComplete="email" dir="ltr"
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+      </div>
+      <input type="text" value={form.org} onChange={e => setForm(f => ({ ...f, org: e.target.value }))}
+        placeholder="Organization name" autoComplete="organization"
+        className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white placeholder-white/35 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all" />
+      <div className="relative">
+        <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+          className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60 transition-all appearance-none text-white [&>option]:bg-slate-800 [&>option]:text-white">
+          <option value="" className="text-white/40">Your role</option>
+          {roles.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+      </div>
+      {error && <p className="text-rose-400 text-xs">{error}</p>}
+      <button type="submit"
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2">
+        Next: choose interests →
+      </button>
+    </form>
   );
 }
 
@@ -353,11 +470,6 @@ export const Home = () => {
     [t]
   );
 
-  const trustBadges = useMemo(
-    () => t('home.landing.prelaunch.trustBadges', { returnObjects: true }) as string[],
-    [t],
-  );
-
   const goSignIn = () => navigate('/auth/portal-access?intent=login');
   const goRegister = () => navigate('/auth/portal-access?intent=register');
 
@@ -413,7 +525,7 @@ export const Home = () => {
               className="flex items-center gap-3"
             >
               <img
-                src={BRAND_LOGO}
+                src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
                 alt="CeenAiX"
                 className="w-11 h-11 object-contain"
               />
@@ -488,7 +600,7 @@ export const Home = () => {
         <div className="absolute inset-0">
           <img
             src="https://images.pexels.com/photos/3845810/pexels-photo-3845810.jpeg?auto=compress&cs=tinysrgb&w=1920"
-            alt={t('home.landing.prelaunch.altHeroBg')}
+            alt="Healthcare"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950/95 via-teal-950/85 to-slate-900/90" />
@@ -501,11 +613,9 @@ export const Home = () => {
           <div ref={heroRef.ref} className={`flex flex-wrap items-center justify-center gap-3 mb-10 opacity-0-init ${heroRef.inView ? 'animate-fade-up' : ''}`}>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-400/15 border border-teal-400/30 backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-              <span className="text-teal-300 text-xs font-bold tracking-widest uppercase">
-                {t('home.landing.prelaunch.badge')}
-              </span>
+              <span className="text-teal-300 text-xs font-bold tracking-widest uppercase">Pre-Launch · GCC Healthcare AI</span>
             </div>
-            {trustBadges.map((b) => (
+            {['DHA Path B', 'NABIDH-ready', 'UAE-hosted', 'Bilingual'].map(b => (
               <span key={b} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 text-xs font-medium backdrop-blur-sm">
                 <Check className="w-3 h-3 text-teal-400" />{b}
               </span>
@@ -514,12 +624,11 @@ export const Home = () => {
 
           <div className={`text-center mb-14 opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-100' : ''}`}>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.04] tracking-tight mb-5">
-              {t('home.landing.prelaunch.titleLine1')}
-              <br />
-              <span className="shimmer-text">{t('home.landing.prelaunch.titleLine2')}</span>
+              The UAE's AI Healthcare<br />
+              <span className="shimmer-text">Platform is Coming</span>
             </h1>
             <p className="text-lg sm:text-xl text-white/55 max-w-2xl mx-auto leading-relaxed">
-              {t('home.landing.prelaunch.lead')}
+              DHA-compliant · NABIDH-certified · Built for clinics, hospitals, pharmacies, labs & insurers across the GCC.
             </p>
           </div>
 
@@ -529,17 +638,15 @@ export const Home = () => {
               <div className="p-7">
                 <div className="flex items-start justify-between mb-5">
                   <div>
-                    <p className="text-teal-400 text-xs font-bold uppercase tracking-widest mb-1">
-                      {t('home.landing.prelaunch.demoEyebrow')}
-                    </p>
-                    <h2 className="text-2xl font-bold text-white">{t('home.landing.prelaunch.demoTitle')}</h2>
-                    <p className="text-white/50 text-sm mt-1 leading-relaxed">{t('home.landing.prelaunch.demoBody')}</p>
+                    <p className="text-teal-400 text-xs font-bold uppercase tracking-widest mb-1">Personalized walkthrough</p>
+                    <h2 className="text-2xl font-bold text-white">Request a demo</h2>
+                    <p className="text-white/50 text-sm mt-1 leading-relaxed">30-min tailored demo for your team. Available in English or Arabic.</p>
                   </div>
                   <div className="w-11 h-11 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center flex-shrink-0 ms-3">
                     <Stethoscope className="w-5 h-5 text-teal-400" />
                   </div>
                 </div>
-                <HeroDemoForm onNext={() => scrollToDemoLaunch('demo')} />
+                <HeroDemoForm />
               </div>
             </div>
 
@@ -549,38 +656,28 @@ export const Home = () => {
                 <div className="p-7">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-cyan-400 text-xs font-bold uppercase tracking-widest mb-1">
-                        {t('home.landing.prelaunch.notifyEyebrow')}
-                      </p>
-                      <h2 className="text-2xl font-bold text-white">{t('home.landing.prelaunch.notifyTitle')}</h2>
-                      <p className="text-white/50 text-sm mt-1">{t('home.landing.prelaunch.notifyBody')}</p>
+                      <p className="text-cyan-400 text-xs font-bold uppercase tracking-widest mb-1">Launching soon</p>
+                      <h2 className="text-2xl font-bold text-white">Be the first to know</h2>
+                      <p className="text-white/50 text-sm mt-1">One email when we launch. No spam.</p>
                     </div>
                     <div className="w-11 h-11 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center flex-shrink-0 ms-3">
                       <Bell className="w-5 h-5 text-cyan-400" />
                     </div>
                   </div>
                   <HeroCountdown />
-                  <button
-                    type="button"
-                    onClick={() => scrollToDemoLaunch('notify')}
-                    className="w-full py-2.5 rounded-xl border-2 border-teal-400/60 text-teal-300 font-bold text-sm hover:bg-teal-500/20 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
-                  >
-                    {t('home.landing.prelaunch.notifyCta')}
-                  </button>
+                  <HeroNotifyForm />
                 </div>
               </div>
 
               <div className="rounded-3xl bg-white/[0.06] backdrop-blur-2xl border border-white/15 p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
-                    {t('home.landing.prelaunch.portalsEyebrow')}
-                  </p>
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">Try the live platform</p>
                   <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"/>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"/>
                     </span>
-                    {t('home.landing.prelaunch.portalsLive')}
+                    Live
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -602,18 +699,33 @@ export const Home = () => {
           </div>
 
           <div className={`mt-10 flex flex-wrap items-center justify-center gap-6 opacity-0-init ${heroRef.inView ? 'animate-fade-up delay-300' : ''}`}>
-            <p className="text-white/50 text-sm">{t('home.landing.prelaunch.portalsHint')}</p>
+            <div className="flex items-center gap-3">
+              <div className="flex -space-x-2.5">
+                {['https://images.pexels.com/photos/5214961/pexels-photo-5214961.jpeg?auto=compress&cs=tinysrgb&w=80',
+                  'https://images.pexels.com/photos/3768726/pexels-photo-3768726.jpeg?auto=compress&cs=tinysrgb&w=80',
+                  'https://images.pexels.com/photos/6129967/pexels-photo-6129967.jpeg?auto=compress&cs=tinysrgb&w=80',
+                  'https://images.pexels.com/photos/4225920/pexels-photo-4225920.jpeg?auto=compress&cs=tinysrgb&w=80'].map((src, i) => (
+                  <img key={i} src={src} alt="" className="w-8 h-8 rounded-full border-2 border-slate-900 object-cover" />
+                ))}
+              </div>
+              <div>
+                <div className="flex items-center gap-0.5 mb-0.5">
+                  {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />)}
+                </div>
+                <p className="text-white/50 text-xs">Trusted by <span className="text-white/80 font-semibold">50,000+</span> patients</p>
+              </div>
+            </div>
             <div className="h-8 w-px bg-white/10 hidden sm:block" />
-            <p className="text-white/40 text-xs">{t('home.landing.prelaunch.earlyAccess')}</p>
+            <p className="text-white/40 text-xs">Already on the list? We'll email you at launch.</p>
             <div className="h-8 w-px bg-white/10 hidden sm:block" />
-            <button type="button" onClick={goSignIn} className="flex items-center gap-2 text-white/60 hover:text-white text-sm font-semibold transition-colors">
-              {t('home.landing.prelaunch.signInCta')} <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+            <button type="button" onClick={() => navigate('/auth/portal-access?intent=login')} className="flex items-center gap-2 text-white/60 hover:text-white text-sm font-semibold transition-colors">
+              Sign in to platform <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         <div className="relative pb-8 flex flex-col items-center gap-1.5 animate-bounce">
-          <span className="text-white/30 text-xs tracking-widest uppercase">{t('home.landing.prelaunch.scroll')}</span>
+          <span className="text-white/30 text-xs tracking-widest uppercase">Explore</span>
           <ChevronDown className="w-4 h-4 text-white/30" />
         </div>
       </section>
@@ -629,27 +741,27 @@ export const Home = () => {
         </div>
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
           <StatCounter
-            value={6}
-            suffix=""
-            label={t('home.landing.prelaunch.stats.portalsLabel')}
+            value={50000}
+            suffix="+"
+            label={t('home.landing.stats.patientsLabel')}
             active={statsRef.inView}
           />
           <StatCounter
-            value={2}
-            suffix=""
-            label={t('home.landing.prelaunch.stats.languagesLabel')}
+            value={200}
+            suffix="+"
+            label={t('home.landing.stats.facilitiesLabel')}
             active={statsRef.inView}
           />
           <StatCounter
-            value={2}
-            suffix=""
-            label={t('home.landing.prelaunch.stats.complianceLabel')}
+            value={1000000}
+            suffix="+"
+            label={t('home.landing.stats.consultationsLabel')}
             active={statsRef.inView}
           />
           <StatCounter
             value={99}
             suffix=".9%"
-            label={t('home.landing.prelaunch.stats.uptimeLabel')}
+            label={t('home.landing.stats.uptimeLabel')}
             active={statsRef.inView}
           />
         </div>
@@ -1135,7 +1247,7 @@ export const Home = () => {
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-5">
                 <img
-                  src={BRAND_LOGO}
+                  src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
                   alt="CeenAiX"
                   className="w-10 h-10 object-contain"
                 />
@@ -1202,7 +1314,7 @@ export const Home = () => {
               <ul className="space-y-3 text-slate-500 text-sm">
                 {(
                   [
-                    { key: 'privacy' as const, href: '/privacy' },
+                    { key: 'privacy' as const, href: '#security' },
                     { key: 'terms' as const, href: '#security' },
                     { key: 'compliance' as const, href: '#security' },
                     { key: 'nabidh' as const, href: '#security' },
