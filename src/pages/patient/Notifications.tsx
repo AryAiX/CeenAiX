@@ -136,7 +136,7 @@ export const PatientNotifications: React.FC = () => {
                 ) : (
                   <CheckCheck className="h-3.5 w-3.5" />
                 )}
-                <span>{t('patient.notifications.markAllRead')}</span>
+                <span>{busyId === 'all' ? t('patient.notifications.markingAllRead', { defaultValue: 'Marking...' }) : t('patient.notifications.markAllRead')}</span>
               </button>
             </div>
           </div>
