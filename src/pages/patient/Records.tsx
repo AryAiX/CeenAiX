@@ -174,6 +174,8 @@ export const PatientRecords: React.FC = () => {
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<RecordEntry | null>(null);
+  const [showFormSwitchWarning, setShowFormSwitchWarning] = useState(false);
+  const [pendingForm, setPendingForm] = useState<RecordCategory | null>(null);
 
   const conditions = useMemo(() => data?.conditions ?? [], [data?.conditions]);
   const allergies = useMemo(() => data?.allergies ?? [], [data?.allergies]);
@@ -342,6 +344,42 @@ export const PatientRecords: React.FC = () => {
     setAllergyForm(initialAllergyForm);
     setVaccinationForm(initialVaccinationForm);
     setActiveForm(null);
+  };
+
+  const hasUnsavedFormData = () => {
+    if (activeForm === 'condition') {
+      return (
+        conditionForm.conditionName.trim() !== '' ||
+        conditionForm.icdCode.trim() !== '' ||
+        conditionForm.diagnosedDate !== '' ||
+        conditionForm.notes.trim() !== ''
+      );
+    }
+    if (activeForm === 'allergy') {
+      return (
+        allergyForm.allergen.trim() !== '' ||
+        allergyForm.reaction.trim() !== ''
+      );
+    }
+    if (activeForm === 'vaccination') {
+      return (
+        vaccinationForm.vaccineName.trim() !== '' ||
+        vaccinationForm.administeredBy.trim() !== '' ||
+        vaccinationForm.administeredDate !== '' ||
+        vaccinationForm.nextDoseDue !== ''
+      );
+    }
+    return false;
+  };
+
+  const handleSwitchForm = (form: RecordCategory) => {
+    if (activeForm && activeForm !== form && hasUnsavedFormData()) {
+      setPendingForm(form);
+      setShowFormSwitchWarning(true);
+    } else {
+      resetForms();
+      setActiveForm(form);
+    }
   };
 
   const handleCreateCondition = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -598,7 +636,7 @@ export const PatientRecords: React.FC = () => {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setActiveForm('condition')}
+                onClick={() => handleSwitchForm('condition')}
                 className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
               >
                 <Plus className="h-4 w-4" />
@@ -606,7 +644,7 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveForm('allergy')}
+                onClick={() => handleSwitchForm('allergy')}
                 className="inline-flex items-center gap-2 rounded-xl border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
               >
                 <Plus className="h-4 w-4" />
@@ -614,7 +652,7 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveForm('vaccination')}
+                onClick={() => handleSwitchForm('vaccination')}
                 className="inline-flex items-center gap-2 rounded-xl border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
               >
                 <Plus className="h-4 w-4" />
@@ -1100,6 +1138,52 @@ export const PatientRecords: React.FC = () => {
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busyDeleteId === confirmDeleteRecord.id ? t('patient.records.removing') : t('patient.records.remove')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
+      {showFormSwitchWarning ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowFormSwitchWarning(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <h2 className="text-base font-semibold text-slate-900">
+                Discard unsaved data?
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                You have unsaved information in this form. Are you sure you want to switch? Your changes will be lost.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFormSwitchWarning(false);
+                  setPendingForm(null);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForms();
+                  if (pendingForm) setActiveForm(pendingForm);
+                  setShowFormSwitchWarning(false);
+                  setPendingForm(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Discard
               </button>
             </div>
           </div>
