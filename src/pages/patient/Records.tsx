@@ -496,28 +496,52 @@ export const PatientRecords: React.FC = () => {
 
       <div>
         <div className="grid gap-4 md:grid-cols-4 mb-6">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('condition')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('condition'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.conditions')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(conditions.length, i18n.language)}
             </p>
             <p className="mt-1 text-xs font-medium text-teal-600">{t('patient.records.conditionsSub')}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('allergy')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('allergy'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.allergies')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(allergies.length, i18n.language)}
             </p>
             <p className="mt-1 text-xs font-medium text-amber-600">{t('patient.records.allergiesSub')}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('vaccination')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('vaccination'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.vaccinations')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(vaccinations.length, i18n.language)}
             </p>
             <p className="mt-1 text-xs font-medium text-violet-600">{t('patient.records.vaccinationsSub')}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('all')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('all'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.totalEntries')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(totalRecords, i18n.language)}
