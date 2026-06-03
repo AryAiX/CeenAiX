@@ -39,6 +39,74 @@ import { getMarketingLaunchTimeLeft } from '../../lib/marketing-leads';
 
 const BRAND_LOGO = '/og-preview.svg';
 
+const HERO_ROLES = [
+  'Owner / Founder', 'CEO', 'Medical Director', 'Clinic Manager',
+  'IT', 'Operations', 'Procurement', 'Investor', 'Other',
+];
+
+function HeroDemoForm({ onNext }: { onNext: () => void }) {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [orgName, setOrgName] = useState('');
+  const [role, setRole] = useState('');
+
+  const handleNext = (e: React.FormEvent) => {
+    e.preventDefault();
+    onNext();
+  };
+
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white placeholder-white/40 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-400/30 transition-all duration-150';
+  const selectCls = 'w-full px-3.5 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-400/30 transition-all duration-150 appearance-none';
+
+  return (
+    <form onSubmit={handleNext} className="space-y-3 mt-2">
+      <div className="grid grid-cols-2 gap-3">
+        <input
+          type="text"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Full name"
+          className={inputCls}
+        />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Work email"
+          className={inputCls}
+          dir="ltr"
+        />
+      </div>
+      <input
+        type="text"
+        value={orgName}
+        onChange={(e) => setOrgName(e.target.value)}
+        placeholder="Organization name"
+        className={inputCls}
+      />
+      <div className="relative">
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          className={selectCls}
+        >
+          <option value="" className="bg-slate-900">Your role</option>
+          {HERO_ROLES.map((r) => (
+            <option key={r} value={r} className="bg-slate-900">{r}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+      </div>
+      <button
+        type="submit"
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+      >
+        Next: choose interests →
+      </button>
+    </form>
+  );
+}
+
 function scrollToDemoLaunch(tab: 'demo' | 'notify' = 'demo') {
   window.location.hash = tab === 'notify' ? '#notify-me' : '#demo';
   document.getElementById('demo-launch')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -471,14 +539,7 @@ export const Home = () => {
                     <Stethoscope className="w-5 h-5 text-teal-400" />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => scrollToDemoLaunch('demo')}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
-                >
-                  {t('home.landing.prelaunch.demoCta')}
-                  <ChevronRight className="w-4 h-4 rtl:rotate-180" />
-                </button>
+                <HeroDemoForm onNext={() => scrollToDemoLaunch('demo')} />
               </div>
             </div>
 
