@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, Loader2, RefreshCcw, Sparkles } from 'lucide-react';
@@ -15,6 +15,14 @@ export const PatientNotifications: React.FC = () => {
   const { data, loading, error, refetch } = usePatientNotifications(user?.id);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'appointment' | 'medication' | 'message'>('all');
+
+  const filteredNotifications = useMemo(() => {
+    const notifications = data?.notifications ?? [];
+    if (notificationFilter === 'all') return notifications;
+    if (notificationFilter === 'unread') return notifications.filter((n) => !n.is_read);
+    return notifications.filter((n) => n.type === notificationFilter);
+  }, [data?.notifications, notificationFilter]);
 
   const markRead = async (notificationId: string) => {
     if (!user?.id) return;
@@ -178,11 +186,36 @@ export const PatientNotifications: React.FC = () => {
             <h2 className="text-base font-semibold text-slate-900">{t('patient.notifications.logTitle')}</h2>
           </div>
 
-          {storedNotifications.length === 0 ? (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {(
+              [
+                { value: 'all', label: t('patient.notifications.filterAll', { defaultValue: 'All' }) },
+                { value: 'unread', label: t('patient.notifications.filterUnread', { defaultValue: 'Unread' }) },
+                { value: 'appointment', label: t('patient.notifications.filterAppointment', { defaultValue: 'Appointments' }) },
+                { value: 'medication', label: t('patient.notifications.filterMedication', { defaultValue: 'Medications' }) },
+                { value: 'message', label: t('patient.notifications.filterMessage', { defaultValue: 'Messages' }) },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setNotificationFilter(option.value)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  notificationFilter === option.value
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {filteredNotifications.length === 0 ? (
             <p className="text-sm text-slate-600">{t('patient.notifications.emptyLog')}</p>
           ) : (
             <div className="space-y-3">
-              {storedNotifications.map((notification) => (
+              {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`rounded-2xl border p-4 ${
