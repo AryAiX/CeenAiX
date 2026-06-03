@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -172,6 +173,7 @@ export const PatientRecords: React.FC = () => {
   const [submittingForm, setSubmittingForm] = useState<RecordCategory | null>(null);
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<RecordEntry | null>(null);
 
   const conditions = useMemo(() => data?.conditions ?? [], [data?.conditions]);
   const allergies = useMemo(() => data?.allergies ?? [], [data?.allergies]);
@@ -1013,7 +1015,7 @@ export const PatientRecords: React.FC = () => {
                 <div className="mt-4 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => handleDeleteRecord(record)}
+                    onClick={() => setConfirmDeleteRecord(record)}
                     disabled={busyDeleteId === record.id}
                     className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -1035,6 +1037,51 @@ export const PatientRecords: React.FC = () => {
           </div>
         ) : null}
       </div>
+
+      {confirmDeleteRecord ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmDeleteRecord(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">
+                Remove {recordCategoryLabel(confirmDeleteRecord.category)}?
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                <span className="font-semibold text-slate-700">{confirmDeleteRecord.title}</span> will be permanently removed from your records. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteRecord(null)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busyDeleteId === confirmDeleteRecord.id}
+                onClick={async () => {
+                  await handleDeleteRecord(confirmDeleteRecord);
+                  setConfirmDeleteRecord(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busyDeleteId === confirmDeleteRecord.id ? t('patient.records.removing') : t('patient.records.remove')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 };
