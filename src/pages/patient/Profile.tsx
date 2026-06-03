@@ -34,6 +34,8 @@ export const Profile: React.FC = () => {
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingInsurance, setIsEditingInsurance] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingPersonal, setSavingPersonal] = useState(false);
+  const [savingInsurance, setSavingInsurance] = useState(false);
 
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
@@ -117,6 +119,7 @@ export const Profile: React.FC = () => {
   const savePersonalInfo = async () => {
     if (!user?.id) return;
     setSaveError(null);
+    setSavingPersonal(true);
     const { error: profileError } = await supabase
       .from('user_profiles')
       .update({
@@ -128,6 +131,7 @@ export const Profile: React.FC = () => {
       .eq('user_id', user.id);
     if (profileError) {
       setSaveError(profileError.message);
+      setSavingPersonal(false);
       return;
     }
     const { error: patientError } = await supabase.from('patient_profiles').upsert(
@@ -141,6 +145,7 @@ export const Profile: React.FC = () => {
     );
     if (patientError) {
       setSaveError(patientError.message);
+      setSavingPersonal(false);
       return;
     }
     await refetchProfile();
@@ -150,6 +155,7 @@ export const Profile: React.FC = () => {
       emergency_contact_phone: personalInfo.emergencyContactPhone || null,
     });
     setIsEditingPersonal(false);
+    setSavingPersonal(false);
   };
 
   const saveInsuranceInfo = async () => {
@@ -158,6 +164,7 @@ export const Profile: React.FC = () => {
       return;
     }
     setSaveError(null);
+    setSavingInsurance(true);
     const { error: insuranceError } = await supabase
       .from('patient_insurance')
       .update({
@@ -170,9 +177,11 @@ export const Profile: React.FC = () => {
       .eq('id', insurance.primaryPlan.id);
     if (insuranceError) {
       setSaveError(insuranceError.message);
+      setSavingInsurance(false);
       return;
     }
     setIsEditingInsurance(false);
+    setSavingInsurance(false);
   };
 
   const handleImageUpload = (type: 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance') => {
@@ -364,6 +373,7 @@ export const Profile: React.FC = () => {
                 </div>
                 <button
                   type="button"
+                  disabled={savingPersonal}
                   onClick={() => {
                     if (isEditingPersonal) {
                       void savePersonalInfo();
@@ -371,10 +381,17 @@ export const Profile: React.FC = () => {
                       setIsEditingPersonal(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isEditingPersonal ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                  <span>{isEditingPersonal ? t('patient.profile.saveChanges') : t('patient.profile.editProfile')}</span>
+                  {isEditingPersonal ? (
+                    savingPersonal ? (
+                      <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                    ) : <Save className="w-5 h-5" />
+                  ) : <Edit2 className="w-5 h-5" />}
+                  <span>{isEditingPersonal ? (savingPersonal ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editProfile')}</span>
                 </button>
               </div>
               <div className="p-6">
@@ -613,6 +630,7 @@ export const Profile: React.FC = () => {
                 </div>
                 <button
                   type="button"
+                  disabled={savingInsurance}
                   onClick={() => {
                     if (isEditingInsurance) {
                       void saveInsuranceInfo();
@@ -620,10 +638,17 @@ export const Profile: React.FC = () => {
                       setIsEditingInsurance(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isEditingInsurance ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                  <span>{isEditingInsurance ? t('patient.profile.saveChanges') : t('patient.profile.editInsurance')}</span>
+                  {isEditingInsurance ? (
+                    savingInsurance ? (
+                      <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                    ) : <Save className="w-5 h-5" />
+                  ) : <Edit2 className="w-5 h-5" />}
+                  <span>{isEditingInsurance ? (savingInsurance ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editInsurance')}</span>
                 </button>
               </div>
               <div className="p-8">
