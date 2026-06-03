@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, Loader2, RefreshCcw, Sparkles } from 'lucide-react';
+import { Bell, CheckCheck, Loader2, RefreshCcw, Sparkles, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -16,6 +16,7 @@ export const PatientNotifications: React.FC = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'appointment' | 'medication' | 'message'>('all');
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
 
   const filteredNotifications = useMemo(() => {
     const notifications = data?.notifications ?? [];
@@ -57,6 +58,25 @@ export const PatientNotifications: React.FC = () => {
 
     if (updateError) {
       setActionError(updateError.message);
+      return;
+    }
+    refetch();
+  };
+
+  const handleDismiss = async (notificationId: string) => {
+    if (!user?.id) return;
+    setDismissingId(notificationId);
+    setActionError(null);
+    const { error: deleteError } = await supabase
+      .from('notifications')
+      .update({ is_deleted: true })
+      .eq('id', notificationId)
+      .eq('user_id', user.id);
+
+    setDismissingId(null);
+
+    if (deleteError) {
+      setActionError(deleteError.message);
       return;
     }
     refetch();
@@ -266,6 +286,20 @@ export const PatientNotifications: React.FC = () => {
                           <span>{t('patient.notifications.markRead')}</span>
                         </button>
                       ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void handleDismiss(notification.id)}
+                        disabled={dismissingId === notification.id}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-60"
+                        title={t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}
+                      >
+                        {dismissingId === notification.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                        <span>{t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
