@@ -126,6 +126,7 @@ export const PatientDashboard: React.FC = () => {
 
   const [showDirectionsModal, setShowDirectionsModal] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [bpModalOpen, setBpModalOpen] = useState(false);
   const [bpSystolic, setBpSystolic] = useState('');
   const [bpDiastolic, setBpDiastolic] = useState('');
@@ -885,7 +886,7 @@ export const PatientDashboard: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate('/patient/appointments')}
+                    onClick={() => setShowDetailsModal(true)}
                     className="rounded-lg bg-teal-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
                   >
                     {localCopy.details}
@@ -1061,6 +1062,106 @@ export const PatientDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      {showDetailsModal && nextAppointment ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowDetailsModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-teal-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {isArabic ? 'تفاصيل الموعد' : 'Appointment Details'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDetailsModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-teal-600 text-white font-semibold text-lg">
+                  {nextAppointment.doctorName.split(' ').map((p) => p[0] ?? '').join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">{nextAppointment.doctorName}</p>
+                  <p className="text-sm text-teal-600">{nextAppointment.specialty ?? (isArabic ? 'زيارة رعاية' : 'Care Visit')}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{nextAppointment.doctorCity || (isArabic ? 'الموقع سيظهر قريباً' : 'Location available in appointment details')}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-teal-50 border border-teal-100 p-3">
+                  <p className="text-xs text-teal-600 font-semibold uppercase tracking-wide mb-1">
+                    {isArabic ? 'التاريخ' : 'Date'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {new Date(nextAppointment.scheduledAt).toLocaleDateString(locale, dtOpts({ weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-teal-50 border border-teal-100 p-3">
+                  <p className="text-xs text-teal-600 font-semibold uppercase tracking-wide mb-1">
+                    {isArabic ? 'الوقت' : 'Time'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {new Date(nextAppointment.scheduledAt).toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">
+                  {isArabic ? 'نوع الموعد' : 'Appointment Type'}
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {nextAppointment.type === 'virtual'
+                    ? (isArabic ? '🎥 استشارة عن بُعد' : '🎥 Virtual Teleconsult')
+                    : (isArabic ? '🏥 حضوري' : '🏥 In-Person Visit')}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">
+                  {isArabic ? 'التأمين' : 'Insurance'}
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {insurance?.isActive
+                    ? (isArabic ? '✅ يشمله التأمين' : '✅ Covered by insurance')
+                    : (isArabic ? '⚠️ قد يتطلب موافقة مسبقة' : '⚠️ Coverage requires confirmation')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => setShowDetailsModal(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-sm transition-colors"
+              >
+                {isArabic ? 'إغلاق' : 'Close'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { navigate('/patient/appointments'); setShowDetailsModal(false); }}
+                className="flex-1 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                {isArabic ? 'عرض كل المواعيد' : 'View All Appointments'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
       {showDirectionsModal && nextAppointment ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
