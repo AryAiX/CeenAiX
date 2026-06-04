@@ -1760,7 +1760,34 @@ export const PatientAppointments: React.FC = () => {
                   </section>
                 ) : null}
 
-                {statusFilter !== 'upcoming' && statusFilter !== 'cancelled' ? renderPastTable() : null}
+                {statusFilter !== 'upcoming' && statusFilter !== 'cancelled' ? (
+                  statusFilter === 'completed' ? (
+                    <section>
+                      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
+                            {t('patient.appointments.filterCompleted')}
+                          </h2>
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                            {pastAppointments.length}
+                          </span>
+                        </div>
+                      </div>
+                      {pastAppointments.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                          <p className="font-semibold text-slate-900">
+                            {t('patient.appointments.noPastBody')}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {pastAppointments.map(renderAppointmentCard)}
+                        </div>
+                      )}
+                    </section>
+                  ) : renderPastTable()
+                ) : null}
               </div>
             )}
           </div>
