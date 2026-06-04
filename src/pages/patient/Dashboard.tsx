@@ -933,16 +933,29 @@ export const PatientDashboard: React.FC = () => {
                     return (
                       <div
                         key={msg.id}
-                        className="cursor-pointer rounded-xl bg-slate-50 p-3 transition-colors hover:bg-slate-100"
+                        className={`cursor-pointer rounded-xl p-3 transition-colors ${
+                          !msg.isRead
+                            ? 'bg-teal-50 border border-teal-100 hover:bg-teal-100'
+                            : 'bg-slate-50 hover:bg-slate-100'
+                        }`}
                         onClick={() => navigate(`/patient/messages/${msg.conversationId}`)}
                       >
                         <div className="mb-0.5 flex items-center justify-between">
-                          <p className="truncate text-xs font-semibold text-slate-900">{messageTitle}</p>
-                          <span className="ml-2 shrink-0 text-xs text-slate-400">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {!msg.isRead ? (
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-teal-500" />
+                            ) : null}
+                            <p className={`truncate text-xs ${!msg.isRead ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
+                              {messageTitle}
+                            </p>
+                          </div>
+                          <span className={`ml-2 shrink-0 text-xs ${!msg.isRead ? 'font-semibold text-teal-600' : 'text-slate-400'}`}>
                             {formatRelativeTime(t, msg.sentAt)}
                           </span>
                         </div>
-                        <p className="line-clamp-2 text-xs text-slate-500">{messagePreview}</p>
+                        <p className={`line-clamp-2 text-xs ${!msg.isRead ? 'text-slate-700 font-medium' : 'text-slate-500'}`}>
+                          {messagePreview}
+                        </p>
                       </div>
                     );
                   })()
