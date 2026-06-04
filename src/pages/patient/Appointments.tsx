@@ -340,6 +340,12 @@ export const PatientAppointments: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [nextTeleconsult, t, i18n.language]);
 
+  useEffect(() => {
+    if (statusFilter === 'completed') {
+      setIsPastExpanded(true);
+    }
+  }, [statusFilter]);
+
   const handleCancelAppointment = async (appointmentId: string, _reason?: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
@@ -1684,39 +1690,41 @@ export const PatientAppointments: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-8 animate-slideUp" style={{ animationDelay: '80ms' }}>
-                <section>
-                  <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
-                        {t('patient.appointments.upcomingTitle')}
-                      </h2>
-                      <span className="rounded-full bg-teal-600 px-3 py-1 text-sm font-semibold text-white shadow-sm">
-                        {upcomingAppointments.length}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-500">
-                      {t('patient.appointments.upcomingSub')}
-                    </p>
-                  </div>
-
-                  {upcomingAppointments.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
-                      <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-                      <p className="font-semibold text-slate-900">
-                        {t('patient.appointments.noUpcomingTitle')}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {t('patient.appointments.noUpcomingBody')}
+                {statusFilter !== 'completed' && statusFilter !== 'cancelled' ? (
+                  <section>
+                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
+                          {t('patient.appointments.upcomingTitle')}
+                        </h2>
+                        <span className="rounded-full bg-teal-600 px-3 py-1 text-sm font-semibold text-white shadow-sm">
+                          {upcomingAppointments.length}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500">
+                        {t('patient.appointments.upcomingSub')}
                       </p>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {upcomingAppointments.map(renderAppointmentCard)}
-                    </div>
-                  )}
-                </section>
 
-                {cancelledAppointments.length > 0 ? (
+                    {upcomingAppointments.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                        <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                        <p className="font-semibold text-slate-900">
+                          {t('patient.appointments.noUpcomingTitle')}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {t('patient.appointments.noUpcomingBody')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {upcomingAppointments.map(renderAppointmentCard)}
+                      </div>
+                    )}
+                  </section>
+                ) : null}
+
+                {statusFilter !== 'upcoming' && statusFilter !== 'completed' && cancelledAppointments.length > 0 ? (
                   <section>
                     <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
                       <div className="flex items-center gap-3">
@@ -1734,7 +1742,25 @@ export const PatientAppointments: React.FC = () => {
                   </section>
                 ) : null}
 
-                {renderPastTable()}
+                {statusFilter === 'cancelled' && cancelledAppointments.length > 0 ? (
+                  <section>
+                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
+                          {t('patient.appointments.filterCancelled')}
+                        </h2>
+                        <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
+                          {cancelledAppointments.length}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {cancelledAppointments.map(renderAppointmentCard)}
+                    </div>
+                  </section>
+                ) : null}
+
+                {statusFilter !== 'upcoming' && statusFilter !== 'cancelled' ? renderPastTable() : null}
               </div>
             )}
           </div>
