@@ -604,7 +604,21 @@ export const PatientAppointments: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => navigate(`/patient/messages?doctor=${appointment.doctor_id}`)}
+                onClick={() => {
+                  const appointmentDate = new Date(appointment.scheduled_at);
+                  const dateStr = appointmentDate.toLocaleDateString(
+                    locale,
+                    dtOpts({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                  );
+                  const timeStr = appointmentDate.toLocaleTimeString(
+                    locale,
+                    dtOpts({ hour: 'numeric', minute: '2-digit' })
+                  );
+                  const draft = upcoming
+                    ? `Regarding my appointment on ${dateStr} at ${timeStr}: `
+                    : `Following up on my appointment on ${dateStr} at ${timeStr}: `;
+                  navigate(`/patient/messages?doctor=${appointment.doctor_id}&draft=${encodeURIComponent(draft)}`);
+                }}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
               >
                 <MessageSquare className="w-4 h-4 inline mr-2" />
