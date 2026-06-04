@@ -913,7 +913,7 @@ export const PatientRecords: React.FC = () => {
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.vaccineName')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.vaccineName')} <span className="text-red-500">*</span></span>
                 <input
                   required
                   type="text"
@@ -926,7 +926,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="number"
                   min={1}
@@ -939,7 +939,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="date"
                   value={vaccinationForm.administeredDate}
@@ -953,7 +953,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="text"
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.administeredBy}
@@ -968,7 +968,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.nextDose')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.nextDose')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="date"
                   value={vaccinationForm.nextDoseDue}
