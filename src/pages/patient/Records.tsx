@@ -819,7 +819,7 @@ export const PatientRecords: React.FC = () => {
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.allergen')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.allergen')} <span className="text-red-500">*</span></span>
                 <input
                   required
                   type="text"
@@ -832,7 +832,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.severity')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.severity')} <span className="text-red-500">*</span></span>
                 <select
                   value={allergyForm.severity}
                   onChange={(event) =>
@@ -849,7 +849,7 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <textarea
                   rows={4}
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.reaction}
