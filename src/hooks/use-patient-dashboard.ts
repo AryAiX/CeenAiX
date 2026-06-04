@@ -114,6 +114,7 @@ export interface DashboardMessagePreview {
   body: string;
   sentAt: string;
   subject: string | null;
+  isRead: boolean;
 }
 
 export interface DashboardLabsSummary {
@@ -535,7 +536,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           .neq('sender_id', userId),
         supabase
           .from('messages')
-          .select('id, conversation_id, sender_id, body, sent_at')
+          .select('id, conversation_id, sender_id, body, sent_at, read_at')
           .in('conversation_id', conversationIds)
           .neq('sender_id', userId)
           .order('sent_at', { ascending: false })
@@ -580,6 +581,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
         body: message.body,
         sentAt: message.sent_at,
         subject: conversationSubjectById.get(message.conversation_id) ?? null,
+        isRead: message.read_at !== null,
       }));
     }
 
