@@ -409,7 +409,7 @@ export const BookAppointment: React.FC = () => {
         });
       }
 
-      if (appointmentId) {
+      if (appointmentId && !isRescheduling) {
         const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
           .from('appointment_pre_visit_assessments')
           .select('id')
