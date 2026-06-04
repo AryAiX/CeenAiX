@@ -716,7 +716,7 @@ export const PatientRecords: React.FC = () => {
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.conditionName')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.conditionName')} <span className="text-red-500">*</span></span>
                 <input
                   required
                   type="text"
@@ -729,7 +729,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="text"
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.icdCode}
@@ -741,7 +741,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="date"
                   value={conditionForm.diagnosedDate}
@@ -752,7 +752,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.status')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.status')} <span className="text-red-500">*</span></span>
                 <select
                   value={conditionForm.status}
                   onChange={(event) =>
@@ -769,7 +769,7 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')} <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <textarea
                   rows={4}
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.notes}
