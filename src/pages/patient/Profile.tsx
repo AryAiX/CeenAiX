@@ -280,6 +280,19 @@ export const Profile: React.FC = () => {
     input.click();
   };
 
+  const removeProfileImage = async () => {
+    if (!user?.id || !profileImage) return;
+    const path = profileImage.split('/avatars/')[1];
+    if (path) {
+      await supabase.storage.from('avatars').remove([path]);
+    }
+    await supabase
+      .from('user_profiles')
+      .update({ avatar_url: null })
+      .eq('user_id', user.id);
+    setProfileImage('');
+  };
+
   const handleScanEmiratesId = () => {
     // True ID-card OCR is a Phase 2 capability; until then, route the
     // user through the standard image-upload picker so that the action
@@ -380,6 +393,16 @@ export const Profile: React.FC = () => {
                   >
                     <Camera className="w-4 h-4" />
                   </button>
+                  {profileImage ? (
+                    <button
+                      type="button"
+                      onClick={() => void removeProfileImage()}
+                      className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-200 ring-4 ring-white"
+                      aria-label={t('patient.profile.removePhoto', { defaultValue: 'Remove profile photo' })}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  ) : null}
                   <div className="absolute inset-0 rounded-full bg-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
                 <h2 className="mt-6 text-2xl font-bold text-gray-900 tracking-tight">
