@@ -372,7 +372,7 @@ export const PatientAppointments: React.FC = () => {
     }
   }, [isDateRangeInPast]);
 
-  const handleCancelAppointment = async (appointmentId: string, _reason?: string) => {
+  const handleCancelAppointment = async (appointmentId: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
 
