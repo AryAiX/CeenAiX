@@ -123,6 +123,26 @@ export const Profile: React.FC = () => {
     return () => clearTimeout(timer);
   }, [saveSuccess]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    void supabase
+      .from('patient_family_members')
+      .select('id, name, relationship, date_of_birth, emirates_id')
+      .eq('patient_id', user.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (data) {
+          setFamilyMembers(data.map((row) => ({
+            id: row.id,
+            name: row.name,
+            relationship: row.relationship,
+            dateOfBirth: row.date_of_birth ?? '',
+            emiratesId: row.emirates_id ?? '',
+          })));
+        }
+      });
+  }, [user?.id]);
+
   const savePersonalInfo = async () => {
     if (!user?.id) return;
     setSaveError(null);
@@ -222,17 +242,28 @@ export const Profile: React.FC = () => {
     handleImageUpload('emiratesFront');
   };
 
-  const addFamilyMember = () => {
-    if (newFamilyMember.name && newFamilyMember.relationship) {
-      setFamilyMembers([
-        ...familyMembers,
+  const addFamilyMember = async () => {
+    if (!user?.id || !newFamilyMember.name || !newFamilyMember.relationship) return;
+    const { data, error } = await supabase
+      .from('patient_family_members')
+      .insert({
+        patient_id: user.id,
+        name: newFamilyMember.name,
+        relationship: newFamilyMember.relationship,
+        date_of_birth: newFamilyMember.dateOfBirth || null,
+        emirates_id: newFamilyMember.emiratesId || null,
+      })
+      .select('id, name, relationship, date_of_birth, emirates_id')
+      .single();
+    if (!error && data) {
+      setFamilyMembers((prev) => [
+        ...prev,
         {
-          id: Date.now().toString(),
-          name: newFamilyMember.name,
-          relationship: newFamilyMember.relationship,
-          dateOfBirth: newFamilyMember.dateOfBirth || '',
-          emiratesId: newFamilyMember.emiratesId || '',
-          profileImage: newFamilyMember.profileImage,
+          id: data.id,
+          name: data.name,
+          relationship: data.relationship,
+          dateOfBirth: data.date_of_birth ?? '',
+          emiratesId: data.emirates_id ?? '',
         },
       ]);
       setNewFamilyMember({});
@@ -240,8 +271,16 @@ export const Profile: React.FC = () => {
     }
   };
 
-  const removeFamilyMember = (id: string) => {
-    setFamilyMembers(familyMembers.filter(member => member.id !== id));
+  const removeFamilyMember = async (id: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from('patient_family_members')
+      .delete()
+      .eq('id', id)
+      .eq('patient_id', user.id);
+    if (!error) {
+      setFamilyMembers((prev) => prev.filter((member) => member.id !== id));
+    }
   };
 
   return (
@@ -823,7 +862,7 @@ export const Profile: React.FC = () => {
                             </div>
                             <button
                               type="button"
-                              onClick={() => removeFamilyMember(member.id)}
+                              onClick={() => void removeFamilyMember(member.id)}
                               className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                               aria-label={t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member' })}
                             >
@@ -889,7 +928,7 @@ export const Profile: React.FC = () => {
                     <div className="flex space-x-3 mt-6">
                       <button
                         type="button"
-                        onClick={addFamilyMember}
+                        onClick={() => void addFamilyMember()}
                         className="px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:shadow-xl hover:scale-105 transition-all duration-200 font-semibold"
                       >
                         {t('patient.profile.addMember')}
