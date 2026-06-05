@@ -131,7 +131,6 @@ export const PortalShell = ({
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('is_read', false)
-      .not('type', 'eq', 'message')
       .then(({ count }) => {
         setUnreadNotificationsCount(count ?? 0);
       });
@@ -153,10 +152,13 @@ export const PortalShell = ({
             title: string;
             body: string | null;
             action_url: string | null;
+            type: string;
           };
-          setUnreadNotificationsCount((prev) => prev + 1);
-          setToastNotification(notification);
-          setToastVisible(true);
+          if (notification.type !== 'message') {
+            setUnreadNotificationsCount((prev) => prev + 1);
+            setToastNotification(notification);
+            setToastVisible(true);
+          }
         }
       )
       .subscribe();
