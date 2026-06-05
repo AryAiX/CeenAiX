@@ -20,6 +20,7 @@ export type PatientPharmacyWorkflowStatus =
   | 'in_progress'
   | 'on_hold'
   | 'dispensed'
+  | 'picked_up'
   | 'cancelled';
 
 export interface PatientPrescriptionRecord extends Prescription {
@@ -62,6 +63,9 @@ export function aggregatePharmacyWorkflowStatus(
   }
   if (statuses.has('new')) {
     return 'new';
+  }
+  if (statuses.has('picked_up')) {
+    return 'picked_up';
   }
   if (statuses.has('dispensed')) {
     return 'dispensed';
