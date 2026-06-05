@@ -571,7 +571,7 @@ export const PatientLabResults: React.FC = () => {
               {latestVisit.doctorName ? (
                 <button
                   type="button"
-                  onClick={() => navigate('/patient/messages')}
+                  onClick={() => navigate(`/patient/messages?doctor=${latestVisit.doctor_id}`)}
                   className="mt-2 inline-flex items-center gap-2 rounded-lg border-2 border-teal-600 px-4 py-2 text-sm font-medium text-teal-600 transition-all hover:bg-teal-600 hover:text-white"
                 >
                   <MessageCircle className="h-4 w-4" />
@@ -1291,11 +1291,40 @@ export const PatientLabResults: React.FC = () => {
           <div className="mt-6 flex justify-center gap-3">
             <button
               type="button"
-              disabled
-              title={t('patient.labResults.addToCalendarComingSoon', {
-                defaultValue: 'Add to calendar — coming soon',
-              })}
-              className="cursor-not-allowed rounded-lg bg-teal-600/50 px-6 py-3 text-sm font-medium text-white opacity-70"
+              onClick={() => {
+                if (!upcomingPrimary) return;
+                const start = upcomingPrimary.due_by
+                  ? new Date(upcomingPrimary.due_by)
+                  : new Date();
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                const toIcs = (d: Date) =>
+                  d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                const icsContent = [
+                  'BEGIN:VCALENDAR',
+                  'VERSION:2.0',
+                  'PRODID:-//CeenAiX//LabResults//EN',
+                  'BEGIN:VEVENT',
+                  `UID:lab-${upcomingPrimary.id}@ceenaix`,
+                  `DTSTAMP:${toIcs(new Date())}`,
+                  `DTSTART:${toIcs(start)}`,
+                  `DTEND:${toIcs(end)}`,
+                  `SUMMARY:Lab Tests at ${upcomingPrimary.labName ?? 'Lab'}`,
+                  `DESCRIPTION:${upcomingPrimary.parentItems.map((i) => i.test_name).join(', ')}`,
+                  `LOCATION:${upcomingPrimary.labAddress ?? upcomingPrimary.labCity ?? ''}`,
+                  'END:VEVENT',
+                  'END:VCALENDAR',
+                ].join('\r\n');
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = `lab-booking-${upcomingPrimary.id}.ics`;
+                document.body.appendChild(anchor);
+                anchor.click();
+                document.body.removeChild(anchor);
+                URL.revokeObjectURL(url);
+              }}
+              className="rounded-lg bg-teal-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-teal-700"
             >
               {t('patient.labResults.upcomingAddToCalendar')}
             </button>
@@ -1531,27 +1560,28 @@ export const PatientLabResults: React.FC = () => {
                           onChange={(event) => setBookingTime(event.target.value)}
                           className="w-full rounded-lg border border-slate-300 px-3 py-2"
                         >
-                          <option value="08:00">08:00</option>
-                          <option value="08:30">08:30</option>
-                          <option value="09:00">09:00</option>
-                          <option value="09:30">09:30</option>
-                          <option value="10:00">10:00</option>
+                          {Array.from({ length: 28 }).map((_, i) => {
+                            const totalMinutes = 7 * 60 + i * 30;
+                            const hours = Math.floor(totalMinutes / 60);
+                            const minutes = totalMinutes % 60;
+                            const value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                            return (
+                              <option key={value} value={value}>{value}</option>
+                            );
+                          })}
                         </select>
                       </div>
                       <button
                         type="button"
-                        disabled
-                        title={t('patient.labResults.bookingComingSoon', {
-                          defaultValue: 'Lab booking is not wired in MVP — contact your lab to schedule.',
-                        })}
-                        className="w-full cursor-not-allowed rounded-lg bg-teal-600/50 px-6 py-3 font-bold text-white opacity-70"
+                        onClick={() => navigate('/patient/messages')}
+                        className="w-full rounded-lg bg-teal-600 px-6 py-3 font-bold text-white transition-colors hover:bg-teal-700"
                       >
                         {t('patient.labResults.upcomingConfirmBtn')}
                       </button>
                       <p className="mt-2 text-center text-xs text-slate-500">
                         {t('patient.labResults.bookingComingSoonNote', {
                           defaultValue:
-                            'Online lab booking is not available yet. Call the lab or message your doctor to schedule collection.',
+                            'Online lab booking is not available yet. Message your doctor to schedule collection.',
                         })}
                       </p>
                     </div>

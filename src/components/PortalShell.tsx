@@ -37,6 +37,7 @@ import { useAuth } from '../lib/auth-context';
 import { useDoctorPortalChrome, useDoctorClinicMembership } from '../hooks';
 import { usePatientDashboardAlert } from '../hooks/use-patient-dashboard-alert';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { supabase } from '../lib/supabase';
 
 type PortalRole = 'patient' | 'doctor';
 
@@ -105,11 +106,125 @@ export const PortalShell = ({
   const [patientSidebarCollapsed, setPatientSidebarCollapsed] = useState(false);
   const [doctorSidebarCollapsed, setDoctorSidebarCollapsed] = useState(false);
   const [patientAlertDismissed, setPatientAlertDismissed] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [toastNotification, setToastNotification] = useState<{
+    id: string;
+    title: string;
+    body: string | null;
+    action_url: string | null;
+  } | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     setAccountMenuOpen(false);
     setPortalMenuOpen(false);
     setPatientAlertDismissed(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (role !== 'patient' || !user?.id) return;
+
+    // Fetch initial unread count
+    void supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+      .then(({ count }) => {
+        setUnreadNotificationsCount(count ?? 0);
+      });
+
+    // Subscribe to real-time new notifications
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const notification = payload.new as {
+            id: string;
+            title: string;
+            body: string | null;
+            action_url: string | null;
+            type: string;
+          };
+          if (notification.type !== 'message') {
+            setUnreadNotificationsCount((prev) => prev + 1);
+            setToastNotification(notification);
+            setToastVisible(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [role, user?.id]);
+
+  useEffect(() => {
+    if (!toastVisible) return;
+    const timer = setTimeout(() => {
+      setToastVisible(false);
+      setTimeout(() => setToastNotification(null), 300);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [toastVisible]);
+
+  useEffect(() => {
+    if (role !== 'patient' || !user?.id) return;
+
+    const fetchUnreadMessages = async () => {
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('id');
+
+      if (!conversations || conversations.length === 0) return;
+
+      const conversationIds = conversations.map((c) => c.id);
+
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .in('conversation_id', conversationIds)
+        .is('read_at', null)
+        .neq('sender_id', user.id);
+
+      setUnreadMessagesCount(count ?? 0);
+    };
+
+    void fetchUnreadMessages();
+
+    const channel = supabase
+      .channel(`messages:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          void fetchUnreadMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [role, user?.id]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/patient/messages')) {
+      setUnreadMessagesCount(0);
+    }
   }, [location.pathname]);
 
   const isArabic = i18n.language.startsWith('ar');
@@ -141,7 +256,7 @@ export const PortalShell = ({
       { id: 'lab-results', label: t('nav.labResults'), icon: Activity, href: '/patient/lab-results' },
       { id: 'imaging', label: t('nav.imagingScans'), icon: Scan, href: '/patient/imaging' },
       { id: 'documents', label: t('nav.documents'), icon: FolderOpen, href: '/patient/documents' },
-      { id: 'messages', label: t('nav.messages'), icon: MessageSquare, href: '/patient/messages' },
+      { id: 'messages', label: t('nav.messages'), icon: MessageSquare, href: '/patient/messages', badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined },
       { id: 'ai-assistant', label: t('nav.aiAssistant'), icon: Bot, href: '/patient/ai-chat' },
       { id: 'insurance', label: t('nav.insurance'), icon: ShieldCheck, href: '/patient/insurance' },
     ];
@@ -305,12 +420,20 @@ export const PortalShell = ({
 
               <button
                 type="button"
-                onClick={() => navigate('/patient/notifications')}
+                onClick={() => {
+                  navigate('/patient/notifications');
+                  setUnreadNotificationsCount(0);
+                }}
                 aria-label={t('nav.notifications')}
                 title={t('nav.notifications')}
                 className="group relative rounded-lg p-2 transition-all duration-300 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50"
               >
                 <Bell className="h-5 w-5 text-slate-600 transition-colors duration-300 group-hover:text-cyan-600" />
+                {unreadNotificationsCount > 0 ? (
+                  <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </span>
+                ) : null}
               </button>
 
               <button
@@ -413,6 +536,56 @@ export const PortalShell = ({
             )}
           </main>
         </div>
+        {toastNotification && (
+          <div
+            className={`fixed bottom-6 right-6 z-[100] w-full max-w-sm transition-all duration-300 ${
+              toastVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-100">
+              <div className="flex items-start gap-3 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500">
+                  <Bell className="h-5 w-5 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900">{toastNotification.title}</p>
+                  {toastNotification.body ? (
+                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{toastNotification.body}</p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setToastVisible(false);
+                    setTimeout(() => setToastNotification(null), 300);
+                  }}
+                  className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {toastNotification.action_url ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(toastNotification.action_url!);
+                    setToastVisible(false);
+                    setTimeout(() => setToastNotification(null), 300);
+                  }}
+                  className="w-full border-t border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-cyan-600 transition hover:bg-cyan-50"
+                >
+                  View details →
+                </button>
+              ) : null}
+              <div className="h-1 bg-slate-100">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-[5000ms] ease-linear"
+                  style={{ width: toastVisible ? '0%' : '100%' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

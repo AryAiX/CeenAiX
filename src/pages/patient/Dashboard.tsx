@@ -1,10 +1,12 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
   Calendar,
   Clock,
+  Copy,
   Pill,
   MessageSquare,
   Bot,
@@ -19,6 +21,7 @@ import {
   TrendingUp,
   CheckCircle2,
   Users,
+  X,
 } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
@@ -33,6 +36,7 @@ import {
 } from '../../lib/i18n-ui';
 import { formatMedicationDetailLine } from '../../lib/medication-display';
 import { DEFAULT_CARE_CONVERSATION_SUBJECT, getMessagePreviewText } from '../../lib/messaging';
+import { supabase } from '../../lib/supabase';
 
 const getDisplayName = (fullName: string | null | undefined, firstName: string | null | undefined, email?: string) => {
   if (firstName?.trim()) {
@@ -50,6 +54,24 @@ const getDisplayName = (fullName: string | null | undefined, firstName: string |
   return '';
 };
 
+const AI_HEALTH_TIPS_EN = [
+  'Your recent readings have improved compared with last week. Keep your medication and diet routine steady to stay on track for your target.',
+  'Staying hydrated helps regulate blood pressure. Aim for at least 8 glasses of water throughout the day.',
+  'Even a 20-minute walk after meals can meaningfully lower your post-meal blood sugar levels over time.',
+  'Consistent sleep of 7–8 hours per night supports both blood pressure control and metabolic health.',
+  'Reducing sodium intake to under 2,300 mg per day can help bring systolic blood pressure down by up to 5 mmHg.',
+  'Stress hormones directly raise blood sugar. Short breathing exercises or mindfulness can help manage daily spikes.',
+];
+
+const AI_HEALTH_TIPS_AR = [
+  'تحسنت قراءاتك الأخيرة مقارنة بالأسبوع الماضي. حافظ على روتين الدواء والغذاء للوصول إلى الهدف في الأشهر المقبلة.',
+  'يساعد شرب كميات كافية من الماء في تنظيم ضغط الدم. احرص على تناول 8 أكواب على مدار اليوم.',
+  'المشي لمدة 20 دقيقة بعد الوجبات يقلل بشكل ملحوظ من مستوى السكر في الدم بعد الأكل.',
+  'النوم المنتظم من 7 إلى 8 ساعات يوميًا يدعم صحة ضغط الدم والتمثيل الغذائي.',
+  'تقليل تناول الصوديوم إلى أقل من 2300 ملغ يوميًا قد يخفض الضغط الانقباضي بمقدار 5 ملم زئبق.',
+  'هرمونات التوتر ترفع نسبة السكر في الدم مباشرة. تمارين التنفس أو التأمل تساعد في التحكم بالارتفاعات اليومية.',
+];
+
 export const PatientDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('common');
@@ -65,6 +87,66 @@ export const PatientDashboard: React.FC = () => {
     error: dashboardError,
     refetch: refetchDashboard,
   } = usePatientDashboard(user?.id, i18n.language);
+
+  const [locallyTakenIds, setLocallyTakenIds] = useState<Set<string>>(new Set());
+  const [dbTakenIds, setDbTakenIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const today = new Date().toISOString().split('T')[0];
+    void supabase
+      .from('medication_logs')
+      .select('prescription_item_id')
+      .eq('patient_id', user.id)
+      .eq('taken_date', today)
+      .then(({ data }) => {
+        if (data) {
+          setDbTakenIds(new Set(data.map((row) => row.prescription_item_id)));
+        }
+      });
+  }, [user?.id]);
+
+  const handleMarkTaken = async (medicationId: string) => {
+    if (!user?.id) return;
+    setLocallyTakenIds((prev) => new Set([...prev, medicationId]));
+    const today = new Date().toISOString().split('T')[0];
+    const { error } = await supabase.from('medication_logs').upsert(
+      {
+        patient_id: user.id,
+        prescription_item_id: medicationId,
+        taken_date: today,
+        taken_at: new Date().toISOString(),
+      },
+      { onConflict: 'patient_id,prescription_item_id,taken_date' }
+    );
+    if (!error) {
+      setDbTakenIds((prev) => new Set([...prev, medicationId]));
+    }
+  };
+
+  const [showDirectionsModal, setShowDirectionsModal] = useState(false);
+  const [addressCopied, setAddressCopied] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [bpModalOpen, setBpModalOpen] = useState(false);
+  const [bpSystolic, setBpSystolic] = useState('');
+  const [bpDiastolic, setBpDiastolic] = useState('');
+
+  const [aiTipIndex, setAiTipIndex] = useState(0);
+
+  const handleRefreshTip = () => {
+    setAiTipIndex((prev) => {
+      const tips = isArabic ? AI_HEALTH_TIPS_AR : AI_HEALTH_TIPS_EN;
+      let next = Math.floor(Math.random() * tips.length);
+      if (next === prev && tips.length > 1) next = (prev + 1) % tips.length;
+      return next;
+    });
+  };
+
+  const handleBpSave = () => {
+    setBpModalOpen(false);
+    setBpSystolic('');
+    setBpDiastolic('');
+  };
 
   const displayName =
     getDisplayName(profile?.full_name, profile?.first_name, user?.email) || t('patient.dashboard.greetingFallback');
@@ -207,7 +289,7 @@ export const PatientDashboard: React.FC = () => {
   );
   const healthScoreValue = dashboardData?.healthScore ?? (profile?.profile_completed ? 78 : 64);
   const adherenceValue = dashboardData?.adherencePercentage ?? (medications.length > 0 ? 87 : 72);
-  const takenCount = medications.filter((medication) => medication.isDispensed).length;
+  const takenCount = medications.filter((medication) => medication.isDispensed || locallyTakenIds.has(medication.id) || dbTakenIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
       ? Math.min(100, Math.round(((insurance.annualLimitUsed ?? 0) / insurance.annualLimit) * 100))
@@ -238,7 +320,7 @@ export const PatientDashboard: React.FC = () => {
         icon: FlaskConical,
         label: localCopy.labsShort,
         colorClass: 'text-violet-600 bg-violet-50 hover:bg-violet-100',
-        action: () => navigate('/patient/records'),
+        action: () => navigate('/patient/lab-results'),
       },
       {
         icon: Bot,
@@ -354,9 +436,7 @@ export const PatientDashboard: React.FC = () => {
       takenCount,
     ]
   );
-  const aiTip = isArabic
-    ? 'تحسنت قراءاتك الأخيرة مقارنة بالأسبوع الماضي. حافظ على روتين الدواء والغذاء للوصول إلى الهدف في الأشهر المقبلة.'
-    : 'Your recent readings have improved compared with last week. Keep your medication and diet routine steady to stay on track for your target.';
+  const aiTip = (isArabic ? AI_HEALTH_TIPS_AR : AI_HEALTH_TIPS_EN)[aiTipIndex] ?? '';
   const hba1cChartPoints = hba1cHistory.slice(-6).map((point) => point.value);
   const hba1cLinePath = buildLinePath(hba1cChartPoints, 600, 160, 5.5, 8.5);
   const hba1cAreaPath = buildAreaPath(hba1cChartPoints, 600, 160, 5.5, 8.5);
@@ -491,50 +571,52 @@ export const PatientDashboard: React.FC = () => {
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>
                 </>
               ) : medications.length > 0 ? (
-                medications.map((medication) => (
-                  <div key={medication.id} className="flex items-center gap-3 px-6 py-4">
-                    <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${medication.isDispensed ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-slate-900">
-                        <MedicationNameDisplay
-                          canonicalName={medication.medicationName}
-                          localizedName={medication.medicationNameAr}
-                          language={i18n.language ?? 'en'}
-                          primaryClassName="inline"
-                          secondaryClassName="inline ml-1 text-xs font-normal text-slate-500"
-                        />
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {formatMedicationDetailLine(t, i18n.language, {
-                          dosage: medication.dosage,
-                          frequency: medication.frequency,
-                          duration: medication.duration,
-                          detail: medication.detail,
-                          frequencyFromVocab: medication.frequencyFromVocab ?? undefined,
-                          durationFromVocab: medication.durationFromVocab ?? undefined,
-                        })}
-                      </p>
-                    </div>
-                    {medication.isDispensed ? (
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                medications.map((medication) => {
+                  const isTaken = medication.isDispensed || locallyTakenIds.has(medication.id) || dbTakenIds.has(medication.id);
+                  return (
+                    <div key={medication.id} className="flex items-center gap-3 px-6 py-4">
+                      <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${isTaken ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-900">
+                          <MedicationNameDisplay
+                            canonicalName={medication.medicationName}
+                            localizedName={medication.medicationNameAr}
+                            language={i18n.language ?? 'en'}
+                            primaryClassName="inline"
+                            secondaryClassName="inline ml-1 text-xs font-normal text-slate-500"
+                          />
                         </div>
-                        {isArabic ? 'تم التناول' : 'Taken'}
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {formatMedicationDetailLine(t, i18n.language, {
+                            dosage: medication.dosage,
+                            frequency: medication.frequency,
+                            duration: medication.duration,
+                            detail: medication.detail,
+                            frequencyFromVocab: medication.frequencyFromVocab ?? undefined,
+                            durationFromVocab: medication.durationFromVocab ?? undefined,
+                          })}
+                        </p>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        title={localCopy.unavailable}
-                        className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white opacity-50 transition-colors disabled:cursor-not-allowed"
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        {isArabic ? 'تأكيد' : 'Mark Taken'}
-                      </button>
-                    )}
-                  </div>
-                ))
+                      {isTaken ? (
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          </div>
+                          {isArabic ? 'تم التناول' : 'Taken'}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkTaken(medication.id)}
+                          className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {isArabic ? 'تأكيد' : 'Mark Taken'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <div className="px-6 py-8 text-center">
                   <Pill className="mx-auto mb-3 h-8 w-8 text-slate-300" />
@@ -627,9 +709,8 @@ export const PatientDashboard: React.FC = () => {
               </span>
               <button
                 type="button"
-                disabled
-                title={localCopy.unavailable}
-                className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-600 opacity-50 transition-colors disabled:cursor-not-allowed"
+                onClick={() => setBpModalOpen(true)}
+                className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-600 transition-colors hover:bg-teal-50"
               >
                 {isArabic ? '+ إضافة قراءة' : '+ Add Reading'}
               </button>
@@ -798,15 +879,14 @@ export const PatientDashboard: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    disabled
-                    title={localCopy.unavailable}
-                    className="rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 opacity-50 transition-colors disabled:cursor-not-allowed"
+                    onClick={() => setShowDirectionsModal(true)}
+                    className="rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
                   >
                     {localCopy.directions}
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate('/patient/appointments')}
+                    onClick={() => setShowDetailsModal(true)}
                     className="rounded-lg bg-teal-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
                   >
                     {localCopy.details}
@@ -853,16 +933,29 @@ export const PatientDashboard: React.FC = () => {
                     return (
                       <div
                         key={msg.id}
-                        className="cursor-pointer rounded-xl bg-slate-50 p-3 transition-colors hover:bg-slate-100"
-                        onClick={() => navigate('/patient/messages')}
+                        className={`cursor-pointer rounded-xl p-3 transition-colors ${
+                          !msg.isRead
+                            ? 'bg-teal-50 border border-teal-100 hover:bg-teal-100'
+                            : 'bg-slate-50 hover:bg-slate-100'
+                        }`}
+                        onClick={() => navigate(`/patient/messages/${msg.conversationId}`)}
                       >
                         <div className="mb-0.5 flex items-center justify-between">
-                          <p className="truncate text-xs font-semibold text-slate-900">{messageTitle}</p>
-                          <span className="ml-2 shrink-0 text-xs text-slate-400">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {!msg.isRead ? (
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-teal-500" />
+                            ) : null}
+                            <p className={`truncate text-xs ${!msg.isRead ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
+                              {messageTitle}
+                            </p>
+                          </div>
+                          <span className={`ml-2 shrink-0 text-xs ${!msg.isRead ? 'font-semibold text-teal-600' : 'text-slate-400'}`}>
                             {formatRelativeTime(t, msg.sentAt)}
                           </span>
                         </div>
-                        <p className="line-clamp-2 text-xs text-slate-500">{messagePreview}</p>
+                        <p className={`line-clamp-2 text-xs ${!msg.isRead ? 'text-slate-700 font-medium' : 'text-slate-500'}`}>
+                          {messagePreview}
+                        </p>
                       </div>
                     );
                   })()
@@ -928,9 +1021,8 @@ export const PatientDashboard: React.FC = () => {
 
             <button
               type="button"
-              disabled
-              title={localCopy.unavailable}
-              className="w-full text-center text-xs font-semibold text-teal-600 opacity-50 disabled:cursor-not-allowed"
+              onClick={() => navigate('/patient/insurance')}
+              className="w-full text-center text-xs font-semibold text-teal-600 transition-colors hover:text-teal-700"
             >
               {localCopy.viewFullDetails}
             </button>
@@ -943,12 +1035,8 @@ export const PatientDashboard: React.FC = () => {
                 <button
                   key={action.label}
                   type="button"
-                  onClick={action.label === localCopy.labsShort ? undefined : action.action}
-                  disabled={action.label === localCopy.labsShort}
-                  title={action.label === localCopy.labsShort ? localCopy.unavailable : undefined}
-                  className={`flex flex-col items-center gap-2 rounded-xl py-4 text-xs font-semibold transition-colors ${
-                    action.label === localCopy.labsShort ? 'cursor-not-allowed opacity-50' : ''
-                  } ${action.colorClass}`}
+                  onClick={action.action}
+                  className={`flex flex-col items-center gap-2 rounded-xl py-4 text-xs font-semibold transition-colors ${action.colorClass}`}
                 >
                   <action.icon className="h-5 w-5" />
                   {action.label}
@@ -975,9 +1063,9 @@ export const PatientDashboard: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title={localCopy.unavailable}
-                    className="rounded-lg p-1.5 text-slate-400 opacity-50 transition-colors disabled:cursor-not-allowed"
+                    onClick={handleRefreshTip}
+                    title={isArabic ? 'نصيحة أخرى' : 'Another tip'}
+                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                   </button>
@@ -987,6 +1075,289 @@ export const PatientDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      {showDetailsModal && nextAppointment ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowDetailsModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-teal-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {isArabic ? 'تفاصيل الموعد' : 'Appointment Details'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDetailsModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-teal-600 text-white font-semibold text-lg">
+                  {nextAppointment.doctorName.split(' ').map((p) => p[0] ?? '').join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">{nextAppointment.doctorName}</p>
+                  <p className="text-sm text-teal-600">{nextAppointment.specialty ?? (isArabic ? 'زيارة رعاية' : 'Care Visit')}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{nextAppointment.doctorCity || (isArabic ? 'الموقع سيظهر قريباً' : 'Location available in appointment details')}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-teal-50 border border-teal-100 p-3">
+                  <p className="text-xs text-teal-600 font-semibold uppercase tracking-wide mb-1">
+                    {isArabic ? 'التاريخ' : 'Date'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {new Date(nextAppointment.scheduledAt).toLocaleDateString(locale, dtOpts({ weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-teal-50 border border-teal-100 p-3">
+                  <p className="text-xs text-teal-600 font-semibold uppercase tracking-wide mb-1">
+                    {isArabic ? 'الوقت' : 'Time'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {new Date(nextAppointment.scheduledAt).toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">
+                  {isArabic ? 'نوع الموعد' : 'Appointment Type'}
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {nextAppointment.type === 'virtual'
+                    ? (isArabic ? '🎥 استشارة عن بُعد' : '🎥 Virtual Teleconsult')
+                    : (isArabic ? '🏥 حضوري' : '🏥 In-Person Visit')}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">
+                  {isArabic ? 'التأمين' : 'Insurance'}
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {insurance?.isActive
+                    ? (isArabic ? '✅ يشمله التأمين' : '✅ Covered by insurance')
+                    : (isArabic ? '⚠️ قد يتطلب موافقة مسبقة' : '⚠️ Coverage requires confirmation')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => setShowDetailsModal(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-sm transition-colors"
+              >
+                {isArabic ? 'إغلاق' : 'Close'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { navigate('/patient/appointments'); setShowDetailsModal(false); }}
+                className="flex-1 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                {isArabic ? 'عرض كل المواعيد' : 'View All Appointments'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+      {showDirectionsModal && nextAppointment ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => { setShowDirectionsModal(false); setAddressCopied(false); }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-teal-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {isArabic ? 'الاتجاهات' : 'Get Directions'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowDirectionsModal(false); setAddressCopied(false); }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <MapPin className="h-5 w-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">{nextAppointment.doctorName}</p>
+                  <p className="text-sm text-slate-600 mt-0.5">
+                    {nextAppointment.doctorCity || profile?.city?.trim() || 'Dubai, UAE'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-gray-900 mb-3">
+                  {isArabic ? 'اختر تطبيق الملاحة' : 'Choose your navigation app'}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {
+                      name: 'Google Maps',
+                      icon: <svg viewBox="0 0 24 24" className="w-6 h-6"><path fill="#4285F4" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>,
+                      onClick: () => {
+                        const loc = nextAppointment.doctorCity || profile?.city?.trim() || 'Dubai, UAE';
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank', 'noopener,noreferrer');
+                      },
+                    },
+                    {
+                      name: 'Waze',
+                      icon: <svg viewBox="0 0 24 24" className="w-6 h-6"><path fill="#33CCFF" d="M20.54 6.63C19.08 3.24 15.79 1 12.06 1 6.56 1 2.06 5.5 2.06 11c0 2.12.67 4.08 1.8 5.69L2 22l5.5-1.73A9.94 9.94 0 0 0 12.06 21c5.5 0 9.94-4.5 9.94-10 0-1.61-.39-3.13-1.46-4.37z" /></svg>,
+                      onClick: () => {
+                        const loc = nextAppointment.doctorCity || profile?.city?.trim() || 'Dubai, UAE';
+                        window.open(`https://waze.com/ul?q=${encodeURIComponent(loc)}`, '_blank', 'noopener,noreferrer');
+                      },
+                    },
+                    {
+                      name: 'Apple Maps',
+                      icon: <svg viewBox="0 0 24 24" className="w-6 h-6"><path fill="#000000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" /></svg>,
+                      onClick: () => {
+                        const loc = nextAppointment.doctorCity || profile?.city?.trim() || 'Dubai, UAE';
+                        window.open(`https://maps.apple.com/?q=${encodeURIComponent(loc)}`, '_blank', 'noopener,noreferrer');
+                      },
+                    },
+                    {
+                      name: addressCopied ? '✓ Copied!' : 'Copy Address',
+                      icon: <Copy className="w-6 h-6 text-slate-600" />,
+                      onClick: () => {
+                        const loc = nextAppointment.doctorCity || profile?.city?.trim() || 'Dubai, UAE';
+                        navigator.clipboard.writeText(loc).then(() => {
+                          setAddressCopied(true);
+                          window.setTimeout(() => setAddressCopied(false), 2000);
+                        });
+                      },
+                    },
+                  ].map((app) => (
+                    <button
+                      key={app.name}
+                      type="button"
+                      onClick={app.onClick}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm font-medium text-gray-700 transition-all hover:border-teal-400 hover:bg-teal-50/40 hover:shadow-sm"
+                    >
+                      {app.icon}
+                      <span className="text-xs leading-tight">{app.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => { setShowDirectionsModal(false); setAddressCopied(false); }}
+                className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors text-sm"
+              >
+                {isArabic ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+      {bpModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setBpModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50">
+                  <Heart className="h-4 w-4 text-rose-500" />
+                </div>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {isArabic ? 'إضافة قراءة ضغط الدم' : 'Add Blood Pressure Reading'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBpModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  {isArabic ? 'الضغط الانقباضي (mmHg)' : 'Systolic (mmHg)'}
+                </label>
+                <input
+                  type="number"
+                  min={60}
+                  max={250}
+                  placeholder={isArabic ? 'مثال: 120' : 'e.g. 120'}
+                  value={bpSystolic}
+                  onChange={(e) => setBpSystolic(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  {isArabic ? 'الضغط الانبساطي (mmHg)' : 'Diastolic (mmHg)'}
+                </label>
+                <input
+                  type="number"
+                  min={40}
+                  max={150}
+                  placeholder={isArabic ? 'مثال: 80' : 'e.g. 80'}
+                  value={bpDiastolic}
+                  onChange={(e) => setBpDiastolic(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setBpModalOpen(false)}
+                className="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                {isArabic ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleBpSave}
+                disabled={!bpSystolic || !bpDiastolic}
+                className="flex-1 rounded-lg bg-teal-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isArabic ? 'حفظ' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 };

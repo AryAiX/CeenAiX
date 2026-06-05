@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -15,6 +16,7 @@ import {
   Share2,
   ShieldCheck,
   Upload,
+  X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientInsurance, usePatientLabResults, usePatientPrescriptions } from '../../hooks';
@@ -32,6 +34,8 @@ export const PatientDocuments = () => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'all' | PatientDocument['category']>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'alphabetical'>('newest');
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -118,16 +122,23 @@ export const PatientDocuments = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return documents.filter((doc) => {
+    const result = documents.filter((doc) => {
       const matchesCategory = category === 'all' || doc.category === category;
       const matchesSearch =
         !q ||
         doc.name.toLowerCase().includes(q) ||
         doc.issuedBy.toLowerCase().includes(q) ||
         doc.contains.toLowerCase().includes(q);
-      return matchesCategory && matchesSearch;
+      const matchesPending = !showPendingOnly || doc.status === 'pending';
+      return matchesCategory && matchesSearch && matchesPending;
     });
-  }, [category, documents, search]);
+
+    return result.sort((a, b) => {
+      if (sortOrder === 'alphabetical') return a.name.localeCompare(b.name);
+      if (sortOrder === 'oldest') return new Date(a.date).getTime() - new Date(b.date).getTime();
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [category, documents, search, sortOrder, showPendingOnly]);
 
   const selectedDocument = filtered.find((doc) => doc.id === selectedId) ?? null;
   const loading = labsLoading || prescriptionsLoading || insuranceLoading;
@@ -207,23 +218,47 @@ export const PatientDocuments = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          onClick={() => { setCategory('all'); setShowPendingOnly(false); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('all'); setShowPendingOnly(false); } }}
+        >
           <div className="text-xs uppercase tracking-wide text-slate-400">{t('patient.documents.totalDocs')}</div>
           <div className="mt-2 text-3xl font-bold text-slate-900">{formatLocaleDigits(documents.length, uiLang)}</div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          onClick={() => { setCategory('lab-report'); setShowPendingOnly(false); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('lab-report'); setShowPendingOnly(false); } }}
+        >
           <div className="text-xs uppercase tracking-wide text-violet-500">{t('patient.documents.labReports')}</div>
           <div className="mt-2 text-3xl font-bold text-violet-600">
             {formatLocaleDigits(categories.find((item) => item.id === 'lab-report')?.count ?? 0, uiLang)}
           </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          onClick={() => { setCategory('prescription'); setShowPendingOnly(false); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('prescription'); setShowPendingOnly(false); } }}
+        >
           <div className="text-xs uppercase tracking-wide text-teal-500">{t('patient.documents.prescriptions')}</div>
           <div className="mt-2 text-3xl font-bold text-teal-600">
             {formatLocaleDigits(categories.find((item) => item.id === 'prescription')?.count ?? 0, uiLang)}
           </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          onClick={() => { setCategory('all'); setSearch(''); setShowPendingOnly(true); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('all'); setSearch(''); setShowPendingOnly(true); } }}
+        >
           <div className="text-xs uppercase tracking-wide text-amber-500">{t('patient.documents.needsAction')}</div>
           <div className="mt-2 text-3xl font-bold text-amber-600">
             {formatLocaleDigits(documents.filter((doc) => doc.status === 'pending').length, uiLang)}
@@ -248,7 +283,7 @@ export const PatientDocuments = () => {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setCategory(item.id)}
+                onClick={() => { setCategory(item.id); setShowPendingOnly(false); }}
                 className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
                   category === item.id ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -257,6 +292,15 @@ export const PatientDocuments = () => {
               </button>
             ))}
           </div>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest' | 'alphabetical')}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+          >
+            <option value="newest">{t('patient.records.sortNewest', { defaultValue: 'Newest First' })}</option>
+            <option value="oldest">{t('patient.records.sortOldest', { defaultValue: 'Oldest First' })}</option>
+            <option value="alphabetical">{t('patient.records.sortAlpha', { defaultValue: 'A → Z' })}</option>
+          </select>
           <div className="flex rounded-xl bg-slate-100 p-1">
             <button
               type="button"
@@ -339,26 +383,97 @@ export const PatientDocuments = () => {
                 </div>
               </div>
               <div className="text-sm text-slate-500">{formatDate(doc.date)}</div>
-              <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4 text-cyan-600" />
-                <Download className="h-4 w-4 text-slate-400" />
-                <Share2 className="h-4 w-4 text-slate-400" />
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedId(doc.id);
+                  }}
+                  title={t('patient.documents.view')}
+                  className="rounded-lg p-1.5 text-cyan-600 transition hover:bg-cyan-50"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const lines = [
+                      doc.name,
+                      `Issued by: ${doc.issuedBy}`,
+                      `Date: ${formatDate(doc.date)}`,
+                      `Contents: ${doc.contains}`,
+                      '',
+                      'View the live, signed source via the CeenAiX patient portal:',
+                      `${window.location.origin}${
+                        doc.source === 'lab_orders'
+                          ? '/patient/lab-results'
+                          : doc.source === 'prescriptions'
+                            ? '/patient/prescriptions'
+                            : '/patient/insurance'
+                      }`,
+                    ];
+                    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = doc.fileName.replace(/\.pdf$/i, '.txt');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }}
+                  title={t('patient.documents.download')}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <a
+                  href={`mailto:?subject=${encodeURIComponent(doc.name)}&body=${encodeURIComponent(
+                    `${doc.name}\nIssued by: ${doc.issuedBy}\nDate: ${formatDate(doc.date)}\n\nView the live source: ${window.location.origin}${
+                      doc.source === 'lab_orders'
+                        ? '/patient/lab-results'
+                        : doc.source === 'prescriptions'
+                          ? '/patient/prescriptions'
+                          : '/patient/insurance'
+                    }`
+                  )}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={t('patient.documents.share')}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <Share2 className="h-4 w-4" />
+                </a>
               </div>
             </button>
           ))}
         </div>
       )}
 
-      {selectedDocument ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
+      {selectedDocument ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedId(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">{selectedDocument.name}</h2>
                 <p className="mt-1 text-sm text-slate-500">{selectedDocument.fileName}</p>
               </div>
-              <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg px-3 py-1 text-sm text-slate-500 hover:bg-slate-100">
-                {t('shared.close')}
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                aria-label={t('shared.close')}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="rounded-xl bg-slate-50 p-5">
@@ -461,7 +576,7 @@ export const PatientDocuments = () => {
             </div>
           </div>
         </div>
-      ) : null}
+      , document.body) : null}
 
       <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
         {t('patient.documents.dataNote')}

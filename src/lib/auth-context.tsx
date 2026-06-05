@@ -594,6 +594,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
+      if (!error) {
+        window.location.href = '/';
+      }
       return { error };
     } catch (error) {
       return { error: toError(error) };

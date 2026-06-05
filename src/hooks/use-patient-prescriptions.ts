@@ -20,6 +20,7 @@ export type PatientPharmacyWorkflowStatus =
   | 'in_progress'
   | 'on_hold'
   | 'dispensed'
+  | 'picked_up'
   | 'cancelled';
 
 export interface PatientPrescriptionRecord extends Prescription {
@@ -28,6 +29,7 @@ export interface PatientPrescriptionRecord extends Prescription {
   items: PrescriptionItem[];
   pharmacyStatus: PatientPharmacyWorkflowStatus | null;
   pharmacyName: string | null;
+  pharmacyOrganizationId: string | null;
 }
 
 interface DispensingTaskRow {
@@ -61,6 +63,9 @@ export function aggregatePharmacyWorkflowStatus(
   }
   if (statuses.has('new')) {
     return 'new';
+  }
+  if (statuses.has('picked_up')) {
+    return 'picked_up';
   }
   if (statuses.has('dispensed')) {
     return 'dispensed';
@@ -188,6 +193,7 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
           ? aggregatePharmacyWorkflowStatus(tasks)
           : 'not_sent',
         pharmacyName: pharmacyOrgId ? (pharmacyNameById.get(pharmacyOrgId) ?? null) : null,
+        pharmacyOrganizationId: pharmacyOrgId,
       };
     });
   }, [userId]);

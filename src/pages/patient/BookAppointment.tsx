@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,8 +8,10 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  Video,
   Search,
   Stethoscope,
+  X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { SpecializationMultiSelect } from '../../components/SpecializationMultiSelect';
@@ -95,6 +98,9 @@ export const BookAppointment: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [didInitializeReschedule, setDidInitializeReschedule] = useState(false);
   const [didInitializeAiPrefill, setDidInitializeAiPrefill] = useState(false);
+  const [appointmentType, setAppointmentType] = useState<'in_person' | 'virtual'>('in_person');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showCancelWarning, setShowCancelWarning] = useState(false);
 
   const isDoctorSelectionLocked = useMemo(
     () =>
@@ -364,7 +370,7 @@ export const BookAppointment: React.FC = () => {
               patient_id: user.id,
               doctor_id: selectedDoctor.userId,
               facility_id: null,
-              type: 'in_person',
+              type: appointmentType,
               status: 'scheduled',
               scheduled_at: selectedSlot.iso,
               duration_minutes: selectedSlot.durationMinutes,
@@ -403,7 +409,7 @@ export const BookAppointment: React.FC = () => {
         });
       }
 
-      if (appointmentId) {
+      if (appointmentId && !isRescheduling) {
         const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
           .from('appointment_pre_visit_assessments')
           .select('id')
@@ -442,6 +448,14 @@ export const BookAppointment: React.FC = () => {
   return (
     <>
       <div>
+        <button
+          type="button"
+          onClick={() => navigate('/patient/appointments')}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-700"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          {t('patient.appointments.title')}
+        </button>
         <h1 className="text-2xl font-bold text-slate-900">
           {isRescheduling ? t('patient.book.titleReschedule') : t('patient.book.title')}
         </h1>
@@ -453,6 +467,7 @@ export const BookAppointment: React.FC = () => {
       <div>
         {feedback ? (
           <div
+            role="alert"
             className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
               feedback.type === 'success'
                 ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
@@ -834,6 +849,38 @@ export const BookAppointment: React.FC = () => {
                       </div>
                     </div>
 
+                    <div className="mt-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">
+                        {t('patient.book.appointmentType', { defaultValue: 'Appointment Type' })}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentType('in_person')}
+                          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-semibold transition ${
+                            appointmentType === 'in_person'
+                              ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-cyan-300 hover:bg-cyan-50/50'
+                          }`}
+                        >
+                          <MapPin className="h-5 w-5" />
+                          {t('patient.appointments.filterInPerson', { defaultValue: 'In Person' })}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentType('virtual')}
+                          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-semibold transition ${
+                            appointmentType === 'virtual'
+                              ? 'border-violet-500 bg-violet-50 text-violet-700'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-violet-300 hover:bg-violet-50/50'
+                          }`}
+                        >
+                          <Video className="h-5 w-5" />
+                          {t('patient.appointments.filterTeleconsult', { defaultValue: 'Teleconsult' })}
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="mt-6 space-y-4">
                       <label className="block space-y-2">
                         <span className="text-sm font-semibold text-gray-700">{t('patient.book.reasonLabel')}</span>
@@ -884,26 +931,28 @@ export const BookAppointment: React.FC = () => {
                     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                       <button
                         type="button"
-                        onClick={() => navigate('/patient/appointments')}
+                        onClick={() => {
+                          if (chiefComplaint.trim() || notes.trim() || selectedSlot) {
+                            setShowCancelWarning(true);
+                          } else {
+                            navigate('/patient/appointments');
+                          }
+                        }}
                         className="rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
                       >
                         {t('patient.book.cancel')}
                       </button>
                       <button
                         type="button"
-                        onClick={handleBooking}
+                        onClick={() => setShowConfirmModal(true)}
                         disabled={isSubmitting || !selectedSlot || !chiefComplaint.trim()}
                         className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-ceenai-navy via-ceenai-blue to-ceenai-cyan px-5 py-3 font-semibold text-white shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Calendar className="h-4 w-4" />
                         <span>
-                          {isSubmitting
-                            ? isRescheduling
-                              ? t('patient.book.rescheduling')
-                              : t('patient.book.booking')
-                            : isRescheduling
-                              ? t('patient.book.confirmReschedule')
-                              : t('patient.book.confirmBook')}
+                          {isRescheduling
+                            ? t('patient.book.confirmReschedule')
+                            : t('patient.book.confirmBook')}
                         </span>
                       </button>
                     </div>
@@ -914,6 +963,139 @@ export const BookAppointment: React.FC = () => {
           </section>
         </div>
       </div>
+      {showCancelWarning ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowCancelWarning(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <h2 className="text-base font-semibold text-slate-900">
+                Discard booking?
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                You have unsaved information. Are you sure you want to leave? Your changes will be lost.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setShowCancelWarning(false)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/patient/appointments')}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+      {showConfirmModal && selectedSlot && selectedDoctor ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowConfirmModal(false)}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-teal-600" />
+                <h2 className="text-base font-semibold text-slate-900">
+                  {isRescheduling ? 'Confirm Reschedule' : 'Confirm Booking'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-4">
+              <div className="rounded-xl bg-slate-50 p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Doctor</span>
+                  <span className="font-semibold text-slate-800">{selectedDoctor.fullName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Specialty</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedDoctor.specialty ?? t('shared.generalPractice')}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Date & Time</span>
+                  <span className="font-semibold text-slate-800">
+                    {new Date(selectedSlot.iso).toLocaleString(locale, dtOpts({
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }))}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Type</span>
+                  <span className="font-semibold text-slate-800">
+                    {appointmentType === 'virtual'
+                      ? t('patient.appointments.filterTeleconsult', { defaultValue: 'Teleconsult' })
+                      : t('patient.appointments.filterInPerson', { defaultValue: 'In Person' })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Duration</span>
+                  <span className="font-semibold text-slate-800">
+                    {t('shared.minutesUnit', { count: selectedSlot.durationMinutes })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Reason</span>
+                  <span className="font-semibold text-slate-800 text-right max-w-[60%] truncate">
+                    {chiefComplaint}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={async () => {
+                  setShowConfirmModal(false);
+                  await handleBooking();
+                }}
+                className="flex-1 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? 'Booking...' : isRescheduling ? 'Confirm Reschedule' : 'Confirm Booking'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 };

@@ -1,4 +1,5 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,6 +8,7 @@ import {
   ClipboardList,
   FileText,
   MessageSquare,
+  Paperclip,
   Search,
   Send,
   UserCircle2,
@@ -24,11 +26,16 @@ import {
   serializeMessageBodyParts,
   trimMessageDraft,
 } from '../lib/messaging';
-import { FORM_FIELD_LIMITS } from '../lib/form-field-limits';
 import { Skeleton } from './Skeleton';
 
 interface MessagesWorkspaceProps {
-  role: 'patient' | 'doctor';
+  role: 'patient' | 'doctor' | 'pharmacy';
+}
+
+interface AttachmentPreview {
+  file: File;
+  previewUrl: string;
+  type: 'image' | 'pdf' | 'other';
 }
 
 const AVATAR_GRADIENTS: readonly string[] = [
@@ -60,23 +67,44 @@ function avatarGradient(key: string): string {
   return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const navigate = useNavigate();
   const { conversationId } = useParams<{ conversationId?: string }>();
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
-  const namespace = role === 'patient' ? 'patient.messages' : 'doctor.messages';
-  const composeParam = role === 'patient' ? 'doctor' : 'patient';
-  const composeTargetId = searchParams.get(composeParam);
+  const namespace = role === 'patient' ? 'patient.messages' : role === 'pharmacy' ? 'pharmacy.messages' : 'doctor.messages';
+  const composeParam = role === 'patient' ? 'doctor' : role === 'pharmacy' ? 'patient' : 'patient';
+  const pharmacyParam = searchParams.get('pharmacy');
+  const composeTargetId = role === 'patient' 
+    ? (pharmacyParam ?? searchParams.get('doctor')) 
+    : searchParams.get(composeParam);
+  const draftParam = searchParams.get('draft');
   const [searchQuery, setSearchQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [doctorComposerBody, setDoctorComposerBody] = useState('');
   const [doctorComposerFocused, setDoctorComposerFocused] = useState(false);
+  const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
+  const [sentAttachments, setSentAttachments] = useState<Record<string, AttachmentPreview>>({});
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
+  const [undoMessageId, setUndoMessageId] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const undoTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const bootstrappedTargetRef = useRef<string | null>(null);
+  const draftPrefillRef = useRef<string | null>(null);
   const doctorComposerRef = useRef<HTMLDivElement | null>(null);
   const doctorComposerSelectionRef = useRef<Range | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const locale = resolveLocale(i18n.language);
   const {
     conversations,
@@ -91,6 +119,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     actionError,
     ensureDirectConversation,
     sendMessage,
+    deleteMessage,
+    updateMessage,
   } = useMessagingHub(user?.id, conversationId ?? null);
 
   useEffect(() => {
@@ -118,8 +148,49 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   }, [composeParam, composeTargetId, ensureDirectConversation, namespace, navigate, role, t, user?.id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!draftParam || !activeConversationId) return;
+    if (draftPrefillRef.current === activeConversationId) return;
+    draftPrefillRef.current = activeConversationId;
+    setDraft(decodeURIComponent(draftParam));
+  }, [draftParam, activeConversationId]);
+
+  useEffect(() => {
+    setSentAttachments((prev) => {
+      const tempKeys = Object.keys(prev).filter((key) => key.startsWith('temp-'));
+      if (tempKeys.length === 0) return prev;
+      const ownMessages = messages.filter((m) => m.sender_id === user?.id);
+      if (ownMessages.length === 0) return prev;
+      const updated = { ...prev };
+      tempKeys.forEach((tempKey) => {
+        const tempTimestamp = parseInt(tempKey.replace('temp-', ''), 10);
+        const closest = ownMessages.reduce((best, m) => {
+          const diff = Math.abs(new Date(m.sent_at).getTime() - tempTimestamp);
+          const bestDiff = Math.abs(new Date(best.sent_at).getTime() - tempTimestamp);
+          return diff < bestDiff ? m : best;
+        });
+        if (closest) {
+          updated[closest.id] = updated[tempKey];
+          delete updated[tempKey];
+        }
+      });
+      return updated;
+    });
+  }, [messages, user?.id]);
+
+  // Cleanup attachment preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+    };
+  }, [attachment]);
+
+  // Cancel any pending delete timers on unmount to prevent stale Supabase calls
+  useEffect(() => {
+    const timers = undoTimers.current;
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+    };
+  }, []);
 
   const filteredConversations = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -206,17 +277,49 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
   const getCurrentComposerBody = () => (role === 'doctor' ? doctorComposerBody : draft);
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Revoke previous preview URL
+    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+
+    const previewUrl = URL.createObjectURL(file);
+    const type = file.type.startsWith('image/')
+      ? 'image'
+      : file.type === 'application/pdf'
+      ? 'pdf'
+      : 'other';
+
+    setAttachment({ file, previewUrl, type });
+
+    // Reset file input so same file can be re-selected
+    event.target.value = '';
+  };
+
+  const removeAttachment = () => {
+    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+    setAttachment(null);
+  };
+
   const submitCurrentComposer = async () => {
     const composerBody = getCurrentComposerBody();
 
-    if (!trimMessageDraft(composerBody)) {
+    if (!trimMessageDraft(composerBody) && !attachment) {
       return false;
     }
 
-    const didSend = await sendMessage(composerBody);
+    const bodyToSend = trimMessageDraft(composerBody) ? composerBody : `📎 ${attachment!.file.name}`;
+    const didSend = await sendMessage(bodyToSend);
+
     if (didSend) {
+      if (attachment) {
+        const tempKey = `temp-${Date.now()}`;
+        setSentAttachments((prev) => ({ ...prev, [tempKey]: attachment }));
+      }
       setDraft('');
       setDoctorComposerBody('');
+      setAttachment(null);
       doctorComposerSelectionRef.current = null;
       if (doctorComposerRef.current) {
         doctorComposerRef.current.innerHTML = '';
@@ -393,7 +496,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
     event.preventDefault();
 
-    if (!trimMessageDraft(draft)) {
+    if (!trimMessageDraft(draft) && !attachment) {
       return;
     }
 
@@ -439,7 +542,51 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     doctorComposerSelectionRef.current = nextRange.cloneRange();
     syncDoctorComposerState();
   };
+  const handleEditMessage = (messageId: string, currentBody: string) => {
+    setEditingMessageId(messageId);
+    setEditingMessageText(currentBody);
+  };
 
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editingMessageText.trim()) return;
+    setSavingEdit(true);
+    const success = await updateMessage(messageId, editingMessageText);
+    setSavingEdit(false);
+    if (success) {
+      setEditingMessageId(null);
+      setEditingMessageText('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageText('');
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setDeletedMessageIds((prev) => new Set([...prev, messageId]));
+    setUndoMessageId(messageId);
+
+    const timer = setTimeout(async () => {
+      setUndoMessageId(null);
+      await deleteMessage(messageId);
+    }, 5000);
+
+    undoTimers.current[messageId] = timer;
+  };
+
+  const handleUndoDelete = (messageId: string) => {
+    setDeletedMessageIds((prev) => {
+      const next = new Set(prev);
+      next.delete(messageId);
+      return next;
+    });
+    setUndoMessageId(null);
+    if (undoTimers.current[messageId]) {
+      clearTimeout(undoTimers.current[messageId]);
+      delete undoTimers.current[messageId];
+    }
+  };
   const renderInlineText = (text: string, isOwn: boolean) => {
     const linkClassName = isOwn
       ? 'font-semibold underline text-white'
@@ -453,7 +600,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               key={`${lineIndex}-${segmentIndex}-${segment}`}
               href={segment}
               target="_blank"
-              rel="noreferrer noopener"
+              rel="noreferrer"
               className={linkClassName}
             >
               {segment}
@@ -514,7 +661,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         key={`${action.kind}-${action.href}`}
         href={action.href}
         target="_blank"
-        rel="noreferrer noopener"
+        rel="noreferrer"
         className={`${spacingClassName} inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${actionClassName}`}
       >
         {content}
@@ -538,12 +685,55 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     ) : null;
   };
 
+  // Render attachment preview inside a sent message bubble
+  const renderSentAttachment = (att: AttachmentPreview, isOwn: boolean) => {
+    if (att.type === 'image') {
+      return (
+        <div className="mb-2 overflow-hidden rounded-xl">
+          <img
+            src={att.previewUrl}
+            alt={att.file.name}
+            className="max-h-48 max-w-full rounded-xl object-cover"
+          />
+          <div className={`mt-1 text-xs ${isOwn ? 'text-white/70' : 'text-gray-400'}`}>
+            {att.file.name} · {formatFileSize(att.file.size)}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`mb-2 flex items-center gap-3 rounded-xl border p-3 ${isOwn ? 'border-white/20 bg-white/10' : 'border-gray-200 bg-gray-50'}`}>
+        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${isOwn ? 'bg-white/20' : 'bg-red-50'}`}>
+          <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-red-500'}`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`truncate text-xs font-semibold ${isOwn ? 'text-white' : 'text-gray-800'}`}>
+            {att.file.name}
+          </p>
+          <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-gray-400'}`}>
+            {formatFileSize(att.file.size)}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const theme =
     role === 'doctor'
       ? {
           selected: 'border-emerald-200 bg-emerald-50',
           badge: 'bg-emerald-100 text-emerald-700',
           button: 'from-slate-900 to-emerald-700',
+          composerBorder: 'focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20',
+          composerButton: 'bg-emerald-600 hover:bg-emerald-700',
+          ownBubble: 'border-emerald-200 bg-emerald-600 text-white',
+        }
+      : role === 'pharmacy'
+      ? {
+          selected: 'border-emerald-200 bg-emerald-50',
+          badge: 'bg-emerald-100 text-emerald-700',
+          button: 'from-emerald-800 to-emerald-600',
           composerBorder: 'focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20',
           composerButton: 'bg-emerald-600 hover:bg-emerald-700',
           ownBubble: 'border-emerald-200 bg-emerald-600 text-white',
@@ -558,6 +748,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         };
 
   return (
+    <>
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
         <div className="border-b border-gray-100 px-5 py-4">
@@ -573,7 +764,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              maxLength={FORM_FIELD_LIMITS.searchQuery}
               placeholder={t(`${namespace}.searchPlaceholder`)}
               className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200 rtl:pl-4 rtl:pr-11"
             />
@@ -662,26 +852,17 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
       <div className="flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
         {conversationError ? (
-          <div
-            role="alert"
-            className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700"
-          >
-            {conversationError}
+          <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+            {t(`${namespace}.loadError`)}
           </div>
         ) : null}
         {threadError ? (
-          <div
-            role="alert"
-            className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700"
-          >
-            {threadError}
+          <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+            {t(`${namespace}.threadError`)}
           </div>
         ) : null}
         {actionError ? (
-          <div
-            role="alert"
-            className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800"
-          >
+          <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
             {actionError}
           </div>
         ) : null}
@@ -710,7 +891,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                       : t(`${namespace}.newConversation`)}
                   </p>
                 </div>
-                <ChevronRight className="mt-1 h-5 w-5 text-gray-300 rtl:rotate-180" />
+                <button
+                  type='button'
+                  onClick={() => setShowProfileModal(true)}
+                  className='rounded-lg p-1 text-gray-300 transition hover:bg-gray-100 hover:text-gray-500'
+                  title='View profile'
+                >
+                  <ChevronRight className='h-5 w-5 rtl:rotate-180' />
+                </button>
               </div>
             </div>
 
@@ -737,28 +925,116 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message) => {
+                  {messages.map((message, msgIndex) => {
                     const isOwn = message.sender_id === user?.id;
+                    const attachmentForMessage = isOwn
+                      ? sentAttachments[message.id] ?? (
+                          msgIndex === messages.length - 1 && Object.keys(sentAttachments).length > 0
+                            ? sentAttachments[Object.keys(sentAttachments)[Object.keys(sentAttachments).length - 1]]
+                            : null
+                        )
+                      : null;
 
-                    return (
-                      <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div
-                          className={`w-full max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
-                            isOwn ? theme.ownBubble : 'border-gray-200 bg-white text-gray-900'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-4 text-xs">
-                            <span className={isOwn ? 'text-white/85' : 'text-gray-500'}>
-                              {isOwn ? t(`${namespace}.you`) : activeConversation.counterpart.name}
-                            </span>
-                            <span className={isOwn ? 'text-white/80' : 'text-gray-400'}>
-                              {formatTimestamp(message.sent_at)}
-                            </span>
+              // Skip deleted messages (show undo banner instead)
+              if (deletedMessageIds.has(message.id)) {
+                return undoMessageId === message.id ? (
+                  <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                    <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <span className="text-sm text-amber-700">Message deleted</span>
+                      <button
+                        type="button"
+                        onClick={() => handleUndoDelete(message.id)}
+                        className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  </div>
+                ) : null;
+              }
+
+              return (
+                <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`w-full max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
+                      isOwn ? theme.ownBubble : 'border-gray-200 bg-white text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4 text-xs">
+                      <span className={isOwn ? 'text-white/85' : 'text-gray-500'}>
+                        {isOwn ? t(`${namespace}.you`) : activeConversation.counterpart.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={isOwn ? 'text-white/80' : 'text-gray-400'}>
+                          {formatTimestamp(message.sent_at)}
+                        </span>
+                        {isOwn ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditMessage(message.id, message.body)}
+                              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
+                            >
+                              Delete
+                            </button>
                           </div>
-                          <div className="mt-2">{renderMessageBody(message.body, isOwn)}</div>
+                        ) : null}
+                      </div>
+                    </div>
+                    {attachmentForMessage ? (
+                      <div className="mt-2">
+                        {renderSentAttachment(attachmentForMessage, isOwn)}
+                      </div>
+                    ) : null}
+                    {editingMessageId === message.id ? (
+                      <div className="mt-2">
+                        <textarea
+                          value={editingMessageText}
+                          onChange={(e) => setEditingMessageText(e.target.value)}
+                          className="w-full rounded-xl border border-white/30 bg-white/10 p-2 text-sm text-white outline-none placeholder:text-white/50 focus:border-white/50"
+                          rows={3}
+                          autoFocus
+                        />
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type='button'
+                            onClick={() => void handleSaveEdit(message.id)}
+                            disabled={savingEdit || !editingMessageText.trim()}
+                            className='rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/30 disabled:opacity-60'
+                          >
+                            {savingEdit ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="rounded-lg px-3 py-1 text-xs font-medium text-white/70 transition hover:text-white"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
-                    );
+                    ) : (
+                      <div className="mt-2">{renderMessageBody(message.body, isOwn)}</div>
+                    )}
+                    {isOwn && editingMessageId !== message.id ? (
+                      <div className="mt-1 flex items-center justify-end gap-1">
+                        {message.read_at ? (
+                          <span className="text-[10px] text-white/70">✓✓ Read</span>
+                        ) : (
+                          <span className="text-[10px] text-white/60">✓ Sent</span>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
                   })}
                   <div ref={messagesEndRef} />
                 </div>
@@ -786,6 +1062,36 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   })}
                 </div>
               ) : null}
+
+              {/* Attachment Preview */}
+              {attachment ? (
+                <div className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  {attachment.type === 'image' ? (
+                    <img
+                      src={attachment.previewUrl}
+                      alt={attachment.file.name}
+                      className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-red-50">
+                      <FileText className="h-7 w-7 text-red-500" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-800">{attachment.file.name}</p>
+                    <p className="text-xs text-gray-400">{formatFileSize(attachment.file.size)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeAttachment}
+                    className="flex-shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
+                    aria-label="Remove attachment"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+
               <label className="sr-only" htmlFor={`${role}-message-draft`}>
                 {t(`${namespace}.composerLabel`)}
               </label>
@@ -842,11 +1148,32 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   />
                 </div>
               )}
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf,.doc,.docx,.txt"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+
               <div className="mt-3 flex items-center justify-between gap-3">
-                <p className="text-xs text-gray-500">{t(`${namespace}.composerHint`)}</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
+                    title="Attach file"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    <span>Attach</span>
+                  </button>
+                  <p className="text-xs text-gray-400">Images, PDF, Word, TXT</p>
+                </div>
                 <button
                   type="submit"
-                  disabled={working || !trimMessageDraft(getCurrentComposerBody())}
+                  disabled={working || (!trimMessageDraft(getCurrentComposerBody()) && !attachment)}
                   className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${theme.composerButton}`}
                 >
                   <Send className="h-4 w-4" />
@@ -866,5 +1193,88 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         )}
       </div>
     </div>
+
+    {showProfileModal && activeConversation
+      ? createPortal(
+          <div
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm'
+            onClick={() => setShowProfileModal(false)}
+          >
+            <div
+              className='w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl'
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className='flex items-center justify-between border-b border-gray-100 px-5 py-4'>
+                <h3 className='font-bold text-gray-900'>Profile Details</h3>
+                <button
+                  type='button'
+                  onClick={() => setShowProfileModal(false)}
+                  className='rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
+                >
+                  <X className='h-5 w-5' />
+                </button>
+              </div>
+
+              {/* Avatar + name */}
+              <div className='flex flex-col items-center px-6 pt-8 pb-4'>
+                <div
+                  className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-xl font-bold text-white shadow-md ${avatarGradient(
+                    activeConversation.counterpart.id ?? activeConversation.counterpart.name
+                  )}`}
+                >
+                  {avatarInitials(activeConversation.counterpart.name)}
+                </div>
+                <p className='mt-4 text-xl font-bold text-gray-900'>{activeConversation.counterpart.name}</p>
+                <p className='mt-1 text-sm text-gray-500'>
+                  {activeConversation.counterpart.email ?? 'No email'}
+                </p>
+                <span
+                  className={`mt-3 rounded-full px-3 py-1 text-xs font-semibold ${
+                    role === 'patient'
+                      ? 'bg-teal-100 text-teal-700'
+                      : role === 'pharmacy'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {role === 'patient' ? 'Doctor' : role === 'pharmacy' ? 'Patient' : 'Patient'}
+                </span>
+              </div>
+
+              {/* Details */}
+              <div className='mx-6 mb-6 divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50'>
+                <div className='flex items-center gap-3 px-4 py-3 text-sm'>
+                  <span className='text-base'>📧</span>
+                  <span className='text-gray-500'>Email</span>
+                  <span className='ml-auto font-medium text-gray-800 truncate max-w-[180px]'>
+                    {activeConversation.counterpart.email ?? 'Not available'}
+                  </span>
+                </div>
+                <div className='flex items-center gap-3 px-4 py-3 text-sm'>
+                  <span className='text-base'>👤</span>
+                  <span className='text-gray-500'>Role</span>
+                  <span className='ml-auto font-medium text-gray-800'>
+                    {role === 'patient' ? 'Healthcare Provider' : 'Patient'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action */}
+              <div className='border-t border-gray-100 px-6 py-4'>
+                <button
+                  type='button'
+                  onClick={() => setShowProfileModal(false)}
+                  className={`w-full rounded-xl bg-gradient-to-r py-2.5 text-sm font-semibold text-white transition hover:opacity-90 ${theme.button}`}
+                >
+                  Message
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 };
