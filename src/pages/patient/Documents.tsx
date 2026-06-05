@@ -35,6 +35,7 @@ export const PatientDocuments = () => {
   const [category, setCategory] = useState<'all' | PatientDocument['category']>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'alphabetical'>('newest');
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -128,7 +129,8 @@ export const PatientDocuments = () => {
         doc.name.toLowerCase().includes(q) ||
         doc.issuedBy.toLowerCase().includes(q) ||
         doc.contains.toLowerCase().includes(q);
-      return matchesCategory && matchesSearch;
+      const matchesPending = !showPendingOnly || doc.status === 'pending';
+      return matchesCategory && matchesSearch && matchesPending;
     });
 
     return result.sort((a, b) => {
@@ -136,7 +138,7 @@ export const PatientDocuments = () => {
       if (sortOrder === 'oldest') return new Date(a.date).getTime() - new Date(b.date).getTime();
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [category, documents, search, sortOrder]);
+  }, [category, documents, search, sortOrder, showPendingOnly]);
 
   const selectedDocument = filtered.find((doc) => doc.id === selectedId) ?? null;
   const loading = labsLoading || prescriptionsLoading || insuranceLoading;
@@ -218,20 +220,20 @@ export const PatientDocuments = () => {
       <div className="grid gap-4 md:grid-cols-4">
         <div
           className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
-          onClick={() => setCategory('all')}
+          onClick={() => { setCategory('all'); setShowPendingOnly(false); }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('all'); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('all'); setShowPendingOnly(false); } }}
         >
           <div className="text-xs uppercase tracking-wide text-slate-400">{t('patient.documents.totalDocs')}</div>
           <div className="mt-2 text-3xl font-bold text-slate-900">{formatLocaleDigits(documents.length, uiLang)}</div>
         </div>
         <div
           className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
-          onClick={() => setCategory('lab-report')}
+          onClick={() => { setCategory('lab-report'); setShowPendingOnly(false); }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('lab-report'); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('lab-report'); setShowPendingOnly(false); } }}
         >
           <div className="text-xs uppercase tracking-wide text-violet-500">{t('patient.documents.labReports')}</div>
           <div className="mt-2 text-3xl font-bold text-violet-600">
@@ -240,10 +242,10 @@ export const PatientDocuments = () => {
         </div>
         <div
           className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
-          onClick={() => setCategory('prescription')}
+          onClick={() => { setCategory('prescription'); setShowPendingOnly(false); }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('prescription'); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('prescription'); setShowPendingOnly(false); } }}
         >
           <div className="text-xs uppercase tracking-wide text-teal-500">{t('patient.documents.prescriptions')}</div>
           <div className="mt-2 text-3xl font-bold text-teal-600">
@@ -252,10 +254,10 @@ export const PatientDocuments = () => {
         </div>
         <div
           className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
-          onClick={() => { setCategory('all'); setSearch(''); }}
+          onClick={() => { setCategory('all'); setSearch(''); setShowPendingOnly(true); }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('all'); setSearch(''); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory('all'); setSearch(''); setShowPendingOnly(true); } }}
         >
           <div className="text-xs uppercase tracking-wide text-amber-500">{t('patient.documents.needsAction')}</div>
           <div className="mt-2 text-3xl font-bold text-amber-600">
@@ -281,7 +283,7 @@ export const PatientDocuments = () => {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setCategory(item.id)}
+                onClick={() => { setCategory(item.id); setShowPendingOnly(false); }}
                 className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
                   category === item.id ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
