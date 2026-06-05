@@ -114,6 +114,7 @@ export const PortalShell = ({
     action_url: string | null;
   } | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     setAccountMenuOpen(false);
@@ -130,6 +131,7 @@ export const PortalShell = ({
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('is_read', false)
+      .not('type', 'eq', 'message')
       .then(({ count }) => {
         setUnreadNotificationsCount(count ?? 0);
       });
@@ -173,6 +175,56 @@ export const PortalShell = ({
     return () => clearTimeout(timer);
   }, [toastVisible]);
 
+  useEffect(() => {
+    if (role !== 'patient' || !user?.id) return;
+
+    const fetchUnreadMessages = async () => {
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('id');
+
+      if (!conversations || conversations.length === 0) return;
+
+      const conversationIds = conversations.map((c) => c.id);
+
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .in('conversation_id', conversationIds)
+        .is('read_at', null)
+        .neq('sender_id', user.id);
+
+      setUnreadMessagesCount(count ?? 0);
+    };
+
+    void fetchUnreadMessages();
+
+    const channel = supabase
+      .channel(`messages:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          void fetchUnreadMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [role, user?.id]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/patient/messages')) {
+      setUnreadMessagesCount(0);
+    }
+  }, [location.pathname]);
+
   const isArabic = i18n.language.startsWith('ar');
   const accountDisplayName =
     profile?.full_name?.trim() || profile?.first_name?.trim() || user?.email?.split('@')[0] || 'Account';
@@ -202,7 +254,7 @@ export const PortalShell = ({
       { id: 'lab-results', label: t('nav.labResults'), icon: Activity, href: '/patient/lab-results' },
       { id: 'imaging', label: t('nav.imagingScans'), icon: Scan, href: '/patient/imaging' },
       { id: 'documents', label: t('nav.documents'), icon: FolderOpen, href: '/patient/documents' },
-      { id: 'messages', label: t('nav.messages'), icon: MessageSquare, href: '/patient/messages' },
+      { id: 'messages', label: t('nav.messages'), icon: MessageSquare, href: '/patient/messages', badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined },
       { id: 'ai-assistant', label: t('nav.aiAssistant'), icon: Bot, href: '/patient/ai-chat' },
       { id: 'insurance', label: t('nav.insurance'), icon: ShieldCheck, href: '/patient/insurance' },
     ];
