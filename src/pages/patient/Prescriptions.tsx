@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useTranslation } from 'react-i18next';
@@ -180,7 +180,23 @@ export const PatientPrescriptions: React.FC = () => {
   const [undoReminderId, setUndoReminderId] = useState<string | null>(null);
   const [showMissedDoseAnalysis, setShowMissedDoseAnalysis] = useState(false);
   const [locallyTakenScheduleIds, setLocallyTakenScheduleIds] = useState<Set<string>>(new Set());
+  const [dbTakenScheduleIds, setDbTakenScheduleIds] = useState<Set<string>>(new Set());
   const [pharmacyError, setPharmacyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const today = new Date().toISOString().split('T')[0];
+    void supabase
+      .from('medication_logs')
+      .select('prescription_item_id')
+      .eq('patient_id', user.id)
+      .eq('taken_date', today)
+      .then(({ data }) => {
+        if (data) {
+          setDbTakenScheduleIds(new Set(data.map((row) => row.prescription_item_id)));
+        }
+      });
+  }, [user?.id]);
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -454,9 +470,23 @@ export const PatientPrescriptions: React.FC = () => {
     primaryInsurance?.coPayPercent == null ? null : Math.max(0, 100 - primaryInsurance.coPayPercent);
   const insuranceCoPayPercent = primaryInsurance?.coPayPercent ?? null;
 
-  const handleMarkScheduleTaken = (itemId: string, doseIndex: number) => {
+  const handleMarkScheduleTaken = async (itemId: string, doseIndex: number) => {
+    if (!user?.id) return;
     const key = `${itemId}-${doseIndex}`;
     setLocallyTakenScheduleIds((prev) => new Set([...prev, key]));
+    const today = new Date().toISOString().split('T')[0];
+    const { error } = await supabase.from('medication_logs').upsert(
+      {
+        patient_id: user.id,
+        prescription_item_id: itemId,
+        taken_date: today,
+        taken_at: new Date().toISOString(),
+      },
+      { onConflict: 'patient_id,prescription_item_id,taken_date' }
+    );
+    if (!error) {
+      setDbTakenScheduleIds((prev) => new Set([...prev, itemId]));
+    }
   };
 
   const toggleExpanded = (id: string) => {
@@ -690,7 +720,7 @@ export const PatientPrescriptions: React.FC = () => {
                 {block.doses.map(({ row, doseIndex }) => {
                   const accent = lineAccent(row.item.medication_name);
                   const doseKey = `${row.item.id}-${doseIndex}`;
-                  const isTaken = locallyTakenScheduleIds.has(doseKey);
+                  const isTaken = locallyTakenScheduleIds.has(doseKey) || dbTakenScheduleIds.has(row.item.id);
                   return (
                     <div
                       key={`${row.item.id}-${doseIndex}`}
@@ -732,7 +762,7 @@ export const PatientPrescriptions: React.FC = () => {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleMarkScheduleTaken(row.item.id, doseIndex)}
+                          onClick={() => void handleMarkScheduleTaken(row.item.id, doseIndex)}
                           className="rounded-full bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700"
                         >
                           {t('patient.prescriptions.scheduleMarkTaken')}
@@ -1397,22 +1427,22 @@ export const PatientPrescriptions: React.FC = () => {
                     <div key={idx} className="flex flex-col items-center">
                       <div
                         className={`flex h-5 w-5 items-center justify-center rounded-full shadow-lg ${
-                          item.is_dispensed
+                          item.is_dispensed || dbTakenScheduleIds.has(item.id)
                             ? 'bg-emerald-500 shadow-emerald-500/30'
                             : 'bg-slate-200'
                         }`}
                       >
-                        {item.is_dispensed ? <div className="h-2 w-2 rounded-full bg-white" /> : null}
+                        {item.is_dispensed || dbTakenScheduleIds.has(item.id) ? <div className="h-2 w-2 rounded-full bg-white" /> : null}
                       </div>
                       <div className="mt-1 text-[11px] font-mono text-slate-500">
                         {t('patient.prescriptions.slotN', { n: idx + 1 })}
                       </div>
                       <div
                         className={`mt-0.5 text-xs font-medium ${
-                          item.is_dispensed ? 'text-emerald-600' : 'text-slate-400'
+                          item.is_dispensed || dbTakenScheduleIds.has(item.id) ? 'text-emerald-600' : 'text-slate-400'
                         }`}
                       >
-                        {item.is_dispensed
+                        {item.is_dispensed || dbTakenScheduleIds.has(item.id)
                           ? t('patient.prescriptions.pharmacyRecorded')
                           : t('patient.prescriptions.scheduleTbd')}
                       </div>
