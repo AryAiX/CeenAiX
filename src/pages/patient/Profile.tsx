@@ -215,21 +215,66 @@ export const Profile: React.FC = () => {
   };
 
   const handleImageUpload = (type: 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance') => {
+    if (!user?.id) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
-          if (type === 'profile') setProfileImage(result);
-          else if (type === 'emiratesFront') setEmiratesIdFront(result);
-          else if (type === 'emiratesBack') setEmiratesIdBack(result);
-          else if (type === 'insurance') setInsuranceInfo({ ...insuranceInfo, cardImage: result });
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const timestamp = Date.now();
+
+      if (type === 'profile') {
+        const path = `${user.id}/avatar_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('avatars')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(path);
+          const publicUrl = urlData.publicUrl;
+          setProfileImage(publicUrl);
+          await supabase
+            .from('user_profiles')
+            .update({ avatar_url: publicUrl })
+            .eq('user_id', user.id);
+        }
+      } else if (type === 'emiratesFront') {
+        const path = `${user.id}/emirates_front_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(path);
+          setEmiratesIdFront(urlData.publicUrl);
+        }
+      } else if (type === 'emiratesBack') {
+        const path = `${user.id}/emirates_back_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(path);
+          setEmiratesIdBack(urlData.publicUrl);
+        }
+      } else if (type === 'insurance') {
+        const path = `${user.id}/insurance_card_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(path);
+          setInsuranceInfo((prev) => ({ ...prev, cardImage: urlData.publicUrl }));
+        }
       }
     };
     input.click();
