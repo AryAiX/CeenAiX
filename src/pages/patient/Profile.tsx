@@ -63,6 +63,7 @@ export const Profile: React.FC = () => {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({});
+  const [confirmDeleteFamilyId, setConfirmDeleteFamilyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -862,7 +863,7 @@ export const Profile: React.FC = () => {
                             </div>
                             <button
                               type="button"
-                              onClick={() => void removeFamilyMember(member.id)}
+                              onClick={() => setConfirmDeleteFamilyId(member.id)}
                               className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                               aria-label={t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member' })}
                             >
@@ -953,6 +954,51 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+      {confirmDeleteFamilyId ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmDeleteFamilyId(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">
+                {t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member?' })}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                <span className="font-semibold text-slate-700">
+                  {familyMembers.find((m) => m.id === confirmDeleteFamilyId)?.name}
+                </span>
+                {' '}{t('patient.profile.removeFamilyConfirm', { defaultValue: 'will be removed from your family members. This cannot be undone.' })}
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteFamilyId(null)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {t('patient.profile.cancel', { defaultValue: 'Cancel' })}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void removeFamilyMember(confirmDeleteFamilyId);
+                  setConfirmDeleteFamilyId(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                {t('patient.records.remove', { defaultValue: 'Remove' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 };
