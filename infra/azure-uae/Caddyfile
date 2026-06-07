@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CeenAiX — Caddy reverse proxy for the Azure UAE self-hosted Supabase stack.
+#
+# Caddy terminates TLS (automatic HTTPS via Let's Encrypt) and proxies all
+# Supabase API traffic — REST (PostgREST), Auth (GoTrue), Storage, Realtime,
+# and Edge Functions (/functions/v1/*) — to the Kong gateway, which routes to
+# the right internal service. The web/mobile apps therefore only need ONE
+# public host (api.uae.ceenaix.com) for VITE_SUPABASE_URL; functions resolve to
+# `${VITE_SUPABASE_URL}/functions/v1` by default (no separate var needed).
+#
+# Replace the domains and email before going live. DNS A records for both hosts
+# must point at the VM's public IP first, or ACME issuance will fail.
+# ─────────────────────────────────────────────────────────────────────────────
+
+{
+	# ACME contact for Let's Encrypt expiry notices. REQUIRED for production.
+	email ops@ceenaix.com
+}
+
+# Supabase API gateway (Kong). This is the host clients use as VITE_SUPABASE_URL.
+api.uae.ceenaix.com {
+	encode zstd gzip
+
+	# Forward everything to Kong. Kong path-routes /rest/v1, /auth/v1,
+	# /storage/v1, /realtime/v1, and /functions/v1 to the correct service.
+	reverse_proxy kong:8000
+
+	# Reasonable upload ceiling for Storage + consultation audio.
+	request_body {
+		max_size 60MB
+	}
+
+	header {
+		# Basic hardening; CORS is handled by Kong/GoTrue config.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	log {
+		output file /data/access-api.log
+	}
+}
+
+# Optional: expose Supabase Studio on its own host, protected by Kong basic auth
+# (DASHBOARD_USERNAME / DASHBOARD_PASSWORD). Restrict to admin IPs via NSG too.
+studio.uae.ceenaix.com {
+	encode zstd gzip
+	reverse_proxy kong:8000
+	log {
+		output file /data/access-studio.log
+	}
+}

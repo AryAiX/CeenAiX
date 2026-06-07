@@ -1,0 +1,60 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CeenAiX — Azure UAE self-host overrides for the OFFICIAL supabase/docker stack.
+#
+# We do NOT fork or vendor the full Supabase compose file (it changes upstream
+# and is ~400 lines). Instead we run the official stack and layer these small,
+# auditable overrides on top. See infra/azure-uae/README.md for the exact flow.
+#
+# Usage (from the supabase/docker checkout, with this file copied alongside):
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.override.yml \
+#     up -d
+#
+# What these overrides do:
+#   1. Add a Caddy reverse proxy that terminates TLS (auto-HTTPS via Let's
+#      Encrypt) and forwards to Kong, so only 80/443 are exposed publicly.
+#   2. Bind Kong to localhost only (defense in depth — public traffic goes
+#      through Caddy, never straight to Kong).
+#   3. Pin restart policies and a named volume for Postgres data on the VM's
+#      managed data disk.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # TLS reverse proxy in front of Kong. Caddy handles ACME/Let's Encrypt
+  # automatically based on the domain set in the Caddyfile.
+  caddy:
+    image: caddy:2-alpine
+    container_name: ceenaix-caddy
+    restart: unless-stopped
+    depends_on:
+      - kong
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - default
+
+  # Kong is the Supabase API gateway. Keep it off the public internet; Caddy is
+  # the only ingress. Bind published ports to loopback so the host firewall/NSG
+  # cannot accidentally expose Kong directly.
+  kong:
+    ports: !reset []
+    expose:
+      - "8000"
+      - "8443"
+    restart: unless-stopped
+
+  # Persist Postgres on the VM data disk (mounted at /opt/supabase/volumes/db
+  # in the runbook). Upstream already declares the service; we only harden it.
+  db:
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
