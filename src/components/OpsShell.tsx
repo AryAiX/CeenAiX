@@ -299,7 +299,7 @@ export const OpsShell = ({
               </div>
             </div>
           </header>
-          <div className="flex-1 overflow-auto">{children}</div>
+          <main className="flex-1 overflow-auto">{children}</main>
         </div>
       </div>
     );

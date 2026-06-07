@@ -240,6 +240,18 @@ test.describe('public and auth journeys', () => {
     await expect(page).toHaveURL(/\/access-denied$/);
     await expect(page.locator('body')).toContainText(/access denied/i);
   });
+
+  test('access denied lets the current user return to their own dashboard', async ({ page }) => {
+    await installSupabaseMocks(page, { role: 'patient' });
+    await seedAuthenticatedRole(page, 'patient');
+
+    await page.goto('/pharmacy/dashboard');
+    await expect(page).toHaveURL(/\/access-denied$/);
+
+    await page.getByRole('link', { name: /open my dashboard/i }).click();
+
+    await expectProtectedPage(page, '/patient/dashboard');
+  });
 });
 
 test.describe('role guard journeys', () => {
