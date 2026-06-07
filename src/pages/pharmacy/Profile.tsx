@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, ShieldCheck, Store, Trash2, UserRound, type LucideIcon } from 'lucide-react';
+import { Plus, ShieldCheck, Store, Trash2, Upload, UserRound, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
@@ -10,6 +10,8 @@ import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export const PharmacyProfile = () => {
   const { t, i18n } = useTranslation('common');
@@ -25,6 +27,10 @@ export const PharmacyProfile = () => {
     fallbackName;
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? fallbackName;
 
+  const [workingHours, setWorkingHours] = useState<Record<string, { open: string; close: string; closed: boolean }>>(() =>
+    Object.fromEntries(DAYS.map((day) => [day, { open: '08:00', close: '22:00', closed: false }]))
+  );
+
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -36,7 +42,16 @@ export const PharmacyProfile = () => {
     address: '',
     operating_hours: '',
     pharmacist_in_charge: '',
+    phone: '',
+    email: '',
+    website: '',
+    emergency_contact: '',
+    dha_connected: false,
+    nabidh_connected: false,
   });
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffSaving, setStaffSaving] = useState(false);
@@ -58,7 +73,18 @@ export const PharmacyProfile = () => {
       address: data?.profile?.address ?? '',
       operating_hours: data?.profile?.operatingHours ?? '',
       pharmacist_in_charge: data?.profile?.pharmacistInCharge ?? '',
+      phone: data?.profile?.phone ?? '',
+      email: data?.profile?.email ?? '',
+      website: data?.profile?.website ?? '',
+      emergency_contact: data?.profile?.emergencyContact ?? '',
+      dha_connected: data?.profile?.dhaConnected ?? false,
+      nabidh_connected: data?.profile?.nabidhConnected ?? false,
     });
+    if (data?.profile?.workingHoursJson) {
+      setWorkingHours(data.profile.workingHoursJson as Record<string, { open: string; close: string; closed: boolean }>);
+    } else {
+      setWorkingHours(Object.fromEntries(DAYS.map((day) => [day, { open: '08:00', close: '22:00', closed: false }])));
+    }
     setEditError(null);
     setEditSuccess(false);
     setEditModalOpen(true);
@@ -77,6 +103,13 @@ export const PharmacyProfile = () => {
           address: editForm.address,
           operating_hours: editForm.operating_hours,
           pharmacist_in_charge: editForm.pharmacist_in_charge,
+          phone: editForm.phone || null,
+          email: editForm.email || null,
+          website: editForm.website || null,
+          emergency_contact: editForm.emergency_contact || null,
+          dha_connected: editForm.dha_connected,
+          nabidh_connected: editForm.nabidh_connected,
+          working_hours_json: workingHours,
         })
         .eq('organization_id', data?.organization?.id);
       if (error) throw error;
@@ -163,6 +196,41 @@ export const PharmacyProfile = () => {
     }
   };
 
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Please upload an image file.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('Image must be under 2MB.');
+      return;
+    }
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `pharmacy-logo-${data?.organization?.id}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('pharmacy-logos')
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from('pharmacy-logos')
+        .getPublicUrl(fileName);
+      const { error: updateError } = await supabase
+        .from('pharmacy_facility_profiles')
+        .update({ logo_url: urlData.publicUrl })
+        .eq('organization_id', data?.organization?.id);
+      if (updateError) throw updateError;
+      void refetch();
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : 'Could not upload logo.');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const operationRows: Array<[string, string | number, LucideIcon, string]> = [
     [t('pharmacy.profile.opPending', { defaultValue: 'Pending prescriptions' }), formatLocaleDigits(data?.pendingPrescriptions ?? 0, uiLang), UserRound, '/pharmacy/dispensing'],
     [t('pharmacy.profile.opAlerts', { defaultValue: 'Inventory alerts' }), formatLocaleDigits(data?.lowStockAlerts ?? 0, uiLang), ShieldCheck, '/pharmacy/inventory'],
@@ -198,13 +266,43 @@ export const PharmacyProfile = () => {
 
           <section className="mb-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-5">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-xl font-bold text-white">
-                {pharmacyName
-                  .split(/\s+/)
-                  .map((part) => part[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
+              <div className="flex flex-col items-center gap-1">
+                <div className="relative">
+                  {data?.profile?.logoUrl ? (
+                    <img
+                      src={data.profile.logoUrl}
+                      alt={pharmacyName}
+                      className="h-16 w-16 rounded-2xl object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-xl font-bold text-white">
+                      {pharmacyName
+                        .split(/\s+/)
+                        .map((part) => part[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  <label className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-emerald-600 shadow-md transition hover:bg-emerald-700">
+                    <Upload className="h-3 w-3 text-white" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleLogoUpload(file);
+                      }}
+                    />
+                  </label>
+                </div>
+                {logoUploading ? (
+                  <div className="text-xs text-emerald-600">Uploading...</div>
+                ) : null}
+                {logoError ? (
+                  <div className="text-xs text-red-500">{logoError}</div>
+                ) : null}
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">{pharmacyName}</h3>
@@ -244,7 +342,9 @@ export const PharmacyProfile = () => {
                 ],
                 [
                   t('pharmacy.profile.fieldHours', { defaultValue: 'Operating Hours' }),
-                  data?.profile?.operatingHours ?? pendingLabel,
+                  data?.profile?.workingHoursJson
+                    ? `${Object.values(data.profile.workingHoursJson as Record<string, { closed: boolean }>).filter((d) => !d.closed).length} days/week`
+                    : data?.profile?.operatingHours ?? pendingLabel,
                 ],
                 [
                   t('pharmacy.profile.fieldPicName', { defaultValue: 'Pharmacist-in-Charge' }),
@@ -255,6 +355,22 @@ export const PharmacyProfile = () => {
                   data?.profile?.dhaConnected
                     ? `${t('pharmacy.profile.connected', { defaultValue: 'Connected' })} ✅`
                     : t('pharmacy.profile.notConnected', { defaultValue: 'Not connected' }),
+                ],
+                [
+                  t('pharmacy.profile.fieldPhone', { defaultValue: 'Phone' }),
+                  data?.profile?.phone ?? pendingLabel,
+                ],
+                [
+                  t('pharmacy.profile.fieldEmail', { defaultValue: 'Email' }),
+                  data?.profile?.email ?? pendingLabel,
+                ],
+                [
+                  t('pharmacy.profile.fieldWebsite', { defaultValue: 'Website' }),
+                  data?.profile?.website ?? pendingLabel,
+                ],
+                [
+                  t('pharmacy.profile.fieldEmergencyContact', { defaultValue: 'Emergency Contact' }),
+                  data?.profile?.emergencyContact ?? pendingLabel,
                 ],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-slate-50 p-3">
@@ -407,20 +523,94 @@ export const PharmacyProfile = () => {
                 { label: 'DHA License Number', key: 'license_number', type: 'text', placeholder: 'DHA-PHARM-2019-003481' },
                 { label: 'License Valid Until', key: 'license_valid_until', type: 'date', placeholder: '' },
                 { label: 'Address', key: 'address', type: 'text', placeholder: 'Al Barsha 1, Dubai, UAE' },
-                { label: 'Operating Hours', key: 'operating_hours', type: 'text', placeholder: '8 AM - 10 PM (Sun-Sat)' },
-                { label: 'Pharmacist-in-Charge', key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan' },
               ].map((field) => (
                 <div key={field.key}>
                   <label className="mb-1 block text-xs font-semibold text-slate-600">{field.label}</label>
                   <input
                     type={field.type}
-                    value={editForm[field.key as keyof typeof editForm]}
+                    value={editForm[field.key as keyof typeof editForm] as string}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
                   />
                 </div>
               ))}
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-600">Working Hours</label>
+                <div className="space-y-2">
+                  {DAYS.map((day) => (
+                    <div key={day} className="flex items-center gap-2">
+                      <div className="w-24 text-xs font-medium text-slate-600">{day}</div>
+                      <input
+                        type="time"
+                        value={workingHours[day].open}
+                        disabled={workingHours[day].closed}
+                        onChange={(e) => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
+                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:border-emerald-400 focus:outline-none disabled:opacity-40"
+                      />
+                      <span className="text-xs text-slate-400">to</span>
+                      <input
+                        type="time"
+                        value={workingHours[day].close}
+                        disabled={workingHours[day].closed}
+                        onChange={(e) => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
+                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:border-emerald-400 focus:outline-none disabled:opacity-40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], closed: !prev[day].closed } }))}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${workingHours[day].closed ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}
+                      >
+                        {workingHours[day].closed ? 'Closed' : 'Open'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {[
+                { label: 'Pharmacist-in-Charge', key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan' },
+                { label: 'Phone', key: 'phone', type: 'tel', placeholder: '+971 4 123 4567' },
+                { label: 'Email', key: 'email', type: 'email', placeholder: 'info@alshifapharmacy.ae' },
+                { label: 'Website', key: 'website', type: 'text', placeholder: 'www.alshifapharmacy.ae' },
+                { label: 'Emergency Contact', key: 'emergency_contact', type: 'text', placeholder: '+971 50 999 8888' },
+              ].map((field) => (
+                <div key={field.key}>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">{field.label}</label>
+                  <input
+                    type={field.type}
+                    value={editForm[field.key as keyof typeof editForm] as string}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                  />
+                </div>
+              ))}
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                <div>
+                  <div className="text-xs font-semibold text-slate-600">DHA Licensed</div>
+                  <div className="text-xs text-slate-400">Dubai Health Authority license status</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditForm((prev) => ({ ...prev, dha_connected: !prev.dha_connected }))}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editForm.dha_connected ? 'bg-emerald-600' : 'bg-slate-200'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${editForm.dha_connected ? 'translate-x-4' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                <div>
+                  <div className="text-xs font-semibold text-slate-600">NABIDH Connected</div>
+                  <div className="text-xs text-slate-400">National unified medical records connection</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditForm((prev) => ({ ...prev, nabidh_connected: !prev.nabidh_connected }))}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editForm.nabidh_connected ? 'bg-teal-600' : 'bg-slate-200'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${editForm.nabidh_connected ? 'translate-x-4' : 'translate-x-1'}`} />
+                </button>
+              </div>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
               <button

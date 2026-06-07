@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -172,6 +173,16 @@ export const PatientRecords: React.FC = () => {
   const [submittingForm, setSubmittingForm] = useState<RecordCategory | null>(null);
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<RecordEntry | null>(null);
+  const [showFormSwitchWarning, setShowFormSwitchWarning] = useState(false);
+  const [pendingForm, setPendingForm] = useState<RecordCategory | null>(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    if (feedback.type !== 'success') return;
+    const timer = setTimeout(() => setFeedback(null), 4000);
+    return () => clearTimeout(timer);
+  }, [feedback]);
 
   const conditions = useMemo(() => data?.conditions ?? [], [data?.conditions]);
   const allergies = useMemo(() => data?.allergies ?? [], [data?.allergies]);
@@ -342,6 +353,42 @@ export const PatientRecords: React.FC = () => {
     setActiveForm(null);
   };
 
+  const hasUnsavedFormData = () => {
+    if (activeForm === 'condition') {
+      return (
+        conditionForm.conditionName.trim() !== '' ||
+        conditionForm.icdCode.trim() !== '' ||
+        conditionForm.diagnosedDate !== '' ||
+        conditionForm.notes.trim() !== ''
+      );
+    }
+    if (activeForm === 'allergy') {
+      return (
+        allergyForm.allergen.trim() !== '' ||
+        allergyForm.reaction.trim() !== ''
+      );
+    }
+    if (activeForm === 'vaccination') {
+      return (
+        vaccinationForm.vaccineName.trim() !== '' ||
+        vaccinationForm.administeredBy.trim() !== '' ||
+        vaccinationForm.administeredDate !== '' ||
+        vaccinationForm.nextDoseDue !== ''
+      );
+    }
+    return false;
+  };
+
+  const handleSwitchForm = (form: RecordCategory) => {
+    if (activeForm && activeForm !== form && hasUnsavedFormData()) {
+      setPendingForm(form);
+      setShowFormSwitchWarning(true);
+    } else {
+      resetForms();
+      setActiveForm(form);
+    }
+  };
+
   const handleCreateCondition = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -494,28 +541,52 @@ export const PatientRecords: React.FC = () => {
 
       <div>
         <div className="grid gap-4 md:grid-cols-4 mb-6">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('condition')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('condition'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.conditions')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(conditions.length, i18n.language)}
             </p>
             <p className="mt-1 text-xs font-medium text-teal-600">{t('patient.records.conditionsSub')}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('allergy')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('allergy'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.allergies')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(allergies.length, i18n.language)}
             </p>
             <p className="mt-1 text-xs font-medium text-amber-600">{t('patient.records.allergiesSub')}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('vaccination')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('vaccination'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.vaccinations')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(vaccinations.length, i18n.language)}
             </p>
             <p className="mt-1 text-xs font-medium text-violet-600">{t('patient.records.vaccinationsSub')}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div
+            className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+            onClick={() => setFilterType('all')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilterType('all'); } }}
+          >
             <p className="text-sm font-medium text-slate-500">{t('patient.records.totalEntries')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {formatLocaleDigits(totalRecords, i18n.language)}
@@ -572,7 +643,7 @@ export const PatientRecords: React.FC = () => {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setActiveForm('condition')}
+                onClick={() => handleSwitchForm('condition')}
                 className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
               >
                 <Plus className="h-4 w-4" />
@@ -580,7 +651,7 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveForm('allergy')}
+                onClick={() => handleSwitchForm('allergy')}
                 className="inline-flex items-center gap-2 rounded-xl border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
               >
                 <Plus className="h-4 w-4" />
@@ -588,7 +659,7 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveForm('vaccination')}
+                onClick={() => handleSwitchForm('vaccination')}
                 className="inline-flex items-center gap-2 rounded-xl border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
               >
                 <Plus className="h-4 w-4" />
@@ -636,7 +707,14 @@ export const PatientRecords: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={resetForms}
+                onClick={() => {
+                  if (hasUnsavedFormData()) {
+                    setShowFormSwitchWarning(true);
+                    setPendingForm(null);
+                  } else {
+                    resetForms();
+                  }
+                }}
                 className="rounded-xl border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
                 aria-label={t('patient.records.closeForm')}
               >
@@ -645,7 +723,7 @@ export const PatientRecords: React.FC = () => {
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.conditionName')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.conditionName')} <span aria-hidden className="text-red-500">*</span></span>
                 <input
                   required
                   type="text"
@@ -658,7 +736,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="text"
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.icdCode}
@@ -670,7 +748,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="date"
                   value={conditionForm.diagnosedDate}
@@ -681,7 +759,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.status')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.status')} <span aria-hidden className="text-red-500">*</span></span>
                 <select
                   value={conditionForm.status}
                   onChange={(event) =>
@@ -698,7 +776,7 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <textarea
                   rows={4}
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.notes}
@@ -721,7 +799,14 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={resetForms}
+                onClick={() => {
+                  if (hasUnsavedFormData()) {
+                    setShowFormSwitchWarning(true);
+                    setPendingForm(null);
+                  } else {
+                    resetForms();
+                  }
+                }}
                 className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
                 {t('patient.records.cancel')}
@@ -739,7 +824,14 @@ export const PatientRecords: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={resetForms}
+                onClick={() => {
+                  if (hasUnsavedFormData()) {
+                    setShowFormSwitchWarning(true);
+                    setPendingForm(null);
+                  } else {
+                    resetForms();
+                  }
+                }}
                 className="rounded-xl border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
                 aria-label={t('patient.records.closeForm')}
               >
@@ -748,7 +840,7 @@ export const PatientRecords: React.FC = () => {
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.allergen')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.allergen')} <span aria-hidden className="text-red-500">*</span></span>
                 <input
                   required
                   type="text"
@@ -761,7 +853,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.severity')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.severity')} <span aria-hidden className="text-red-500">*</span></span>
                 <select
                   value={allergyForm.severity}
                   onChange={(event) =>
@@ -778,7 +870,7 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <textarea
                   rows={4}
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.reaction}
@@ -815,7 +907,14 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={resetForms}
+                onClick={() => {
+                  if (hasUnsavedFormData()) {
+                    setShowFormSwitchWarning(true);
+                    setPendingForm(null);
+                  } else {
+                    resetForms();
+                  }
+                }}
                 className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
                 {t('patient.records.cancel')}
@@ -833,7 +932,14 @@ export const PatientRecords: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={resetForms}
+                onClick={() => {
+                  if (hasUnsavedFormData()) {
+                    setShowFormSwitchWarning(true);
+                    setPendingForm(null);
+                  } else {
+                    resetForms();
+                  }
+                }}
                 className="rounded-xl border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
                 aria-label={t('patient.records.closeForm')}
               >
@@ -842,7 +948,7 @@ export const PatientRecords: React.FC = () => {
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.vaccineName')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.vaccineName')} <span aria-hidden className="text-red-500">*</span></span>
                 <input
                   required
                   type="text"
@@ -855,7 +961,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="number"
                   min={1}
@@ -868,7 +974,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="date"
                   value={vaccinationForm.administeredDate}
@@ -882,7 +988,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="text"
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.administeredBy}
@@ -897,7 +1003,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.nextDose')}</span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.nextDose')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
                 <input
                   type="date"
                   value={vaccinationForm.nextDoseDue}
@@ -919,7 +1025,14 @@ export const PatientRecords: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={resetForms}
+                onClick={() => {
+                  if (hasUnsavedFormData()) {
+                    setShowFormSwitchWarning(true);
+                    setPendingForm(null);
+                  } else {
+                    resetForms();
+                  }
+                }}
                 className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
                 {t('patient.records.cancel')}
@@ -1013,7 +1126,7 @@ export const PatientRecords: React.FC = () => {
                 <div className="mt-4 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => handleDeleteRecord(record)}
+                    onClick={() => setConfirmDeleteRecord(record)}
                     disabled={busyDeleteId === record.id}
                     className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -1035,6 +1148,97 @@ export const PatientRecords: React.FC = () => {
           </div>
         ) : null}
       </div>
+
+      {confirmDeleteRecord ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmDeleteRecord(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">
+                Remove {recordCategoryLabel(confirmDeleteRecord.category)}?
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                <span className="font-semibold text-slate-700">{confirmDeleteRecord.title}</span> will be permanently removed from your records. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteRecord(null)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busyDeleteId === confirmDeleteRecord.id}
+                onClick={async () => {
+                  await handleDeleteRecord(confirmDeleteRecord);
+                  setConfirmDeleteRecord(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busyDeleteId === confirmDeleteRecord.id ? t('patient.records.removing') : t('patient.records.remove')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
+      {showFormSwitchWarning ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowFormSwitchWarning(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <h2 className="text-base font-semibold text-slate-900">
+                Discard unsaved data?
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                You have unsaved information in this form. Are you sure you want to switch? Your changes will be lost.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFormSwitchWarning(false);
+                  setPendingForm(null);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForms();
+                  if (pendingForm) setActiveForm(pendingForm);
+                  setShowFormSwitchWarning(false);
+                  setPendingForm(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 };

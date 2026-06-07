@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +18,9 @@ import {
   Sparkles,
   User,
   Video,
+  X,
+  Copy,
+  CheckCircle,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, usePatientPreVisitAssessments, useQuery } from '../../hooks';
@@ -111,6 +115,17 @@ export const PatientAppointments: React.FC = () => {
   const appointments = useMemo(() => appointmentsData ?? [], [appointmentsData]);
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellingAppointmentId, setCancellingAppointmentId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
+  const [showDirectionsModal, setShowDirectionsModal] = useState(false);
+  const [directionsAppointmentId, setDirectionsAppointmentId] = useState<string | null>(null);
+  const [addressCopied, setAddressCopied] = useState(false);
+  const [showIntakeModal, setShowIntakeModal] = useState(false);
+  const [intakeAppointmentId, setIntakeAppointmentId] = useState<string | null>(null);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarAppointmentId, setCalendarAppointmentId] = useState<string | null>(null);
   const { data: preVisitAssessmentsData } = usePatientPreVisitAssessments(user?.id);
   const preVisitAssessments = useMemo(
     () => preVisitAssessmentsData ?? [],
@@ -279,6 +294,26 @@ export const PatientAppointments: React.FC = () => {
     return days;
   }, [appointments, calendarMonth]);
 
+  const isDateRangeInPast = useMemo(() => {
+    if (!dateFrom) return false;
+    const today = new Date();
+    const currentDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const [y, m, d] = dateFrom.split('-').map(Number);
+    if (!y || !m || !d) return false;
+    const selectedDay = new Date(y, m - 1, d);
+    return selectedDay < currentDay;
+  }, [dateFrom]);
+
+  const isDateRangeInFuture = useMemo(() => {
+    if (!dateFrom) return false;
+    const today = new Date();
+    const currentDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const [y, m, d] = dateFrom.split('-').map(Number);
+    if (!y || !m || !d) return false;
+    const selectedDay = new Date(y, m - 1, d);
+    return selectedDay > currentDay;
+  }, [dateFrom]);
+
   const nextTeleconsult = useMemo(() => {
     const now = Date.now();
     const horizon = now + 24 * 60 * 60 * 1000;
@@ -325,6 +360,18 @@ export const PatientAppointments: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [nextTeleconsult, t, i18n.language]);
 
+  useEffect(() => {
+    if (statusFilter === 'completed') {
+      setIsPastExpanded(true);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (isDateRangeInPast) {
+      setIsPastExpanded(true);
+    }
+  }, [isDateRangeInPast]);
+
   const handleCancelAppointment = async (appointmentId: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
@@ -344,11 +391,22 @@ export const PatientAppointments: React.FC = () => {
     refetch();
   };
 
-  const handleGetDirections = (doctorProfile: DoctorAppointmentProfile | undefined) => {
-    const parts = [doctorProfile?.address, doctorProfile?.city].filter(Boolean);
-    if (parts.length === 0) return;
-    const query = encodeURIComponent(parts.join(', '));
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer');
+  const resetCancelModal = () => {
+    setShowCancelModal(false);
+    setCancellingAppointmentId(null);
+    setCancelReason('');
+    setCancelCustomReason('');
+  };
+
+  const resetDirectionsModal = () => {
+    setShowDirectionsModal(false);
+    setDirectionsAppointmentId(null);
+    setAddressCopied(false);
+  };
+
+  const resetCalendarModal = () => {
+    setShowCalendarModal(false);
+    setCalendarAppointmentId(null);
   };
 
   const isWithin10Min = (appointment: Appointment) => {
@@ -492,7 +550,10 @@ export const PatientAppointments: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate(`/patient/pre-visit/${preVisitAssessment.id}`)}
+                    onClick={() => {
+                      setIntakeAppointmentId(appointment.id);
+                      setShowIntakeModal(true);
+                    }}
                     className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 shadow-sm transition hover:shadow"
                   >
                     {preVisitAssessment.status === 'completed' || preVisitAssessment.status === 'reviewed'
@@ -536,39 +597,38 @@ export const PatientAppointments: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleCancelAppointment(appointment.id)}
+                    onClick={() => {
+                      setCancellingAppointmentId(appointment.id);
+                      setShowCancelModal(true);
+                    }}
                     disabled={busyAppointmentId === appointment.id}
                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-60"
                   >
-                    {busyAppointmentId === appointment.id
-                      ? t('patient.appointments.cancelling')
-                      : t('patient.appointments.cancel')}
+                    {t('patient.appointments.cancel')}
                   </button>
                 </>
               ) : null}
 
-              <button
-                type="button"
-                onClick={() =>
-                  downloadIcs(
-                    appointment,
-                    doctorProfile?.fullName ?? t('shared.doctor'),
-                    [clinicName, clinicAddress].filter(Boolean).join(', '),
-                    {
-                      summary: t('patient.appointments.icsSummary', { doctor: '{doctor}' }),
-                      description: t('shared.scheduledConsultation'),
-                    }
-                  )
-                }
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-              >
-                {t('patient.appointments.addToCalendar')}
-              </button>
-
-              {!isTeleconsult && (clinicAddress || clinicName) ? (
+              {upcoming ? (
                 <button
                   type="button"
-                  onClick={() => handleGetDirections(doctorProfile)}
+                  onClick={() => {
+                    setCalendarAppointmentId(appointment.id);
+                    setShowCalendarModal(true);
+                  }}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  {t('patient.appointments.addToCalendar')}
+                </button>
+              ) : null}
+
+              {upcoming && !isTeleconsult && (clinicAddress || clinicName) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDirectionsAppointmentId(appointment.id);
+                    setShowDirectionsModal(true);
+                  }}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                 >
                   <MapPin className="w-4 h-4 inline mr-2" />
@@ -576,14 +636,30 @@ export const PatientAppointments: React.FC = () => {
                 </button>
               ) : null}
 
-              <button
-                type="button"
-                onClick={() => navigate(`/patient/messages?doctor=${appointment.doctor_id}`)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-              >
-                <MessageSquare className="w-4 h-4 inline mr-2" />
-                {upcoming ? t('patient.messages.messageDoctor') : t('patient.messages.followUpDoctor')}
-              </button>
+              {!CANCELLED_STATUSES.has(appointment.status) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const appointmentDate = new Date(appointment.scheduled_at);
+                    const dateStr = appointmentDate.toLocaleDateString(
+                      locale,
+                      dtOpts({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                    );
+                    const timeStr = appointmentDate.toLocaleTimeString(
+                      locale,
+                      dtOpts({ hour: 'numeric', minute: '2-digit' })
+                    );
+                    const draft = upcoming
+                      ? `Regarding my appointment on ${dateStr} at ${timeStr}: `
+                      : `Following up on my appointment on ${dateStr} at ${timeStr}: `;
+                    navigate(`/patient/messages?doctor=${appointment.doctor_id}&draft=${encodeURIComponent(draft)}`);
+                  }}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4 inline mr-2" />
+                  {upcoming ? t('patient.messages.messageDoctor') : t('patient.messages.followUpDoctor')}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -936,9 +1012,574 @@ export const PatientAppointments: React.FC = () => {
     </div>
   );
 
+  const CANCEL_REASONS = [
+    'Schedule conflict',
+    'Feeling better',
+    'Found another doctor',
+    'Personal reasons',
+    'Other',
+  ] as const;
+
+  const renderCancelModal = () => {
+    if (!showCancelModal || !cancellingAppointmentId) return null;
+
+    const appointment = appointments.find((a) => a.id === cancellingAppointmentId);
+    if (!appointment) return null;
+
+    const doctorProfile = doctorProfileById.get(appointment.doctor_id);
+    const doctorName = doctorProfile?.fullName ?? t('shared.doctor');
+    const appointmentDate = new Date(appointment.scheduled_at);
+    const isBusy = busyAppointmentId === cancellingAppointmentId;
+    const canConfirm =
+      cancelReason !== '' &&
+      (cancelReason !== 'Other' || cancelCustomReason.trim() !== '');
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={resetCancelModal}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <h2 className="text-lg font-semibold text-gray-900">Cancel Appointment</h2>
+            </div>
+            <button
+              type="button"
+              onClick={resetCancelModal}
+              aria-label="Close"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-5">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <p className="font-semibold text-slate-900">{doctorName}</p>
+              <p className="text-sm text-slate-600 mt-1">
+                {appointmentDate.toLocaleDateString(
+                  locale,
+                  dtOpts({ month: 'long', day: '2-digit', year: 'numeric' })
+                )}
+                {' · '}
+                {appointmentDate.toLocaleTimeString(
+                  locale,
+                  dtOpts({ hour: 'numeric', minute: '2-digit' })
+                )}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                Reason for cancellation
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {CANCEL_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setCancelReason(reason)}
+                    className={`px-3 py-2 rounded-lg border text-sm font-medium text-left transition-colors ${
+                      cancelReason === reason
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-teal-300 hover:bg-teal-50/40'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea
+              value={cancelCustomReason}
+              onChange={(e) => setCancelCustomReason(e.target.value)}
+              placeholder="Add additional details (optional)..."
+              required={cancelReason === 'Other'}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              ⚠️ Cancelling within 24 hours of your appointment may incur a cancellation fee.
+            </div>
+          </div>
+
+          <div className="flex gap-3 px-6 pb-6">
+            <button
+              type="button"
+              onClick={resetCancelModal}
+              className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+            >
+              Keep Appointment
+            </button>
+            <button
+              type="button"
+              disabled={!canConfirm || isBusy}
+              onClick={async () => {
+                await handleCancelAppointment(cancellingAppointmentId);
+                resetCancelModal();
+              }}
+              className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isBusy ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Cancelling…
+                </>
+              ) : (
+                'Confirm Cancellation'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  const renderDirectionsModal = () => {
+    if (!showDirectionsModal || !directionsAppointmentId) return null;
+
+    const directionsAppointment = appointments.find((a) => a.id === directionsAppointmentId);
+    const directionsDoctor = directionsAppointment
+      ? doctorProfileById.get(directionsAppointment.doctor_id)
+      : undefined;
+    const address = [directionsDoctor?.address, directionsDoctor?.city].filter(Boolean).join(', ');
+    const clinicLabel = directionsDoctor?.city ?? t('shared.clinicPending');
+    const encodedAddress = encodeURIComponent(address);
+
+    const navApps = [
+      {
+        name: 'Google Maps',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path fill="#4285F4" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+          </svg>
+        ),
+        onClick: () => window.open(
+          `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`,
+          '_blank',
+          'noopener,noreferrer'
+        ),
+      },
+      {
+        name: 'Waze',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path fill="#33CCFF" d="M20.54 6.63C19.08 3.24 15.79 1 12.06 1 6.56 1 2.06 5.5 2.06 11c0 2.12.67 4.08 1.8 5.69L2 22l5.5-1.73A9.94 9.94 0 0 0 12.06 21c5.5 0 9.94-4.5 9.94-10 0-1.61-.39-3.13-1.46-4.37z" />
+          </svg>
+        ),
+        onClick: () => window.open(
+          `https://waze.com/ul?q=${encodedAddress}&navigate=yes`,
+          '_blank',
+          'noopener,noreferrer'
+        ),
+      },
+      {
+        name: 'Apple Maps',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path fill="#000000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+          </svg>
+        ),
+        onClick: () => window.open(
+          `https://maps.apple.com/?daddr=${encodedAddress}&dirflg=d`,
+          '_blank',
+          'noopener,noreferrer'
+        ),
+      },
+      {
+        name: addressCopied ? '✓ Copied!' : 'Copy Address',
+        icon: <Copy className="w-6 h-6 text-slate-600" />,
+        onClick: () => {
+          navigator.clipboard.writeText(address).then(() => {
+            setAddressCopied(true);
+            window.setTimeout(() => setAddressCopied(false), 2000);
+          });
+        },
+      },
+    ];
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={resetDirectionsModal}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-5 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-5 w-5 text-teal-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Get Directions</h2>
+            </div>
+            <button
+              type="button"
+              onClick={resetDirectionsModal}
+              aria-label="Close"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-5">
+            <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <MapPin className="h-5 w-5 text-teal-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-slate-900 text-sm">{clinicLabel}</p>
+                {address ? (
+                  <p className="text-sm text-slate-600 mt-0.5">{address}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                Choose your navigation app
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {navApps.map((app) => (
+                  <button
+                    key={app.name}
+                    type="button"
+                    onClick={app.onClick}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm font-medium text-gray-700 transition-all hover:border-teal-400 hover:bg-teal-50/40 hover:shadow-sm"
+                  >
+                    {app.icon}
+                    <span className="text-xs leading-tight">{app.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 pb-5">
+            <button
+              type="button"
+              onClick={resetDirectionsModal}
+              className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  const renderCalendarModal = () => {
+    if (!showCalendarModal || !calendarAppointmentId) return null;
+
+    const appointment = appointments.find((a) => a.id === calendarAppointmentId);
+    if (!appointment) return null;
+
+    const doctorProfile = doctorProfileById.get(appointment.doctor_id);
+    const clinicName = doctorProfile?.city ?? t('shared.clinicPending');
+    const clinicAddress = doctorProfile?.address ?? '';
+    const location = [clinicName, clinicAddress].filter(Boolean).join(', ');
+    const doctorName = doctorProfile?.fullName ?? t('shared.doctor');
+
+    const icsLabels = {
+      summary: t('patient.appointments.icsSummary', { doctor: '{doctor}' }),
+      description: t('shared.scheduledConsultation'),
+    };
+
+    const startDate = new Date(appointment.scheduled_at);
+    const endDate = new Date(startDate.getTime() + appointment.duration_minutes * 60_000);
+    const formatGoogleDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Appointment with ${doctorName}`)}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${encodeURIComponent(appointment.chief_complaint ?? t('shared.scheduledConsultation'))}&location=${encodeURIComponent(location)}`;
+    const outlookUrl = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(`Appointment with ${doctorName}`)}&startdt=${startDate.toISOString()}&enddt=${endDate.toISOString()}&body=${encodeURIComponent(appointment.chief_complaint ?? t('shared.scheduledConsultation'))}&location=${encodeURIComponent(location)}`;
+
+    const calendarApps = [
+      {
+        name: 'Google Calendar',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path fill="#4285F4" d="M19.5 3h-3V1.5h-1.5V3h-6V1.5H7.5V3h-3C3.675 3 3 3.675 3 4.5v15c0 .825.675 1.5 1.5 1.5h15c.825 0 1.5-.675 1.5-1.5v-15c0-.825-.675-1.5-1.5-1.5zm0 16.5h-15V9h15v10.5zM7.5 6H6V4.5h1.5V6zm9 0H15V4.5h1.5V6z"/>
+          </svg>
+        ),
+        onClick: () => window.open(googleCalendarUrl, '_blank', 'noopener,noreferrer'),
+      },
+      {
+        name: 'Apple Calendar',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path fill="#000000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+          </svg>
+        ),
+        onClick: () => downloadIcs(appointment, doctorName, location, icsLabels),
+      },
+      {
+        name: 'Outlook',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6">
+            <path fill="#0078D4" d="M24 7.387v13.276A1.34 1.34 0 0 1 22.661 22H7.339A1.34 1.34 0 0 1 6 20.663V18h10.605a1.79 1.79 0 0 0 1.777-1.777V7.5l.72.55zm-7.612-.5H1.339A1.34 1.34 0 0 0 0 8.224v9.553A1.34 1.34 0 0 0 1.339 19.1h15.049A1.34 1.34 0 0 0 17.727 17.777V8.224A1.34 1.34 0 0 0 16.388 6.887z"/>
+          </svg>
+        ),
+        onClick: () => window.open(outlookUrl, '_blank', 'noopener,noreferrer'),
+      },
+      {
+        name: 'Download ICS',
+        icon: (
+          <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        ),
+        onClick: () => downloadIcs(appointment, doctorName, location, icsLabels),
+      },
+    ];
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={resetCalendarModal}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-5 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-teal-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
+            </div>
+            <button
+              type="button"
+              onClick={resetCalendarModal}
+              aria-label="Close"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <Calendar className="h-4 w-4 text-teal-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-slate-900 text-sm">{doctorName}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {startDate.toLocaleDateString(locale, dtOpts({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }))}
+                  {' · '}
+                  {startDate.toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                Choose your calendar app
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {calendarApps.map((app) => (
+                  <button
+                    key={app.name}
+                    type="button"
+                    onClick={app.onClick}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm font-medium text-gray-700 transition-all hover:border-teal-400 hover:bg-teal-50/40 hover:shadow-sm"
+                  >
+                    {app.icon}
+                    <span className="text-xs leading-tight">{app.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 pb-5">
+            <button
+              type="button"
+              onClick={resetCalendarModal}
+              className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  const renderIntakeModal = () => {
+    if (!showIntakeModal || !intakeAppointmentId) return null;
+
+    const appointment = appointments.find((a) => a.id === intakeAppointmentId);
+    if (!appointment) return null;
+
+    const doctorProfile = doctorProfileById.get(appointment.doctor_id);
+    const doctorName = doctorProfile?.fullName ?? t('shared.doctor');
+    const preVisitAssessment = preVisitAssessmentByAppointmentId.get(appointment.id);
+    const appointmentDate = new Date(appointment.scheduled_at);
+    const isTeleconsult = appointment.type === 'virtual';
+    const isAssessmentDone =
+      preVisitAssessment?.status === 'completed' || preVisitAssessment?.status === 'reviewed';
+
+    const closeIntakeModal = () => {
+      setShowIntakeModal(false);
+      setIntakeAppointmentId(null);
+    };
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={closeIntakeModal}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="h-5 w-5 text-teal-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Pre-Visit Intake Summary</h2>
+            </div>
+            <button
+              type="button"
+              onClick={closeIntakeModal}
+              aria-label="Close"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-5">
+            <div className="flex gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white font-semibold text-lg">
+                {doctorProfile ? getDoctorInitials(doctorName) : <User className="h-6 w-6" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-900">{doctorName}</p>
+                <p className="text-sm text-slate-600">{doctorProfile?.specialty ?? t('shared.careVisit')}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-teal-600" />
+                    {appointmentDate.toLocaleDateString(locale, dtOpts({ month: 'short', day: '2-digit', year: 'numeric' }))}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-teal-600" />
+                    {appointmentDate.toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${isTeleconsult ? 'border-violet-300 bg-violet-100 text-violet-700' : 'border-teal-300 bg-teal-100 text-teal-700'}`}>
+                    {isTeleconsult ? <Video className="h-3 w-3" /> : null}
+                    {isTeleconsult ? t('patient.appointments.filterTeleconsult') : t('patient.appointments.filterInPerson')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-gray-900">Reason for Visit</h3>
+              <div className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+                {appointment.chief_complaint ?? <span className="text-teal-500 italic">No reason provided</span>}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-gray-900">Additional Notes</h3>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                {appointment.notes
+                  ? <span className="whitespace-pre-wrap">{appointment.notes}</span>
+                  : <span className="text-slate-400 italic">No additional notes provided</span>}
+              </div>
+            </div>
+
+            {preVisitAssessment ? (
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-gray-900">Pre-Visit Assessment</h3>
+                <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-teal-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      {t('patient.appointments.preVisitPrefix')}{' '}
+                      {preVisitStatusLabel(t, preVisitAssessment.status)}
+                    </span>
+                  </div>
+                  {isAssessmentDone ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-green-700">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        Assessment completed
+                      </div>
+                      {isUpcoming(appointment) ? (
+                        <button
+                          type="button"
+                          onClick={() => { navigate(`/patient/pre-visit/${preVisitAssessment.id}`); closeIntakeModal(); }}
+                          className="rounded-lg border border-teal-200 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 transition hover:bg-teal-50"
+                        >
+                          ✏️ Edit Intake Form
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-amber-700">
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                        Assessment not yet completed
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { navigate(`/patient/pre-visit/${preVisitAssessment.id}`); closeIntakeModal(); }}
+                        className="rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-700"
+                      >
+                        Complete Intake Form
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex gap-3 px-6 pb-6">
+            <button
+              type="button"
+              onClick={closeIntakeModal}
+              className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-sm transition-colors"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => { navigate(`/patient/messages?doctor=${appointment.doctor_id}`); closeIntakeModal(); }}
+              className="flex-1 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Message Doctor
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   const showSuccessBanner = searchParams.get('booked') === '1';
   const showRescheduledBanner = searchParams.get('rescheduled') === '1';
   const showPreVisitCompletedBanner = searchParams.get('previsit') === 'completed';
+
+  useEffect(() => {
+    if (!showSuccessBanner && !showRescheduledBanner && !showPreVisitCompletedBanner) return;
+    const timer = setTimeout(() => {
+      navigate('/patient/appointments', { replace: true });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [showSuccessBanner, showRescheduledBanner, showPreVisitCompletedBanner, navigate]);
+
   const isLoadingPage = loading || doctorProfilesLoading;
   const totalFilteredEmpty =
     !isLoadingPage &&
@@ -1089,39 +1730,41 @@ export const PatientAppointments: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-8 animate-slideUp" style={{ animationDelay: '80ms' }}>
-                <section>
-                  <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
-                        {t('patient.appointments.upcomingTitle')}
-                      </h2>
-                      <span className="rounded-full bg-teal-600 px-3 py-1 text-sm font-semibold text-white shadow-sm">
-                        {upcomingAppointments.length}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-500">
-                      {t('patient.appointments.upcomingSub')}
-                    </p>
-                  </div>
-
-                  {upcomingAppointments.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
-                      <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-                      <p className="font-semibold text-slate-900">
-                        {t('patient.appointments.noUpcomingTitle')}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {t('patient.appointments.noUpcomingBody')}
+                {statusFilter !== 'completed' && statusFilter !== 'cancelled' && !isDateRangeInPast ? (
+                  <section>
+                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
+                          {t('patient.appointments.upcomingTitle')}
+                        </h2>
+                        <span className="rounded-full bg-teal-600 px-3 py-1 text-sm font-semibold text-white shadow-sm">
+                          {upcomingAppointments.length}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500">
+                        {t('patient.appointments.upcomingSub')}
                       </p>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {upcomingAppointments.map(renderAppointmentCard)}
-                    </div>
-                  )}
-                </section>
 
-                {cancelledAppointments.length > 0 ? (
+                    {upcomingAppointments.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                        <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                        <p className="font-semibold text-slate-900">
+                          {t('patient.appointments.noUpcomingTitle')}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {t('patient.appointments.noUpcomingBody')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {upcomingAppointments.map(renderAppointmentCard)}
+                      </div>
+                    )}
+                  </section>
+                ) : null}
+
+                {statusFilter !== 'upcoming' && statusFilter !== 'completed' && cancelledAppointments.length > 0 ? (
                   <section>
                     <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
                       <div className="flex items-center gap-3">
@@ -1139,7 +1782,34 @@ export const PatientAppointments: React.FC = () => {
                   </section>
                 ) : null}
 
-                {renderPastTable()}
+                {statusFilter !== 'upcoming' && statusFilter !== 'cancelled' && !isDateRangeInFuture ? (
+                  statusFilter === 'completed' || isDateRangeInPast ? (
+                    <section>
+                      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <h2 className="font-playfair text-2xl md:text-3xl font-bold text-slate-900">
+                            {t('patient.appointments.filterCompleted')}
+                          </h2>
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                            {pastAppointments.length}
+                          </span>
+                        </div>
+                      </div>
+                      {pastAppointments.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                          <p className="font-semibold text-slate-900">
+                            {t('patient.appointments.noPastBody')}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {pastAppointments.map(renderAppointmentCard)}
+                        </div>
+                      )}
+                    </section>
+                  ) : renderPastTable()
+                ) : null}
               </div>
             )}
           </div>
@@ -1153,6 +1823,11 @@ export const PatientAppointments: React.FC = () => {
         }
         .animate-pulse-border { animation: pulse-border 2s ease-in-out infinite; }
       `}</style>
+
+      {renderCancelModal()}
+      {renderDirectionsModal()}
+      {renderIntakeModal()}
+      {renderCalendarModal()}
     </>
   );
 };

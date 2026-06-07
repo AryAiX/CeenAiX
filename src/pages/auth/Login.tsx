@@ -111,6 +111,7 @@ export const Login = () => {
     requestOtp,
     signInWithPassword,
     updatePassword,
+    signOut,
   } = useAuth();
 
   const rolePresets = useMemo(() => getRolePresets(t), [t]);
@@ -141,6 +142,7 @@ export const Login = () => {
     accountCreated ? t('auth.login.accountCreatedCheckEmail') : null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const recoveryRedirectRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -167,9 +169,14 @@ export const Login = () => {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && !isRecoveryMode) {
-      navigate(redirectTarget ?? getDefaultRouteForRole(role), { replace: true });
+      const roleMatches = !selectedRole ||
+        (selectedRole === 'admin' && (role === 'super_admin' || role === 'facility_admin')) ||
+        selectedRole === role;
+      if (roleMatches) {
+        navigate(redirectTarget ?? getDefaultRouteForRole(role), { replace: true });
+      }
     }
-  }, [isAuthenticated, isLoading, isRecoveryMode, navigate, redirectTarget, role]);
+  }, [isAuthenticated, isLoading, isRecoveryMode, navigate, redirectTarget, role, selectedRole]);
 
   const resetFeedback = () => {
     setErrorMessage(null);
@@ -260,6 +267,12 @@ export const Login = () => {
       recoveryRedirectRef.current = null;
       navigate(getDefaultRouteForRole(role), { replace: true });
     }, 600);
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    await signOut();
+    setIsSigningOut(false);
   };
 
   const RoleIcon = rolePreset?.icon ?? UserRound;
@@ -421,6 +434,26 @@ export const Login = () => {
                   <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                   <span>{t('auth.login.backToRoleSelection')}</span>
                 </Link>
+              ) : null}
+
+              {isAuthenticated && !isRecoveryMode && selectedRole && selectedRole !== role &&
+               !(selectedRole === 'admin' && (role === 'super_admin' || role === 'facility_admin')) ? (
+                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-800">
+                    You are already signed in as a <span className="capitalize">{role}</span>.
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Sign out first to access the {rolePreset?.title ?? selectedRole} portal.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    disabled={isSigningOut}
+                    className="mt-3 w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+                  >
+                    {isSigningOut ? 'Signing out...' : 'Sign out & switch portal'}
+                  </button>
+                </div>
               ) : null}
 
               {rolePreset ? (
