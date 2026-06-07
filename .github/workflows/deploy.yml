@@ -3,12 +3,28 @@ name: Release
 # Manual production release only (Actions → Release → Run workflow).
 # Does NOT run on push/merge. Dev deploys via the Build workflow (ci.yml).
 #
-# Secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_PROJECT_REF, VERCEL_* , VITE_SUPABASE_PROD_* .
-# Optional: SUPABASE_PROD_DB_PASSWORD (CLI fallback only), SUPABASE_RESEND_SMTP_PASSWORD
-# Optional: SUPABASE_RESEND_SMTP_PASSWORD
+# Existing prod secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_PROJECT_REF,
+# VERCEL_* , VITE_SUPABASE_PROD_* .
+# Optional existing prod secrets: SUPABASE_PROD_DB_PASSWORD (CLI fallback only),
+# SUPABASE_RESEND_SMTP_PASSWORD.
+#
+# Azure UAE optional secrets: AZURE_UAE_HOST, AZURE_UAE_SSH_KEY,
+# AZURE_UAE_SUPABASE_URL, AZURE_UAE_SUPABASE_ANON_KEY,
+# AZURE_UAE_SUPABASE_FUNCTIONS_URL, AZURE_UAE_POSTGRES_PASSWORD.
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy_azure_uae:
+        description: Deploy the Azure UAE self-hosted web/functions target after existing prod deploy
+        required: true
+        default: false
+        type: boolean
+      apply_azure_uae_migrations:
+        description: Apply Azure UAE database migrations through an SSH tunnel
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   prod-supabase:
@@ -103,3 +119,85 @@ jobs:
           VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  azure-uae-migrations:
+    name: Azure UAE Migrations
+    needs: prod-deploy
+    if: ${{ inputs.deploy_azure_uae && inputs.apply_azure_uae_migrations }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install Postgres client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Configure SSH key
+        env:
+          AZURE_UAE_SSH_KEY: ${{ secrets.AZURE_UAE_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$AZURE_UAE_SSH_KEY" > ~/.ssh/azure_uae
+          chmod 600 ~/.ssh/azure_uae
+
+      - name: Apply self-host migrations through SSH tunnel
+        env:
+          AZURE_UAE_HOST: ${{ secrets.AZURE_UAE_HOST }}
+          AZURE_UAE_POSTGRES_PASSWORD: ${{ secrets.AZURE_UAE_POSTGRES_PASSWORD }}
+        run: |
+          ssh -i ~/.ssh/azure_uae -o StrictHostKeyChecking=accept-new \
+            -fN -L 6543:localhost:5432 "azureuser@${AZURE_UAE_HOST}"
+          AZURE_UAE_DB_URL="postgresql://postgres:${AZURE_UAE_POSTGRES_PASSWORD}@127.0.0.1:6543/postgres" \
+            bash scripts/azure-uae-apply-migrations.sh
+
+  azure-uae-deploy:
+    name: Azure UAE Web and Functions
+    needs:
+      - prod-deploy
+      - azure-uae-migrations
+    if: ${{ always() && inputs.deploy_azure_uae && needs.prod-deploy.result == 'success' && (needs.azure-uae-migrations.result == 'success' || needs.azure-uae-migrations.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build Azure UAE web bundle
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.AZURE_UAE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.AZURE_UAE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_FUNCTIONS_URL: ${{ secrets.AZURE_UAE_SUPABASE_FUNCTIONS_URL }}
+          VITE_PREVIEW_PIN_GATE: "false"
+        run: npm run build
+
+      - name: Configure SSH key
+        env:
+          AZURE_UAE_SSH_KEY: ${{ secrets.AZURE_UAE_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$AZURE_UAE_SSH_KEY" > ~/.ssh/azure_uae
+          chmod 600 ~/.ssh/azure_uae
+
+      - name: Deploy web bundle and Edge Function source
+        env:
+          AZURE_UAE_HOST: ${{ secrets.AZURE_UAE_HOST }}
+        run: AZURE_UAE_SSH_KEY_PATH="$HOME/.ssh/azure_uae" bash scripts/azure-uae-deploy-vm.sh

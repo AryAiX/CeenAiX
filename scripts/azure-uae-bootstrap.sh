@@ -30,6 +30,7 @@
 #   API_EXTERNAL_URL      public API URL (default https://api.uae.ceenaix.com)
 #   SITE_URL              web app origin (default https://uae.ceenaix.com)
 #   INFRA_DIR             path to this repo's infra/azure-uae (default: alongside script)
+#   WEB_ROOT              static web root mounted into Caddy (default /var/www/ceenaix)
 #   START_STACK           "true" to run `docker compose up -d` (default true)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -38,6 +39,7 @@ STACK_DIR="${STACK_DIR:-/opt/supabase}"
 SUPABASE_REF="${SUPABASE_REF:-master}"
 API_EXTERNAL_URL="${API_EXTERNAL_URL:-https://api.uae.ceenaix.com}"
 SITE_URL="${SITE_URL:-https://uae.ceenaix.com}"
+WEB_ROOT="${WEB_ROOT:-/var/www/ceenaix}"
 START_STACK="${START_STACK:-true}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -125,6 +127,27 @@ install_overrides() {
   cp "${INFRA_DIR}/Caddyfile" "${STACK_DIR}/Caddyfile"
 }
 
+install_web_root() {
+  log "Preparing web root at ${WEB_ROOT}…"
+  sudo mkdir -p "${WEB_ROOT}"
+  if [[ ! -f "${WEB_ROOT}/index.html" ]]; then
+    sudo tee "${WEB_ROOT}/index.html" >/dev/null <<'HTMLEOF'
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CeenAiX Azure UAE</title>
+  </head>
+  <body>
+    <h1>CeenAiX Azure UAE environment is online</h1>
+    <p>The production web bundle has not been deployed yet.</p>
+  </body>
+</html>
+HTMLEOF
+  fi
+}
+
 # ── 4. Generate secrets into .env (first run only) ───────────────────────────
 generate_env() {
   local env_file="${STACK_DIR}/.env"
@@ -161,6 +184,7 @@ subs = {
     "API_EXTERNAL_URL": "${API_EXTERNAL_URL}",
     "SUPABASE_PUBLIC_URL": "${API_EXTERNAL_URL}",
     "SITE_URL": "${SITE_URL}",
+    "ADDITIONAL_REDIRECT_URLS": "${SITE_URL},ceenaix://auth-callback",
 }
 out = []
 for line in open(path):
@@ -196,6 +220,7 @@ main() {
   install_docker
   fetch_supabase
   install_overrides
+  install_web_root
   generate_env
   start_stack
   log "Done. Next: apply migrations + deploy Edge Functions per the runbook."
