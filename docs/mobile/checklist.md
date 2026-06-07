@@ -13,8 +13,8 @@
 
 - [x] Create branch `mobile-6-1` from `origin/main`
 - [x] Plan + checklist committed before building
-- [ ] Small focused commits per workstream
-- [ ] Push `-u origin mobile-6-1` and open **draft** PR (do not merge)
+- [x] Small focused commits per workstream
+- [x] Push `-u origin mobile-6-1` and open **draft** PR (do not merge)
 - [x] Exclude unrelated `docs/reviews/pr-70-review.md` from commits
 
 ---
@@ -22,75 +22,75 @@
 ## 1. Mobile platform setup
 
 ### 1.1 Project scaffold
-- [ ] Expo TypeScript app under `mobile/` (own `package.json` / lockfile)
-- [ ] TypeScript **strict** mode, `no any`
-- [ ] `mobile/.gitignore` (node_modules, .env, .expo, build artifacts)
-- [ ] `mobile/README.md` with run/build instructions
-- [ ] Does **not** break web build (web tsconfig only includes `src`; eslint ignores `mobile`)
+- [x] Expo TypeScript app under `mobile/` (own `package.json` / lockfile)
+- [x] TypeScript **strict** mode, `no any`
+- [x] `mobile/.gitignore` (node_modules, .env, .expo, build artifacts)
+- [x] `mobile/README.md` with run/build instructions
+- [x] Does **not** break web build (web tsconfig only includes `src`; eslint ignores `mobile`)
 
 ### 1.2 Navigation
-- [ ] React Navigation installed (native stack + bottom tabs)
-- [ ] Root navigator switches Auth stack vs App (tabs) on session
-- [ ] Bottom tab navigator: Home · Appointments · Records · Notifications · Profile
-- [ ] Stack navigators per tab for detail screens
-- [ ] Deep linking config (`ceenaix://`) — scaffolded, routes stubbed
+- [x] React Navigation installed (native stack + bottom tabs)
+- [x] Root navigator switches Auth stack vs App (tabs) on session
+- [x] Bottom tab navigator: Home · Appointments · Records · Notifications · Profile
+- [x] Stack navigators per tab for detail screens
+- [~] Deep linking config (`ceenaix://`) — scaffolded in RootNavigator
 
 ### 1.3 Theming / design system
-- [ ] NativeWind configured (`tailwind.config.js`, `global.css`, babel)
-- [ ] Brand tokens mirrored from web (`teal`/`slate`, spacing) into `theme.ts`
-- [ ] Shared typed `theme` for non-NativeWind surfaces (nav, status bar)
-- [ ] Reusable primitives: `Screen`, `Card`, `Button`, `Skeleton`, `ErrorState`
+- [x] NativeWind configured (`tailwind.config.js`, `global.css`, babel)
+- [x] Brand tokens mirrored from web (`teal`/`slate`, spacing) into `theme.ts`
+- [x] Shared typed `theme` for non-NativeWind surfaces (nav, status bar)
+- [x] Reusable primitives: `Screen`, `Card`, `Button`, `Skeleton`, `ErrorState`, `EmptyState`
 
 ### 1.4 Supabase client
-- [ ] `@supabase/supabase-js` + `react-native-url-polyfill` + `AsyncStorage`
-- [ ] Client with `persistSession` + `autoRefreshToken`, `detectSessionInUrl: false`
-- [ ] Reads `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] RLS preserved; only patient token sent (no service role)
+- [x] `@supabase/supabase-js` + `react-native-url-polyfill` + `AsyncStorage`
+- [x] Client with `persistSession` + `autoRefreshToken`, `detectSessionInUrl: false`
+- [x] Reads `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [x] RLS preserved; only patient token sent (no service role)
 
 ### 1.5 Auth / session persistence
-- [ ] Auth context (parity with web `auth-context.tsx`, sans react-router)
-- [ ] Session hydrate + `onAuthStateChange` subscription
-- [ ] Loads `user_profiles` + `patient_profiles`; exposes `role`
-- [ ] Route guard: only `role === 'patient'` reaches app tabs
-- [ ] Sign out
+- [x] Auth context (parity with web `auth-context.tsx`, sans react-router)
+- [x] Session hydrate + `onAuthStateChange` subscription
+- [x] Loads `user_profiles` + `patient_profiles`; exposes `role`
+- [x] Route guard: only `role === 'patient'` reaches app tabs
+- [x] Sign out
 - [ ] Biometric unlock (Face ID / fingerprint) — `expo-local-authentication` deferred
 
 ### 1.6 Env config
-- [ ] `mobile/.env.example` (`EXPO_PUBLIC_*`, no secrets)
-- [ ] Typed env accessor with friendly missing-var warning
+- [x] `mobile/.env.example` (`EXPO_PUBLIC_*`, no secrets)
+- [x] Typed env accessor with friendly missing-var warning (`src/lib/env.ts`)
 
 ### 1.7 i18n (EN + Arabic / RTL)
-- [ ] i18next + react-i18next init for RN
-- [ ] Reuse existing `src/locales/{en,ar}` resources via path alias
-- [ ] Language switch persisted (AsyncStorage)
-- [ ] RTL handling baseline (`I18nManager` flip on Arabic)
+- [x] i18next + react-i18next init for RN
+- [x] Reuse existing `src/locales/{en,ar}` resources via path alias
+- [x] Language switch persisted (AsyncStorage) — toggle on Profile screen
+- [x] RTL handling baseline (`I18nManager` flip on Arabic)
 
 ### 1.8 Push notifications (stub)
-- [ ] `expo-notifications` permission + token registration **stub** (no prod credentials)
+- [~] `expo-notifications` permission + token registration **stub** (no prod credentials)
 - [ ] Wire appointment / message / lab-result push (Phase 2, needs APNs/FCM)
 
 ### 1.9 Native capture & offline (foundation)
-- [ ] Camera / image-picker for document + Emirates ID capture — deferred hook
-- [ ] Pull-to-refresh wired on data screens (RefreshControl)
+- [ ] Camera / image-picker for document + Emirates ID capture — deferred
+- [x] Pull-to-refresh wired on data screens (RefreshControl on Dashboard + Appointments)
 - [ ] Offline-friendly last-fetch caching — pattern documented, deferred
 
 ### 1.10 Build / run
-- [ ] `npm run typecheck` (tsc) for mobile
-- [ ] Documented: `npx expo start`, `npm run ios`, `npm run android`, `npm run web`
+- [x] `npm run typecheck` (tsc) for mobile — passes
+- [x] Documented: `npx expo start`, `npm run ios`, `npm run android`, `npm run web`
 - [ ] EAS build profile (`eas.json`) — deferred (no store submission this branch)
 
 ### 1.11 Testing
-- [ ] Test setup note (jest-expo) — documented; unit tests deferred
-- [ ] Typecheck is the green gate for this foundation pass
+- [~] Test setup note (jest-expo) — documented; unit tests deferred
+- [x] Typecheck is the green gate for this foundation pass
 
 ---
 
 ## 2. Shared code reuse
 
-- [ ] `src/types/*` reused via `@ceenaix/types` path alias (no copy)
-- [ ] `src/locales/*` reused via `@ceenaix/locales` path alias (no copy)
-- [ ] Metro configured to resolve files outside `mobile/`
-- [ ] Mobile data hooks replicate canonical query logic (same tables/columns)
+- [x] `src/types/*` reused via `@ceenaix/types` path alias (no copy)
+- [x] `src/locales/*` reused via `@ceenaix/locales` path alias (no copy)
+- [x] Metro configured to resolve files outside `mobile/`
+- [x] Mobile data hooks replicate canonical query logic (same tables/columns)
 - [ ] **Deeper reuse:** extract pure hook query/transform bodies into a
       `shared/` workspace package that accepts an injected `SupabaseClient`
       (touches web hooks → deferred; see overview.md)
@@ -100,40 +100,39 @@
 ## 3. Patient screens (parity with `src/pages/patient/*`)
 
 ### 3.1 Auth — Login + Signup (`/auth/login`, `/auth/register`)
-- [ ] Login screen (email + password) → Supabase `signInWithPassword`
-- [ ] Signup screen (name, email, password, terms) → `signUpWithPassword` (role `patient`)
-- [ ] Loading + error states; friendly auth error messages
-- [ ] Redirect to tabs on authenticated patient session
+- [x] Login screen (email + password) → Supabase `signInWithPassword`
+- [x] Signup screen (name, email, password, terms) → `signUpWithPassword` (role `patient`)
+- [x] Loading + error states; friendly auth error messages
+- [x] Redirect to tabs on authenticated patient session
 - [ ] Phone OTP login (Phase 2 parity)
 - [ ] Forgot password flow
 
 ### 3.2 Dashboard (`/patient/dashboard`) — **vertical slice (real data)**
-- [ ] Greeting + health score / adherence header
-- [ ] Stat cards (HbA1c, blood pressure, last labs, medications)
-- [ ] Next appointment card (doctor, specialty, time, countdown)
-- [ ] Today's medications list (mark-taken affordance)
-- [ ] Insurance summary card
-- [ ] AI health tip card (entry to AI chat)
-- [ ] Bound to real Supabase data (canonical schema, RLS-scoped)
-- [ ] Loading skeletons + error state + pull-to-refresh
+- [x] Greeting + adherence header
+- [x] Stat cards (upcoming, HbA1c, blood pressure, medications) from real data
+- [x] Next appointment card (doctor, specialty, time, countdown)
+- [x] Today's medications list (dispensed indicator)
+- [x] Insurance summary card
+- [x] AI health tip card
+- [x] Bound to real Supabase data (canonical schema, RLS-scoped)
+- [x] Loading skeletons + error state + pull-to-refresh
 - [ ] HbA1c / BP trend charts (web uses SVG; mobile chart deferred)
 
 ### 3.3 Appointments (`/patient/appointments`, `/:id`, `/book`) — **slice (real data)**
-- [ ] Upcoming / past list from `appointments` (RLS-scoped, `is_deleted=false`)
-- [ ] Status chips, doctor name + specialty resolution
-- [ ] Loading + error + empty + pull-to-refresh
-- [ ] Appointment detail screen (stack route scaffolded)
+- [x] Upcoming / past list from `appointments` (RLS-scoped, `is_deleted=false`)
+- [x] Status chips, doctor name + specialty resolution
+- [x] Loading + error + empty + pull-to-refresh
+- [x] Appointment detail screen (real data via stack route)
 - [ ] Booking flow (doctor → date → time → confirm)
 - [ ] Cancel / reschedule
 
 ### 3.4 Records (`/patient/records`)
-- [ ] Screen scaffolded (tab route) — conditions / allergies / meds / vaccinations
+- [~] Screen scaffolded (tab route)
 - [ ] Bind to `medical_conditions`, `allergies`, `vaccinations`
 - [ ] Manual entry forms
 
 ### 3.5 Prescriptions (`/patient/prescriptions`)
-- [ ] Screen scaffolded — active / past prescriptions
-- [ ] Bind to `prescriptions` + `prescription_items` (+ catalog hydration)
+- [ ] Screen + bind to `prescriptions` + `prescription_items` (+ catalog hydration)
 - [ ] Pharmacy status display
 
 ### 3.6 Lab results (`/patient/lab-results`)
@@ -146,7 +145,7 @@
 - [ ] Realtime subscription + unread counts
 
 ### 3.8 Notifications (`/patient/notifications`)
-- [ ] Screen scaffolded (tab route)
+- [~] Screen scaffolded (tab route)
 - [ ] Bind to `notifications` (mark read, action routing)
 
 ### 3.9 Documents (`/patient/documents`)
@@ -154,7 +153,7 @@
 - [ ] Camera / library capture + upload (Emirates ID, files)
 
 ### 3.10 Profile (`/patient/profile`)
-- [ ] Screen scaffolded (tab route) — shows profile + sign out
+- [x] Screen shows real profile + patient profile + sign out + language toggle
 - [ ] Edit personal info, Emirates ID, notification preferences
 - [ ] Avatar upload
 
@@ -167,18 +166,18 @@
 
 ## 4. Cross-cutting / compliance (per AGENTS.md)
 
-- [ ] Canonical schema only — no ad-hoc tables
-- [ ] All data access via Supabase client; patient-scoped by RLS
-- [ ] No secrets committed
+- [x] Canonical schema only — no ad-hoc tables
+- [x] All data access via Supabase client; patient-scoped by RLS
+- [x] No secrets committed
 - [ ] AI calls via Edge Functions only (when AI screens land)
-- [ ] TypeScript strict, functional components, named exports
-- [ ] Loading skeletons / spinners + error states on data screens
+- [x] TypeScript strict, functional components, named exports
+- [x] Loading skeletons / spinners + error states on data screens
 
 ---
 
 ## 5. Verification gate
 
-- [ ] Mobile `tsc --noEmit` passes
-- [ ] Web `npm run lint` passes (unchanged)
-- [ ] Web `npm run typecheck` passes (unchanged)
-- [ ] Web `npm run build` passes (unchanged)
+- [x] Mobile `tsc --noEmit` passes
+- [x] Web `npm run lint` passes (unchanged)
+- [x] Web `npm run typecheck` passes (unchanged)
+- [x] Web `npm run build` passes (unchanged)
