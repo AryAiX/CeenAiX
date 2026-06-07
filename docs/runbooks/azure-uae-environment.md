@@ -2,9 +2,12 @@
 
 Last updated: 2026-06-07
 Owner: Platform engineering
-Status: **Design + templates only.** No live Azure resources provisioned (no Azure
-credentials available at authoring time). Everything below is ready to execute;
-assumptions are recorded at the bottom.
+Status: **Provisioning-ready templates + pipeline hooks.** Live Azure bring-up
+was attempted on 2026-06-07 with the approved low-cost `Standard_B2ms` target,
+but Azure UAE North returned `SkuNotAvailable` capacity errors for zones 1, 2,
+and 3. The empty resource group `rg-ceenaix-uae` can remain in place at no
+compute cost; retry VM creation when B-series capacity is available or after an
+explicitly approved size change.
 
 > Companion runbook: [`production-environment.md`](production-environment.md)
 > (Supabase Cloud dev/prod inventory + the ref-data-only migration strategy this
@@ -81,18 +84,20 @@ so we start cheap and graduate when load/compliance demands it.
 
 All of this runs as Docker containers on **one VM**. Only Caddy (80/443) is
 exposed to the internet; Kong and every service bind to the Docker network /
-loopback. Persistent state (Postgres data, Storage files, Caddy certs) lives on
-the VM's managed data disk.
+loopback. For the low-cost pilot, persistent state (Postgres data, Storage files,
+Caddy certs, and the static web bundle) lives on the 128 GiB Standard SSD OS
+disk under `/opt/supabase` and `/var/www/ceenaix`. Add a separate data disk when
+the environment graduates beyond pilot load.
 
 ## Recommended VM sizing
 
 | Item | Recommendation | Notes |
 | --- | --- | --- |
 | Region | **UAE North** (`uaenorth`) | The operational Azure UAE region. UAE Central has fewer SKUs. |
-| VM size | **Standard D4s_v5** (4 vCPU / 16 GiB) | Comfortable for the full stack + Postgres + Edge runtime at MVP/pilot load. Start at D2s_v5 (2/8) for a quiet pilot; resize up live. |
+| VM size | **Standard_B2ms** (2 vCPU / 8 GiB) | Approved low-cost pilot target. Do not create D/E/F/L-series VMs without explicit approval. |
 | OS | Ubuntu 22.04 / 24.04 LTS | Matches the bootstrap script's Docker apt repo. |
-| OS disk | Premium SSD, 64 GiB | |
-| Data disk | **Premium SSD P10 (128 GiB)**, mounted at `/opt/supabase` | Holds Postgres data, Storage, Caddy certs. Separate disk = clean snapshots. |
+| OS disk | **128 GiB Standard SSD (`StandardSSD_LRS`)** | Keeps the pilot near the reserved-cost target. |
+| Data disk | None for the pilot | Add a managed data disk later for cleaner snapshots and isolation. |
 | Public IP | Static, Standard SKU | DNS A records point here. |
 
 ## Networking / NSG
@@ -130,19 +135,25 @@ manual equivalent is shown so you understand what it does.
 ### 0. Provision the VM (Azure CLI — illustrative)
 
 ```bash
-# Assumes you have az login + an existing resource group. NOT run here.
-az group create -n ceenaix-uae -l uaenorth
+# Assumes az login is active on the AryAiX subscription.
+az group create -n rg-ceenaix-uae -l uaenorth
 
 az vm create \
-  -g ceenaix-uae -n ceenaix-supabase-uae -l uaenorth \
-  --image Ubuntu2404 --size Standard_D4s_v5 \
-  --admin-username azureuser --generate-ssh-keys \
-  --public-ip-sku Standard --data-disk-sizes-gb 128
+  -g rg-ceenaix-uae -n vm-ceenaix-supabase-uae -l uaenorth \
+  --image Ubuntu2204 --size Standard_B2ms \
+  --admin-username azureuser \
+  --authentication-type ssh \
+  --ssh-key-values ~/.ssh/ceenaix_uae_vm.pub \
+  --public-ip-address vm-ceenaix-supabase-uae-ip \
+  --public-ip-sku Standard \
+  --public-ip-address-allocation static \
+  --os-disk-size-gb 128 \
+  --storage-sku StandardSSD_LRS \
+  --nsg vm-ceenaix-supabase-uae-nsg
 
 # NSG: allow 80/443 from Internet, 22 from your IP only.
-az vm open-port -g ceenaix-uae -n ceenaix-supabase-uae --port 80,443 --priority 100
-# (Then tighten 22 to your admin IP in the NSG; create + attach the data disk
-#  mount at /opt/supabase via cloud-init or manually.)
+az vm open-port -g rg-ceenaix-uae -n vm-ceenaix-supabase-uae --port 80,443 --priority 100
+# Keep Postgres closed publicly. Use an SSH tunnel for admin/migrations.
 ```
 
 ### 1–5. Bootstrap the stack on the VM
@@ -153,8 +164,14 @@ scp -r infra/azure-uae scripts/azure-uae-bootstrap.sh azureuser@<vm-ip>:~/
 ssh azureuser@<vm-ip>
 
 # On the VM (idempotent — safe to re-run):
+# DNS/TLS production mode:
 API_EXTERNAL_URL=https://api.uae.ceenaix.com \
 SITE_URL=https://uae.ceenaix.com \
+  ./azure-uae-bootstrap.sh
+
+# Public-IP pilot mode before DNS/TLS:
+API_EXTERNAL_URL=http://<public-ip> \
+SITE_URL=http://<public-ip> \
   ./azure-uae-bootstrap.sh
 ```
 
@@ -199,20 +216,7 @@ Supabase CLI can link to.
 # firewall allowance for your admin IP — never leave 5432 open publicly).
 SELF_HOST_DB_URL="postgresql://postgres:<POSTGRES_PASSWORD>@<vm-ip>:5432/postgres"
 
-# 1. Skip the pure demo-seed migrations (same list prod uses).
-for v in $(grep -E '^[0-9]{14}$' scripts/prod-demo-migrations.txt); do
-  npx supabase migration repair --status applied "$v" --db-url "$SELF_HOST_DB_URL"
-done
-# Also skip the 3 buggy 413* migrations, same as prod:
-for v in 20260413120000 20260413120100 20260413120200; do
-  npx supabase migration repair --status applied "$v" --db-url "$SELF_HOST_DB_URL"
-done
-
-# 2. Push the rest of the schema.
-npx supabase db push --db-url "$SELF_HOST_DB_URL" --include-all
-
-# 3. Wipe demo rows that the mixed migrations inserted (idempotent).
-psql "$SELF_HOST_DB_URL" -f scripts/prod-demo-cleanup.sql
+AZURE_UAE_DB_URL="$SELF_HOST_DB_URL" ./scripts/azure-uae-apply-migrations.sh
 ```
 
 This yields the same shape as prod: reference tables populated
@@ -224,29 +228,31 @@ of intentionally-kept reference rows.
 > `postgresql://postgres:<pw>@localhost:5432/postgres` so Postgres never needs a
 > public firewall hole.
 
-## Deploying the Edge Functions to the self-hosted edge runtime
+## Deploying the web app and Edge Functions to the VM
 
 The functions to deploy are enumerated in
 [`scripts/non-migration-deployables.manifest.json`](../../scripts/non-migration-deployables.manifest.json)
 (`clinic-doctor-invite`, `leads`, `ai-chat`, `ai-document-analyze`,
-`medication-enrich`, `consultation-scribe`). On a self-host the Supabase CLI
-deploys them to the bundled Deno edge runtime exactly like Cloud:
+`medication-enrich`, `consultation-scribe`). For the self-hosted Docker runtime,
+the repeatable path is to copy the function source into
+`/opt/supabase/volumes/functions/` and restart the edge runtime. The same deploy
+script also installs the static Vite bundle into `/var/www/ceenaix` for Caddy.
 
 ```bash
-# Set function secrets first (OPENAI_API_KEY is required by the AI functions).
-npx supabase secrets set OPENAI_API_KEY=<key> --db-url "$SELF_HOST_DB_URL"
+VITE_SUPABASE_URL=http://<public-ip> \
+VITE_SUPABASE_ANON_KEY=<anon-key-from-vm-env> \
+VITE_SUPABASE_FUNCTIONS_URL=http://<public-ip>/functions/v1 \
+VITE_PREVIEW_PIN_GATE=false \
+  npm run build
 
-# Deploy each function from the manifest (mirrors the prod Release pipeline).
-node -e "JSON.parse(require('fs').readFileSync('scripts/non-migration-deployables.manifest.json')).deployables.filter(d=>d.type==='supabase-edge-function').forEach(d=>console.log(d.name))" \
-  | while read -r fn; do
-      npx supabase functions deploy "$fn" --no-verify-jwt --db-url "$SELF_HOST_DB_URL"
-    done
+AZURE_UAE_HOST=<public-ip> \
+AZURE_UAE_SSH_KEY_PATH=~/.ssh/ceenaix_uae_vm \
+  ./scripts/azure-uae-deploy-vm.sh
 ```
 
-(The `--no-verify-jwt` flag matches every `deployCommand` in the manifest.)
-Alternatively, copy `supabase/functions/*` into the stack's
-`/opt/supabase/volumes/functions/` and let the bundled edge runtime serve them;
-the CLI path above is preferred so it matches the existing Release flow.
+Set `OPENAI_API_KEY` and SMTP secrets in `/opt/supabase/.env` before expecting
+AI/email functions to work. The deploy script moves code only; it does not create
+or print secrets.
 
 ## App wiring
 

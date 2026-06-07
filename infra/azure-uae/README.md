@@ -1,9 +1,9 @@
 # infra/azure-uae — Self-hosted Supabase on Azure UAE North
 
 This folder holds the **thin overrides** that turn the official Supabase docker
-stack into the CeenAiX "Azure UAE" environment (Path A from the 2026-05-31
-infrastructure analysis): a single Azure VM in **UAE North** running the
-open-source Supabase services behind a Caddy TLS reverse proxy.
+stack into the CeenAiX "Azure UAE" environment: a low-cost
+`Standard_B2ms` Azure VM in **UAE North** running the open-source Supabase
+services and the static web bundle behind Caddy.
 
 > Full step-by-step (provisioning, secrets, migrations, function deploy, app
 > wiring, backups, upgrade path) lives in
@@ -21,8 +21,8 @@ these small, auditable files on top with `-f docker-compose.override.yml`.
 | File | Purpose |
 | --- | --- |
 | `.env.example` | CeenAiX-tailored env for the official stack. Copy to the supabase/docker checkout as `.env`, then fill with generated secrets. **Never commit a filled copy.** |
-| `docker-compose.override.yml` | Adds the Caddy TLS proxy, keeps Kong off the public internet, hardens restart policies. Applied on top of the upstream compose. |
-| `Caddyfile` | Caddy reverse proxy with automatic HTTPS (Let's Encrypt). Terminates TLS for the public API host and proxies to Kong. |
+| `docker-compose.override.yml` | Adds Caddy, mounts `/var/www/ceenaix` for the web bundle, keeps Kong off the public internet, and hardens restart policies. Applied on top of the upstream compose. |
+| `Caddyfile` | Caddy reverse proxy with automatic HTTPS for DNS-backed hosts plus an HTTP public-IP pilot mode for first validation before DNS/TLS. |
 
 The bootstrap automation that ties these together is
 [`scripts/azure-uae-bootstrap.sh`](../../scripts/azure-uae-bootstrap.sh)
@@ -34,11 +34,13 @@ The bootstrap automation that ties these together is
 # On the VM (Ubuntu LTS, Azure UAE North), as a sudo-capable user:
 scp -r infra/azure-uae scripts/azure-uae-bootstrap.sh azureuser@<vm-ip>:~/
 ssh azureuser@<vm-ip>
-./azure-uae-bootstrap.sh          # installs Docker, fetches stack, generates secrets, starts it
+API_EXTERNAL_URL=http://<public-ip> SITE_URL=http://<public-ip> \
+  ./azure-uae-bootstrap.sh        # installs Docker, fetches stack, generates secrets, starts it
 ```
 
-Then apply this repo's migrations and deploy the Edge Functions against the new
-endpoint, and point the apps at it via env vars — all documented in the runbook.
+Then apply this repo's migrations with `scripts/azure-uae-apply-migrations.sh`
+through an SSH tunnel and deploy the web bundle/function source with
+`scripts/azure-uae-deploy-vm.sh` — all documented in the runbook.
 
 ## App wiring (summary)
 
@@ -48,8 +50,12 @@ Self-host generates its **own** keys (different from Supabase Cloud):
 # web (.env.production.local / CI)
 VITE_SUPABASE_URL=https://api.uae.ceenaix.com
 VITE_SUPABASE_ANON_KEY=<self-generated anon JWT>
-# VITE_SUPABASE_FUNCTIONS_URL only if functions are on a separate host;
-# default is ${VITE_SUPABASE_URL}/functions/v1
+VITE_SUPABASE_FUNCTIONS_URL=https://api.uae.ceenaix.com/functions/v1
+
+# Public-IP pilot before DNS/TLS:
+VITE_SUPABASE_URL=http://<public-ip>
+VITE_SUPABASE_ANON_KEY=<self-generated anon JWT>
+VITE_SUPABASE_FUNCTIONS_URL=http://<public-ip>/functions/v1
 
 # mobile (mobile/.env)
 EXPO_PUBLIC_SUPABASE_URL=https://api.uae.ceenaix.com
