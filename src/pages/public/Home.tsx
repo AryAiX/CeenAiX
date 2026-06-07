@@ -31,6 +31,7 @@ import { useInView, useCounter } from '../../hooks';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import LandingDemoLaunchSection from '../../components/LandingDemoLaunchSection';
 import { getDefaultRouteForRole } from '../../lib/auth-context';
+import { SUPABASE_ANON_KEY, edgeFunctionUrl } from '../../lib/supabase';
 import type { UserRole } from '../../types';
 
 /* ------------------------------------------------------------------------- */
@@ -38,8 +39,6 @@ import type { UserRole } from '../../types';
 /*  copy via i18next. Shared useInView / useCounter hooks drive animations.   */
 /* ------------------------------------------------------------------------- */
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 const LAUNCH_DATE = new Date('2026-08-01T09:00:00+04:00');
 
 function getTimeLeft(target: Date) {
@@ -94,7 +93,7 @@ function HeroNotifyForm() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Please enter a valid email.'); return; }
     setSubmitting(true); setError('');
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/leads/launch-notify`, {
+      const res = await fetch(edgeFunctionUrl('leads/launch-notify'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, preferred_language: 'en', consent: true }),
@@ -167,7 +166,7 @@ function HeroDemoForm() {
     }
     setSubmitting(true); setError('');
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/leads/demo-request`, {
+      const res = await fetch(edgeFunctionUrl('leads/demo-request'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

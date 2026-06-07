@@ -4,15 +4,13 @@ import {
   Calendar, Users, Building2, Loader2, ExternalLink,
   Share2, CheckCircle2, AlertCircle,
 } from 'lucide-react';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+import { SUPABASE_ANON_KEY, edgeFunctionUrl } from '../lib/supabase';
 
 const LAUNCH_DATE: Date | null = new Date('2026-08-01T09:00:00+04:00');
 const COUNTER_FLOOR = 25;
 
 function apiUrl(path: string) {
-  return `${SUPABASE_URL}/functions/v1/leads${path}`;
+  return edgeFunctionUrl(`leads${path}`);
 }
 
 function apiHeaders() {

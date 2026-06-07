@@ -1,9 +1,6 @@
-import { supabase } from './supabase';
+import { supabase, SUPABASE_ANON_KEY, edgeFunctionUrl } from './supabase';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
-
-const inviteUrl = () => `${SUPABASE_URL}/functions/v1/clinic-doctor-invite`;
+const inviteUrl = () => edgeFunctionUrl('clinic-doctor-invite');
 
 export interface ClinicDoctorInviteResult {
   success: boolean;

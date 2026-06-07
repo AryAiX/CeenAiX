@@ -1,10 +1,9 @@
+import { SUPABASE_ANON_KEY, edgeFunctionUrl } from './supabase';
+
 export const MARKETING_LAUNCH_DATE = new Date('2026-08-01T09:00:00+04:00');
 export const MARKETING_LEADS_COUNTER_FLOOR = 25;
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
-
-const leadsUrl = (path: string) => `${SUPABASE_URL}/functions/v1/leads${path}`;
+const leadsUrl = (path: string) => edgeFunctionUrl(`leads${path}`);
 
 const apiHeaders = () => ({
   Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
