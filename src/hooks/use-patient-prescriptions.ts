@@ -20,6 +20,7 @@ export type PatientPharmacyWorkflowStatus =
   | 'in_progress'
   | 'on_hold'
   | 'dispensed'
+  | 'picked_up'
   | 'cancelled';
 
 export interface PatientPrescriptionRecord extends Prescription {
@@ -28,6 +29,7 @@ export interface PatientPrescriptionRecord extends Prescription {
   items: PrescriptionItem[];
   pharmacyStatus: PatientPharmacyWorkflowStatus | null;
   pharmacyName: string | null;
+  pharmacyOrganizationId?: string | null;
 }
 
 interface DispensingTaskRow {
@@ -40,6 +42,11 @@ interface ActivePharmacyRow {
   id: string;
   name: string;
   city: string | null;
+}
+
+interface PharmacyContactRow {
+  user_id: string;
+  full_name: string | null;
 }
 
 export function aggregatePharmacyWorkflowStatus(
@@ -61,6 +68,9 @@ export function aggregatePharmacyWorkflowStatus(
   }
   if (statuses.has('new')) {
     return 'new';
+  }
+  if (statuses.has('picked_up')) {
+    return 'picked_up';
   }
   if (statuses.has('dispensed')) {
     return 'dispensed';
@@ -188,7 +198,58 @@ export function usePatientPrescriptions(userId: string | null | undefined) {
           ? aggregatePharmacyWorkflowStatus(tasks)
           : 'not_sent',
         pharmacyName: pharmacyOrgId ? (pharmacyNameById.get(pharmacyOrgId) ?? null) : null,
+        ...(pharmacyOrgId ? { pharmacyOrganizationId: pharmacyOrgId } : {}),
       };
     });
   }, [userId]);
+}
+
+export async function getPatientPrescriptionPharmacyContact(
+  prescriptionId: string
+): Promise<PharmacyContactRow | null> {
+  const { data, error } = await supabase
+    .rpc('get_patient_prescription_pharmacy_contact', {
+      p_prescription_id: prescriptionId,
+    })
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as PharmacyContactRow | null) ?? null;
+}
+
+export async function listActivePharmacies(): Promise<ActivePharmacyRow[]> {
+  const { data, error } = await supabase.rpc('list_active_pharmacies');
+  if (error) throw error;
+  return (data ?? []) as ActivePharmacyRow[];
+}
+
+export async function assignPatientPrescriptionPharmacy(
+  prescriptionId: string,
+  pharmacyOrganizationId: string
+): Promise<void> {
+  const { error } = await supabase.rpc('assign_prescription_pharmacy', {
+    p_prescription_id: prescriptionId,
+    p_pharmacy_organization_id: pharmacyOrganizationId,
+  });
+
+  if (error) throw error;
+}
+
+export async function markPatientPrescriptionPickedUp(
+  prescriptionId: string,
+  prescriptionItemIds: string[]
+): Promise<void> {
+  const itemUpdates = prescriptionItemIds.map((itemId) =>
+    supabase.from('prescription_items').update({ is_dispensed: true }).eq('id', itemId)
+  );
+  const taskUpdate = supabase
+    .from('pharmacy_dispensing_tasks')
+    .update({ workflow_status: 'picked_up', updated_at: new Date().toISOString() })
+    .eq('prescription_id', prescriptionId);
+
+  const results = await Promise.all([...itemUpdates, taskUpdate]);
+  const failed = results.find((result) => result.error);
+  if (failed?.error) {
+    throw failed.error;
+  }
 }

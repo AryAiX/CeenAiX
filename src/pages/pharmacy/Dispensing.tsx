@@ -5,14 +5,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, MessageSquare, Play, Search, X } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { updatePharmacyDispensingTaskStatus, usePharmacyPrescriptionQueue } from '../../hooks';
+import {
+  sendPharmacyHoldNotificationAndMessage,
+  updatePharmacyDispensingTaskStatus,
+  usePharmacyPrescriptionQueue,
+} from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
+import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 import { inferPrescriptionWorkflowStatus } from './prescription-status';
 
-type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'cancelled';
+type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'picked_up' | 'cancelled';
 type SortType = 'newest' | 'oldest' | 'patient' | 'status';
 
 interface PrescriptionListRow {
@@ -38,6 +43,7 @@ const filterLabels: Record<FilterType, string> = {
   in_progress: 'In Progress',
   on_hold: 'On Hold',
   dispensed: 'Dispensed',
+  picked_up: 'Picked Up',
   cancelled: 'Cancelled',
 };
 
@@ -80,6 +86,13 @@ const statusConfig: Record<
     border: 'border-l-emerald-500',
     action: 'View',
   },
+  picked_up: {
+    label: 'PICKED UP',
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    border: 'border-l-emerald-600',
+    action: 'View',
+  },
   cancelled: {
     label: 'CANCELLED',
     bg: 'bg-slate-50',
@@ -94,7 +107,8 @@ const statusSortOrder: Record<Exclude<FilterType, 'all'>, number> = {
   in_progress: 1,
   on_hold: 2,
   dispensed: 3,
-  cancelled: 4,
+  picked_up: 4,
+  cancelled: 5,
 };
 
 const formatNumber = (value: number | null | undefined, language: string) =>
@@ -186,12 +200,17 @@ const HOLD_REASONS = [
   { value: 'other', label: '🔧 Other' },
 ];
 
+const getHoldReasonLabel = (value: string): string => {
+  return HOLD_REASONS.find((r) => r.value === value)?.label ?? value;
+};
+
 export const PharmacyDispensing = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
@@ -247,6 +266,29 @@ export const PharmacyDispensing = () => {
           })
         )
       );
+
+      const patientUserId = data?.queue?.find(
+        (item) => item.prescriptionId === row.id
+      )?.patientUserId ?? null;
+
+      if (patientUserId) {
+        try {
+          await sendPharmacyHoldNotificationAndMessage({
+            patientUserId,
+            medications: row.drugs,
+            holdReasonLabel: getHoldReasonLabel(holdReason).replace(/^[^\s]+\s/, ''),
+            holdNote,
+            pharmacyUserId: user?.id ?? null,
+          });
+        } catch (notificationError) {
+          setActionError(
+            notificationError instanceof Error
+              ? `Status updated, but patient notification failed: ${notificationError.message}`
+              : 'Status updated, but patient notification failed.'
+          );
+        }
+      }
+
       refetch();
       setHoldModalRow(null);
       setHoldReason('');
@@ -261,7 +303,7 @@ export const PharmacyDispensing = () => {
   };
 
   const handleRowAction = async (row: PrescriptionListRow, status: RowStatus) => {
-    if (status === 'dispensed' || status === 'cancelled') {
+    if (status === 'dispensed' || status === 'picked_up' || status === 'cancelled') {
       return;
     }
     const nextStatus = nextStatusFor(status);
@@ -294,6 +336,7 @@ export const PharmacyDispensing = () => {
       in_progress: rows.filter((row) => row.status === 'in_progress').length,
       on_hold: rows.filter((row) => row.status === 'on_hold').length,
       dispensed: rows.filter((row) => row.status === 'dispensed').length,
+      picked_up: rows.filter((row) => row.status === 'picked_up').length,
       cancelled: rows.filter((row) => row.status === 'cancelled').length,
     }),
     [rows]
@@ -553,10 +596,22 @@ export const PharmacyDispensing = () => {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => navigate('/pharmacy/messages')}
-                        aria-label="Message the prescribing clinician"
-                        title="Open pharmacy messages"
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                        onClick={() => {
+                          const queueItem = data?.queue?.find(
+                            (item) => item.prescriptionId === row.id
+                          );
+                          const patientUserId = queueItem?.patientUserId ?? null;
+                          const medList = row.drugs.slice(0, 2).join(', ');
+                          const draftText = `Regarding your prescription for ${medList}: `;
+                          if (patientUserId) {
+                            navigate(`/pharmacy/messages?patient=${patientUserId}&draft=${encodeURIComponent(draftText)}`);
+                          } else {
+                            navigate('/pharmacy/messages');
+                          }
+                        }}
+                        aria-label="Message patient about this prescription"
+                        title="Message patient"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-emerald-600"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                       </button>

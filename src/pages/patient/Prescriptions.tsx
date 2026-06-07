@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '../../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -22,7 +21,15 @@ import {
 } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
-import { usePatientPrescriptions, type PatientPrescriptionRecord } from '../../hooks/use-patient-prescriptions';
+import { useMedicationLogs } from '../../hooks/use-medication-logs';
+import {
+  assignPatientPrescriptionPharmacy,
+  getPatientPrescriptionPharmacyContact,
+  listActivePharmacies,
+  markPatientPrescriptionPickedUp,
+  usePatientPrescriptions,
+  type PatientPrescriptionRecord,
+} from '../../hooks/use-patient-prescriptions';
 import { usePatientPrimaryInsurance } from '../../hooks/use-patient-primary-insurance';
 import { usePatientDashboardAlert } from '../../hooks/use-patient-dashboard-alert';
 import { useAuth } from '../../lib/auth-context';
@@ -173,6 +180,21 @@ export const PatientPrescriptions: React.FC = () => {
   const [loadingPharmacies, setLoadingPharmacies] = useState(false);
   const [sendingToPharmacy, setSendingToPharmacy] = useState(false);
   const [pharmacySentId, setPharmacySentId] = useState<string | null>(null);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
+  const [editingReminderTime, setEditingReminderTime] = useState('');
+  const [pausedReminderIds, setPausedReminderIds] = useState<Set<string>>(new Set());
+  const [deletedReminderIds, setDeletedReminderIds] = useState<Set<string>>(new Set());
+  const [undoReminderId, setUndoReminderId] = useState<string | null>(null);
+  const [showMissedDoseAnalysis, setShowMissedDoseAnalysis] = useState(false);
+  const [pickedUpIds, setPickedUpIds] = useState<Set<string>>(new Set());
+  const [dbReminders, setDbReminders] = useState<Map<string, { time: string; isPaused: boolean; isDeleted: boolean }>>(new Map());
+  const [pharmacyError, setPharmacyError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const {
+    takenItemIds,
+    error: medicationLogError,
+    markTaken: markMedicationTaken,
+  } = useMedicationLogs(user?.id);
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -277,37 +299,64 @@ export const PatientPrescriptions: React.FC = () => {
   const handleOpenPharmacyModal = async (prescriptionId: string) => {
     setPharmacyModalPrescriptionId(prescriptionId);
     setLoadingPharmacies(true);
+    setPharmacyError(null);
     try {
-      const { data, error } = await supabase.rpc('list_active_pharmacies');
-      if (!error && data) {
-        setPharmacyList(
-          data.map((row: { id: string; name: string; city: string | null }) => ({
-            id: row.id,
-            name: row.name,
-            city: row.city ?? '',
-          }))
-        );
-      }
+      const pharmacies = await listActivePharmacies();
+      setPharmacyList(
+        pharmacies.map((row) => ({
+          id: row.id,
+          name: row.name,
+          city: row.city ?? '',
+        }))
+      );
+    } catch (err) {
+      setPharmacyError(err instanceof Error ? err.message : 'Could not load pharmacies. Please try again.');
     } finally {
       setLoadingPharmacies(false);
+    }
+  };
+
+  const handleMessagePharmacy = async (prescriptionId: string) => {
+    setActionError(null);
+    try {
+      const contact = await getPatientPrescriptionPharmacyContact(prescriptionId);
+      if (!contact?.user_id) {
+        throw new Error('No pharmacy contact is available for this prescription yet.');
+      }
+      navigate(`/patient/messages?pharmacy=${contact.user_id}`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not open pharmacy messaging. Please try again.');
     }
   };
 
   const handleSelectPharmacy = async (pharmacyId: string) => {
     if (!pharmacyModalPrescriptionId) return;
     setSendingToPharmacy(true);
+    setPharmacyError(null);
     try {
-      const { error } = await supabase.rpc('assign_prescription_pharmacy', {
-        p_prescription_id: pharmacyModalPrescriptionId,
-        p_pharmacy_organization_id: pharmacyId,
-      });
-      if (!error) {
-        setPharmacySentId(pharmacyModalPrescriptionId);
-        setPharmacyModalPrescriptionId(null);
-        void refetch();
-      }
+      await assignPatientPrescriptionPharmacy(pharmacyModalPrescriptionId, pharmacyId);
+      setPharmacySentId(pharmacyModalPrescriptionId);
+      setPharmacyModalPrescriptionId(null);
+      void refetch();
+    } catch (err) {
+      setPharmacyError(err instanceof Error ? err.message : 'Could not send to pharmacy. Please try again.');
     } finally {
       setSendingToPharmacy(false);
+    }
+  };
+
+  const handleMarkPickedUp = async (prescriptionId: string, items: PrescriptionItem[]) => {
+    if (!user?.id) return;
+    setActionError(null);
+    try {
+      await markPatientPrescriptionPickedUp(
+        prescriptionId,
+        items.map((item) => item.id)
+      );
+      setPickedUpIds((prev) => new Set([...prev, prescriptionId]));
+      void refetch();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not mark this prescription as picked up.');
     }
   };
 
@@ -337,6 +386,12 @@ export const PatientPrescriptions: React.FC = () => {
       return {
         title: t('patient.prescriptions.pharmacyStatusCancelledTitle'),
         body: t('patient.prescriptions.pharmacyStatusCancelledBody'),
+      };
+    }
+    if (status === 'picked_up') {
+      return {
+        title: '✅ Picked Up',
+        body: 'You have collected this medication. Take it as prescribed.',
       };
     }
     if (status === 'new' || justSent) {
@@ -423,6 +478,17 @@ export const PatientPrescriptions: React.FC = () => {
     primaryInsurance?.coPayPercent == null ? null : Math.max(0, 100 - primaryInsurance.coPayPercent);
   const insuranceCoPayPercent = primaryInsurance?.coPayPercent ?? null;
 
+  const handleMarkScheduleTaken = async (itemId: string, doseIndex: number) => {
+    if (!user?.id) return;
+    setActionError(null);
+    try {
+      await markMedicationTaken(itemId);
+      void doseIndex;
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not save that medication update.');
+    }
+  };
+
   const toggleExpanded = (id: string) => {
     setExpandedLineIds((prev) => {
       const next = new Set(prev);
@@ -433,6 +499,76 @@ export const PatientPrescriptions: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const handleEditReminder = (reminderId: string, currentTime: string) => {
+    setEditingReminderId(reminderId);
+    setEditingReminderTime(currentTime);
+  };
+
+  const handleSaveReminderTime = async (reminderId: string) => {
+    const reminder = reminderRows.find((r) => r.id === reminderId);
+    if (!reminder) return;
+    setDbReminders((prev) => {
+      const next = new Map(prev);
+      next.set(reminderId, { time: editingReminderTime, isPaused: false, isDeleted: false });
+      return next;
+    });
+    setEditingReminderId(null);
+    setEditingReminderTime('');
+  };
+
+  const handlePauseReminder = async (reminderId: string) => {
+    const reminder = reminderRows.find((r) => r.id === reminderId);
+    if (!reminder) return;
+    const isPaused = !pausedReminderIds.has(reminderId);
+    setPausedReminderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(reminderId)) {
+        next.delete(reminderId);
+      } else {
+        next.add(reminderId);
+      }
+      return next;
+    });
+    setDbReminders((prev) => {
+      const next = new Map(prev);
+      next.set(reminderId, {
+        time: prev.get(reminderId)?.time ?? reminder.time,
+        isPaused,
+        isDeleted: false,
+      });
+      return next;
+    });
+  };
+
+  const handleDeleteReminder = (reminderId: string) => {
+    setDeletedReminderIds((prev) => new Set([...prev, reminderId]));
+    setUndoReminderId(reminderId);
+    const timer = setTimeout(() => {
+      setUndoReminderId(null);
+      const reminder = reminderRows.find((r) => r.id === reminderId);
+      if (!reminder) return;
+      setDbReminders((prev) => {
+        const next = new Map(prev);
+        next.set(reminderId, {
+          time: prev.get(reminderId)?.time ?? reminder.time,
+          isPaused: false,
+          isDeleted: true,
+        });
+        return next;
+      });
+    }, 5000);
+    return () => clearTimeout(timer);
+  };
+
+  const handleUndoDeleteReminder = (reminderId: string) => {
+    setDeletedReminderIds((prev) => {
+      const next = new Set(prev);
+      next.delete(reminderId);
+      return next;
+    });
+    setUndoReminderId(null);
   };
 
   if (loading) {
@@ -614,6 +750,7 @@ export const PatientPrescriptions: React.FC = () => {
               <div className="space-y-3">
                 {block.doses.map(({ row, doseIndex }) => {
                   const accent = lineAccent(row.item.medication_name);
+                  const isTaken = takenItemIds.has(row.item.id);
                   return (
                     <div
                       key={`${row.item.id}-${doseIndex}`}
@@ -647,18 +784,20 @@ export const PatientPrescriptions: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        disabled
-                        className={`rounded-full px-4 py-2 text-xs font-bold ${
-                          block.status === 'pending'
-                            ? 'bg-slate-100 text-slate-400'
-                            : 'cursor-not-allowed border-2 border-slate-300 text-slate-400'
-                        }`}
-                        title={t('patient.prescriptions.scheduleMarkTakenDisabled')}
-                      >
-                        {t('patient.prescriptions.scheduleMarkTaken')}
-                      </button>
+                      {isTaken ? (
+                        <div className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-4 py-2 text-xs font-bold text-emerald-700">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          {t('patient.prescriptions.dispensed', { defaultValue: 'Taken ✓' })}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkScheduleTaken(row.item.id, doseIndex)}
+                          className="rounded-full bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700"
+                        >
+                          {t('patient.prescriptions.scheduleMarkTaken')}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -778,11 +917,29 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="space-y-4">
             {reminderRows.map((reminder, idx) => {
               const accent = lineAccent(reminder.row.item.medication_name);
+              const isPaused = pausedReminderIds.has(reminder.id) || (dbReminders.get(reminder.id)?.isPaused ?? false);
+              const isDeleted = deletedReminderIds.has(reminder.id);
+
+              if (isDeleted) {
+                return undoReminderId === reminder.id ? (
+                  <div key={reminder.id} className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <span className="text-sm text-amber-700">Reminder deleted</span>
+                    <button
+                      type="button"
+                      onClick={() => handleUndoDeleteReminder(reminder.id)}
+                      className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                ) : null;
+              }
+
               return (
                 <div
                   key={reminder.id}
                   style={{ animationDelay: `${idx * 80}ms`, borderLeftColor: accent.hex }}
-                  className="animate-slideUp rounded-xl border-l-4 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md"
+                  className={`animate-slideUp rounded-xl border-l-4 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md ${isPaused ? 'opacity-50' : ''}`}
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -799,7 +956,7 @@ export const PatientPrescriptions: React.FC = () => {
                           />{' '}
                           — {reminder.doseLabel}
                         </h4>
-                        <div className="mt-1 text-sm text-slate-600">⏰ {reminder.time}</div>
+                        <div className="mt-1 text-sm text-slate-600">⏰ {dbReminders.get(reminder.id)?.time ?? reminder.time}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
@@ -830,13 +987,55 @@ export const PatientPrescriptions: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-teal-600 transition-all hover:bg-teal-50">
-                      <CreditCard className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderEdit')}
+                    {editingReminderId === reminder.id ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={editingReminderTime}
+                          onChange={(e) => setEditingReminderTime(e.target.value)}
+                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-teal-400 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveReminderTime(reminder.id)}
+                          className="rounded-lg bg-teal-600 px-2 py-1 text-xs font-semibold text-white hover:bg-teal-700"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingReminderId(null)}
+                          className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleEditReminder(reminder.id, reminder.time)}
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-teal-600 transition-all hover:bg-teal-50"
+                      >
+                        <CreditCard className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderEdit')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handlePauseReminder(reminder.id)}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                        isPaused
+                          ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                          : 'text-amber-600 hover:bg-amber-50'
+                      }`}
+                    >
+                      <Pause className="h-3.5 w-3.5" />
+                      {isPaused ? t('patient.prescriptions.reminderResume', { defaultValue: 'Resume' }) : t('patient.prescriptions.reminderPause')}
                     </button>
-                    <button type="button" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 transition-all hover:bg-amber-50">
-                      <Pause className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderPause')}
-                    </button>
-                    <button type="button" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-all hover:bg-red-50">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReminder(reminder.id)}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-all hover:bg-red-50"
+                    >
                       <Trash2 className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderDelete')}
                     </button>
                   </div>
@@ -847,13 +1046,39 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <button type="button" className="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-slate-50">
+          <button
+            type="button"
+            onClick={() => setShowMissedDoseAnalysis((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-slate-50"
+          >
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <TrendingUp className="h-5 w-5 text-teal-600" />
               {t('patient.prescriptions.missedDoseAnalysis')}
             </div>
-            <div className="text-slate-400">▼</div>
+            {showMissedDoseAnalysis
+              ? <ChevronUp className="h-4 w-4 text-slate-400" />
+              : <ChevronDown className="h-4 w-4 text-slate-400" />}
           </button>
+          {showMissedDoseAnalysis ? (
+            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  { label: 'This Week', value: '0', color: 'text-emerald-600' },
+                  { label: 'This Month', value: '0', color: 'text-emerald-600' },
+                  { label: 'Streak', value: `${formatLocaleDigits(dispensedCount, uiLang)} days`, color: 'text-teal-600' },
+                  { label: 'Adherence', value: `${formatLocaleDigits(monthlyAdherencePercent, uiLang)}%`, color: 'text-teal-600' },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-lg bg-slate-50 p-3 text-center">
+                    <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
+                    <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 text-center">
+                {t('patient.prescriptions.adherenceNote')}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -1232,22 +1457,22 @@ export const PatientPrescriptions: React.FC = () => {
                     <div key={idx} className="flex flex-col items-center">
                       <div
                         className={`flex h-5 w-5 items-center justify-center rounded-full shadow-lg ${
-                          item.is_dispensed
+                          item.is_dispensed || takenItemIds.has(item.id)
                             ? 'bg-emerald-500 shadow-emerald-500/30'
                             : 'bg-slate-200'
                         }`}
                       >
-                        {item.is_dispensed ? <div className="h-2 w-2 rounded-full bg-white" /> : null}
+                        {item.is_dispensed || takenItemIds.has(item.id) ? <div className="h-2 w-2 rounded-full bg-white" /> : null}
                       </div>
                       <div className="mt-1 text-[11px] font-mono text-slate-500">
                         {t('patient.prescriptions.slotN', { n: idx + 1 })}
                       </div>
                       <div
                         className={`mt-0.5 text-xs font-medium ${
-                          item.is_dispensed ? 'text-emerald-600' : 'text-slate-400'
+                          item.is_dispensed || takenItemIds.has(item.id) ? 'text-emerald-600' : 'text-slate-400'
                         }`}
                       >
-                        {item.is_dispensed
+                        {item.is_dispensed || takenItemIds.has(item.id)
                           ? t('patient.prescriptions.pharmacyRecorded')
                           : t('patient.prescriptions.scheduleTbd')}
                       </div>
@@ -1349,6 +1574,20 @@ export const PatientPrescriptions: React.FC = () => {
                     {t('patient.prescriptions.sendToPharmacy')}
                   </button>
                 ) : null}
+                {rx.pharmacyStatus === 'dispensed' && !pickedUpIds.has(rx.id) ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleMarkPickedUp(rx.id, rx.items)}
+                    className="mt-2 w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                  >
+                    ✅ Mark as Picked Up
+                  </button>
+                ) : null}
+                {(rx.pharmacyStatus === 'picked_up' || pickedUpIds.has(rx.id)) ? (
+                  <div className="mt-2 w-full rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 text-center">
+                    ✅ Picked Up — Thank you!
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -1379,6 +1618,15 @@ export const PatientPrescriptions: React.FC = () => {
                 >
                   <MessageSquare className="h-4 w-4" /> {t('patient.messages.messagePrescriber')}
                 </button>
+                {rx.pharmacyOrganizationId ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleMessagePharmacy(rx.id)}
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-600 transition-all duration-300 hover:bg-emerald-50"
+                  >
+                    <MessageSquare className="h-4 w-4" /> Message Pharmacy
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1465,6 +1713,15 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
       ) : null}
 
+      {actionError || medicationLogError ? (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+          {t('patient.prescriptions.actionError', {
+            defaultValue: 'We could not save that update: {{message}}',
+            message: actionError ?? medicationLogError,
+          })}
+        </div>
+      ) : null}
+
       <div className="mb-8 flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-start">
         <div>
           <h1 className="mb-2 font-playfair text-3xl font-bold text-slate-900 tracking-tight md:text-4xl">
@@ -1496,7 +1753,13 @@ export const PatientPrescriptions: React.FC = () => {
         className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 animate-slideUp xl:grid-cols-5"
         style={{ animationDelay: '80ms' }}
       >
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          onClick={() => setActiveTab('active')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
               <Pill className="h-7 w-7 text-blue-600" />
@@ -1513,7 +1776,13 @@ export const PatientPrescriptions: React.FC = () => {
           </div>
         </div>
 
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          onClick={() => setActiveTab('schedule')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('schedule'); } }}
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle className="h-7 w-7 text-emerald-600" />
@@ -1540,7 +1809,13 @@ export const PatientPrescriptions: React.FC = () => {
           </div>
         </div>
 
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          onClick={() => setActiveTab('reminders')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('reminders'); } }}
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100">
               <TrendingUp className="h-7 w-7 text-teal-600" />
@@ -1557,7 +1832,13 @@ export const PatientPrescriptions: React.FC = () => {
           </div>
         </div>
 
-        <div className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
+        <div
+          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          onClick={() => setActiveTab('active')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
+        >
           <div className="mb-3 flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
               <RefreshCw className="h-7 w-7 text-amber-600" />
@@ -1706,13 +1987,18 @@ export const PatientPrescriptions: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setPharmacyModalPrescriptionId(null)}
+                    onClick={() => { setPharmacyModalPrescriptionId(null); setPharmacyError(null); }}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                   >
                     ✕
                   </button>
                 </div>
                 <div className="divide-y divide-slate-100 px-4 py-3">
+                  {pharmacyError ? (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {pharmacyError}
+                    </div>
+                  ) : null}
                   {loadingPharmacies ? (
                     <div className="py-8 text-center text-sm text-slate-400">{t('patient.prescriptions.pharmacyAssignLoading')}</div>
                   ) : pharmacyList.length === 0 ? (
@@ -1745,7 +2031,7 @@ export const PatientPrescriptions: React.FC = () => {
                 <div className="border-t border-slate-100 px-6 py-4">
                   <button
                     type="button"
-                    onClick={() => setPharmacyModalPrescriptionId(null)}
+                    onClick={() => { setPharmacyModalPrescriptionId(null); setPharmacyError(null); }}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     {t('patient.prescriptions.pharmacyAssignCancel')}

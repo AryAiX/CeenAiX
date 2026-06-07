@@ -34,6 +34,9 @@ export const Profile: React.FC = () => {
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingInsurance, setIsEditingInsurance] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingPersonal, setSavingPersonal] = useState(false);
+  const [savingInsurance, setSavingInsurance] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
@@ -60,6 +63,7 @@ export const Profile: React.FC = () => {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({});
+  const [confirmDeleteFamilyId, setConfirmDeleteFamilyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -114,9 +118,16 @@ export const Profile: React.FC = () => {
     }));
   }, [insurance?.primaryPlan, patientProfile, profile, records?.allergies, records?.conditions]);
 
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(() => setSaveSuccess(null), 4000);
+    return () => clearTimeout(timer);
+  }, [saveSuccess]);
+
   const savePersonalInfo = async () => {
     if (!user?.id) return;
     setSaveError(null);
+    setSavingPersonal(true);
     const { error: profileError } = await supabase
       .from('user_profiles')
       .update({
@@ -128,6 +139,7 @@ export const Profile: React.FC = () => {
       .eq('user_id', user.id);
     if (profileError) {
       setSaveError(profileError.message);
+      setSavingPersonal(false);
       return;
     }
     const { error: patientError } = await supabase.from('patient_profiles').upsert(
@@ -141,6 +153,7 @@ export const Profile: React.FC = () => {
     );
     if (patientError) {
       setSaveError(patientError.message);
+      setSavingPersonal(false);
       return;
     }
     await refetchProfile();
@@ -150,6 +163,8 @@ export const Profile: React.FC = () => {
       emergency_contact_phone: personalInfo.emergencyContactPhone || null,
     });
     setIsEditingPersonal(false);
+    setSaveSuccess(t('patient.profile.saveSuccessPersonal', { defaultValue: 'Personal information saved successfully!' }));
+    setSavingPersonal(false);
   };
 
   const saveInsuranceInfo = async () => {
@@ -158,6 +173,7 @@ export const Profile: React.FC = () => {
       return;
     }
     setSaveError(null);
+    setSavingInsurance(true);
     const { error: insuranceError } = await supabase
       .from('patient_insurance')
       .update({
@@ -170,30 +186,91 @@ export const Profile: React.FC = () => {
       .eq('id', insurance.primaryPlan.id);
     if (insuranceError) {
       setSaveError(insuranceError.message);
+      setSavingInsurance(false);
       return;
     }
     setIsEditingInsurance(false);
+    setSaveSuccess(t('patient.profile.saveSuccessInsurance', { defaultValue: 'Insurance information saved successfully!' }));
+    setSavingInsurance(false);
   };
 
   const handleImageUpload = (type: 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance') => {
+    if (!user?.id) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
-          if (type === 'profile') setProfileImage(result);
-          else if (type === 'emiratesFront') setEmiratesIdFront(result);
-          else if (type === 'emiratesBack') setEmiratesIdBack(result);
-          else if (type === 'insurance') setInsuranceInfo({ ...insuranceInfo, cardImage: result });
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const timestamp = Date.now();
+
+      if (type === 'profile') {
+        const path = `${user.id}/avatar_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('avatars')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(path);
+          const publicUrl = urlData.publicUrl;
+          setProfileImage(publicUrl);
+          await supabase
+            .from('user_profiles')
+            .update({ avatar_url: publicUrl })
+            .eq('user_id', user.id);
+        }
+      } else if (type === 'emiratesFront') {
+        const path = `${user.id}/emirates_front_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(path);
+          setEmiratesIdFront(urlData.publicUrl);
+        }
+      } else if (type === 'emiratesBack') {
+        const path = `${user.id}/emirates_back_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(path);
+          setEmiratesIdBack(urlData.publicUrl);
+        }
+      } else if (type === 'insurance') {
+        const path = `${user.id}/insurance_card_${timestamp}.${ext}`;
+        const { error } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(path);
+          setInsuranceInfo((prev) => ({ ...prev, cardImage: urlData.publicUrl }));
+        }
       }
     };
     input.click();
+  };
+
+  const removeProfileImage = async () => {
+    if (!user?.id || !profileImage) return;
+    const path = profileImage.split('/avatars/')[1];
+    if (path) {
+      await supabase.storage.from('avatars').remove([path]);
+    }
+    await supabase
+      .from('user_profiles')
+      .update({ avatar_url: null })
+      .eq('user_id', user.id);
+    setProfileImage('');
   };
 
   const handleScanEmiratesId = () => {
@@ -205,25 +282,24 @@ export const Profile: React.FC = () => {
   };
 
   const addFamilyMember = () => {
-    if (newFamilyMember.name && newFamilyMember.relationship) {
-      setFamilyMembers([
-        ...familyMembers,
-        {
-          id: Date.now().toString(),
-          name: newFamilyMember.name,
-          relationship: newFamilyMember.relationship,
-          dateOfBirth: newFamilyMember.dateOfBirth || '',
-          emiratesId: newFamilyMember.emiratesId || '',
-          profileImage: newFamilyMember.profileImage,
-        },
-      ]);
-      setNewFamilyMember({});
-      setShowAddFamily(false);
-    }
+    if (!newFamilyMember.name || !newFamilyMember.relationship) return;
+    setFamilyMembers((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        name: newFamilyMember.name ?? '',
+        relationship: newFamilyMember.relationship ?? '',
+        dateOfBirth: newFamilyMember.dateOfBirth || '',
+        emiratesId: newFamilyMember.emiratesId || '',
+        profileImage: newFamilyMember.profileImage,
+      },
+    ]);
+    setNewFamilyMember({});
+    setShowAddFamily(false);
   };
 
   const removeFamilyMember = (id: string) => {
-    setFamilyMembers(familyMembers.filter(member => member.id !== id));
+    setFamilyMembers((prev) => prev.filter((member) => member.id !== id));
   };
 
   return (
@@ -244,6 +320,15 @@ export const Profile: React.FC = () => {
             defaultValue: 'We could not save your changes: {{message}}',
             message: saveError,
           })}
+        </div>
+      ) : null}
+
+      {saveSuccess ? (
+        <div
+          role="status"
+          className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+        >
+          {saveSuccess}
         </div>
       ) : null}
 
@@ -268,6 +353,16 @@ export const Profile: React.FC = () => {
                   >
                     <Camera className="w-4 h-4" />
                   </button>
+                  {profileImage ? (
+                    <button
+                      type="button"
+                      onClick={() => void removeProfileImage()}
+                      className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-200 ring-4 ring-white"
+                      aria-label={t('patient.profile.removePhoto', { defaultValue: 'Remove profile photo' })}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  ) : null}
                   <div className="absolute inset-0 rounded-full bg-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
                 <h2 className="mt-6 text-2xl font-bold text-gray-900 tracking-tight">
@@ -364,6 +459,7 @@ export const Profile: React.FC = () => {
                 </div>
                 <button
                   type="button"
+                  disabled={savingPersonal}
                   onClick={() => {
                     if (isEditingPersonal) {
                       void savePersonalInfo();
@@ -371,10 +467,17 @@ export const Profile: React.FC = () => {
                       setIsEditingPersonal(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isEditingPersonal ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                  <span>{isEditingPersonal ? t('patient.profile.saveChanges') : t('patient.profile.editProfile')}</span>
+                  {isEditingPersonal ? (
+                    savingPersonal ? (
+                      <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                    ) : <Save className="w-5 h-5" />
+                  ) : <Edit2 className="w-5 h-5" />}
+                  <span>{isEditingPersonal ? (savingPersonal ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editProfile')}</span>
                 </button>
               </div>
               <div className="p-6">
@@ -613,6 +716,7 @@ export const Profile: React.FC = () => {
                 </div>
                 <button
                   type="button"
+                  disabled={savingInsurance}
                   onClick={() => {
                     if (isEditingInsurance) {
                       void saveInsuranceInfo();
@@ -620,10 +724,17 @@ export const Profile: React.FC = () => {
                       setIsEditingInsurance(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isEditingInsurance ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                  <span>{isEditingInsurance ? t('patient.profile.saveChanges') : t('patient.profile.editInsurance')}</span>
+                  {isEditingInsurance ? (
+                    savingInsurance ? (
+                      <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                    ) : <Save className="w-5 h-5" />
+                  ) : <Edit2 className="w-5 h-5" />}
+                  <span>{isEditingInsurance ? (savingInsurance ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editInsurance')}</span>
                 </button>
               </div>
               <div className="p-8">
@@ -780,7 +891,7 @@ export const Profile: React.FC = () => {
                             </div>
                             <button
                               type="button"
-                              onClick={() => removeFamilyMember(member.id)}
+                              onClick={() => setConfirmDeleteFamilyId(member.id)}
                               className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                               aria-label={t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member' })}
                             >
@@ -846,7 +957,7 @@ export const Profile: React.FC = () => {
                     <div className="flex space-x-3 mt-6">
                       <button
                         type="button"
-                        onClick={addFamilyMember}
+                        onClick={() => void addFamilyMember()}
                         className="px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:shadow-xl hover:scale-105 transition-all duration-200 font-semibold"
                       >
                         {t('patient.profile.addMember')}
@@ -871,6 +982,51 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+      {confirmDeleteFamilyId ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmDeleteFamilyId(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">
+                {t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member?' })}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                <span className="font-semibold text-slate-700">
+                  {familyMembers.find((m) => m.id === confirmDeleteFamilyId)?.name}
+                </span>
+                {' '}{t('patient.profile.removeFamilyConfirm', { defaultValue: 'will be removed from your family members. This cannot be undone.' })}
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteFamilyId(null)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {t('patient.profile.cancel', { defaultValue: 'Cancel' })}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void removeFamilyMember(confirmDeleteFamilyId);
+                  setConfirmDeleteFamilyId(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                {t('patient.records.remove', { defaultValue: 'Remove' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 };

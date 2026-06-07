@@ -5,6 +5,7 @@ export type PharmacyPrescriptionWorkflowStatus =
   | 'in_progress'
   | 'on_hold'
   | 'dispensed'
+  | 'picked_up'
   | 'cancelled';
 
 /** Map grouped dispensing-task rows onto the canonical workflow status enum. */
@@ -13,6 +14,10 @@ export const inferPrescriptionWorkflowStatus = (
 ): PharmacyPrescriptionWorkflowStatus => {
   if (items.length === 0) {
     return 'cancelled';
+  }
+
+  if (items.every((item) => item.workflowStatus === 'picked_up')) {
+    return 'picked_up';
   }
 
   if (items.every((item) => item.workflowStatus === 'dispensed' || item.isDispensed)) {
@@ -42,6 +47,7 @@ const dashboardStatusLabel: Record<
   in_progress: 'verifying',
   on_hold: 'ready',
   dispensed: 'counseling',
+  picked_up: 'counseling',
   cancelled: 'ready',
 };
 

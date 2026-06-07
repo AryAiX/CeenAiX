@@ -577,6 +577,12 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/pharmacy/messages/:conversationId',
+    element: (
+      <ProtectedRoute allowedRoles={['pharmacy']}>{withLayout(<PharmacyMessages />)}</ProtectedRoute>
+    ),
+  },
+  {
     path: '/pharmacy/reports',
     element: (
       <ProtectedRoute allowedRoles={['pharmacy']}>{withLayout(<PharmacyReports />)}</ProtectedRoute>

@@ -6,6 +6,7 @@ export { useUserProfile } from './use-user-profile';
 export { useAppointments } from './use-appointments';
 export { useNotifications } from './use-notifications';
 export { usePatientDashboard } from './use-patient-dashboard';
+export { useMedicationLogs } from './use-medication-logs';
 export { usePatientPrescriptions } from './use-patient-prescriptions';
 export { usePatientPrimaryInsurance } from './use-patient-primary-insurance';
 export type { PatientPrimaryInsurance } from './use-patient-primary-insurance';
@@ -70,6 +71,7 @@ export type {
   NabidhStatus,
 } from './use-lab-ops-portal';
 export {
+  sendPharmacyHoldNotificationAndMessage,
   sendPharmacyResponse,
   setPharmacySettingEnabled,
   updatePharmacyDispensingTaskStatus,

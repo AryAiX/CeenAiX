@@ -13,13 +13,16 @@ export const PharmacySettings = () => {
   const fallbackName = t('pharmacy.settings.fallbackName', { defaultValue: 'Pharmacy' });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successId, setSuccessId] = useState<string | null>(null);
 
   const handleToggle = async (settingId: string, nextEnabled: boolean) => {
     setError(null);
     setBusyId(settingId);
     try {
       await setPharmacySettingEnabled(settingId, nextEnabled);
-      refetch();
+      void refetch();
+      setSuccessId(settingId);
+      setTimeout(() => setSuccessId(null), 2000);
     } catch (toggleError) {
       setError(
         toggleError instanceof Error
@@ -94,12 +97,15 @@ export const PharmacySettings = () => {
             ))}
           </section>
 
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-            {error}
-          </div>
-        ) : null}
-
+          {settings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                <SlidersHorizontal className="h-6 w-6 text-slate-400" />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-slate-600">No settings found</p>
+              <p className="mt-1 text-xs text-slate-400">Pharmacy settings will appear here once configured</p>
+            </div>
+          ) : null}
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {settings.map((setting) => (
               <article
@@ -113,6 +119,11 @@ export const PharmacySettings = () => {
                   <div>
                     <div className="text-sm font-semibold text-slate-800">{setting.title}</div>
                     <div className="mt-0.5 text-xs text-slate-400">{setting.description}</div>
+                    {successId === setting.id ? (
+                      <div className="mt-1 text-xs font-semibold text-emerald-600">
+                        ✅ Saved successfully!
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                   <button
