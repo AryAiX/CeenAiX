@@ -130,11 +130,16 @@ const labRoutes: RouteCase[] = [
   { name: 'settings', path: '/lab/settings' },
 ];
 
+const pharmacyRoutes: RouteCase[] = [
+  { name: 'dashboard', path: '/pharmacy/dashboard' },
+];
+
 const protectedEntryRoutes: Array<{ role: E2ERole; path: string }> = [
   { role: 'patient', path: '/patient/dashboard' },
   { role: 'doctor', path: '/doctor/dashboard' },
   { role: 'super_admin', path: '/admin/dashboard' },
   { role: 'lab', path: '/lab/dashboard' },
+  { role: 'pharmacy', path: '/pharmacy/dashboard' },
   { role: 'clinic', path: '/clinic/dashboard' },
 ];
 
@@ -142,16 +147,20 @@ const wrongRoleChecks: Array<{ role: E2ERole; path: string }> = [
   { role: 'patient', path: '/doctor/dashboard' },
   { role: 'patient', path: '/admin/dashboard' },
   { role: 'patient', path: '/lab/dashboard' },
+  { role: 'patient', path: '/pharmacy/dashboard' },
   { role: 'patient', path: '/clinic/dashboard' },
   { role: 'doctor', path: '/patient/dashboard' },
   { role: 'doctor', path: '/admin/dashboard' },
   { role: 'doctor', path: '/lab/dashboard' },
+  { role: 'doctor', path: '/pharmacy/dashboard' },
   { role: 'doctor', path: '/clinic/dashboard' },
   { role: 'super_admin', path: '/patient/dashboard' },
   { role: 'super_admin', path: '/clinic/dashboard' },
   { role: 'lab', path: '/doctor/dashboard' },
   { role: 'lab', path: '/admin/dashboard' },
+  { role: 'lab', path: '/pharmacy/dashboard' },
   { role: 'lab', path: '/clinic/dashboard' },
+  { role: 'pharmacy', path: '/patient/dashboard' },
   { role: 'clinic', path: '/patient/dashboard' },
   { role: 'clinic', path: '/doctor/dashboard' },
   { role: 'clinic', path: '/admin/dashboard' },
@@ -209,6 +218,27 @@ test.describe('public and auth journeys', () => {
 
     await expect(page).toHaveURL(/\/patient\/dashboard$/);
     await expect(page.locator('body')).toContainText(e2eUsers.patient.fullName);
+  });
+
+  test('pharmacy user opens the pharmacy portal preview directly', async ({ page }) => {
+    await installSupabaseMocks(page, { role: 'pharmacy' });
+    await seedAuthenticatedRole(page, 'pharmacy');
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /pharmacy portal/i }).click();
+
+    await expectProtectedPage(page, '/pharmacy/dashboard');
+  });
+
+  test('patient using the pharmacy portal preview sees access denied', async ({ page }) => {
+    await installSupabaseMocks(page, { role: 'patient' });
+    await seedAuthenticatedRole(page, 'patient');
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /pharmacy portal/i }).click();
+
+    await expect(page).toHaveURL(/\/access-denied$/);
+    await expect(page.locator('body')).toContainText(/access denied/i);
   });
 });
 
@@ -304,6 +334,18 @@ test.describe('clinic end-to-end portal coverage', () => {
     test(`clinic admin can use ${route.name}`, async ({ page }) => {
       await installSupabaseMocks(page, { role: 'clinic' });
       await seedAuthenticatedRole(page, 'clinic');
+      await page.goto(route.path);
+
+      await expectProtectedPage(page, route.path);
+    });
+  }
+});
+
+test.describe('pharmacy end-to-end portal coverage', () => {
+  for (const route of pharmacyRoutes) {
+    test(`pharmacy staff can use ${route.name}`, async ({ page }) => {
+      await installSupabaseMocks(page, { role: 'pharmacy' });
+      await seedAuthenticatedRole(page, 'pharmacy');
 
       await page.goto(route.path);
 

@@ -30,6 +30,8 @@ import {
 import { useInView, useCounter } from '../../hooks';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import LandingDemoLaunchSection from '../../components/LandingDemoLaunchSection';
+import { getDefaultRouteForRole } from '../../lib/auth-context';
+import type { UserRole } from '../../types';
 
 /* ------------------------------------------------------------------------- */
 /*  Marketing landing page — layout preserved; routing via react-router and   */
@@ -268,6 +270,8 @@ interface StatCounterProps {
   active: boolean;
 }
 
+type PortalPreviewRole = Extract<UserRole, 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance' | 'super_admin'>;
+
 const StatCounter = ({ value, suffix, label, active }: StatCounterProps) => {
   const count = useCounter(value, active);
   const { i18n } = useTranslation('common');
@@ -335,15 +339,20 @@ export const Home = () => {
 
   const portals = useMemo(
     () => [
-      { label: t('home.landing.portals.patient'), path: '/patient/dashboard', color: 'from-cyan-500 to-blue-500', icon: Heart },
-      { label: t('home.landing.portals.doctor'), path: '/doctor/dashboard', color: 'from-blue-500 to-sky-500', icon: Stethoscope },
-      { label: t('home.landing.portals.pharmacy'), path: '/pharmacy/dashboard', color: 'from-emerald-500 to-teal-600', icon: Pill },
-      { label: t('home.landing.portals.lab'), path: '/lab/dashboard', color: 'from-violet-500 to-blue-500', icon: FlaskConical },
-      { label: t('home.landing.portals.insurance'), path: '/insurance/portal', color: 'from-amber-500 to-orange-500', icon: FileText },
-      { label: t('home.landing.portals.admin'), path: '/admin/dashboard', color: 'from-rose-500 to-pink-500', icon: Shield },
+      { label: t('home.landing.portals.patient'), role: 'patient', color: 'from-cyan-500 to-blue-500', icon: Heart },
+      { label: t('home.landing.portals.doctor'), role: 'doctor', color: 'from-blue-500 to-sky-500', icon: Stethoscope },
+      { label: t('home.landing.portals.pharmacy'), role: 'pharmacy', color: 'from-emerald-500 to-teal-600', icon: Pill },
+      { label: t('home.landing.portals.lab'), role: 'lab', color: 'from-violet-500 to-blue-500', icon: FlaskConical },
+      { label: t('home.landing.portals.insurance'), role: 'insurance', color: 'from-amber-500 to-orange-500', icon: FileText },
+      { label: t('home.landing.portals.admin'), role: 'super_admin', color: 'from-rose-500 to-pink-500', icon: Shield },
     ],
     [t]
-  );
+  ) satisfies Array<{
+    label: string;
+    role: PortalPreviewRole;
+    color: string;
+    icon: typeof Heart;
+  }>;
 
   const features = useMemo(
     () => [
@@ -684,7 +693,7 @@ export const Home = () => {
                   {portals.map((p, i) => {
                     const Icon = p.icon;
                     return (
-                      <button key={i} type="button" onClick={() => navigate(p.path)}
+                      <button key={p.label} type="button" onClick={() => navigate(getDefaultRouteForRole(p.role))}
                         className={`portal-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/25 group ${activePortal === i ? 'ring-1 ring-teal-400/50 bg-white/12' : ''}`}>
                         <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center shadow-lg`}>
                           <Icon className="w-3.5 h-3.5 text-white" />
