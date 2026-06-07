@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "CeenAiX",
+    "slug": "ceenaix-mobile",
+    "scheme": "ceenaix",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d9488"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ceenaix.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to securely unlock CeenAiX.",
+        "NSCameraUsageDescription": "Capture documents and your Emirates ID.",
+        "NSPhotoLibraryUsageDescription": "Attach documents from your photo library."
+      }
+    },
+    "android": {
+      "package": "com.ceenaix.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0d9488",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#0d9488"
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseProjectRefDev": "lgfaucsfiyxvmsghnpey"
+    }
+  }
+}
