@@ -286,6 +286,13 @@ export const DoctorPatientDetail: React.FC = () => {
               </div>
 
               <div className="space-y-4">
+                {appointments.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                    <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                    <p className="font-semibold text-slate-700">No appointments yet</p>
+                    <p className="mt-1 text-sm text-slate-500">This patient has no appointment history with you.</p>
+                  </div>
+                ) : null}
                 {(showAllAppointments ? appointments : appointments.slice(0, 6)).map((appointment) => (
                   <button
                     key={appointment.id}
