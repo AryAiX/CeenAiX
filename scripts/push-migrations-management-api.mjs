@@ -11,8 +11,8 @@ import { resolve, join } from 'node:path';
 
 const API_BASE = 'https://api.supabase.com/v1';
 const TRANSIENT_API_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504, 544]);
-const MAX_API_ATTEMPTS = 4;
-const RETRY_DELAYS_MS = [5000, 15000, 30000];
+const MAX_API_ATTEMPTS = 8;
+const RETRY_DELAYS_MS = [5000, 15000, 30000, 60000, 90000, 120000, 180000];
 
 const dryRun = process.argv.includes('--dry-run');
 
