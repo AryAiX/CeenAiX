@@ -57,7 +57,7 @@ export const DoctorPatientDetail: React.FC = () => {
       appointments.find(
         (appointment) =>
           UPCOMING_STATUSES.has(appointment.status) &&
-          (appointment.status === 'in_progress' || new Date(appointment.scheduled_at).getTime() >= Date.now())
+          new Date(appointment.scheduled_at).getTime() >= Date.now()
       ) ?? null,
     [appointments]
   );
