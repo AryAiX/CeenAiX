@@ -646,6 +646,7 @@ export const DoctorAppointments: React.FC = () => {
             {!isTodayRoute ? (
               <div ref={tabsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  {activeTab === 'calendar' ? (
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
@@ -675,7 +676,9 @@ export const DoctorAppointments: React.FC = () => {
                       Today
                     </button>
                   </div>
+                  ) : null}
 
+                  {activeTab === 'calendar' ? (
                   <div className="flex items-center gap-2 overflow-x-auto">
                     <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
                       <button
@@ -725,6 +728,7 @@ export const DoctorAppointments: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                  ) : null}
                 </div>
 
                 <div className="mb-4 flex overflow-x-auto border-b border-slate-200">
