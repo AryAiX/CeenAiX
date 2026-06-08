@@ -572,6 +572,8 @@ export function useDoctorDashboard(userId: string | null | undefined) {
           .in('conversation_id', conversationIds)
           .neq('sender_id', userId)
           .eq('is_deleted', false)
+          .gte('sent_at', startOfTodayIso)
+          .lte('sent_at', endOfTodayIso)
           .order('sent_at', { ascending: false })
           .limit(4),
       ]);
