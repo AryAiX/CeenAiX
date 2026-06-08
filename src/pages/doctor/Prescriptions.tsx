@@ -325,7 +325,19 @@ export const DoctorPrescriptions: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => navigate(`/doctor/messages?patient=${prescription.patient_id}`)}
+                            onClick={() => {
+                              const medicationLines = prescription.items
+                                .map((item) => {
+                                  const details = [item.dosage, item.frequency, item.duration]
+                                    .filter(Boolean)
+                                    .join(' — ');
+                                  return `• ${item.medication_name}${details ? ` — ${details}` : ''}`;
+                                })
+                                .join('\n');
+                              const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Your Doctor';
+                              const draft = `Hi ${prescription.patientName},\n\nYour prescription has been issued on ${formatDate(prescription.prescribed_at)}.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed and complete the full course. If you experience any side effects or have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
+                              navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
+                            }}
                             className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
                           >
                             <MessageSquare className="h-4 w-4" />
@@ -484,7 +496,19 @@ export const DoctorPrescriptions: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate(`/doctor/messages?patient=${prescription.patient_id}`)}
+                        onClick={() => {
+                          const medicationLines = prescription.items
+                            .map((item) => {
+                              const details = [item.dosage, item.frequency, item.duration]
+                                .filter(Boolean)
+                                .join(' — ');
+                              return `• ${item.medication_name}${details ? ` — ${details}` : ''}`;
+                            })
+                            .join('\n');
+                          const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Your Doctor';
+                          const draft = `Hi ${prescription.patientName},\n\nYour prescription has been issued on ${formatDate(prescription.prescribed_at)}.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed and complete the full course. If you experience any side effects or have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
+                          navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
+                        }}
                         className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
                       >
                         <MessageSquare className="h-4 w-4" />
