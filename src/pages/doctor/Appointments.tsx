@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
@@ -53,6 +53,7 @@ export const DoctorAppointments: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
+  const tabsSectionRef = useRef<HTMLDivElement>(null);
   const [calendarScale, setCalendarScale] = useState<CalendarScale>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -360,14 +361,17 @@ export const DoctorAppointments: React.FC = () => {
     if (action === 'week') {
       setCalendarScale('week');
       handleTabChange('calendar');
+      setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     if (action === 'pending') {
       handleTabChange('pending');
+      setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     if (action === 'analytics') {
       handleTabChange('analytics');
+      setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     navigate('/doctor/profile');
@@ -640,7 +644,7 @@ export const DoctorAppointments: React.FC = () => {
         ) : (
           <div className="space-y-5">
             {!isTodayRoute ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div ref={tabsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap items-center gap-3">
                     <button
