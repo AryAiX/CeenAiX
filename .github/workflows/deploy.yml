@@ -1,12 +1,11 @@
 name: Release
 
-# Manual production release only (Actions → Release → Run workflow).
+# Manual release only (Actions → Release → Run workflow).
 # Does NOT run on push/merge. Dev deploys via the Build workflow (ci.yml).
 #
 # Existing prod secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_PROJECT_REF,
 # VERCEL_* , VITE_SUPABASE_PROD_* .
-# Optional existing prod secrets: SUPABASE_PROD_DB_PASSWORD (CLI fallback only),
-# SUPABASE_RESEND_SMTP_PASSWORD.
+# Optional existing prod secret: SUPABASE_RESEND_SMTP_PASSWORD.
 #
 # Azure UAE optional secrets: AZURE_UAE_HOST, AZURE_UAE_SSH_KEY,
 # AZURE_UAE_SUPABASE_URL, AZURE_UAE_SUPABASE_ANON_KEY,
@@ -15,20 +14,130 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      deploy_azure_uae:
-        description: Deploy the Azure UAE self-hosted web/functions target after existing prod deploy
+      target:
+        description: Release target to deploy
         required: true
-        default: false
-        type: boolean
+        default: production
+        type: choice
+        options:
+          - production
+          - azure-uae
+          - all
       apply_azure_uae_migrations:
-        description: Apply Azure UAE database migrations through an SSH tunnel
+        description: Apply Azure UAE database migrations before Azure web/functions deploy
         required: true
-        default: false
+        default: true
         type: boolean
 
 jobs:
+  release-plan:
+    name: Validate release target
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    outputs:
+      run_production: ${{ steps.plan.outputs.run_production }}
+      run_azure_uae: ${{ steps.plan.outputs.run_azure_uae }}
+      run_azure_uae_migrations: ${{ steps.plan.outputs.run_azure_uae_migrations }}
+
+    steps:
+      - name: Validate selected target and required secrets
+        id: plan
+        env:
+          TARGET: ${{ inputs.target }}
+          APPLY_AZURE_UAE_MIGRATIONS: ${{ inputs.apply_azure_uae_migrations }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
+          VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_SUPABASE_PROD_URL: ${{ secrets.VITE_SUPABASE_PROD_URL }}
+          VITE_SUPABASE_PROD_ANON_KEY: ${{ secrets.VITE_SUPABASE_PROD_ANON_KEY }}
+          AZURE_UAE_HOST: ${{ secrets.AZURE_UAE_HOST }}
+          AZURE_UAE_SSH_KEY: ${{ secrets.AZURE_UAE_SSH_KEY }}
+          AZURE_UAE_SUPABASE_URL: ${{ secrets.AZURE_UAE_SUPABASE_URL }}
+          AZURE_UAE_SUPABASE_ANON_KEY: ${{ secrets.AZURE_UAE_SUPABASE_ANON_KEY }}
+          AZURE_UAE_SUPABASE_FUNCTIONS_URL: ${{ secrets.AZURE_UAE_SUPABASE_FUNCTIONS_URL }}
+          AZURE_UAE_POSTGRES_PASSWORD: ${{ secrets.AZURE_UAE_POSTGRES_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          run_production=false
+          run_azure_uae=false
+          run_azure_uae_migrations=false
+
+          case "${TARGET}" in
+            production)
+              run_production=true
+              ;;
+            azure-uae)
+              run_azure_uae=true
+              ;;
+            all)
+              run_production=true
+              run_azure_uae=true
+              ;;
+            *)
+              echo "Unsupported release target: ${TARGET}" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ "${run_azure_uae}" == "true" && "${APPLY_AZURE_UAE_MIGRATIONS}" == "true" ]]; then
+            run_azure_uae_migrations=true
+          fi
+
+          missing=()
+          require_secret() {
+            local name="$1"
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          }
+
+          if [[ "${run_production}" == "true" ]]; then
+            require_secret SUPABASE_ACCESS_TOKEN
+            require_secret SUPABASE_PROD_PROJECT_REF
+            require_secret VERCEL_TOKEN_B64
+            require_secret VERCEL_ORG_ID
+            require_secret VERCEL_PROJECT_ID
+            require_secret VITE_SUPABASE_PROD_URL
+            require_secret VITE_SUPABASE_PROD_ANON_KEY
+          fi
+
+          if [[ "${run_azure_uae}" == "true" ]]; then
+            require_secret AZURE_UAE_HOST
+            require_secret AZURE_UAE_SSH_KEY
+            require_secret AZURE_UAE_SUPABASE_URL
+            require_secret AZURE_UAE_SUPABASE_ANON_KEY
+            require_secret AZURE_UAE_SUPABASE_FUNCTIONS_URL
+
+            if [[ "${run_azure_uae_migrations}" == "true" ]]; then
+              require_secret AZURE_UAE_POSTGRES_PASSWORD
+            fi
+          fi
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Release target '${TARGET}' is missing required GitHub secret(s):" >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
+          {
+            echo "run_production=${run_production}"
+            echo "run_azure_uae=${run_azure_uae}"
+            echo "run_azure_uae_migrations=${run_azure_uae_migrations}"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Release target: ${TARGET}"
+          echo "Production release: ${run_production}"
+          echo "Azure UAE release: ${run_azure_uae}"
+          echo "Azure UAE migrations: ${run_azure_uae_migrations}"
+
   prod-supabase:
     name: Production Supabase
+    needs: release-plan
+    if: ${{ needs.release-plan.outputs.run_production == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -53,7 +162,6 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
-          SUPABASE_PROD_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
           SUPABASE_RESEND_SMTP_PASSWORD: ${{ secrets.SUPABASE_RESEND_SMTP_PASSWORD }}
         run: bash scripts/prod-release-supabase.sh
 
@@ -122,8 +230,10 @@ jobs:
 
   azure-uae-migrations:
     name: Azure UAE Migrations
-    needs: prod-deploy
-    if: ${{ inputs.deploy_azure_uae && inputs.apply_azure_uae_migrations }}
+    needs:
+      - release-plan
+      - prod-deploy
+    if: ${{ always() && needs.release-plan.outputs.run_azure_uae_migrations == 'true' && (needs.prod-deploy.result == 'success' || needs.prod-deploy.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -135,10 +245,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
 
       - name: Install Postgres client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
@@ -155,18 +261,26 @@ jobs:
         env:
           AZURE_UAE_HOST: ${{ secrets.AZURE_UAE_HOST }}
           AZURE_UAE_POSTGRES_PASSWORD: ${{ secrets.AZURE_UAE_POSTGRES_PASSWORD }}
+          AZURE_UAE_MIGRATION_MODE: psql
         run: |
           ssh -i ~/.ssh/azure_uae -o StrictHostKeyChecking=accept-new \
             -fN -L 6543:localhost:5432 "azureuser@${AZURE_UAE_HOST}"
-          AZURE_UAE_DB_URL="postgresql://postgres:${AZURE_UAE_POSTGRES_PASSWORD}@127.0.0.1:6543/postgres" \
+          AZURE_UAE_POSTGRES_PASSWORD_ENCODED="$(python - <<'PY'
+          import os
+          from urllib.parse import quote
+          print(quote(os.environ["AZURE_UAE_POSTGRES_PASSWORD"], safe=""))
+          PY
+          )"
+          AZURE_UAE_DB_URL="postgresql://postgres:${AZURE_UAE_POSTGRES_PASSWORD_ENCODED}@127.0.0.1:6543/postgres" \
             bash scripts/azure-uae-apply-migrations.sh
 
   azure-uae-deploy:
     name: Azure UAE Web and Functions
     needs:
+      - release-plan
       - prod-deploy
       - azure-uae-migrations
-    if: ${{ always() && inputs.deploy_azure_uae && needs.prod-deploy.result == 'success' && (needs.azure-uae-migrations.result == 'success' || needs.azure-uae-migrations.result == 'skipped') }}
+    if: ${{ always() && needs.release-plan.outputs.run_azure_uae == 'true' && (needs.prod-deploy.result == 'success' || needs.prod-deploy.result == 'skipped') && (needs.azure-uae-migrations.result == 'success' || needs.azure-uae-migrations.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment:
       name: production
