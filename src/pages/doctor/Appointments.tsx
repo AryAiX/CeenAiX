@@ -57,6 +57,9 @@ export const DoctorAppointments: React.FC = () => {
   const [calendarScale, setCalendarScale] = useState<CalendarScale>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [listSearchQuery, setListSearchQuery] = useState('');
+  const [listStatusFilter, setListStatusFilter] = useState<string>('all');
+  const [listSortOrder, setListSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const patientIds = useMemo(
     () => Array.from(new Set((routeAppointments ?? []).map((appointment) => appointment.patient_id))),
@@ -159,6 +162,30 @@ export const DoctorAppointments: React.FC = () => {
     },
     [activeTab, isTodayRoute, routeAppointments, selectedCalendarDateKey, viewMode]
   );
+  const filteredVisibleAppointments = useMemo(() => {
+    if (activeTab !== 'list') return visibleAppointments;
+
+    let result = [...visibleAppointments];
+
+    if (listStatusFilter !== 'all') {
+      result = result.filter((appointment) => appointment.status === listStatusFilter);
+    }
+
+    if (listSearchQuery.trim()) {
+      const query = listSearchQuery.trim().toLowerCase();
+      result = result.filter((appointment) =>
+        (patientNameById.get(appointment.patient_id) ?? '').toLowerCase().includes(query)
+      );
+    }
+
+    result.sort((a, b) => {
+      const diff = new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+      return listSortOrder === 'asc' ? diff : -diff;
+    });
+
+    return result;
+  }, [activeTab, visibleAppointments, listStatusFilter, listSearchQuery, listSortOrder, patientNameById]);
+
   // Use canonical AppointmentStatus values only. The previous list mixed in
   // 'fulfilled', 'finished', 'checked_in' which are not in the enum, so the
   // counters silently stayed wrong even when real rows transitioned status.
@@ -1025,6 +1052,55 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             </div>
 
+            {activeTab === 'list' ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative flex-1">
+                  <input
+                    type="search"
+                    value={listSearchQuery}
+                    onChange={(e) => setListSearchQuery(e.target.value)}
+                    placeholder="Search by patient name..."
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-4 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={listStatusFilter}
+                    onChange={(e) => setListStatusFilter(e.target.value)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="no_show">No Show</option>
+                  </select>
+                  <select
+                    value={listSortOrder}
+                    onChange={(e) => setListSortOrder(e.target.value as 'asc' | 'desc')}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                  {(listSearchQuery || listStatusFilter !== 'all') ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setListSearchQuery('');
+                        setListStatusFilter('all');
+                      }}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             {activeTab === 'analytics' && !isTodayRoute ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1074,7 +1150,7 @@ export const DoctorAppointments: React.FC = () => {
                   <p className="mt-2 text-sm text-slate-500">Live from appointment status values.</p>
                 </div>
               </div>
-            ) : visibleAppointments.length === 0 ? (
+            ) : filteredVisibleAppointments.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm">
                 <CalendarDays className="mx-auto mb-4 h-10 w-10 text-gray-400" />
                 <h3 className="text-xl font-bold text-gray-900">{t('doctor.appointments.noDayTitle')}</h3>
@@ -1082,7 +1158,7 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             ) : (
               <div className="grid gap-6">
-                {visibleAppointments.map((appointment) => (
+                {filteredVisibleAppointments.map((appointment) => (
                   (() => {
                     const canCancel =
                       ['scheduled', 'confirmed'].includes(appointment.status) &&
