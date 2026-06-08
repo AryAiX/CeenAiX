@@ -87,6 +87,22 @@ skip_prod_database_management_api() {
   [[ "${SKIP_PROD_MIGRATION_CHECK:-}" == "true" ]]
 }
 
+run_supabase_deployable_step() {
+  local description="$1"
+  shift
+
+  if "$@"; then
+    return 0
+  fi
+
+  if skip_prod_database_management_api; then
+    echo "::warning::${description} failed while SKIP_PROD_MIGRATION_CHECK=true. Supabase project/API state is preventing this production Supabase deployable step; continuing so Vercel production can deploy. Re-run this step once Supabase recovers."
+    return 0
+  fi
+
+  return 1
+}
+
 echo "=== [1/5] Apply database migrations to ${PROJECT_REF} ==="
 cd "${ROOT_DIR}"
 
@@ -122,9 +138,11 @@ fi
 
 echo "=== [4/5] Deploy edge functions ==="
 export SUPABASE_PROD_PROJECT_REF="${PROJECT_REF}"
-node "${ROOT_DIR}/scripts/deploy-edge-functions.mjs"
+run_supabase_deployable_step "Production Edge Function deployment" \
+  node "${ROOT_DIR}/scripts/deploy-edge-functions.mjs"
 
 echo "=== [5/5] Sync auth platform (templates, site URL, redirects) ==="
-"${ROOT_DIR}/scripts/sync-prod-auth-platform.sh" "${PROJECT_REF}"
+run_supabase_deployable_step "Production auth platform sync" \
+  "${ROOT_DIR}/scripts/sync-prod-auth-platform.sh" "${PROJECT_REF}"
 
 echo "Supabase production release complete for ${PROJECT_REF}."
