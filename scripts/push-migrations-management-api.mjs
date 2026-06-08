@@ -16,6 +16,7 @@ const RETRY_DELAYS_MS = [5000, 10000];
 
 const dryRun = process.argv.includes('--dry-run');
 const skipDemoMigrations = process.env.SUPABASE_SKIP_DEMO_MIGRATIONS === 'true';
+const schemaRequiredSeedVersions = new Set(['20260504000000', '20260510000000']);
 
 const projectRef =
   process.argv.find((arg, index) => process.argv[index - 1] === '--project-ref') ||
@@ -116,7 +117,7 @@ const listLocalMigrations = async () => {
     const skipFile = await readFile(demoMigrationsPath, 'utf8');
     for (const rawLine of skipFile.split(/\r?\n/)) {
       const version = rawLine.split('#', 1)[0].trim();
-      if (/^\d{14}$/.test(version)) {
+      if (/^\d{14}$/.test(version) && !schemaRequiredSeedVersions.has(version)) {
         skippedVersions.add(version);
       }
     }
