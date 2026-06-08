@@ -14,11 +14,16 @@ on:
       - '.github/workflows/migrations.yml'
       - '.github/workflows/deploy.yml'
 
+concurrency:
+  group: supabase-migrations-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dry-run:
     name: Migration dry-run (PR)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
