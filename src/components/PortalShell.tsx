@@ -115,6 +115,7 @@ export const PortalShell = ({
   } | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     setAccountMenuOpen(false);
@@ -264,7 +265,7 @@ export const PortalShell = ({
     const patientBottomItems: PortalNavItem[] = [
       { id: 'profile', label: t('nav.profile'), icon: UserCircle2, href: '/patient/profile' },
       { id: 'settings', label: t('nav.settings'), icon: Settings, href: '/patient/settings' },
-      { id: 'signout', label: t('nav.logOut'), icon: LogOut, action: () => void handleSignOut() },
+      { id: 'signout', label: t('nav.logOut'), icon: LogOut, action: () => setShowLogoutConfirm(true) },
     ];
 
     const portalItems: PortalNavItem[] = [
@@ -586,6 +587,33 @@ export const PortalShell = ({
             </div>
           </div>
         )}
+        {showLogoutConfirm ? (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
+              <h3 className="text-lg font-bold text-gray-900">Sign Out</h3>
+              <p className="mt-2 text-sm text-gray-500">Are you sure you want to sign out?</p>
+              <div className="mt-6 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    void handleSignOut();
+                  }}
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  Yes, Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -891,7 +919,7 @@ export const PortalShell = ({
           </div>
           <button
             type="button"
-            onClick={() => void handleSignOut()}
+            onClick={() => setShowLogoutConfirm(true)}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-red-400"
           >
             <LogOut className="h-4 w-4" />
@@ -980,9 +1008,9 @@ export const PortalShell = ({
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
+                      onClick={() => {
                         setAccountMenuOpen(false);
-                        await handleSignOut();
+                        setShowLogoutConfirm(true);
                       }}
                       className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
@@ -998,6 +1026,33 @@ export const PortalShell = ({
 
         <main className="flex-1 overflow-y-auto px-6 py-5">{children}</main>
       </div>
+      {showLogoutConfirm ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-gray-900">Sign Out</h3>
+            <p className="mt-2 text-sm text-gray-500">Are you sure you want to sign out?</p>
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  void handleSignOut();
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
