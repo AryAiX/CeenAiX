@@ -56,6 +56,28 @@ die()  { printf '\033[1;31m[bootstrap]\033[0m %s\n' "$*" >&2; exit 1; }
 
 require_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+docker_compose() {
+  if docker info >/dev/null 2>&1; then
+    docker compose "$@"
+  else
+    sudo docker compose "$@"
+  fi
+}
+
+env_has_filled_key() {
+  local env_file="$1" key="$2" value
+  value="$(python3 - "${env_file}" "${key}" <<'PYEOF'
+import sys
+path, key = sys.argv[1], sys.argv[2]
+for line in open(path):
+    if line.startswith(f"{key}="):
+        print(line.split("=", 1)[1].strip())
+        break
+PYEOF
+)"
+  [[ -n "${value}" && "${value}" != __CHANGE_ME* ]]
+}
+
 # ── base64url helper ─────────────────────────────────────────────────────────
 b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 
@@ -111,11 +133,13 @@ fetch_supabase() {
     git -C "${STACK_DIR}" reset -q --hard "origin/${SUPABASE_REF}" 2>/dev/null || true
   else
     log "Cloning supabase/supabase (sparse: docker/) into ${STACK_DIR}…"
+    local src_dir
+    src_dir="$(mktemp -d)"
     git clone --depth 1 --branch "${SUPABASE_REF}" --filter=blob:none --sparse \
-      https://github.com/supabase/supabase "${STACK_DIR}.src"
-    git -C "${STACK_DIR}.src" sparse-checkout set docker
-    cp -r "${STACK_DIR}.src/docker/." "${STACK_DIR}/"
-    rm -rf "${STACK_DIR}.src"
+      https://github.com/supabase/supabase "${src_dir}"
+    git -C "${src_dir}" sparse-checkout set docker
+    cp -r "${src_dir}/docker/." "${STACK_DIR}/"
+    rm -rf "${src_dir}"
   fi
 }
 
@@ -151,8 +175,12 @@ HTMLEOF
 # ── 4. Generate secrets into .env (first run only) ───────────────────────────
 generate_env() {
   local env_file="${STACK_DIR}/.env"
-  if [[ -f "${env_file}" ]] && ! grep -q '__CHANGE_ME' "${env_file}"; then
-    log ".env already present and filled in — leaving it untouched."
+  if [[ -f "${env_file}" ]] && \
+     env_has_filled_key "${env_file}" "JWT_SECRET" && \
+     env_has_filled_key "${env_file}" "POSTGRES_PASSWORD" && \
+     env_has_filled_key "${env_file}" "ANON_KEY" && \
+     env_has_filled_key "${env_file}" "SERVICE_ROLE_KEY"; then
+    log ".env already has initialized database/JWT secrets — leaving them untouched."
     return
   fi
 
@@ -201,6 +229,83 @@ PYEOF
   warn "SERVICE_ROLE_KEY is server-side only. Set SMTP_PASS + OPENAI (function secret) manually."
 }
 
+ensure_env_defaults() {
+  local env_file="${STACK_DIR}/.env"
+  [[ -f "${env_file}" ]] || die "Missing ${env_file}; generate_env must run first."
+
+  log "Ensuring required Supabase docker defaults are present…"
+  local publishable_key secret_key pg_meta_key s3_key_id s3_key_secret
+  publishable_key="sb_publishable_$(gen_secret 24)"
+  secret_key="sb_secret_$(gen_secret 32)"
+  pg_meta_key="$(gen_secret 32)"
+  s3_key_id="$(gen_secret 16)"
+  s3_key_secret="$(gen_secret 32)"
+
+  python3 - "${env_file}" "${publishable_key}" "${secret_key}" "${pg_meta_key}" "${s3_key_id}" "${s3_key_secret}" <<'PYEOF'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+generated_publishable_key, generated_secret_key, generated_pg_meta_key, generated_s3_key_id, generated_s3_key_secret = sys.argv[2:7]
+lines = path.read_text().splitlines()
+values = {}
+
+for line in lines:
+    if not line or line.lstrip().startswith("#") or "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    values[key.strip()] = value.strip()
+
+defaults = {
+    "SUPABASE_PUBLISHABLE_KEY": generated_publishable_key,
+    "SUPABASE_SECRET_KEY": generated_secret_key,
+    "PG_META_CRYPTO_KEY": values.get("VAULT_ENC_KEY") or generated_pg_meta_key,
+    "PGRST_DB_SCHEMAS": "public,storage,graphql_public",
+    "POOLER_PROXY_PORT_TRANSACTION": "6543",
+    "POOLER_MAX_CLIENT_CONN": "100",
+    "POOLER_TENANT_ID": "ceenaix-uae",
+    "POOLER_DEFAULT_POOL_SIZE": "20",
+    "POOLER_DB_POOL_SIZE": "5",
+    "GLOBAL_S3_BUCKET": "stub",
+    "STORAGE_TENANT_ID": "stub",
+    "S3_PROTOCOL_ACCESS_KEY_ID": generated_s3_key_id,
+    "S3_PROTOCOL_ACCESS_KEY_SECRET": generated_s3_key_secret,
+    "REGION": "local",
+    "ENABLE_ANONYMOUS_USERS": "false",
+    "IMGPROXY_AUTO_WEBP": "true",
+}
+
+existing_keys = set()
+out = []
+for line in lines:
+    if "=" not in line or line.lstrip().startswith("#"):
+        out.append(line)
+        continue
+    key, value = line.split("=", 1)
+    stripped_key = key.strip()
+    stripped_value = value.strip()
+    existing_keys.add(stripped_key)
+    duplicates_legacy_key = (
+        stripped_key == "SUPABASE_PUBLISHABLE_KEY" and stripped_value == values.get("ANON_KEY")
+    ) or (
+        stripped_key == "SUPABASE_SECRET_KEY" and stripped_value == values.get("SERVICE_ROLE_KEY")
+    )
+    if stripped_key in defaults and (not stripped_value or stripped_value.startswith("__CHANGE_ME") or duplicates_legacy_key):
+        out.append(f"{stripped_key}={defaults[stripped_key]}")
+    else:
+        out.append(line)
+
+missing = [key for key in defaults if key not in existing_keys]
+if missing:
+    out.append("")
+    out.append("# Required by the current upstream Supabase docker compose.")
+    for key in missing:
+        out.append(f"{key}={defaults[key]}")
+
+path.write_text("\n".join(out) + "\n")
+PYEOF
+}
+
 # ── 5. Bring up the stack ────────────────────────────────────────────────────
 start_stack() {
   if [[ "${START_STACK}" != "true" ]]; then
@@ -209,8 +314,13 @@ start_stack() {
   fi
   log "Pulling images and starting the stack…"
   ( cd "${STACK_DIR}" && \
-    docker compose -f docker-compose.yml -f docker-compose.override.yml pull && \
-    docker compose -f docker-compose.yml -f docker-compose.override.yml up -d )
+    docker_compose -f docker-compose.yml -f docker-compose.override.yml pull && \
+    docker_compose -f docker-compose.yml -f docker-compose.override.yml up -d )
+  if ( cd "${STACK_DIR}" && docker_compose -f docker-compose.yml -f docker-compose.override.yml ps --services 2>/dev/null | grep -qx 'caddy' ); then
+    ( cd "${STACK_DIR}" && \
+      docker_compose -f docker-compose.yml -f docker-compose.override.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
+      docker_compose -f docker-compose.yml -f docker-compose.override.yml restart caddy )
+  fi
   log "Stack is up. Check: cd ${STACK_DIR} && docker compose ps"
 }
 
@@ -222,6 +332,7 @@ main() {
   install_overrides
   install_web_root
   generate_env
+  ensure_env_defaults
   start_stack
   log "Done. Next: apply migrations + deploy Edge Functions per the runbook."
 }

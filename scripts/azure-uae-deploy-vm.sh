@@ -65,7 +65,7 @@ web_archive="${tmp_dir}/web.tgz"
 functions_archive="${tmp_dir}/functions.tgz"
 function_file_list="${tmp_dir}/function-files.txt"
 
-tar -C "${ROOT_DIR}/dist" -czf "${web_archive}" .
+COPYFILE_DISABLE=1 tar -C "${ROOT_DIR}/dist" -czf "${web_archive}" .
 
 node <<'NODE' > "${function_file_list}"
 const { readFileSync } = require('node:fs');
@@ -77,7 +77,7 @@ for (const deployable of manifest.deployables ?? []) {
 }
 NODE
 
-tar -C "${ROOT_DIR}" -czf "${functions_archive}" -T "${function_file_list}"
+COPYFILE_DISABLE=1 tar -C "${ROOT_DIR}" -czf "${functions_archive}" -T "${function_file_list}"
 
 ssh_base=(
   -i "${SSH_KEY_PATH}"

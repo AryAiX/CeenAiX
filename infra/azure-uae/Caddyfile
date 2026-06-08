@@ -81,11 +81,15 @@ studio.uae.ceenaix.com {
 	encode zstd gzip
 
 	@supabase_api path /rest/v1* /auth/v1* /storage/v1* /realtime/v1* /functions/v1*
-	reverse_proxy @supabase_api kong:8000
+	handle @supabase_api {
+		reverse_proxy kong:8000
+	}
 
-	root * /var/www/ceenaix
-	try_files {path} /index.html
-	file_server
+	handle {
+		root * /var/www/ceenaix
+		try_files {path} /index.html
+		file_server
+	}
 
 	header {
 		X-Content-Type-Options "nosniff"

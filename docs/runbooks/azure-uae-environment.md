@@ -2,12 +2,11 @@
 
 Last updated: 2026-06-07
 Owner: Platform engineering
-Status: **Provisioning-ready templates + pipeline hooks.** Live Azure bring-up
-was attempted on 2026-06-07 with the approved low-cost `Standard_B2ms` target,
-but Azure UAE North returned `SkuNotAvailable` capacity errors for zones 1, 2,
-and 3. The empty resource group `rg-ceenaix-uae` can remain in place at no
-compute cost; retry VM creation when B-series capacity is available or after an
-explicitly approved size change.
+Status: **Live public-IP pilot.** Azure UAE North bring-up completed on
+2026-06-07 after the user approved `Standard_D2_v4` because `Standard_B2ms`
+capacity was unavailable. The VM, self-hosted Supabase stack, migrations, Edge
+Function source, and static web bundle are deployed and reachable at
+`http://20.74.136.137`.
 
 > Companion runbook: [`production-environment.md`](production-environment.md)
 > (Supabase Cloud dev/prod inventory + the ref-data-only migration strategy this
@@ -94,7 +93,7 @@ the environment graduates beyond pilot load.
 | Item | Recommendation | Notes |
 | --- | --- | --- |
 | Region | **UAE North** (`uaenorth`) | The operational Azure UAE region. UAE Central has fewer SKUs. |
-| VM size | **Standard_B2ms** (2 vCPU / 8 GiB) | Approved low-cost pilot target. Do not create D/E/F/L-series VMs without explicit approval. |
+| VM size | **Standard_D2_v4** (2 vCPU / 8 GiB) | Approved fallback after `Standard_B2ms` returned UAE North capacity errors. Do not create larger sizes without explicit approval. |
 | OS | Ubuntu 22.04 / 24.04 LTS | Matches the bootstrap script's Docker apt repo. |
 | OS disk | **128 GiB Standard SSD (`StandardSSD_LRS`)** | Keeps the pilot near the reserved-cost target. |
 | Data disk | None for the pilot | Add a managed data disk later for cleaner snapshots and isolation. |
@@ -140,7 +139,7 @@ az group create -n rg-ceenaix-uae -l uaenorth
 
 az vm create \
   -g rg-ceenaix-uae -n vm-ceenaix-supabase-uae -l uaenorth \
-  --image Ubuntu2204 --size Standard_B2ms \
+  --image Ubuntu2204 --size Standard_D2_v4 \
   --admin-username azureuser \
   --authentication-type ssh \
   --ssh-key-values ~/.ssh/ceenaix_uae_vm.pub \
@@ -155,6 +154,28 @@ az vm create \
 az vm open-port -g rg-ceenaix-uae -n vm-ceenaix-supabase-uae --port 80,443 --priority 100
 # Keep Postgres closed publicly. Use an SSH tunnel for admin/migrations.
 ```
+
+### Current live pilot status
+
+| Item | Current value |
+| --- | --- |
+| Subscription | `d74d37b1-8637-40ba-ad9b-fc53dbf6dfe9` (`Azure subscription 1`) |
+| Tenant | `7ebed75a-1cca-4079-a0a2-fcdeff5a8e7c` |
+| Resource group | `rg-ceenaix-uae` |
+| VM | `vm-ceenaix-supabase-uae` |
+| Size | `Standard_D2_v4` |
+| Public IP / pilot URL | `20.74.136.137` / `http://20.74.136.137` |
+| Private IP | `10.0.0.4` |
+| OS disk | 128 GiB root filesystem, `StandardSSD_LRS` managed disk |
+| NSG inbound allows | 22, 80, 443 only |
+| Supabase health | GoTrue `/auth/v1/health` returns `200 OK` with anon key; PostgREST `/rest/v1/` returns OpenAPI |
+| Web health | `http://20.74.136.137/` returns the deployed CeenAiX Vite app shell |
+| Migrations | 110 migration versions recorded via private SSH tunnel / psql fallback; demo cleanup completed |
+| Reference data | `specializations`: 67 rows; `medication_catalog`: 7 rows; `lab_test_catalog`: 0 rows because current migrations create the catalog schema but do not seed lab-test rows |
+
+The current SSH NSG rule is open from `Internet` because the detected admin IP
+changed during provisioning and blocked access. Restrict port 22 to a stable
+admin IP or Azure Bastion before treating this pilot as production-accessible.
 
 ### 1–5. Bootstrap the stack on the VM
 
@@ -217,12 +238,23 @@ Supabase CLI can link to.
 SELF_HOST_DB_URL="postgresql://postgres:<POSTGRES_PASSWORD>@<vm-ip>:5432/postgres"
 
 AZURE_UAE_DB_URL="$SELF_HOST_DB_URL" ./scripts/azure-uae-apply-migrations.sh
+
+# If the Supabase CLI is unavailable or the local `npx supabase` binary cannot
+# run on the workstation, use the psql fallback. It applies ordered SQL through
+# the same private tunnel and records versions in
+# `supabase_migrations.schema_migrations`.
+AZURE_UAE_MIGRATION_MODE=psql \
+AZURE_UAE_DB_URL="$SELF_HOST_DB_URL" ./scripts/azure-uae-apply-migrations.sh
 ```
 
-This yields the same shape as prod: reference tables populated
-(`specializations`, `medication_catalog`, `lab_test_catalog`), everything else
-empty, no demo auth users. See the prod runbook for the rationale and the list
-of intentionally-kept reference rows.
+This yields the same shape as prod: reference tables populated where this repo
+currently ships seed rows (`specializations`, `medication_catalog`), everything
+else empty, no demo auth users. See the prod runbook for the rationale and the
+list of intentionally-kept reference rows.
+
+Current pilot note: the repo contains reference rows for `specializations` and
+`medication_catalog`, but no `INSERT` seed for `lab_test_catalog`; the table is
+present and empty after cleanup.
 
 > Tunnel tip: `ssh -L 5432:localhost:5432 azureuser@<vm-ip>` and target
 > `postgresql://postgres:<pw>@localhost:5432/postgres` so Postgres never needs a
@@ -342,33 +374,35 @@ the whole residency story**:
 
 ## Assumptions
 
-1. **No live provisioning in this branch.** No Azure credentials were available;
-   all `az`/VM steps are illustrative and untested against a real subscription.
-   The docker/Caddy/env templates and the bootstrap script are written to run on
-   a real VM but were only syntax-checked here.
-2. **Domains** `api.uae.ceenaix.com` / `studio.uae.ceenaix.com` and web origin
+1. **Domains** `api.uae.ceenaix.com` / `studio.uae.ceenaix.com` and web origin
    `uae.ceenaix.com` are placeholders — adjust to the real DNS chosen by the
    team. They appear in the Caddyfile, `.env.example`, and this doc.
-3. **Single VM, Postgres-in-VM (Option 1)** is the starting topology, per the
+2. **Single VM, Postgres-in-VM (Option 1)** is the starting topology, per the
    final decision. Option 2 (managed Postgres) is documented as the graduation
    step, not implemented.
-4. **Region = UAE North.** UAE Central was not chosen (fewer SKUs).
-5. **VM size D4s_v5** is a starting recommendation; right-size after observing
-   pilot load.
-6. **Keys are self-generated** and differ from Cloud dev/prod. The bootstrap
+3. **Region = UAE North.** UAE Central was not chosen (fewer SKUs).
+4. **VM size `Standard_D2_v4`** is the approved fallback after `Standard_B2ms`
+   was unavailable; right-size after observing pilot load.
+5. **Keys are self-generated** and differ from Cloud dev/prod. The bootstrap
    script signs `anon`/`service_role` JWTs with the generated `JWT_SECRET` using
    HS256 + a 10-year expiry to match Supabase's key shape.
-7. **SMTP reuses the existing Resend** credentials; **OpenAI** uses the existing
+6. **SMTP reuses the existing Resend** credentials; **OpenAI** uses the existing
    `OPENAI_API_KEY` as a function secret — no new vendors.
-8. **Realtime is unused** by CeenAiX (no subscriptions/webhooks) and may be
+7. **Realtime is unused** by CeenAiX (no subscriptions/webhooks) and may be
    disabled to save RAM; it is left enabled to match upstream.
-9. **CI for UAE is documented, not wired.** Adding it is a follow-up PR once the
+8. **CI for UAE is documented, not wired.** Adding it is a follow-up PR once the
    environment is live and a secret set exists.
 
 ## Follow-ups
 
-- Provision the real VM + DNS + NSG and run `azure-uae-bootstrap.sh` end-to-end.
+- Restrict SSH (port 22) to a stable admin IP or Azure Bastion.
+- Configure DNS/TLS for `api.uae.ceenaix.com`, `uae.ceenaix.com`, and optionally
+  `studio.uae.ceenaix.com`; the pilot currently uses public-IP HTTP mode.
+- Add a real `lab_test_catalog` reference seed if the UAE environment needs lab
+  ordering/search before the catalog import pipeline exists.
 - Decide audio/transcript residency for the AI Recorder (separate compliance
   track).
-- Wire a UAE CI target (mirror of the prod Release path, `--db-url` based).
+- Wire the live UAE secret set into the manual GitHub Actions target.
 - Stand up automated `pg_dump` → Azure Blob backups; evaluate Option 2 timing.
+- Purchase any reservation manually after finance confirms the final VM size;
+  no reservation has been bought by this runbook or branch.

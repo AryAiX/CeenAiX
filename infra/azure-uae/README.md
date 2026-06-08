@@ -1,9 +1,9 @@
 # infra/azure-uae — Self-hosted Supabase on Azure UAE North
 
 This folder holds the **thin overrides** that turn the official Supabase docker
-stack into the CeenAiX "Azure UAE" environment: a low-cost
-`Standard_B2ms` Azure VM in **UAE North** running the open-source Supabase
-services and the static web bundle behind Caddy.
+stack into the CeenAiX "Azure UAE" environment: an approved `Standard_D2_v4`
+Azure VM in **UAE North** running the open-source Supabase services and the
+static web bundle behind Caddy.
 
 > Full step-by-step (provisioning, secrets, migrations, function deploy, app
 > wiring, backups, upgrade path) lives in
