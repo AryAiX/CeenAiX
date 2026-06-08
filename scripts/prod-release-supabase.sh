@@ -5,6 +5,8 @@
 #   SUPABASE_ACCESS_TOKEN
 #
 # Migrations, demo cleanup, and verify use the Management API (no DB password).
+# Optional emergency bypass when Supabase migration listing is unavailable:
+#   SKIP_PROD_MIGRATION_CHECK=true
 # Optional CLI fallback when PROD_DB_PUSH_FALLBACK=true:
 #   SUPABASE_PROD_DB_PASSWORD or SUPABASE_PROD_DATABASE_URL
 #
@@ -84,7 +86,9 @@ run_sql_management_api() {
 echo "=== [1/5] Apply database migrations to ${PROJECT_REF} ==="
 cd "${ROOT_DIR}"
 
-if ! apply_migrations_management_api; then
+if [[ "${SKIP_PROD_MIGRATION_CHECK:-}" == "true" ]]; then
+  echo "::warning::Production migration check/apply skipped because SKIP_PROD_MIGRATION_CHECK=true. Supabase Management API migration listing is currently timing out; migrations were not verified or applied by this release and require a later manual migration check once the API recovers."
+elif ! apply_migrations_management_api; then
   echo "Management API migration apply failed." >&2
   if [[ "${PROD_DB_PUSH_FALLBACK:-}" == "true" ]] && PROD_DATABASE_URL="$(build_prod_database_url 2>/dev/null || true)" && [[ -n "${PROD_DATABASE_URL}" ]]; then
     if ! command -v supabase >/dev/null 2>&1; then
