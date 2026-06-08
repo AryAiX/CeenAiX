@@ -5,7 +5,7 @@
 #   SUPABASE_ACCESS_TOKEN
 #
 # Migrations, demo cleanup, and verify use the Management API (no DB password).
-# Optional emergency bypass when Supabase migration listing is unavailable:
+# Optional emergency bypass when Supabase database Management API endpoints are unavailable:
 #   SKIP_PROD_MIGRATION_CHECK=true
 # Optional CLI fallback when PROD_DB_PUSH_FALLBACK=true:
 #   SUPABASE_PROD_DB_PASSWORD or SUPABASE_PROD_DATABASE_URL
@@ -83,10 +83,14 @@ run_sql_management_api() {
     node "${ROOT_DIR}/scripts/run-sql-management-api.mjs" "${sql_file}"
 }
 
+skip_prod_database_management_api() {
+  [[ "${SKIP_PROD_MIGRATION_CHECK:-}" == "true" ]]
+}
+
 echo "=== [1/5] Apply database migrations to ${PROJECT_REF} ==="
 cd "${ROOT_DIR}"
 
-if [[ "${SKIP_PROD_MIGRATION_CHECK:-}" == "true" ]]; then
+if skip_prod_database_management_api; then
   echo "::warning::Production migration check/apply skipped because SKIP_PROD_MIGRATION_CHECK=true. Supabase Management API migration listing is currently timing out; migrations were not verified or applied by this release and require a later manual migration check once the API recovers."
 elif ! apply_migrations_management_api; then
   echo "Management API migration apply failed." >&2
@@ -103,10 +107,18 @@ elif ! apply_migrations_management_api; then
 fi
 
 echo "=== [2/5] Remove demo rows (idempotent) ==="
-run_sql_management_api "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
+if skip_prod_database_management_api; then
+  echo "::warning::Production demo cleanup skipped because SKIP_PROD_MIGRATION_CHECK=true and Supabase Management API database query endpoints are timing out. Run scripts/prod-demo-cleanup.sql manually once the API recovers."
+else
+  run_sql_management_api "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
+fi
 
 echo "=== [3/5] Verify reference data ==="
-run_sql_management_api "${ROOT_DIR}/scripts/prod-release-verify.sql"
+if skip_prod_database_management_api; then
+  echo "::warning::Production reference-data verification skipped because SKIP_PROD_MIGRATION_CHECK=true and Supabase Management API database query endpoints are timing out. Run scripts/prod-release-verify.sql manually once the API recovers."
+else
+  run_sql_management_api "${ROOT_DIR}/scripts/prod-release-verify.sql"
+fi
 
 echo "=== [4/5] Deploy edge functions ==="
 export SUPABASE_PROD_PROJECT_REF="${PROJECT_REF}"
