@@ -1,7 +1,5 @@
--- Clinic Portal backend: role, membership, services, pricing, RLS, RPCs, demo seed.
+-- Clinic Portal backend: membership, services, pricing, RLS, RPCs, demo seed.
 -- Maps spec "clinics" → canonical public.facilities; staff via clinic_portal_members + facility_staff.
-
-ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'clinic';
 
 -- ---------------------------------------------------------------------------
 -- Extend facilities for clinic portal settings (bilingual + branding)
