@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
+import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -202,7 +202,9 @@ export const DoctorAppointments: React.FC = () => {
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setDate(todayEnd.getDate() + 1);
-    const weekStart = new Date(todayStart);
+    const selectedDay = calendarScale === 'week' ? selectedCalendarDate : todayStart;
+    const weekStart = new Date(selectedDay);
+    weekStart.setHours(0, 0, 0, 0);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
@@ -215,7 +217,7 @@ export const DoctorAppointments: React.FC = () => {
       startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
       endOfMonth: new Date(now.getFullYear(), now.getMonth() + 1, 1),
     };
-  }, [calendarTick]);
+  }, [calendarTick, calendarScale, selectedCalendarDate]);
   const todayAppointmentsForStats = useMemo(
     () =>
       appointments.filter((appointment) => {
@@ -646,37 +648,17 @@ export const DoctorAppointments: React.FC = () => {
             {!isTodayRoute ? (
               <div ref={tabsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  {activeTab === 'calendar' ? (
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleMonthChange(-1)}
-                      className="rounded-lg p-2 transition-colors hover:bg-slate-100"
-                      aria-label={t('doctor.appointments.prevMonth')}
-                    >
-                      <ChevronLeft className="h-5 w-5 text-slate-400" />
-                    </button>
-                    <h2 className="text-[16px] font-bold text-slate-800">
-                      Week of {startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} –{' '}
-                      {new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => handleMonthChange(1)}
-                      className="rounded-lg p-2 transition-colors hover:bg-slate-100"
-                      aria-label={t('doctor.appointments.nextMonth')}
-                    >
-                      <ChevronRight className="h-5 w-5 text-slate-400" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCalendarDate(new Date())}
-                      className="rounded-lg bg-teal-50 px-3 py-1.5 text-[12px] font-bold text-teal-700"
-                    >
-                      Today
-                    </button>
-                  </div>
+                  {activeTab === 'calendar' ? (
+                    <span className="text-[15px] font-bold text-slate-800">
+                      {calendarScale === 'day'
+                        ? selectedCalendarDate.toLocaleDateString(locale, dtOpts({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))
+                        : calendarScale === 'week'
+                        ? `Week of ${startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} – ${new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}`
+                        : currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
+                    </span>
                   ) : null}
+                  </div>
 
                   {activeTab === 'calendar' ? (
                   <div className="flex items-center gap-2 overflow-x-auto">
@@ -835,6 +817,25 @@ export const DoctorAppointments: React.FC = () => {
 
             {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'month' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(-1)}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    ← Previous Month
+                  </button>
+                  <span className="text-[15px] font-bold text-slate-800">
+                    {currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(1)}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Next Month →
+                  </button>
+                </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                     <div key={day} className="py-2">
@@ -897,6 +898,34 @@ export const DoctorAppointments: React.FC = () => {
 
             {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'week' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() - 7);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    ← Previous Week
+                  </button>
+                  <span className="text-[15px] font-bold text-slate-800">
+                    Week of {startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} –{' '}
+                    {new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() + 7);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Next Week →
+                  </button>
+                </div>
                 <div className="grid min-w-[980px] grid-cols-7 gap-3">
                   {weekDays.map((date) => {
                     const dateKey = formatDateKey(date);
