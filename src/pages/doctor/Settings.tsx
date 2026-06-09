@@ -205,6 +205,7 @@ export const DoctorSettings = () => {
             </div>
           ) : null}
 
+          {activeSection === 'notifications' ? (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
               <Bell className="h-6 w-6 text-cyan-600" />
@@ -255,6 +256,7 @@ export const DoctorSettings = () => {
               />
             </div>
           </div>
+          ) : null}
         </div>
       </div>
     </div>
