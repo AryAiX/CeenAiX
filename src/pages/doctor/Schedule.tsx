@@ -314,6 +314,14 @@ export const DoctorSchedule: React.FC = () => {
     return Math.floor(totalMinutes / slotDurationMinutes);
   };
 
+  const totalWeeklySlots = useMemo(() => {
+    return availabilities
+      .filter((availability) => availability.is_active)
+      .reduce((total, availability) => {
+        return total + calculateSlots(availability.start_time, availability.end_time, availability.slot_duration_minutes);
+      }, 0);
+  }, [availabilities]);
+
   return (
     <>
       <div>
@@ -344,7 +352,7 @@ export const DoctorSchedule: React.FC = () => {
           </div>
         ) : null}
 
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
+        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-500">Active weekly windows</p>
             {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{activeAvailabilityCount}</p>}
@@ -362,9 +370,26 @@ export const DoctorSchedule: React.FC = () => {
             {loading ? (
               <Skeleton className="mt-3 h-8 w-24" />
             ) : (
-              <p className="mt-3 text-3xl font-bold text-gray-900">{activeAvailabilityCount > 0 ? 'Ready' : 'Not yet'}</p>
+              <p className={`mt-3 text-3xl font-bold ${activeAvailabilityCount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {activeAvailabilityCount > 0 ? 'Ready ✅' : 'Not yet ❌'}
+              </p>
             )}
             <p className="mt-2 text-sm text-gray-600">Add at least one active recurring window before patient booking is enabled.</p>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">Total slots per week</p>
+            {loading ? (
+              <Skeleton className="mt-3 h-8 w-12" />
+            ) : (
+              <p className={`mt-3 text-3xl font-bold ${totalWeeklySlots > 0 ? 'text-teal-600' : 'text-slate-400'}`}>
+                {totalWeeklySlots}
+              </p>
+            )}
+            <p className="mt-2 text-sm text-gray-600">
+              {totalWeeklySlots > 0
+                ? `${totalWeeklySlots} appointment slots available across your active weekly windows.`
+                : 'No slots available yet. Add active availability windows to enable booking.'}
+            </p>
           </div>
         </div>
 
