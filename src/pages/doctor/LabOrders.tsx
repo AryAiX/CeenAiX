@@ -76,10 +76,7 @@ export const DoctorLabOrders: React.FC = () => {
     [searchQuery, statusFilter, tabLabOrders]
   );
 
-  const uniquePatients = useMemo(
-    () => new Set(labOrders.map((labOrder) => labOrder.patient_id)).size,
-    [labOrders]
-  );
+
   const pendingResults = useMemo(
     () => labOrders.filter((labOrder) => labOrder.status !== 'reviewed').length,
     [labOrders]
@@ -263,8 +260,8 @@ export const DoctorLabOrders: React.FC = () => {
             onClick={() => setActiveTab('scheduled')}
             className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-blue-200 text-left w-full"
           >
-            <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.linkedPatients')}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(uniquePatients, uiLang)}</p>
+            <p className="text-sm font-medium text-slate-500">Scheduled</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(scheduledCount, uiLang)}</p>
             <p className="mt-1 text-xs text-blue-400">Click to view scheduled</p>
           </button>
         </div>
