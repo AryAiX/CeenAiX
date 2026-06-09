@@ -731,7 +731,18 @@ export const DoctorAppointmentDetail: React.FC = () => {
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm font-semibold text-slate-900">
                       {t('doctor.appointmentDetail.preVisitStatus')}:{' '}
-                      <span className="text-cyan-800">{data.preVisitAssessment.status}</span>
+                      <span className={`font-semibold ${
+                        data.preVisitAssessment.status === 'completed' ? 'text-emerald-700'
+                        : data.preVisitAssessment.status === 'reviewed' ? 'text-blue-700'
+                        : data.preVisitAssessment.status === 'in_progress' ? 'text-amber-700'
+                        : 'text-slate-500'
+                      }`}>
+                        {data.preVisitAssessment.status === 'completed' ? '✅ Completed'
+                        : data.preVisitAssessment.status === 'reviewed' ? '👁️ Reviewed'
+                        : data.preVisitAssessment.status === 'in_progress' ? '⏳ In Progress'
+                        : data.preVisitAssessment.status === 'not_started' ? '🔘 Not Started'
+                        : data.preVisitAssessment.status}
+                      </span>
                     </p>
                     {data.preVisitSummary ? (
                       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
