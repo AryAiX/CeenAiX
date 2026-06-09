@@ -882,6 +882,7 @@ export const CreatePrescription: React.FC = () => {
   const [savedPrescriptionId, setSavedPrescriptionId] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
+  const [renewSearchQuery, setRenewSearchQuery] = useState('');
   const navigateAfterSaveTimer = useRef<number | null>(null);
   const selectedPatient = useMemo(
     () => patients.find((patient) => patient.id === patientId) ?? null,
@@ -1027,6 +1028,13 @@ export const CreatePrescription: React.FC = () => {
   );
   const appointments = useMemo(() => appointmentsData ?? [], [appointmentsData]);
   const activeMedications = useMemo(() => activeMedicationsData ?? [], [activeMedicationsData]);
+  const filteredRenewMedications = useMemo(() => {
+    if (!renewSearchQuery.trim()) return activeMedications;
+    const query = renewSearchQuery.trim().toLowerCase();
+    return activeMedications.filter((medication) =>
+      medication.medicationName.toLowerCase().includes(query)
+    );
+  }, [activeMedications, renewSearchQuery]);
 
   const hasUnsavedChanges = useMemo(() => {
     if (savedPrescriptionId) return false;
@@ -1498,9 +1506,10 @@ export const CreatePrescription: React.FC = () => {
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
               onClick={() => setShowRenewModal(false)}
+              onWheel={(e) => e.stopPropagation()}
             >
               <div
-                className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+                className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[85vh]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
@@ -1510,13 +1519,28 @@ export const CreatePrescription: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowRenewModal(false)}
+                    onClick={() => {
+                      setShowRenewModal(false);
+                      setRenewSearchQuery('');
+                    }}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="space-y-4 px-6 py-5">
+                <div className="border-b border-slate-100 px-6 py-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="search"
+                      value={renewSearchQuery}
+                      onChange={(e) => setRenewSearchQuery(e.target.value)}
+                      placeholder="Search medications..."
+                      className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-4 px-6 py-5">
                   {activeMedications.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                       No active medications found for this patient to renew.
@@ -1524,9 +1548,14 @@ export const CreatePrescription: React.FC = () => {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-slate-600">
-                        Select a medication to renew from the patient current active medications:
+                        {filteredRenewMedications.length} of {activeMedications.length} medications
                       </p>
-                      {activeMedications.map((medication) => (
+                      {filteredRenewMedications.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                          No medications match your search.
+                        </div>
+                      ) : null}
+                      {filteredRenewMedications.map((medication) => (
                         <button
                           key={medication.id}
                           type="button"
@@ -1559,7 +1588,10 @@ export const CreatePrescription: React.FC = () => {
                 <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
                   <button
                     type="button"
-                    onClick={() => setShowRenewModal(false)}
+                    onClick={() => {
+                      setShowRenewModal(false);
+                      setRenewSearchQuery('');
+                    }}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     Cancel
