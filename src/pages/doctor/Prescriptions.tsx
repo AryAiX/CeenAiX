@@ -27,6 +27,7 @@ export const DoctorPrescriptions: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'history'>('all');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printPrescriptionId, setPrintPrescriptionId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const { data, loading, error, refetch } = useDoctorPrescriptions(user?.id);
   const prescriptions = useMemo(() => data ?? [], [data]);
   const formatDate = (value: string) =>
@@ -39,43 +40,47 @@ export const DoctorPrescriptions: React.FC = () => {
       })
     );
 
-  const filteredPrescriptions = useMemo(
-    () =>
-      prescriptions.filter((prescription) => {
-        const matchesStatus =
-          statusFilter === 'all' ||
-          (statusFilter === 'active' ? prescription.status === 'active' : prescription.status !== 'active');
-        const searchValue = searchQuery.trim().toLowerCase();
+  const filteredPrescriptions = useMemo(() => {
+    const result = prescriptions.filter((prescription) => {
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active'
+          ? prescription.status === 'active'
+          : prescription.status !== 'active');
 
-        if (!matchesStatus) {
-          return false;
-        }
+      if (!matchesStatus) return false;
 
-        if (searchValue.length === 0) {
-          return true;
-        }
+      const searchValue = searchQuery.trim().toLowerCase();
+      if (searchValue.length === 0) return true;
 
-        const haystack = [
-          prescription.patientName,
-          prescription.patientEmail,
-          prescription.status,
-          ...prescription.items.flatMap((item) => [
-            item.medication_name,
-            item.medication_name_ar,
-            item.dosage,
-            item.frequency,
-            item.duration,
-            item.instructions,
-          ]),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
+      const haystack = [
+        prescription.patientName,
+        prescription.patientEmail,
+        prescription.status,
+        ...prescription.items.flatMap((item) => [
+          item.medication_name,
+          item.medication_name_ar,
+          item.dosage,
+          item.frequency,
+          item.duration,
+          item.instructions,
+        ]),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
-        return haystack.includes(searchValue);
-      }),
-    [prescriptions, searchQuery, statusFilter]
-  );
+      return haystack.includes(searchValue);
+    });
+
+    // Sort by date
+    result.sort((a, b) => {
+      const diff = new Date(a.prescribed_at).getTime() - new Date(b.prescribed_at).getTime();
+      return sortOrder === 'desc' ? -diff : diff;
+    });
+
+    return result;
+  }, [prescriptions, searchQuery, statusFilter, sortOrder]);
 
   const activePrescriptions = useMemo(
     () => filteredPrescriptions.filter((prescription) => prescription.status === 'active'),
@@ -332,6 +337,14 @@ export const DoctorPrescriptions: React.FC = () => {
               <option value="all">{t('doctor.prescriptions.filterAll')}</option>
               <option value="active">{t('doctor.prescriptions.filterActive')}</option>
               <option value="history">{t('doctor.prescriptions.filterHistory')}</option>
+            </select>
+            <select
+              value={sortOrder}
+              onChange={(event) => setSortOrder(event.target.value as 'desc' | 'asc')}
+              className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 md:w-auto"
+            >
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
             </select>
           </div>
         </div>
