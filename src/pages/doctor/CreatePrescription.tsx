@@ -970,6 +970,47 @@ export const CreatePrescription: React.FC = () => {
     [patientId]
   );
 
+  const { data: prescriptionHistoryData } = useQuery<Array<{
+    id: string;
+    status: string;
+    prescribed_at: string;
+    items: Array<{
+      id: string;
+      medication_name: string | null;
+      dosage: string | null;
+      frequency: string | null;
+    }>;
+  }>>(
+    async () => {
+      if (!patientId || !user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('prescriptions')
+        .select('id, status, prescribed_at, prescription_items (id, medication_name, dosage, frequency)')
+        .eq('patient_id', patientId)
+        .eq('doctor_id', user.id)
+        .eq('is_deleted', false)
+        .order('prescribed_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return (data ?? []).map((prescription) => ({
+        id: prescription.id,
+        status: prescription.status,
+        prescribed_at: prescription.prescribed_at,
+        items: (prescription.prescription_items ?? []) as Array<{
+          id: string;
+          medication_name: string | null;
+          dosage: string | null;
+          frequency: string | null;
+        }>,
+      }));
+    },
+    [patientId, user?.id ?? '']
+  );
+
+  const prescriptionHistory = useMemo(() => prescriptionHistoryData ?? [], [prescriptionHistoryData]);
+
   const vocabRows = useMemo(() => vocabData ?? [], [vocabData]);
   const frequencyOptions = useMemo(
     () => vocabRows.filter((row) => row.category === 'frequency'),
@@ -1470,29 +1511,47 @@ export const CreatePrescription: React.FC = () => {
                   </button>
                 </div>
                 <div className="max-h-[60vh] space-y-3 overflow-y-auto px-6 py-5">
-                  {activeMedications.length === 0 ? (
+                  {prescriptionHistory.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                       No prescription history found for this patient.
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-slate-600">Current active medications for this patient:</p>
-                      {activeMedications.map((medication) => (
+                      <p className="text-sm text-slate-600">
+                        Showing last {prescriptionHistory.length} prescriptions for this patient:
+                      </p>
+                      {prescriptionHistory.map((prescription) => (
                         <div
-                          key={medication.id}
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                          key={prescription.id}
+                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                         >
-                          <Pill className="h-5 w-5 shrink-0 text-emerald-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-900">{medication.medicationName}</p>
-                            <p className="text-xs text-slate-500">
-                              {[medication.dose, medication.frequency].filter(Boolean).join(' · ')}
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-xs font-semibold text-slate-500">
+                              {new Date(prescription.prescribed_at).toLocaleDateString()}
                             </p>
-                            <p className="mt-0.5 text-xs text-slate-400">{medication.prescriber}</p>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              prescription.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : prescription.status === 'completed'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
+                            </span>
                           </div>
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                            Active
-                          </span>
+                          <div className="space-y-1">
+                            {prescription.items.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2">
+                                <Pill className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                <p className="text-sm text-slate-700">
+                                  {item.medication_name}
+                                  {[item.dosage, item.frequency].filter(Boolean).length > 0
+                                    ? ` · ${[item.dosage, item.frequency].filter(Boolean).join(' · ')}`
+                                    : ''}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </>
