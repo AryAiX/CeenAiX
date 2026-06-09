@@ -623,7 +623,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <p className="mt-1 text-[10px] font-medium text-red-600">✗ Patient did not attend</p>
               ) : null}
             </button>
-            {['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) ? (
+            {['scheduled', 'confirmed'].includes(data.appointment.status) ? (
               <button
                 type="button"
                 onClick={() => setShowCancelModal(true)}
