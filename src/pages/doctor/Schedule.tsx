@@ -93,11 +93,21 @@ export const DoctorSchedule: React.FC = () => {
   const [deleteAvailabilityId, setDeleteAvailabilityId] = useState<string | null>(null);
   const [showDeleteBlockedSlotModal, setShowDeleteBlockedSlotModal] = useState(false);
   const [deleteBlockedSlotId, setDeleteBlockedSlotId] = useState<string | null>(null);
+  const [showBlockedSlotHistory, setShowBlockedSlotHistory] = useState(false);
   const [editingAvailabilityId, setEditingAvailabilityId] = useState<string | null>(null);
   const [editAvailabilityForm, setEditAvailabilityForm] = useState<AvailabilityFormState>(INITIAL_AVAILABILITY_FORM);
 
   const availabilities = useMemo(() => data?.availabilities ?? [], [data?.availabilities]);
   const blockedSlots = useMemo(() => data?.blockedSlots ?? [], [data?.blockedSlots]);
+
+  const visibleBlockedSlots = useMemo(() => {
+    if (showBlockedSlotHistory) return blockedSlots;
+    return blockedSlots.filter((slot) => slot.blocked_date >= getTodayDate());
+  }, [blockedSlots, showBlockedSlotHistory]);
+
+  const pastBlockedSlotsCount = useMemo(() => {
+    return blockedSlots.filter((slot) => slot.blocked_date < getTodayDate()).length;
+  }, [blockedSlots]);
 
   const groupedAvailability = useMemo(
     () =>
@@ -705,8 +715,21 @@ export const DoctorSchedule: React.FC = () => {
             </section>
 
             <section className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900">Upcoming Blocked Slots</h2>
-              <p className="mt-1 text-sm text-gray-600">These one-off blocks override your recurring weekly availability.</p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Upcoming Blocked Slots</h2>
+                  <p className="mt-1 text-sm text-gray-600">These one-off blocks override your recurring weekly availability.</p>
+                </div>
+                {pastBlockedSlotsCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowBlockedSlotHistory((prev) => !prev)}
+                    className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    {showBlockedSlotHistory ? 'Hide History' : `Show History (${pastBlockedSlotsCount})`}
+                  </button>
+                ) : null}
+              </div>
 
               <div className="mt-6 space-y-3">
                 {loading ? (
@@ -714,7 +737,7 @@ export const DoctorSchedule: React.FC = () => {
                     <Skeleton className="h-24 w-full rounded-2xl" />
                     <Skeleton className="h-24 w-full rounded-2xl" />
                   </>
-                ) : blockedSlots.length === 0 ? (
+                ) : visibleBlockedSlots.length === 0 && !showBlockedSlotHistory ? (
                   <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
                     <Ban className="mx-auto mb-3 h-8 w-8 text-gray-400" />
                     <p className="font-semibold text-gray-900">No blocked time yet</p>
@@ -723,11 +746,11 @@ export const DoctorSchedule: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  blockedSlots.map((slot) => {
+                  visibleBlockedSlots.map((slot) => {
                     const isBusy = busyBlockedSlotId === slot.id;
 
                     return (
-                      <div key={slot.id} className="rounded-xl border border-orange-100 bg-orange-50 p-4">
+                      <div key={slot.id} className={`rounded-xl border p-4 ${slot.blocked_date < getTodayDate() ? 'border-slate-200 bg-slate-50 opacity-60' : 'border-orange-100 bg-orange-50'}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="font-semibold text-gray-900">
