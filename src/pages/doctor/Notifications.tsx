@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, Loader2, MessageSquare, RefreshCcw } from 'lucide-react';
@@ -16,6 +16,7 @@ export const DoctorNotifications: React.FC = () => {
   const { data, loading, error, refetch } = useDoctorNotifications(user?.id);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
 
   const markRead = async (notificationId: string) => {
     setBusyId(notificationId);
@@ -52,6 +53,12 @@ export const DoctorNotifications: React.FC = () => {
     }
     refetch();
   };
+
+  const filteredNotifications = useMemo(() => {
+    if (notificationFilter === 'unread') return (data?.notifications ?? []).filter((n) => !n.is_read);
+    if (notificationFilter === 'read') return (data?.notifications ?? []).filter((n) => n.is_read);
+    return data?.notifications ?? [];
+  }, [data?.notifications, notificationFilter]);
 
   if (loading) {
     return (
@@ -162,16 +169,40 @@ export const DoctorNotifications: React.FC = () => {
         </section>
 
         <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Bell className="h-4 w-4 text-emerald-600" />
-            <h2 className="text-base font-semibold text-slate-900">{t('doctor.notifications.logTitle')}</h2>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-base font-semibold text-slate-900">{t('doctor.notifications.logTitle')}</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {(['all', 'unread', 'read'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setNotificationFilter(filter)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                    notificationFilter === filter
+                      ? 'bg-emerald-600 text-white'
+                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {filter === 'all' ? `All (${formatLocaleDigits(storedNotifications.length, uiLang)})`
+                    : filter === 'unread' ? `Unread (${formatLocaleDigits(unreadCount, uiLang)})`
+                    : `Read (${formatLocaleDigits(storedNotifications.length - unreadCount, uiLang)})`}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {storedNotifications.length === 0 ? (
-            <p className="text-sm text-slate-600">{t('doctor.notifications.emptyLog')}</p>
+          {filteredNotifications.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              {notificationFilter === 'unread' ? 'No unread notifications.' 
+                : notificationFilter === 'read' ? 'No read notifications.'
+                : t('doctor.notifications.emptyLog')}
+            </p>
           ) : (
             <div className="space-y-3">
-              {storedNotifications.map((notification) => (
+              {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`rounded-2xl border p-4 ${
