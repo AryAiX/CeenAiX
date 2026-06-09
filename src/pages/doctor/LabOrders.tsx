@@ -492,14 +492,16 @@ export const DoctorLabOrders: React.FC = () => {
                         <MessageSquare className="h-4 w-4" />
                         <span>{t('doctor.messages.messagePatient')}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/doctor/lab-orders/new?patient=${labOrder.patient_id}&appointment=${labOrder.appointment_id ?? ''}`)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100"
-                      >
-                        <Plus className="h-4 w-4" />
-                        <span>{t('doctor.labOrders.reorder')}</span>
-                      </button>
+                      {['resulted', 'reviewed'].includes(labOrder.status) ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/doctor/lab-orders/new?patient=${labOrder.patient_id}&appointment=${labOrder.appointment_id ?? ''}`)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>{t('doctor.labOrders.reorder')}</span>
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => {
