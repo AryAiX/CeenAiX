@@ -23,7 +23,7 @@ export const DoctorLabOrders: React.FC = () => {
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'critical' | 'pending' | 'results' | 'scheduled'>('critical');
+  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'pending' | 'results' | 'scheduled'>('critical');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printLabOrderId, setPrintLabOrderId] = useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
@@ -95,6 +95,7 @@ export const DoctorLabOrders: React.FC = () => {
   const printLabOrder = labOrders.find((o) => o.id === printLabOrderId) ?? null;
   const firstCriticalItem = firstCriticalOrder?.items.find((item) => item.is_abnormal && item.status === 'resulted') ?? null;
   const labTabs = [
+    { id: 'all' as const, label: 'All', count: labOrders.length, icon: TestTube2 },
     { id: 'critical' as const, label: 'Critical', count: criticalCount, icon: AlertTriangle },
     { id: 'pending' as const, label: 'Pending', count: pendingResults, icon: Clock },
     { id: 'results' as const, label: 'Results', count: resultedCount, icon: CheckCircle2 },
@@ -105,7 +106,7 @@ export const DoctorLabOrders: React.FC = () => {
     if (!loading && activeTab === 'critical' && criticalCount === 0 && labOrders.length > 0) {
       setActiveTab('pending');
     }
-  }, [activeTab, criticalCount, labOrders.length, loading]);
+  }, [loading, criticalCount, labOrders.length]);
 
   const handleMarkReviewed = async (labOrderId: string) => {
     setActionFeedback(null);
@@ -341,7 +342,7 @@ export const DoctorLabOrders: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('results')}
+            onClick={() => setActiveTab('all')}
             className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-teal-200 text-left w-full"
           >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.totalOrders')}</p>
@@ -382,6 +383,8 @@ export const DoctorLabOrders: React.FC = () => {
                     active
                       ? tab.id === 'critical'
                         ? 'bg-red-600 text-white shadow-lg shadow-red-500/20'
+                        : tab.id === 'all'
+                        ? 'bg-slate-700 text-white shadow-lg shadow-slate-500/20'
                         : 'bg-teal-600 text-white shadow-lg shadow-teal-500/20'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                   }`}
