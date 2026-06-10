@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   CreditCard,
+  Pencil,
   DollarSign,
   Pause,
   PieChart,
@@ -1091,7 +1092,7 @@ export const PatientPrescriptions: React.FC = () => {
                         onClick={() => handleEditReminder(reminder.id, reminder.time)}
                         className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-teal-600 transition-all hover:bg-teal-50"
                       >
-                        <CreditCard className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderEdit')}
+                        <Pencil className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderEdit')}
                       </button>
                     )}
                     <button
