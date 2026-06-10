@@ -140,30 +140,35 @@ export default function ClinicDashboard() {
         status: a.status,
       }));
 
-      // Get facility's organization_id first
-      const { data: facilityData } = await supabase
-        .from('facilities')
-        .select('organization_id')
-        .eq('id', facilityId)
-        .maybeSingle();
-
-      // Doctors filtered by organization
-      const staffQuery = supabase
-        .from('organization_staff_members')
-        .select('id, full_name, role_title, shift_status')
-        .order('full_name', { ascending: true });
-
-      if (facilityData?.organization_id) {
-        staffQuery.eq('organization_id', facilityData.organization_id);
-      }
-
-      const { data: staffMembers, error: staffError } = await staffQuery;
+      // Fetch facility staff doctors
+      const { data: facilityStaff, error: staffError } = await supabase
+        .from('facility_staff')
+        .select('id, doctor_user_id, is_available, is_active, consultation_fee')
+        .eq('facility_id', facilityId)
+        .eq('is_active', true);
 
       if (staffError) throw staffError;
 
-      const activeDoctors = staffMembers?.length ?? 0;
-      const onDutyCount = staffMembers?.filter(d => d.shift_status === 'on_duty').length ?? 0;
-      const pendingApproval = staffMembers?.filter(d => d.shift_status === 'pending').length ?? 0;
+      // Get doctor profiles
+      const doctorUserIds = (facilityStaff ?? []).map(s => s.doctor_user_id);
+      const { data: doctorProfiles2 } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name')
+        .in('user_id', doctorUserIds);
+
+      const doctorProfileMap = new Map((doctorProfiles2 ?? []).map(d => [d.user_id, d.full_name]));
+
+      // Get doctor specializations
+      const { data: doctorSpecs } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, specialty')
+        .in('user_id', doctorUserIds);
+
+      const doctorSpecMap = new Map((doctorSpecs ?? []).map(d => [d.user_id, d.specialty]));
+
+      const activeDoctors = facilityStaff?.length ?? 0;
+      const onDutyCount = facilityStaff?.filter(d => d.is_available).length ?? 0;
+      const pendingApproval = 0;
 
       // Count appointments per doctor today
       const doctorApptCount = new Map<string, number>();
@@ -171,18 +176,19 @@ export default function ClinicDashboard() {
         doctorApptCount.set(a.doctor_id, (doctorApptCount.get(a.doctor_id) ?? 0) + 1);
       });
 
-      const doctorRows: DoctorRow[] = (staffMembers ?? []).slice(0, 4).map(d => {
-        const nameParts = d.full_name?.trim().split(' ') ?? [];
+      const doctorRows: DoctorRow[] = (facilityStaff ?? []).slice(0, 4).map(d => {
+        const fullName = doctorProfileMap.get(d.doctor_user_id) ?? 'Unknown Doctor';
+        const nameParts = fullName.trim().split(' ').filter(Boolean);
         const initials = nameParts.length >= 2
           ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
           : (nameParts[0]?.[0] ?? 'D').toUpperCase();
         return {
           id: d.id,
-          name: d.full_name ?? 'Unknown',
-          specialty: d.role_title ?? 'General Practice',
+          name: fullName,
+          specialty: doctorSpecMap.get(d.doctor_user_id) ?? 'General Practice',
           initials,
-          appts: doctorApptCount.get(d.id) ?? 0,
-          status: d.shift_status === 'on_duty' ? 'on-duty' : 'off-duty',
+          appts: doctorApptCount.get(d.doctor_user_id) ?? 0,
+          status: d.is_available ? 'on-duty' : 'off-duty',
         };
       });
 
