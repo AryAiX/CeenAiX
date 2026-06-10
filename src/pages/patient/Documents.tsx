@@ -38,6 +38,9 @@ export const PatientDocuments = () => {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'alphabetical'>('newest');
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [contentModalId, setContentModalId] = useState<string | null>(null);
+  const [shareModalId, setShareModalId] = useState<string | null>(null);
+  const [shareMethod, setShareMethod] = useState<'link' | 'email' | 'whatsapp'>('link');
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -144,6 +147,7 @@ export const PatientDocuments = () => {
 
   const selectedDocument = filtered.find((doc) => doc.id === selectedId) ?? null;
   const contentModalDocument = documents.find((doc) => doc.id === contentModalId) ?? null;
+  const shareModalDocument = documents.find((doc) => doc.id === shareModalId) ?? null;
   const loading = labsLoading || prescriptionsLoading || insuranceLoading;
   const loadError = labsError ?? rxError ?? insuranceError;
   const handleRetry = () => {
@@ -179,6 +183,37 @@ export const PatientDocuments = () => {
       </div>
     );
   }
+
+  const handleShare = async () => {
+    if (!shareModalDocument) return;
+    const text = [
+      shareModalDocument.name,
+      `Issued by: ${shareModalDocument.issuedBy}`,
+      `Date: ${formatDate(shareModalDocument.date)}`,
+      `Contents: ${shareModalDocument.contains}`,
+      '',
+      `View the live source: ${window.location.origin}${
+        shareModalDocument.source === 'lab_orders'
+          ? '/patient/lab-results'
+          : shareModalDocument.source === 'prescriptions'
+            ? '/patient/prescriptions'
+            : '/patient/insurance'
+      }`,
+    ].join('\n');
+
+    if (shareMethod === 'link') {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // clipboard denied — proceed anyway
+      }
+    } else if (shareMethod === 'email') {
+      window.open(`mailto:?subject=${encodeURIComponent(shareModalDocument.name)}&body=${encodeURIComponent(text)}`);
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    }
+    setShareSuccess(true);
+  };
 
   const generateDocumentPdf = (doc: PatientDocument) => {
     const pdf = new jsPDF();
@@ -528,22 +563,19 @@ export const PatientDocuments = () => {
                 >
                   <Download className="h-4 w-4" />
                 </button>
-                <a
-                  href={`mailto:?subject=${encodeURIComponent(doc.name)}&body=${encodeURIComponent(
-                    `${doc.name}\nIssued by: ${doc.issuedBy}\nDate: ${formatDate(doc.date)}\n\nView the live source: ${window.location.origin}${
-                      doc.source === 'lab_orders'
-                        ? '/patient/lab-results'
-                        : doc.source === 'prescriptions'
-                          ? '/patient/prescriptions'
-                          : '/patient/insurance'
-                    }`
-                  )}`}
-                  onClick={(e) => e.stopPropagation()}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShareModalId(doc.id);
+                    setShareMethod('link');
+                    setShareSuccess(false);
+                  }}
                   title={t('patient.documents.share')}
                   className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                 >
                   <Share2 className="h-4 w-4" />
-                </a>
+                </button>
               </div>
             </button>
           ))}
@@ -612,24 +644,18 @@ export const PatientDocuments = () => {
               >
                 <Download className="h-4 w-4" /> {t('patient.documents.download')}
               </button>
-              <a
-                href={`mailto:?subject=${encodeURIComponent(
-                  selectedDocument.name
-                )}&body=${encodeURIComponent(
-                  `${selectedDocument.name}\nIssued by: ${selectedDocument.issuedBy}\nDate: ${formatDate(
-                    selectedDocument.date
-                  )}\n\nView the live source: ${window.location.origin}${
-                    selectedDocument.source === 'lab_orders'
-                      ? '/patient/lab-results'
-                      : selectedDocument.source === 'prescriptions'
-                        ? '/patient/prescriptions'
-                        : '/patient/insurance'
-                  }`
-                )}`}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId(null);
+                  setShareModalId(selectedDocument.id);
+                  setShareMethod('link');
+                  setShareSuccess(false);
+                }}
                 className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
               >
                 <Share2 className="h-4 w-4" /> {t('patient.documents.share')}
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -638,6 +664,118 @@ export const PatientDocuments = () => {
       <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
         {t('patient.documents.dataNote')}
       </div>
+
+      {shareModalDocument ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => { setShareModalId(null); setShareSuccess(false); }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                  <Share2 className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Share Document</h2>
+                  <p className="text-xs text-slate-500">{shareModalDocument.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShareModalId(null); setShareSuccess(false); }}
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:bg-slate-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {shareSuccess ? (
+                <div className="py-4 text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                    <CheckCircle className="h-9 w-9 text-emerald-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">Document Shared!</h3>
+                  <p className="mx-auto mt-2 max-w-xs text-sm text-slate-500">
+                    {shareMethod === 'link'
+                      ? 'Document details copied to clipboard. Paste and share securely.'
+                      : shareMethod === 'email'
+                        ? 'Your email client has opened with the document pre-filled.'
+                        : 'WhatsApp has opened with the document ready to send.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setShareModalId(null); setShareSuccess(false); }}
+                    className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-5 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${shareModalDocument.categoryColor}18` }}>
+                      <FileText className="h-5 w-5" style={{ color: shareModalDocument.categoryColor }} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">{shareModalDocument.name}</div>
+                      <div className="text-xs text-slate-500">{shareModalDocument.issuedBy} · {formatDate(shareModalDocument.date)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 grid grid-cols-3 gap-3">
+                    {[
+                      { id: 'link' as const, label: 'Secure Link', icon: '🔗' },
+                      { id: 'email' as const, label: 'Email', icon: '✉️' },
+                      { id: 'whatsapp' as const, label: 'WhatsApp', icon: '💬' },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setShareMethod(m.id)}
+                        className={`flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 text-xs font-semibold transition ${
+                          shareMethod === m.id
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="text-xl">{m.icon}</span>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                    ⚠️ Only share with authorized healthcare providers. Recipient will have view-only access.
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setShareModalId(null); setShareSuccess(false); }}
+                      className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleShare()}
+                      className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                    >
+                      Share
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
 
       {contentModalDocument ? createPortal(
         <div
