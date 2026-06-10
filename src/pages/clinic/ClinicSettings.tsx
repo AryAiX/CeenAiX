@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Building2, Clock, Bell, Shield, Save } from 'lucide-react';
-import { useToast, ToastContainer } from '../../components/Toast';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -16,7 +15,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 }
 
 export default function ClinicSettings() {
-  const { toasts, dismiss, addToast } = useToast();
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [clinicName, setClinicName] = useState('Al Noor Medical Center');
   const [clinicType, setClinicType] = useState('Multispecialty Clinic');
   const [license, setLicense] = useState('DHA-FAC-2018-004782');
@@ -66,7 +65,12 @@ export default function ClinicSettings() {
             <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
-        <button onClick={() => addToast('success', 'Clinic information saved')} className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors">
+        {feedback ? (
+          <div className={`rounded-xl border px-4 py-3 text-sm mb-2 ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`}>
+            {feedback.message}
+          </div>
+        ) : null}
+        <button onClick={() => setFeedback({ type: 'success', message: 'Clinic information saved' })} className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors">
           <Save size={15} /> Save Changes
         </button>
       </div>
@@ -99,7 +103,7 @@ export default function ClinicSettings() {
             <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
-        <button onClick={() => addToast('success', 'Working hours updated')} className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors">
+        <button onClick={() => setFeedback({ type: 'success', message: 'Working hours updated' })} className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors">
           <Save size={15} /> Save Hours
         </button>
       </div>
@@ -145,7 +149,7 @@ export default function ClinicSettings() {
         )}
       </div>
 
-      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+
     </div>
   );
 }
