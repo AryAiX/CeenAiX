@@ -1248,6 +1248,7 @@ export const PatientRecords: React.FC = () => {
                     <Trash2 className="h-4 w-4" />
                     {busyDeleteId === record.id ? t('patient.records.removing') : t('patient.records.remove')}
                   </button>
+                </div>
                 {editingRecordId === record.id ? (
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
                     {record.category === 'condition' ? (
@@ -1334,7 +1335,6 @@ export const PatientRecords: React.FC = () => {
                     </div>
                   </div>
                 ) : null}
-              </div>
             </div>
           ))}
           </div>
