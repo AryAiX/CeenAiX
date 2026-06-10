@@ -64,6 +64,7 @@ export const Profile: React.FC = () => {
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({});
   const [confirmDeleteFamilyId, setConfirmDeleteFamilyId] = useState<string | null>(null);
+  const [loadingFamily, setLoadingFamily] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -123,6 +124,30 @@ export const Profile: React.FC = () => {
     const timer = setTimeout(() => setSaveSuccess(null), 4000);
     return () => clearTimeout(timer);
   }, [saveSuccess]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let mounted = true;
+    setLoadingFamily(true);
+    supabase
+      .from('patient_family_members')
+      .select('id, name, relationship, date_of_birth, emirates_id')
+      .eq('patient_id', user.id)
+      .then(({ data: familyData }) => {
+        if (!mounted) return;
+        setFamilyMembers(
+          (familyData ?? []).map((row) => ({
+            id: row.id,
+            name: row.name,
+            relationship: row.relationship,
+            dateOfBirth: row.date_of_birth ?? '',
+            emiratesId: row.emirates_id ?? '',
+          }))
+        );
+        setLoadingFamily(false);
+      });
+    return () => { mounted = false; };
+  }, [user?.id]);
 
   const savePersonalInfo = async () => {
     if (!user?.id) return;
@@ -281,24 +306,51 @@ export const Profile: React.FC = () => {
     handleImageUpload('emiratesFront');
   };
 
-  const addFamilyMember = () => {
-    if (!newFamilyMember.name || !newFamilyMember.relationship) return;
-    setFamilyMembers((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        name: newFamilyMember.name ?? '',
-        relationship: newFamilyMember.relationship ?? '',
-        dateOfBirth: newFamilyMember.dateOfBirth || '',
-        emiratesId: newFamilyMember.emiratesId || '',
-        profileImage: newFamilyMember.profileImage,
-      },
-    ]);
+  const addFamilyMember = async () => {
+    if (!newFamilyMember.name || !newFamilyMember.relationship || !user?.id) return;
+    const { data: inserted, error: insertError } = await supabase
+      .from('patient_family_members')
+      .insert({
+        patient_id: user.id,
+        name: newFamilyMember.name.trim(),
+        relationship: newFamilyMember.relationship,
+        date_of_birth: newFamilyMember.dateOfBirth || null,
+        emirates_id: newFamilyMember.emiratesId || null,
+      })
+      .select('id, name, relationship, date_of_birth, emirates_id')
+      .single();
+    if (insertError) {
+      setSaveError(insertError.message);
+      return;
+    }
+    if (inserted) {
+      setFamilyMembers((prev) => [
+        ...prev,
+        {
+          id: inserted.id,
+          name: inserted.name,
+          relationship: inserted.relationship,
+          dateOfBirth: inserted.date_of_birth ?? '',
+          emiratesId: inserted.emirates_id ?? '',
+        },
+      ]);
+    }
     setNewFamilyMember({});
     setShowAddFamily(false);
+    setSaveSuccess(t('patient.profile.saveFamilySuccess', { defaultValue: 'Family member added successfully!' }));
   };
 
-  const removeFamilyMember = (id: string) => {
+  const removeFamilyMember = async (id: string) => {
+    if (!user?.id) return;
+    const { error: deleteError } = await supabase
+      .from('patient_family_members')
+      .delete()
+      .eq('id', id)
+      .eq('patient_id', user.id);
+    if (deleteError) {
+      setSaveError(deleteError.message);
+      return;
+    }
     setFamilyMembers((prev) => prev.filter((member) => member.id !== id));
   };
 
@@ -863,7 +915,17 @@ export const Profile: React.FC = () => {
                   }}
                 />
 
-                {familyMembers.length > 0 && (
+                {loadingFamily && (
+                  <div className="mt-12 pt-8 border-t-2 border-gray-100">
+                    <div className="h-5 w-40 animate-pulse rounded bg-slate-200 mb-6" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!loadingFamily && familyMembers.length > 0 && (
                   <div className="mt-12 pt-8 border-t-2 border-gray-100">
                     <h4 className="font-bold text-gray-900 mb-6 text-lg flex items-center gap-2">
                       <Users className="w-5 h-5 text-orange-600" />
