@@ -140,7 +140,7 @@ export default function ClinicDashboard() {
         status: a.status,
       }));
 
-      // Fetch facility staff doctors
+      // Fetch facility staff
       const { data: facilityStaff, error: staffError } = await supabase
         .from('facility_staff')
         .select('id, doctor_user_id, is_available, is_active, consultation_fee')
@@ -149,22 +149,25 @@ export default function ClinicDashboard() {
 
       if (staffError) throw staffError;
 
-      // Get doctor profiles
-      const doctorUserIds = (facilityStaff ?? []).map(s => s.doctor_user_id);
-      const { data: doctorProfiles2 } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name')
-        .in('user_id', doctorUserIds);
+      const doctorUserIds = (facilityStaff ?? []).map(s => s.doctor_user_id).filter(Boolean);
 
-      const doctorProfileMap = new Map((doctorProfiles2 ?? []).map(d => [d.user_id, d.full_name]));
+      // Get doctor names
+      let doctorNameMap = new Map<string, string>();
+      let doctorSpecMap = new Map<string, string>();
 
-      // Get doctor specializations
-      const { data: doctorSpecs } = await supabase
-        .from('doctor_profiles')
-        .select('user_id, specialty')
-        .in('user_id', doctorUserIds);
+      if (doctorUserIds.length > 0) {
+        const { data: nameRows } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', doctorUserIds);
+        doctorNameMap = new Map((nameRows ?? []).map(d => [d.user_id, d.full_name ?? '']));
 
-      const doctorSpecMap = new Map((doctorSpecs ?? []).map(d => [d.user_id, d.specialty]));
+        const { data: specRows } = await supabase
+          .from('doctor_profiles')
+          .select('user_id, specialization')
+          .in('user_id', doctorUserIds);
+        doctorSpecMap = new Map((specRows ?? []).map(d => [d.user_id, d.specialization ?? '']));
+      }
 
       const activeDoctors = facilityStaff?.length ?? 0;
       const onDutyCount = facilityStaff?.filter(d => d.is_available).length ?? 0;
@@ -177,7 +180,7 @@ export default function ClinicDashboard() {
       });
 
       const doctorRows: DoctorRow[] = (facilityStaff ?? []).slice(0, 4).map(d => {
-        const fullName = doctorProfileMap.get(d.doctor_user_id) ?? 'Unknown Doctor';
+        const fullName = doctorNameMap.get(d.doctor_user_id) || 'Unknown Doctor';
         const nameParts = fullName.trim().split(' ').filter(Boolean);
         const initials = nameParts.length >= 2
           ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
@@ -185,7 +188,7 @@ export default function ClinicDashboard() {
         return {
           id: d.id,
           name: fullName,
-          specialty: doctorSpecMap.get(d.doctor_user_id) ?? 'General Practice',
+          specialty: doctorSpecMap.get(d.doctor_user_id) || 'General Practice',
           initials,
           appts: doctorApptCount.get(d.doctor_user_id) ?? 0,
           status: d.is_available ? 'on-duty' : 'off-duty',
