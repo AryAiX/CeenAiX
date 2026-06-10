@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import jsPDF from 'jspdf';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -1598,16 +1599,147 @@ export const PatientLabResults: React.FC = () => {
   // ----- Report actions -------------------------------------------------------
   const handleDownload = (order: PatientLabOrderRecord) => {
     const dateStr = formatDate(i18n.language, order.results_released_at ?? order.ordered_at, true);
-    const text = buildReportText(order, dateStr);
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `lab-report-${order.lab_order_code ?? order.id}.txt`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 16;
+    let y = 20;
+
+    // Header
+    doc.setFillColor(13, 148, 136);
+    doc.rect(0, 0, pageWidth, 14, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CeenAiX Health Platform', margin, 9);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Lab Results Report', pageWidth - margin, 9, { align: 'right' });
+
+    y = 26;
+    doc.setTextColor(15, 23, 42);
+
+    // Lab info
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(order.labName ?? 'Lab Report', margin, y);
+    y += 7;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Date: ${dateStr}`, margin, y);
+    if (order.doctorName) {
+      doc.text(`Doctor: ${order.doctorName}`, margin + 70, y);
+    }
+    if (order.lab_order_code) {
+      doc.text(`Order: ${order.lab_order_code}`, margin + 140, y);
+    }
+    y += 5;
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // Test results
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('Test Results', margin, y);
+    y += 7;
+
+    for (const item of order.parentItems) {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const value = item.numeric_value != null
+        ? `${item.numeric_value}${item.result_unit ? ` ${item.result_unit}` : ''}`
+        : (item.result_value ?? 'Pending');
+
+      const status = item.status_label ?? item.status_category;
+      const isAbnormal = item.is_abnormal === true;
+
+      // Row background
+      doc.setFillColor(isAbnormal ? 255 : 248, isAbnormal ? 247 : 250, isAbnormal ? 237 : 252);
+      doc.roundedRect(margin, y - 4, pageWidth - margin * 2, 12, 2, 2, 'F');
+
+      // Left border color
+      if (isAbnormal) {
+        doc.setFillColor(245, 158, 11);
+      } else {
+        doc.setFillColor(5, 150, 105);
+      }
+      doc.rect(margin, y - 4, 3, 12, 'F');
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(item.test_name, margin + 6, y + 2);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(value, pageWidth - margin - 60, y + 2);
+
+      if (isAbnormal) {
+        doc.setTextColor(180, 83, 9);
+      } else {
+        doc.setTextColor(5, 150, 105);
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.text(status.toUpperCase(), pageWidth - margin - 10, y + 2, { align: 'right' });
+
+      if (item.reference_text) {
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Ref: ${item.reference_text}`, margin + 6, y + 2);
+      }
+
+      y += 14;
+    }
+
+    // Doctor comment
+    if (order.overall_comment) {
+      if (y > 250) { doc.addPage(); y = 20; }
+      y += 4;
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('Doctor Comment', margin, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(71, 85, 105);
+      const commentLines = doc.splitTextToSize(`"${order.overall_comment}"`, pageWidth - margin * 2);
+      doc.text(commentLines, margin, y);
+      y += commentLines.length * 5 + 4;
+      if (order.doctorName) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(`— ${order.doctorName}`, margin, y);
+      }
+    }
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(0, doc.internal.pageSize.getHeight() - 10, pageWidth, 10, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text('Generated by CeenAiX Health Platform — Confidential Medical Record', margin, doc.internal.pageSize.getHeight() - 3);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 3, { align: 'right' });
+    }
+
+    doc.save(`lab-report-${order.lab_order_code ?? order.id}.pdf`);
   };
 
   const closeShareModal = () => {
