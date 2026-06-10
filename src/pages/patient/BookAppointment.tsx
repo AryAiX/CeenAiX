@@ -565,7 +565,7 @@ export const BookAppointment: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="mt-5 grid gap-6 md:grid-cols-[320px_minmax(0,1fr)] md:items-start">
+              <div className="mt-5 space-y-4">
                 <div className="space-y-4">
                   <label className="block space-y-2">
                     <span className="text-sm font-semibold text-gray-700">{t('patient.book.search')}</span>
@@ -594,7 +594,7 @@ export const BookAppointment: React.FC = () => {
                   />
                 </div>
 
-                <div className="min-w-0 space-y-3">
+                <div className="space-y-3">
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                     {t('patient.book.matching')}
                   </div>
