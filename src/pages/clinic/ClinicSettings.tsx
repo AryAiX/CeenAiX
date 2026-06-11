@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
 import { Building2, Clock, Bell, Shield, Save } from 'lucide-react';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -15,13 +17,17 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 }
 
 export default function ClinicSettings() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [, setFacilityId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [clinicName, setClinicName] = useState('Al Noor Medical Center');
-  const [clinicType, setClinicType] = useState('Multispecialty Clinic');
-  const [license, setLicense] = useState('DHA-FAC-2018-004782');
-  const [phone, setPhone] = useState('+971 4 234 5678');
-  const [email, setEmail] = useState('admin@alnoor-medical.ae');
-  const [address, setAddress] = useState('Dubai Healthcare City, Block A, Unit 204');
+  const [clinicName, setClinicName] = useState('');
+  const [clinicType, setClinicType] = useState('');
+  const [license, setLicense] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [workingDays, setWorkingDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
   const [openTime, setOpenTime] = useState('08:00');
   const [closeTime, setCloseTime] = useState('20:00');
@@ -30,12 +36,73 @@ export default function ClinicSettings() {
   const [notifLicense, setNotifLicense] = useState(true);
   const [nabidh, setNabidh] = useState(true);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    void fetchData();
+  }, [user?.id]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: memberData, error: memberError } = await supabase
+        .from('clinic_portal_members')
+        .select('facility_id')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!memberData?.facility_id) throw new Error('No clinic facility found.');
+      const fId = memberData.facility_id;
+      setFacilityId(fId);
+
+      const { data: facilityData, error: facilityError } = await supabase
+        .from('facilities')
+        .select('name, facility_type, license_number, phone, email, address')
+        .eq('id', fId)
+        .maybeSingle();
+
+      if (facilityError) throw facilityError;
+      if (facilityData) {
+        setClinicName(facilityData.name ?? '');
+        setClinicType(facilityData.facility_type ?? '');
+        setLicense(facilityData.license_number ?? '');
+        setPhone(facilityData.phone ?? '');
+        setEmail(facilityData.email ?? '');
+        setAddress(facilityData.address ?? '');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load clinic settings.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   function toggleDay(d: string) {
     setWorkingDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
   }
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6 max-w-3xl animate-pulse">
+        <div className="h-10 bg-slate-100 rounded-xl w-48" />
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-48 bg-slate-100 rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-3xl">
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+        </div>
+      ) : null}
+
       <div>
         <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Settings</h2>
         <p className="text-sm text-slate-500 mt-0.5">Manage your clinic's profile and preferences</p>
