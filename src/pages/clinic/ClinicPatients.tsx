@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
 import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight } from 'lucide-react';
 
 interface Patient {
@@ -13,39 +15,147 @@ interface Patient {
   balance: number;
 }
 
-const mockPatients: Patient[] = [
-  { id: '1', name: 'Ahmed Al Rashidi', phone: '+971 50 111 2233', email: 'ahmed@email.ae', dob: '12 Mar 1978', lastVisit: '28 May 2026', doctor: 'Dr. Fatima Hassan', totalVisits: 12, balance: 0 },
-  { id: '2', name: 'Layla Al Mansoori', phone: '+971 55 222 3344', email: 'layla@email.ae', dob: '5 Jul 1992', lastVisit: '28 May 2026', doctor: 'Dr. Khalid Nasser', totalVisits: 8, balance: 400 },
-  { id: '3', name: 'Omar Ibrahim', phone: '+971 54 333 4455', email: 'omar@email.ae', dob: '19 Nov 1985', lastVisit: '28 May 2026', doctor: 'Dr. Tooraj Helmi', totalVisits: 5, balance: 0 },
-  { id: '4', name: 'Sara Khalid', phone: '+971 52 444 5566', email: 'sara@email.ae', dob: '3 Feb 1990', lastVisit: '28 May 2026', doctor: 'Dr. Fatima Hassan', totalVisits: 20, balance: 0 },
-  { id: '5', name: 'Yousef Al Zahrani', phone: '+971 56 555 6677', email: 'yousef@email.ae', dob: '28 Sep 1975', lastVisit: '15 Apr 2026', doctor: 'Dr. Fatima Hassan', totalVisits: 7, balance: 800 },
-  { id: '6', name: 'Noor Al Sayed', phone: '+971 58 666 7788', email: 'noor@email.ae', dob: '14 Jun 2001', lastVisit: '3 May 2026', doctor: 'Dr. Tooraj Helmi', totalVisits: 3, balance: 0 },
-  { id: '7', name: 'Reem Al Hassan', phone: '+971 50 777 8899', email: 'reem@email.ae', dob: '22 Jan 1988', lastVisit: '10 May 2026', doctor: 'Dr. Aisha Al Mansoori', totalVisits: 15, balance: 0 },
-  { id: '8', name: 'Bilal Farooq', phone: '+971 55 888 9900', email: 'bilal@email.ae', dob: '8 Aug 1983', lastVisit: '20 Apr 2026', doctor: 'Dr. Khalid Nasser', totalVisits: 6, balance: 300 },
-];
-
 export default function ClinicPatients() {
+  const { user } = useAuth();
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const filtered = mockPatients.filter(p =>
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void fetchData();
+  }, [user?.id]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Get facility_id
+      const { data: memberData, error: memberError } = await supabase
+        .from('clinic_portal_members')
+        .select('facility_id')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!memberData?.facility_id) throw new Error('No clinic facility found.');
+
+      const facilityId = memberData.facility_id;
+
+      // Get all appointments for this facility
+      const { data: apptData, error: apptError } = await supabase
+        .from('appointments')
+        .select('patient_id, doctor_id, scheduled_at, status')
+        .eq('facility_id', facilityId)
+        .eq('is_deleted', false);
+
+      if (apptError) throw apptError;
+
+      // Get unique patient IDs
+      const patientIds = [...new Set((apptData ?? []).map(a => a.patient_id))];
+      if (patientIds.length === 0) { setPatients([]); return; }
+
+      // Get unique doctor IDs
+      const doctorIds = [...new Set((apptData ?? []).map(a => a.doctor_id))];
+
+      // Fetch patient profiles
+      const { data: patientProfiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name, phone, email, date_of_birth')
+        .in('user_id', patientIds);
+
+      // Fetch doctor profiles
+      const { data: doctorProfiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name')
+        .in('user_id', doctorIds);
+
+      const doctorMap = new Map((doctorProfiles ?? []).map(d => [d.user_id, d.full_name]));
+
+      // Build patient rows
+      const rows: Patient[] = patientIds.map(pid => {
+        const profile = (patientProfiles ?? []).find(p => p.user_id === pid);
+        const patientAppts = (apptData ?? []).filter(a => a.patient_id === pid);
+        const sorted = [...patientAppts].sort((a, b) =>
+          new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
+        );
+        const lastAppt = sorted[0];
+        const primaryDoctorId = lastAppt?.doctor_id;
+        const dob = profile?.date_of_birth
+          ? new Date(profile.date_of_birth).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
+          : '—';
+        const lastVisit = lastAppt?.scheduled_at
+          ? new Date(lastAppt.scheduled_at).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
+          : '—';
+
+        return {
+          id: pid,
+          name: profile?.full_name ?? 'Unknown Patient',
+          phone: profile?.phone ?? '—',
+          email: profile?.email ?? '—',
+          dob,
+          lastVisit,
+          doctor: doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
+          totalVisits: patientAppts.length,
+          balance: 0,
+        };
+      });
+
+      setPatients(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load patients.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const now = new Date();
+  const visitedThisMonth = patients.filter(p => {
+    const d = new Date(p.lastVisit);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const filtered = patients.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.phone.includes(search) ||
     p.doctor.toLowerCase().includes(search.toLowerCase())
   );
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-5 animate-pulse">
+        <div className="h-10 bg-slate-100 rounded-xl w-48" />
+        <div className="grid grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-xl" />)}
+        </div>
+        <div className="h-96 bg-slate-100 rounded-2xl" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-5">
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Patients</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{mockPatients.length} registered patients</p>
+          <p className="text-sm text-slate-500 mt-0.5">{patients.length} registered patients</p>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Patients', value: mockPatients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
-          { label: 'Visited This Month', value: 6, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Pending Balances', value: mockPatients.filter(p => p.balance > 0).length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Total Patients', value: patients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { label: 'Visited This Month', value: visitedThisMonth, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Pending Balances', value: patients.filter(p => p.balance > 0).length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
@@ -110,6 +220,13 @@ export default function ClinicPatients() {
                 </tr>
               );
             })}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-5 py-16 text-center text-sm text-slate-400">
+                  No patients found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
