@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
 import { Plus, Search, Calendar, Clock, X, Save, Check, DollarSign, Phone } from 'lucide-react';
 
@@ -16,33 +18,27 @@ interface Appointment {
   notes: string;
 }
 
-const doctors = ['Dr. Fatima Hassan', 'Dr. Khalid Nasser', 'Dr. Tooraj Helmi', 'Dr. Aisha Al Mansoori'];
-const apptTypes = ['Cardiology Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
+const apptTypes = ['Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
 
-const mockAppts: Appointment[] = [
-  { id: '1', patientName: 'Ahmed Al Rashidi', patientPhone: '+971 50 111 2233', doctor: 'Dr. Fatima Hassan', specialty: 'Cardiology', type: 'Cardiology Consultation', date: '2026-05-28', time: '09:00', status: 'completed', price: 800, notes: '' },
-  { id: '2', patientName: 'Layla Al Mansoori', patientPhone: '+971 55 222 3344', doctor: 'Dr. Khalid Nasser', specialty: 'Internal Medicine', type: 'Follow-up Visit', date: '2026-05-28', time: '09:30', status: 'in-progress', price: 400, notes: 'BP monitoring' },
-  { id: '3', patientName: 'Omar Ibrahim', patientPhone: '+971 54 333 4455', doctor: 'Dr. Tooraj Helmi', specialty: 'General Practice', type: 'General Checkup', date: '2026-05-28', time: '10:00', status: 'confirmed', price: 300, notes: '' },
-  { id: '4', patientName: 'Sara Khalid', patientPhone: '+971 52 444 5566', doctor: 'Dr. Fatima Hassan', specialty: 'Cardiology', type: 'Diabetes Management', date: '2026-05-28', time: '10:30', status: 'confirmed', price: 600, notes: 'HbA1c review' },
-  { id: '5', patientName: 'Yousef Al Zahrani', patientPhone: '+971 56 555 6677', doctor: 'Dr. Fatima Hassan', specialty: 'Cardiology', type: 'Cardiology Consultation', date: '2026-05-28', time: '11:00', status: 'scheduled', price: 800, notes: '' },
-  { id: '6', patientName: 'Noor Al Sayed', patientPhone: '+971 58 666 7788', doctor: 'Dr. Tooraj Helmi', specialty: 'General Practice', type: 'Lab Results Review', date: '2026-05-28', time: '11:30', status: 'scheduled', price: 200, notes: '' },
-  { id: '7', patientName: 'Reem Al Hassan', patientPhone: '+971 50 777 8899', doctor: 'Dr. Aisha Al Mansoori', specialty: 'Endocrinology', type: 'Follow-up Visit', date: '2026-05-29', time: '09:00', status: 'scheduled', price: 700, notes: '' },
-  { id: '8', patientName: 'Bilal Farooq', patientPhone: '+971 55 888 9900', doctor: 'Dr. Khalid Nasser', specialty: 'Internal Medicine', type: 'General Checkup', date: '2026-05-29', time: '10:00', status: 'scheduled', price: 300, notes: '' },
-  { id: '9', patientName: 'Maya Johansson', patientPhone: '+971 54 999 0011', doctor: 'Dr. Tooraj Helmi', specialty: 'General Practice', type: 'Telemedicine', date: '2026-05-27', time: '14:00', status: 'cancelled', price: 200, notes: 'Patient cancelled' },
-  { id: '10', patientName: 'Tariq Al Rashid', patientPhone: '+971 52 000 1122', doctor: 'Dr. Fatima Hassan', specialty: 'Cardiology', type: 'Cardiology Consultation', date: '2026-05-27', time: '11:00', status: 'no-show', price: 800, notes: '' },
-];
+interface DoctorOption {
+  userId: string;
+  name: string;
+  specialty: string;
+}
 
-const statusConfig = {
-  scheduled:   { label: 'Scheduled',    color: 'bg-slate-100 text-slate-600 border-slate-200',     dot: 'bg-slate-400' },
-  confirmed:   { label: 'Confirmed',    color: 'bg-teal-50 text-teal-700 border-teal-200',         dot: 'bg-teal-500' },
-  'in-progress': { label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200',        dot: 'bg-blue-500 animate-pulse' },
-  completed:   { label: 'Completed',    color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  cancelled:   { label: 'Cancelled',    color: 'bg-red-50 text-red-600 border-red-200',             dot: 'bg-red-400' },
-  'no-show':   { label: 'No Show',      color: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-400' },
+const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
+  scheduled:    { label: 'Scheduled',   color: 'bg-slate-100 text-slate-600 border-slate-200',      dot: 'bg-slate-400' },
+  confirmed:    { label: 'Confirmed',   color: 'bg-teal-50 text-teal-700 border-teal-200',          dot: 'bg-teal-500' },
+  'in-progress':{ label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500 animate-pulse' },
+  in_progress:  { label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500 animate-pulse' },
+  completed:    { label: 'Completed',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  cancelled:    { label: 'Cancelled',   color: 'bg-red-50 text-red-600 border-red-200',             dot: 'bg-red-400' },
+  'no-show':    { label: 'No Show',     color: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400' },
+  no_show:      { label: 'No Show',     color: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400' },
 };
 
-function BookModal({ onClose, onBook }: { onClose: () => void; onBook: (a: Partial<Appointment>) => void }) {
-  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctors[0], type: apptTypes[0], date: '', time: '', price: 0, notes: '' });
+function BookModal({ onClose, onBook, doctors: doctorList }: { onClose: () => void; onBook: (a: Partial<Appointment>) => void; doctors: string[] }) {
+  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0] ?? '', type: apptTypes[0], date: '', time: '', price: 0, notes: '' });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -68,7 +64,7 @@ function BookModal({ onClose, onBook }: { onClose: () => void; onBook: (a: Parti
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
             <select value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              {doctors.map(d => <option key={d}>{d}</option>)}
+              {doctorList.map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
           <div>
@@ -110,47 +106,220 @@ function BookModal({ onClose, onBook }: { onClose: () => void; onBook: (a: Parti
 }
 
 export default function ClinicAppointments() {
-  const [appts, setAppts] = useState<Appointment[]>(mockAppts);
+  const { user } = useAuth();
+  const [appts, setAppts] = useState<Appointment[]>([]);
+  const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDoctor, setFilterDoctor] = useState('All Doctors');
   const [filterDate, setFilterDate] = useState('today');
   const [showBook, setShowBook] = useState(false);
 
-  const today = '2026-05-28';
+  const today = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void fetchData();
+  }, [user?.id]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Get facility ID
+      const { data: memberData, error: memberError } = await supabase
+        .from('clinic_portal_members')
+        .select('facility_id')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!memberData?.facility_id) throw new Error('No clinic facility found.');
+
+      const fId = memberData.facility_id;
+      setFacilityId(fId);
+
+      // Fetch appointments
+      const { data: apptData, error: apptError } = await supabase
+        .from('appointments')
+        .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint, notes, duration_minutes')
+        .eq('facility_id', fId)
+        .eq('is_deleted', false)
+        .order('scheduled_at', { ascending: false });
+
+      if (apptError) throw apptError;
+
+      // Get all unique user IDs
+      const patientIds = [...new Set((apptData ?? []).map(a => a.patient_id))];
+      const doctorIds = [...new Set((apptData ?? []).map(a => a.doctor_id))];
+      const allIds = [...new Set([...patientIds, ...doctorIds])];
+
+      // Fetch profiles
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name, phone')
+        .in('user_id', allIds);
+
+      // Fetch doctor specializations
+      const { data: doctorProfileData } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, specialization')
+        .in('user_id', doctorIds);
+
+      const profileMap = new Map((profileData ?? []).map(p => [p.user_id, p]));
+      const specMap = new Map((doctorProfileData ?? []).map(d => [d.user_id, d.specialization]));
+
+      // Build appointments
+      const apptRows: Appointment[] = (apptData ?? []).map(a => {
+        const patient = profileMap.get(a.patient_id);
+        const doctor = profileMap.get(a.doctor_id);
+        const scheduledAt = new Date(a.scheduled_at);
+        return {
+          id: a.id,
+          patientName: patient?.full_name ?? 'Unknown Patient',
+          patientPhone: patient?.phone ?? '—',
+          doctor: doctor?.full_name ?? 'Unknown Doctor',
+          specialty: specMap.get(a.doctor_id) ?? 'General Practice',
+          type: a.chief_complaint ?? a.type ?? 'Consultation',
+          date: scheduledAt.toISOString().split('T')[0],
+          time: scheduledAt.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          status: a.status as Appointment['status'],
+          price: 0,
+          notes: a.notes ?? '',
+        };
+      });
+
+      setAppts(apptRows);
+
+      // Fetch facility doctors for booking modal
+      const { data: staffData } = await supabase
+        .from('facility_staff')
+        .select('doctor_user_id, consultation_fee')
+        .eq('facility_id', fId)
+        .eq('is_active', true);
+
+      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+      const { data: staffProfiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name')
+        .in('user_id', staffIds);
+
+      const doctorRows: DoctorOption[] = (staffData ?? []).map(s => {
+        const profile = (staffProfiles ?? []).find(p => p.user_id === s.doctor_user_id);
+        return {
+          userId: s.doctor_user_id,
+          name: profile?.full_name ?? 'Unknown Doctor',
+          specialty: specMap.get(s.doctor_user_id) ?? 'General Practice',
+        };
+      });
+
+      setDoctorOptions(doctorRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load appointments.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = appts.filter(a => {
-    const matchSearch = a.patientName.toLowerCase().includes(search.toLowerCase()) || a.doctor.toLowerCase().includes(search.toLowerCase()) || a.type.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = a.patientName.toLowerCase().includes(search.toLowerCase()) ||
+      a.doctor.toLowerCase().includes(search.toLowerCase()) ||
+      a.type.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === 'all' || a.status === filterStatus;
     const matchDoctor = filterDoctor === 'All Doctors' || a.doctor === filterDoctor;
-    const matchDate = filterDate === 'all' || (filterDate === 'today' && a.date === today) || (filterDate === 'upcoming' && a.date > today) || (filterDate === 'past' && a.date < today);
+    const matchDate = filterDate === 'all' ||
+      (filterDate === 'today' && a.date === today) ||
+      (filterDate === 'upcoming' && a.date > today) ||
+      (filterDate === 'past' && a.date < today);
     return matchSearch && matchStatus && matchDoctor && matchDate;
   });
 
-  const todayRevenue = appts.filter(a => a.date === today && a.status === 'completed').reduce((s, a) => s + a.price, 0);
+  const todayRevenue = appts
+    .filter(a => a.date === today && a.status === 'completed')
+    .reduce((s, a) => s + a.price, 0);
 
-  function handleBook(data: Partial<Appointment>) {
-    setAppts(prev => [{
-      id: Date.now().toString(),
-      patientName: data.patientName || '',
-      patientPhone: data.patientPhone || '',
-      doctor: data.doctor || '',
-      specialty: '',
-      type: data.type || '',
-      date: data.date || today,
-      time: data.time || '09:00',
-      status: 'scheduled',
-      price: Number(data.price) || 0,
-      notes: data.notes || '',
-    }, ...prev]);
-  }
+  const handleBook = async (data: Partial<Appointment>) => {
+    if (!facilityId) return;
+    try {
+      const selectedDoctor = doctorOptions.find(d => d.name === data.doctor);
+      if (!selectedDoctor) throw new Error('Please select a valid doctor.');
 
-  function changeStatus(id: string, status: Appointment['status']) {
-    setAppts(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+      const scheduledAt = `${data.date}T${data.time}:00`;
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('appointments')
+        .insert({
+          facility_id: facilityId,
+          doctor_id: selectedDoctor.userId,
+          patient_id: user!.id,
+          type: 'in_person',
+          status: 'scheduled',
+          scheduled_at: scheduledAt,
+          duration_minutes: 30,
+          chief_complaint: data.type || 'Consultation',
+          notes: data.notes || null,
+        })
+        .select('id')
+        .single();
+
+      if (insertError) throw insertError;
+
+      const newAppt: Appointment = {
+        id: inserted.id,
+        patientName: data.patientName || '',
+        patientPhone: data.patientPhone || '',
+        doctor: data.doctor || '',
+        specialty: selectedDoctor.specialty,
+        type: data.type || 'Consultation',
+        date: data.date || today,
+        time: data.time || '09:00',
+        status: 'scheduled',
+        price: Number(data.price) || 0,
+        notes: data.notes || '',
+      };
+      setAppts(prev => [newAppt, ...prev]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to book appointment.');
+    }
+  };
+
+  const changeStatus = async (id: string, status: Appointment['status']) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ status })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setAppts(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update status.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-5 animate-pulse">
+        <div className="h-10 bg-slate-100 rounded-xl w-48" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-xl" />)}
+        </div>
+        <div className="h-96 bg-slate-100 rounded-2xl" />
+      </div>
+    );
   }
 
   return (
     <div className="p-6 space-y-5">
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Appointments</h2>
@@ -202,7 +371,7 @@ export default function ClinicAppointments() {
         </select>
         <select value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
           <option>All Doctors</option>
-          {doctors.map(d => <option key={d}>{d}</option>)}
+          {doctorOptions.map(d => <option key={d.userId}>{d.name}</option>)}
         </select>
       </div>
 
@@ -218,7 +387,7 @@ export default function ClinicAppointments() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.map(a => {
-              const s = statusConfig[a.status];
+              const s = statusConfig[a.status] ?? statusConfig.scheduled;
               return (
                 <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-5 py-4">
@@ -262,7 +431,7 @@ export default function ClinicAppointments() {
         )}
       </div>
 
-      {showBook && <BookModal onClose={() => setShowBook(false)} onBook={handleBook} />}
+      {showBook && <BookModal onClose={() => setShowBook(false)} onBook={handleBook} doctors={doctorOptions.map(d => d.name)} />}
     </div>
   );
 }
