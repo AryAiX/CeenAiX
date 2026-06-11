@@ -174,6 +174,7 @@ export default function ClinicPatients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [filterDoctor, setFilterDoctor] = useState('All Doctors');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientAppts, setPatientAppts] = useState<{ id?: string; scheduled_at: string; status: string }[]>([]);
 
@@ -274,10 +275,13 @@ export default function ClinicPatients() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
+  const doctorList = ['All Doctors', ...new Set(patients.map(p => p.doctor).filter(d => d !== '—'))];
+
   const filtered = patients.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.phone.includes(search) ||
-    p.doctor.toLowerCase().includes(search.toLowerCase())
+    p.doctor.toLowerCase().includes(search.toLowerCase())) &&
+    (filterDoctor === 'All Doctors' || p.doctor === filterDoctor)
   );
 
   if (loading) {
@@ -327,11 +331,18 @@ export default function ClinicPatients() {
         })}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
-        <div className="relative">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+        <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patients by name, phone, or doctor…" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
         </div>
+        <select
+          value={filterDoctor}
+          onChange={e => setFilterDoctor(e.target.value)}
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+        >
+          {doctorList.map(d => <option key={d}>{d}</option>)}
+        </select>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
