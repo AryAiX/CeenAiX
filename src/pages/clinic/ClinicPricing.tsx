@@ -16,9 +16,8 @@ interface PricingItem {
 }
 
 const categories = ['All', 'Consultation', 'Follow-up', 'Procedure', 'Telemedicine', 'Lab', 'Imaging', 'Package'];
-const doctors = ['Any Doctor', 'Dr. Fatima Hassan', 'Dr. Khalid Nasser', 'Dr. Tooraj Helmi', 'Dr. Aisha Al Mansoori'];
 
-function PricingModal({ item, onClose, onSave }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void }) {
+function PricingModal({ item, onClose, onSave, doctors }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void; doctors: string[] }) {
   const isEdit = !!item;
   const [form, setForm] = useState({
     name: item?.name || '',
@@ -93,6 +92,7 @@ function PricingModal({ item, onClose, onSave }: { item?: PricingItem; onClose: 
 export default function ClinicPricing() {
   const { user } = useAuth();
   const [items, setItems] = useState<PricingItem[]>([]);
+  const [doctors, setDoctors] = useState<string[]>(['Any Doctor']);
   const [facilityId, setFacilityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +122,24 @@ export default function ClinicPricing() {
 
       const fId = memberData.facility_id;
       setFacilityId(fId);
+
+      const { data: staffData } = await supabase
+        .from('facility_staff')
+        .select('doctor_user_id')
+        .eq('facility_id', fId)
+        .eq('is_active', true);
+
+      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+
+      if (staffIds.length > 0) {
+        const { data: staffProfiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', staffIds);
+
+        const doctorNames = (staffProfiles ?? []).map(p => p.full_name ?? 'Unknown Doctor');
+        setDoctors(['Any Doctor', ...doctorNames]);
+      }
 
       const { data: servicesData, error: servicesError } = await supabase
         .from('facility_services')
@@ -365,7 +383,7 @@ export default function ClinicPricing() {
         </div>
       )}
 
-      {showModal && <PricingModal item={editItem} onClose={() => { setShowModal(false); setEditItem(undefined); }} onSave={handleSave} />}
+      {showModal && <PricingModal item={editItem} onClose={() => { setShowModal(false); setEditItem(undefined); }} onSave={handleSave} doctors={doctors} />}
     </div>
   );
 }
