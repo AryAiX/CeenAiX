@@ -91,6 +91,7 @@ export default function ClinicSettings() {
           if (s.notifAppt !== undefined) setNotifAppt(s.notifAppt);
           if (s.notifPayment !== undefined) setNotifPayment(s.notifPayment);
           if (s.notifLicense !== undefined) setNotifLicense(s.notifLicense);
+          if (s.nabidh !== undefined) setNabidh(s.nabidh);
         }
       }
     } catch (err) {
@@ -135,15 +136,16 @@ export default function ClinicSettings() {
             notifAppt,
             notifPayment,
             notifLicense,
+            nabidh,
           },
           updated_at: new Date().toISOString(),
         })
         .eq('id', facilityId);
 
       if (updateError) throw updateError;
-      setFeedback({ type: 'success', message: 'Notification preferences saved successfully.' });
+      setFeedback({ type: 'success', message: 'Settings saved successfully.' });
     } catch (err) {
-      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save notifications.' });
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save settings.' });
     }
   };
 
