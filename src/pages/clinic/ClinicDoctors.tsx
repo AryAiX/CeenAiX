@@ -525,12 +525,16 @@ export default function ClinicDoctors() {
     try {
       const { error: updateError } = await supabase
         .from('facility_staff')
-        .update({ is_active: false, is_available: false })
-        .eq('id', id);
-      if (updateError) throw updateError;
-      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'suspended' } : d));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to suspend doctor.');
+      .update({ 
+        is_active: false, 
+        is_available: false,
+        invitation_status: 'suspended',
+      })
+      .eq('id', id);
+    if (updateError) throw updateError;
+    setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'suspended' } : d));
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to suspend doctor.');
     }
   };
 
