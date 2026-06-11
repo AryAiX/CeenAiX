@@ -199,6 +199,9 @@ export default function ClinicDoctors() {
   const [filterSpec, setFilterSpec] = useState('All Specialties');
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [editForm, setEditForm] = useState({ consultationFee: 0, availability: [] as string[], status: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
 
   useEffect(() => {
@@ -477,6 +480,52 @@ export default function ClinicDoctors() {
     }
   };
 
+  const handleStartEdit = (doctor: Doctor) => {
+    setEditingDoctor(doctor);
+    setEditForm({
+      consultationFee: doctor.consultationFee,
+      availability: [...doctor.availability],
+      status: doctor.status,
+    });
+    setMenuOpen(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingDoctor) return;
+    setSavingEdit(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('facility_staff')
+        .update({
+          consultation_fee: editForm.consultationFee,
+          is_active: editForm.status === 'active',
+          is_available: editForm.status === 'active',
+        })
+        .eq('id', editingDoctor.id);
+      if (updateError) throw updateError;
+      setDoctors(prev => prev.map(d => d.id === editingDoctor.id ? {
+        ...d,
+        consultationFee: editForm.consultationFee,
+        availability: editForm.availability,
+        status: editForm.status as Doctor['status'],
+      } : d));
+      setEditingDoctor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save changes.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const toggleAvailability = (day: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      availability: prev.availability.includes(day)
+        ? prev.availability.filter(d => d !== day)
+        : [...prev.availability, day],
+    }));
+  };
+
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
@@ -605,7 +654,7 @@ export default function ClinicDoctors() {
                           {d.status === 'pending' && (
                             <button onClick={() => { handleApprove(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={14} /> Approve</button>
                           )}
-                          <button onClick={() => { setSelectedDoctor(d); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
+                          <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
                           <button onClick={() => handleDelete(d.id)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
                         </div>
                       )}
@@ -625,6 +674,120 @@ export default function ClinicDoctors() {
       </div>
 
       {showAdd && <AddDoctorModal onClose={() => setShowAdd(false)} onSave={handleAdd} />}
+
+      {editingDoctor ? createPortal(
+        <div className="fixed inset-0 z-[100] flex">
+          <div className="flex-1 bg-black/30" onClick={() => setEditingDoctor(null)} />
+          <div className="w-[420px] bg-white h-full overflow-y-auto shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${editingDoctor.gradient} flex items-center justify-center text-white font-bold text-sm`}>
+                  {editingDoctor.initials}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Edit Doctor</h3>
+                  <p className="text-xs text-slate-500">{editingDoctor.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditingDoctor(null)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <X size={18} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 flex-1">
+              {/* Consultation Fee */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Consultation Fee (AED)</label>
+                <input
+                  type="number"
+                  value={editForm.consultationFee}
+                  onChange={e => setEditForm(prev => ({ ...prev, consultationFee: Number(e.target.value) }))}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+
+              {/* Availability */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Availability</label>
+                <div className="flex flex-wrap gap-2">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleAvailability(day)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        editForm.availability.includes(day)
+                          ? 'bg-teal-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Read only info */}
+              <div className="rounded-xl bg-slate-50 p-4 space-y-3">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Doctor Info (Read Only)</div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-slate-400">Specialty</div>
+                    <div className="font-medium text-slate-800">{editingDoctor.specialty}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400">DHA License</div>
+                    <div className="font-mono text-xs text-slate-800">{editingDoctor.dhaLicense}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400">Phone</div>
+                    <div className="font-medium text-slate-800">{editingDoctor.phone}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400">Email</div>
+                    <div className="font-medium text-slate-800 truncate">{editingDoctor.email}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setEditingDoctor(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveEdit()}
+                disabled={savingEdit}
+                className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Save size={15} />
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
       {selectedDoctor && (
         <DoctorDetailDrawer
           doctor={selectedDoctor}
