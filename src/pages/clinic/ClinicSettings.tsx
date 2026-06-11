@@ -59,7 +59,7 @@ export default function ClinicSettings() {
 
       const { data: facilityData, error: facilityError } = await supabase
         .from('facilities')
-        .select('name, facility_type, license_number, phone, email, address')
+        .select('name, facility_type, license_number, phone, email, address, operating_hours')
         .eq('id', fId)
         .maybeSingle();
 
@@ -71,6 +71,21 @@ export default function ClinicSettings() {
         setPhone(facilityData.phone ?? '');
         setEmail(facilityData.email ?? '');
         setAddress(facilityData.address ?? '');
+        if (facilityData.operating_hours) {
+          const hours = facilityData.operating_hours as Record<string, string>;
+          const dayMap: Record<string, string> = {
+            mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday',
+            thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
+          };
+          const activeDays = Object.keys(hours).map(k => dayMap[k]).filter(Boolean);
+          setWorkingDays(activeDays);
+          const firstValue = Object.values(hours)[0];
+          if (firstValue) {
+            const [open, close] = firstValue.split('-');
+            if (open) setOpenTime(open);
+            if (close) setCloseTime(close);
+          }
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clinic settings.');
@@ -100,6 +115,35 @@ export default function ClinicSettings() {
       setFeedback({ type: 'success', message: 'Clinic information saved successfully.' });
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save changes.' });
+    }
+  };
+
+  const handleSaveHours = async () => {
+    if (!facilityId) return;
+    setFeedback(null);
+    try {
+      const dayMap: Record<string, string> = {
+        Monday: 'mon', Tuesday: 'tue', Wednesday: 'wed',
+        Thursday: 'thu', Friday: 'fri', Saturday: 'sat', Sunday: 'sun',
+      };
+      const operatingHours: Record<string, string> = {};
+      workingDays.forEach(day => {
+        const key = dayMap[day];
+        if (key) operatingHours[key] = `${openTime}-${closeTime}`;
+      });
+
+      const { error: updateError } = await supabase
+        .from('facilities')
+        .update({
+          operating_hours: operatingHours,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', facilityId);
+
+      if (updateError) throw updateError;
+      setFeedback({ type: 'success', message: 'Working hours saved successfully.' });
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save hours.' });
     }
   };
 
@@ -197,7 +241,10 @@ export default function ClinicSettings() {
             <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
-        <button onClick={() => setFeedback({ type: 'success', message: 'Working hours updated' })} className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors">
+        <button
+          onClick={() => void handleSaveHours()}
+          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors"
+        >
           <Save size={15} /> Save Hours
         </button>
       </div>
