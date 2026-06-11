@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
 import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, CreditCard as Edit2, Trash2, Eye } from 'lucide-react';
 
 interface Doctor {
   id: string;
+  doctorUserId: string;
   name: string;
   specialty: string;
   dhaLicense: string;
@@ -18,15 +21,16 @@ interface Doctor {
   rating: number;
   consultationFee: number;
   availability: string[];
+  dhaVerified: boolean;
 }
 
-const mockDoctors: Doctor[] = [
-  { id: '1', name: 'Dr. Fatima Hassan', specialty: 'Cardiology', dhaLicense: 'DHA-PRAC-2018-047821', phone: '+971 50 234 5678', email: 'fatima.hassan@clinic.ae', status: 'active', initials: 'FH', gradient: 'from-teal-600 to-blue-600', joinedDate: 'Jan 2023', todayAppts: 5, totalAppts: 312, rating: 4.9, consultationFee: 800, availability: ['Mon', 'Tue', 'Wed', 'Thu'] },
-  { id: '2', name: 'Dr. Khalid Nasser', specialty: 'Internal Medicine', dhaLicense: 'DHA-PRAC-2019-038421', phone: '+971 55 345 6789', email: 'khalid.nasser@clinic.ae', status: 'active', initials: 'KN', gradient: 'from-blue-600 to-blue-700', joinedDate: 'Mar 2023', todayAppts: 4, totalAppts: 218, rating: 4.7, consultationFee: 600, availability: ['Mon', 'Tue', 'Thu', 'Fri'] },
-  { id: '3', name: 'Dr. Tooraj Helmi', specialty: 'General Practice', dhaLicense: 'DHA-PRAC-2015-019834', phone: '+971 54 456 7890', email: 'tooraj.helmi@clinic.ae', status: 'active', initials: 'TH', gradient: 'from-slate-600 to-slate-700', joinedDate: 'Jun 2022', todayAppts: 3, totalAppts: 487, rating: 4.6, consultationFee: 300, availability: ['Mon', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: '4', name: 'Dr. Aisha Al Mansoori', specialty: 'Endocrinology', dhaLicense: 'DHA-PRAC-2020-052341', phone: '+971 52 567 8901', email: 'aisha.mansoori@clinic.ae', status: 'active', initials: 'AA', gradient: 'from-emerald-600 to-teal-600', joinedDate: 'Sep 2023', todayAppts: 0, totalAppts: 134, rating: 4.8, consultationFee: 700, availability: ['Tue', 'Wed', 'Fri'] },
-  { id: '5', name: 'Dr. Omar Al Sayed', specialty: 'Orthopedics', dhaLicense: 'DHA-PRAC-2022-067891', phone: '+971 56 678 9012', email: 'omar.sayed@clinic.ae', status: 'pending', initials: 'OS', gradient: 'from-amber-600 to-amber-700', joinedDate: 'Pending', todayAppts: 0, totalAppts: 0, rating: 0, consultationFee: 900, availability: [] },
-  { id: '6', name: 'Dr. Nour Al Rashidi', specialty: 'Pediatrics', dhaLicense: 'DHA-PRAC-2021-059234', phone: '+971 58 789 0123', email: 'nour.rashidi@clinic.ae', status: 'pending', initials: 'NR', gradient: 'from-rose-500 to-rose-600', joinedDate: 'Pending', todayAppts: 0, totalAppts: 0, rating: 0, consultationFee: 500, availability: [] },
+const gradients = [
+  'from-teal-600 to-blue-600',
+  'from-blue-600 to-blue-700',
+  'from-emerald-600 to-teal-600',
+  'from-slate-600 to-slate-700',
+  'from-amber-600 to-amber-700',
+  'from-rose-500 to-rose-600',
 ];
 
 const statusConfig = {
@@ -185,13 +189,183 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onSuspend }: { doctor:
 }
 
 export default function ClinicDoctors() {
-  const [doctors, setDoctors] = useState<Doctor[]>(mockDoctors);
+  const { user } = useAuth();
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [, setFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSpec, setFilterSpec] = useState('All Specialties');
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void fetchDoctors();
+  }, [user?.id]);
+
+  const fetchDoctors = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Get facility ID
+      const { data: memberData, error: memberError } = await supabase
+        .from('clinic_portal_members')
+        .select('facility_id')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!memberData?.facility_id) throw new Error('No clinic facility found.');
+
+      const fId = memberData.facility_id;
+      setFacilityId(fId);
+
+      // Get today's date range
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+
+      // Fetch facility staff
+      const { data: staffData, error: staffError } = await supabase
+        .from('facility_staff')
+        .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, created_at')
+        .eq('facility_id', fId);
+
+      if (staffError) throw staffError;
+
+      const doctorUserIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+
+      if (doctorUserIds.length === 0) {
+        setDoctors([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch user profiles
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name, phone, email')
+        .in('user_id', doctorUserIds);
+
+      // Fetch doctor profiles
+      const { data: doctorProfileData } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, specialization, license_number, dha_license_verified, consultation_fee')
+        .in('user_id', doctorUserIds);
+
+      // Fetch ratings
+      const { data: ratingsData } = await supabase
+        .from('doctor_ratings_summary')
+        .select('doctor_id, average_rating, total_reviews')
+        .in('doctor_id', doctorUserIds);
+
+      // Fetch today's appointments
+      const { data: todayApptData } = await supabase
+        .from('appointments')
+        .select('doctor_id')
+        .eq('facility_id', fId)
+        .gte('scheduled_at', todayStart)
+        .lt('scheduled_at', todayEnd)
+        .eq('is_deleted', false);
+
+      // Fetch total appointments
+      const { data: totalApptData } = await supabase
+        .from('appointments')
+        .select('doctor_id')
+        .eq('facility_id', fId)
+        .eq('is_deleted', false);
+
+      // Build maps
+      const profileMap = new Map((profileData ?? []).map(p => [p.user_id, p]));
+      const doctorProfileMap = new Map((doctorProfileData ?? []).map(d => [d.user_id, d]));
+      const ratingsMap = new Map((ratingsData ?? []).map(r => [r.doctor_id, r]));
+
+      const todayApptCount = new Map<string, number>();
+      (todayApptData ?? []).forEach(a => {
+        todayApptCount.set(a.doctor_id, (todayApptCount.get(a.doctor_id) ?? 0) + 1);
+      });
+
+      const totalApptCount = new Map<string, number>();
+      (totalApptData ?? []).forEach(a => {
+        totalApptCount.set(a.doctor_id, (totalApptCount.get(a.doctor_id) ?? 0) + 1);
+      });
+
+      // Build doctor rows
+      const doctorRows: Doctor[] = (staffData ?? []).map((staff, idx) => {
+        const profile = profileMap.get(staff.doctor_user_id);
+        const doctorProfile = doctorProfileMap.get(staff.doctor_user_id);
+        const ratings = ratingsMap.get(staff.doctor_user_id);
+        const fullName = profile?.full_name ?? 'Unknown Doctor';
+        const nameParts = fullName.trim().split(' ').filter(Boolean);
+        const initials = nameParts.length >= 2
+          ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+          : (nameParts[0]?.[0] ?? 'D').toUpperCase();
+
+        const status: Doctor['status'] = staff.invitation_status === 'accepted' && staff.is_active
+          ? 'active'
+          : staff.invitation_status === 'pending'
+            ? 'pending'
+            : 'inactive';
+
+        const joinedDate = staff.created_at
+          ? new Date(staff.created_at).toLocaleDateString('en-AE', { month: 'short', year: 'numeric' })
+          : 'Unknown';
+
+        return {
+          id: staff.id,
+          doctorUserId: staff.doctor_user_id,
+          name: fullName,
+          specialty: doctorProfile?.specialization ?? 'General Practice',
+          dhaLicense: doctorProfile?.license_number ?? '—',
+          phone: profile?.phone ?? '—',
+          email: profile?.email ?? '—',
+          status,
+          initials,
+          gradient: gradients[idx % gradients.length],
+          joinedDate: status === 'pending' ? 'Pending' : joinedDate,
+          todayAppts: todayApptCount.get(staff.doctor_user_id) ?? 0,
+          totalAppts: totalApptCount.get(staff.doctor_user_id) ?? 0,
+          rating: ratings?.average_rating ? Number(Number(ratings.average_rating).toFixed(1)) : 0,
+          consultationFee: Number(staff.consultation_fee ?? doctorProfile?.consultation_fee ?? 0),
+          availability: [],
+          dhaVerified: doctorProfile?.dha_license_verified ?? false,
+        };
+      });
+
+      setDoctors(doctorRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load doctors.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-5 animate-pulse">
+        <div className="h-10 bg-slate-100 rounded-xl w-48" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-xl" />)}
+        </div>
+        <div className="h-64 bg-slate-100 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => void fetchDoctors()} className="ml-2 font-semibold underline">Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   const filtered = doctors.filter(d => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase()) || d.specialty.toLowerCase().includes(search.toLowerCase());
@@ -209,6 +383,7 @@ export default function ClinicDoctors() {
   function handleAdd(data: Partial<Doctor>) {
     const newDoc: Doctor = {
       id: Date.now().toString(),
+      doctorUserId: '',
       name: data.name || '',
       specialty: data.specialty || '',
       dhaLicense: data.dhaLicense || '',
@@ -221,6 +396,7 @@ export default function ClinicDoctors() {
       todayAppts: 0, totalAppts: 0, rating: 0,
       consultationFee: Number(data.consultationFee) || 0,
       availability: [],
+      dhaVerified: false,
     };
     setDoctors(prev => [newDoc, ...prev]);
   }
