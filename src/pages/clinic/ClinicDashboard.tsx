@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, ArrowRight, Stethoscope, Activity } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
-
-function navigate(href: string) {
-  window.history.pushState({}, '', href);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
   completed:    { label: 'Completed',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
@@ -52,6 +48,7 @@ interface DashboardData {
 
 export default function ClinicDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
