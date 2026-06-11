@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
-import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye } from 'lucide-react';
+import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle } from 'lucide-react';
 
 interface Doctor {
   id: string;
@@ -92,7 +92,7 @@ function AddDoctorModal({ onClose, onSave }: { onClose: () => void; onSave: (d: 
   );
 }
 
-function DoctorDetailDrawer({ doctor, onClose, onApprove, onSuspend }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onSuspend?: () => void }) {
+function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void }) {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   return createPortal(
     <div className="fixed inset-0 z-[100] flex">
@@ -172,9 +172,16 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onSuspend }: { doctor:
 
           {/* Actions */}
           {doctor.status === 'pending' && onApprove && (
-            <button onClick={() => { onApprove(); onClose(); }} className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-              <CheckCircle size={16} /> Approve Doctor
-            </button>
+            <div className="space-y-2">
+              <button onClick={() => { onApprove(); onClose(); }} className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                <CheckCircle size={16} /> Approve Doctor
+              </button>
+              {onReject && (
+                <button onClick={() => { onReject(); onClose(); }} className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                  <XCircle size={16} /> Reject Request
+                </button>
+              )}
+            </div>
           )}
           {doctor.status === 'active' && onSuspend && (
             <button onClick={() => { onSuspend(); onClose(); }} className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
@@ -453,6 +460,23 @@ export default function ClinicDoctors() {
     }
   };
 
+  const handleReject = async (id: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('facility_staff')
+        .update({
+          is_active: false,
+          is_available: false,
+          invitation_status: 'rejected',
+        })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'inactive' } : d));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject doctor.');
+    }
+  };
+
   const handleSuspend = async (id: string) => {
     try {
       const { error: updateError } = await supabase
@@ -654,6 +678,9 @@ export default function ClinicDoctors() {
                           {d.status === 'pending' && (
                             <button onClick={() => { handleApprove(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={14} /> Approve</button>
                           )}
+                          {d.status === 'pending' && (
+                            <button onClick={() => { void handleReject(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} /> Reject</button>
+                          )}
                           <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
                           <button onClick={() => handleDelete(d.id)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
                         </div>
@@ -792,8 +819,9 @@ export default function ClinicDoctors() {
         <DoctorDetailDrawer
           doctor={selectedDoctor}
           onClose={() => setSelectedDoctor(null)}
-          onApprove={selectedDoctor.status === 'pending' ? () => handleApprove(selectedDoctor.id) : undefined}
-          onSuspend={selectedDoctor.status === 'active' ? () => handleSuspend(selectedDoctor.id) : undefined}
+          onApprove={selectedDoctor.status === 'pending' ? () => void handleApprove(selectedDoctor.id) : undefined}
+          onReject={selectedDoctor.status === 'pending' ? () => void handleReject(selectedDoctor.id) : undefined}
+          onSuspend={selectedDoctor.status === 'active' ? () => void handleSuspend(selectedDoctor.id) : undefined}
         />
       )}
     </div>
