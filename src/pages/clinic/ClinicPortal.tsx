@@ -47,7 +47,7 @@ export default function ClinicPortal() {
   const meta = pageMeta[page];
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
+    <div className="h-screen bg-slate-50 flex">
       <ClinicSidebar isCollapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(c => !c)} activeTab={page} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page !== 'messages' && <ClinicTopBar title={meta.title} subtitle={meta.subtitle} />}
