@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
 import { Plus, CreditCard as Edit2, Trash2, DollarSign, Clock, X, Save, ToggleLeft, ToggleRight, Search } from 'lucide-react';
 
 interface PricingItem {
@@ -15,19 +17,6 @@ interface PricingItem {
 
 const categories = ['All', 'Consultation', 'Follow-up', 'Procedure', 'Telemedicine', 'Lab', 'Imaging', 'Package'];
 const doctors = ['Any Doctor', 'Dr. Fatima Hassan', 'Dr. Khalid Nasser', 'Dr. Tooraj Helmi', 'Dr. Aisha Al Mansoori'];
-
-const mockPricing: PricingItem[] = [
-  { id: '1', name: 'Cardiology Consultation', category: 'Consultation', doctor: 'Dr. Fatima Hassan', durationMinutes: 45, priceAed: 800, description: 'Initial or follow-up cardiology appointment', isActive: true },
-  { id: '2', name: 'General Checkup', category: 'Consultation', doctor: null, durationMinutes: 30, priceAed: 300, description: 'Routine health check, vital signs, and basic examination', isActive: true },
-  { id: '3', name: 'Diabetes Management', category: 'Follow-up', doctor: 'Dr. Fatima Hassan', durationMinutes: 30, priceAed: 600, description: 'HbA1c review, insulin management, dietary guidance', isActive: true },
-  { id: '4', name: 'Follow-up Visit', category: 'Follow-up', doctor: null, durationMinutes: 20, priceAed: 400, description: 'Standard follow-up for existing patients', isActive: true },
-  { id: '5', name: 'Telemedicine Consultation', category: 'Telemedicine', doctor: null, durationMinutes: 20, priceAed: 200, description: 'Video call with a doctor for minor complaints', isActive: true },
-  { id: '6', name: 'Endocrinology Consultation', category: 'Consultation', doctor: 'Dr. Aisha Al Mansoori', durationMinutes: 45, priceAed: 700, description: 'Hormonal and metabolic disorder assessment', isActive: true },
-  { id: '7', name: 'Internal Medicine Consultation', category: 'Consultation', doctor: 'Dr. Khalid Nasser', durationMinutes: 40, priceAed: 600, description: 'Comprehensive internal medicine evaluation', isActive: true },
-  { id: '8', name: 'Lab Results Review', category: 'Follow-up', doctor: null, durationMinutes: 15, priceAed: 200, description: 'Doctor review and explanation of laboratory results', isActive: true },
-  { id: '9', name: 'Comprehensive Health Package', category: 'Package', doctor: null, durationMinutes: 90, priceAed: 1200, description: 'Full checkup + ECG + basic labs + doctor consultation', isActive: false },
-  { id: '10', name: 'ECG Interpretation', category: 'Procedure', doctor: 'Dr. Fatima Hassan', durationMinutes: 20, priceAed: 350, description: '12-lead ECG with cardiologist interpretation', isActive: true },
-];
 
 function PricingModal({ item, onClose, onSave }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void }) {
   const isEdit = !!item;
@@ -102,11 +91,65 @@ function PricingModal({ item, onClose, onSave }: { item?: PricingItem; onClose: 
 }
 
 export default function ClinicPricing() {
-  const [items, setItems] = useState<PricingItem[]>(mockPricing);
+  const { user } = useAuth();
+  const [items, setItems] = useState<PricingItem[]>([]);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<PricingItem | undefined>(undefined);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void fetchData();
+  }, [user?.id]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: memberData, error: memberError } = await supabase
+        .from('clinic_portal_members')
+        .select('facility_id')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!memberData?.facility_id) throw new Error('No clinic facility found.');
+
+      const fId = memberData.facility_id;
+      setFacilityId(fId);
+
+      const { data: servicesData, error: servicesError } = await supabase
+        .from('facility_services')
+        .select('id, name_en, category, default_duration_min, default_price, description_en, is_active')
+        .eq('facility_id', fId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
+
+      if (servicesError) throw servicesError;
+
+      const rows: PricingItem[] = (servicesData ?? []).map(s => ({
+        id: s.id,
+        name: s.name_en ?? '',
+        category: s.category ?? 'Consultation',
+        doctor: null,
+        durationMinutes: s.default_duration_min ?? 30,
+        priceAed: Number(s.default_price) ?? 0,
+        description: s.description_en ?? '',
+        isActive: s.is_active ?? true,
+      }));
+
+      setItems(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load services.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = items.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
@@ -116,27 +159,105 @@ export default function ClinicPricing() {
 
   const totalActive = items.filter(p => p.isActive).length;
   const avgPrice = Math.round(items.filter(p => p.isActive).reduce((s, p) => s + p.priceAed, 0) / (totalActive || 1));
-  const maxPrice = Math.max(...items.map(p => p.priceAed));
+  const maxPrice = Math.max(...items.map(p => p.priceAed), 1);
 
   function handleSave(data: Partial<PricingItem>) {
+    if (!facilityId) return;
     if (editItem) {
-      setItems(prev => prev.map(p => p.id === editItem.id ? { ...p, ...data } : p));
+      void (async () => {
+        const { error: updateError } = await supabase
+          .from('facility_services')
+          .update({
+            name_en: data.name,
+            category: data.category,
+            default_duration_min: data.durationMinutes,
+            default_price: data.priceAed,
+            description_en: data.description,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editItem.id);
+        if (updateError) { setError(updateError.message); return; }
+        setItems(prev => prev.map(p => p.id === editItem.id ? { ...p, ...data } : p));
+        setEditItem(undefined);
+      })();
     } else {
-      setItems(prev => [...prev, { id: Date.now().toString(), isActive: true, ...data } as PricingItem]);
+      void (async () => {
+        const { data: inserted, error: insertError } = await supabase
+          .from('facility_services')
+          .insert({
+            facility_id: facilityId,
+            name_en: data.name,
+            name_ar: data.name,
+            category: data.category,
+            default_duration_min: data.durationMinutes,
+            default_price: data.priceAed,
+            description_en: data.description,
+            description_ar: data.description,
+            currency: 'AED',
+            is_active: true,
+            is_deleted: false,
+          })
+          .select('id')
+          .single();
+        if (insertError) { setError(insertError.message); return; }
+        setItems(prev => [...prev, {
+          id: inserted.id,
+          isActive: true,
+          doctor: null,
+          ...data,
+        } as PricingItem]);
+        setEditItem(undefined);
+      })();
     }
-    setEditItem(undefined);
   }
 
   function toggleActive(id: string) {
-    setItems(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
+    const item = items.find(p => p.id === id);
+    if (!item) return;
+    void (async () => {
+      const { error: updateError } = await supabase
+        .from('facility_services')
+        .update({ is_active: !item.isActive, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateError) { setError(updateError.message); return; }
+      setItems(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
+    })();
   }
 
   function deleteItem(id: string) {
-    setItems(prev => prev.filter(p => p.id !== id));
+    void (async () => {
+      const { error: deleteError } = await supabase
+        .from('facility_services')
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (deleteError) { setError(deleteError.message); return; }
+      setItems(prev => prev.filter(p => p.id !== id));
+    })();
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-5 animate-pulse">
+        <div className="h-10 bg-slate-100 rounded-xl w-48" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-xl" />)}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[...Array(6)].map((_, i) => <div key={i} className="h-48 bg-slate-100 rounded-2xl" />)}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="p-6 space-y-5">
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Pricing & Services</h2>
@@ -156,7 +277,7 @@ export default function ClinicPricing() {
           { label: 'Total Services', value: items.length, icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
           { label: 'Active Services', value: totalActive, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Avg. Price (AED)', value: avgPrice.toLocaleString(), icon: DollarSign, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Highest Fee (AED)', value: maxPrice.toLocaleString(), icon: DollarSign, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Highest Fee (AED)', value: maxPrice === 1 ? '—' : maxPrice.toLocaleString(), icon: DollarSign, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
