@@ -195,14 +195,26 @@ export default function ClinicDashboard() {
         };
       });
 
-      // Revenue
-      const todayDayLabel = new Date().toLocaleDateString('en-AE', { weekday: 'short' });
-      const { data: revenueData } = await supabase
-        .from('admin_revenue_daily')
-        .select('total_aed, day_label');
+      // Revenue — calculated from facility_staff consultation_fee × completed appointments
+      const feeMap = new Map<string, number>(
+        (facilityStaff ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0])
+      );
 
-      const todayRevenue = revenueData?.find(r => r.day_label === todayDayLabel)?.total_aed ?? 0;
-      const monthlyRevenue = revenueData?.reduce((sum, r) => sum + (r.total_aed ?? 0), 0) ?? 0;
+      const todayRevenue = (appts ?? [])
+        .filter(a => a.status === 'completed')
+        .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
+
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const { data: monthAppts } = await supabase
+        .from('appointments')
+        .select('doctor_id, status')
+        .eq('facility_id', facilityId)
+        .eq('is_deleted', false)
+        .eq('status', 'completed')
+        .gte('scheduled_at', monthStart);
+
+      const monthlyRevenue = (monthAppts ?? [])
+        .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
 
       setData({
         todayApptCount,
