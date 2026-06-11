@@ -252,6 +252,14 @@ export default function ClinicDoctors() {
     void fetchDoctors();
   }, [user?.id]);
 
+  useEffect(() => {
+    const handleClickOutside = () => setMenuOpen(null);
+    if (menuOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [menuOpen]);
+
   const fetchDoctors = async () => {
     setLoading(true);
     setError(null);
@@ -723,7 +731,7 @@ export default function ClinicDoctors() {
                       <Eye size={15} className="text-slate-400 hover:text-teal-600" />
                     </button>
                     <div className="relative">
-                      <button onClick={() => setMenuOpen(menuOpen === d.id ? null : d.id)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                      <button onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === d.id ? null : d.id); }} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                         <MoreVertical size={15} className="text-slate-400" />
                       </button>
                       {menuOpen === d.id && (
@@ -756,10 +764,10 @@ export default function ClinicDoctors() {
       {showAdd && <AddDoctorModal onClose={() => setShowAdd(false)} onSave={handleAdd} />}
 
       {editingDoctor ? createPortal(
-        <div className="fixed inset-0 z-[100] flex">
-          <div className="flex-1 bg-black/30" onClick={() => setEditingDoctor(null)} />
-          <div className="w-[420px] bg-white h-full overflow-y-auto shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+        <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${editingDoctor.gradient} flex items-center justify-center text-white font-bold text-sm`}>
                   {editingDoctor.initials}
@@ -774,7 +782,8 @@ export default function ClinicDoctors() {
               </button>
             </div>
 
-            <div className="p-6 space-y-6 flex-1">
+            {/* Body */}
+            <div className="p-6 space-y-5">
               {/* Consultation Fee */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-2">Consultation Fee (AED)</label>
@@ -846,7 +855,8 @@ export default function ClinicDoctors() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+            {/* Footer */}
+            <div className="flex gap-3 px-6 pb-6">
               <button
                 type="button"
                 onClick={() => setEditingDoctor(null)}
