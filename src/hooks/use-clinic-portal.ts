@@ -156,11 +156,13 @@ export interface DoctorClinicMembership {
   consultation_fee: number | null;
   telemedicine_fee: number | null;
   follow_up_fee: number | null;
+  invitation_status: string | null;
   facilities: {
     id: string;
     name: string;
     name_en: string | null;
     name_ar: string | null;
+    city: string | null;
     phone: string | null;
     email: string | null;
   } | null;
@@ -172,11 +174,10 @@ export const useDoctorClinicMembership = (userId: string | null | undefined) => 
     const { data, error } = await supabase
       .from('facility_staff')
       .select(
-        'clinic_managed_pricing, consultation_fee, telemedicine_fee, follow_up_fee, facilities(id, name, name_en, name_ar, phone, email)',
+        'clinic_managed_pricing, consultation_fee, telemedicine_fee, follow_up_fee, invitation_status, facilities(id, name, name_en, name_ar, city, phone, email)',
       )
       .eq('doctor_user_id', userId)
-      .eq('is_active', true)
-      .eq('clinic_managed_pricing', true)
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error) throw error;
