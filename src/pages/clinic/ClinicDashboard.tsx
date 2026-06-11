@@ -131,7 +131,7 @@ export default function ClinicDashboard() {
       const doctorMap = new Map((doctorProfiles ?? []).map(d => [d.user_id, d.full_name]));
 
       // Build today's schedule
-      const todayApptRows: TodayAppointment[] = (appts ?? []).slice(0, 6).map(a => ({
+      const todayApptRows: TodayAppointment[] = (appts ?? []).map(a => ({
         id: a.id,
         time: new Date(a.scheduled_at).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false }),
         patient: patientMap.get(a.patient_id) ?? 'Unknown Patient',
@@ -340,7 +340,7 @@ export default function ClinicDashboard() {
               View all <ArrowRight size={12} />
             </button>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-50 overflow-y-auto max-h-[320px]">
             {data.todayAppts.length === 0 ? (
               <div className="px-6 py-8 text-center text-sm text-slate-400">No appointments today.</div>
             ) : (
