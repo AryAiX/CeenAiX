@@ -445,26 +445,17 @@ export default function ClinicDoctors() {
 
   const handleApprove = async (id: string) => {
     try {
-      // Step 1 — Approve doctor in facility_staff
-      const { error: updateError } = await supabase
-        .from('facility_staff')
-        .update({ is_active: true, is_available: true, invitation_status: 'accepted' })
-        .eq('id', id);
-      if (updateError) throw updateError;
-
-      // Step 2 — Get the doctor's user ID from local state
       const doctor = doctors.find(d => d.id === id);
-      if (doctor?.doctorUserId && facilityId) {
-        // Step 3 — Backfill facility_id on all existing appointments
-        await supabase
-          .from('appointments')
-          .update({ facility_id: facilityId })
-          .eq('doctor_id', doctor.doctorUserId)
-          .is('facility_id', null)
-          .eq('is_deleted', false);
-      }
+      if (!doctor?.doctorUserId || !facilityId) throw new Error('Missing doctor or facility info.');
 
-      // Step 4 — Update local state
+      const { error } = await supabase.rpc('approve_doctor_and_link_appointments', {
+        p_staff_id: id,
+        p_facility_id: facilityId,
+        p_doctor_user_id: doctor.doctorUserId,
+      });
+
+      if (error) throw error;
+
       setDoctors(prev => prev.map(d => d.id === id ? {
         ...d,
         status: 'active',
