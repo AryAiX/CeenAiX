@@ -379,8 +379,11 @@ export default function ClinicPatients() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-16 text-center text-sm text-slate-400">
-                  No patients found.
+                <td colSpan={8} className="text-center py-16 text-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <Users size={32} className="opacity-30" />
+                    <p className="text-sm">No patients found.</p>
+                  </div>
                 </td>
               </tr>
             )}
