@@ -194,6 +194,41 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
   );
 }
 
+function ConfirmModal({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="p-6 space-y-4">
+          <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto">
+            <Trash2 size={22} className="text-red-500" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-bold text-slate-900 text-lg">Remove Doctor</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Are you sure you want to remove <span className="font-semibold text-slate-800">{name}</span> from your clinic? This action can be reversed by the doctor sending a new request.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 pb-6">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors"
+          >
+            Yes, Remove
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function ClinicDoctors() {
   const { user } = useAuth();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -210,6 +245,7 @@ export default function ClinicDoctors() {
   const [editForm, setEditForm] = useState({ consultationFee: 0, availability: [] as string[], status: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -502,11 +538,16 @@ export default function ClinicDoctors() {
     try {
       const { error: deleteError } = await supabase
         .from('facility_staff')
-        .delete()
+        .update({
+          is_active: false,
+          is_available: false,
+          invitation_status: 'removed',
+        })
         .eq('id', id);
       if (deleteError) throw deleteError;
       setDoctors(prev => prev.filter(d => d.id !== id));
       setMenuOpen(null);
+      setConfirmDelete(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove doctor.');
     }
@@ -636,7 +677,7 @@ export default function ClinicDoctors() {
       )}
 
       {/* Doctor table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
@@ -690,7 +731,7 @@ export default function ClinicDoctors() {
                             <button onClick={() => { void handleReject(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} /> Reject</button>
                           )}
                           <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
-                          <button onClick={() => handleDelete(d.id)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
+                          <button onClick={() => { setConfirmDelete(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
                         </div>
                       )}
                     </div>
@@ -830,6 +871,13 @@ export default function ClinicDoctors() {
           onApprove={selectedDoctor.status === 'pending' ? () => void handleApprove(selectedDoctor.id) : undefined}
           onReject={selectedDoctor.status === 'pending' ? () => void handleReject(selectedDoctor.id) : undefined}
           onSuspend={selectedDoctor.status === 'active' ? () => void handleSuspend(selectedDoctor.id) : undefined}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmModal
+          name={doctors.find(d => d.id === confirmDelete)?.name ?? 'this doctor'}
+          onConfirm={() => void handleDelete(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
     </div>
