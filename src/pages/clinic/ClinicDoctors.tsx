@@ -193,7 +193,7 @@ export default function ClinicDoctors() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [, setFacilityId] = useState<string | null>(null);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSpec, setFilterSpec] = useState('All Specialties');
@@ -380,26 +380,58 @@ export default function ClinicDoctors() {
     pending: doctors.filter(d => d.status === 'pending').length,
   };
 
-  function handleAdd(data: Partial<Doctor>) {
-    const newDoc: Doctor = {
-      id: Date.now().toString(),
-      doctorUserId: '',
-      name: data.name || '',
-      specialty: data.specialty || '',
-      dhaLicense: data.dhaLicense || '',
-      phone: data.phone || '',
-      email: data.email || '',
-      status: 'pending',
-      initials: (data.name || 'DR').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-      gradient: 'from-slate-600 to-slate-700',
-      joinedDate: 'Pending',
-      todayAppts: 0, totalAppts: 0, rating: 0,
-      consultationFee: Number(data.consultationFee) || 0,
-      availability: [],
-      dhaVerified: false,
-    };
-    setDoctors(prev => [newDoc, ...prev]);
-  }
+  const handleAdd = async (data: Partial<Doctor>) => {
+    if (!facilityId || !user?.id) return;
+    try {
+      const { data: inserted, error: insertError } = await supabase
+        .from('clinic_doctor_invitations')
+        .insert({
+          facility_id: facilityId,
+          invited_by: user.id,
+          email: data.email || '',
+          full_name: data.name || '',
+          status: 'pending',
+          payload: {
+            specialty: data.specialty || '',
+            dha_license: data.dhaLicense || '',
+            phone: data.phone || '',
+            consultation_fee: Number(data.consultationFee) || 0,
+          },
+        })
+        .select('id')
+        .single();
+
+      if (insertError) throw insertError;
+
+      const nameParts = (data.name || 'DR').split(' ').filter(Boolean);
+      const initials = nameParts.length >= 2
+        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+        : (nameParts[0]?.[0] ?? 'D').toUpperCase();
+
+      const newDoc: Doctor = {
+        id: inserted.id,
+        doctorUserId: '',
+        name: data.name || '',
+        specialty: data.specialty || '',
+        dhaLicense: data.dhaLicense || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        status: 'pending',
+        initials,
+        gradient: 'from-slate-600 to-slate-700',
+        joinedDate: 'Pending',
+        todayAppts: 0,
+        totalAppts: 0,
+        rating: 0,
+        consultationFee: Number(data.consultationFee) || 0,
+        availability: [],
+        dhaVerified: false,
+      };
+      setDoctors(prev => [newDoc, ...prev]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add doctor.');
+    }
+  };
 
   function handleApprove(id: string) {
     setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'active', joinedDate: 'May 2026' } : d));
