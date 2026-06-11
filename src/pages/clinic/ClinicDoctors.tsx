@@ -433,18 +433,49 @@ export default function ClinicDoctors() {
     }
   };
 
-  function handleApprove(id: string) {
-    setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'active', joinedDate: 'May 2026' } : d));
-  }
+  const handleApprove = async (id: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('facility_staff')
+        .update({ is_active: true, is_available: true, invitation_status: 'accepted' })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setDoctors(prev => prev.map(d => d.id === id ? {
+        ...d,
+        status: 'active',
+        joinedDate: new Date().toLocaleDateString('en-AE', { month: 'short', year: 'numeric' }),
+      } : d));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve doctor.');
+    }
+  };
 
-  function handleSuspend(id: string) {
-    setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'suspended' } : d));
-  }
+  const handleSuspend = async (id: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('facility_staff')
+        .update({ is_active: false, is_available: false })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'suspended' } : d));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to suspend doctor.');
+    }
+  };
 
-  function handleDelete(id: string) {
-    setDoctors(prev => prev.filter(d => d.id !== id));
-    setMenuOpen(null);
-  }
+  const handleDelete = async (id: string) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('facility_staff')
+        .delete()
+        .eq('id', id);
+      if (deleteError) throw deleteError;
+      setDoctors(prev => prev.filter(d => d.id !== id));
+      setMenuOpen(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove doctor.');
+    }
+  };
 
   return (
     <div className="p-6 space-y-5">
