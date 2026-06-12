@@ -89,16 +89,37 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
     setInvitingId(doctorUserId);
     setInviteError(null);
     try {
-      const { error: insertError } = await supabase
+      // Check if a facility_staff row already exists for this doctor at this clinic
+      const { data: existing } = await supabase
         .from('facility_staff')
-        .insert({
-          facility_id: facilityId,
-          doctor_user_id: doctorUserId,
-          invitation_status: 'invited',
-          is_active: false,
-          is_available: false,
-        });
-      if (insertError) throw insertError;
+        .select('id')
+        .eq('facility_id', facilityId)
+        .eq('doctor_user_id', doctorUserId)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('facility_staff')
+          .update({
+            invitation_status: 'invited',
+            is_active: false,
+            is_available: false,
+          })
+          .eq('id', existing.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('facility_staff')
+          .insert({
+            facility_id: facilityId,
+            doctor_user_id: doctorUserId,
+            invitation_status: 'invited',
+            is_active: false,
+            is_available: false,
+          });
+        if (insertError) throw insertError;
+      }
+
       setInvitedIds(prev => [...prev, doctorUserId]);
       const invitedDoc = results.find(r => r.userId === doctorUserId);
       setInviteSuccess(`Invitation sent to ${invitedDoc?.name ?? 'doctor'}!`);
