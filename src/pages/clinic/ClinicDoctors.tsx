@@ -20,7 +20,8 @@ interface Doctor {
   totalAppts: number;
   rating: number;
   consultationFee: number;
-  availability: string[];
+  weeklyAvailability: { day: string; start: string; end: string }[];
+  upcomingBlockedSlots: { date: string; start: string; end: string; reason: string | null }[];
   dhaVerified: boolean;
 }
 
@@ -92,7 +93,6 @@ function AddDoctorModal({ onClose, onSave }: { onClose: () => void; onSave: (d: 
 }
 
 function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void }) {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   return createPortal(
     <div className="fixed inset-0 z-[100] flex">
       <div className="flex-1 bg-black/30" onClick={onClose} />
@@ -157,16 +157,41 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
             ))}
           </div>
 
-          {/* Availability */}
+          {/* Weekly Availability */}
           <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Availability</div>
-            <div className="flex gap-2 flex-wrap">
-              {days.map(d => (
-                <span key={d} className={`px-3 py-1 rounded-full text-xs font-medium ${doctor.availability.includes(d) ? 'bg-teal-100 text-teal-700 border border-teal-200' : 'bg-slate-100 text-slate-400'}`}>
-                  {d}
-                </span>
-              ))}
-            </div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Weekly Availability</div>
+            {doctor.weeklyAvailability.length === 0 ? (
+              <p className="text-sm text-slate-400">No recurring availability set by this doctor yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {doctor.weeklyAvailability.map((a, idx) => (
+                  <div key={idx} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
+                    <span className="text-sm font-medium text-slate-700">{a.day}</span>
+                    <span className="text-xs text-slate-500" style={{ fontFamily: 'DM Mono, monospace' }}>{a.start} – {a.end}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Upcoming Blocked Slots */}
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upcoming Blocked Time</div>
+            {doctor.upcomingBlockedSlots.length === 0 ? (
+              <p className="text-sm text-slate-400">No upcoming blocked time.</p>
+            ) : (
+              <div className="space-y-2">
+                {doctor.upcomingBlockedSlots.map((b, idx) => (
+                  <div key={idx} className="px-3 py-2 bg-amber-50 rounded-lg border border-amber-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-700">{b.date}</span>
+                      <span className="text-xs text-slate-500" style={{ fontFamily: 'DM Mono, monospace' }}>{b.start} – {b.end}</span>
+                    </div>
+                    {b.reason && <p className="text-xs text-slate-400 mt-1">{b.reason}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -242,7 +267,7 @@ export default function ClinicDoctors() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
-  const [editForm, setEditForm] = useState({ consultationFee: 0, availability: [] as string[], status: '' });
+  const [editForm, setEditForm] = useState({ consultationFee: 0, status: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -333,6 +358,38 @@ export default function ClinicDoctors() {
         .eq('facility_id', fId)
         .eq('is_deleted', false);
 
+      // Fetch weekly availability
+      const { data: availabilityData } = await supabase
+        .from('doctor_availability')
+        .select('doctor_id, day_of_week, start_time, end_time')
+        .in('doctor_id', doctorUserIds)
+        .eq('is_active', true);
+
+      // Fetch upcoming blocked slots
+      const todayDate = new Date().toISOString().slice(0, 10);
+      const { data: blockedData } = await supabase
+        .from('blocked_slots')
+        .select('doctor_id, blocked_date, start_time, end_time, reason')
+        .in('doctor_id', doctorUserIds)
+        .gte('blocked_date', todayDate)
+        .order('blocked_date', { ascending: true });
+
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      const availabilityMap = new Map<string, { day: string; start: string; end: string }[]>();
+      (availabilityData ?? []).forEach(a => {
+        const list = availabilityMap.get(a.doctor_id) ?? [];
+        list.push({ day: dayNames[a.day_of_week], start: a.start_time, end: a.end_time });
+        availabilityMap.set(a.doctor_id, list);
+      });
+
+      const blockedMap = new Map<string, { date: string; start: string; end: string; reason: string | null }[]>();
+      (blockedData ?? []).forEach(b => {
+        const list = blockedMap.get(b.doctor_id) ?? [];
+        list.push({ date: b.blocked_date, start: b.start_time, end: b.end_time, reason: b.reason });
+        blockedMap.set(b.doctor_id, list);
+      });
+
       // Build maps
       const profileMap = new Map((profileData ?? []).map(p => [p.user_id, p]));
       const doctorProfileMap = new Map((doctorProfileData ?? []).map(d => [d.user_id, d]));
@@ -385,7 +442,8 @@ export default function ClinicDoctors() {
           totalAppts: totalApptCount.get(staff.doctor_user_id) ?? 0,
           rating: ratings?.average_rating ? Number(Number(ratings.average_rating).toFixed(1)) : 0,
           consultationFee: Number(staff.consultation_fee ?? doctorProfile?.consultation_fee ?? 0),
-          availability: [],
+          weeklyAvailability: availabilityMap.get(staff.doctor_user_id) ?? [],
+          upcomingBlockedSlots: blockedMap.get(staff.doctor_user_id) ?? [],
           dhaVerified: doctorProfile?.dha_license_verified ?? false,
         };
       });
@@ -480,7 +538,8 @@ export default function ClinicDoctors() {
         totalAppts: 0,
         rating: 0,
         consultationFee: Number(data.consultationFee) || 0,
-        availability: [],
+        weeklyAvailability: [],
+        upcomingBlockedSlots: [],
         dhaVerified: false,
       };
       setDoctors(prev => [newDoc, ...prev]);
@@ -569,7 +628,6 @@ export default function ClinicDoctors() {
     setEditingDoctor(doctor);
     setEditForm({
       consultationFee: doctor.consultationFee,
-      availability: [...doctor.availability],
       status: doctor.status,
     });
     setMenuOpen(null);
@@ -591,7 +649,6 @@ export default function ClinicDoctors() {
       setDoctors(prev => prev.map(d => d.id === editingDoctor.id ? {
         ...d,
         consultationFee: editForm.consultationFee,
-        availability: editForm.availability,
         status: editForm.status as Doctor['status'],
       } : d));
       setEditingDoctor(null);
@@ -600,15 +657,6 @@ export default function ClinicDoctors() {
     } finally {
       setSavingEdit(false);
     }
-  };
-
-  const toggleAvailability = (day: string) => {
-    setEditForm(prev => ({
-      ...prev,
-      availability: prev.availability.includes(day)
-        ? prev.availability.filter(d => d !== day)
-        : [...prev.availability, day],
-    }));
   };
 
   return (
@@ -811,27 +859,7 @@ export default function ClinicDoctors() {
               </div>
 
               {/* Availability */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Availability</label>
-                <div className="flex flex-wrap gap-2">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => toggleAvailability(day)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                        editForm.availability.includes(day)
-                          ? 'bg-teal-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Read only info */}
+              
               <div className="rounded-xl bg-slate-50 p-4 space-y-3">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Doctor Info (Read Only)</div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
