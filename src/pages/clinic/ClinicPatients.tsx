@@ -12,6 +12,7 @@ interface Patient {
   email: string;
   dob: string;
   lastVisit: string;
+  lastVisitDate: string | null;
   doctor: string;
   totalVisits: number;
   balance: number;
@@ -285,6 +286,7 @@ export default function ClinicPatients() {
           email: profile?.email ?? '—',
           dob,
           lastVisit,
+          lastVisitDate: lastAppt?.scheduled_at ?? null,
           doctor: doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
           totalVisits: patientApptList.length,
           balance: patientBalance,
@@ -334,7 +336,8 @@ export default function ClinicPatients() {
 
   const now = new Date();
   const visitedThisMonth = patients.filter(p => {
-    const d = new Date(p.lastVisit);
+    if (!p.lastVisitDate) return false;
+    const d = new Date(p.lastVisitDate);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
