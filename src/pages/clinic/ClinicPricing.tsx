@@ -89,6 +89,41 @@ function PricingModal({ item, onClose, onSave, doctors }: { item?: PricingItem; 
   );
 }
 
+function ConfirmDeleteModal({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="p-6 space-y-4">
+          <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto">
+            <Trash2 size={22} className="text-red-500" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-bold text-slate-900 text-lg">Remove Service</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Are you sure you want to remove <span className="font-semibold text-slate-800">{name}</span> from your services? This will hide it from patients and staff.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 pb-6">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors"
+          >
+            Yes, Remove
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function ClinicPricing() {
   const { user } = useAuth();
   const [items, setItems] = useState<PricingItem[]>([]);
@@ -100,6 +135,7 @@ export default function ClinicPricing() {
   const [filterCat, setFilterCat] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<PricingItem | undefined>(undefined);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -250,6 +286,7 @@ export default function ClinicPricing() {
         .eq('id', id);
       if (deleteError) { setError(deleteError.message); return; }
       setItems(prev => prev.filter(p => p.id !== id));
+      setConfirmDelete(null);
     })();
   }
 
@@ -368,7 +405,7 @@ export default function ClinicPricing() {
               >
                 <Edit2 size={12} /> Edit
               </button>
-              <button onClick={() => deleteItem(p.id)} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
+              <button onClick={() => setConfirmDelete(p.id)} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -384,6 +421,14 @@ export default function ClinicPricing() {
       )}
 
       {showModal && <PricingModal item={editItem} onClose={() => { setShowModal(false); setEditItem(undefined); }} onSave={handleSave} doctors={doctors} />}
+
+      {confirmDelete && (
+        <ConfirmDeleteModal
+          name={items.find(p => p.id === confirmDelete)?.name ?? 'this service'}
+          onConfirm={() => deleteItem(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
