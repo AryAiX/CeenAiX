@@ -404,11 +404,12 @@ export default function ClinicDoctors() {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 
-      // Fetch facility staff
+      // Fetch facility staff (exclude terminal statuses)
       const { data: staffData, error: staffError } = await supabase
         .from('facility_staff')
         .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, created_at')
-        .eq('facility_id', fId);
+        .eq('facility_id', fId)
+        .not('invitation_status', 'in', '("removed","rejected","cancelled","declined")');
 
       if (staffError) throw staffError;
 
