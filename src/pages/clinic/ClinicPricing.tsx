@@ -17,11 +17,15 @@ interface PricingItem {
 
 const categories = ['All', 'Consultation', 'Follow-up', 'Procedure', 'Telemedicine', 'Lab', 'Imaging', 'Package'];
 
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 function PricingModal({ item, onClose, onSave, doctors }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void; doctors: string[] }) {
   const isEdit = !!item;
   const [form, setForm] = useState({
     name: item?.name || '',
-    category: item?.category || 'Consultation',
+    category: item?.category ? capitalize(item.category) : 'Consultation',
     doctor: item?.doctor || 'Any Doctor',
     durationMinutes: String(item?.durationMinutes || 30),
     priceAed: String(item?.priceAed || ''),
@@ -207,7 +211,7 @@ export default function ClinicPricing() {
 
   const filtered = items.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCat === 'All' || p.category === filterCat;
+    const matchCat = filterCat === 'All' || p.category.toLowerCase() === filterCat.toLowerCase();
     return matchSearch && matchCat;
   });
 
@@ -367,7 +371,7 @@ export default function ClinicPricing() {
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full text-xs font-medium border border-teal-100">{p.category}</span>
+                  <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full text-xs font-medium border border-teal-100">{capitalize(p.category)}</span>
                   {!p.isActive && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs">Inactive</span>}
                 </div>
                 <h3 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h3>
