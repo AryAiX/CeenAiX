@@ -47,15 +47,13 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
   onClose: () => void;
   facilityId: string;
   existingDoctorIds: string[];
-  onInvited: () => void;
+  onInvited: (doctorName: string) => void;
 }) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<{ userId: string; name: string; email: string; specialty: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [invitedIds, setInvitedIds] = useState<string[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
-  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   const searchDoctors = async (query: string) => {
     setSearch(query);
@@ -120,10 +118,8 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
         if (insertError) throw insertError;
       }
 
-      setInvitedIds(prev => [...prev, doctorUserId]);
       const invitedDoc = results.find(r => r.userId === doctorUserId);
-      setInviteSuccess(`Invitation sent to ${invitedDoc?.name ?? 'doctor'}!`);
-      onInvited();
+      onInvited(invitedDoc?.name ?? 'the doctor');
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Failed to send invitation.');
     } finally {
@@ -153,11 +149,6 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
             />
           </div>
 
-          {inviteSuccess && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl text-sm text-emerald-700 font-medium">
-              <CheckCircle size={15} /> {inviteSuccess}
-            </div>
-          )}
           {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
           {searching && <p className="text-xs text-slate-400">Searching…</p>}
 
@@ -165,7 +156,6 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
             <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
               {results.map(d => {
                 const alreadyInClinic = existingDoctorIds.includes(d.userId);
-                const justInvited = invitedIds.includes(d.userId);
                 return (
                   <div key={d.userId} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-3">
@@ -177,9 +167,9 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
                         <div className="text-xs text-slate-400">{d.specialty} · {d.email}</div>
                       </div>
                     </div>
-                    {alreadyInClinic || justInvited ? (
+                    {alreadyInClinic ? (
                       <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold">
-                        {justInvited ? 'Invited ✓' : 'Already in Clinic'}
+                        Already in Clinic
                       </span>
                     ) : (
                       <button
@@ -388,6 +378,7 @@ export default function ClinicDoctors() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [inviteBanner, setInviteBanner] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -755,6 +746,12 @@ export default function ClinicDoctors() {
         </button>
       </div>
 
+      {inviteBanner && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium">
+          <CheckCircle size={15} /> {inviteBanner}
+        </div>
+      )}
+
       {/* KPI strip */}
       <div className="grid grid-cols-4 gap-4">
         {[
@@ -901,7 +898,12 @@ export default function ClinicDoctors() {
           onClose={() => setShowAdd(false)}
           facilityId={facilityId}
           existingDoctorIds={doctors.map(d => d.doctorUserId)}
-          onInvited={() => void fetchDoctors()}
+          onInvited={(doctorName) => {
+            setShowAdd(false);
+            setInviteBanner(`Invitation sent to ${doctorName}!`);
+            void fetchDoctors();
+            setTimeout(() => setInviteBanner(null), 4000);
+          }}
         />
       )}
 
