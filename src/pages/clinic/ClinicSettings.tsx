@@ -207,6 +207,12 @@ export default function ClinicSettings() {
         <p className="text-sm text-slate-500 mt-0.5">Manage your clinic's profile and preferences</p>
       </div>
 
+      {feedback ? (
+        <div className={`rounded-xl border px-4 py-3 text-sm ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`}>
+          {feedback.message}
+        </div>
+      ) : null}
+
       {/* Clinic info */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
@@ -231,11 +237,6 @@ export default function ClinicSettings() {
             <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
-        {feedback ? (
-          <div className={`rounded-xl border px-4 py-3 text-sm mb-2 ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`}>
-            {feedback.message}
-          </div>
-        ) : null}
         <button
           onClick={() => void handleSaveClinicInfo()}
           className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors"
