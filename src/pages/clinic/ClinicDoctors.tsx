@@ -119,6 +119,23 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
       }
 
       const invitedDoc = results.find(r => r.userId === doctorUserId);
+
+      // Fetch clinic name for the notification
+      const { data: facilityData } = await supabase
+        .from('facilities')
+        .select('name, name_en')
+        .eq('id', facilityId)
+        .maybeSingle();
+      const clinicName = facilityData?.name_en ?? facilityData?.name ?? 'A clinic';
+
+      await supabase.from('notifications').insert({
+        user_id: doctorUserId,
+        type: 'clinic_invitation',
+        title: '🏥 Clinic Invitation',
+        body: `${clinicName} has invited you to join their staff. Review and respond in Settings → My Clinic.`,
+        action_url: '/doctor/settings',
+      });
+
       onInvited(invitedDoc?.name ?? 'the doctor');
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Failed to send invitation.');
