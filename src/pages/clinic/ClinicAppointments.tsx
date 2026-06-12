@@ -367,6 +367,37 @@ export default function ClinicAppointments() {
         .update({ status })
         .eq('id', id);
       if (updateError) throw updateError;
+
+      // Auto-create invoice when appointment is marked completed
+      if (status === 'completed' && facilityId) {
+        const appt = appts.find(a => a.id === id);
+        if (appt && appt.price > 0) {
+          const { data: existingInvoice } = await supabase
+            .from('patient_invoices')
+            .select('id')
+            .eq('appointment_id', id)
+            .maybeSingle();
+
+          if (!existingInvoice) {
+            const patientProfile = await supabase
+              .from('appointments')
+              .select('patient_id')
+              .eq('id', id)
+              .single();
+
+            if (patientProfile.data?.patient_id) {
+              await supabase.from('patient_invoices').insert({
+                facility_id: facilityId,
+                patient_id: patientProfile.data.patient_id,
+                appointment_id: id,
+                amount: appt.price,
+                status: 'unpaid',
+              });
+            }
+          }
+        }
+      }
+
       setAppts(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update status.');
