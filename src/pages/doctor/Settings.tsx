@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Building2, CalendarRange, CheckCircle, Clock, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { useDoctorClinicMembership, useDoctorSchedule, useUserProfile } from '../../hooks';
+import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 
@@ -40,7 +40,14 @@ export const DoctorSettings = () => {
   const { user, doctorProfile } = useAuth();
   const { data: profile, loading, refetch } = useUserProfile();
   const { data: schedule } = useDoctorSchedule(user?.id);
-  const { data: clinicMembership, refetch: refetchClinic } = useDoctorClinicMembership(user?.id);
+  const [myClinicRecord, setMyClinicRecord] = useState<{
+    id: string;
+    facility_id: string;
+    invitation_status: string;
+    facilities: { name: string | null; name_en: string | null; city: string | null } | null;
+  } | null>(null);
+  const [clinicActionLoading, setClinicActionLoading] = useState(false);
+  const [clinicActionError, setClinicActionError] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -71,6 +78,59 @@ export const DoctorSettings = () => {
       setPrefs(normalize(profile.notification_preferences));
     }
   }, [profile]);
+
+  const fetchMyClinic = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('facility_staff')
+      .select('id, facility_id, invitation_status, facilities(name, name_en, city)')
+      .eq('doctor_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setMyClinicRecord(data as typeof myClinicRecord);
+  };
+
+  useEffect(() => {
+    void fetchMyClinic();
+  }, [user?.id]);
+
+  const handleAcceptInvite = async () => {
+    if (!myClinicRecord || !user?.id) return;
+    setClinicActionLoading(true);
+    setClinicActionError(null);
+    try {
+      const { error } = await supabase.rpc('approve_doctor_and_link_appointments', {
+        p_staff_id: myClinicRecord.id,
+        p_facility_id: myClinicRecord.facility_id,
+        p_doctor_user_id: user.id,
+      });
+      if (error) throw error;
+      await fetchMyClinic();
+    } catch (err) {
+      setClinicActionError(err instanceof Error ? err.message : 'Failed to accept invitation.');
+    } finally {
+      setClinicActionLoading(false);
+    }
+  };
+
+  const handleDeclineInvite = async () => {
+    if (!myClinicRecord) return;
+    setClinicActionLoading(true);
+    setClinicActionError(null);
+    try {
+      const { error } = await supabase
+        .from('facility_staff')
+        .update({ invitation_status: 'declined', is_active: false, is_available: false })
+        .eq('id', myClinicRecord.id);
+      if (error) throw error;
+      await fetchMyClinic();
+    } catch (err) {
+      setClinicActionError(err instanceof Error ? err.message : 'Failed to decline invitation.');
+    } finally {
+      setClinicActionLoading(false);
+    }
+  };
 
   const searchClinics = async (query: string) => {
     setClinicSearch(query);
@@ -110,7 +170,7 @@ export const DoctorSettings = () => {
       setJoinSuccess(true);
       setClinicSearch('');
       setClinicResults([]);
-      refetchClinic();
+      void fetchMyClinic();
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : 'Failed to send join request.');
     } finally {
@@ -269,7 +329,11 @@ export const DoctorSettings = () => {
                 </div>
               </div>
 
-              {clinicMembership ? (
+              {clinicActionError && (
+                <p className="text-xs text-red-500">{clinicActionError}</p>
+              )}
+
+              {myClinicRecord ? (
                 <div className="rounded-xl border p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center">
@@ -277,45 +341,85 @@ export const DoctorSettings = () => {
                     </div>
                     <div className="flex-1">
                       <div className="font-bold text-slate-900 text-sm">
-                        {clinicMembership.facilities?.name_en ?? clinicMembership.facilities?.name ?? 'Your Clinic'}
+                        {myClinicRecord.facilities?.name_en ?? myClinicRecord.facilities?.name ?? 'Clinic'}
                       </div>
-                      <div className="text-xs text-slate-400">{clinicMembership.facilities?.city ?? 'UAE'}</div>
+                      <div className="text-xs text-slate-400">{myClinicRecord.facilities?.city ?? 'UAE'}</div>
                     </div>
-                    {clinicMembership.invitation_status === 'pending' && (
+                    {myClinicRecord.invitation_status === 'pending' && (
                       <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-medium border border-amber-200">
                         <Clock size={11} /> Pending Approval
                       </span>
                     )}
-                    {clinicMembership.invitation_status === 'accepted' && (
+                    {myClinicRecord.invitation_status === 'accepted' && (
                       <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200">
                         <CheckCircle size={11} /> Approved
                       </span>
                     )}
-                    {clinicMembership.invitation_status === 'rejected' && (
+                    {myClinicRecord.invitation_status === 'rejected' && (
                       <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium border border-red-200">
                         <XCircle size={11} /> Rejected
                       </span>
                     )}
+                    {myClinicRecord.invitation_status === 'invited' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
+                        <Building2 size={11} /> Invitation Received
+                      </span>
+                    )}
+                    {myClinicRecord.invitation_status === 'declined' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium border border-slate-200">
+                        Declined
+                      </span>
+                    )}
                   </div>
-                  {clinicMembership.invitation_status === 'pending' && (
+
+                  {myClinicRecord.invitation_status === 'pending' && (
                     <p className="text-xs text-slate-400">
                       Your request has been sent. Please wait for the clinic to approve your request.
                     </p>
                   )}
-                  {clinicMembership.invitation_status === 'accepted' && (
+                  {myClinicRecord.invitation_status === 'accepted' && (
                     <p className="text-xs text-slate-400">
                       You are an active member of this clinic. Your appointments are linked automatically.
                     </p>
                   )}
-                  {clinicMembership.invitation_status === 'rejected' && (
+                  {myClinicRecord.invitation_status === 'rejected' && (
                     <p className="text-xs text-slate-400">
                       Your request was rejected. You can search and request to join another clinic below.
                     </p>
                   )}
+                  {myClinicRecord.invitation_status === 'declined' && (
+                    <p className="text-xs text-slate-400">
+                      You declined this invitation. You can search and request to join another clinic below.
+                    </p>
+                  )}
+
+                  {myClinicRecord.invitation_status === 'invited' && (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        This clinic has invited you to join their staff. Accepting will link your appointments to this clinic automatically.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => void handleDeclineInvite()}
+                          disabled={clinicActionLoading}
+                          className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                        <button
+                          onClick={() => void handleAcceptInvite()}
+                          disabled={clinicActionLoading}
+                          className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                        >
+                          {clinicActionLoading ? 'Processing…' : 'Accept Invitation'}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : null}
 
-              {(!clinicMembership || clinicMembership.invitation_status === 'rejected') && (
+              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined') && (
                 <div className="space-y-3">
                   <div className="text-xs font-semibold text-slate-600">Search for a Clinic</div>
                   <div className="relative">
