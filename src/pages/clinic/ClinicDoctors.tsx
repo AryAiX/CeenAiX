@@ -130,7 +130,7 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
 
       await supabase.from('notifications').insert({
         user_id: doctorUserId,
-        type: 'clinic_invitation',
+        type: 'system',
         title: '🏥 Clinic Invitation',
         body: `${clinicName} has invited you to join their staff. Review and respond in Settings → My Clinic.`,
         action_url: '/doctor/settings',
