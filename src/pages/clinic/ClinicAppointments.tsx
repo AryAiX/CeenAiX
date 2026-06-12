@@ -24,6 +24,7 @@ interface DoctorOption {
   userId: string;
   name: string;
   specialty: string;
+  consultationFee: number;
 }
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
@@ -38,7 +39,7 @@ const statusConfig: Record<string, { label: string; color: string; dot: string }
 };
 
 function BookModal({ onClose, onBook, doctors: doctorList }: { onClose: () => void; onBook: (a: Partial<Appointment>) => void; doctors: string[] }) {
-  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0] ?? '', type: apptTypes[0], date: '', time: '', price: 0, notes: '' });
+  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0] ?? '', type: apptTypes[0], date: '', time: '', notes: '' });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -80,10 +81,6 @@ function BookModal({ onClose, onBook, doctors: doctorList }: { onClose: () => vo
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Time</label>
             <input type="time" value={form.time} onChange={set('time')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Price (AED)</label>
-            <input type="number" value={form.price} onChange={set('price')} placeholder="0" className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
@@ -173,6 +170,16 @@ export default function ClinicAppointments() {
       const profileMap = new Map((profileData ?? []).map(p => [p.user_id, p]));
       const specMap = new Map((doctorProfileData ?? []).map(d => [d.user_id, d.specialization]));
 
+      const { data: staffData } = await supabase
+        .from('facility_staff')
+        .select('doctor_user_id, consultation_fee')
+        .eq('facility_id', fId)
+        .eq('is_active', true);
+
+      const feeMap = new Map(
+        (staffData ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0])
+      );
+
       // Build appointments
       const apptRows: Appointment[] = (apptData ?? []).map(a => {
         const patient = profileMap.get(a.patient_id);
@@ -188,19 +195,12 @@ export default function ClinicAppointments() {
           date: scheduledAt.toISOString().split('T')[0],
           time: scheduledAt.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false }),
           status: a.status as Appointment['status'],
-          price: 0,
+          price: feeMap.get(a.doctor_id) ?? 0,
           notes: a.notes ?? '',
         };
       });
 
       setAppts(apptRows);
-
-      // Fetch facility doctors for booking modal
-      const { data: staffData } = await supabase
-        .from('facility_staff')
-        .select('doctor_user_id, consultation_fee')
-        .eq('facility_id', fId)
-        .eq('is_active', true);
 
       const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
       const { data: staffProfiles } = await supabase
@@ -214,6 +214,7 @@ export default function ClinicAppointments() {
           userId: s.doctor_user_id,
           name: profile?.full_name ?? 'Unknown Doctor',
           specialty: specMap.get(s.doctor_user_id) ?? 'General Practice',
+          consultationFee: Number(s.consultation_fee) || 0,
         };
       });
 
@@ -278,7 +279,7 @@ export default function ClinicAppointments() {
         date: data.date || today,
         time: data.time || '09:00',
         status: 'scheduled',
-        price: Number(data.price) || 0,
+        price: selectedDoctor.consultationFee,
         notes: data.notes || '',
       };
       setAppts(prev => [newAppt, ...prev]);
