@@ -39,8 +39,8 @@ const statusConfig: Record<string, { label: string; color: string; dot: string }
   no_show:      { label: 'No Show',     color: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400' },
 };
 
-function BookModal({ onClose, onBook, doctors: doctorList, supabase: sb }: { onClose: () => void; onBook: (a: Partial<Appointment> & { patientId: string }) => void; doctors: string[]; supabase: SupabaseClient }) {
-  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0] ?? '', type: apptTypes[0], date: '', time: '', notes: '' });
+function BookModal({ onClose, onBook, doctors: doctorList, supabase: sb }: { onClose: () => void; onBook: (a: Partial<Appointment> & { patientId: string }) => void; doctors: DoctorOption[]; supabase: SupabaseClient }) {
+  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0]?.userId ?? '', type: apptTypes[0], date: '', time: '', notes: '' });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -121,7 +121,7 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase: sb }: { onC
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
             <select value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              {doctorList.map(d => <option key={d}>{d}</option>)}
+              {doctorList.map(d => <option key={d.userId} value={d.userId}>{d.name}</option>)}
             </select>
           </div>
           <div>
@@ -306,10 +306,10 @@ export default function ClinicAppointments() {
     .filter(a => a.date === today && a.status === 'completed')
     .reduce((s, a) => s + a.price, 0);
 
-  const handleBook = async (data: Partial<Appointment> & { patientId: string }) => {
+  const handleBook = async (data: Partial<Appointment> & { patientId: string; doctor?: string }) => {
     if (!facilityId) return;
     try {
-      const selectedDoctor = doctorOptions.find(d => d.name === data.doctor);
+      const selectedDoctor = doctorOptions.find(d => d.userId === data.doctor);
       if (!selectedDoctor) throw new Error('Please select a valid doctor.');
 
       const scheduledAt = `${data.date}T${data.time}:00`;
@@ -336,8 +336,8 @@ export default function ClinicAppointments() {
         id: inserted.id,
         patientName: data.patientName || '',
         patientPhone: data.patientPhone || '',
-        doctor: data.doctor || '',
-        specialty: selectedDoctor.specialty,
+          doctor: selectedDoctor.name,
+          specialty: selectedDoctor.specialty,
         type: data.type || 'Consultation',
         date: data.date || today,
         time: data.time || '09:00',
@@ -495,7 +495,7 @@ export default function ClinicAppointments() {
         )}
       </div>
 
-      {showBook && <BookModal onClose={() => setShowBook(false)} onBook={handleBook} doctors={doctorOptions.map(d => d.name)} supabase={supabase} />}
+      {showBook && <BookModal onClose={() => setShowBook(false)} onBook={handleBook} doctors={doctorOptions} supabase={supabase} />}
     </div>
   );
 }
