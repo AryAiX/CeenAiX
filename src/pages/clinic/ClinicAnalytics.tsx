@@ -13,6 +13,7 @@ export default function ClinicAnalytics() {
   const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; value: number }[]>([]);
   const [doctorPerf, setDoctorPerf] = useState<{ name: string; specialty: string; appts: number; revenue: number; initials: string; gradient: string }[]>([]);
   const [serviceBreakdown, setServiceBreakdown] = useState<{ name: string; pct: number; color: string }[]>([]);
+  const [monthlyRevenueTotal, setMonthlyRevenueTotal] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -51,6 +52,20 @@ export default function ClinicAnalytics() {
       const appts = apptData ?? [];
 
       setTotalAppointments(appts.length);
+
+      const now2 = new Date();
+      const monthStart = new Date(now2.getFullYear(), now2.getMonth(), 1).toISOString();
+      const monthEnd = new Date(now2.getFullYear(), now2.getMonth() + 1, 1).toISOString();
+
+      const { data: invoiceData } = await supabase
+        .from('patient_invoices')
+        .select('amount, created_at')
+        .eq('facility_id', fId)
+        .gte('created_at', monthStart)
+        .lt('created_at', monthEnd);
+
+      const revenueTotal = (invoiceData ?? []).reduce((sum, inv) => sum + Number(inv.amount), 0);
+      setMonthlyRevenueTotal(revenueTotal);
 
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -171,7 +186,7 @@ export default function ClinicAnalytics() {
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Monthly Revenue', value: 'AED —', sub: 'Based on appointments', icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { label: 'Monthly Revenue', value: `AED ${monthlyRevenueTotal.toLocaleString()}`, sub: 'This month', icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
           { label: 'Total Appointments', value: totalAppointments.toLocaleString(), sub: 'All-time', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Active Patients', value: activePatients.toLocaleString(), sub: 'Last 90 days', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Avg. Rating', value: '—', sub: 'Coming soon', icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
