@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Bell, Building2, CalendarRange, CheckCircle, Clock, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
@@ -37,6 +37,7 @@ function normalize(value: unknown): DoctorSettingsPrefs {
 export const DoctorSettings = () => {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, doctorProfile } = useAuth();
   const { data: profile, loading, refetch } = useUserProfile();
   const { data: schedule } = useDoctorSchedule(user?.id);
@@ -78,6 +79,13 @@ export const DoctorSettings = () => {
       setPrefs(normalize(profile.notification_preferences));
     }
   }, [profile]);
+
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
 
   const fetchMyClinic = async () => {
     if (!user?.id) return;

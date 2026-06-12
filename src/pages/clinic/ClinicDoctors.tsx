@@ -133,7 +133,7 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
         type: 'system',
         title: '🏥 Clinic Invitation',
         body: `${clinicName} has invited you to join their staff. Review and respond in Settings → My Clinic.`,
-        action_url: '/doctor/settings',
+        action_url: '/doctor/settings?section=my-clinic',
       });
 
       onInvited(invitedDoc?.name ?? 'the doctor');
