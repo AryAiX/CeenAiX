@@ -90,6 +90,16 @@ export default function ClinicAnalytics() {
       setMonthlyRevenue(last6Months.map(m => ({ month: m.month, value: m.value })));
 
       const doctorIds = [...new Set(appts.map(a => a.doctor_id))];
+
+      const { data: staffFeeData } = await supabase
+        .from('facility_staff')
+        .select('doctor_user_id, consultation_fee')
+        .eq('facility_id', fId);
+
+      const feeMap = new Map(
+        (staffFeeData ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0])
+      );
+
       const { data: doctorProfiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name')
@@ -114,11 +124,13 @@ export default function ClinicAnalytics() {
         const name = profileMap.get(did) ?? 'Unknown Doctor';
         const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
         const doctorAppts = appts.filter(a => a.doctor_id === did);
+        const completedAppts = doctorAppts.filter(a => a.status === 'completed');
+        const fee = feeMap.get(did) ?? 0;
         return {
           name,
           specialty: specMap.get(did) ?? 'General Practice',
           appts: doctorAppts.length,
-          revenue: 0,
+          revenue: completedAppts.length * fee,
           initials,
           gradient: gradients[idx % gradients.length],
         };
@@ -286,7 +298,7 @@ export default function ClinicAnalytics() {
                       <span className="font-bold text-slate-800 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{d.appts}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-bold text-teal-700 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>—</td>
+                  <td className="px-6 py-4 font-bold text-teal-700 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{d.revenue.toLocaleString()}</td>
                   <td className="px-6 py-4">
                     <span className="text-slate-400 text-sm">—</span>
                   </td>
