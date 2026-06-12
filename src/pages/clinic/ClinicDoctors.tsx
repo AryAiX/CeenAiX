@@ -12,7 +12,7 @@ interface Doctor {
   dhaLicense: string;
   phone: string;
   email: string;
-  status: 'active' | 'pending' | 'invited' | 'inactive' | 'suspended';
+  status: 'active' | 'pending' | 'invited' | 'declined' | 'inactive' | 'suspended';
   initials: string;
   gradient: string;
   joinedDate: string;
@@ -38,6 +38,7 @@ const statusConfig = {
   active:    { label: 'Active',    color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   pending:   { label: 'Pending',   color: 'bg-amber-100 text-amber-700 border-amber-200' },
   invited:   { label: 'Invited',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  declined:  { label: 'Declined',  color: 'bg-slate-100 text-slate-500 border-slate-200' },
   inactive:  { label: 'Inactive',  color: 'bg-slate-100 text-slate-600 border-slate-200' },
   suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700 border-red-200' },
 };
@@ -438,7 +439,7 @@ export default function ClinicDoctors() {
         .from('facility_staff')
         .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, created_at')
         .eq('facility_id', fId)
-        .not('invitation_status', 'in', '("removed","rejected","cancelled","declined")');
+        .not('invitation_status', 'in', '("removed","rejected","cancelled")');
 
       if (staffError) throw staffError;
 
@@ -548,7 +549,9 @@ export default function ClinicDoctors() {
             ? 'pending'
             : staff.invitation_status === 'invited'
               ? 'invited'
-              : 'inactive';
+              : staff.invitation_status === 'declined'
+                ? 'declined'
+                : 'inactive';
 
         const joinedDate = staff.created_at
           ? new Date(staff.created_at).toLocaleDateString('en-AE', { month: 'short', year: 'numeric' })
@@ -565,7 +568,7 @@ export default function ClinicDoctors() {
           status,
           initials,
           gradient: gradients[idx % gradients.length],
-          joinedDate: status === 'pending' ? 'Pending' : status === 'invited' ? 'Invited' : joinedDate,
+          joinedDate: status === 'pending' ? 'Pending' : status === 'invited' ? 'Invited' : status === 'declined' ? 'Declined' : joinedDate,
           todayAppts: todayApptCount.get(staff.doctor_user_id) ?? 0,
           totalAppts: totalApptCount.get(staff.doctor_user_id) ?? 0,
           rating: ratings?.average_rating ? Number(Number(ratings.average_rating).toFixed(1)) : 0,
@@ -887,7 +890,7 @@ export default function ClinicDoctors() {
                           {d.status === 'invited' && (
                             <button onClick={() => { void handleCancelInvite(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} /> Cancel Invite</button>
                           )}
-                          {d.status !== 'invited' && (
+                          {d.status !== 'invited' && d.status !== 'declined' && (
                             <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
                           )}
                           {d.status !== 'invited' && (
