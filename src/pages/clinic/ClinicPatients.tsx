@@ -28,12 +28,14 @@ const apptStatusConfig: Record<string, { label: string; color: string }> = {
   no_show:       { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
 };
 
-function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
+function PatientModal({ patient, appts, invoices, onClose, onBook, onMessage, onMarkPaid }: {
   patient: Patient;
   appts: { id?: string; scheduled_at: string; status: string }[];
+  invoices: { id: string; amount: number; status: string; created_at: string }[];
   onClose: () => void;
   onBook: () => void;
   onMessage: () => void;
+  onMarkPaid: (invoiceId: string) => void;
 }) {
   const initials = patient.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -106,6 +108,31 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
             </div>
           </div>
 
+          {/* Outstanding Invoices */}
+          {invoices.filter(inv => inv.status === 'unpaid').length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Outstanding Invoices</p>
+              <div className="space-y-2">
+                {invoices.filter(inv => inv.status === 'unpaid').map(inv => (
+                  <div key={inv.id} className="flex items-center justify-between px-4 py-3 bg-amber-50 rounded-xl border border-amber-100">
+                    <div>
+                      <div className="text-sm font-bold text-amber-700" style={{ fontFamily: 'DM Mono, monospace' }}>AED {inv.amount}</div>
+                      <div className="text-xs text-slate-400">
+                        {new Date(inv.created_at).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onMarkPaid(inv.id)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      Mark as Paid
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Appointment History */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Appointment History</p>
@@ -171,6 +198,7 @@ export default function ClinicPatients() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [rawAppts, setRawAppts] = useState<{ id?: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string }[]>([]);
+  const [invoices, setInvoices] = useState<{ id: string; patient_id: string; appointment_id: string | null; amount: number; status: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -207,6 +235,13 @@ export default function ClinicPatients() {
 
       if (apptError) throw apptError;
 
+      const { data: invoiceData } = await supabase
+        .from('patient_invoices')
+        .select('id, patient_id, appointment_id, amount, status, created_at')
+        .eq('facility_id', facilityId);
+
+      setInvoices(invoiceData ?? []);
+
       const patientIds = [...new Set((apptData ?? []).map(a => a.patient_id))];
       if (patientIds.length === 0) { setPatients([]); setRawAppts([]); return; }
 
@@ -239,6 +274,10 @@ export default function ClinicPatients() {
           ? new Date(lastAppt.scheduled_at).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
           : '—';
 
+        const patientBalance = (invoiceData ?? [])
+          .filter(inv => inv.patient_id === pid && inv.status === 'unpaid')
+          .reduce((sum, inv) => sum + Number(inv.amount), 0);
+
         return {
           id: pid,
           name: profile?.full_name ?? 'Unknown Patient',
@@ -248,7 +287,7 @@ export default function ClinicPatients() {
           lastVisit,
           doctor: doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
           totalVisits: patientApptList.length,
-          balance: 0,
+          balance: patientBalance,
         };
       });
 
@@ -258,6 +297,30 @@ export default function ClinicPatients() {
       setError(err instanceof Error ? err.message : 'Failed to load patients.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMarkPaid = async (invoiceId: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('patient_invoices')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', invoiceId);
+      if (updateError) throw updateError;
+
+      setInvoices(prev => prev.map(inv => inv.id === invoiceId ? { ...inv, status: 'paid' } : inv));
+      setPatients(prev => prev.map(p => {
+        if (p.id !== selectedPatient?.id) return p;
+        const newBalance = invoices
+          .filter(inv => inv.patient_id === p.id && inv.status === 'unpaid' && inv.id !== invoiceId)
+          .reduce((sum, inv) => sum + Number(inv.amount), 0);
+        return { ...p, balance: newBalance };
+      }));
+      if (selectedPatient) {
+        setSelectedPatient(prev => prev ? { ...prev, balance: prev.balance - (invoices.find(i => i.id === invoiceId)?.amount ?? 0) } : prev);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to mark invoice as paid.');
     }
   };
 
@@ -406,9 +469,11 @@ export default function ClinicPatients() {
         <PatientModal
           patient={selectedPatient}
           appts={patientAppts}
+          invoices={invoices.filter(inv => inv.patient_id === selectedPatient.id)}
           onClose={() => setSelectedPatient(null)}
           onBook={() => { setSelectedPatient(null); }}
           onMessage={() => navigate('/clinic/messages')}
+          onMarkPaid={(invoiceId) => void handleMarkPaid(invoiceId)}
         />
       )}
     </div>
