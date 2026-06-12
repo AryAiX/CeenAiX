@@ -55,6 +55,7 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [invitedIds, setInvitedIds] = useState<string[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   const searchDoctors = async (query: string) => {
     setSearch(query);
@@ -99,6 +100,8 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
         });
       if (insertError) throw insertError;
       setInvitedIds(prev => [...prev, doctorUserId]);
+      const invitedDoc = results.find(r => r.userId === doctorUserId);
+      setInviteSuccess(`Invitation sent to ${invitedDoc?.name ?? 'doctor'}!`);
       onInvited();
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Failed to send invitation.');
@@ -129,6 +132,11 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
             />
           </div>
 
+          {inviteSuccess && (
+            <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl text-sm text-emerald-700 font-medium">
+              <CheckCircle size={15} /> {inviteSuccess}
+            </div>
+          )}
           {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
           {searching && <p className="text-xs text-slate-400">Searching…</p>}
 
