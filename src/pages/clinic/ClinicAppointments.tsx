@@ -48,7 +48,7 @@ const statusOptions = [
   { value: 'no_show',     label: 'No Show' },
 ];
 
-function BookModal({ onClose, onBook, doctors: doctorList, supabase: sb }: { onClose: () => void; onBook: (a: Partial<Appointment> & { patientId: string }) => void; doctors: DoctorOption[]; supabase: SupabaseClient }) {
+function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose: () => void; onBook: (a: Partial<Appointment> & { patientId: string }) => void; doctors: DoctorOption[]; supabase: SupabaseClient }) {
   const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0]?.userId ?? '', type: apptTypes[0], date: '', time: '', notes: '' });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -64,7 +64,7 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase: sb }: { onC
     setSelectedPatient(null);
     setSearchError(null);
     if (query.length < 2) { setPatientResults([]); setShowDropdown(false); return; }
-    const { data } = await sb
+    const { data } = await supabase
       .from('user_profiles')
       .select('user_id, full_name, phone')
       .eq('role', 'patient')

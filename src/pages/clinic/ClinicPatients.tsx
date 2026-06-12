@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
-import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
+import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User, Save, Check } from 'lucide-react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Patient {
   id: string;
@@ -28,6 +29,111 @@ const apptStatusConfig: Record<string, { label: string; color: string }> = {
   'no-show':     { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
   no_show:       { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
 };
+
+interface Appointment {
+  patientName: string;
+  patientPhone: string;
+  doctor: string;
+  type: string;
+  date: string;
+  time: string;
+  notes: string;
+}
+
+interface DoctorOption {
+  userId: string;
+  name: string;
+  specialty: string;
+  consultationFee: number;
+}
+
+const apptTypes = ['Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
+
+function BookModal({ onClose, onBook, doctors: doctorList, supabase: _supabase, initialPatient }: {
+  onClose: () => void;
+  onBook: (a: Partial<Appointment> & { patientId: string }) => void;
+  doctors: DoctorOption[];
+  supabase: SupabaseClient;
+  initialPatient: { userId: string; fullName: string; phone: string };
+}) {
+  const [form, setForm] = useState({
+    patientName: initialPatient.fullName,
+    patientPhone: initialPatient.phone,
+    doctor: doctorList[0]?.userId ?? '',
+    type: apptTypes[0],
+    date: '',
+    time: '',
+    notes: '',
+  });
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+  const [bookError, setBookError] = useState<string | null>(null);
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center"><Calendar size={18} className="text-teal-600" /></div>
+            <h3 className="font-bold text-slate-900">Book Appointment</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} className="text-slate-400" /></button>
+        </div>
+        <div className="p-6 grid grid-cols-2 gap-4">
+          <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-teal-50 rounded-lg border border-teal-100">
+            <Check size={15} className="text-teal-600" />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">{initialPatient.fullName}</div>
+              <div className="text-xs text-slate-400">{initialPatient.phone}</div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
+            <select value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+              {doctorList.map(d => <option key={d.userId} value={d.userId}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Appointment Type</label>
+            <select value={form.type} onChange={set('type')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+              {apptTypes.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Date</label>
+            <input type="date" value={form.date} onChange={set('date')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Time</label>
+            <input type="time" value={form.time} onChange={set('time')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
+            <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder="Optional notes…" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
+          </div>
+          {bookError && <p className="col-span-2 text-xs text-red-500">{bookError}</p>}
+        </div>
+        <div className="flex gap-3 px-6 pb-6">
+          <button onClick={onClose} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors">Cancel</button>
+          <button
+            onClick={() => {
+              if (!form.date || !form.time) {
+                setBookError('Please select a date and time.');
+                return;
+              }
+              onBook({ ...form, patientId: initialPatient.userId });
+              onClose();
+            }}
+            className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <Save size={15} /> Book Appointment
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 function PatientModal({ patient, appts, invoices, onClose, onBook, onMessage, onMarkPaid }: {
   patient: Patient;
@@ -206,6 +312,9 @@ export default function ClinicPatients() {
   const [filterDoctor, setFilterDoctor] = useState('All Doctors');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientAppts, setPatientAppts] = useState<{ id?: string; scheduled_at: string; status: string }[]>([]);
+  const [showBook, setShowBook] = useState(false);
+  const [bookingPatient, setBookingPatient] = useState<{ userId: string; fullName: string; phone: string } | null>(null);
+  const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -242,6 +351,37 @@ export default function ClinicPatients() {
         .eq('facility_id', facilityId);
 
       setInvoices(invoiceData ?? []);
+
+      const { data: staffData } = await supabase
+        .from('facility_staff')
+        .select('doctor_user_id, consultation_fee')
+        .eq('facility_id', facilityId)
+        .eq('is_active', true);
+
+      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+      const { data: staffProfiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name')
+        .in('user_id', staffIds);
+
+      const { data: doctorSpecs } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, specialization')
+        .in('user_id', staffIds);
+
+      const specMap = new Map((doctorSpecs ?? []).map(d => [d.user_id, d.specialization]));
+
+      const doctorRows: DoctorOption[] = (staffData ?? []).map(s => {
+        const profile = (staffProfiles ?? []).find(p => p.user_id === s.doctor_user_id);
+        return {
+          userId: s.doctor_user_id,
+          name: profile?.full_name ?? 'Unknown Doctor',
+          specialty: specMap.get(s.doctor_user_id) ?? 'General Practice',
+          consultationFee: Number(s.consultation_fee) || 0,
+        };
+      });
+
+      setDoctorOptions(doctorRows);
 
       const patientIds = [...new Set((apptData ?? []).map(a => a.patient_id))];
       if (patientIds.length === 0) { setPatients([]); setRawAppts([]); return; }
@@ -299,6 +439,45 @@ export default function ClinicPatients() {
       setError(err instanceof Error ? err.message : 'Failed to load patients.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBook = async (data: Partial<Appointment> & { patientId: string }) => {
+    try {
+      const { data: memberData } = await supabase
+        .from('clinic_portal_members')
+        .select('facility_id')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const fId = memberData?.facility_id;
+      if (!fId) throw new Error('No clinic facility found.');
+
+      const selectedDoctor = doctorOptions.find(d => d.userId === data.doctor);
+      if (!selectedDoctor) throw new Error('Please select a valid doctor.');
+
+      const scheduledAt = `${data.date}T${data.time}:00`;
+
+      const { error: insertError } = await supabase
+        .from('appointments')
+        .insert({
+          facility_id: fId,
+          doctor_id: selectedDoctor.userId,
+          patient_id: data.patientId,
+          type: 'in_person',
+          status: 'scheduled',
+          scheduled_at: scheduledAt,
+          duration_minutes: 30,
+          chief_complaint: data.type || 'Consultation',
+          notes: data.notes || null,
+        });
+
+      if (insertError) throw insertError;
+
+      void fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to book appointment.');
     }
   };
 
@@ -474,9 +653,27 @@ export default function ClinicPatients() {
           appts={patientAppts}
           invoices={invoices.filter(inv => inv.patient_id === selectedPatient.id)}
           onClose={() => setSelectedPatient(null)}
-          onBook={() => { setSelectedPatient(null); }}
+          onBook={() => {
+            setBookingPatient({
+              userId: selectedPatient.id,
+              fullName: selectedPatient.name,
+              phone: selectedPatient.phone,
+            });
+            setSelectedPatient(null);
+            setShowBook(true);
+          }}
           onMessage={() => navigate('/clinic/messages')}
           onMarkPaid={(invoiceId) => void handleMarkPaid(invoiceId)}
+        />
+      )}
+
+      {showBook && bookingPatient && (
+        <BookModal
+          onClose={() => { setShowBook(false); setBookingPatient(null); }}
+          onBook={handleBook}
+          doctors={doctorOptions}
+          supabase={supabase}
+          initialPatient={bookingPatient}
         />
       )}
     </div>
