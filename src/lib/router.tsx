@@ -673,6 +673,10 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
   },
   {
+    path: '/clinic/messages/:conversationId',
+    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
     path: '/clinic/analytics',
     element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
   },
