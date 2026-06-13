@@ -792,7 +792,7 @@ export default function ClinicPatients() {
             setSelectedPatient(null);
             setShowBook(true);
           }}
-          onMessage={() => navigate('/clinic/messages')}
+          onMessage={() => navigate(`/clinic/messages?patient=${selectedPatient.id}`)}
           onMarkPaid={(invoiceId) => void handleMarkPaid(invoiceId)}
         />
       )}
