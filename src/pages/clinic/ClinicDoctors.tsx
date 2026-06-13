@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
-import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle } from 'lucide-react';
+import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
 
 interface Doctor {
   id: string;
@@ -218,6 +219,7 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
 }
 
 function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void }) {
+  const navigate = useNavigate();
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -259,6 +261,14 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
               </div>
             ))}
           </div>
+
+          {/* Send Message */}
+          <button
+            onClick={() => navigate(`/clinic/messages?doctor=${doctor.doctorUserId}`)}
+            className="w-full mb-6 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <MessageSquare size={15} /> Send Message
+          </button>
 
           {/* Two-column main content */}
           <div className="grid grid-cols-2 gap-6">
