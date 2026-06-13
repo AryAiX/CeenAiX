@@ -99,6 +99,26 @@ function downloadIcs(
   URL.revokeObjectURL(url);
 }
 
+async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/appointments') {
+  const { data: members } = await supabase
+    .from('clinic_portal_members')
+    .select('user_id')
+    .eq('facility_id', facilityId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) return;
+
+  await supabase.from('notifications').insert(
+    members.map((m) => ({
+      user_id: m.user_id,
+      type: 'appointment' as const,
+      title,
+      body,
+      action_url: actionUrl,
+    }))
+  );
+}
+
 export const PatientAppointments: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -385,6 +405,33 @@ export const PatientAppointments: React.FC = () => {
     if (updateError) {
       setFeedback({ type: 'error', message: updateError.message });
       return;
+    }
+
+    // Notify clinic staff about the cancellation
+    try {
+      const cancelledAppt = appointments.find(a => a.id === appointmentId);
+      if (cancelledAppt) {
+        const { data: staffData } = await supabase
+          .from('facility_staff')
+          .select('facility_id')
+          .eq('doctor_user_id', cancelledAppt.doctor_id)
+          .eq('is_active', true)
+          .eq('invitation_status', 'accepted')
+          .maybeSingle();
+
+        if (staffData?.facility_id) {
+          const doctorProfile = doctorProfileById.get(cancelledAppt.doctor_id);
+          const apptDateStr = new Date(cancelledAppt.scheduled_at).toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric' });
+          const apptTimeStr = new Date(cancelledAppt.scheduled_at).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false });
+          await notifyClinicStaff(
+            staffData.facility_id,
+            '❌ Appointment Cancelled',
+            `A patient cancelled their appointment with ${doctorProfile?.fullName ?? 'a doctor'} on ${apptDateStr} at ${apptTimeStr}.`
+          );
+        }
+      }
+    } catch {
+      // Notification failure should not block the cancel success flow
     }
 
     setFeedback({ type: 'success', message: t('patient.appointments.cancelSuccess') });
