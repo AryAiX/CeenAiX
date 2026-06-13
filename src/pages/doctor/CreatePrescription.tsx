@@ -897,8 +897,9 @@ export const CreatePrescription: React.FC = () => {
   }, [patientId, patients]);
 
   useEffect(() => {
+    const timer = navigateAfterSaveTimer;
     return () => {
-      if (navigateAfterSaveTimer.current) clearTimeout(navigateAfterSaveTimer.current);
+      if (timer.current) clearTimeout(timer.current);
     };
   }, []);
 
