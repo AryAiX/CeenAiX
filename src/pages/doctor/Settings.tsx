@@ -34,6 +34,26 @@ function normalize(value: unknown): DoctorSettingsPrefs {
   };
 }
 
+async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/doctors') {
+  const { data: members } = await supabase
+    .from('clinic_portal_members')
+    .select('user_id')
+    .eq('facility_id', facilityId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) return;
+
+  await supabase.from('notifications').insert(
+    members.map((m) => ({
+      user_id: m.user_id,
+      type: 'system' as const,
+      title,
+      body,
+      action_url: actionUrl,
+    }))
+  );
+}
+
 export const DoctorSettings = () => {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
@@ -114,6 +134,13 @@ export const DoctorSettings = () => {
         p_doctor_user_id: user.id,
       });
       if (error) throw error;
+
+      await notifyClinicStaff(
+        myClinicRecord.facility_id,
+        '✅ Doctor Accepted Invitation',
+        `${profile?.full_name ?? 'A doctor'} has accepted your invitation and joined your clinic.`
+      );
+
       await fetchMyClinic();
     } catch (err) {
       setClinicActionError(err instanceof Error ? err.message : 'Failed to accept invitation.');
@@ -132,6 +159,13 @@ export const DoctorSettings = () => {
         .update({ invitation_status: 'declined', is_active: false, is_available: false })
         .eq('id', myClinicRecord.id);
       if (error) throw error;
+
+      await notifyClinicStaff(
+        myClinicRecord.facility_id,
+        '❌ Doctor Declined Invitation',
+        `${profile?.full_name ?? 'A doctor'} has declined your invitation to join your clinic.`
+      );
+
       await fetchMyClinic();
     } catch (err) {
       setClinicActionError(err instanceof Error ? err.message : 'Failed to decline invitation.');
@@ -175,6 +209,13 @@ export const DoctorSettings = () => {
           invitation_status: 'pending',
         });
       if (error) throw error;
+
+      await notifyClinicStaff(
+        facilityId,
+        '🩺 New Doctor Join Request',
+        `${profile?.full_name ?? 'A doctor'} has requested to join your clinic. Review their request in Doctors.`
+      );
+
       setJoinSuccess(true);
       setClinicSearch('');
       setClinicResults([]);
