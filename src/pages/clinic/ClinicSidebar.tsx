@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../lib/auth-context';
 import {
   LayoutDashboard, Stethoscope, CalendarDays, DollarSign, Settings,
   ChevronLeft, ChevronRight, LogOut, Users, BarChart2, Building2,
@@ -38,13 +39,11 @@ function buildNavItems(meta: ClinicPortalMeta): NavItem[] {
   ];
 }
 
-function navigate(href: string) {
-  window.history.pushState({}, '', href);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
-
 const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleCollapse, activeTab, meta }) => {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navItems = buildNavItems(meta);
 
   const facilityInitials = meta.facilityName
@@ -58,7 +57,11 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
 
   async function handleSignOut() {
     setSigningOut(true);
-    await supabase.auth.signOut();
+    const { error } = await signOut();
+    setSigningOut(false);
+    if (!error) {
+      navigate('/auth/login', { replace: true });
+    }
   }
 
   return (
@@ -163,7 +166,7 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
             ))}
           </div>
           <button
-            onClick={handleSignOut}
+            onClick={() => setShowLogoutConfirm(true)}
             disabled={signingOut}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 text-slate-400 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5 disabled:opacity-50"
           >
@@ -180,6 +183,34 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
           <ChevronRight size={18} className="text-slate-400 mx-auto" />
         </button>
       )}
+
+      {showLogoutConfirm ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-gray-900">Sign Out</h3>
+            <p className="mt-2 text-sm text-gray-500">Are you sure you want to sign out?</p>
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  void handleSignOut();
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 };
