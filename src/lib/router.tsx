@@ -108,9 +108,7 @@ import {
   InsuranceRiskAnalytics,
   InsuranceSettings,
 } from '../pages/insurance/Portal';
-import {
-  ClinicDashboard,
-} from '../pages/clinic';
+// clinic pages are rendered via ClinicPortal
 import ClinicPortal from '../pages/clinic/ClinicPortal';
 import { AppointmentDesignShowcase } from '../pages/AppointmentDesignShowcase';
 import { AccessDenied } from '../pages/system/AccessDenied';

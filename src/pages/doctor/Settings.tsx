@@ -121,6 +121,7 @@ export const DoctorSettings = () => {
 
   useEffect(() => {
     void fetchMyClinic();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const handleAcceptInvite = async () => {

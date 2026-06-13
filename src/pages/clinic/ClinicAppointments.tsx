@@ -152,6 +152,7 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose
       void loadSlots(form.doctor, form.date);
       setForm(f => ({ ...f, time: '' }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.doctor, form.date]);
 
   const searchPatients = async (query: string) => {
@@ -320,6 +321,7 @@ export default function ClinicAppointments() {
   useEffect(() => {
     if (!user?.id) return;
     void fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const fetchData = async () => {

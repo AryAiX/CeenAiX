@@ -155,6 +155,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         navigate(target, { replace: true });
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeParam, composeTargetId, ensureDirectConversation, namespace, navigate, role, t, user?.id]);
 
   useEffect(() => {

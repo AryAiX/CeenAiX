@@ -439,6 +439,7 @@ export default function ClinicPatients() {
   useEffect(() => {
     if (!user?.id) return;
     void fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const fetchData = async () => {

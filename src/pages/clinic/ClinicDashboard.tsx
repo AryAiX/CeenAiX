@@ -64,6 +64,7 @@ export default function ClinicDashboard() {
   useEffect(() => {
     if (!user?.id) return;
     void fetchDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const fetchDashboard = async () => {

@@ -106,6 +106,7 @@ export const DoctorLabOrders: React.FC = () => {
     if (!loading && activeTab === 'critical' && criticalCount === 0 && labOrders.length > 0) {
       setActiveTab('pending');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, criticalCount, labOrders.length]);
 
   const handleMarkReviewed = async (labOrderId: string) => {

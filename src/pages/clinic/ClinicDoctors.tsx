@@ -417,6 +417,7 @@ export default function ClinicDoctors() {
   useEffect(() => {
     if (!user?.id) return;
     void fetchDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   useEffect(() => {
