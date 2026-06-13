@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
 import ClinicDashboard from './ClinicDashboard';
@@ -36,13 +37,8 @@ function getPageFromPath(path: string): ClinicPage {
 
 export default function ClinicPortal() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [page, setPage] = useState<ClinicPage>(() => getPageFromPath(window.location.pathname));
-
-  useEffect(() => {
-    const update = () => setPage(getPageFromPath(window.location.pathname));
-    window.addEventListener('popstate', update);
-    return () => window.removeEventListener('popstate', update);
-  }, []);
+  const location = useLocation();
+  const page = getPageFromPath(location.pathname);
 
   const meta = pageMeta[page];
 
