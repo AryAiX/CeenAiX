@@ -3,13 +3,15 @@ import { supabase } from '../../lib/supabase';
 import {
   LayoutDashboard, Stethoscope, CalendarDays, DollarSign, Settings,
   ChevronLeft, ChevronRight, LogOut, Users, BarChart2, Building2,
-  MessageSquare
+  MessageSquare, Bell
 } from 'lucide-react';
+import type { ClinicPortalMeta } from './ClinicPortal';
 
 interface ClinicSidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   activeTab: string;
+  meta: ClinicPortalMeta;
 }
 
 interface NavItem {
@@ -22,24 +24,37 @@ interface NavItem {
   section?: string;
 }
 
-const navItems: NavItem[] = [
-  { id: 'dashboard',    icon: LayoutDashboard, label: 'Dashboard',        href: '/clinic/dashboard',    section: 'OVERVIEW' },
-  { id: 'doctors',      icon: Stethoscope,     label: 'Doctors',          href: '/clinic/doctors',      badge: 2, badgeColor: 'bg-amber-500' },
-  { id: 'appointments', icon: CalendarDays,    label: 'Appointments',     href: '/clinic/appointments', badge: 5, badgeColor: 'bg-teal-500' },
-  { id: 'patients',     icon: Users,           label: 'Patients',         href: '/clinic/patients',     section: 'MANAGEMENT' },
-  { id: 'pricing',      icon: DollarSign,      label: 'Pricing & Services', href: '/clinic/pricing' },
-  { id: 'messages',     icon: MessageSquare,   label: 'Messages',         href: '/clinic/messages',     badge: 3, badgeColor: 'bg-blue-500' },
-  { id: 'analytics',   icon: BarChart2,        label: 'Analytics',        href: '/clinic/analytics',    section: 'INSIGHTS' },
-  { id: 'settings',    icon: Settings,         label: 'Settings',         href: '/clinic/settings',     section: 'ACCOUNT' },
-];
+function buildNavItems(meta: ClinicPortalMeta): NavItem[] {
+  return [
+    { id: 'dashboard',     icon: LayoutDashboard, label: 'Dashboard',          href: '/clinic/dashboard',     section: 'OVERVIEW' },
+    { id: 'doctors',       icon: Stethoscope,     label: 'Doctors',            href: '/clinic/doctors',       badge: meta.pendingDoctors,      badgeColor: 'bg-amber-500' },
+    { id: 'appointments',  icon: CalendarDays,    label: 'Appointments',       href: '/clinic/appointments',  badge: meta.todayApptCount,      badgeColor: 'bg-teal-500' },
+    { id: 'patients',      icon: Users,           label: 'Patients',           href: '/clinic/patients',      section: 'MANAGEMENT' },
+    { id: 'pricing',       icon: DollarSign,      label: 'Pricing & Services', href: '/clinic/pricing' },
+    { id: 'messages',      icon: MessageSquare,   label: 'Messages',           href: '/clinic/messages',      badge: meta.unreadMessages,      badgeColor: 'bg-blue-500' },
+    { id: 'notifications', icon: Bell,            label: 'Notifications',      href: '/clinic/notifications', badge: meta.unreadNotifications, badgeColor: 'bg-red-500' },
+    { id: 'analytics',     icon: BarChart2,       label: 'Analytics',          href: '/clinic/analytics',     section: 'INSIGHTS' },
+    { id: 'settings',      icon: Settings,        label: 'Settings',           href: '/clinic/settings',      section: 'ACCOUNT' },
+  ];
+}
 
 function navigate(href: string) {
   window.history.pushState({}, '', href);
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleCollapse, activeTab }) => {
+const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleCollapse, activeTab, meta }) => {
   const [signingOut, setSigningOut] = useState(false);
+  const navItems = buildNavItems(meta);
+
+  const facilityInitials = meta.facilityName
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase() || 'CL';
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -80,11 +95,11 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
           <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                AN
+                {facilityInitials}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-white font-bold text-[13px] truncate" style={{ fontFamily: 'Inter, sans-serif' }}>Al Noor Medical Center</div>
-                <div className="text-teal-400 text-[11px]">Dubai Healthcare City</div>
+                <div className="text-white font-bold text-[13px] truncate" style={{ fontFamily: 'Inter, sans-serif' }}>{meta.facilityName}</div>
+                <div className="text-teal-400 text-[11px] truncate">{meta.facilityAddress || 'Clinic Portal'}</div>
                 <div className="mt-1 inline-flex items-center px-2 py-0.5 bg-emerald-900/50 rounded text-emerald-300 text-[9px] font-medium">
                   DHA Licensed ✓
                 </div>
@@ -137,9 +152,9 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
           <p className="text-slate-500 text-[9px] uppercase tracking-wider font-semibold px-2">TODAY</p>
           <div className="space-y-2 text-[12px]">
             {[
-              { label: '12 appointments', value: '8 confirmed', color: 'text-teal-400' },
-              { label: 'Revenue', value: 'AED 8,400', color: 'text-emerald-400' },
-              { label: 'Pending approvals', value: '3 doctors', color: 'text-amber-400' },
+              { label: `${meta.todayApptCount} appointments`, value: `${meta.todayConfirmedCount} confirmed`, color: 'text-teal-400' },
+              { label: 'Revenue', value: `AED ${meta.todayRevenue.toLocaleString()}`, color: 'text-emerald-400' },
+              { label: 'Pending approvals', value: `${meta.pendingDoctors} doctor${meta.pendingDoctors !== 1 ? 's' : ''}`, color: 'text-amber-400' },
             ].map(s => (
               <div key={s.label} className="flex items-center justify-between px-2">
                 <span className="text-slate-400">{s.label}</span>
