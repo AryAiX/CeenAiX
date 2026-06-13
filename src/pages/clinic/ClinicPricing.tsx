@@ -8,7 +8,6 @@ interface PricingItem {
   id: string;
   name: string;
   category: string;
-  doctor: string | null;
   durationMinutes: number;
   priceAed: number;
   description: string;
@@ -21,12 +20,11 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
-function PricingModal({ item, onClose, onSave, doctors }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void; doctors: string[] }) {
+function PricingModal({ item, onClose, onSave }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void }) {
   const isEdit = !!item;
   const [form, setForm] = useState({
     name: item?.name || '',
     category: item?.category ? capitalize(item.category) : 'Consultation',
-    doctor: item?.doctor || 'Any Doctor',
     durationMinutes: String(item?.durationMinutes || 30),
     priceAed: String(item?.priceAed || ''),
     description: item?.description || '',
@@ -56,12 +54,6 @@ function PricingModal({ item, onClose, onSave, doctors }: { item?: PricingItem; 
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Assigned Doctor</label>
-              <select value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-                {doctors.map(d => <option key={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Duration (minutes)</label>
               <input type="number" value={form.durationMinutes} onChange={set('durationMinutes')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
@@ -79,7 +71,7 @@ function PricingModal({ item, onClose, onSave, doctors }: { item?: PricingItem; 
           <button onClick={onClose} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors">Cancel</button>
           <button
             onClick={() => {
-              onSave({ ...form, durationMinutes: Number(form.durationMinutes), priceAed: Number(form.priceAed), doctor: form.doctor === 'Any Doctor' ? null : form.doctor });
+              onSave({ ...form, durationMinutes: Number(form.durationMinutes), priceAed: Number(form.priceAed) });
               onClose();
             }}
             className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
@@ -131,7 +123,6 @@ function ConfirmDeleteModal({ name, onConfirm, onCancel }: { name: string; onCon
 export default function ClinicPricing() {
   const { user } = useAuth();
   const [items, setItems] = useState<PricingItem[]>([]);
-  const [doctors, setDoctors] = useState<string[]>(['Any Doctor']);
   const [facilityId, setFacilityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,24 +154,6 @@ export default function ClinicPricing() {
       const fId = memberData.facility_id;
       setFacilityId(fId);
 
-      const { data: staffData } = await supabase
-        .from('facility_staff')
-        .select('doctor_user_id')
-        .eq('facility_id', fId)
-        .eq('is_active', true);
-
-      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
-
-      if (staffIds.length > 0) {
-        const { data: staffProfiles } = await supabase
-          .from('user_profiles')
-          .select('user_id, full_name')
-          .in('user_id', staffIds);
-
-        const doctorNames = (staffProfiles ?? []).map(p => p.full_name ?? 'Unknown Doctor');
-        setDoctors(['Any Doctor', ...doctorNames]);
-      }
-
       const { data: servicesData, error: servicesError } = await supabase
         .from('facility_services')
         .select('id, name_en, category, default_duration_min, default_price, description_en, is_active')
@@ -194,7 +167,6 @@ export default function ClinicPricing() {
         id: s.id,
         name: s.name_en ?? '',
         category: s.category ?? 'Consultation',
-        doctor: null,
         durationMinutes: s.default_duration_min ?? 30,
         priceAed: Number(s.default_price) || 0,
         description: s.description_en ?? '',
@@ -261,7 +233,6 @@ export default function ClinicPricing() {
         setItems(prev => [...prev, {
           id: inserted.id,
           isActive: true,
-          doctor: null,
           ...data,
         } as PricingItem]);
         setEditItem(undefined);
@@ -375,7 +346,6 @@ export default function ClinicPricing() {
                   {!p.isActive && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs">Inactive</span>}
                 </div>
                 <h3 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h3>
-                {p.doctor && <p className="text-xs text-slate-400 mt-0.5">{p.doctor}</p>}
               </div>
               <div className="text-right shrink-0">
                 <div className="text-2xl font-bold text-teal-700" style={{ fontFamily: 'DM Mono, monospace' }}>
@@ -424,7 +394,7 @@ export default function ClinicPricing() {
         </div>
       )}
 
-      {showModal && <PricingModal item={editItem} onClose={() => { setShowModal(false); setEditItem(undefined); }} onSave={handleSave} doctors={doctors} />}
+      {showModal && <PricingModal item={editItem} onClose={() => { setShowModal(false); setEditItem(undefined); }} onSave={handleSave} />}
 
       {confirmDelete && (
         <ConfirmDeleteModal
