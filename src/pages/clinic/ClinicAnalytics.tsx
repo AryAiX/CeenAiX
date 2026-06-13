@@ -106,11 +106,12 @@ export default function ClinicAnalytics() {
         .in('user_id', doctorIds);
       const { data: doctorSpecData } = await supabase
         .from('doctor_profiles')
-        .select('user_id, specialization')
+        .select('user_id, specialization, consultation_fee')
         .in('user_id', doctorIds);
 
       const profileMap = new Map((doctorProfiles ?? []).map(p => [p.user_id, p.full_name]));
       const specMap = new Map((doctorSpecData ?? []).map(d => [d.user_id, d.specialization]));
+      const baseFeeMap = new Map((doctorSpecData ?? []).map(d => [d.user_id, Number(d.consultation_fee) || 0]));
 
       const gradients = [
         'from-teal-600 to-blue-600',
@@ -125,7 +126,7 @@ export default function ClinicAnalytics() {
         const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
         const doctorAppts = appts.filter(a => a.doctor_id === did);
         const completedAppts = doctorAppts.filter(a => a.status === 'completed');
-        const fee = feeMap.get(did) ?? 0;
+        const fee = feeMap.get(did) ?? baseFeeMap.get(did) ?? 0;
         return {
           name,
           specialty: specMap.get(did) ?? 'General Practice',
