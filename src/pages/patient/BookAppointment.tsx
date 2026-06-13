@@ -58,6 +58,26 @@ interface RescheduleAppointment {
   status: string;
 }
 
+async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/appointments') {
+  const { data: members } = await supabase
+    .from('clinic_portal_members')
+    .select('user_id')
+    .eq('facility_id', facilityId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) return;
+
+  await supabase.from('notifications').insert(
+    members.map((m) => ({
+      user_id: m.user_id,
+      type: 'appointment' as const,
+      title,
+      body,
+      action_url: actionUrl,
+    }))
+  );
+}
+
 export const BookAppointment: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -410,6 +430,25 @@ export const BookAppointment: React.FC = () => {
           body: `Your appointment with ${selectedDoctor.fullName} has been confirmed for ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
           action_url: '/patient/appointments',
         });
+
+        // Notify clinic staff
+        const { data: staffData } = await supabase
+          .from('facility_staff')
+          .select('facility_id')
+          .eq('doctor_user_id', selectedDoctor.userId)
+          .eq('is_active', true)
+          .eq('invitation_status', 'accepted')
+          .maybeSingle();
+
+        if (staffData?.facility_id) {
+          const apptDateStr = new Date(selectedSlot.iso).toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric' });
+          const apptTimeStr = new Date(selectedSlot.iso).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false });
+          await notifyClinicStaff(
+            staffData.facility_id,
+            '📅 New Appointment Booked',
+            `A patient has booked an appointment with ${selectedDoctor.fullName} on ${apptDateStr} at ${apptTimeStr}.`
+          );
+        }
       }
 
       if (appointmentId && isRescheduling) {
@@ -420,6 +459,25 @@ export const BookAppointment: React.FC = () => {
           body: `Your appointment with ${selectedDoctor.fullName} has been rescheduled to ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
           action_url: '/patient/appointments',
         });
+
+        // Notify clinic staff
+        const { data: rescheduleStaffData } = await supabase
+          .from('facility_staff')
+          .select('facility_id')
+          .eq('doctor_user_id', selectedDoctor.userId)
+          .eq('is_active', true)
+          .eq('invitation_status', 'accepted')
+          .maybeSingle();
+
+        if (rescheduleStaffData?.facility_id) {
+          const apptDateStr = new Date(selectedSlot.iso).toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric' });
+          const apptTimeStr = new Date(selectedSlot.iso).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false });
+          await notifyClinicStaff(
+            rescheduleStaffData.facility_id,
+            '🔄 Appointment Rescheduled',
+            `A patient rescheduled their appointment with ${selectedDoctor.fullName} to ${apptDateStr} at ${apptTimeStr}.`
+          );
+        }
       }
 
       if (appointmentId && !isRescheduling) {
