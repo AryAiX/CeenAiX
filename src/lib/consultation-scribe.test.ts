@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   audioExtensionForMimeType,
   buildConsultationAudioPath,
+  buildConsultationChannelAudioPath,
+  DEFAULT_SPEAKER_CHANNEL_MAP,
   formatRecordingDuration,
+  hasCompleteChannelAudioPaths,
   normalizeClinicalNoteDiagnoses,
   normalizeClinicalNoteFollowUp,
   normalizeClinicalNoteMedications,
   normalizeLiveCues,
   normalizeSmartSuggestions,
+  normalizeSpeakerChannelMap,
   normalizeTranscriptSegments,
+  preferenceToSpeakerChannelMap,
+  REVERSED_SPEAKER_CHANNEL_MAP,
+  speakerChannelMapToPreference,
 } from './consultation-scribe';
 
 describe('formatRecordingDuration', () => {
@@ -41,6 +48,28 @@ describe('buildConsultationAudioPath', () => {
     const path = buildConsultationAudioPath('doc-1', 'appt-1', 'audio/webm');
     expect(path.startsWith('doc-1/appt-1/')).toBe(true);
     expect(path.endsWith('.webm')).toBe(true);
+  });
+});
+
+describe('speaker channel assignment helpers', () => {
+  it('maps UI preferences to left/right speaker roles', () => {
+    expect(preferenceToSpeakerChannelMap('left-doctor')).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+    expect(preferenceToSpeakerChannelMap('left-patient')).toEqual(REVERSED_SPEAKER_CHANNEL_MAP);
+    expect(speakerChannelMapToPreference(DEFAULT_SPEAKER_CHANNEL_MAP)).toBe('left-doctor');
+    expect(speakerChannelMapToPreference(REVERSED_SPEAKER_CHANNEL_MAP)).toBe('left-patient');
+  });
+
+  it('normalizes invalid speaker channel maps to the default split', () => {
+    expect(normalizeSpeakerChannelMap({ left: 'doctor', right: 'patient' })).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+    expect(normalizeSpeakerChannelMap({ left: 'doctor', right: 'doctor' })).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+    expect(normalizeSpeakerChannelMap({ left: 'patient', right: 'doctor' })).toEqual(REVERSED_SPEAKER_CHANNEL_MAP);
+    expect(normalizeSpeakerChannelMap(null)).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+  });
+
+  it('tracks complete channel-audio path metadata', () => {
+    expect(buildConsultationChannelAudioPath('doc-1', 'appt-1', 'left', 'audio/webm')).toContain('-left.webm');
+    expect(hasCompleteChannelAudioPaths({ left: 'left.webm', right: 'right.webm' })).toBe(true);
+    expect(hasCompleteChannelAudioPaths({ left: 'left.webm' })).toBe(false);
   });
 });
 

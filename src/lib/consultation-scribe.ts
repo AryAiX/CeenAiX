@@ -7,6 +7,8 @@ import i18n from 'i18next';
 import { supabase } from './supabase';
 import type {
   AiClinicalNote,
+  AudioInputChannel,
+  ChannelAudioPaths,
   ClinicalNoteDiagnosis,
   ClinicalNoteFollowUp,
   ClinicalNoteMedication,
@@ -16,13 +18,74 @@ import type {
   LiveCue,
   LiveCueKind,
   SmartSuggestion,
+  SpeakerChannelMap,
   TranscriptSegment,
   TranscriptSpeaker,
 } from '../types';
 
 export const CONSULTATION_AUDIO_BUCKET = 'consultation-audio';
+export const SPEAKER_CHANNEL_MAP_STORAGE_KEY = 'ceenaix.consultationScribe.speakerChannelMap';
+
+export type SpeakerChannelPreference = 'left-doctor' | 'left-patient';
 
 const VALID_SPEAKERS: ReadonlySet<TranscriptSpeaker> = new Set(['doctor', 'patient', 'unknown']);
+
+export const DEFAULT_SPEAKER_CHANNEL_MAP: SpeakerChannelMap = {
+  left: 'doctor',
+  right: 'patient',
+};
+
+export const REVERSED_SPEAKER_CHANNEL_MAP: SpeakerChannelMap = {
+  left: 'patient',
+  right: 'doctor',
+};
+
+export function preferenceToSpeakerChannelMap(preference: SpeakerChannelPreference): SpeakerChannelMap {
+  return preference === 'left-patient' ? REVERSED_SPEAKER_CHANNEL_MAP : DEFAULT_SPEAKER_CHANNEL_MAP;
+}
+
+export function speakerChannelMapToPreference(map: SpeakerChannelMap): SpeakerChannelPreference {
+  return map.left === 'patient' ? 'left-patient' : 'left-doctor';
+}
+
+export function normalizeSpeakerChannelMap(value: unknown): SpeakerChannelMap {
+  if (!value || typeof value !== 'object') {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  const candidate = value as Record<AudioInputChannel, unknown>;
+  const left = candidate.left === 'patient' ? 'patient' : candidate.left === 'doctor' ? 'doctor' : null;
+  const right = candidate.right === 'patient' ? 'patient' : candidate.right === 'doctor' ? 'doctor' : null;
+  if (!left || !right || left === right) {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  return { left, right };
+}
+
+export function loadSpeakerChannelMapPreference(): SpeakerChannelMap {
+  if (typeof window === 'undefined') {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  try {
+    return normalizeSpeakerChannelMap(JSON.parse(window.localStorage.getItem(SPEAKER_CHANNEL_MAP_STORAGE_KEY) ?? 'null'));
+  } catch {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+}
+
+export function saveSpeakerChannelMapPreference(map: SpeakerChannelMap): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(SPEAKER_CHANNEL_MAP_STORAGE_KEY, JSON.stringify(normalizeSpeakerChannelMap(map)));
+}
+
+export function channelLabel(channel: AudioInputChannel): string {
+  return channel === 'left' ? 'Left / Channel 1' : 'Right / Channel 2';
+}
+
+export function hasCompleteChannelAudioPaths(paths: ChannelAudioPaths | null | undefined): paths is Record<AudioInputChannel, string> {
+  return Boolean(paths?.left && paths.right);
+}
 
 /** Render seconds as a zero-padded HH:MM:SS timer string (DM Mono display). */
 export function formatRecordingDuration(totalSeconds: number): string {
@@ -54,6 +117,16 @@ export function buildConsultationAudioPath(
   return `${doctorId}/${appointmentId}/${crypto.randomUUID()}.${extension}`;
 }
 
+export function buildConsultationChannelAudioPath(
+  doctorId: string,
+  appointmentId: string,
+  channel: AudioInputChannel,
+  mimeType: string | null | undefined
+): string {
+  const extension = audioExtensionForMimeType(mimeType);
+  return `${doctorId}/${appointmentId}/${crypto.randomUUID()}-${channel}.${extension}`;
+}
+
 /**
  * Upload the captured consultation audio to the private, encrypted
  * `consultation-audio` bucket. Returns the storage path for signed-URL access.
@@ -65,6 +138,27 @@ export async function uploadConsultationAudio(input: {
 }): Promise<{ path: string; mimeType: string; size: number }> {
   const mimeType = input.blob.type || 'audio/webm';
   const path = buildConsultationAudioPath(input.doctorId, input.appointmentId, mimeType);
+  const { error } = await supabase.storage.from(CONSULTATION_AUDIO_BUCKET).upload(path, input.blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: mimeType,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return { path, mimeType, size: input.blob.size };
+}
+
+export async function uploadConsultationChannelAudio(input: {
+  doctorId: string;
+  appointmentId: string;
+  channel: AudioInputChannel;
+  blob: Blob;
+}): Promise<{ path: string; mimeType: string; size: number }> {
+  const mimeType = input.blob.type || 'audio/webm';
+  const path = buildConsultationChannelAudioPath(input.doctorId, input.appointmentId, input.channel, mimeType);
   const { error } = await supabase.storage.from(CONSULTATION_AUDIO_BUCKET).upload(path, input.blob, {
     cacheControl: '3600',
     upsert: false,
@@ -285,10 +379,16 @@ async function invokeScribe<T>(body: Record<string, unknown>): Promise<T> {
 
 export async function transcribeConsultation(input: {
   recordingId: string;
+  speakerChannelMap?: SpeakerChannelMap | null;
+  channelAudioPaths?: ChannelAudioPaths | null;
+  audioChannelCount?: number | null;
 }): Promise<ScribeTranscribeResult> {
   const result = await invokeScribe<ScribeTranscribeResult>({
     task: 'transcribe',
     recordingId: input.recordingId,
+    speakerChannelMap: input.speakerChannelMap ?? null,
+    channelAudioPaths: input.channelAudioPaths ?? null,
+    audioChannelCount: input.audioChannelCount ?? null,
   });
   return {
     ...result,
@@ -363,6 +463,7 @@ export function normalizeLiveCues(value: unknown): LiveCue[] {
 export interface LiveChunkResult {
   text: string;
   language: string | null;
+  speaker: TranscriptSpeaker;
 }
 
 /**
@@ -372,9 +473,17 @@ export interface LiveChunkResult {
 export async function transcribeLiveChunk(input: {
   recordingId: string;
   blob: Blob;
+  speakerChannelMap?: SpeakerChannelMap | null;
+  sourceChannel?: AudioInputChannel | null;
 }): Promise<LiveChunkResult> {
   const formData = new FormData();
   formData.append('recordingId', input.recordingId);
+  if (input.speakerChannelMap) {
+    formData.append('speakerChannelMap', JSON.stringify(normalizeSpeakerChannelMap(input.speakerChannelMap)));
+  }
+  if (input.sourceChannel) {
+    formData.append('sourceChannel', input.sourceChannel);
+  }
   const extension = audioExtensionForMimeType(input.blob.type);
   formData.append('audio', input.blob, `chunk.${extension}`);
 
@@ -386,17 +495,20 @@ export async function transcribeLiveChunk(input: {
   return {
     text: typeof payload.text === 'string' ? payload.text : '',
     language: typeof payload.language === 'string' ? payload.language : null,
+    speaker: VALID_SPEAKERS.has(payload.speaker as TranscriptSpeaker) ? (payload.speaker as TranscriptSpeaker) : 'unknown',
   };
 }
 
 export async function fetchLiveCues(input: {
   recordingId: string;
   transcript: string;
+  speakerChannelMap?: SpeakerChannelMap | null;
 }): Promise<{ cues: LiveCue[] }> {
   const result = await invokeScribe<{ cues: unknown }>({
     task: 'live_cues',
     recordingId: input.recordingId,
     transcript: input.transcript,
+    speakerChannelMap: input.speakerChannelMap ?? null,
   });
   return { cues: normalizeLiveCues(result.cues) };
 }

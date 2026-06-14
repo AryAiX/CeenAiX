@@ -3,16 +3,22 @@ import {
   extractSmartSuggestions,
   fetchLiveCues,
   generateClinicalNote,
+  hasCompleteChannelAudioPaths,
+  loadSpeakerChannelMapPreference,
+  saveSpeakerChannelMapPreference,
   transcribeConsultation,
+  uploadConsultationChannelAudio,
   uploadConsultationAudio,
 } from '../lib/consultation-scribe';
 import type {
+  ChannelAudioPaths,
   ClinicalNoteOutputLanguage,
   ClinicalNotePromptTemplate,
   ConsultationConsentMethod,
   ConsultationRecording,
   ConsultationRecordingMode,
   LiveCue,
+  SpeakerChannelMap,
   SmartSuggestion,
   TranscriptSegment,
 } from '../types';
@@ -67,6 +73,9 @@ export interface ConsultationScribeController {
   liveTranscribing: boolean;
   liveCues: LiveCue[];
   dismissCue: (id: string) => void;
+  speakerChannelMap: SpeakerChannelMap;
+  setSpeakerChannelMap: (map: SpeakerChannelMap) => void;
+  stereoInputAvailable: boolean;
 }
 
 export function useConsultationScribeController(input: {
@@ -89,6 +98,14 @@ export function useConsultationScribeController(input: {
   const [mode, setMode] = useState<ConsultationRecordingMode>('recorded');
   const [liveCues, setLiveCues] = useState<LiveCue[]>([]);
   const [dismissedCues, setDismissedCues] = useState<Set<string>>(new Set());
+  const [speakerChannelMap, setSpeakerChannelMapState] = useState<SpeakerChannelMap>(() =>
+    loadSpeakerChannelMapPreference()
+  );
+
+  const setSpeakerChannelMap = useCallback((map: SpeakerChannelMap) => {
+    setSpeakerChannelMapState(map);
+    saveSpeakerChannelMapPreference(map);
+  }, []);
 
   useEffect(() => {
     setActiveRecording(null);
@@ -101,11 +118,15 @@ export function useConsultationScribeController(input: {
   }, [input.appointmentId]);
 
   const currentRecording = activeRecording ?? data?.recording ?? null;
+  const stereoInputAvailable = (recorder.channelCount ?? 0) >= 2;
 
   const live = useLiveTranscription({
     stream: recorder.stream,
+    channelStreams: recorder.channelStreams,
     active: mode === 'live' && recorder.status === 'recording',
     recordingId: currentRecording?.id ?? null,
+    speakerChannelMap,
+    stereoAvailable: stereoInputAvailable,
   });
 
   const liveTranscriptRef = useRef('');
@@ -124,7 +145,7 @@ export function useConsultationScribeController(input: {
       const transcript = liveTranscriptRef.current.trim();
       if (transcript.length < 20) return;
       try {
-        const result = await fetchLiveCues({ recordingId, transcript });
+        const result = await fetchLiveCues({ recordingId, transcript, speakerChannelMap });
         if (!cancelled) setLiveCues(result.cues);
       } catch {
         // Cues are best-effort; ignore failures.
@@ -135,7 +156,7 @@ export function useConsultationScribeController(input: {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [mode, recorder.status, currentRecording?.id]);
+  }, [mode, recorder.status, currentRecording?.id, speakerChannelMap]);
   const isProcessing = isTranscribing || isGenerating;
 
   const openConsent = useCallback(() => setConsentOpen(true), []);
@@ -148,9 +169,12 @@ export function useConsultationScribeController(input: {
       }
       setFeedback(null);
       setConsentOpen(false);
-      await recorder.start();
+      const captureInfo = await recorder.start();
       // recorder.start updates its own status; bail if it failed to acquire mic.
       // We read the latest status via a microtask since state updates are async.
+      if (!captureInfo) {
+        return;
+      }
       try {
         const recording = await actions.createRecording({
           appointmentId: input.appointmentId,
@@ -162,6 +186,8 @@ export function useConsultationScribeController(input: {
           verbalConsent: consent.verbalConsent,
           signatureImageUrl: consent.signatureImageUrl,
           mode,
+          speakerChannelMap,
+          audioChannelCount: captureInfo.channelCount,
         });
         setActiveRecording(recording);
         refetch();
@@ -172,7 +198,7 @@ export function useConsultationScribeController(input: {
         });
       }
     },
-    [actions, input.appointmentId, input.doctorId, input.patientId, input.clinicId, recorder, refetch, mode]
+    [actions, input.appointmentId, input.doctorId, input.patientId, input.clinicId, recorder, refetch, mode, speakerChannelMap]
   );
 
   const stopAndProcess = useCallback(async () => {
@@ -180,10 +206,11 @@ export function useConsultationScribeController(input: {
     if (!recording || !input.doctorId) {
       return;
     }
+    const doctorId = input.doctorId;
     setFeedback(null);
     const elapsed = recorder.elapsedSeconds;
-    const blob = await recorder.stop();
-    if (!blob || blob.size === 0) {
+    const recordingResult = await recorder.stop();
+    if (!recordingResult || recordingResult.blob.size === 0) {
       await actions.discardRecording(recording);
       setActiveRecording(null);
       refetch();
@@ -193,16 +220,42 @@ export function useConsultationScribeController(input: {
 
     try {
       const upload = await uploadConsultationAudio({
-        doctorId: input.doctorId,
+        doctorId,
         appointmentId: recording.appointment_id,
-        blob,
+        blob: recordingResult.blob,
       });
+      const channelAudioPaths: ChannelAudioPaths = {};
+      if ((recordingResult.channelCount ?? 0) >= 2) {
+        const uploads = await Promise.all(
+          (['left', 'right'] as const).map(async (channel) => {
+            const channelBlob = recordingResult.channelBlobs[channel];
+            if (!channelBlob || channelBlob.size === 0) {
+              return null;
+            }
+            const channelUpload = await uploadConsultationChannelAudio({
+              doctorId,
+              appointmentId: recording.appointment_id,
+              channel,
+              blob: channelBlob,
+            });
+            return { channel, path: channelUpload.path };
+          })
+        );
+        uploads.forEach((channelUpload) => {
+          if (channelUpload) {
+            channelAudioPaths[channelUpload.channel] = channelUpload.path;
+          }
+        });
+      }
       await actions.attachAudioAndProcess({
         recordingId: recording.id,
         appointmentId: recording.appointment_id,
         audioStoragePath: upload.path,
         audioMimeType: upload.mimeType,
         durationSeconds: elapsed,
+        speakerChannelMap,
+        audioChannelCount: recordingResult.channelCount,
+        channelAudioPaths,
       });
       refetch();
 
@@ -212,9 +265,15 @@ export function useConsultationScribeController(input: {
         // the note from that text instead of re-running Whisper on the full file.
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const entries = liveEntriesRef.current;
-        const fullText = liveTranscriptRef.current.trim();
+        const fullText = entries
+          .map((entry) => {
+            const speaker = entry.speaker === 'doctor' ? 'Doctor' : entry.speaker === 'patient' ? 'Patient' : 'Speaker';
+            return `${speaker}: ${entry.text}`;
+          })
+          .join('\n')
+          .trim();
         const segments = entries.map((entry, index) => ({
-          speaker: 'unknown' as const,
+          speaker: entry.speaker,
           start_ms: index * 7000,
           end_ms: (index + 1) * 7000,
           text: entry.text,
@@ -232,7 +291,12 @@ export function useConsultationScribeController(input: {
         setIsGenerating(false);
       } else {
         setIsTranscribing(true);
-        await transcribeConsultation({ recordingId: recording.id });
+        await transcribeConsultation({
+          recordingId: recording.id,
+          speakerChannelMap,
+          channelAudioPaths: hasCompleteChannelAudioPaths(channelAudioPaths) ? channelAudioPaths : null,
+          audioChannelCount: recordingResult.channelCount,
+        });
         setIsTranscribing(false);
 
         setIsGenerating(true);
@@ -253,7 +317,7 @@ export function useConsultationScribeController(input: {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions, currentRecording, input.doctorId, recorder, refetch, mode]);
+  }, [actions, currentRecording, input.doctorId, recorder, refetch, mode, speakerChannelMap]);
 
   const retryProcessing = useCallback(async () => {
     const recording = currentRecording;
@@ -432,5 +496,8 @@ export function useConsultationScribeController(input: {
     liveTranscribing: live.isTranscribing,
     liveCues: visibleCues,
     dismissCue,
+    speakerChannelMap,
+    setSpeakerChannelMap,
+    stereoInputAvailable,
   };
 }

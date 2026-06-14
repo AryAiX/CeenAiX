@@ -8,6 +8,8 @@ import type {
   ConsultationRecording,
   ConsultationRecordingMode,
   ConsultationTranscript,
+  ChannelAudioPaths,
+  SpeakerChannelMap,
   TranscriptSegment,
 } from '../types';
 import { useQuery } from './use-query';
@@ -29,6 +31,8 @@ export interface CreateRecordingInput {
   verbalConsent: boolean;
   signatureImageUrl: string | null;
   mode?: ConsultationRecordingMode;
+  speakerChannelMap?: SpeakerChannelMap;
+  audioChannelCount?: number | null;
 }
 
 export interface ConsultationScribeActions {
@@ -45,6 +49,9 @@ export interface ConsultationScribeActions {
     audioStoragePath: string;
     audioMimeType: string;
     durationSeconds: number;
+    speakerChannelMap?: SpeakerChannelMap;
+    audioChannelCount?: number | null;
+    channelAudioPaths?: ChannelAudioPaths;
   }) => Promise<void>;
   discardRecording: (recording: ConsultationRecording) => Promise<void>;
   updateTranscriptSegments: (transcriptId: string, segments: TranscriptSegment[]) => Promise<void>;
@@ -177,7 +184,12 @@ export function useConsultationScribe(
       recordingId: recording.id,
       appointmentId: input.appointmentId,
       action: 'started',
-      metadata: { consentMethod: input.consentMethod },
+      metadata: {
+        consentMethod: input.consentMethod,
+        mode: input.mode ?? 'recorded',
+        speakerChannelMap: input.speakerChannelMap,
+        audioChannelCount: input.audioChannelCount ?? null,
+      },
     });
 
     return recording as ConsultationRecording;
@@ -201,7 +213,12 @@ export function useConsultationScribe(
         recordingId: input.recordingId,
         appointmentId: input.appointmentId,
         action: 'stopped',
-        metadata: { durationSeconds: input.durationSeconds },
+        metadata: {
+          durationSeconds: input.durationSeconds,
+          speakerChannelMap: input.speakerChannelMap,
+          audioChannelCount: input.audioChannelCount ?? null,
+          channelAudioPaths: input.channelAudioPaths ?? {},
+        },
       });
     },
     []

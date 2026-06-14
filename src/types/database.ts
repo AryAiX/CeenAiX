@@ -29,6 +29,8 @@ import type {
   ConsultationRecordingStatus,
   ConsultationConsentMethod,
   ConsultationRecordingMode,
+  AudioInputChannel,
+  SpeakerChannelRole,
   TranscriptSpeaker,
   ClinicalNotePromptTemplate,
   ClinicalNoteOutputLanguage,
@@ -1042,6 +1044,10 @@ export interface TranscriptSegment {
   text: string;
   confidence: number;
 }
+
+export type SpeakerChannelMap = Record<AudioInputChannel, SpeakerChannelRole>;
+
+export type ChannelAudioPaths = Partial<Record<AudioInputChannel, string>>;
 
 export interface ConsultationTranscript extends BaseRecord {
   recording_id: string;

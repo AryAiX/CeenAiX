@@ -6,6 +6,11 @@ const corsHeaders = {
 };
 
 type TaskType = 'transcribe' | 'generate_note' | 'suggestions' | 'live_transcribe_chunk' | 'live_cues';
+type AudioInputChannel = 'left' | 'right';
+type TranscriptSpeaker = 'doctor' | 'patient' | 'unknown';
+type SpeakerChannelRole = Extract<TranscriptSpeaker, 'doctor' | 'patient'>;
+type SpeakerChannelMap = Record<AudioInputChannel, SpeakerChannelRole>;
+type ChannelAudioPaths = Partial<Record<AudioInputChannel, string>>;
 
 interface RequestBody {
   task?: TaskType;
@@ -15,6 +20,9 @@ interface RequestBody {
   customInstructions?: string | null;
   transcriptOverride?: string | null;
   transcript?: string | null;
+  speakerChannelMap?: unknown;
+  channelAudioPaths?: unknown;
+  audioChannelCount?: number | null;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -52,6 +60,56 @@ const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
     : [];
+
+const DEFAULT_SPEAKER_CHANNEL_MAP: SpeakerChannelMap = { left: 'doctor', right: 'patient' };
+const AUDIO_CHANNELS: readonly AudioInputChannel[] = ['left', 'right'];
+
+const normalizeSpeakerChannelMap = (value: unknown): SpeakerChannelMap => {
+  if (!value || typeof value !== 'object') {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  const candidate = value as Record<AudioInputChannel, unknown>;
+  const left = candidate.left === 'doctor' || candidate.left === 'patient' ? candidate.left : null;
+  const right = candidate.right === 'doctor' || candidate.right === 'patient' ? candidate.right : null;
+  if (!left || !right || left === right) {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  return { left, right };
+};
+
+const parseSpeakerChannelMap = (value: FormDataEntryValue | null): SpeakerChannelMap | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  try {
+    return normalizeSpeakerChannelMap(JSON.parse(value));
+  } catch {
+    return null;
+  }
+};
+
+const normalizeChannelAudioPaths = (value: unknown): ChannelAudioPaths => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const candidate = value as Record<AudioInputChannel, unknown>;
+  return AUDIO_CHANNELS.reduce<ChannelAudioPaths>((acc, channel) => {
+    const path = asString(candidate[channel]);
+    if (path) {
+      acc[channel] = path;
+    }
+    return acc;
+  }, {});
+};
+
+const hasCompleteChannelAudioPaths = (paths: ChannelAudioPaths): paths is Record<AudioInputChannel, string> =>
+  Boolean(paths.left && paths.right);
+
+const speakerLabel = (speaker: TranscriptSpeaker): string => {
+  if (speaker === 'doctor') return 'Doctor';
+  if (speaker === 'patient') return 'Patient';
+  return 'Speaker';
+};
 
 interface WhisperSegment {
   text?: string;
@@ -92,6 +150,77 @@ const diarizeSegments = (segments: WhisperSegment[]) => {
     .filter((segment): segment is NonNullable<typeof segment> => segment !== null);
 };
 
+const segmentsForChannel = (
+  payload: { text?: string; duration?: number; segments?: WhisperSegment[] },
+  speaker: SpeakerChannelRole
+) => {
+  const whisperSegments = Array.isArray(payload.segments) ? payload.segments : [];
+  const mappedSegments = whisperSegments
+    .map((segment) => {
+      const text = asString(segment.text);
+      if (!text) return null;
+      const confidence =
+        typeof segment.avg_logprob === 'number'
+          ? Math.max(0, Math.min(1, Math.exp(segment.avg_logprob)))
+          : 1;
+      return {
+        speaker,
+        start_ms: Math.round((segment.start ?? 0) * 1000),
+        end_ms: Math.round((segment.end ?? segment.start ?? 0) * 1000),
+        text,
+        confidence,
+      };
+    })
+    .filter((segment): segment is NonNullable<typeof segment> => segment !== null);
+
+  if (mappedSegments.length > 0) {
+    return mappedSegments;
+  }
+
+  const text = asString(payload.text);
+  if (!text) {
+    return [];
+  }
+  return [
+    {
+      speaker,
+      start_ms: 0,
+      end_ms: typeof payload.duration === 'number' ? Math.round(payload.duration * 1000) : 0,
+      text,
+      confidence: 1,
+    },
+  ];
+};
+
+async function transcribeAudioBlob(args: {
+  openAiApiKey: string;
+  audioBlob: Blob;
+  mime: string;
+}) {
+  const formData = new FormData();
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'verbose_json');
+  formData.append('file', args.audioBlob, fileNameForMime(args.mime));
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${args.openAiApiKey}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Whisper transcription failed: ${errorText}`);
+  }
+
+  return (await response.json()) as {
+    text?: string;
+    language?: string;
+    duration?: number;
+    segments?: WhisperSegment[];
+  };
+}
+
 type SupabaseClientLike = ReturnType<typeof createClient>;
 
 const loadRecordingForDoctor = async (
@@ -128,6 +257,8 @@ async function runTranscription(args: {
   openAiApiKey: string;
   adminClient: SupabaseClientLike;
   recording: Record<string, unknown>;
+  speakerChannelMap: SpeakerChannelMap | null;
+  channelAudioPaths: ChannelAudioPaths;
 }) {
   const recording = args.recording;
   const storagePath = asString(recording.audio_storage_path);
@@ -143,33 +274,53 @@ async function runTranscription(args: {
   }
 
   const mime = asString(recording.audio_mime_type) ?? audioBlob.type ?? 'audio/webm';
-  const formData = new FormData();
-  formData.append('model', 'whisper-1');
-  formData.append('response_format', 'verbose_json');
-  formData.append('file', audioBlob, fileNameForMime(mime));
+  const channelMap = args.speakerChannelMap;
+  const useChannelSplit = Boolean(channelMap && hasCompleteChannelAudioPaths(args.channelAudioPaths));
+  let fullText = '';
+  let language: string | null = null;
+  let durationSeconds = 0;
+  let segments: ReturnType<typeof diarizeSegments> = [];
+  let modelUsed = 'whisper-1';
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${args.openAiApiKey}` },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Whisper transcription failed: ${errorText}`);
+  if (useChannelSplit && channelMap && hasCompleteChannelAudioPaths(args.channelAudioPaths)) {
+    const channelPayloads = await Promise.all(
+      AUDIO_CHANNELS.map(async (channel) => {
+        const path = args.channelAudioPaths[channel];
+        const { data: channelBlob, error } = await args.adminClient.storage
+          .from('consultation-audio')
+          .download(path);
+        if (error) {
+          throw error;
+        }
+        const payload = await transcribeAudioBlob({
+          openAiApiKey: args.openAiApiKey,
+          audioBlob: channelBlob,
+          mime: channelBlob.type || mime,
+        });
+        return { channel, payload };
+      })
+    );
+    segments = channelPayloads
+      .flatMap(({ channel, payload }) => segmentsForChannel(payload, channelMap[channel]))
+      .sort((a, b) => a.start_ms - b.start_ms || speakerLabel(a.speaker).localeCompare(speakerLabel(b.speaker)));
+    fullText = segments.map((segment) => `${speakerLabel(segment.speaker)}: ${segment.text}`).join('\n');
+    language = asString(channelPayloads.find(({ payload }) => asString(payload.language))?.payload.language);
+    durationSeconds = Math.max(
+      ...channelPayloads.map(({ payload }) => (typeof payload.duration === 'number' ? Math.round(payload.duration) : 0)),
+      0
+    );
+    modelUsed = 'whisper-1-channel-split';
+  } else {
+    const payload = await transcribeAudioBlob({
+      openAiApiKey: args.openAiApiKey,
+      audioBlob,
+      mime,
+    });
+    fullText = asString(payload.text) ?? '';
+    language = asString(payload.language);
+    durationSeconds = typeof payload.duration === 'number' ? Math.round(payload.duration) : 0;
+    segments = diarizeSegments(Array.isArray(payload.segments) ? payload.segments : []);
   }
-
-  const payload = (await response.json()) as {
-    text?: string;
-    language?: string;
-    duration?: number;
-    segments?: WhisperSegment[];
-  };
-
-  const fullText = asString(payload.text) ?? '';
-  const language = asString(payload.language);
-  const durationSeconds = typeof payload.duration === 'number' ? Math.round(payload.duration) : 0;
-  const segments = diarizeSegments(Array.isArray(payload.segments) ? payload.segments : []);
 
   const { data: existingTranscript } = await args.adminClient
     .from('consultation_transcripts')
@@ -182,7 +333,7 @@ async function runTranscription(args: {
     full_text: fullText,
     segments,
     language,
-    model_used: 'whisper-1',
+    model_used: modelUsed,
   };
 
   const { data: transcript, error: transcriptError } = existingTranscript
@@ -461,6 +612,7 @@ async function runSuggestions(args: {
 async function runLiveChunkTranscription(args: {
   openAiApiKey: string;
   file: File;
+  speaker: TranscriptSpeaker;
 }) {
   const formData = new FormData();
   formData.append('model', 'whisper-1');
@@ -482,6 +634,7 @@ async function runLiveChunkTranscription(args: {
   return {
     text: typeof payload.text === 'string' ? payload.text.trim() : '',
     language: typeof payload.language === 'string' ? payload.language : null,
+    speaker: args.speaker,
   };
 }
 
@@ -585,6 +738,8 @@ Deno.serve(async (request) => {
       const form = await request.formData();
       const recordingId = form.get('recordingId');
       const audio = form.get('audio');
+      const sourceChannel = form.get('sourceChannel');
+      const speakerChannelMap = parseSpeakerChannelMap(form.get('speakerChannelMap'));
       if (typeof recordingId !== 'string') {
         return json({ error: 'recordingId is required.' }, 400);
       }
@@ -595,7 +750,12 @@ Deno.serve(async (request) => {
       if (!(audio instanceof File)) {
         return json({ error: 'audio chunk is required.' }, 400);
       }
-      const result = await runLiveChunkTranscription({ openAiApiKey, file: audio });
+      const speaker =
+        speakerChannelMap &&
+        (sourceChannel === 'left' || sourceChannel === 'right')
+          ? speakerChannelMap[sourceChannel]
+          : 'unknown';
+      const result = await runLiveChunkTranscription({ openAiApiKey, file: audio, speaker });
       return json(result);
     }
 
@@ -610,6 +770,9 @@ Deno.serve(async (request) => {
     }
 
     const ip = request.headers.get('x-forwarded-for');
+    const speakerChannelMap = normalizeSpeakerChannelMap(body.speakerChannelMap);
+    const channelAudioPaths = normalizeChannelAudioPaths(body.channelAudioPaths);
+    const audioChannelCount = typeof body.audioChannelCount === 'number' ? body.audioChannelCount : null;
 
     if (body.task === 'live_cues') {
       const result = await runLiveCues({
@@ -626,13 +789,25 @@ Deno.serve(async (request) => {
         .from('consultation_recordings')
         .update({ status: 'processing' })
         .eq('id', recording.id);
-      const result = await runTranscription({ openAiApiKey, adminClient, recording });
+      const result = await runTranscription({
+        openAiApiKey,
+        adminClient,
+        recording,
+        speakerChannelMap,
+        channelAudioPaths,
+      });
       await logAudit(adminClient, {
         recordingId: recording.id as string,
         appointmentId: recording.appointment_id as string,
         actorId: doctorId,
         action: 'transcribed',
-        metadata: { language: result.languageDetected, durationSeconds: result.durationSeconds },
+        metadata: {
+          language: result.languageDetected,
+          durationSeconds: result.durationSeconds,
+          speakerChannelMap,
+          audioChannelCount,
+          channelSplitApplied: hasCompleteChannelAudioPaths(channelAudioPaths),
+        },
         ip,
       });
       return json(result);

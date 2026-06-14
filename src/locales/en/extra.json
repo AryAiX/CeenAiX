@@ -1483,7 +1483,13 @@
         "notSupported": "Audio recording isn't supported in this browser.",
         "modeRecord": "Record",
         "modeLive": "Live",
-        "startLive": "Start Live Scribe"
+        "startLive": "Start Live Scribe",
+        "channelSetupTitle": "Dual-TX setup",
+        "channelSetupHelp": "For DJI Mic Mini, set the receiver to stereo/split output when available and select macOS input Wireless Mic Rx. Browser device labels may stay generic until microphone permission is granted.",
+        "channelAssignmentLabel": "Speaker channels",
+        "channelLeftDoctor": "Left / Channel 1 = Doctor, Right / Channel 2 = Patient",
+        "channelLeftPatient": "Left / Channel 1 = Patient, Right / Channel 2 = Doctor",
+        "monoWarning": "This microphone stream is reporting mono input. The scribe will fall back to automatic speaker labeling until the receiver/browser provides two channels."
       },
       "consent": {
         "title": "Patient Consent Required",
@@ -1561,7 +1567,7 @@
         "cues": "AI copilot cues",
         "cuesEmpty": "Cues will appear as the conversation develops.",
         "dismiss": "Dismiss",
-        "diarizationNote": "Speaker labels are approximate on a single microphone. Connect dual mics for precise doctor/patient separation."
+        "diarizationNote": "With stereo dual-TX input, live labels follow the selected channel assignment. On mono input, labels fall back to automatic speaker detection."
       }
     },
     "createPrescription": {

@@ -1,7 +1,12 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Circle, Loader2, Mic, Pause, Play, Sparkles, Square, Trash2 } from 'lucide-react';
-import { formatRecordingDuration } from '../../lib/consultation-scribe';
+import { AlertTriangle, Circle, Info, Loader2, Mic, Pause, Play, Sparkles, Square, Trash2 } from 'lucide-react';
+import {
+  formatRecordingDuration,
+  preferenceToSpeakerChannelMap,
+  speakerChannelMapToPreference,
+  type SpeakerChannelPreference,
+} from '../../lib/consultation-scribe';
 import type { ConsultationScribeController } from '../../hooks/use-consultation-scribe-controller';
 import { WaveformVisualizer } from './WaveformVisualizer';
 
@@ -21,6 +26,8 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
   const isReady = !isLive && !isProcessing && recordingStatus === 'ready';
   const isApproved = !isLive && !isProcessing && recordingStatus === 'approved';
   const showStart = !isLive && !isProcessing;
+  const speakerPreference = speakerChannelMapToPreference(controller.speakerChannelMap);
+  const monoDetected = recorder.channelCount !== null && recorder.channelCount < 2;
 
   // Keep recording visible even when the doctor switches browser tabs, and warn
   // before an accidental refresh would lose the in-progress capture.
@@ -195,6 +202,48 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
           ) : null}
         </div>
       </div>
+
+      {showStart && recorder.isSupported ? (
+        <div className="mt-4 grid gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.5fr)] lg:items-center">
+          <div className="flex items-start gap-2">
+            <Info className="mt-0.5 h-4 w-4 text-blue-600" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
+                {t('doctor.consultationScribe.controlBar.channelSetupTitle')}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                {t('doctor.consultationScribe.controlBar.channelSetupHelp')}
+              </p>
+            </div>
+          </div>
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+            {t('doctor.consultationScribe.controlBar.channelAssignmentLabel')}
+            <select
+              value={speakerPreference}
+              onChange={(event) =>
+                controller.setSpeakerChannelMap(
+                  preferenceToSpeakerChannelMap(event.target.value as SpeakerChannelPreference)
+                )
+              }
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="left-doctor">
+                {t('doctor.consultationScribe.controlBar.channelLeftDoctor')}
+              </option>
+              <option value="left-patient">
+                {t('doctor.consultationScribe.controlBar.channelLeftPatient')}
+              </option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {(monoDetected || (recorder.channelCount !== null && !controller.stereoInputAvailable)) && isLive ? (
+        <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" role="alert">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+          <span>{t('doctor.consultationScribe.controlBar.monoWarning')}</span>
+        </p>
+      ) : null}
 
       {recorder.error ? (
         <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">

@@ -78,3 +78,11 @@ serve(async (req) => {
 - Preventive care risk profiling — Phase 3
 - Wellness coaching — Phase 3
 - Semantic search over medical records — Phase 2
+
+### Consultation Scribe Dual-TX Channel Assignment
+
+The AI Consultation Recorder supports a local dual-TX setup for deterministic speaker labels when the browser receives stereo input. Doctors choose whether Left / Channel 1 or Right / Channel 2 is Doctor vs Patient; the preference is stored locally and sent to the `consultation-scribe` Edge Function with recorded and live requests.
+
+If stereo is detected, the browser records the original stream plus left/right mono channel files, and the Edge Function transcribes channel files separately before merging segments with fixed Doctor/Patient labels. If mono is reported, the flow falls back to the existing best-effort speaker labeling.
+
+See `docs/ai/dual-tx-scribing.md` for DJI Mic Mini setup and manual test steps.
