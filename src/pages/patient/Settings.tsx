@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Globe, HelpCircle, Lock, Settings as SettingsIcon, ShieldCheck, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -49,6 +50,7 @@ function normalizePrefs(value: unknown): Preferences {
 
 export const PatientSettings = () => {
   const { t, i18n } = useTranslation('common');
+  const navigate = useNavigate();
   const { user, requestPasswordReset } = useAuth();
   const { data: profile, loading, error, refetch } = useUserProfile();
   const [section, setSection] = useState<SettingsSection>('account');
@@ -61,6 +63,7 @@ export const PatientSettings = () => {
   const [passwordResetMessage, setPasswordResetMessage] = useState<
     { kind: 'success' | 'error'; text: string } | null
   >(null);
+  const [supportModal, setSupportModal] = useState<'email' | 'whatsapp' | 'bug' | 'help' | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -175,8 +178,18 @@ export const PatientSettings = () => {
                 <dd className="font-semibold text-slate-900">{profile?.city ?? t('patient.profile.notSet')}</dd>
               </div>
             </dl>
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => navigate('/patient/profile')}
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Profile
+            </button>
           </div>
         </div>
+      </div>
       );
     }
 
@@ -288,14 +301,85 @@ export const PatientSettings = () => {
     }
 
     return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.supportTitle')}</h3>
-        <p className="mt-2 text-sm text-slate-500">{t('patient.settings.supportBody')}</p>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-4">
+          <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.supportTitle')}</h3>
+          <p className="text-sm text-slate-500">{t('patient.settings.supportBody')}</p>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setSupportModal('email')}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
+              <div>
+                <div className="font-bold text-slate-900">Email Support</div>
+                <div className="text-xs text-slate-500">support@ceenaix.com</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSupportModal('whatsapp')}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
+              <div>
+                <div className="font-bold text-slate-900">WhatsApp Support</div>
+                <div className="text-xs text-slate-500">Available 9AM – 6PM GST</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSupportModal('bug')}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-red-200 hover:bg-red-50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
+              <div>
+                <div className="font-bold text-slate-900">Report a Bug</div>
+                <div className="text-xs text-slate-500">Help us improve CeenAiX</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSupportModal('help')}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
+              <div>
+                <div className="font-bold text-slate-900">Help Center</div>
+                <div className="text-xs text-slate-500">Browse FAQs and guides</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h3 className="text-base font-bold text-slate-900">App Information</h3>
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Version</span>
+              <span className="font-semibold text-slate-900">1.0.0</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Platform</span>
+              <span className="font-semibold text-slate-900">CeenAiX Health Platform</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Region</span>
+              <span className="font-semibold text-slate-900">UAE 🇦🇪</span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
 
   return (
+    <>
     <div className="animate-fadeIn space-y-6">
       {error ? (
         <div
@@ -369,5 +453,183 @@ export const PatientSettings = () => {
         </main>
       </div>
     </div>
+    {supportModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSupportModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {supportModal === 'email' ? (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Email Support</h2>
+                      <p className="text-xs text-slate-500">We typically reply within 24 hours</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                    <HelpCircle className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="rounded-xl bg-cyan-50 border border-cyan-100 p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Email</span>
+                      <span className="font-bold text-slate-900">support@ceenaix.com</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Response Time</span>
+                      <span className="font-bold text-slate-900">Within 24 hours</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Hours</span>
+                      <span className="font-bold text-slate-900">Sunday – Thursday</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500">Include your account email and a description of your issue for faster resolution.</p>
+                </div>
+                <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+                  <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Cancel
+                  </button>
+                  <a
+                    href={`mailto:support@ceenaix.com?subject=Support Request — ${profile?.email ?? ''}&body=Hi CeenAiX Support,%0D%0A%0D%0AAccount: ${profile?.email ?? ''}%0D%0A%0D%0AIssue description:%0D%0A`}
+                    className="flex-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-cyan-700"
+                    onClick={() => setSupportModal(null)}
+                  >
+                    Open Email
+                  </a>
+                </div>
+              </>
+            ) : supportModal === 'whatsapp' ? (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">WhatsApp Support</h2>
+                      <p className="text-xs text-slate-500">Chat with our support team</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                    <HelpCircle className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">WhatsApp Number</span>
+                      <span className="font-bold text-slate-900">+971 50 000 0000</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Available</span>
+                      <span className="font-bold text-slate-900">9AM – 6PM GST</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Days</span>
+                      <span className="font-bold text-slate-900">Sunday – Thursday</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500">Our support team will respond to your message during working hours.</p>
+                </div>
+                <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+                  <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Cancel
+                  </button>
+                  <a
+                    href="https://wa.me/971500000000?text=Hi%20CeenAiX%20Support%2C%20I%20need%20help%20with%20my%20account."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-emerald-700"
+                    onClick={() => setSupportModal(null)}
+                  >
+                    Open WhatsApp
+                  </a>
+                </div>
+              </>
+            ) : supportModal === 'bug' ? (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Report a Bug</h2>
+                      <p className="text-xs text-slate-500">Help us improve CeenAiX</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                    <HelpCircle className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="rounded-xl bg-red-50 border border-red-100 p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Report To</span>
+                      <span className="font-bold text-slate-900">bugs@ceenaix.com</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Response Time</span>
+                      <span className="font-bold text-slate-900">Within 48 hours</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500">Please include steps to reproduce the bug, which page it occurred on, and any screenshots if possible.</p>
+                </div>
+                <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+                  <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Cancel
+                  </button>
+                  <a
+                    href={`mailto:bugs@ceenaix.com?subject=Bug Report — CeenAiX Patient Portal&body=Account: ${profile?.email ?? ''}%0D%0A%0D%0APage where bug occurred:%0D%0A%0D%0ASteps to reproduce:%0D%0A1. %0D%0A2. %0D%0A3. %0D%0A%0D%0AExpected behavior:%0D%0A%0D%0AActual behavior:%0D%0A`}
+                    className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-red-700"
+                    onClick={() => setSupportModal(null)}
+                  >
+                    Send Bug Report
+                  </a>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Help Center</h2>
+                      <p className="text-xs text-slate-500">Browse FAQs and guides</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                    <HelpCircle className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-3">
+                  {[
+                    { q: 'How do I book an appointment?', a: 'Go to Appointments → New Appointment and select your preferred doctor and time slot.' },
+                    { q: 'How do I request a prescription refill?', a: 'Go to Prescriptions → find your medication → click Request Refill to message your doctor.' },
+                    { q: 'How do I view my lab results?', a: 'Go to Lab Results to see all your test results, trends and upcoming tests.' },
+                    { q: 'How do I update my insurance?', a: 'Go to Profile → Insurance section to update your insurance details.' },
+                    { q: 'How do I change my password?', a: 'Go to Settings → Security → click Email me a password reset link.' },
+                  ].map((item, idx) => (
+                    <div key={idx} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="text-sm font-bold text-slate-900">❓ {item.q}</div>
+                      <div className="mt-1 text-sm text-slate-500">{item.a}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 px-6 py-4">
+                  <button type="button" onClick={() => setSupportModal(null)} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 };

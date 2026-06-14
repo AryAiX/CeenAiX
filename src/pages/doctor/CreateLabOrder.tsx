@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Loader2, Plus, Search, TestTube2, Trash2 } from 'lucide-react';
@@ -667,6 +668,8 @@ export const CreateLabOrder: React.FC = () => {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
 
   const { data: appointmentsData } = useQuery<
     Array<{ id: string; scheduled_at: string; chief_complaint: string | null }>
@@ -698,6 +701,19 @@ export const CreateLabOrder: React.FC = () => {
     () => appointments.find((appointment) => appointment.id === appointmentId) ?? null,
     [appointmentId, appointments]
   );
+
+  const hasUnsavedChanges = useMemo(() => {
+    return items.some((item) => item.testName.trim() || item.catalogSearch.trim());
+  }, [items]);
+
+  const handleNavigateAway = (to: string) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigateTo(to);
+      setShowLeaveConfirm(true);
+    } else {
+      navigate(to);
+    }
+  };
 
   const updateItem = (id: string, nextState: Partial<DraftLabOrderItem>) => {
     setItems((current) =>
@@ -781,14 +797,14 @@ export const CreateLabOrder: React.FC = () => {
   return (
     <>
         <div>
-          <button
-            type="button"
-            onClick={() => navigate('/doctor/lab-orders')}
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Lab Orders
-          </button>
+            <button
+              type="button"
+              onClick={() => handleNavigateAway('/doctor/lab-orders')}
+              className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to Lab Orders
+            </button>
           <h1 className="text-2xl font-bold text-slate-900">{t('doctor.createLabOrder.title')}</h1>
           <p className="mt-1 text-sm text-slate-500">{t('doctor.createLabOrder.subtitle')}</p>
         </div>
@@ -907,6 +923,41 @@ export const CreateLabOrder: React.FC = () => {
           </button>
         </div>
       </div>
+      {showLeaveConfirm ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-6 py-5">
+              <h3 className="text-lg font-bold text-slate-900">Leave without saving?</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                You have unsaved lab order changes. If you leave now all your work will be lost.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  setPendingNavigateTo(null);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  if (pendingNavigateTo) navigate(pendingNavigateTo);
+                }}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Leave Anyway
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 };

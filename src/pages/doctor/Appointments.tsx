@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
+import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ClipboardList, Clock, Download, List, MapPin, PlayCircle, Plus, TrendingUp, User, UserX, Video } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -53,9 +53,16 @@ export const DoctorAppointments: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
+  const tabsSectionRef = useRef<HTMLDivElement>(null);
   const [calendarScale, setCalendarScale] = useState<CalendarScale>('week');
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [listSearchQuery, setListSearchQuery] = useState('');
+  const [listStatusFilter, setListStatusFilter] = useState<string>('all');
+  const [listSortOrder, setListSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [pendingSearchQuery, setPendingSearchQuery] = useState('');
+  const [pendingStatusFilter, setPendingStatusFilter] = useState<string>('all');
+  const [pendingSortOrder, setPendingSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const patientIds = useMemo(
     () => Array.from(new Set((routeAppointments ?? []).map((appointment) => appointment.patient_id))),
@@ -158,6 +165,54 @@ export const DoctorAppointments: React.FC = () => {
     },
     [activeTab, isTodayRoute, routeAppointments, selectedCalendarDateKey, viewMode]
   );
+  const filteredVisibleAppointments = useMemo(() => {
+    if (activeTab !== 'list') return visibleAppointments;
+
+    let result = [...visibleAppointments];
+
+    if (listStatusFilter !== 'all') {
+      result = result.filter((appointment) => appointment.status === listStatusFilter);
+    }
+
+    if (listSearchQuery.trim()) {
+      const query = listSearchQuery.trim().toLowerCase();
+      result = result.filter((appointment) =>
+        (patientNameById.get(appointment.patient_id) ?? '').toLowerCase().includes(query)
+      );
+    }
+
+    result.sort((a, b) => {
+      const diff = new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+      return listSortOrder === 'asc' ? diff : -diff;
+    });
+
+    return result;
+  }, [activeTab, visibleAppointments, listStatusFilter, listSearchQuery, listSortOrder, patientNameById]);
+
+  const filteredPendingAppointments = useMemo(() => {
+    if (activeTab !== 'pending') return visibleAppointments;
+
+    let result = [...visibleAppointments];
+
+    if (pendingStatusFilter !== 'all') {
+      result = result.filter((appointment) => appointment.status === pendingStatusFilter);
+    }
+
+    if (pendingSearchQuery.trim()) {
+      const query = pendingSearchQuery.trim().toLowerCase();
+      result = result.filter((appointment) =>
+        (patientNameById.get(appointment.patient_id) ?? '').toLowerCase().includes(query)
+      );
+    }
+
+    result.sort((a, b) => {
+      const diff = new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+      return pendingSortOrder === 'asc' ? diff : -diff;
+    });
+
+    return result;
+  }, [activeTab, visibleAppointments, pendingStatusFilter, pendingSearchQuery, pendingSortOrder, patientNameById]);
+
   // Use canonical AppointmentStatus values only. The previous list mixed in
   // 'fulfilled', 'finished', 'checked_in' which are not in the enum, so the
   // counters silently stayed wrong even when real rows transitioned status.
@@ -201,7 +256,9 @@ export const DoctorAppointments: React.FC = () => {
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setDate(todayEnd.getDate() + 1);
-    const weekStart = new Date(todayStart);
+    const selectedDay = calendarScale === 'week' ? selectedCalendarDate : todayStart;
+    const weekStart = new Date(selectedDay);
+    weekStart.setHours(0, 0, 0, 0);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
@@ -214,7 +271,7 @@ export const DoctorAppointments: React.FC = () => {
       startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
       endOfMonth: new Date(now.getFullYear(), now.getMonth() + 1, 1),
     };
-  }, [calendarTick]);
+  }, [calendarTick, calendarScale, selectedCalendarDate]);
   const todayAppointmentsForStats = useMemo(
     () =>
       appointments.filter((appointment) => {
@@ -360,14 +417,17 @@ export const DoctorAppointments: React.FC = () => {
     if (action === 'week') {
       setCalendarScale('week');
       handleTabChange('calendar');
+      setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     if (action === 'pending') {
       handleTabChange('pending');
+      setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     if (action === 'analytics') {
       handleTabChange('analytics');
+      setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     navigate('/doctor/profile');
@@ -640,38 +700,21 @@ export const DoctorAppointments: React.FC = () => {
         ) : (
           <div className="space-y-5">
             {!isTodayRoute ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div ref={tabsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleMonthChange(-1)}
-                      className="rounded-lg p-2 transition-colors hover:bg-slate-100"
-                      aria-label={t('doctor.appointments.prevMonth')}
-                    >
-                      <ChevronLeft className="h-5 w-5 text-slate-400" />
-                    </button>
-                    <h2 className="text-[16px] font-bold text-slate-800">
-                      Week of {startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} –{' '}
-                      {new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => handleMonthChange(1)}
-                      className="rounded-lg p-2 transition-colors hover:bg-slate-100"
-                      aria-label={t('doctor.appointments.nextMonth')}
-                    >
-                      <ChevronRight className="h-5 w-5 text-slate-400" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCalendarDate(new Date())}
-                      className="rounded-lg bg-teal-50 px-3 py-1.5 text-[12px] font-bold text-teal-700"
-                    >
-                      Today
-                    </button>
+                  {activeTab === 'calendar' ? (
+                    <span className="text-[15px] font-bold text-slate-800">
+                      {calendarScale === 'day'
+                        ? selectedCalendarDate.toLocaleDateString(locale, dtOpts({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))
+                        : calendarScale === 'week'
+                        ? `Week of ${startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} – ${new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}`
+                        : currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
+                    </span>
+                  ) : null}
                   </div>
 
+                  {activeTab === 'calendar' ? (
                   <div className="flex items-center gap-2 overflow-x-auto">
                     <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
                       <button
@@ -721,6 +764,7 @@ export const DoctorAppointments: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                  ) : null}
                 </div>
 
                 <div className="mb-4 flex overflow-x-auto border-b border-slate-200">
@@ -827,6 +871,25 @@ export const DoctorAppointments: React.FC = () => {
 
             {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'month' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(-1)}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    ← Previous Month
+                  </button>
+                  <span className="text-[15px] font-bold text-slate-800">
+                    {currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(1)}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Next Month →
+                  </button>
+                </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                     <div key={day} className="py-2">
@@ -889,6 +952,34 @@ export const DoctorAppointments: React.FC = () => {
 
             {!isTodayRoute && activeTab === 'calendar' && calendarScale === 'week' ? (
               <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() - 7);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    ← Previous Week
+                  </button>
+                  <span className="text-[15px] font-bold text-slate-800">
+                    Week of {startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} –{' '}
+                    {new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate);
+                      next.setDate(selectedCalendarDate.getDate() + 7);
+                      setSelectedCalendarDate(next);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Next Week →
+                  </button>
+                </div>
                 <div className="grid min-w-[980px] grid-cols-7 gap-3">
                   {weekDays.map((date) => {
                     const dateKey = formatDateKey(date);
@@ -988,6 +1079,100 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             </div>
 
+            {activeTab === 'pending' ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative flex-1">
+                  <input
+                    type="search"
+                    value={pendingSearchQuery}
+                    onChange={(e) => setPendingSearchQuery(e.target.value)}
+                    placeholder="Search by patient name..."
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-4 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={pendingStatusFilter}
+                    onChange={(e) => setPendingStatusFilter(e.target.value)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  >
+                    <option value="all">All Pending</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="confirmed">Confirmed</option>
+                  </select>
+                  <select
+                    value={pendingSortOrder}
+                    onChange={(e) => setPendingSortOrder(e.target.value as 'asc' | 'desc')}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  >
+                    <option value="asc">Nearest First</option>
+                    <option value="desc">Furthest First</option>
+                  </select>
+                  {(pendingSearchQuery || pendingStatusFilter !== 'all') ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingSearchQuery('');
+                        setPendingStatusFilter('all');
+                      }}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {activeTab === 'list' ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative flex-1">
+                  <input
+                    type="search"
+                    value={listSearchQuery}
+                    onChange={(e) => setListSearchQuery(e.target.value)}
+                    placeholder="Search by patient name..."
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-4 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={listStatusFilter}
+                    onChange={(e) => setListStatusFilter(e.target.value)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="no_show">No Show</option>
+                  </select>
+                  <select
+                    value={listSortOrder}
+                    onChange={(e) => setListSortOrder(e.target.value as 'asc' | 'desc')}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                  {(listSearchQuery || listStatusFilter !== 'all') ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setListSearchQuery('');
+                        setListStatusFilter('all');
+                      }}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             {activeTab === 'analytics' && !isTodayRoute ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1037,7 +1222,7 @@ export const DoctorAppointments: React.FC = () => {
                   <p className="mt-2 text-sm text-slate-500">Live from appointment status values.</p>
                 </div>
               </div>
-            ) : visibleAppointments.length === 0 ? (
+            ) : (activeTab === 'pending' ? filteredPendingAppointments : filteredVisibleAppointments).length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm">
                 <CalendarDays className="mx-auto mb-4 h-10 w-10 text-gray-400" />
                 <h3 className="text-xl font-bold text-gray-900">{t('doctor.appointments.noDayTitle')}</h3>
@@ -1045,7 +1230,7 @@ export const DoctorAppointments: React.FC = () => {
               </div>
             ) : (
               <div className="grid gap-6">
-                {visibleAppointments.map((appointment) => (
+                {(activeTab === 'pending' ? filteredPendingAppointments : filteredVisibleAppointments).map((appointment) => (
                   (() => {
                     const canCancel =
                       ['scheduled', 'confirmed'].includes(appointment.status) &&

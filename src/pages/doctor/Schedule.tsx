@@ -93,11 +93,21 @@ export const DoctorSchedule: React.FC = () => {
   const [deleteAvailabilityId, setDeleteAvailabilityId] = useState<string | null>(null);
   const [showDeleteBlockedSlotModal, setShowDeleteBlockedSlotModal] = useState(false);
   const [deleteBlockedSlotId, setDeleteBlockedSlotId] = useState<string | null>(null);
+  const [showBlockedSlotHistory, setShowBlockedSlotHistory] = useState(false);
   const [editingAvailabilityId, setEditingAvailabilityId] = useState<string | null>(null);
   const [editAvailabilityForm, setEditAvailabilityForm] = useState<AvailabilityFormState>(INITIAL_AVAILABILITY_FORM);
 
   const availabilities = useMemo(() => data?.availabilities ?? [], [data?.availabilities]);
   const blockedSlots = useMemo(() => data?.blockedSlots ?? [], [data?.blockedSlots]);
+
+  const visibleBlockedSlots = useMemo(() => {
+    if (showBlockedSlotHistory) return blockedSlots;
+    return blockedSlots.filter((slot) => slot.blocked_date >= getTodayDate());
+  }, [blockedSlots, showBlockedSlotHistory]);
+
+  const pastBlockedSlotsCount = useMemo(() => {
+    return blockedSlots.filter((slot) => slot.blocked_date < getTodayDate()).length;
+  }, [blockedSlots]);
 
   const groupedAvailability = useMemo(
     () =>
@@ -304,6 +314,14 @@ export const DoctorSchedule: React.FC = () => {
     return Math.floor(totalMinutes / slotDurationMinutes);
   };
 
+  const totalWeeklySlots = useMemo(() => {
+    return availabilities
+      .filter((availability) => availability.is_active)
+      .reduce((total, availability) => {
+        return total + calculateSlots(availability.start_time, availability.end_time, availability.slot_duration_minutes);
+      }, 0);
+  }, [availabilities]);
+
   return (
     <>
       <div>
@@ -334,7 +352,7 @@ export const DoctorSchedule: React.FC = () => {
           </div>
         ) : null}
 
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
+        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-500">Active weekly windows</p>
             {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{activeAvailabilityCount}</p>}
@@ -343,7 +361,7 @@ export const DoctorSchedule: React.FC = () => {
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-500">Upcoming blocked slots</p>
-            {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{blockedSlots.length}</p>}
+            {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{blockedSlots.filter((slot) => slot.blocked_date >= getTodayDate()).length}</p>}
             <p className="mt-2 text-sm text-gray-600">Use blocked slots for leave, meetings, and time away from clinic.</p>
           </div>
 
@@ -352,9 +370,26 @@ export const DoctorSchedule: React.FC = () => {
             {loading ? (
               <Skeleton className="mt-3 h-8 w-24" />
             ) : (
-              <p className="mt-3 text-3xl font-bold text-gray-900">{activeAvailabilityCount > 0 ? 'Ready' : 'Not yet'}</p>
+              <p className={`mt-3 text-3xl font-bold ${activeAvailabilityCount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {activeAvailabilityCount > 0 ? 'Ready ✅' : 'Not yet ❌'}
+              </p>
             )}
             <p className="mt-2 text-sm text-gray-600">Add at least one active recurring window before patient booking is enabled.</p>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">Total slots per week</p>
+            {loading ? (
+              <Skeleton className="mt-3 h-8 w-12" />
+            ) : (
+              <p className={`mt-3 text-3xl font-bold ${totalWeeklySlots > 0 ? 'text-teal-600' : 'text-slate-400'}`}>
+                {totalWeeklySlots}
+              </p>
+            )}
+            <p className="mt-2 text-sm text-gray-600">
+              {totalWeeklySlots > 0
+                ? `${totalWeeklySlots} appointment slots available across your active weekly windows.`
+                : 'No slots available yet. Add active availability windows to enable booking.'}
+            </p>
           </div>
         </div>
 
@@ -705,8 +740,21 @@ export const DoctorSchedule: React.FC = () => {
             </section>
 
             <section className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900">Upcoming Blocked Slots</h2>
-              <p className="mt-1 text-sm text-gray-600">These one-off blocks override your recurring weekly availability.</p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Upcoming Blocked Slots</h2>
+                  <p className="mt-1 text-sm text-gray-600">These one-off blocks override your recurring weekly availability.</p>
+                </div>
+                {pastBlockedSlotsCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowBlockedSlotHistory((prev) => !prev)}
+                    className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    {showBlockedSlotHistory ? 'Hide History' : `Show History (${pastBlockedSlotsCount})`}
+                  </button>
+                ) : null}
+              </div>
 
               <div className="mt-6 space-y-3">
                 {loading ? (
@@ -714,7 +762,7 @@ export const DoctorSchedule: React.FC = () => {
                     <Skeleton className="h-24 w-full rounded-2xl" />
                     <Skeleton className="h-24 w-full rounded-2xl" />
                   </>
-                ) : blockedSlots.length === 0 ? (
+                ) : visibleBlockedSlots.length === 0 && !showBlockedSlotHistory ? (
                   <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
                     <Ban className="mx-auto mb-3 h-8 w-8 text-gray-400" />
                     <p className="font-semibold text-gray-900">No blocked time yet</p>
@@ -723,11 +771,11 @@ export const DoctorSchedule: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  blockedSlots.map((slot) => {
+                  visibleBlockedSlots.map((slot) => {
                     const isBusy = busyBlockedSlotId === slot.id;
 
                     return (
-                      <div key={slot.id} className="rounded-xl border border-orange-100 bg-orange-50 p-4">
+                      <div key={slot.id} className={`rounded-xl border p-4 ${slot.blocked_date < getTodayDate() ? 'border-slate-200 bg-slate-50 opacity-60' : 'border-orange-100 bg-orange-50'}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="font-semibold text-gray-900">

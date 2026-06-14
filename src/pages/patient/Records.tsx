@@ -173,6 +173,11 @@ export const PatientRecords: React.FC = () => {
   const [submittingForm, setSubmittingForm] = useState<RecordCategory | null>(null);
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editConditionForm, setEditConditionForm] = useState<ConditionFormState>(initialConditionForm);
+  const [editAllergyForm, setEditAllergyForm] = useState<AllergyFormState>(initialAllergyForm);
+  const [editVaccinationForm, setEditVaccinationForm] = useState<VaccinationFormState>(initialVaccinationForm);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
   const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<RecordEntry | null>(null);
   const [showFormSwitchWarning, setShowFormSwitchWarning] = useState(false);
   const [pendingForm, setPendingForm] = useState<RecordCategory | null>(null);
@@ -529,6 +534,109 @@ export const PatientRecords: React.FC = () => {
       type: 'success',
       message: t('patient.records.removed', { category: recordCategoryLabel(record.category) }),
     });
+    refetch();
+  };
+
+  const handleStartEdit = (record: RecordEntry) => {
+    setEditingRecordId(record.id);
+    if (record.category === 'condition') {
+      const condition = conditions.find((c) => c.id === record.id);
+      if (condition) {
+        setEditConditionForm({
+          conditionName: condition.condition_name,
+          icdCode: condition.icd_code ?? '',
+          diagnosedDate: condition.diagnosed_date ?? '',
+          status: condition.status,
+          notes: condition.notes ?? '',
+        });
+      }
+    } else if (record.category === 'allergy') {
+      const allergy = allergies.find((a) => a.id === record.id);
+      if (allergy) {
+        setEditAllergyForm({
+          allergen: allergy.allergen,
+          severity: allergy.severity,
+          reaction: allergy.reaction ?? '',
+          confirmedByDoctor: allergy.confirmed_by_doctor,
+        });
+      }
+    } else if (record.category === 'vaccination') {
+      const vaccination = vaccinations.find((v) => v.id === record.id);
+      if (vaccination) {
+        setEditVaccinationForm({
+          vaccineName: vaccination.vaccine_name,
+          doseNumber: vaccination.dose_number?.toString() ?? '',
+          administeredDate: vaccination.administered_date ?? '',
+          administeredBy: vaccination.administered_by ?? '',
+          nextDoseDue: vaccination.next_dose_due ?? '',
+        });
+      }
+    }
+  };
+
+  const handleSaveEdit = async (record: RecordEntry) => {
+    if (!user?.id) return;
+    setFeedback(null);
+    setSubmittingEdit(true);
+
+    if (record.category === 'condition') {
+      const { error: updateError } = await supabase
+        .from('medical_conditions')
+        .update({
+          condition_name: editConditionForm.conditionName.trim(),
+          icd_code: editConditionForm.icdCode.trim() || null,
+          diagnosed_date: editConditionForm.diagnosedDate || null,
+          status: editConditionForm.status,
+          notes: editConditionForm.notes.trim() || null,
+        })
+        .eq('id', record.id)
+        .eq('patient_id', user.id);
+      if (updateError) {
+        setFeedback({ type: 'error', message: updateError.message });
+        setSubmittingEdit(false);
+        return;
+      }
+    } else if (record.category === 'allergy') {
+      const { error: updateError } = await supabase
+        .from('allergies')
+        .update({
+          allergen: editAllergyForm.allergen.trim(),
+          severity: editAllergyForm.severity,
+          reaction: editAllergyForm.reaction.trim() || null,
+          confirmed_by_doctor: editAllergyForm.confirmedByDoctor,
+        })
+        .eq('id', record.id)
+        .eq('patient_id', user.id);
+      if (updateError) {
+        setFeedback({ type: 'error', message: updateError.message });
+        setSubmittingEdit(false);
+        return;
+      }
+    } else if (record.category === 'vaccination') {
+      const parsedDose = editVaccinationForm.doseNumber.trim()
+        ? Number(editVaccinationForm.doseNumber)
+        : null;
+      const { error: updateError } = await supabase
+        .from('vaccinations')
+        .update({
+          vaccine_name: editVaccinationForm.vaccineName.trim(),
+          dose_number: parsedDose && Number.isFinite(parsedDose) ? parsedDose : null,
+          administered_date: editVaccinationForm.administeredDate || null,
+          administered_by: editVaccinationForm.administeredBy.trim() || null,
+          next_dose_due: editVaccinationForm.nextDoseDue || null,
+        })
+        .eq('id', record.id)
+        .eq('patient_id', user.id);
+      if (updateError) {
+        setFeedback({ type: 'error', message: updateError.message });
+        setSubmittingEdit(false);
+        return;
+      }
+    }
+
+    setSubmittingEdit(false);
+    setEditingRecordId(null);
+    setFeedback({ type: 'success', message: 'Record updated successfully.' });
     refetch();
   };
 
@@ -1123,7 +1231,14 @@ export const PatientRecords: React.FC = () => {
                   </div>
                 ) : null}
 
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => editingRecordId === record.id ? setEditingRecordId(null) : handleStartEdit(record)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    ✏️ {editingRecordId === record.id ? 'Cancel Edit' : 'Edit'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setConfirmDeleteRecord(record)}
@@ -1134,8 +1249,94 @@ export const PatientRecords: React.FC = () => {
                     {busyDeleteId === record.id ? t('patient.records.removing') : t('patient.records.remove')}
                   </button>
                 </div>
-              </div>
-            ))}
+                {editingRecordId === record.id ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                    {record.category === 'condition' ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Condition Name *</span>
+                          <input type="text" value={editConditionForm.conditionName} onChange={(e) => setEditConditionForm(prev => ({ ...prev, conditionName: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">ICD Code</span>
+                          <input type="text" value={editConditionForm.icdCode} onChange={(e) => setEditConditionForm(prev => ({ ...prev, icdCode: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Diagnosed Date</span>
+                          <input type="date" value={editConditionForm.diagnosedDate} onChange={(e) => setEditConditionForm(prev => ({ ...prev, diagnosedDate: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Status *</span>
+                          <select value={editConditionForm.status} onChange={(e) => setEditConditionForm(prev => ({ ...prev, status: e.target.value as ConditionStatus }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20">
+                            <option value="active">Active</option>
+                            <option value="chronic">Chronic</option>
+                            <option value="resolved">Resolved</option>
+                          </select>
+                        </label>
+                        <label className="block space-y-1 md:col-span-2">
+                          <span className="text-xs font-semibold text-slate-700">Notes</span>
+                          <textarea rows={3} value={editConditionForm.notes} onChange={(e) => setEditConditionForm(prev => ({ ...prev, notes: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
+                        </label>
+                      </div>
+                    ) : record.category === 'allergy' ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Allergen *</span>
+                          <input type="text" value={editAllergyForm.allergen} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, allergen: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Severity *</span>
+                          <select value={editAllergyForm.severity} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, severity: e.target.value as AllergySeverity }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20">
+                            <option value="mild">Mild</option>
+                            <option value="moderate">Moderate</option>
+                            <option value="severe">Severe</option>
+                          </select>
+                        </label>
+                        <label className="block space-y-1 md:col-span-2">
+                          <span className="text-xs font-semibold text-slate-700">Reaction</span>
+                          <textarea rows={3} value={editAllergyForm.reaction} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, reaction: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20" />
+                        </label>
+                        <label className="inline-flex items-center gap-2 md:col-span-2">
+                          <input type="checkbox" checked={editAllergyForm.confirmedByDoctor} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, confirmedByDoctor: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-amber-600" />
+                          <span className="text-sm text-slate-700">Confirmed by doctor</span>
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Vaccine Name *</span>
+                          <input type="text" value={editVaccinationForm.vaccineName} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, vaccineName: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Dose Number</span>
+                          <input type="number" min={1} value={editVaccinationForm.doseNumber} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, doseNumber: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Administered Date</span>
+                          <input type="date" value={editVaccinationForm.administeredDate} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, administeredDate: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-slate-700">Administered By</span>
+                          <input type="text" value={editVaccinationForm.administeredBy} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, administeredBy: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
+                        </label>
+                        <label className="block space-y-1 md:col-span-2">
+                          <span className="text-xs font-semibold text-slate-700">Next Dose Due</span>
+                          <input type="date" value={editVaccinationForm.nextDoseDue} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, nextDoseDue: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
+                        </label>
+                      </div>
+                    )}
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => handleSaveEdit(record)} disabled={submittingEdit} className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60">
+                        {submittingEdit ? 'Saving...' : 'Save Changes'}
+                      </button>
+                      <button type="button" onClick={() => setEditingRecordId(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+            </div>
+          ))}
           </div>
         )}
 

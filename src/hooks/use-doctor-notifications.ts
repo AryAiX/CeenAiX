@@ -77,7 +77,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(25),
-      supabase.from('conversations').select('id').contains('participant_ids', [userId]),
+      supabase.from('conversations').select('id').filter('participant_ids', 'cs', `["${userId}"]`),
       supabase
         .from('appointment_pre_visit_assessments')
         .select('id, appointment_id, patient_id, completed_at, updated_at')

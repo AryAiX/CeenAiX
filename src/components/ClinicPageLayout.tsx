@@ -1,9 +1,18 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { OpsShell } from './OpsShell';
+import {
+  BarChart2,
+  Bell,
+  CalendarDays,
+  DollarSign,
+  LayoutDashboard,
+  MessageSquare,
+  Settings,
+  Stethoscope,
+  Users,
+} from 'lucide-react';
+import { OpsShell, type OpsShellNavItem } from './OpsShell';
 import { useClinicPortal } from '../hooks/use-clinic-portal';
-import { CLINIC_NAV_ITEMS } from '../pages/clinic/navItems';
-import type { ClinicPortalRole } from '../types/clinic-portal';
 
 interface ClinicPageLayoutProps {
   title: string;
@@ -15,8 +24,6 @@ interface ClinicPageLayoutProps {
 export const ClinicPageLayout = ({ title, subtitle, actions, children }: ClinicPageLayoutProps) => {
   const { t } = useTranslation('common');
   const { data, loading, error, refetch } = useClinicPortal();
-
-  const role = (data?.portal_role ?? 'clinic_manager') as ClinicPortalRole;
 
   if (error && !data) {
     return (
@@ -39,27 +46,28 @@ export const ClinicPageLayout = ({ title, subtitle, actions, children }: ClinicP
   const facilityName =
     data?.facility?.name_en ?? data?.facility?.name ?? t('clinic.facilityFallback');
 
-  const navItems = CLINIC_NAV_ITEMS(t, role, {
-    appointments: data?.appointments.filter((a) => a.status === 'scheduled' || a.status === 'confirmed').length,
-  }).map((item) => ({
-    ...item,
-    href: item.href,
-    label: item.label,
-    icon: item.icon,
-    section: item.section === 'insights' ? ('analytics' as const) : item.section === 'account' ? ('account' as const) : ('main' as const),
-    badge: item.badge,
-    badgeTone: 'blue' as const,
-    disabled: item.adminOnly && role !== 'clinic_admin',
-  }));
+  const appointmentBadge = data?.appointments.filter(
+    (appointment) => appointment.status === 'scheduled' || appointment.status === 'confirmed'
+  ).length;
 
-  const filteredNav = navItems.filter((item) => !item.disabled);
+  const navItems: OpsShellNavItem[] = [
+    { href: '/clinic/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/clinic/doctors', label: 'Doctors', icon: Stethoscope },
+    { href: '/clinic/appointments', label: 'Appointments', icon: CalendarDays, badge: appointmentBadge, badgeTone: 'blue' },
+    { href: '/clinic/patients', label: 'Patients', icon: Users },
+    { href: '/clinic/pricing', label: 'Pricing & Services', icon: DollarSign },
+    { href: '/clinic/messages', label: 'Messages', icon: MessageSquare },
+    { href: '/clinic/notifications', label: 'Notifications', icon: Bell },
+    { href: '/clinic/analytics', label: 'Analytics', icon: BarChart2, section: 'analytics' },
+    { href: '/clinic/settings', label: 'Settings', icon: Settings, section: 'account' },
+  ];
 
   return (
     <OpsShell
       title={title}
       subtitle={subtitle ?? facilityName}
       eyebrow={loading ? t('clinic.loading') : t('clinic.portalEyebrow')}
-      navItems={filteredNav}
+      navItems={navItems}
       actions={actions}
       accent="emerald"
     >

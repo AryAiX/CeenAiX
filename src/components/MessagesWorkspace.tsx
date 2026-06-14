@@ -29,7 +29,7 @@ import {
 import { Skeleton } from './Skeleton';
 
 interface MessagesWorkspaceProps {
-  role: 'patient' | 'doctor' | 'pharmacy';
+  role: 'patient' | 'doctor' | 'pharmacy' | 'clinic';
 }
 
 interface AttachmentPreview {
@@ -79,11 +79,17 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
-  const namespace = role === 'patient' ? 'patient.messages' : role === 'pharmacy' ? 'pharmacy.messages' : 'doctor.messages';
-  const composeParam = role === 'patient' ? 'doctor' : role === 'pharmacy' ? 'patient' : 'patient';
+  const namespace = role === 'patient' ? 'patient.messages' : role === 'pharmacy' ? 'pharmacy.messages' : role === 'clinic' ? 'clinic.messages' : 'doctor.messages';
   const pharmacyParam = searchParams.get('pharmacy');
-  const composeTargetId = role === 'patient' 
-    ? (pharmacyParam ?? searchParams.get('doctor')) 
+  const composeParam = role === 'patient'
+    ? 'doctor'
+    : role === 'pharmacy'
+      ? 'patient'
+      : role === 'clinic'
+        ? (searchParams.get('doctor') ? 'doctor' : 'patient')
+        : 'patient';
+  const composeTargetId = role === 'patient'
+    ? (pharmacyParam ?? searchParams.get('doctor'))
     : searchParams.get(composeParam);
   const draftParam = searchParams.get('draft');
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,17 +148,32 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       );
 
       if (nextConversationId) {
-        navigate(`/${role}/messages/${nextConversationId}`, { replace: true });
+        const draftValue = searchParams.get('draft');
+        const target = draftValue
+          ? `/${role}/messages/${nextConversationId}?draft=${draftValue}`
+          : `/${role}/messages/${nextConversationId}`;
+        navigate(target, { replace: true });
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeParam, composeTargetId, ensureDirectConversation, namespace, navigate, role, t, user?.id]);
 
   useEffect(() => {
     if (!draftParam || !activeConversationId) return;
     if (draftPrefillRef.current === activeConversationId) return;
     draftPrefillRef.current = activeConversationId;
-    setDraft(decodeURIComponent(draftParam));
-  }, [draftParam, activeConversationId]);
+    const decoded = decodeURIComponent(draftParam);
+    if (role === 'doctor') {
+      setDoctorComposerBody(decoded);
+      setTimeout(() => {
+        if (doctorComposerRef.current) {
+          doctorComposerRef.current.innerText = decoded;
+        }
+      }, 100);
+    } else {
+      setDraft(decoded);
+    }
+  }, [draftParam, activeConversationId, role]);
 
   useEffect(() => {
     setSentAttachments((prev) => {
@@ -720,7 +741,16 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   };
 
   const theme =
-    role === 'doctor'
+    role === 'clinic'
+      ? {
+          selected: 'border-teal-200 bg-teal-50',
+          badge: 'bg-teal-100 text-teal-700',
+          button: 'from-teal-700 to-teal-500',
+          composerBorder: 'focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20',
+          composerButton: 'bg-teal-600 hover:bg-teal-700',
+          ownBubble: 'border-teal-200 bg-teal-600 text-white',
+        }
+      : role === 'doctor'
       ? {
           selected: 'border-emerald-200 bg-emerald-50',
           badge: 'bg-emerald-100 text-emerald-700',
@@ -1235,10 +1265,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                       ? 'bg-teal-100 text-teal-700'
                       : role === 'pharmacy'
                       ? 'bg-emerald-100 text-emerald-700'
+                      : role === 'clinic'
+                      ? 'bg-cyan-100 text-cyan-700'
                       : 'bg-blue-100 text-blue-700'
                   }`}
                 >
-                  {role === 'patient' ? 'Doctor' : role === 'pharmacy' ? 'Patient' : 'Patient'}
+                  {role === 'patient' ? 'Doctor' : role === 'pharmacy' ? 'Patient' : role === 'clinic' ? 'Contact' : 'Patient'}
                 </span>
               </div>
 
@@ -1255,7 +1287,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   <span className='text-base'>👤</span>
                   <span className='text-gray-500'>Role</span>
                   <span className='ml-auto font-medium text-gray-800'>
-                    {role === 'patient' ? 'Healthcare Provider' : 'Patient'}
+                    {role === 'patient' ? 'Healthcare Provider' : role === 'clinic' ? 'Contact' : 'Patient'}
                   </span>
                 </div>
               </div>

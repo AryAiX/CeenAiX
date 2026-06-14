@@ -538,6 +538,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           .select('id, conversation_id, sender_id, body, sent_at, read_at')
           .in('conversation_id', conversationIds)
           .neq('sender_id', userId)
+          .or(`read_at.is.null,sent_at.gte.${new Date(new Date().setHours(0,0,0,0)).toISOString()}`)
           .order('sent_at', { ascending: false })
           .limit(3),
       ]);

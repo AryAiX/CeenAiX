@@ -240,7 +240,7 @@ export function useDoctorPatients(userId: string | null | undefined) {
           if (!UPCOMING_STATUSES.has(appointment.status)) {
             return false;
           }
-          return new Date(appointment.scheduled_at).getTime() >= now || appointment.status === 'in_progress';
+          return new Date(appointment.scheduled_at).getTime() >= now;
         }) ?? null;
 
       const lastAppointment =

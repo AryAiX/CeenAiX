@@ -57,7 +57,7 @@ export const DoctorPatientDetail: React.FC = () => {
       appointments.find(
         (appointment) =>
           UPCOMING_STATUSES.has(appointment.status) &&
-          (appointment.status === 'in_progress' || new Date(appointment.scheduled_at).getTime() >= Date.now())
+          new Date(appointment.scheduled_at).getTime() >= Date.now()
       ) ?? null,
     [appointments]
   );
@@ -286,6 +286,13 @@ export const DoctorPatientDetail: React.FC = () => {
               </div>
 
               <div className="space-y-4">
+                {appointments.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                    <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                    <p className="font-semibold text-slate-700">No appointments yet</p>
+                    <p className="mt-1 text-sm text-slate-500">This patient has no appointment history with you.</p>
+                  </div>
+                ) : null}
                 {(showAllAppointments ? appointments : appointments.slice(0, 6)).map((appointment) => (
                   <button
                     key={appointment.id}
@@ -564,8 +571,12 @@ export const DoctorPatientDetail: React.FC = () => {
                             <p className="mt-2 text-sm text-slate-500">{medication.instructions}</p>
                           ) : null}
                         </div>
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                          {medication.review_status}
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          medication.review_status === 'reviewed'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {medication.review_status === 'reviewed' ? '✅ Reviewed' : '⏳ Pending Review'}
                         </span>
                       </div>
                       {medication.review_status !== 'reviewed' ? (

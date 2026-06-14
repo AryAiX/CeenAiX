@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import jsPDF from 'jspdf';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -22,7 +23,7 @@ export const DoctorLabOrders: React.FC = () => {
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'critical' | 'pending' | 'results' | 'scheduled'>('critical');
+  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'pending' | 'results' | 'scheduled'>('critical');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printLabOrderId, setPrintLabOrderId] = useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
@@ -76,10 +77,7 @@ export const DoctorLabOrders: React.FC = () => {
     [searchQuery, statusFilter, tabLabOrders]
   );
 
-  const uniquePatients = useMemo(
-    () => new Set(labOrders.map((labOrder) => labOrder.patient_id)).size,
-    [labOrders]
-  );
+
   const pendingResults = useMemo(
     () => labOrders.filter((labOrder) => labOrder.status !== 'reviewed').length,
     [labOrders]
@@ -97,6 +95,7 @@ export const DoctorLabOrders: React.FC = () => {
   const printLabOrder = labOrders.find((o) => o.id === printLabOrderId) ?? null;
   const firstCriticalItem = firstCriticalOrder?.items.find((item) => item.is_abnormal && item.status === 'resulted') ?? null;
   const labTabs = [
+    { id: 'all' as const, label: 'All', count: labOrders.length, icon: TestTube2 },
     { id: 'critical' as const, label: 'Critical', count: criticalCount, icon: AlertTriangle },
     { id: 'pending' as const, label: 'Pending', count: pendingResults, icon: Clock },
     { id: 'results' as const, label: 'Results', count: resultedCount, icon: CheckCircle2 },
@@ -107,7 +106,8 @@ export const DoctorLabOrders: React.FC = () => {
     if (!loading && activeTab === 'critical' && criticalCount === 0 && labOrders.length > 0) {
       setActiveTab('pending');
     }
-  }, [activeTab, criticalCount, labOrders.length, loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, criticalCount, labOrders.length]);
 
   const handleMarkReviewed = async (labOrderId: string) => {
     setActionFeedback(null);
@@ -153,6 +153,107 @@ export const DoctorLabOrders: React.FC = () => {
       </>
     );
   }
+
+  const handleDownloadPdf = () => {
+    if (!printLabOrder) return;
+    const doc = new jsPDF();
+    const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Unknown';
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Header
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CeenAiX', 14, 18);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Healthcare Platform — Lab Order', 14, 28);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 28, { align: 'right' });
+
+    y = 55;
+
+    // Patient info
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PATIENT INFORMATION', 14, y);
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Patient Name: ${printLabOrder.patientName}`, 14, y);
+    y += 7;
+    doc.text(`Ordered Date: ${new Date(printLabOrder.ordered_at).toLocaleDateString()}`, 14, y);
+    y += 7;
+    doc.text(`Ordering Doctor: Dr. ${doctorName}`, 14, y);
+    y += 7;
+    doc.text(`Status: ${printLabOrder.status.charAt(0).toUpperCase() + printLabOrder.status.slice(1)}`, 14, y);
+    y += 15;
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, y, pageWidth - 14, y);
+    y += 10;
+
+    // Tests
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ORDERED TESTS', 14, y);
+    y += 10;
+
+    printLabOrder.items.forEach((item, index) => {
+      doc.setFillColor(item.is_abnormal ? 254 : 248, item.is_abnormal ? 242 : 250, item.is_abnormal ? 242 : 252);
+      doc.roundedRect(14, y - 5, pageWidth - 28, 30, 3, 3, 'F');
+
+      doc.setTextColor(item.is_abnormal ? 185 : 15, item.is_abnormal ? 28 : 23, item.is_abnormal ? 28 : 42);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${index + 1}. ${item.test_name}${item.test_code ? ` (${item.test_code})` : ''}`, 20, y + 2);
+      y += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+
+      if (item.result_value) {
+        doc.text(`Result: ${[item.result_value, item.result_unit].filter(Boolean).join(' ')}${item.reference_range ? `   Ref: ${item.reference_range}` : ''}${item.is_abnormal ? '   ⚠ ABNORMAL' : ''}`, 20, y + 2);
+        y += 8;
+      } else {
+        doc.text(`Status: ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`, 20, y + 2);
+        y += 8;
+      }
+
+      y += 8;
+    });
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, y, pageWidth - 14, y);
+    y += 10;
+
+    // Disclaimer
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont('helvetica', 'italic');
+    doc.text('These results are for clinical use only. Always verify with the ordering physician.', 14, y, {
+      maxWidth: pageWidth - 28,
+    });
+
+    // Footer
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 280, pageWidth, 17, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('CeenAiX Healthcare Platform — UAE', 14, 290);
+    doc.text(`Lab Order ID: ${printLabOrder.id.slice(0, 8)}`, pageWidth - 14, 290, { align: 'right' });
+
+    doc.save(`lab-order-${printLabOrder.id.slice(0, 8)}.pdf`);
+  };
 
   return (
     <>
@@ -242,7 +343,7 @@ export const DoctorLabOrders: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('results')}
+            onClick={() => setActiveTab('all')}
             className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-teal-200 text-left w-full"
           >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.totalOrders')}</p>
@@ -263,8 +364,8 @@ export const DoctorLabOrders: React.FC = () => {
             onClick={() => setActiveTab('scheduled')}
             className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-blue-200 text-left w-full"
           >
-            <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.linkedPatients')}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(uniquePatients, uiLang)}</p>
+            <p className="text-sm font-medium text-slate-500">Scheduled</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(scheduledCount, uiLang)}</p>
             <p className="mt-1 text-xs text-blue-400">Click to view scheduled</p>
           </button>
         </div>
@@ -283,6 +384,8 @@ export const DoctorLabOrders: React.FC = () => {
                     active
                       ? tab.id === 'critical'
                         ? 'bg-red-600 text-white shadow-lg shadow-red-500/20'
+                        : tab.id === 'all'
+                        ? 'bg-slate-700 text-white shadow-lg shadow-slate-500/20'
                         : 'bg-teal-600 text-white shadow-lg shadow-teal-500/20'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                   }`}
@@ -390,14 +493,16 @@ export const DoctorLabOrders: React.FC = () => {
                         <MessageSquare className="h-4 w-4" />
                         <span>{t('doctor.messages.messagePatient')}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/doctor/lab-orders/new?patient=${labOrder.patient_id}&appointment=${labOrder.appointment_id ?? ''}`)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100"
-                      >
-                        <Plus className="h-4 w-4" />
-                        <span>{t('doctor.labOrders.reorder')}</span>
-                      </button>
+                      {['resulted', 'reviewed'].includes(labOrder.status) ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/doctor/lab-orders/new?patient=${labOrder.patient_id}&appointment=${labOrder.appointment_id ?? ''}`)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>{t('doctor.labOrders.reorder')}</span>
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => {
@@ -407,7 +512,7 @@ export const DoctorLabOrders: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         <Printer className="h-4 w-4" />
-                        <span>Print / CSV</span>
+                        <span>Print / PDF</span>
                       </button>
                       {labOrder.status === 'resulted' ? (
                         <button
@@ -526,57 +631,28 @@ export const DoctorLabOrders: React.FC = () => {
 
                 {/* Action cards */}
                 <div className="grid grid-cols-2 gap-4 px-6 py-5">
-                  {/* Print */}
-                  <div className="flex flex-col rounded-xl border border-slate-200 p-4">
-                    <p className="text-2xl">🖨️</p>
-                    <p className="mt-2 text-sm font-bold text-slate-900">Print Lab Order</p>
+                  <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                    <span className="mb-2 text-2xl">🖨️</span>
+                    <p className="text-sm font-bold text-slate-900">Print Lab Order</p>
                     <p className="mt-1 text-xs text-slate-500">Open your browser print dialog to print this lab order</p>
                     <button
                       type="button"
                       onClick={() => window.print()}
-                      className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+                      className="mt-4 w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
                     >
                       Print Now
                     </button>
                   </div>
-
-                  {/* CSV */}
-                  <div className="flex flex-col rounded-xl border border-slate-200 p-4">
-                    <p className="text-2xl">📊</p>
-                    <p className="mt-2 text-sm font-bold text-slate-900">Download as CSV</p>
-                    <p className="mt-1 text-xs text-slate-500">Download a CSV file with all test results</p>
+                  <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                    <span className="mb-2 text-2xl">📑</span>
+                    <p className="text-sm font-bold text-slate-900">Download as PDF</p>
+                    <p className="mt-1 text-xs text-slate-500">Download a professional PDF version of this lab order</p>
                     <button
                       type="button"
-                      onClick={() => {
-                        const header = 'Patient Name,Ordered Date,Status,Test Name,Test Code,Result Value,Result Unit,Reference Range,Is Abnormal,Result Status';
-                        const rows = printLabOrder.items.map((item) =>
-                          [
-                            printLabOrder.patientName,
-                            new Date(printLabOrder.ordered_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-                            printLabOrder.status,
-                            item.test_name,
-                            item.test_code ?? '',
-                            item.result_value ?? '',
-                            item.result_unit ?? '',
-                            item.reference_range ?? '',
-                            item.is_abnormal ? 'Yes' : 'No',
-                            item.status,
-                          ]
-                            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-                            .join(',')
-                        );
-                        const csv = [header, ...rows].join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `lab-order-${printLabOrder.id}.csv`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="mt-4 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-700"
+                      onClick={handleDownloadPdf}
+                      className="mt-4 w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
                     >
-                      Download CSV
+                      Download PDF
                     </button>
                   </div>
                 </div>

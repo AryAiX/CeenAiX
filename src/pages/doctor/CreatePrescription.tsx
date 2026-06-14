@@ -878,6 +878,11 @@ export const CreatePrescription: React.FC = () => {
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [patientAutoSelected, setPatientAutoSelected] = useState(false);
+  const [savedPrescriptionId, setSavedPrescriptionId] = useState<string | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
+  const [renewSearchQuery, setRenewSearchQuery] = useState('');
   const navigateAfterSaveTimer = useRef<number | null>(null);
   const selectedPatient = useMemo(
     () => patients.find((patient) => patient.id === patientId) ?? null,
@@ -887,12 +892,14 @@ export const CreatePrescription: React.FC = () => {
   useEffect(() => {
     if (!patientId && patients.length > 0) {
       setPatientId(patients[0].id);
+      setPatientAutoSelected(true);
     }
   }, [patientId, patients]);
 
   useEffect(() => {
+    const timer = navigateAfterSaveTimer;
     return () => {
-      if (navigateAfterSaveTimer.current) clearTimeout(navigateAfterSaveTimer.current);
+      if (timer.current) clearTimeout(timer.current);
     };
   }, []);
 
@@ -970,6 +977,47 @@ export const CreatePrescription: React.FC = () => {
     [patientId]
   );
 
+  const { data: prescriptionHistoryData } = useQuery<Array<{
+    id: string;
+    status: string;
+    prescribed_at: string;
+    items: Array<{
+      id: string;
+      medication_name: string | null;
+      dosage: string | null;
+      frequency: string | null;
+    }>;
+  }>>(
+    async () => {
+      if (!patientId || !user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('prescriptions')
+        .select('id, status, prescribed_at, prescription_items (id, medication_name, dosage, frequency)')
+        .eq('patient_id', patientId)
+        .eq('doctor_id', user.id)
+        .eq('is_deleted', false)
+        .order('prescribed_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return (data ?? []).map((prescription) => ({
+        id: prescription.id,
+        status: prescription.status,
+        prescribed_at: prescription.prescribed_at,
+        items: (prescription.prescription_items ?? []) as Array<{
+          id: string;
+          medication_name: string | null;
+          dosage: string | null;
+          frequency: string | null;
+        }>,
+      }));
+    },
+    [patientId, user?.id ?? '']
+  );
+
+  const prescriptionHistory = useMemo(() => prescriptionHistoryData ?? [], [prescriptionHistoryData]);
+
   const vocabRows = useMemo(() => vocabData ?? [], [vocabData]);
   const frequencyOptions = useMemo(
     () => vocabRows.filter((row) => row.category === 'frequency'),
@@ -981,6 +1029,30 @@ export const CreatePrescription: React.FC = () => {
   );
   const appointments = useMemo(() => appointmentsData ?? [], [appointmentsData]);
   const activeMedications = useMemo(() => activeMedicationsData ?? [], [activeMedicationsData]);
+  const filteredRenewMedications = useMemo(() => {
+    if (!renewSearchQuery.trim()) return activeMedications;
+    const query = renewSearchQuery.trim().toLowerCase();
+    return activeMedications.filter((medication) =>
+      medication.medicationName.toLowerCase().includes(query)
+    );
+  }, [activeMedications, renewSearchQuery]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (savedPrescriptionId) return false;
+    return items.some(
+      (item) => item.medicationName.trim() || item.dosage.trim() || item.instructions.trim()
+    );
+  }, [items, savedPrescriptionId]);
+
+  const handleNavigateAway = (to: string) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigateTo(to);
+      setShowLeaveConfirm(true);
+    } else {
+      navigate(to);
+    }
+  };
+
   const selectedAppointment = useMemo(
     () => appointments.find((appointment) => appointment.id === appointmentId) ?? null,
     [appointmentId, appointments]
@@ -1082,25 +1154,22 @@ export const CreatePrescription: React.FC = () => {
 
     setSaving(false);
     setShowValidationErrors(false);
+    setSavedPrescriptionId(insertedPrescription.id);
     setFeedback({ type: 'success', message: t('doctor.createPrescription.saveSuccess') });
-    if (navigateAfterSaveTimer.current) clearTimeout(navigateAfterSaveTimer.current);
-    navigateAfterSaveTimer.current = window.setTimeout(() => {
-      navigate('/doctor/prescriptions');
-    }, 2000);
   };
 
   return (
     <div className="-mx-6 -my-5 min-h-[calc(100vh-64px)] overflow-y-auto bg-slate-50 p-6 xl:h-[calc(100vh-64px)] xl:overflow-hidden">
       <div className="flex min-h-full flex-col gap-4 xl:h-full">
         <div>
-          <button
-            type="button"
-            onClick={() => navigate('/doctor/prescriptions')}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Prescriptions
-          </button>
+        <button
+          type="button"
+          onClick={() => handleNavigateAway('/doctor/prescriptions')}
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back to Prescriptions
+        </button>
         </div>
         {feedback ? (
           <div
@@ -1115,6 +1184,49 @@ export const CreatePrescription: React.FC = () => {
           </div>
         ) : null}
 
+        {savedPrescriptionId && feedback?.type === 'success' ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="mb-3 text-sm font-semibold text-emerald-800">
+              What would you like to do next?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const doctorName = profile?.full_name ?? user?.email ?? 'Your Doctor';
+                  const medicationLines = items
+                    .map((item) => `• ${item.medicationName}${item.dosage ? ` — ${item.dosage}` : ''}${item.frequencyCode ? ` — ${resolveClinicalVocabLabel(vocabRows, 'frequency', item.frequencyCode, null, 'en')}` : ''}`)
+                    .join('\n');
+                  const draft = `Hi ${selectedPatient?.name ?? 'there'},\n\nYour prescription has been issued.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed. If you have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
+                  navigate(`/doctor/messages?patient=${patientId}&draft=${encodeURIComponent(draft)}`);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+              >
+                💬 Message Patient
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSavedPrescriptionId(null);
+                  setFeedback(null);
+                  setItems([createDraftPrescriptionItem()]);
+                  setAppointmentId('');
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                ➕ New Prescription
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/doctor/prescriptions')}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                📋 Back to Prescriptions
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="xl:min-h-0">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:h-full xl:overflow-y-auto">
@@ -1122,6 +1234,26 @@ export const CreatePrescription: React.FC = () => {
                 <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   PRESCRIBING FOR
                 </div>
+              {patientAutoSelected && selectedPatient ? (
+                <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">⚠️</span>
+                      <p className="text-xs font-semibold text-amber-800">
+                        Patient auto-selected — please verify before saving!
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPatientAutoSelected(false)}
+                      className="rounded-full p-0.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800"
+                      aria-label="Dismiss warning"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               {selectedPatient ? (
                 <div className="mb-3 rounded-xl border-2 border-teal-200 bg-teal-50 p-4">
                   <div className="mb-3 flex items-center space-x-3">
@@ -1150,6 +1282,7 @@ export const CreatePrescription: React.FC = () => {
                       onChange={(event) => {
                         setPatientId(event.target.value);
                         setAppointmentId('');
+                        setPatientAutoSelected(false);
                       }}
                       className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                     >
@@ -1374,9 +1507,10 @@ export const CreatePrescription: React.FC = () => {
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
               onClick={() => setShowRenewModal(false)}
+              onWheel={(e) => e.stopPropagation()}
             >
               <div
-                className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+                className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[85vh]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
@@ -1386,13 +1520,28 @@ export const CreatePrescription: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowRenewModal(false)}
+                    onClick={() => {
+                      setShowRenewModal(false);
+                      setRenewSearchQuery('');
+                    }}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="space-y-4 px-6 py-5">
+                <div className="border-b border-slate-100 px-6 py-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="search"
+                      value={renewSearchQuery}
+                      onChange={(e) => setRenewSearchQuery(e.target.value)}
+                      placeholder="Search medications..."
+                      className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-4 px-6 py-5">
                   {activeMedications.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                       No active medications found for this patient to renew.
@@ -1400,9 +1549,14 @@ export const CreatePrescription: React.FC = () => {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-slate-600">
-                        Select a medication to renew from the patient current active medications:
+                        {filteredRenewMedications.length} of {activeMedications.length} medications
                       </p>
-                      {activeMedications.map((medication) => (
+                      {filteredRenewMedications.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                          No medications match your search.
+                        </div>
+                      ) : null}
+                      {filteredRenewMedications.map((medication) => (
                         <button
                           key={medication.id}
                           type="button"
@@ -1435,7 +1589,10 @@ export const CreatePrescription: React.FC = () => {
                 <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
                   <button
                     type="button"
-                    onClick={() => setShowRenewModal(false)}
+                    onClick={() => {
+                      setShowRenewModal(false);
+                      setRenewSearchQuery('');
+                    }}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     Cancel
@@ -1470,29 +1627,47 @@ export const CreatePrescription: React.FC = () => {
                   </button>
                 </div>
                 <div className="max-h-[60vh] space-y-3 overflow-y-auto px-6 py-5">
-                  {activeMedications.length === 0 ? (
+                  {prescriptionHistory.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                       No prescription history found for this patient.
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-slate-600">Current active medications for this patient:</p>
-                      {activeMedications.map((medication) => (
+                      <p className="text-sm text-slate-600">
+                        Showing last {prescriptionHistory.length} prescriptions for this patient:
+                      </p>
+                      {prescriptionHistory.map((prescription) => (
                         <div
-                          key={medication.id}
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                          key={prescription.id}
+                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                         >
-                          <Pill className="h-5 w-5 shrink-0 text-emerald-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-900">{medication.medicationName}</p>
-                            <p className="text-xs text-slate-500">
-                              {[medication.dose, medication.frequency].filter(Boolean).join(' · ')}
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-xs font-semibold text-slate-500">
+                              {new Date(prescription.prescribed_at).toLocaleDateString()}
                             </p>
-                            <p className="mt-0.5 text-xs text-slate-400">{medication.prescriber}</p>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              prescription.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : prescription.status === 'completed'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
+                            </span>
                           </div>
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                            Active
-                          </span>
+                          <div className="space-y-1">
+                            {prescription.items.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2">
+                                <Pill className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                <p className="text-sm text-slate-700">
+                                  {item.medication_name}
+                                  {[item.dosage, item.frequency].filter(Boolean).length > 0
+                                    ? ` · ${[item.dosage, item.frequency].filter(Boolean).join(' · ')}`
+                                    : ''}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </>
@@ -1519,6 +1694,41 @@ export const CreatePrescription: React.FC = () => {
             document.body
           )
         : null}
+      {showLeaveConfirm ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-6 py-5">
+              <h3 className="text-lg font-bold text-slate-900">Leave without saving?</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                You have unsaved prescription changes. If you leave now all your work will be lost.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  setPendingNavigateTo(null);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  if (pendingNavigateTo) navigate(pendingNavigateTo);
+                }}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Leave Anyway
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </div>
   );
 };
