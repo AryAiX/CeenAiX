@@ -533,7 +533,7 @@ export const Home = () => {
               className="flex items-center gap-3"
             >
               <img
-                src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
+                src="/favicon.svg"
                 alt="CeenAiX"
                 className="w-11 h-11 object-contain"
               />
@@ -1255,7 +1255,7 @@ export const Home = () => {
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-5">
                 <img
-                  src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
+                  src="/favicon.svg"
                   alt="CeenAiX"
                   className="w-10 h-10 object-contain"
                 />

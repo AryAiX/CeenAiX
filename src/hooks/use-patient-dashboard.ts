@@ -468,8 +468,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           'id, prescription_id, medication_catalog_id, medication_name, medication_name_ar, dosage, frequency, duration, frequency_code, duration_code, is_dispensed'
         )
         .in('prescription_id', activePrescriptionIds)
-        .order('created_at', { ascending: false })
-        .limit(3);
+        .order('created_at', { ascending: false });
 
       if (prescriptionItemsError) {
         throw prescriptionItemsError;

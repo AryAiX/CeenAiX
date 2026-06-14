@@ -357,7 +357,7 @@ export const PortalShell = ({
                 className={`flex min-w-0 items-center gap-3 ${isArabic ? 'flex-row-reverse' : ''}`}
               >
                 <img
-                  src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM.png"
+                  src="/favicon.svg"
                   alt="CeenAiX"
                   className="h-10 w-10 object-contain transition-transform duration-300 hover:scale-110"
                 />
