@@ -111,6 +111,44 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const isUserRole = (value: string | null | undefined): value is UserRole =>
   Boolean(value && validRoleSet.has(value));
 
+const SUPABASE_AUTH_KEY_PATTERN = /^sb-.+-auth-token$/;
+
+const removeStorageKeys = (storage: Storage) => {
+  const keysToRemove: string[] = [];
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key && (SUPABASE_AUTH_KEY_PATTERN.test(key) || key === 'supabase.auth.token')) {
+      keysToRemove.push(key);
+    }
+  }
+
+  for (const key of keysToRemove) {
+    storage.removeItem(key);
+  }
+};
+
+export const clearLocalAuthState = () => {
+  clearPreviewAccess();
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem('ceenaix.lang');
+    removeStorageKeys(window.localStorage);
+  } catch {
+    // localStorage may be disabled (private mode); sign-out must continue.
+  }
+
+  try {
+    removeStorageKeys(window.sessionStorage);
+  } catch {
+    // sessionStorage may be disabled; sign-out must continue.
+  }
+};
+
 const safeString = (value: unknown): string | null => {
   if (typeof value !== 'string') {
     return null;
@@ -478,17 +516,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (event === 'SIGNED_OUT') {
-        clearPreviewAccess();
-        // Clear the per-device language preference so a shared device does
-        // not leak the previous user's selection to the next visitor.
-        try {
-          if (typeof window !== 'undefined') {
-            window.localStorage.removeItem('ceenaix.lang');
-          }
-        } catch {
-          // localStorage may be disabled (private mode); the sign-out path
-          // must not throw.
-        }
+        clearLocalAuthState();
       }
 
       void syncSession(nextSession);
@@ -632,16 +660,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = useCallback(async () => {
+    let signOutError: Error | null = null;
+
     try {
       const { error } = await supabase.auth.signOut();
-      if (!error) {
+      signOutError = error;
+    } catch (error) {
+      signOutError = toError(error);
+    } finally {
+      clearLocalAuthState();
+      await syncSession(null);
+
+      if (typeof window !== 'undefined') {
         window.location.href = '/';
       }
-      return { error };
-    } catch (error) {
-      return { error: toError(error) };
     }
-  }, []);
+
+    return { error: signOutError };
+  }, [syncSession]);
 
   const refreshProfile = useCallback(async () => {
     if (!user) {

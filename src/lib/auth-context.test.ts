@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { getDefaultRouteForRole, getRoleDisplayName } from './auth-context';
+import { afterEach, describe, expect, it } from 'vitest';
+import { clearLocalAuthState, getDefaultRouteForRole, getRoleDisplayName } from './auth-context';
+
+afterEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 describe('getDefaultRouteForRole', () => {
   it.each([
@@ -38,5 +43,23 @@ describe('getRoleDisplayName', () => {
   it('falls back to another role when the current role is unavailable', () => {
     expect(getRoleDisplayName(null)).toBe('another role');
     expect(getRoleDisplayName(undefined)).toBe('another role');
+  });
+});
+
+describe('clearLocalAuthState', () => {
+  it('removes Supabase auth and app session artifacts', () => {
+    localStorage.setItem('ceenaix.lang', 'ar');
+    localStorage.setItem('sb-test-project-auth-token', 'session');
+    localStorage.setItem('supabase.auth.token', 'legacy-session');
+    localStorage.setItem('unrelated-key', 'keep');
+    sessionStorage.setItem('sb-test-project-auth-token', 'session');
+
+    clearLocalAuthState();
+
+    expect(localStorage.getItem('ceenaix.lang')).toBeNull();
+    expect(localStorage.getItem('sb-test-project-auth-token')).toBeNull();
+    expect(localStorage.getItem('supabase.auth.token')).toBeNull();
+    expect(sessionStorage.getItem('sb-test-project-auth-token')).toBeNull();
+    expect(localStorage.getItem('unrelated-key')).toBe('keep');
   });
 });
