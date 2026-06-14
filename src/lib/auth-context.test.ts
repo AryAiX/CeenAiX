@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDefaultRouteForRole } from './auth-context';
+import { getDefaultRouteForRole, getRoleDisplayName } from './auth-context';
 
 describe('getDefaultRouteForRole', () => {
   it.each([
@@ -22,5 +22,21 @@ describe('getDefaultRouteForRole', () => {
   it('routes unauthenticated callers to onboarding', () => {
     expect(getDefaultRouteForRole(null)).toBe('/auth/onboarding');
     expect(getDefaultRouteForRole(undefined)).toBe('/auth/onboarding');
+  });
+});
+
+describe('getRoleDisplayName', () => {
+  it.each([
+    ['patient', 'Patient'],
+    ['doctor', 'Doctor / Clinician'],
+    ['facility_admin', 'Facility admin'],
+    ['super_admin', 'Administrator'],
+  ] as const)('labels %s as %s', (role, expected) => {
+    expect(getRoleDisplayName(role)).toBe(expected);
+  });
+
+  it('falls back to another role when the current role is unavailable', () => {
+    expect(getRoleDisplayName(null)).toBe('another role');
+    expect(getRoleDisplayName(undefined)).toBe('another role');
   });
 });

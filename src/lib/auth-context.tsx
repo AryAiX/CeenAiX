@@ -220,6 +220,46 @@ export const getDefaultRouteForRole = (role: UserRole | null | undefined) => {
   return '/auth/onboarding';
 };
 
+export const getRoleDisplayName = (role: UserRole | null | undefined) => {
+  if (role === 'patient') {
+    return 'Patient';
+  }
+
+  if (role === 'doctor') {
+    return 'Doctor / Clinician';
+  }
+
+  if (role === 'nurse') {
+    return 'Nurse';
+  }
+
+  if (role === 'pharmacy') {
+    return 'Pharmacy staff';
+  }
+
+  if (role === 'lab') {
+    return 'Lab staff';
+  }
+
+  if (role === 'insurance') {
+    return 'Insurance staff';
+  }
+
+  if (role === 'clinic') {
+    return 'Clinic staff';
+  }
+
+  if (role === 'facility_admin') {
+    return 'Facility admin';
+  }
+
+  if (role === 'super_admin') {
+    return 'Administrator';
+  }
+
+  return 'another role';
+};
+
 const buildAuthRedirectUrl = (path: string) => {
   if (typeof window === 'undefined') {
     return undefined;
