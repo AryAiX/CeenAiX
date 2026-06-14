@@ -755,7 +755,7 @@ function TrustStrip() {
     <div className="mt-8 rounded-2xl border border-slate-100 bg-white/60 backdrop-blur-sm p-5">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-          <img src="/ChatGPT_Image_Feb_27,_2026,_11_29_01_AM copy.png" alt="AryAiX" className="w-6 h-6 object-contain opacity-70" />
+          <img src="/favicon.svg" alt="AryAiX" className="w-6 h-6 object-contain opacity-70" />
           Backed by AryAiX · Built in Dubai
         </div>
         <div className="flex items-center gap-6">
