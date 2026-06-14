@@ -121,6 +121,7 @@ export const DoctorProfile: React.FC = () => {
   const { data: clinicMembership } = useDoctorClinicMembership(user?.id);
   const isPhoneManagedByOtp = Boolean(user?.phone && !user?.email);
   const templateFileInputRef = useRef<HTMLInputElement | null>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
   const {
     data: specializationOptionsData,
     loading: specializationsLoading,
@@ -146,6 +147,8 @@ export const DoctorProfile: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [templateDraft, setTemplateDraft] = useState<PreVisitTemplateEditorState>(createEmptyTemplateDraft);
@@ -247,6 +250,10 @@ export const DoctorProfile: React.FC = () => {
           }
     );
   }, [activePreVisitTemplate, formData.selectedSpecializationIds, templateDirty]);
+
+  useEffect(() => {
+    setAvatarUrl(profile?.avatar_url ?? null);
+  }, [profile?.avatar_url]);
 
   const updateTemplateDraft = (nextState: Partial<PreVisitTemplateEditorState>) => {
     setTemplateDraft((currentDraft) => ({ ...currentDraft, ...nextState }));
@@ -383,6 +390,84 @@ export const DoctorProfile: React.FC = () => {
     } finally {
       setTemplateExtracting(false);
     }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !user) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setErrorMessage('Only JPG, PNG or WebP images are allowed.');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage('Image must be smaller than 2MB.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setErrorMessage(null);
+
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/avatar.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      setErrorMessage(uploadError.message);
+      setUploadingAvatar(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    const publicUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('user_id', user.id);
+
+    if (profileError) {
+      setErrorMessage(profileError.message);
+      setUploadingAvatar(false);
+      return;
+    }
+
+    setAvatarUrl(publicUrl);
+    await refreshProfile();
+    setUploadingAvatar(false);
+    setSuccessMessage('Profile picture updated successfully!');
+  };
+
+  const handleAvatarDelete = async () => {
+    if (!user || !avatarUrl) return;
+
+    setUploadingAvatar(true);
+    setErrorMessage(null);
+
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .update({ avatar_url: null })
+      .eq('user_id', user.id);
+
+    if (profileError) {
+      setErrorMessage(profileError.message);
+      setUploadingAvatar(false);
+      return;
+    }
+
+    setAvatarUrl(null);
+    await refreshProfile();
+    setUploadingAvatar(false);
+    setSuccessMessage('Profile picture removed.');
   };
 
   const handleSave = async () => {
@@ -615,16 +700,6 @@ export const DoctorProfile: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Doctor Profile</h1>
           <p className="mt-1 text-sm text-slate-500">Review and update the profile information patients will rely on.</p>
         </div>
-        {!isEditing ? (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="flex items-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-700"
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit profile
-          </button>
-        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -671,8 +746,49 @@ export const DoctorProfile: React.FC = () => {
           <div className="overflow-hidden rounded-3xl bg-white shadow-md">
             <div className="bg-gradient-to-r from-slate-900 to-emerald-800 px-8 py-12">
               <div className="flex items-center space-x-6">
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-lg">
-                  <User className="w-12 h-12 text-teal-600" />
+                <div className="relative">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white shadow-lg">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-12 h-12 text-teal-600" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-white shadow-md transition hover:bg-teal-700 disabled:opacity-60"
+                    title="Upload profile picture"
+                  >
+                    {uploadingAvatar ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  {avatarUrl ? (
+                    <button
+                      type="button"
+                      onClick={handleAvatarDelete}
+                      disabled={uploadingAvatar}
+                      className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md transition hover:bg-red-600 disabled:opacity-60"
+                      title="Remove profile picture"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                  <input
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
                 </div>
                 <div className="text-white">
                   <h2 className="text-3xl font-bold">{formData.fullName || 'Doctor profile'}</h2>
@@ -756,7 +872,19 @@ export const DoctorProfile: React.FC = () => {
                 </div>
               ) : null}
 
-              <h3 className="mb-4 text-lg font-semibold text-gray-900">Professional Information</h3>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">Professional Information</h3>
+                {!isEditing ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                    Edit Profile
+                  </button>
+                ) : null}
+              </div>
 
               {isEditing ? (
                 <div className="space-y-4">

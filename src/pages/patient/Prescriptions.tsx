@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -10,14 +10,17 @@ import {
   ChevronDown,
   ChevronUp,
   CreditCard,
+  Pencil,
   DollarSign,
   Pause,
   PieChart,
   MessageSquare,
   Pill,
+  Plus,
   RefreshCw,
   Trash2,
   TrendingUp,
+  X,
 } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
@@ -33,6 +36,7 @@ import {
 import { usePatientPrimaryInsurance } from '../../hooks/use-patient-primary-insurance';
 import { usePatientDashboardAlert } from '../../hooks/use-patient-dashboard-alert';
 import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase';
 import {
   estimateDaysOfSupplyRemaining,
   estimateDosesPerDay,
@@ -190,11 +194,83 @@ export const PatientPrescriptions: React.FC = () => {
   const [dbReminders, setDbReminders] = useState<Map<string, { time: string; isPaused: boolean; isDeleted: boolean }>>(new Map());
   const [pharmacyError, setPharmacyError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reportedMeds, setReportedMeds] = useState<Array<{
+    id: string;
+    medication_name: string;
+    dosage: string | null;
+    frequency: string | null;
+    duration: string | null;
+    instructions: string | null;
+    is_current: boolean;
+    review_status: string;
+  }>>([]);
+  const [loadingReportedMeds, setLoadingReportedMeds] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [savingMed, setSavingMed] = useState(false);
+  const [deletingMedId, setDeletingMedId] = useState<string | null>(null);
+  const [newMed, setNewMed] = useState({
+    medication_name: '',
+    dosage: '',
+    frequency: '',
+    duration: '',
+    instructions: '',
+    is_current: true,
+  });
   const {
     takenItemIds,
     error: medicationLogError,
     markTaken: markMedicationTaken,
   } = useMedicationLogs(user?.id);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoadingReportedMeds(true);
+    void supabase
+      .from('patient_reported_medications')
+      .select('id, medication_name, dosage, frequency, duration, instructions, is_current, review_status')
+      .eq('patient_id', user.id)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .then(({ data: medsData }) => {
+        setReportedMeds(medsData ?? []);
+        setLoadingReportedMeds(false);
+      });
+  }, [user?.id]);
+
+  const handleAddMedication = async () => {
+    if (!newMed.medication_name.trim() || !user?.id) return;
+    setSavingMed(true);
+    const { data: inserted } = await supabase
+      .from('patient_reported_medications')
+      .insert({
+        patient_id: user.id,
+        medication_name: newMed.medication_name.trim(),
+        dosage: newMed.dosage.trim() || null,
+        frequency: newMed.frequency.trim() || null,
+        duration: newMed.duration.trim() || null,
+        instructions: newMed.instructions.trim() || null,
+        is_current: newMed.is_current,
+        review_status: 'pending_review',
+      })
+      .select()
+      .single();
+    setSavingMed(false);
+    if (inserted) {
+      setReportedMeds((prev) => [inserted, ...prev]);
+      setShowAddModal(false);
+      setNewMed({ medication_name: '', dosage: '', frequency: '', duration: '', instructions: '', is_current: true });
+    }
+  };
+
+  const handleDeleteMedication = async (medicationId: string) => {
+    setDeletingMedId(medicationId);
+    await supabase
+      .from('patient_reported_medications')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .eq('id', medicationId);
+    setReportedMeds((prev) => prev.filter((med) => med.id !== medicationId));
+    setDeletingMedId(null);
+  };
 
   const prescriptions = useMemo(() => data ?? [], [data]);
 
@@ -1016,7 +1092,7 @@ export const PatientPrescriptions: React.FC = () => {
                         onClick={() => handleEditReminder(reminder.id, reminder.time)}
                         className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-teal-600 transition-all hover:bg-teal-50"
                       >
-                        <CreditCard className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderEdit')}
+                        <Pencil className="h-3.5 w-3.5" /> {t('patient.prescriptions.reminderEdit')}
                       </button>
                     )}
                     <button
@@ -2042,6 +2118,172 @@ export const PatientPrescriptions: React.FC = () => {
             document.body
           )
         : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">My Reported Medications</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Medications you are currently taking — shared with your doctor.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add Medication
+          </button>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {loadingReportedMeds ? (
+            <div className="p-6 text-sm text-slate-400">Loading...</div>
+          ) : reportedMeds.length === 0 ? (
+            <div className="px-6 py-10 text-center">
+              <p className="font-semibold text-slate-700">No medications reported yet</p>
+              <p className="mt-1 text-sm text-slate-500">Add medications you are currently taking so your doctor can review them.</p>
+            </div>
+          ) : (
+            reportedMeds.map((med) => (
+              <div key={med.id} className="flex items-start justify-between gap-4 px-6 py-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-slate-900">{med.medication_name}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      med.review_status === 'reviewed'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {med.review_status === 'reviewed' ? '✅ Reviewed by doctor' : '⏳ Pending review'}
+                    </span>
+                    {med.is_current ? (
+                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
+                        Currently taking
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'No details provided'}
+                  </p>
+                  {med.instructions ? (
+                    <p className="mt-1 text-xs text-slate-400">{med.instructions}</p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteMedication(med.id)}
+                  disabled={deletingMedId === med.id}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {showAddModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h3 className="font-bold text-slate-900">Add Medication</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
+                  Medication Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newMed.medication_name}
+                  onChange={(e) => setNewMed((prev) => ({ ...prev, medication_name: e.target.value }))}
+                  placeholder="e.g. Paracetamol"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Dosage</label>
+                  <input
+                    type="text"
+                    value={newMed.dosage}
+                    onChange={(e) => setNewMed((prev) => ({ ...prev, dosage: e.target.value }))}
+                    placeholder="e.g. 500mg"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Frequency</label>
+                  <input
+                    type="text"
+                    value={newMed.frequency}
+                    onChange={(e) => setNewMed((prev) => ({ ...prev, frequency: e.target.value }))}
+                    placeholder="e.g. Twice daily"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">Duration</label>
+                <input
+                  type="text"
+                  value={newMed.duration}
+                  onChange={(e) => setNewMed((prev) => ({ ...prev, duration: e.target.value }))}
+                  placeholder="e.g. 7 days"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">Instructions</label>
+                <textarea
+                  value={newMed.instructions}
+                  onChange={(e) => setNewMed((prev) => ({ ...prev, instructions: e.target.value }))}
+                  placeholder="e.g. Take after meals"
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_current"
+                  checked={newMed.is_current}
+                  onChange={(e) => setNewMed((prev) => ({ ...prev, is_current: e.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-cyan-600"
+                />
+                <label htmlFor="is_current" className="text-sm font-medium text-slate-700">
+                  I am currently taking this medication
+                </label>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 border-t border-slate-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleAddMedication()}
+                disabled={savingMed || !newMed.medication_name.trim()}
+                className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-60"
+              >
+                {savingMed ? 'Saving...' : 'Add Medication'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

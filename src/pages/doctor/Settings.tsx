@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { Bell, CalendarRange, Settings as SettingsIcon, ShieldCheck, Stethoscope } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Bell, Building2, CalendarRange, CheckCircle, Clock, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -34,18 +34,54 @@ function normalize(value: unknown): DoctorSettingsPrefs {
   };
 }
 
+async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/doctors') {
+  const { data: members } = await supabase
+    .from('clinic_portal_members')
+    .select('user_id')
+    .eq('facility_id', facilityId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) return;
+
+  await supabase.from('notifications').insert(
+    members.map((m) => ({
+      user_id: m.user_id,
+      type: 'system' as const,
+      title,
+      body,
+      action_url: actionUrl,
+    }))
+  );
+}
+
 export const DoctorSettings = () => {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, doctorProfile } = useAuth();
   const { data: profile, loading, refetch } = useUserProfile();
   const { data: schedule } = useDoctorSchedule(user?.id);
+  const [myClinicRecord, setMyClinicRecord] = useState<{
+    id: string;
+    facility_id: string;
+    invitation_status: string;
+    facilities: { name: string | null; name_en: string | null; city: string | null } | null;
+  } | null>(null);
+  const [clinicActionLoading, setClinicActionLoading] = useState(false);
+  const [clinicActionError, setClinicActionError] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
+  const [clinicSearch, setClinicSearch] = useState('');
+  const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
+  const [clinicSearching, setClinicSearching] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinSuccess, setJoinSuccess] = useState(false);
   const settingsSections: Array<{ key: string; label: string }> = [
     { key: 'general', label: t('doctor.settings.sections.general', { defaultValue: 'General' }) },
+    { key: 'my-clinic', label: 'My Clinic' },
     { key: 'appearance', label: t('doctor.settings.sections.appearance', { defaultValue: 'Appearance' }) },
     { key: 'notifications', label: t('doctor.settings.sections.notifications', { defaultValue: 'Notifications' }) },
     { key: 'dashboard', label: t('doctor.settings.sections.dashboard', { defaultValue: 'Dashboard' }) },
@@ -63,6 +99,134 @@ export const DoctorSettings = () => {
       setPrefs(normalize(profile.notification_preferences));
     }
   }, [profile]);
+
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
+
+  const fetchMyClinic = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('facility_staff')
+      .select('id, facility_id, invitation_status, facilities(name, name_en, city)')
+      .eq('doctor_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setMyClinicRecord(data as typeof myClinicRecord);
+  };
+
+  useEffect(() => {
+    void fetchMyClinic();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const handleAcceptInvite = async () => {
+    if (!myClinicRecord || !user?.id) return;
+    setClinicActionLoading(true);
+    setClinicActionError(null);
+    try {
+      const { error } = await supabase.rpc('approve_doctor_and_link_appointments', {
+        p_staff_id: myClinicRecord.id,
+        p_facility_id: myClinicRecord.facility_id,
+        p_doctor_user_id: user.id,
+      });
+      if (error) throw error;
+
+      await notifyClinicStaff(
+        myClinicRecord.facility_id,
+        '✅ Doctor Accepted Invitation',
+        `${profile?.full_name ?? 'A doctor'} has accepted your invitation and joined your clinic.`
+      );
+
+      await fetchMyClinic();
+    } catch (err) {
+      setClinicActionError(err instanceof Error ? err.message : 'Failed to accept invitation.');
+    } finally {
+      setClinicActionLoading(false);
+    }
+  };
+
+  const handleDeclineInvite = async () => {
+    if (!myClinicRecord) return;
+    setClinicActionLoading(true);
+    setClinicActionError(null);
+    try {
+      const { error } = await supabase
+        .from('facility_staff')
+        .update({ invitation_status: 'declined', is_active: false, is_available: false })
+        .eq('id', myClinicRecord.id);
+      if (error) throw error;
+
+      await notifyClinicStaff(
+        myClinicRecord.facility_id,
+        '❌ Doctor Declined Invitation',
+        `${profile?.full_name ?? 'A doctor'} has declined your invitation to join your clinic.`
+      );
+
+      await fetchMyClinic();
+    } catch (err) {
+      setClinicActionError(err instanceof Error ? err.message : 'Failed to decline invitation.');
+    } finally {
+      setClinicActionLoading(false);
+    }
+  };
+
+  const searchClinics = async (query: string) => {
+    setClinicSearch(query);
+    if (query.length < 2) { setClinicResults([]); return; }
+    setClinicSearching(true);
+    const { data } = await supabase
+      .from('facilities')
+      .select('id, name, city, facility_type')
+      .or(`name.ilike.%${query}%,name_en.ilike.%${query}%`)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .limit(6);
+    setClinicResults((data ?? []).map(f => ({
+      id: f.id,
+      name: (f.name as string | null) ?? 'Unknown Clinic',
+      city: (f.city as string | null) ?? 'UAE',
+      type: (f.facility_type as string | null) ?? 'Clinic',
+    })));
+    setClinicSearching(false);
+  };
+
+  const handleJoinRequest = async (facilityId: string) => {
+    if (!user?.id) return;
+    setJoinLoading(true);
+    setJoinError(null);
+    try {
+      const { error } = await supabase
+        .from('facility_staff')
+        .insert({
+          facility_id: facilityId,
+          doctor_user_id: user.id,
+          is_active: false,
+          is_available: false,
+          invitation_status: 'pending',
+        });
+      if (error) throw error;
+
+      await notifyClinicStaff(
+        facilityId,
+        '🩺 New Doctor Join Request',
+        `${profile?.full_name ?? 'A doctor'} has requested to join your clinic. Review their request in Doctors.`
+      );
+
+      setJoinSuccess(true);
+      setClinicSearch('');
+      setClinicResults([]);
+      void fetchMyClinic();
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Failed to send join request.');
+    } finally {
+      setJoinLoading(false);
+    }
+  };
 
   const save = async (nextPrefs: DoctorSettingsPrefs) => {
     if (!user?.id) return;
@@ -196,7 +360,7 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
@@ -205,6 +369,173 @@ export const DoctorSettings = () => {
             </div>
           ) : null}
 
+          {activeSection === 'my-clinic' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">My Clinic</h2>
+                  <p className="text-sm text-slate-500">Search and request to join a clinic</p>
+                </div>
+              </div>
+
+              {clinicActionError && (
+                <p className="text-xs text-red-500">{clinicActionError}</p>
+              )}
+
+              {myClinicRecord ? (
+                <div className="rounded-xl border p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center">
+                      <Building2 size={18} className="text-cyan-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-slate-900 text-sm">
+                        {myClinicRecord.facilities?.name_en ?? myClinicRecord.facilities?.name ?? 'Clinic'}
+                      </div>
+                      <div className="text-xs text-slate-400">{myClinicRecord.facilities?.city ?? 'UAE'}</div>
+                    </div>
+                    {myClinicRecord.invitation_status === 'pending' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-medium border border-amber-200">
+                        <Clock size={11} /> Pending Approval
+                      </span>
+                    )}
+                    {myClinicRecord.invitation_status === 'accepted' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200">
+                        <CheckCircle size={11} /> Approved
+                      </span>
+                    )}
+                    {myClinicRecord.invitation_status === 'rejected' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium border border-red-200">
+                        <XCircle size={11} /> Rejected
+                      </span>
+                    )}
+                    {myClinicRecord.invitation_status === 'invited' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
+                        <Building2 size={11} /> Invitation Received
+                      </span>
+                    )}
+                    {myClinicRecord.invitation_status === 'declined' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium border border-slate-200">
+                        Declined
+                      </span>
+                    )}
+                  </div>
+
+                  {myClinicRecord.invitation_status === 'pending' && (
+                    <p className="text-xs text-slate-400">
+                      Your request has been sent. Please wait for the clinic to approve your request.
+                    </p>
+                  )}
+                  {myClinicRecord.invitation_status === 'accepted' && (
+                    <p className="text-xs text-slate-400">
+                      You are an active member of this clinic. Your appointments are linked automatically.
+                    </p>
+                  )}
+                  {myClinicRecord.invitation_status === 'rejected' && (
+                    <p className="text-xs text-slate-400">
+                      Your request was rejected. You can search and request to join another clinic below.
+                    </p>
+                  )}
+                  {myClinicRecord.invitation_status === 'declined' && (
+                    <p className="text-xs text-slate-400">
+                      You declined this invitation. You can search and request to join another clinic below.
+                    </p>
+                  )}
+
+                  {myClinicRecord.invitation_status === 'invited' && (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        This clinic has invited you to join their staff. Accepting will link your appointments to this clinic automatically.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => void handleDeclineInvite()}
+                          disabled={clinicActionLoading}
+                          className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                        <button
+                          onClick={() => void handleAcceptInvite()}
+                          disabled={clinicActionLoading}
+                          className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                        >
+                          {clinicActionLoading ? 'Processing…' : 'Accept Invitation'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined') && (
+                <div className="space-y-3">
+                  <div className="text-xs font-semibold text-slate-600">Search for a Clinic</div>
+                  <div className="relative">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={clinicSearch}
+                      onChange={e => void searchClinics(e.target.value)}
+                      placeholder="Type clinic name…"
+                      className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                    {clinicSearch && (
+                      <button onClick={() => { setClinicSearch(''); setClinicResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <X size={14} className="text-slate-400" />
+                      </button>
+                    )}
+                  </div>
+
+                  {joinError && (
+                    <p className="text-xs text-red-500">{joinError}</p>
+                  )}
+
+                  {joinSuccess && (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl text-sm text-emerald-700 font-medium">
+                      <CheckCircle size={15} /> Join request sent successfully!
+                    </div>
+                  )}
+
+                  {clinicSearching && (
+                    <p className="text-xs text-slate-400 px-1">Searching…</p>
+                  )}
+
+                  {clinicResults.length > 0 && (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                      {clinicResults.map(c => (
+                        <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-cyan-50 rounded-lg flex items-center justify-center">
+                              <Building2 size={14} className="text-cyan-600" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-slate-800">{c.name}</div>
+                              <div className="text-xs text-slate-400">{c.city} · {c.type}</div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => void handleJoinRequest(c.id)}
+                            disabled={joinLoading}
+                            className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                          >
+                            {joinLoading ? 'Sending…' : 'Request to Join'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {clinicSearch.length >= 2 && !clinicSearching && clinicResults.length === 0 && (
+                    <p className="text-xs text-slate-400 px-1">No clinics found for "{clinicSearch}"</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {activeSection === 'notifications' ? (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
               <Bell className="h-6 w-6 text-cyan-600" />
@@ -255,6 +586,7 @@ export const DoctorSettings = () => {
               />
             </div>
           </div>
+          ) : null}
         </div>
       </div>
     </div>

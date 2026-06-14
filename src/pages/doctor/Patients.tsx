@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { FileText, MoreVertical, Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -140,6 +141,23 @@ export const DoctorPatients: React.FC = () => {
   const [viewMode, setViewMode] = useState<PatientViewMode>('list');
   const [filterActive, setFilterActive] = useState<PatientFilter>('all');
   const [sortBy, setSortBy] = useState<PatientSort>('lastVisit');
+  const [openMenuPatientId, setOpenMenuPatientId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+
+  const handleMenuToggle = (event: React.MouseEvent, patientId: string) => {
+    event.stopPropagation();
+    if (openMenuPatientId === patientId) {
+      setOpenMenuPatientId(null);
+      setMenuPosition(null);
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenuPosition({
+      top: rect.bottom + window.scrollY + 4,
+      right: window.innerWidth - rect.right,
+    });
+    setOpenMenuPatientId(patientId);
+  };
   const { data, loading, error, refetch } = useDoctorPatients(user?.id);
   const rawPatients = useMemo(() => data ?? [], [data]);
   const uiLang = i18n.language ?? 'en';
@@ -427,17 +445,96 @@ export const DoctorPatients: React.FC = () => {
                       <FileText className="h-3 w-3" />
                       <span>{t('doctor.patients.openRecord', { defaultValue: 'Open Record' })}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        navigate(`/doctor/patients/${patient.id}`);
-                      }}
-                      aria-label={t('doctor.patients.openRecord', { defaultValue: 'Open Record' })}
-                      className="rounded p-1.5 opacity-0 transition-colors hover:bg-slate-200 group-hover:opacity-100"
-                    >
-                      <MoreVertical className="h-4 w-4 text-slate-400" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(event) => handleMenuToggle(event, patient.id)}
+                        aria-label="Quick actions"
+                        className="rounded p-1.5 opacity-0 transition-colors hover:bg-slate-200 group-hover:opacity-100"
+                      >
+                        <MoreVertical className="h-4 w-4 text-slate-400" />
+                      </button>
+                      {openMenuPatientId === patient.id && menuPosition
+                        ? createPortal(
+                            <>
+                              <div
+                                className="fixed inset-0 z-[100]"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuPatientId(null);
+                                  setMenuPosition(null);
+                                }}
+                              />
+                              <div
+                                className="fixed z-[101] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                style={{ top: menuPosition.top, right: menuPosition.right }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMenuPatientId(null);
+                                    setMenuPosition(null);
+                                    navigate(`/doctor/patients/${patient.id}`);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  👁️ <span>View Record</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMenuPatientId(null);
+                                    setMenuPosition(null);
+                                    navigate(`/doctor/schedule`);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  📅 <span>Book Appointment</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMenuPatientId(null);
+                                    setMenuPosition(null);
+                                    navigate(`/doctor/prescriptions/new?patient=${patient.id}`);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  💊 <span>Write Prescription</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMenuPatientId(null);
+                                    setMenuPosition(null);
+                                    navigate(`/doctor/lab-orders/new?patient=${patient.id}`);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  🔬 <span>Order Lab Test</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMenuPatientId(null);
+                                    setMenuPosition(null);
+                                    navigate(`/doctor/messages?patient=${patient.id}`);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  💬 <span>Send Message</span>
+                                </button>
+                              </div>
+                            </>,
+                            document.body
+                          )
+                        : null}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -491,9 +588,101 @@ export const DoctorPatients: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <span className={`rounded px-2 py-1 text-[10px] font-bold ${riskBadgeClasses(patient.risk)}`}>
-                  {riskLabel(patient.risk)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded px-2 py-1 text-[10px] font-bold ${riskBadgeClasses(patient.risk)}`}>
+                    {riskLabel(patient.risk)}
+                  </span>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(event) => handleMenuToggle(event, patient.id)}
+                      aria-label="Quick actions"
+                      className="rounded p-1.5 transition-colors hover:bg-slate-100"
+                    >
+                      <MoreVertical className="h-4 w-4 text-slate-400" />
+                    </button>
+                    {openMenuPatientId === patient.id && menuPosition
+                      ? createPortal(
+                          <>
+                            <div
+                              className="fixed inset-0 z-[100]"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenMenuPatientId(null);
+                                setMenuPosition(null);
+                              }}
+                            />
+                            <div
+                              className="fixed z-[101] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                              style={{ top: menuPosition.top, right: menuPosition.right }}
+                            >
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuPatientId(null);
+                                  setMenuPosition(null);
+                                  navigate(`/doctor/patients/${patient.id}`);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              >
+                                👁️ <span>View Record</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuPatientId(null);
+                                  setMenuPosition(null);
+                                  navigate(`/doctor/schedule`);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              >
+                                📅 <span>Book Appointment</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuPatientId(null);
+                                  setMenuPosition(null);
+                                  navigate(`/doctor/prescriptions/new?patient=${patient.id}`);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              >
+                                💊 <span>Write Prescription</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuPatientId(null);
+                                  setMenuPosition(null);
+                                  navigate(`/doctor/lab-orders/new?patient=${patient.id}`);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              >
+                                🔬 <span>Order Lab Test</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuPatientId(null);
+                                  setMenuPosition(null);
+                                  navigate(`/doctor/messages?patient=${patient.id}`);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                              >
+                                💬 <span>Send Message</span>
+                              </button>
+                            </div>
+                          </>,
+                          document.body
+                        )
+                      : null}
+                  </div>
+                </div>
               </div>
               <p className="mt-4 line-clamp-2 text-[13px] text-slate-700">
                 {patient.conditions.length > 0

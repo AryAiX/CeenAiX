@@ -125,6 +125,7 @@ export const PatientDashboard: React.FC = () => {
     getDisplayName(profile?.full_name, profile?.first_name, user?.email) || t('patient.dashboard.greetingFallback');
   const nextAppointment = dashboardData?.nextAppointment ?? null;
   const medications = dashboardData?.medications ?? [];
+  const displayedMedications = medications.slice(0, 3);
   const recentMessages = dashboardData?.recentMessages ?? [];
   const careTeam = dashboardData?.careTeam ?? [];
   const insurance = dashboardData?.insurance ?? null;
@@ -553,7 +554,7 @@ export const PatientDashboard: React.FC = () => {
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>
                 </>
               ) : medications.length > 0 ? (
-                medications.map((medication) => {
+                displayedMedications.map((medication) => {
                   const isTaken = medication.isDispensed || takenItemIds.has(medication.id);
                   return (
                     <div key={medication.id} className="flex items-center gap-3 px-6 py-4">

@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
-  e2eClinicStaffId,
   e2eUsers,
   installSupabaseMocks,
   seedAuthenticatedRole,
@@ -12,13 +11,11 @@ const clinicRoutes = [
   { name: 'dashboard', path: '/clinic/dashboard' },
   { name: 'root redirect', path: '/clinic' },
   { name: 'doctors', path: '/clinic/doctors' },
-  { name: 'doctor detail', path: `/clinic/doctors/${e2eClinicStaffId}` },
   { name: 'appointments', path: '/clinic/appointments' },
   { name: 'patients', path: '/clinic/patients' },
-  { name: 'services', path: '/clinic/services' },
   { name: 'pricing', path: '/clinic/pricing' },
-  { name: 'schedule', path: '/clinic/schedule' },
   { name: 'messages', path: '/clinic/messages' },
+  { name: 'notifications', path: '/clinic/notifications' },
   { name: 'analytics', path: '/clinic/analytics' },
   { name: 'settings', path: '/clinic/settings' },
 ] as const;
@@ -38,27 +35,19 @@ test.describe('clinic portal route coverage', () => {
       await expect(page.getByRole('navigation').first()).toBeVisible();
     });
   }
-
-  test('clinic admin can open billing page', async ({ page }) => {
-    await openClinic(page, 'clinic', '/clinic/billing');
-    await expect(page.getByText(/billing|revenue/i).first()).toBeVisible();
-  });
 });
 
 test.describe('clinic portal RBAC', () => {
-  test('clinic manager cannot open billing route', async ({ page }) => {
-    await openClinic(page, 'clinic_manager', '/clinic/billing');
-    await expect(page).toHaveURL(/\/access-denied$/);
-  });
-
   test('clinic manager nav hides billing item', async ({ page }) => {
     await openClinic(page, 'clinic_manager', '/clinic/dashboard');
-    await expect(page.getByRole('navigation').first()).not.toContainText(/Billing & Revenue/i);
+    await expect(page.getByRole('navigation').first()).not.toContainText(/Billing/i);
   });
 
-  test('clinic admin nav includes billing item', async ({ page }) => {
+  test('clinic admin nav includes replacement portal items', async ({ page }) => {
     await openClinic(page, 'clinic', '/clinic/dashboard');
-    await expect(page.getByRole('navigation').first()).toContainText(/Billing/i);
+    await expect(page.getByRole('navigation').first()).toContainText(/Doctors/i);
+    await expect(page.getByRole('navigation').first()).toContainText(/Pricing & Services/i);
+    await expect(page.getByRole('navigation').first()).toContainText(/Notifications/i);
   });
 
   test('patient cannot access clinic dashboard', async ({ page }) => {
@@ -89,10 +78,10 @@ test.describe('clinic portal dashboard and doctors', () => {
     await expect(page.getByText(/total doctors|active doctors|appointments this month|revenue this month/i).first()).toBeVisible();
   });
 
-  test('dashboard quick actions link to doctors and pricing', async ({ page }) => {
+  test('dashboard exposes clinic navigation to doctors and pricing', async ({ page }) => {
     await openClinic(page);
-    await expect(page.getByRole('link', { name: /add doctor/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /update pricing/i })).toBeVisible();
+    await expect(page.getByRole('navigation').first()).toContainText(/Doctors/i);
+    await expect(page.getByRole('navigation').first()).toContainText(/Pricing & Services/i);
   });
 
   test('doctors list shows affiliated doctor', async ({ page }) => {
@@ -100,34 +89,24 @@ test.describe('clinic portal dashboard and doctors', () => {
     await expect(page.getByText(e2eUsers.doctor.fullName)).toBeVisible();
   });
 
-  test('doctor detail exposes clinic-managed pricing fields', async ({ page }) => {
-    await openClinic(page, 'clinic', `/clinic/doctors/${e2eClinicStaffId}`);
-    await expect(page.getByText(e2eUsers.doctor.fullName)).toBeVisible();
-    await expect(page.getByLabel(/in-person fee/i)).toBeVisible();
-  });
-
-  test('add doctor modal opens from doctors page', async ({ page }) => {
+  test('invite doctor modal opens from doctors page', async ({ page }) => {
     await openClinic(page, 'clinic', '/clinic/doctors');
-    await page.locator('button').filter({ hasText: /^Add doctor$/i }).click();
-    await expect(page.getByRole('heading', { name: /add doctor/i })).toBeVisible();
-    await expect(page.getByText(/full name|work email|dha license/i).first()).toBeVisible();
+    await page.getByRole('button', { name: /add doctor/i }).click();
+    await expect(page.getByRole('heading', { name: /invite a doctor/i })).toBeVisible();
+    await expect(page.getByPlaceholder(/search doctor by name/i)).toBeVisible();
   });
 });
 
 test.describe('clinic portal operations pages', () => {
   test('appointments page lists clinic-wide appointments', async ({ page }) => {
     await openClinic(page, 'clinic', '/clinic/appointments');
+    await page.getByRole('button', { name: /^All$/i }).click();
     await expect(page.getByText(e2eUsers.patient.fullName).first()).toBeVisible();
   });
 
-  test('services catalog lists general consultation', async ({ page }) => {
-    await openClinic(page, 'clinic', '/clinic/services');
-    await expect(page.getByText(/general consultation/i)).toBeVisible();
-  });
-
-  test('pricing page shows doctor matrix and audit log sections', async ({ page }) => {
+  test('pricing page shows service catalog controls', async ({ page }) => {
     await openClinic(page, 'clinic', '/clinic/pricing');
-    await expect(page.getByText(/doctor pricing matrix|pricing audit log|clinic default pricing/i).first()).toBeVisible();
+    await expect(page.getByText(/pricing & services|consultation|add service/i).first()).toBeVisible();
   });
 
   test('settings page renders facility profile fields', async ({ page }) => {
@@ -219,7 +198,9 @@ test.describe('super admin clinics onboarding', () => {
   });
 
   test('clinic role cannot access admin clinics page', async ({ page }) => {
-    await openClinic(page, 'clinic', '/admin/clinics');
+    await installSupabaseMocks(page, { role: 'clinic' });
+    await seedAuthenticatedRole(page, 'clinic');
+    await page.goto('/admin/clinics');
     await expect(page).toHaveURL(/\/access-denied$/);
   });
 });

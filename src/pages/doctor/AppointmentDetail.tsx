@@ -623,7 +623,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <p className="mt-1 text-[10px] font-medium text-red-600">✗ Patient did not attend</p>
               ) : null}
             </button>
-            {['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) ? (
+            {['scheduled', 'confirmed'].includes(data.appointment.status) ? (
               <button
                 type="button"
                 onClick={() => setShowCancelModal(true)}
@@ -658,9 +658,20 @@ export const DoctorAppointmentDetail: React.FC = () => {
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
           <section className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <User className="h-5 w-5 text-emerald-700" />
-                <h3 className="text-xl font-bold text-slate-900">{t('doctor.appointmentDetail.patientContext')}</h3>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-emerald-700" />
+                  <h3 className="text-xl font-bold text-slate-900">{t('doctor.appointmentDetail.patientContext')}</h3>
+                </div>
+                <a
+                  href={`/doctor/patients/${data.appointment.patient_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                >
+                  <User className="h-4 w-4" />
+                  View Full Record ↗
+                </a>
               </div>
               <div className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
                 <div>
@@ -720,7 +731,18 @@ export const DoctorAppointmentDetail: React.FC = () => {
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm font-semibold text-slate-900">
                       {t('doctor.appointmentDetail.preVisitStatus')}:{' '}
-                      <span className="text-cyan-800">{data.preVisitAssessment.status}</span>
+                      <span className={`font-semibold ${
+                        data.preVisitAssessment.status === 'completed' ? 'text-emerald-700'
+                        : data.preVisitAssessment.status === 'reviewed' ? 'text-blue-700'
+                        : data.preVisitAssessment.status === 'in_progress' ? 'text-amber-700'
+                        : 'text-slate-500'
+                      }`}>
+                        {data.preVisitAssessment.status === 'completed' ? '✅ Completed'
+                        : data.preVisitAssessment.status === 'reviewed' ? '👁️ Reviewed'
+                        : data.preVisitAssessment.status === 'in_progress' ? '⏳ In Progress'
+                        : data.preVisitAssessment.status === 'not_started' ? '🔘 Not Started'
+                        : data.preVisitAssessment.status}
+                      </span>
                     </p>
                     {data.preVisitSummary ? (
                       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
@@ -800,8 +822,12 @@ export const DoctorAppointmentDetail: React.FC = () => {
                                     t('doctor.patientDetail.noMedicationSummary')}
                                 </p>
                               </div>
-                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                                {item.review_status}
+                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                item.review_status === 'reviewed'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.review_status === 'reviewed' ? '✅ Reviewed' : '⏳ Pending Review'}
                               </span>
                             </div>
                           </div>

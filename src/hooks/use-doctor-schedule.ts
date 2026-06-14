@@ -34,9 +34,6 @@ export function useDoctorSchedule(userId: string | null | undefined) {
         };
       }
 
-      const now = new Date();
-      const today = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
-
       const [
         { data: availabilities, error: availabilityError },
         { data: blockedSlots, error: blockedSlotsError },
@@ -51,7 +48,6 @@ export function useDoctorSchedule(userId: string | null | undefined) {
           .from('blocked_slots')
           .select('*')
           .eq('doctor_id', userId)
-          .gte('blocked_date', today)
           .order('blocked_date', { ascending: true })
           .order('start_time', { ascending: true }),
       ]);
