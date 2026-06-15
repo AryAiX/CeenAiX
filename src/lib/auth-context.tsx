@@ -196,9 +196,24 @@ const splitFullName = (fullName: string) => {
 const buildFullName = (firstName: string | null, lastName: string | null) =>
   [firstName, lastName].filter(Boolean).join(' ').trim() || null;
 
+export const getAuthMetadataRole = (user: User): UserRole | null => {
+  const appMetadataRole = safeString(user.app_metadata?.role);
+  const userMetadataRole = safeString(user.user_metadata?.role);
+
+  if (isUserRole(appMetadataRole)) {
+    return appMetadataRole;
+  }
+
+  if (isUserRole(userMetadataRole)) {
+    return userMetadataRole;
+  }
+
+  return null;
+};
+
 const getProfileSeed = (user: User): ProfileSeed => {
   const metadata = user.user_metadata ?? {};
-  const metadataRole = safeString(metadata.role);
+  const metadataRole = getAuthMetadataRole(user);
   const firstName = safeString(metadata.first_name);
   const lastName = safeString(metadata.last_name);
   const metadataFullName = safeString(metadata.full_name);
@@ -210,13 +225,49 @@ const getProfileSeed = (user: User): ProfileSeed => {
     'CeenAiX User';
 
   return {
-    role: isUserRole(metadataRole) ? metadataRole : 'patient',
+    role: metadataRole ?? 'patient',
     fullName,
     firstName: firstName ?? splitFullName(fullName).firstName,
     lastName: lastName ?? splitFullName(fullName).lastName,
     phone: safeString(user.phone) ?? safeString(metadata.phone),
     email: safeString(user.email) ?? safeString(metadata.email),
     termsAccepted: Boolean(metadata.terms_accepted),
+  };
+};
+
+const buildProfileFromAuthMetadata = (user: User): UserProfile | null => {
+  const role = getAuthMetadataRole(user);
+
+  if (!role) {
+    return null;
+  }
+
+  const seed = getProfileSeed(user);
+  const createdAt = safeString(user.created_at) ?? new Date(0).toISOString();
+  const updatedAt = safeString(user.updated_at) ?? createdAt;
+  const metadataProfileCompleted = user.user_metadata?.profile_completed;
+
+  return {
+    id: user.id,
+    user_id: user.id,
+    role,
+    full_name: seed.fullName,
+    first_name: seed.firstName,
+    last_name: seed.lastName,
+    date_of_birth: null,
+    gender: null,
+    emirates_id: null,
+    phone: seed.phone,
+    email: seed.email,
+    address: null,
+    city: null,
+    avatar_url: null,
+    notification_preferences: {},
+    profile_completed:
+      typeof metadataProfileCompleted === 'boolean' ? metadataProfileCompleted : true,
+    terms_accepted: seed.termsAccepted,
+    created_at: createdAt,
+    updated_at: updatedAt,
   };
 };
 
@@ -436,6 +487,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!nextProfile) {
+        const metadataProfile = buildProfileFromAuthMetadata(nextUser);
+
+        if (metadataProfile) {
+          console.warn('Using auth metadata role because user profile could not be loaded');
+          const extensions = await loadExtensionProfiles(metadataProfile.role, nextUser.id);
+
+          return {
+            profile: metadataProfile,
+            patientProfile: extensions.patientProfile,
+            doctorProfile: extensions.doctorProfile,
+            role: metadataProfile.role,
+          };
+        }
+
         return {
           profile: null,
           patientProfile: null,

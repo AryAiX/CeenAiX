@@ -437,7 +437,7 @@ export const Login = () => {
                 </Link>
               ) : null}
 
-              {isAuthenticated && !isRecoveryMode && selectedRole && selectedRole !== role &&
+              {isAuthenticated && !isRecoveryMode && selectedRole && role && selectedRole !== role &&
                !(selectedRole === 'admin' && (role === 'super_admin' || role === 'facility_admin')) ? (
                 <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-800">

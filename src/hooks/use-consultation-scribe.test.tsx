@@ -13,6 +13,7 @@ vi.mock('../lib/supabase', () => ({
 
 describe('useConsultationScribe', () => {
   const fromMock = vi.mocked(supabase.from);
+  const getUserMock = vi.mocked(supabase.auth.getUser);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,5 +84,58 @@ describe('useConsultationScribe', () => {
     expect(result.current.data?.transcript?.id).toBe('tr-1');
     expect(result.current.data?.note?.id).toBe('note-1');
     expect(result.current.data?.consent?.id).toBe('consent-1');
+  });
+
+  it('stores speaker reference paths in recording metadata when audio is attached', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'doctor-1' } },
+      error: null,
+    } as never);
+    const recordingBuilder = createSupabaseQueryBuilder({ data: {}, error: null });
+    const auditBuilder = createSupabaseQueryBuilder({ data: {}, error: null });
+
+    fromMock.mockImplementation(((table: string) => {
+      if (table === 'consultation_recordings') return recordingBuilder;
+      if (table === 'consultation_recordings_audit') return auditBuilder;
+      throw new Error(`Unexpected table ${table}`);
+    }) as never);
+
+    const { result } = renderHook(() => useConsultationScribe(undefined, undefined));
+
+    await result.current.actions.attachAudioAndProcess({
+      recordingId: 'recording-1',
+      appointmentId: 'appt-1',
+      audioStoragePath: 'doctor-1/appt-1/audio.webm',
+      audioMimeType: 'audio/webm',
+      durationSeconds: 12,
+      scribeInputMode: 'voice_context',
+      speakerReferencePaths: {
+        doctor: 'doctor-1/appt-1/speaker-references/ref-tx1-doctor.webm',
+        patient: 'doctor-1/appt-1/speaker-references/ref-tx2-patient.webm',
+      },
+    });
+
+    expect(recordingBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          scribeInputMode: 'voice_context',
+          stereoSeparated: false,
+          speakerReferenceLabels: { doctor: 'TX1', patient: 'TX2' },
+          speakerReferencesAttached: true,
+          speakerReferencePaths: {
+            doctor: 'doctor-1/appt-1/speaker-references/ref-tx1-doctor.webm',
+            patient: 'doctor-1/appt-1/speaker-references/ref-tx2-patient.webm',
+          },
+        }),
+      })
+    );
+    expect(auditBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'stopped',
+        metadata: expect.objectContaining({
+          speakerReferencesAttached: true,
+        }),
+      })
+    );
   });
 });

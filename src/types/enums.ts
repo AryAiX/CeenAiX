@@ -101,6 +101,8 @@ export type ConsultationConsentMethod = 'verbal' | 'signed';
 
 export type ConsultationRecordingMode = 'recorded' | 'live';
 
+export type ConsultationScribeInputMode = 'stereo_separated' | 'voice_context';
+
 export type TranscriptSpeaker = 'doctor' | 'patient' | 'unknown';
 
 export type AudioInputChannel = 'left' | 'right';

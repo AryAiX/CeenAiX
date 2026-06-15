@@ -47,6 +47,10 @@ export interface DoctorAppointmentDetailData {
   labOrders: DoctorAppointmentLabOrder[];
 }
 
+const isUserProfilesRecursionError = (error: { code?: string; message?: string } | null) =>
+  error?.code === '42P17' &&
+  (error.message?.toLowerCase().includes('infinite recursion') ?? false);
+
 export function useDoctorAppointmentDetail(
   doctorUserId: string | null | undefined,
   appointmentId: string | null | undefined
@@ -119,7 +123,7 @@ export function useDoctorAppointmentDetail(
         .order('created_at', { ascending: false }),
     ]);
 
-    if (patientProfileError) throw patientProfileError;
+    if (patientProfileError && !isUserProfilesRecursionError(patientProfileError)) throw patientProfileError;
     if (patientExtensionProfileError) throw patientExtensionProfileError;
     if (consultationNotesError) throw consultationNotesError;
     if (preVisitAssessmentError) throw preVisitAssessmentError;

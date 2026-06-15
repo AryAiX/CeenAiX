@@ -14,9 +14,12 @@ import type {
   ClinicalNoteMedication,
   ClinicalNoteOutputLanguage,
   ClinicalNotePromptTemplate,
+  ConsultationScribeInputMode,
   ConsultationTranscript,
   LiveCue,
   LiveCueKind,
+  SpeakerChannelRole,
+  SpeakerReferenceAudioPaths,
   SmartSuggestion,
   SpeakerChannelMap,
   TranscriptSegment,
@@ -87,6 +90,12 @@ export function hasCompleteChannelAudioPaths(paths: ChannelAudioPaths | null | u
   return Boolean(paths?.left && paths.right);
 }
 
+export function hasCompleteSpeakerReferencePaths(
+  paths: SpeakerReferenceAudioPaths | null | undefined
+): paths is Record<SpeakerChannelRole, string> {
+  return Boolean(paths?.doctor && paths.patient);
+}
+
 /** Render seconds as a zero-padded HH:MM:SS timer string (DM Mono display). */
 export function formatRecordingDuration(totalSeconds: number): string {
   const safe = Number.isFinite(totalSeconds) && totalSeconds > 0 ? Math.floor(totalSeconds) : 0;
@@ -127,6 +136,17 @@ export function buildConsultationChannelAudioPath(
   return `${doctorId}/${appointmentId}/${crypto.randomUUID()}-${channel}.${extension}`;
 }
 
+export function buildConsultationSpeakerReferenceAudioPath(
+  doctorId: string,
+  appointmentId: string,
+  speaker: SpeakerChannelRole,
+  mimeType: string | null | undefined
+): string {
+  const extension = audioExtensionForMimeType(mimeType);
+  const label = speaker === 'doctor' ? 'tx1-doctor' : 'tx2-patient';
+  return `${doctorId}/${appointmentId}/speaker-references/${crypto.randomUUID()}-${label}.${extension}`;
+}
+
 /**
  * Upload the captured consultation audio to the private, encrypted
  * `consultation-audio` bucket. Returns the storage path for signed-URL access.
@@ -159,6 +179,27 @@ export async function uploadConsultationChannelAudio(input: {
 }): Promise<{ path: string; mimeType: string; size: number }> {
   const mimeType = input.blob.type || 'audio/webm';
   const path = buildConsultationChannelAudioPath(input.doctorId, input.appointmentId, input.channel, mimeType);
+  const { error } = await supabase.storage.from(CONSULTATION_AUDIO_BUCKET).upload(path, input.blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: mimeType,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return { path, mimeType, size: input.blob.size };
+}
+
+export async function uploadConsultationSpeakerReferenceAudio(input: {
+  doctorId: string;
+  appointmentId: string;
+  speaker: SpeakerChannelRole;
+  blob: Blob;
+}): Promise<{ path: string; mimeType: string; size: number }> {
+  const mimeType = input.blob.type || 'audio/webm';
+  const path = buildConsultationSpeakerReferenceAudioPath(input.doctorId, input.appointmentId, input.speaker, mimeType);
   const { error } = await supabase.storage.from(CONSULTATION_AUDIO_BUCKET).upload(path, input.blob, {
     cacheControl: '3600',
     upsert: false,
@@ -381,14 +422,18 @@ export async function transcribeConsultation(input: {
   recordingId: string;
   speakerChannelMap?: SpeakerChannelMap | null;
   channelAudioPaths?: ChannelAudioPaths | null;
+  speakerReferencePaths?: SpeakerReferenceAudioPaths | null;
   audioChannelCount?: number | null;
+  scribeInputMode?: ConsultationScribeInputMode | null;
 }): Promise<ScribeTranscribeResult> {
   const result = await invokeScribe<ScribeTranscribeResult>({
     task: 'transcribe',
     recordingId: input.recordingId,
     speakerChannelMap: input.speakerChannelMap ?? null,
     channelAudioPaths: input.channelAudioPaths ?? null,
+    speakerReferencePaths: input.speakerReferencePaths ?? null,
     audioChannelCount: input.audioChannelCount ?? null,
+    scribeInputMode: input.scribeInputMode ?? null,
   });
   return {
     ...result,

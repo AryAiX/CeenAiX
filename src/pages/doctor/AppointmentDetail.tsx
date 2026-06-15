@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useConsultationScribeController } from '../../hooks/use-consultation-scribe-controller';
-import { AiScribePanel, ConsentModal, LiveSessionPanel, RecordingControlBar } from '../../components/consultation';
+import { AiScribePanel, LiveSessionPanel, RecordingControlBar } from '../../components/consultation';
 import type { AppliedSoap } from '../../components/consultation';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { useDoctorAppointmentDetail, useQuery } from '../../hooks';
@@ -1050,13 +1050,6 @@ export const DoctorAppointmentDetail: React.FC = () => {
           />
         )}
       </div>
-
-      <ConsentModal
-        open={scribe.consentOpen}
-        patientName={patientName}
-        onClose={scribe.closeConsent}
-        onConfirm={(input) => void scribe.startWithConsent(input)}
-      />
 
       {showCancelModal ? createPortal(
         <div

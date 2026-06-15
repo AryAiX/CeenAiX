@@ -7,8 +7,10 @@ import type {
   ConsultationConsentMethod,
   ConsultationRecording,
   ConsultationRecordingMode,
+  ConsultationScribeInputMode,
   ConsultationTranscript,
   ChannelAudioPaths,
+  SpeakerReferenceAudioPaths,
   SpeakerChannelMap,
   TranscriptSegment,
 } from '../types';
@@ -33,6 +35,8 @@ export interface CreateRecordingInput {
   mode?: ConsultationRecordingMode;
   speakerChannelMap?: SpeakerChannelMap;
   audioChannelCount?: number | null;
+  scribeInputMode?: ConsultationScribeInputMode;
+  speakerReferencePaths?: SpeakerReferenceAudioPaths;
 }
 
 export interface ConsultationScribeActions {
@@ -52,6 +56,8 @@ export interface ConsultationScribeActions {
     speakerChannelMap?: SpeakerChannelMap;
     audioChannelCount?: number | null;
     channelAudioPaths?: ChannelAudioPaths;
+    scribeInputMode?: ConsultationScribeInputMode;
+    speakerReferencePaths?: SpeakerReferenceAudioPaths;
   }) => Promise<void>;
   discardRecording: (recording: ConsultationRecording) => Promise<void>;
   updateTranscriptSegments: (transcriptId: string, segments: TranscriptSegment[]) => Promise<void>;
@@ -86,6 +92,37 @@ const fireAuditLog = async (input: {
     action: input.action,
     metadata: input.metadata ?? {},
   });
+};
+
+const SPEAKER_REFERENCE_LABELS = {
+  doctor: 'TX1',
+  patient: 'TX2',
+} as const;
+
+const buildSourceAssignmentMetadata = (
+  inputMode: ConsultationScribeInputMode,
+  speakerReferencePaths?: SpeakerReferenceAudioPaths
+) => ({
+  scribeInputMode: inputMode,
+  stereoSeparated: inputMode === 'stereo_separated',
+  sourceAssignments: {
+    doctor: 'TX1',
+    patient: 'TX2',
+  },
+  speakerReferenceLabels: SPEAKER_REFERENCE_LABELS,
+  speakerReferencePaths: speakerReferencePaths ?? {},
+  speakerReferencesAttached: Boolean(speakerReferencePaths?.doctor && speakerReferencePaths.patient),
+});
+
+const speakerReferencePathsFromMetadata = (metadata: Record<string, unknown> | null | undefined): string[] => {
+  const value = metadata?.speakerReferencePaths;
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+  const candidate = value as Partial<Record<'doctor' | 'patient', unknown>>;
+  return [candidate.doctor, candidate.patient].filter(
+    (path): path is string => typeof path === 'string' && path.length > 0
+  );
 };
 
 export function useConsultationScribe(
@@ -161,6 +198,7 @@ export function useConsultationScribe(
         clinic_id: input.clinicId,
         status: 'recording',
         mode: input.mode ?? 'recorded',
+        metadata: buildSourceAssignmentMetadata(input.scribeInputMode ?? 'voice_context', input.speakerReferencePaths),
         started_at: new Date().toISOString(),
       })
       .select('*')
@@ -189,6 +227,7 @@ export function useConsultationScribe(
         mode: input.mode ?? 'recorded',
         speakerChannelMap: input.speakerChannelMap,
         audioChannelCount: input.audioChannelCount ?? null,
+        ...buildSourceAssignmentMetadata(input.scribeInputMode ?? 'voice_context', input.speakerReferencePaths),
       },
     });
 
@@ -205,6 +244,7 @@ export function useConsultationScribe(
           duration_seconds: input.durationSeconds,
           ended_at: new Date().toISOString(),
           status: 'processing',
+          metadata: buildSourceAssignmentMetadata(input.scribeInputMode ?? 'voice_context', input.speakerReferencePaths),
         })
         .eq('id', input.recordingId);
       if (error) throw error;
@@ -218,6 +258,7 @@ export function useConsultationScribe(
           speakerChannelMap: input.speakerChannelMap,
           audioChannelCount: input.audioChannelCount ?? null,
           channelAudioPaths: input.channelAudioPaths ?? {},
+          ...buildSourceAssignmentMetadata(input.scribeInputMode ?? 'voice_context', input.speakerReferencePaths),
         },
       });
     },
@@ -226,8 +267,12 @@ export function useConsultationScribe(
 
   const discardRecording = useCallback<ConsultationScribeActions['discardRecording']>(
     async (recording) => {
-      if (recording.audio_storage_path) {
-        await supabase.storage.from(CONSULTATION_AUDIO_BUCKET).remove([recording.audio_storage_path]);
+      const storagePaths = [
+        recording.audio_storage_path,
+        ...speakerReferencePathsFromMetadata(recording.metadata),
+      ].filter((path): path is string => typeof path === 'string' && path.length > 0);
+      if (storagePaths.length > 0) {
+        await supabase.storage.from(CONSULTATION_AUDIO_BUCKET).remove(storagePaths);
       }
       const { error } = await supabase
         .from('consultation_recordings')

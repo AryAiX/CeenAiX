@@ -1,5 +1,21 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clearLocalAuthState, getDefaultRouteForRole, getRoleDisplayName } from './auth-context';
+import type { User } from '@supabase/supabase-js';
+import {
+  clearLocalAuthState,
+  getAuthMetadataRole,
+  getDefaultRouteForRole,
+  getRoleDisplayName,
+} from './auth-context';
+
+const buildUser = (overrides: Partial<User>): User =>
+  ({
+    id: 'user-id',
+    aud: 'authenticated',
+    app_metadata: {},
+    user_metadata: {},
+    created_at: new Date(0).toISOString(),
+    ...overrides,
+  }) as User;
 
 afterEach(() => {
   localStorage.clear();
@@ -27,6 +43,34 @@ describe('getDefaultRouteForRole', () => {
   it('routes unauthenticated callers to onboarding', () => {
     expect(getDefaultRouteForRole(null)).toBe('/auth/onboarding');
     expect(getDefaultRouteForRole(undefined)).toBe('/auth/onboarding');
+  });
+});
+
+describe('getAuthMetadataRole', () => {
+  it('prefers app metadata role over user metadata role', () => {
+    const user = buildUser({
+      app_metadata: { role: 'doctor' },
+      user_metadata: { role: 'patient' },
+    });
+
+    expect(getAuthMetadataRole(user)).toBe('doctor');
+  });
+
+  it('falls back to user metadata role when app metadata is missing', () => {
+    const user = buildUser({
+      user_metadata: { role: 'doctor' },
+    });
+
+    expect(getAuthMetadataRole(user)).toBe('doctor');
+  });
+
+  it('returns null when metadata does not contain a valid role', () => {
+    const user = buildUser({
+      app_metadata: { role: 'unknown' },
+      user_metadata: { role: '' },
+    });
+
+    expect(getAuthMetadataRole(user)).toBeNull();
   });
 });
 
