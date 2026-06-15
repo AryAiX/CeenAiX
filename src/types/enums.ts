@@ -101,7 +101,13 @@ export type ConsultationConsentMethod = 'verbal' | 'signed';
 
 export type ConsultationRecordingMode = 'recorded' | 'live';
 
+export type ConsultationScribeInputMode = 'stereo_separated' | 'voice_context';
+
 export type TranscriptSpeaker = 'doctor' | 'patient' | 'unknown';
+
+export type AudioInputChannel = 'left' | 'right';
+
+export type SpeakerChannelRole = Extract<TranscriptSpeaker, 'doctor' | 'patient'>;
 
 export type SmartSuggestionKind = 'lab_order' | 'medication' | 'allergy' | 'referral' | 'follow_up';
 

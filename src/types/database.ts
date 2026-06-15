@@ -29,6 +29,8 @@ import type {
   ConsultationRecordingStatus,
   ConsultationConsentMethod,
   ConsultationRecordingMode,
+  AudioInputChannel,
+  SpeakerChannelRole,
   TranscriptSpeaker,
   ClinicalNotePromptTemplate,
   ClinicalNoteOutputLanguage,
@@ -1031,6 +1033,7 @@ export interface ConsultationRecording extends BaseRecord, SoftDeletable {
   language_detected: string | null;
   status: ConsultationRecordingStatus;
   mode: ConsultationRecordingMode;
+  metadata: Record<string, unknown>;
   started_at: string;
   ended_at: string | null;
 }
@@ -1042,6 +1045,12 @@ export interface TranscriptSegment {
   text: string;
   confidence: number;
 }
+
+export type SpeakerChannelMap = Record<AudioInputChannel, SpeakerChannelRole>;
+
+export type ChannelAudioPaths = Partial<Record<AudioInputChannel, string>>;
+
+export type SpeakerReferenceAudioPaths = Partial<Record<SpeakerChannelRole, string>>;
 
 export interface ConsultationTranscript extends BaseRecord {
   recording_id: string;

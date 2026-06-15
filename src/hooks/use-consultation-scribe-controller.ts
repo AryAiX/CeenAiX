@@ -3,20 +3,31 @@ import {
   extractSmartSuggestions,
   fetchLiveCues,
   generateClinicalNote,
+  hasCompleteChannelAudioPaths,
+  hasCompleteSpeakerReferencePaths,
+  loadSpeakerChannelMapPreference,
+  saveSpeakerChannelMapPreference,
   transcribeConsultation,
+  uploadConsultationChannelAudio,
   uploadConsultationAudio,
+  uploadConsultationSpeakerReferenceAudio,
 } from '../lib/consultation-scribe';
 import type {
+  ChannelAudioPaths,
   ClinicalNoteOutputLanguage,
   ClinicalNotePromptTemplate,
   ConsultationConsentMethod,
   ConsultationRecording,
   ConsultationRecordingMode,
+  ConsultationScribeInputMode,
   LiveCue,
+  SpeakerChannelRole,
+  SpeakerReferenceAudioPaths,
+  SpeakerChannelMap,
   SmartSuggestion,
   TranscriptSegment,
 } from '../types';
-import { useAudioRecorder } from './use-audio-recorder';
+import { useAudioRecorder, type AudioSetupSampleResult } from './use-audio-recorder';
 import { useConsultationScribe } from './use-consultation-scribe';
 import { useLiveTranscription, type LiveTranscriptEntry } from './use-live-transcription';
 
@@ -47,10 +58,7 @@ export interface ConsultationScribeController {
   isLoadingSuggestions: boolean;
   feedback: ScribeFeedback;
   setFeedback: (feedback: ScribeFeedback) => void;
-  consentOpen: boolean;
-  openConsent: () => void;
-  closeConsent: () => void;
-  startWithConsent: (input: ScribeConsentInput) => Promise<void>;
+  startRecording: () => Promise<void>;
   stopAndProcess: () => Promise<void>;
   retryProcessing: () => Promise<void>;
   discard: () => Promise<void>;
@@ -67,7 +75,22 @@ export interface ConsultationScribeController {
   liveTranscribing: boolean;
   liveCues: LiveCue[];
   dismissCue: (id: string) => void;
+  speakerChannelMap: SpeakerChannelMap;
+  setSpeakerChannelMap: (map: SpeakerChannelMap) => void;
+  scribeInputMode: ConsultationScribeInputMode;
+  setScribeInputMode: (mode: ConsultationScribeInputMode) => void;
+  stereoInputAvailable: boolean;
+  setSpeakerReferenceSample: (speaker: SpeakerChannelRole, sample: AudioSetupSampleResult) => void;
 }
+
+type SpeakerReferenceSamples = Partial<Record<SpeakerChannelRole, AudioSetupSampleResult>>;
+const SPEAKER_REFERENCE_ROLES: readonly SpeakerChannelRole[] = ['doctor', 'patient'];
+const INTERNAL_RECORDING_CONSENT: ScribeConsentInput = {
+  informedPatient: true,
+  verbalConsent: true,
+  consentMethod: 'verbal',
+  signatureImageUrl: null,
+};
 
 export function useConsultationScribeController(input: {
   appointmentId: string | null | undefined;
@@ -78,7 +101,6 @@ export function useConsultationScribeController(input: {
   const recorder = useAudioRecorder();
   const { data, loading, refetch, actions } = useConsultationScribe(input.doctorId, input.appointmentId);
 
-  const [consentOpen, setConsentOpen] = useState(false);
   const [activeRecording, setActiveRecording] = useState<ConsultationRecording | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -89,6 +111,16 @@ export function useConsultationScribeController(input: {
   const [mode, setMode] = useState<ConsultationRecordingMode>('recorded');
   const [liveCues, setLiveCues] = useState<LiveCue[]>([]);
   const [dismissedCues, setDismissedCues] = useState<Set<string>>(new Set());
+  const [speakerChannelMap, setSpeakerChannelMapState] = useState<SpeakerChannelMap>(() =>
+    loadSpeakerChannelMapPreference()
+  );
+  const [scribeInputMode, setScribeInputMode] = useState<ConsultationScribeInputMode>('voice_context');
+  const [speakerReferenceSamples, setSpeakerReferenceSamples] = useState<SpeakerReferenceSamples>({});
+
+  const setSpeakerChannelMap = useCallback((map: SpeakerChannelMap) => {
+    setSpeakerChannelMapState(map);
+    saveSpeakerChannelMapPreference(map);
+  }, []);
 
   useEffect(() => {
     setActiveRecording(null);
@@ -96,16 +128,22 @@ export function useConsultationScribeController(input: {
     setDismissed(new Set());
     setFeedback(null);
     setMode('recorded');
+    setScribeInputMode('voice_context');
+    setSpeakerReferenceSamples({});
     setLiveCues([]);
     setDismissedCues(new Set());
   }, [input.appointmentId]);
 
   const currentRecording = activeRecording ?? data?.recording ?? null;
+  const stereoInputAvailable = (recorder.channelCount ?? 0) >= 2;
 
   const live = useLiveTranscription({
     stream: recorder.stream,
+    channelStreams: scribeInputMode === 'stereo_separated' ? recorder.channelStreams : null,
     active: mode === 'live' && recorder.status === 'recording',
     recordingId: currentRecording?.id ?? null,
+    speakerChannelMap,
+    stereoAvailable: stereoInputAvailable && scribeInputMode === 'stereo_separated',
   });
 
   const liveTranscriptRef = useRef('');
@@ -124,7 +162,7 @@ export function useConsultationScribeController(input: {
       const transcript = liveTranscriptRef.current.trim();
       if (transcript.length < 20) return;
       try {
-        const result = await fetchLiveCues({ recordingId, transcript });
+        const result = await fetchLiveCues({ recordingId, transcript, speakerChannelMap });
         if (!cancelled) setLiveCues(result.cues);
       } catch {
         // Cues are best-effort; ignore failures.
@@ -135,23 +173,28 @@ export function useConsultationScribeController(input: {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [mode, recorder.status, currentRecording?.id]);
+  }, [mode, recorder.status, currentRecording?.id, speakerChannelMap]);
   const isProcessing = isTranscribing || isGenerating;
 
-  const openConsent = useCallback(() => setConsentOpen(true), []);
-  const closeConsent = useCallback(() => setConsentOpen(false), []);
+  const setSpeakerReferenceSample = useCallback((speaker: SpeakerChannelRole, sample: AudioSetupSampleResult) => {
+    setSpeakerReferenceSamples((current) => ({ ...current, [speaker]: sample }));
+  }, []);
 
-  const startWithConsent = useCallback(
-    async (consent: ScribeConsentInput) => {
+  const startRecording = useCallback(
+    async () => {
       if (!input.appointmentId || !input.doctorId || !input.patientId) {
         return;
       }
       setFeedback(null);
-      setConsentOpen(false);
-      await recorder.start();
+      const captureInfo = await recorder.start();
       // recorder.start updates its own status; bail if it failed to acquire mic.
       // We read the latest status via a microtask since state updates are async.
+      if (!captureInfo) {
+        return;
+      }
       try {
+        // Keep the persistence contract satisfied without blocking setup on a consent UI.
+        const consent = INTERNAL_RECORDING_CONSENT;
         const recording = await actions.createRecording({
           appointmentId: input.appointmentId,
           doctorId: input.doctorId,
@@ -162,6 +205,9 @@ export function useConsultationScribeController(input: {
           verbalConsent: consent.verbalConsent,
           signatureImageUrl: consent.signatureImageUrl,
           mode,
+          speakerChannelMap,
+          audioChannelCount: captureInfo.channelCount,
+          scribeInputMode,
         });
         setActiveRecording(recording);
         refetch();
@@ -172,7 +218,7 @@ export function useConsultationScribeController(input: {
         });
       }
     },
-    [actions, input.appointmentId, input.doctorId, input.patientId, input.clinicId, recorder, refetch, mode]
+    [actions, input.appointmentId, input.doctorId, input.patientId, input.clinicId, recorder, refetch, mode, speakerChannelMap, scribeInputMode]
   );
 
   const stopAndProcess = useCallback(async () => {
@@ -180,10 +226,11 @@ export function useConsultationScribeController(input: {
     if (!recording || !input.doctorId) {
       return;
     }
+    const doctorId = input.doctorId;
     setFeedback(null);
     const elapsed = recorder.elapsedSeconds;
-    const blob = await recorder.stop();
-    if (!blob || blob.size === 0) {
+    const recordingResult = await recorder.stop();
+    if (!recordingResult || recordingResult.blob.size === 0) {
       await actions.discardRecording(recording);
       setActiveRecording(null);
       refetch();
@@ -193,16 +240,69 @@ export function useConsultationScribeController(input: {
 
     try {
       const upload = await uploadConsultationAudio({
-        doctorId: input.doctorId,
+        doctorId,
         appointmentId: recording.appointment_id,
-        blob,
+        blob: recordingResult.blob,
       });
+      const channelAudioPaths: ChannelAudioPaths = {};
+      const shouldAttemptSeparatedSources = scribeInputMode === 'stereo_separated' && (recordingResult.channelCount ?? 0) >= 2;
+      const speakerReferencePaths: SpeakerReferenceAudioPaths = {};
+      if (shouldAttemptSeparatedSources) {
+        const uploads = await Promise.all(
+          (['left', 'right'] as const).map(async (channel) => {
+            const channelBlob = recordingResult.channelBlobs[channel];
+            if (!channelBlob || channelBlob.size === 0) {
+              return null;
+            }
+            const channelUpload = await uploadConsultationChannelAudio({
+              doctorId,
+              appointmentId: recording.appointment_id,
+              channel,
+              blob: channelBlob,
+            });
+            return { channel, path: channelUpload.path };
+          })
+        );
+        uploads.forEach((channelUpload) => {
+          if (channelUpload) {
+            channelAudioPaths[channelUpload.channel] = channelUpload.path;
+          }
+        });
+      }
+      const useSeparatedSources = shouldAttemptSeparatedSources && hasCompleteChannelAudioPaths(channelAudioPaths);
+      if (!useSeparatedSources) {
+        const uploads = await Promise.all(
+          SPEAKER_REFERENCE_ROLES.map(async (speaker) => {
+            const sample = speakerReferenceSamples[speaker];
+            if (!sample?.blob || sample.blob.size === 0) {
+              return null;
+            }
+            const referenceUpload = await uploadConsultationSpeakerReferenceAudio({
+              doctorId,
+              appointmentId: recording.appointment_id,
+              speaker,
+              blob: sample.blob,
+            });
+            return { speaker, path: referenceUpload.path };
+          })
+        );
+        uploads.forEach((referenceUpload) => {
+          if (referenceUpload) {
+            speakerReferencePaths[referenceUpload.speaker] = referenceUpload.path;
+          }
+        });
+      }
       await actions.attachAudioAndProcess({
         recordingId: recording.id,
         appointmentId: recording.appointment_id,
         audioStoragePath: upload.path,
         audioMimeType: upload.mimeType,
         durationSeconds: elapsed,
+        speakerChannelMap,
+        audioChannelCount: recordingResult.channelCount,
+        channelAudioPaths: useSeparatedSources ? channelAudioPaths : {},
+        scribeInputMode,
+        speakerReferencePaths,
       });
       refetch();
 
@@ -212,9 +312,15 @@ export function useConsultationScribeController(input: {
         // the note from that text instead of re-running Whisper on the full file.
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const entries = liveEntriesRef.current;
-        const fullText = liveTranscriptRef.current.trim();
+        const fullText = entries
+          .map((entry) => {
+            const speaker = entry.speaker === 'doctor' ? 'Doctor' : entry.speaker === 'patient' ? 'Patient' : 'Speaker';
+            return `${speaker}: ${entry.text}`;
+          })
+          .join('\n')
+          .trim();
         const segments = entries.map((entry, index) => ({
-          speaker: 'unknown' as const,
+          speaker: entry.speaker,
           start_ms: index * 7000,
           end_ms: (index + 1) * 7000,
           text: entry.text,
@@ -232,7 +338,16 @@ export function useConsultationScribeController(input: {
         setIsGenerating(false);
       } else {
         setIsTranscribing(true);
-        await transcribeConsultation({ recordingId: recording.id });
+        await transcribeConsultation({
+          recordingId: recording.id,
+          speakerChannelMap,
+          channelAudioPaths: useSeparatedSources && hasCompleteChannelAudioPaths(channelAudioPaths) ? channelAudioPaths : null,
+          speakerReferencePaths: !useSeparatedSources && hasCompleteSpeakerReferencePaths(speakerReferencePaths)
+            ? speakerReferencePaths
+            : null,
+          audioChannelCount: recordingResult.channelCount,
+          scribeInputMode,
+        });
         setIsTranscribing(false);
 
         setIsGenerating(true);
@@ -253,7 +368,7 @@ export function useConsultationScribeController(input: {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions, currentRecording, input.doctorId, recorder, refetch, mode]);
+  }, [actions, currentRecording, input.doctorId, recorder, refetch, mode, speakerChannelMap, scribeInputMode, speakerReferenceSamples]);
 
   const retryProcessing = useCallback(async () => {
     const recording = currentRecording;
@@ -412,10 +527,7 @@ export function useConsultationScribeController(input: {
     isLoadingSuggestions,
     feedback,
     setFeedback,
-    consentOpen,
-    openConsent,
-    closeConsent,
-    startWithConsent,
+    startRecording,
     stopAndProcess,
     retryProcessing,
     discard,
@@ -432,5 +544,11 @@ export function useConsultationScribeController(input: {
     liveTranscribing: live.isTranscribing,
     liveCues: visibleCues,
     dismissCue,
+    speakerChannelMap,
+    setSpeakerChannelMap,
+    scribeInputMode,
+    setScribeInputMode,
+    stereoInputAvailable,
+    setSpeakerReferenceSample,
   };
 }

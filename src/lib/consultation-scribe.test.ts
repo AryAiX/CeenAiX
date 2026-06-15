@@ -1,15 +1,41 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { supabase } from './supabase';
 import {
   audioExtensionForMimeType,
   buildConsultationAudioPath,
+  buildConsultationChannelAudioPath,
+  buildConsultationSpeakerReferenceAudioPath,
+  DEFAULT_SPEAKER_CHANNEL_MAP,
   formatRecordingDuration,
+  hasCompleteChannelAudioPaths,
+  hasCompleteSpeakerReferencePaths,
   normalizeClinicalNoteDiagnoses,
   normalizeClinicalNoteFollowUp,
   normalizeClinicalNoteMedications,
   normalizeLiveCues,
   normalizeSmartSuggestions,
+  normalizeSpeakerChannelMap,
   normalizeTranscriptSegments,
+  preferenceToSpeakerChannelMap,
+  REVERSED_SPEAKER_CHANNEL_MAP,
+  speakerChannelMapToPreference,
+  transcribeConsultation,
 } from './consultation-scribe';
+
+vi.mock('./supabase', () => ({
+  supabase: {
+    functions: {
+      invoke: vi.fn(),
+    },
+    storage: {
+      from: vi.fn(),
+    },
+  },
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('formatRecordingDuration', () => {
   it('formats as zero-padded HH:MM:SS', () => {
@@ -41,6 +67,78 @@ describe('buildConsultationAudioPath', () => {
     const path = buildConsultationAudioPath('doc-1', 'appt-1', 'audio/webm');
     expect(path.startsWith('doc-1/appt-1/')).toBe(true);
     expect(path.endsWith('.webm')).toBe(true);
+  });
+});
+
+describe('speaker channel assignment helpers', () => {
+  it('maps UI preferences to left/right speaker roles', () => {
+    expect(preferenceToSpeakerChannelMap('left-doctor')).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+    expect(preferenceToSpeakerChannelMap('left-patient')).toEqual(REVERSED_SPEAKER_CHANNEL_MAP);
+    expect(speakerChannelMapToPreference(DEFAULT_SPEAKER_CHANNEL_MAP)).toBe('left-doctor');
+    expect(speakerChannelMapToPreference(REVERSED_SPEAKER_CHANNEL_MAP)).toBe('left-patient');
+  });
+
+  it('normalizes invalid speaker channel maps to the default split', () => {
+    expect(normalizeSpeakerChannelMap({ left: 'doctor', right: 'patient' })).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+    expect(normalizeSpeakerChannelMap({ left: 'doctor', right: 'doctor' })).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+    expect(normalizeSpeakerChannelMap({ left: 'patient', right: 'doctor' })).toEqual(REVERSED_SPEAKER_CHANNEL_MAP);
+    expect(normalizeSpeakerChannelMap(null)).toEqual(DEFAULT_SPEAKER_CHANNEL_MAP);
+  });
+
+  it('tracks complete channel-audio path metadata', () => {
+    expect(buildConsultationChannelAudioPath('doc-1', 'appt-1', 'left', 'audio/webm')).toContain('-left.webm');
+    expect(hasCompleteChannelAudioPaths({ left: 'left.webm', right: 'right.webm' })).toBe(true);
+    expect(hasCompleteChannelAudioPaths({ left: 'left.webm' })).toBe(false);
+  });
+
+  it('namespaces speaker reference samples by TX role', () => {
+    const doctorPath = buildConsultationSpeakerReferenceAudioPath('doc-1', 'appt-1', 'doctor', 'audio/webm');
+    const patientPath = buildConsultationSpeakerReferenceAudioPath('doc-1', 'appt-1', 'patient', 'audio/webm');
+    expect(doctorPath).toContain('doc-1/appt-1/speaker-references/');
+    expect(doctorPath).toContain('-tx1-doctor.webm');
+    expect(patientPath).toContain('-tx2-patient.webm');
+    expect(hasCompleteSpeakerReferencePaths({ doctor: doctorPath, patient: patientPath })).toBe(true);
+    expect(hasCompleteSpeakerReferencePaths({ doctor: doctorPath })).toBe(false);
+  });
+});
+
+describe('transcribeConsultation', () => {
+  it('passes voice reference metadata to the scribe function', async () => {
+    const invokeMock = vi.mocked(supabase.functions.invoke);
+    invokeMock.mockResolvedValue({
+      data: {
+        transcript: {
+          id: 'transcript-1',
+          recording_id: 'recording-1',
+          full_text: 'Doctor: Hello',
+          segments: [],
+        },
+        durationSeconds: 1,
+        languageDetected: 'en',
+      },
+      error: null,
+    });
+
+    await transcribeConsultation({
+      recordingId: 'recording-1',
+      scribeInputMode: 'voice_context',
+      speakerReferencePaths: {
+        doctor: 'doc-1/appt-1/speaker-references/ref-tx1-doctor.webm',
+        patient: 'doc-1/appt-1/speaker-references/ref-tx2-patient.webm',
+      },
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith('consultation-scribe', {
+      body: expect.objectContaining({
+        task: 'transcribe',
+        recordingId: 'recording-1',
+        scribeInputMode: 'voice_context',
+        speakerReferencePaths: {
+          doctor: 'doc-1/appt-1/speaker-references/ref-tx1-doctor.webm',
+          patient: 'doc-1/appt-1/speaker-references/ref-tx2-patient.webm',
+        },
+      }),
+    });
   });
 });
 

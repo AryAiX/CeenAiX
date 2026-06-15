@@ -111,6 +111,44 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const isUserRole = (value: string | null | undefined): value is UserRole =>
   Boolean(value && validRoleSet.has(value));
 
+const SUPABASE_AUTH_KEY_PATTERN = /^sb-.+-auth-token$/;
+
+const removeStorageKeys = (storage: Storage) => {
+  const keysToRemove: string[] = [];
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key && (SUPABASE_AUTH_KEY_PATTERN.test(key) || key === 'supabase.auth.token')) {
+      keysToRemove.push(key);
+    }
+  }
+
+  for (const key of keysToRemove) {
+    storage.removeItem(key);
+  }
+};
+
+export const clearLocalAuthState = () => {
+  clearPreviewAccess();
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem('ceenaix.lang');
+    removeStorageKeys(window.localStorage);
+  } catch {
+    // localStorage may be disabled (private mode); sign-out must continue.
+  }
+
+  try {
+    removeStorageKeys(window.sessionStorage);
+  } catch {
+    // sessionStorage may be disabled; sign-out must continue.
+  }
+};
+
 const safeString = (value: unknown): string | null => {
   if (typeof value !== 'string') {
     return null;
@@ -158,9 +196,24 @@ const splitFullName = (fullName: string) => {
 const buildFullName = (firstName: string | null, lastName: string | null) =>
   [firstName, lastName].filter(Boolean).join(' ').trim() || null;
 
+export const getAuthMetadataRole = (user: User): UserRole | null => {
+  const appMetadataRole = safeString(user.app_metadata?.role);
+  const userMetadataRole = safeString(user.user_metadata?.role);
+
+  if (isUserRole(appMetadataRole)) {
+    return appMetadataRole;
+  }
+
+  if (isUserRole(userMetadataRole)) {
+    return userMetadataRole;
+  }
+
+  return null;
+};
+
 const getProfileSeed = (user: User): ProfileSeed => {
   const metadata = user.user_metadata ?? {};
-  const metadataRole = safeString(metadata.role);
+  const metadataRole = getAuthMetadataRole(user);
   const firstName = safeString(metadata.first_name);
   const lastName = safeString(metadata.last_name);
   const metadataFullName = safeString(metadata.full_name);
@@ -172,13 +225,49 @@ const getProfileSeed = (user: User): ProfileSeed => {
     'CeenAiX User';
 
   return {
-    role: isUserRole(metadataRole) ? metadataRole : 'patient',
+    role: metadataRole ?? 'patient',
     fullName,
     firstName: firstName ?? splitFullName(fullName).firstName,
     lastName: lastName ?? splitFullName(fullName).lastName,
     phone: safeString(user.phone) ?? safeString(metadata.phone),
     email: safeString(user.email) ?? safeString(metadata.email),
     termsAccepted: Boolean(metadata.terms_accepted),
+  };
+};
+
+const buildProfileFromAuthMetadata = (user: User): UserProfile | null => {
+  const role = getAuthMetadataRole(user);
+
+  if (!role) {
+    return null;
+  }
+
+  const seed = getProfileSeed(user);
+  const createdAt = safeString(user.created_at) ?? new Date(0).toISOString();
+  const updatedAt = safeString(user.updated_at) ?? createdAt;
+  const metadataProfileCompleted = user.user_metadata?.profile_completed;
+
+  return {
+    id: user.id,
+    user_id: user.id,
+    role,
+    full_name: seed.fullName,
+    first_name: seed.firstName,
+    last_name: seed.lastName,
+    date_of_birth: null,
+    gender: null,
+    emirates_id: null,
+    phone: seed.phone,
+    email: seed.email,
+    address: null,
+    city: null,
+    avatar_url: null,
+    notification_preferences: {},
+    profile_completed:
+      typeof metadataProfileCompleted === 'boolean' ? metadataProfileCompleted : true,
+    terms_accepted: seed.termsAccepted,
+    created_at: createdAt,
+    updated_at: updatedAt,
   };
 };
 
@@ -218,6 +307,46 @@ export const getDefaultRouteForRole = (role: UserRole | null | undefined) => {
   }
 
   return '/auth/onboarding';
+};
+
+export const getRoleDisplayName = (role: UserRole | null | undefined) => {
+  if (role === 'patient') {
+    return 'Patient';
+  }
+
+  if (role === 'doctor') {
+    return 'Doctor / Clinician';
+  }
+
+  if (role === 'nurse') {
+    return 'Nurse';
+  }
+
+  if (role === 'pharmacy') {
+    return 'Pharmacy staff';
+  }
+
+  if (role === 'lab') {
+    return 'Lab staff';
+  }
+
+  if (role === 'insurance') {
+    return 'Insurance staff';
+  }
+
+  if (role === 'clinic') {
+    return 'Clinic staff';
+  }
+
+  if (role === 'facility_admin') {
+    return 'Facility admin';
+  }
+
+  if (role === 'super_admin') {
+    return 'Administrator';
+  }
+
+  return 'another role';
 };
 
 const buildAuthRedirectUrl = (path: string) => {
@@ -358,6 +487,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!nextProfile) {
+        const metadataProfile = buildProfileFromAuthMetadata(nextUser);
+
+        if (metadataProfile) {
+          console.warn('Using auth metadata role because user profile could not be loaded');
+          const extensions = await loadExtensionProfiles(metadataProfile.role, nextUser.id);
+
+          return {
+            profile: metadataProfile,
+            patientProfile: extensions.patientProfile,
+            doctorProfile: extensions.doctorProfile,
+            role: metadataProfile.role,
+          };
+        }
+
         return {
           profile: null,
           patientProfile: null,
@@ -438,17 +581,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (event === 'SIGNED_OUT') {
-        clearPreviewAccess();
-        // Clear the per-device language preference so a shared device does
-        // not leak the previous user's selection to the next visitor.
-        try {
-          if (typeof window !== 'undefined') {
-            window.localStorage.removeItem('ceenaix.lang');
-          }
-        } catch {
-          // localStorage may be disabled (private mode); the sign-out path
-          // must not throw.
-        }
+        clearLocalAuthState();
       }
 
       void syncSession(nextSession);
@@ -592,16 +725,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = useCallback(async () => {
+    let signOutError: Error | null = null;
+
     try {
       const { error } = await supabase.auth.signOut();
-      if (!error) {
+      signOutError = error;
+    } catch (error) {
+      signOutError = toError(error);
+    } finally {
+      clearLocalAuthState();
+      await syncSession(null);
+
+      if (typeof window !== 'undefined') {
         window.location.href = '/';
       }
-      return { error };
-    } catch (error) {
-      return { error: toError(error) };
     }
-  }, []);
+
+    return { error: signOutError };
+  }, [syncSession]);
 
   const refreshProfile = useCallback(async () => {
     if (!user) {

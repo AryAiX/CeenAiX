@@ -6,6 +6,13 @@ const corsHeaders = {
 };
 
 type TaskType = 'transcribe' | 'generate_note' | 'suggestions' | 'live_transcribe_chunk' | 'live_cues';
+type AudioInputChannel = 'left' | 'right';
+type TranscriptSpeaker = 'doctor' | 'patient' | 'unknown';
+type SpeakerChannelRole = Extract<TranscriptSpeaker, 'doctor' | 'patient'>;
+type SpeakerChannelMap = Record<AudioInputChannel, SpeakerChannelRole>;
+type ChannelAudioPaths = Partial<Record<AudioInputChannel, string>>;
+type SpeakerReferencePaths = Partial<Record<SpeakerChannelRole, string>>;
+type ConsultationScribeInputMode = 'stereo_separated' | 'voice_context';
 
 interface RequestBody {
   task?: TaskType;
@@ -15,6 +22,11 @@ interface RequestBody {
   customInstructions?: string | null;
   transcriptOverride?: string | null;
   transcript?: string | null;
+  speakerChannelMap?: unknown;
+  channelAudioPaths?: unknown;
+  speakerReferencePaths?: unknown;
+  audioChannelCount?: number | null;
+  scribeInputMode?: unknown;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -53,6 +65,84 @@ const asStringArray = (value: unknown): string[] =>
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
     : [];
 
+const DEFAULT_SPEAKER_CHANNEL_MAP: SpeakerChannelMap = { left: 'doctor', right: 'patient' };
+const AUDIO_CHANNELS: readonly AudioInputChannel[] = ['left', 'right'];
+
+const normalizeSpeakerChannelMap = (value: unknown): SpeakerChannelMap => {
+  if (!value || typeof value !== 'object') {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  const candidate = value as Record<AudioInputChannel, unknown>;
+  const left = candidate.left === 'doctor' || candidate.left === 'patient' ? candidate.left : null;
+  const right = candidate.right === 'doctor' || candidate.right === 'patient' ? candidate.right : null;
+  if (!left || !right || left === right) {
+    return DEFAULT_SPEAKER_CHANNEL_MAP;
+  }
+  return { left, right };
+};
+
+const parseSpeakerChannelMap = (value: FormDataEntryValue | null): SpeakerChannelMap | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  try {
+    return normalizeSpeakerChannelMap(JSON.parse(value));
+  } catch {
+    return null;
+  }
+};
+
+const normalizeChannelAudioPaths = (value: unknown): ChannelAudioPaths => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const candidate = value as Record<AudioInputChannel, unknown>;
+  return AUDIO_CHANNELS.reduce<ChannelAudioPaths>((acc, channel) => {
+    const path = asString(candidate[channel]);
+    if (path) {
+      acc[channel] = path;
+    }
+    return acc;
+  }, {});
+};
+
+const hasCompleteChannelAudioPaths = (paths: ChannelAudioPaths): paths is Record<AudioInputChannel, string> =>
+  Boolean(paths.left && paths.right);
+
+const normalizeSpeakerReferencePaths = (value: unknown): SpeakerReferencePaths => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const candidate = value as Record<SpeakerChannelRole, unknown>;
+  const paths: SpeakerReferencePaths = {};
+  const doctorPath = asString(candidate.doctor);
+  const patientPath = asString(candidate.patient);
+  if (doctorPath) {
+    paths.doctor = doctorPath;
+  }
+  if (patientPath) {
+    paths.patient = patientPath;
+  }
+  return paths;
+};
+
+const hasCompleteSpeakerReferencePaths = (
+  paths: SpeakerReferencePaths
+): paths is Record<SpeakerChannelRole, string> => Boolean(paths.doctor && paths.patient);
+
+const normalizeScribeInputMode = (value: unknown): ConsultationScribeInputMode | null => {
+  if (value === 'stereo_separated' || value === 'voice_context') {
+    return value;
+  }
+  return null;
+};
+
+const speakerLabel = (speaker: TranscriptSpeaker): string => {
+  if (speaker === 'doctor') return 'Doctor';
+  if (speaker === 'patient') return 'Patient';
+  return 'Speaker';
+};
+
 interface WhisperSegment {
   text?: string;
   start?: number;
@@ -61,13 +151,23 @@ interface WhisperSegment {
   avg_logprob?: number;
 }
 
+interface TranscriptSegment {
+  speaker: TranscriptSpeaker;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  confidence: number;
+}
+
+type VoiceReferenceTranscripts = Partial<Record<SpeakerChannelRole, string>>;
+
 /**
  * Best-effort speaker diarization. Whisper does not perform diarization, so we
  * use a simple turn-taking heuristic: assume the visit opens with the doctor,
  * and flip the speaker whenever a segment ends with a question. The doctor can
  * correct any label in the transcript panel afterwards.
  */
-const diarizeSegments = (segments: WhisperSegment[]) => {
+const diarizeSegments = (segments: WhisperSegment[]): TranscriptSegment[] => {
   let speaker: 'doctor' | 'patient' = 'doctor';
   return segments
     .map((segment) => {
@@ -92,7 +192,206 @@ const diarizeSegments = (segments: WhisperSegment[]) => {
     .filter((segment): segment is NonNullable<typeof segment> => segment !== null);
 };
 
+const segmentsForChannel = (
+  payload: { text?: string; duration?: number; segments?: WhisperSegment[] },
+  speaker: SpeakerChannelRole
+): TranscriptSegment[] => {
+  const whisperSegments = Array.isArray(payload.segments) ? payload.segments : [];
+  const mappedSegments = whisperSegments
+    .map((segment) => {
+      const text = asString(segment.text);
+      if (!text) return null;
+      const confidence =
+        typeof segment.avg_logprob === 'number'
+          ? Math.max(0, Math.min(1, Math.exp(segment.avg_logprob)))
+          : 1;
+      return {
+        speaker,
+        start_ms: Math.round((segment.start ?? 0) * 1000),
+        end_ms: Math.round((segment.end ?? segment.start ?? 0) * 1000),
+        text,
+        confidence,
+      };
+    })
+    .filter((segment): segment is NonNullable<typeof segment> => segment !== null);
+
+  if (mappedSegments.length > 0) {
+    return mappedSegments;
+  }
+
+  const text = asString(payload.text);
+  if (!text) {
+    return [];
+  }
+  return [
+    {
+      speaker,
+      start_ms: 0,
+      end_ms: typeof payload.duration === 'number' ? Math.round(payload.duration * 1000) : 0,
+      text,
+      confidence: 1,
+    },
+  ];
+};
+
+async function transcribeAudioBlob(args: {
+  openAiApiKey: string;
+  audioBlob: Blob;
+  mime: string;
+}) {
+  const formData = new FormData();
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'verbose_json');
+  formData.append('file', args.audioBlob, fileNameForMime(args.mime));
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${args.openAiApiKey}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Whisper transcription failed: ${errorText}`);
+  }
+
+  return (await response.json()) as {
+    text?: string;
+    language?: string;
+    duration?: number;
+    segments?: WhisperSegment[];
+  };
+}
+
 type SupabaseClientLike = ReturnType<typeof createClient>;
+
+const asObject = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+
+const mergeRecordingMetadata = (
+  current: unknown,
+  patch: Record<string, unknown>
+): Record<string, unknown> => ({
+  ...(asObject(current) ?? {}),
+  ...patch,
+});
+
+async function transcribeSpeakerReferences(args: {
+  openAiApiKey: string;
+  adminClient: SupabaseClientLike;
+  speakerReferencePaths: SpeakerReferencePaths;
+  fallbackMime: string;
+}): Promise<VoiceReferenceTranscripts> {
+  const transcripts: VoiceReferenceTranscripts = {};
+  const entries = Object.entries(args.speakerReferencePaths) as Array<[SpeakerChannelRole, string]>;
+
+  await Promise.all(
+    entries.map(async ([speaker, path]) => {
+      const { data: referenceBlob, error } = await args.adminClient.storage
+        .from('consultation-audio')
+        .download(path);
+      if (error) {
+        throw error;
+      }
+      const payload = await transcribeAudioBlob({
+        openAiApiKey: args.openAiApiKey,
+        audioBlob: referenceBlob,
+        mime: referenceBlob.type || args.fallbackMime,
+      });
+      const text = asString(payload.text);
+      if (text) {
+        transcripts[speaker] = text;
+      }
+    })
+  );
+
+  return transcripts;
+}
+
+async function relabelSegmentsWithVoiceReferences(args: {
+  openAiApiKey: string;
+  segments: TranscriptSegment[];
+  referenceTranscripts: VoiceReferenceTranscripts;
+}): Promise<TranscriptSegment[]> {
+  if (args.segments.length === 0) {
+    return args.segments;
+  }
+
+  const schema = '{"segments":[{"index":0,"speaker":"doctor|patient|unknown"}]}';
+  const systemPrompt = [
+    'You assign speaker labels for a doctor-patient consultation transcript.',
+    'Doctor is TX1. Patient is TX2.',
+    'Short setup reference samples were captured separately before the consultation and transcribed as text hints.',
+    'Use the setup reference text and conversation context to choose Doctor, Patient, or unknown for each segment.',
+    'Do not claim voice biometric matching or hardware signal separation; the browser provided mixed audio for the consultation.',
+    'Only label a segment Doctor or Patient when supported by wording, role, turn context, or the reference text. Otherwise use unknown.',
+    `Return strict JSON matching: ${schema}`,
+  ].join('\n');
+
+  const segmentLines = args.segments
+    .map((segment, index) => `${index}. [${segment.start_ms}-${segment.end_ms}ms] ${segment.text}`)
+    .join('\n');
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${args.openAiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            `Doctor / TX1 setup reference transcript: ${args.referenceTranscripts.doctor ?? 'not available'}`,
+            `Patient / TX2 setup reference transcript: ${args.referenceTranscripts.patient ?? 'not available'}`,
+            '',
+            'Consultation segments:',
+            segmentLines,
+          ].join('\n'),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Voice-reference speaker labeling failed: ${errorText}`);
+  }
+
+  const completion = await response.json();
+  const content = completion?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    return args.segments;
+  }
+
+  const parsed = extractFirstJsonObject(content);
+  const labels = Array.isArray(parsed.segments) ? parsed.segments : [];
+  const speakerByIndex = new Map<number, TranscriptSpeaker>();
+  labels.forEach((raw) => {
+    const item = asObject(raw);
+    const index = typeof item?.index === 'number' ? item.index : null;
+    const speaker = item?.speaker;
+    if (
+      index !== null &&
+      Number.isInteger(index) &&
+      index >= 0 &&
+      index < args.segments.length &&
+      (speaker === 'doctor' || speaker === 'patient' || speaker === 'unknown')
+    ) {
+      speakerByIndex.set(index, speaker);
+    }
+  });
+
+  return args.segments.map((segment, index) => ({
+    ...segment,
+    speaker: speakerByIndex.get(index) ?? segment.speaker,
+  }));
+}
 
 const loadRecordingForDoctor = async (
   adminClient: SupabaseClientLike,
@@ -128,6 +427,10 @@ async function runTranscription(args: {
   openAiApiKey: string;
   adminClient: SupabaseClientLike;
   recording: Record<string, unknown>;
+  speakerChannelMap: SpeakerChannelMap | null;
+  channelAudioPaths: ChannelAudioPaths;
+  speakerReferencePaths: SpeakerReferencePaths;
+  scribeInputMode: ConsultationScribeInputMode;
 }) {
   const recording = args.recording;
   const storagePath = asString(recording.audio_storage_path);
@@ -143,33 +446,80 @@ async function runTranscription(args: {
   }
 
   const mime = asString(recording.audio_mime_type) ?? audioBlob.type ?? 'audio/webm';
-  const formData = new FormData();
-  formData.append('model', 'whisper-1');
-  formData.append('response_format', 'verbose_json');
-  formData.append('file', audioBlob, fileNameForMime(mime));
+  const channelMap = args.speakerChannelMap;
+  const useChannelSplit = Boolean(
+    args.scribeInputMode === 'stereo_separated' &&
+    channelMap &&
+    hasCompleteChannelAudioPaths(args.channelAudioPaths)
+  );
+  let fullText = '';
+  let language: string | null = null;
+  let durationSeconds = 0;
+  let segments: TranscriptSegment[] = [];
+  let modelUsed = 'whisper-1';
+  let referenceTranscripts: VoiceReferenceTranscripts = {};
+  let voiceReferenceLabelingApplied = false;
+  let voiceReferenceLabelingError: string | null = null;
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${args.openAiApiKey}` },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Whisper transcription failed: ${errorText}`);
+  if (useChannelSplit && channelMap && hasCompleteChannelAudioPaths(args.channelAudioPaths)) {
+    const channelPayloads = await Promise.all(
+      AUDIO_CHANNELS.map(async (channel) => {
+        const path = args.channelAudioPaths[channel];
+        const { data: channelBlob, error } = await args.adminClient.storage
+          .from('consultation-audio')
+          .download(path);
+        if (error) {
+          throw error;
+        }
+        const payload = await transcribeAudioBlob({
+          openAiApiKey: args.openAiApiKey,
+          audioBlob: channelBlob,
+          mime: channelBlob.type || mime,
+        });
+        return { channel, payload };
+      })
+    );
+    segments = channelPayloads
+      .flatMap(({ channel, payload }) => segmentsForChannel(payload, channelMap[channel]))
+      .sort((a, b) => a.start_ms - b.start_ms || speakerLabel(a.speaker).localeCompare(speakerLabel(b.speaker)));
+    fullText = segments.map((segment) => `${speakerLabel(segment.speaker)}: ${segment.text}`).join('\n');
+    language = asString(channelPayloads.find(({ payload }) => asString(payload.language))?.payload.language);
+    durationSeconds = Math.max(
+      ...channelPayloads.map(({ payload }) => (typeof payload.duration === 'number' ? Math.round(payload.duration) : 0)),
+      0
+    );
+    modelUsed = 'whisper-1-channel-split';
+  } else {
+    const payload = await transcribeAudioBlob({
+      openAiApiKey: args.openAiApiKey,
+      audioBlob,
+      mime,
+    });
+    fullText = asString(payload.text) ?? '';
+    language = asString(payload.language);
+    durationSeconds = typeof payload.duration === 'number' ? Math.round(payload.duration) : 0;
+    segments = diarizeSegments(Array.isArray(payload.segments) ? payload.segments : []);
+    if (hasCompleteSpeakerReferencePaths(args.speakerReferencePaths) && segments.length > 0) {
+      try {
+        referenceTranscripts = await transcribeSpeakerReferences({
+          openAiApiKey: args.openAiApiKey,
+          adminClient: args.adminClient,
+          speakerReferencePaths: args.speakerReferencePaths,
+          fallbackMime: mime,
+        });
+        segments = await relabelSegmentsWithVoiceReferences({
+          openAiApiKey: args.openAiApiKey,
+          segments,
+          referenceTranscripts,
+        });
+        fullText = segments.map((segment) => `${speakerLabel(segment.speaker)}: ${segment.text}`).join('\n');
+        modelUsed = 'whisper-1-voice-reference-context';
+        voiceReferenceLabelingApplied = true;
+      } catch (error) {
+        voiceReferenceLabelingError = error instanceof Error ? error.message : 'Voice-reference labeling failed.';
+      }
+    }
   }
-
-  const payload = (await response.json()) as {
-    text?: string;
-    language?: string;
-    duration?: number;
-    segments?: WhisperSegment[];
-  };
-
-  const fullText = asString(payload.text) ?? '';
-  const language = asString(payload.language);
-  const durationSeconds = typeof payload.duration === 'number' ? Math.round(payload.duration) : 0;
-  const segments = diarizeSegments(Array.isArray(payload.segments) ? payload.segments : []);
 
   const { data: existingTranscript } = await args.adminClient
     .from('consultation_transcripts')
@@ -182,7 +532,7 @@ async function runTranscription(args: {
     full_text: fullText,
     segments,
     language,
-    model_used: 'whisper-1',
+    model_used: modelUsed,
   };
 
   const { data: transcript, error: transcriptError } = existingTranscript
@@ -208,6 +558,23 @@ async function runTranscription(args: {
       language_detected: language,
       duration_seconds: durationSeconds || recording.duration_seconds || 0,
       status: 'ready',
+      metadata: mergeRecordingMetadata(recording.metadata, {
+        scribeInputMode: args.scribeInputMode,
+        stereoSeparated: useChannelSplit,
+        channelAudioPaths: useChannelSplit ? args.channelAudioPaths : {},
+        speakerReferencePaths: args.speakerReferencePaths,
+        speakerReferenceLabels: { doctor: 'TX1', patient: 'TX2' },
+        speakerReferencesAttached: hasCompleteSpeakerReferencePaths(args.speakerReferencePaths),
+        voiceReferenceLabeling: {
+          applied: voiceReferenceLabelingApplied,
+          providerLevelVoiceEmbeddings: false,
+          error: voiceReferenceLabelingError,
+          referenceTranscriptsAvailable: {
+            doctor: Boolean(referenceTranscripts.doctor),
+            patient: Boolean(referenceTranscripts.patient),
+          },
+        },
+      }),
     })
     .eq('id', recording.id);
 
@@ -461,6 +828,7 @@ async function runSuggestions(args: {
 async function runLiveChunkTranscription(args: {
   openAiApiKey: string;
   file: File;
+  speaker: TranscriptSpeaker;
 }) {
   const formData = new FormData();
   formData.append('model', 'whisper-1');
@@ -482,6 +850,7 @@ async function runLiveChunkTranscription(args: {
   return {
     text: typeof payload.text === 'string' ? payload.text.trim() : '',
     language: typeof payload.language === 'string' ? payload.language : null,
+    speaker: args.speaker,
   };
 }
 
@@ -585,6 +954,8 @@ Deno.serve(async (request) => {
       const form = await request.formData();
       const recordingId = form.get('recordingId');
       const audio = form.get('audio');
+      const sourceChannel = form.get('sourceChannel');
+      const speakerChannelMap = parseSpeakerChannelMap(form.get('speakerChannelMap'));
       if (typeof recordingId !== 'string') {
         return json({ error: 'recordingId is required.' }, 400);
       }
@@ -595,7 +966,12 @@ Deno.serve(async (request) => {
       if (!(audio instanceof File)) {
         return json({ error: 'audio chunk is required.' }, 400);
       }
-      const result = await runLiveChunkTranscription({ openAiApiKey, file: audio });
+      const speaker =
+        speakerChannelMap &&
+        (sourceChannel === 'left' || sourceChannel === 'right')
+          ? speakerChannelMap[sourceChannel]
+          : 'unknown';
+      const result = await runLiveChunkTranscription({ openAiApiKey, file: audio, speaker });
       return json(result);
     }
 
@@ -610,6 +986,14 @@ Deno.serve(async (request) => {
     }
 
     const ip = request.headers.get('x-forwarded-for');
+    const speakerChannelMap = normalizeSpeakerChannelMap(body.speakerChannelMap);
+    const channelAudioPaths = normalizeChannelAudioPaths(body.channelAudioPaths);
+    const speakerReferencePaths = normalizeSpeakerReferencePaths(body.speakerReferencePaths);
+    const audioChannelCount = typeof body.audioChannelCount === 'number' ? body.audioChannelCount : null;
+    const scribeInputMode =
+      normalizeScribeInputMode(body.scribeInputMode) ??
+      (hasCompleteChannelAudioPaths(channelAudioPaths) ? 'stereo_separated' : 'voice_context');
+    const channelSplitApplied = scribeInputMode === 'stereo_separated' && hasCompleteChannelAudioPaths(channelAudioPaths);
 
     if (body.task === 'live_cues') {
       const result = await runLiveCues({
@@ -626,13 +1010,35 @@ Deno.serve(async (request) => {
         .from('consultation_recordings')
         .update({ status: 'processing' })
         .eq('id', recording.id);
-      const result = await runTranscription({ openAiApiKey, adminClient, recording });
+      const result = await runTranscription({
+        openAiApiKey,
+        adminClient,
+        recording,
+        speakerChannelMap,
+        channelAudioPaths,
+        speakerReferencePaths,
+        scribeInputMode,
+      });
       await logAudit(adminClient, {
         recordingId: recording.id as string,
         appointmentId: recording.appointment_id as string,
         actorId: doctorId,
         action: 'transcribed',
-        metadata: { language: result.languageDetected, durationSeconds: result.durationSeconds },
+        metadata: {
+          language: result.languageDetected,
+          durationSeconds: result.durationSeconds,
+          speakerChannelMap,
+          audioChannelCount,
+          channelSplitApplied,
+          scribeInputMode,
+          stereoSeparated: scribeInputMode === 'stereo_separated',
+          speakerReferencePaths,
+          speakerReferencesAttached: hasCompleteSpeakerReferencePaths(speakerReferencePaths),
+          sourceAssignments: {
+            doctor: 'TX1',
+            patient: 'TX2',
+          },
+        },
         ip,
       });
       return json(result);

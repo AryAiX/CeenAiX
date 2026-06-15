@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { getOtpRequestErrorMessage } from '../../lib/auth-error-messages';
-import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
+import { getDefaultRouteForRole, getRoleDisplayName, useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { withTimeout } from '../../lib/with-timeout';
 
@@ -118,6 +118,7 @@ export const Login = () => {
   const requestedRole = searchParams.get('role');
   const selectedRole: LoginRole | null = isLoginRole(requestedRole) ? requestedRole : null;
   const rolePreset = selectedRole ? rolePresets[selectedRole] : null;
+  const currentRoleLabel = getRoleDisplayName(role);
   const accountCreated = searchParams.get('created') === '1';
   const emailFromSignup = searchParams.get('email') ?? '';
 
@@ -436,11 +437,11 @@ export const Login = () => {
                 </Link>
               ) : null}
 
-              {isAuthenticated && !isRecoveryMode && selectedRole && selectedRole !== role &&
+              {isAuthenticated && !isRecoveryMode && selectedRole && role && selectedRole !== role &&
                !(selectedRole === 'admin' && (role === 'super_admin' || role === 'facility_admin')) ? (
                 <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-800">
-                    You are already signed in as a <span className="capitalize">{role}</span>.
+                    You are already signed in as <span>{currentRoleLabel}</span>.
                   </p>
                   <p className="mt-1 text-xs text-amber-700">
                     Sign out first to access the {rolePreset?.title ?? selectedRole} portal.

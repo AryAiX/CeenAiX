@@ -9,10 +9,9 @@ import {
   getPrimaryAndSecondarySpecializations,
   syncDoctorSpecializations,
 } from '../../lib/doctor-specializations';
-import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
+import { getAuthMetadataRole, getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
-import type { UserRole } from '../../types';
 
 interface OnboardingFormState {
   fullName: string;
@@ -38,11 +37,6 @@ const safeString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const onboardingRoles: readonly UserRole[] = ['patient', 'doctor', 'pharmacy', 'lab', 'insurance', 'super_admin'];
-
-const isOnboardingRole = (value: unknown): value is UserRole =>
-  typeof value === 'string' && onboardingRoles.includes(value as UserRole);
-
 const splitFullName = (fullName: string) => {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
 
@@ -58,14 +52,6 @@ const splitFullName = (fullName: string) => {
     firstName: parts[0],
     lastName: parts.slice(1).join(' '),
   };
-};
-
-const getOnboardingRole = (role: UserRole | null, metadataRole: unknown): UserRole => {
-  if (role) {
-    return role;
-  }
-
-  return isOnboardingRole(metadataRole) ? metadataRole : 'patient';
 };
 
 export const Onboarding = () => {
@@ -92,10 +78,11 @@ export const Onboarding = () => {
   });
   const [hasInitializedDoctorSpecializations, setHasInitializedDoctorSpecializations] = useState(false);
 
-  const activeRole = useMemo(
-    () => getOnboardingRole(role, user?.user_metadata?.role),
-    [role, user?.user_metadata?.role]
+  const resolvedRole = useMemo(
+    () => role ?? (user ? getAuthMetadataRole(user) : null),
+    [role, user]
   );
+  const activeRole = resolvedRole ?? 'patient';
   const isPhoneManagedByOtp = Boolean(user?.phone && !user?.email);
   const {
     data: specializationOptions = [],
@@ -106,6 +93,14 @@ export const Onboarding = () => {
     data: doctorSpecializationIds = [],
     loading: doctorSpecializationIdsLoading,
   } = useDoctorSpecializationIds(user?.id);
+
+  useEffect(() => {
+    if (!profile?.profile_completed || !resolvedRole) {
+      return;
+    }
+
+    navigate(getDefaultRouteForRole(resolvedRole), { replace: true });
+  }, [navigate, profile?.profile_completed, resolvedRole]);
 
   useEffect(() => {
     if (hasInitialized || !user) {

@@ -41,6 +41,12 @@ export function LiveSessionPanel({ controller }: LiveSessionPanelProps) {
     return null;
   }
 
+  const speakerLabel = (speaker: 'doctor' | 'patient' | 'unknown') => {
+    if (speaker === 'doctor') return t('doctor.consultationScribe.transcript.speakerDoctor');
+    if (speaker === 'patient') return t('doctor.consultationScribe.transcript.speakerPatient');
+    return t('doctor.consultationScribe.transcript.speakerUnknown');
+  };
+
   return (
     <section className="rounded-3xl border border-red-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2">
@@ -67,7 +73,14 @@ export function LiveSessionPanel({ controller }: LiveSessionPanelProps) {
             {controller.liveEntries.length === 0 ? (
               <p className="text-slate-400">{t('doctor.consultationScribe.live.waiting')}</p>
             ) : (
-              controller.liveEntries.map((entry) => <p key={entry.id}>{entry.text}</p>)
+              controller.liveEntries.map((entry) => (
+                <div key={entry.id} className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                  <span className="mb-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                    {speakerLabel(entry.speaker)}
+                  </span>
+                  <p>{entry.text}</p>
+                </div>
+              ))
             )}
           </div>
           <p className="mt-2 text-[11px] text-slate-400">{t('doctor.consultationScribe.live.diarizationNote')}</p>
