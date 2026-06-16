@@ -21,7 +21,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
 
   const tabs: Array<{ id: OrderTab; label: string; emoji: string; count: number }> = [
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
-    { id: 'in_progress', emoji: '⏳', label: 'In Progress', count: allSamples.filter((s) => s.status === 'collected' || s.status === 'processing').length },
+    { id: 'in_progress', emoji: '⏳', label: 'In Progress', count: allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted').length },
     { id: 'completed', emoji: '✅', label: 'Completed', count: allSamples.filter((s) => s.status === 'reviewed').length },
     { id: 'rejected', emoji: '❌', label: 'Rejected', count: 0 },
     { id: 'all', emoji: '', label: 'All', count: allSamples.length },
@@ -29,7 +29,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
 
   const filtered = useMemo(() => {
     if (tab === 'new') return allSamples.filter((s) => s.status === 'ordered');
-    if (tab === 'in_progress') return allSamples.filter((s) => s.status === 'collected' || s.status === 'processing');
+    if (tab === 'in_progress') return allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted');
     if (tab === 'completed') return allSamples.filter((s) => s.status === 'reviewed');
     if (tab === 'rejected') return [];
     return allSamples;
