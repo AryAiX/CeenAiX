@@ -19,7 +19,8 @@ import {
 import { Pill } from './shared/ui';
 
 const LAB_PRIORITIES: LabPriority[] = ['STAT', 'Urgent', 'Routine'];
-const LAB_STATUS_OPTIONS = ['Received', 'Accessioned', 'In Progress', 'Resulted', 'Pending Verify', 'Verified', 'Released', 'NABIDH Submitted'] as const;
+const LAB_LIFECYCLE_STATUSES = ['Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released'] as const;
+const LAB_STATUS_OPTIONS = [...LAB_LIFECYCLE_STATUSES, 'NABIDH Submitted'] as const;
 const LAB_DEPARTMENTS = ['Chemistry', 'Haematology', 'Microbiology', 'Immunology', 'Coagulation', 'Urinalysis'] as const;
 
 type LabStatusFilter = (typeof LAB_STATUS_OPTIONS)[number];
@@ -29,9 +30,9 @@ const sampleMatchesStatusFilter = (sample: LabPortalSample, statuses: Set<LabSta
   if (statuses.size === 0) return true;
   // Match against the underlying lifecycle status, not the critical override.
   const baseLabel = sampleStatusLabel(sample.status, false);
-  if (statuses.has(baseLabel as LabStatusFilter)) return true;
+  const lifecycleLabel = baseLabel === 'Verified' ? 'Verified / Released' : baseLabel;
+  if (statuses.has(lifecycleLabel as LabStatusFilter)) return true;
   if (sample.nabidhReference && statuses.has('NABIDH Submitted')) return true;
-  if (baseLabel === 'Verified' && statuses.has('Released')) return true;
   return false;
 };
 
@@ -132,7 +133,7 @@ const LabQueueFilterSidebar = ({
         <div>
           <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">STATUS</div>
           <div className="space-y-1">
-            {LAB_STATUS_OPTIONS.map((status) => (
+            {LAB_LIFECYCLE_STATUSES.map((status) => (
               <label key={status} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
                 <input
                   type="checkbox"
@@ -143,6 +144,19 @@ const LabQueueFilterSidebar = ({
                 <span>{status}</span>
               </label>
             ))}
+          </div>
+          <div className="my-3 border-t border-slate-100" />
+          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">OTHER FILTERS</div>
+          <div className="space-y-1">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+              <input
+                type="checkbox"
+                checked={statuses.has('NABIDH Submitted')}
+                onChange={() => toggleStatus('NABIDH Submitted')}
+                className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>NABIDH Submitted</span>
+            </label>
           </div>
         </div>
 
@@ -197,7 +211,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const [priority, setPriority] = useState<'all' | LabPriority>('all');
   const [statuses, setStatuses] = useState<Set<LabStatusFilter>>(new Set([
-    'Received', 'Accessioned', 'In Progress', 'Resulted', 'Pending Verify', 'Verified', 'Released',
+    'Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released',
   ]));
   const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set(LAB_DEPARTMENTS));
   const [searchQuery, setSearchQuery] = useState('');
@@ -317,7 +331,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
         setDepartments={setDepartments}
         onReset={() => {
           setPriority('all');
-          setStatuses(new Set(['Received', 'Accessioned', 'In Progress', 'Resulted', 'Pending Verify', 'Verified', 'Released']));
+          setStatuses(new Set(['Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released']));
           setDepartments(new Set(LAB_DEPARTMENTS));
           setSearchQuery('');
         }}
