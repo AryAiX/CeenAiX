@@ -1,192 +1,385 @@
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { LabPortalData } from '../../hooks';
+import type { LabPageContext } from './shared/types';
 import {
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  FlaskConical,
-  Gauge,
-  Inbox,
-  ListChecks,
-  Zap,
-} from 'lucide-react';
-import { PortalQueryBanner } from '../../components/PortalQueryBanner';
-import { OpsShell } from '../../components/OpsShell';
-import { useAuth } from '../../lib/auth-context';
-import { useLabDashboard } from '../../hooks';
-import type { LabWorklistItem } from '../../hooks/use-lab-dashboard';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
-import { LAB_NAV_ITEMS } from './navItems';
+  formatNumber,
+  formatTimeShort,
+  formatTat,
+  ageGenderLabel,
+  equipmentStatusBadge,
+  sampleStatusBadge,
+  sampleStatusLabel,
+} from './shared/helpers';
+import { SectionCard, Pill, KpiTile, ProgressMeter } from './shared/ui';
 
-const STATUS_PILL: Record<LabWorklistItem['status'], string> = {
-  ordered: 'bg-amber-50 text-amber-700 ring-amber-200',
-  collected: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
-  processing: 'bg-blue-50 text-blue-700 ring-blue-200',
-  resulted: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  reviewed: 'bg-slate-100 text-slate-600 ring-slate-200',
+const CriticalBanner = ({
+  data,
+  actions,
+}: {
+  data: LabPortalData | null;
+  actions: LabPageContext['actions'];
+}) => {
+  const critical = data?.criticalValues.find((c) => c.status === 'pending') ?? data?.criticalValues[0];
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  if (!critical) return null;
+  const observed = formatTimeShort(critical.observedAt);
+  const isAlreadyNotified = critical.status === 'notified';
+
+  const handleNotify = async () => {
+    setErrorMessage(null);
+    setIsSaving(true);
+    try {
+      await actions.markCriticalValueNotified(critical.id, critical.observedAt);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not mark this critical value as notified.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  return (
+    <div className="rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-red-700">
+            <span>🔴</span>
+            <span>CRITICAL VALUE — UNNOTIFIED</span>
+          </div>
+          <p className="mt-1 text-sm font-semibold text-red-700">DHA requires notification within 60 minutes</p>
+        </div>
+        <div className="rounded-xl bg-white px-3 py-2 font-['DM_Mono'] text-sm font-bold text-red-700 ring-1 ring-red-200">
+          {observed}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {[
+          ['Patient', critical.patientName],
+          ['Test', critical.testName],
+          ['Value', critical.valueLabel],
+          ['Reference', '3.5–5.0 mEq/L'],
+          ['Doctor', 'Dr. Maryam Al Sayed · Al Zahra Clinic'],
+          ['Resulted', `${observed} · ${critical.notifiedInMinutes ?? 0} min ago`],
+        ].map(([label, value]) => (
+          <div key={String(label)} className="rounded-xl bg-white/85 p-3 ring-1 ring-red-100">
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-400">{label}</div>
+            <div className="mt-1 text-sm font-bold text-red-950">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {errorMessage ? (
+        <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-red-700 ring-1 ring-red-200" role="alert">
+          {errorMessage}
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button"
+          onClick={() => void handleNotify()}
+          disabled={isSaving || isAlreadyNotified}
+          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-emerald-600 disabled:opacity-90"
+        >
+          {isAlreadyNotified
+            ? '✅ Doctor notified'
+            : isSaving
+              ? 'Recording…'
+              : 'Mark Doctor Notified'}
+        </button>
+        <a
+          href="/lab/queue"
+          className="inline-flex items-center rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
+        >
+          Open in queue
+        </a>
+      </div>
+    </div>
+  );
 };
 
-const formatNumber = (value: number | null | undefined, language: string) =>
-  typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
+export const DashboardView = ({ context }: { context: LabPageContext }) => {
+  const data = context.data;
+  const samples = data?.samples ?? [];
+  const studies = data?.imagingStudies ?? [];
+  const dashboardSamples = samples.slice(0, 5);
+  const activeStudies = studies.filter((s) => s.status === 'scanning');
+  const reportPending = studies.filter((s) => s.status === 'report_pending').slice(0, 2);
+  const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
+  const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
+  const radiologyEquipment = (data?.equipment ?? []).filter((e) => e.department === 'radiology').slice(0, 7);
 
-export const LabDashboard = () => {
-  const { t, i18n } = useTranslation('common');
-  const { user } = useAuth();
-  const { data, loading, error, refetch } = useLabDashboard(user?.id ?? null);
+  const labMetricCards = [
+    {
+      label: `${formatNumber(data?.metrics.sampleCountToday || samples.length)} Samples`,
+      caption: 'Total today',
+      tone: 'indigo' as const,
+    },
+    {
+      label: `${formatNumber(data?.criticalValues.length)} Critical`,
+      caption: `${formatNumber(data?.metrics.criticalUnnotified)} unnotified ⚠️`,
+      tone: 'red' as const,
+    },
+    {
+      label: '3.2h',
+      caption: 'Avg TAT',
+      tone: 'blue' as const,
+    },
+    {
+      label: `${formatNumber(data?.metrics.nabidhSubmitted)}/${formatNumber((data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0))}`,
+      caption: 'NABIDH submitted',
+      tone: 'violet' as const,
+    },
+    {
+      label: `${formatNumber(data?.qcRuns.filter((r) => r.status === 'passed').length)}/${formatNumber(data?.qcRuns.length)} QC ✅`,
+      caption: `${formatNumber(data?.metrics.qualityWarnings)} in maintenance`,
+      tone: 'emerald' as const,
+    },
+  ];
 
-  const kpis = useMemo(
-    () => [
-      {
-        label: t('lab.dashboard.kpiPending'),
-        value: data?.metrics.pendingOrders,
-        icon: Inbox,
-        accent: 'from-amber-500 to-orange-500',
-      },
-      {
-        label: t('lab.dashboard.kpiInProgress'),
-        value: data?.metrics.inProgressOrders,
-        icon: Activity,
-        accent: 'from-cyan-500 to-blue-600',
-      },
-      {
-        label: t('lab.dashboard.kpiCompletedToday'),
-        value: data?.metrics.completedToday,
-        icon: CheckCircle2,
-        accent: 'from-emerald-500 to-teal-600',
-      },
-      {
-        label: t('lab.dashboard.kpiStat'),
-        value: data?.metrics.stat,
-        icon: Zap,
-        accent: 'from-rose-500 to-orange-500',
-      },
-    ],
-    [data?.metrics, t],
-  );
+  const radMetricCards = [
+    {
+      label: `${formatNumber(studies.length)} Studies`,
+      caption: 'Total today',
+      tone: 'blue' as const,
+    },
+    {
+      label: `${formatNumber(activeStudies.length)} Scanning`,
+      caption: 'Active now',
+      tone: 'violet' as const,
+    },
+    {
+      label: `${formatNumber(data?.metrics.radiologyReports)} Reports`,
+      caption: 'Pending sign-off',
+      tone: 'orange' as const,
+    },
+    {
+      label: `${formatNumber(scheduledStudies.length)} Scheduled`,
+      caption: 'Today remaining',
+      tone: 'cyan' as const,
+    },
+    {
+      label: `${formatNumber(data?.metrics.imagingEquipmentWarnings)} Issues ⚠️`,
+      caption: 'Equipment alerts',
+      tone: 'amber' as const,
+    },
+  ];
+
+  const navigate = useNavigate();
 
   return (
-    <OpsShell
-      title={t('lab.dashboard.title')}
-      subtitle={data?.labName ?? t('lab.dashboard.subtitle')}
-      eyebrow={t('lab.dashboard.eyebrow')}
-      navItems={LAB_NAV_ITEMS(t)}
-      accent="emerald"
-    >
-      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
+    <div className="space-y-4">
+      <CriticalBanner data={data} actions={context.actions} />
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <article
-              key={kpi.label}
-              className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div
-                aria-hidden
-                className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${kpi.accent} opacity-10`}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {kpi.label}
-                </span>
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${kpi.accent} text-white shadow-sm`}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-              </div>
-              <p className="mt-4 text-3xl font-bold text-slate-900">
-                {loading ? '…' : formatNumber(kpi.value, i18n.language)}
-              </p>
-            </article>
-          );
-        })}
-      </section>
+      <div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-600">LABORATORY</div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {labMetricCards.map((card) => (
+            <KpiTile key={card.label} label={card.label} value="" caption={card.caption} tone={card.tone} />
+          ))}
+        </div>
+      </div>
 
-      <section className="mt-8 grid gap-4 lg:grid-cols-[2fr,1fr]">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
+      <div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600">RADIOLOGY</div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {radMetricCards.map((card) => (
+            <KpiTile key={card.label} label={card.label} value="" caption={card.caption} tone={card.tone} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-12">
+        <SectionCard className="xl:col-span-5">
+          <div className="mb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {t('lab.dashboard.worklistHeading')}
-              </h2>
-              <p className="mt-1 text-lg font-bold text-slate-900">
-                {formatNumber(data?.worklist?.length ?? 0, i18n.language)} {t('lab.dashboard.worklistCountLabel')}
-              </p>
+              <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Lab Queue</h3>
+              <p className="text-xs text-slate-500">{formatNumber(samples.length)} samples · {formatNumber(samples.filter((s) => s.status !== 'reviewed').length)} active</p>
             </div>
-            <Link
-              to="/lab/results/entry"
-              className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-            >
-              <ListChecks className="h-3.5 w-3.5" />
-              {t('lab.dashboard.worklistCta')}
-            </Link>
+            <button type="button" onClick={() => navigate('/lab/queue')} className="text-xs font-bold text-indigo-600 hover:text-indigo-700">View All</button>
           </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white opacity-90">All</button>
+            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 opacity-80">STAT ({samples.filter((s) => s.priority === 'STAT').length})</button>
+            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 opacity-80">Urgent ({samples.filter((s) => s.priority === 'Urgent').length})</button>
+            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 opacity-80">Routine</button>
+          </div>
+          <div className="space-y-3">
+            {dashboardSamples.map((sample) => {
+              const code = sample.orderCode.split('-').slice(-1)[0];
+              const action =
+                sample.status === 'resulted' || sample.criticalValue
+                  ? '📞 Notify'
+                  : sample.status === 'ordered'
+                  ? '▶ Process'
+                  : '📋 View';
+              return (
+                <article key={sample.id} className="rounded-xl bg-slate-50 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-['DM_Mono'] text-xs font-bold text-slate-500">{code}</div>
+                      <div className="mt-1 text-sm font-bold text-slate-900">{sample.patientName} <span className="text-xs font-normal text-slate-500">· {ageGenderLabel(sample.patientAge, sample.patientGender)}</span></div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {sample.testNames.length} tests · {sample.testNames.slice(0, 3).join(' · ')}
+                      </div>
+                      {sample.criticalValue ? <div className="mt-1 text-xs font-bold text-red-600">{sample.criticalValue} ↑↑</div> : null}
+                      <Pill className={`mt-2 ${sampleStatusBadge[sample.status]}`}>{sampleStatusLabel(sample.status, !!sample.criticalValue)}</Pill>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      title="Sample actions — open full queue to process"
+                      className="cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 opacity-80"
+                    >
+                      {action}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {samples.length > 5 ? (
+            <button type="button" onClick={() => navigate('/lab/queue')} className="mt-3 w-full rounded-xl bg-slate-50 px-4 py-2.5 text-center text-xs font-bold text-indigo-600 hover:bg-slate-100">
+              {samples.length - 5} more samples · View all in queue →
+            </button>
+          ) : null}
+        </SectionCard>
 
-          <ul className="mt-4 divide-y divide-slate-100">
-            {(data?.worklist ?? []).slice(0, 8).map((item) => (
-              <li key={item.id} className="flex items-center gap-3 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <FlaskConical className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    {item.patientName ?? t('lab.dashboard.anonPatient')}
-                  </p>
-                  <p className="truncate text-xs text-slate-500">
-                    {item.firstTestName ?? t('lab.dashboard.untitledTest')} •{' '}
-                    {item.testCount} {t('lab.dashboard.testsLabel')}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1 ${
-                    STATUS_PILL[item.status] ?? STATUS_PILL.ordered
-                  }`}
-                >
-                  {t(`lab.status.${item.status}`)}
-                </span>
-              </li>
+        <SectionCard className="xl:col-span-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Imaging Queue</h3>
+              <p className="text-xs text-slate-500">{formatNumber(studies.length)} studies · {formatNumber(activeStudies.length)} scanning</p>
+            </div>
+            <button type="button" onClick={() => navigate('/lab/imaging/queue')} className="text-xs font-bold text-blue-600 hover:text-blue-700">View All</button>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {['All ●', 'MRI', 'CT', 'USS', 'X-Ray', 'Other'].map((m, i) => (
+              <button type="button" key={m} className={`rounded-full px-3 py-1.5 text-xs font-bold ${i === 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                {m}
+              </button>
             ))}
-            {(!data || data.worklist.length === 0) && !loading ? (
-              <li className="py-6 text-center text-sm text-slate-500">
-                {t('lab.dashboard.worklistEmpty')}
-              </li>
-            ) : null}
-          </ul>
-        </article>
-
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            {t('lab.dashboard.qualityHeading')}
-          </h2>
-          <div className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Gauge className="h-4 w-4 text-emerald-500" />
-              <span className="flex-1">{t('lab.dashboard.turnaroundLabel')}</span>
-              <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.totalActiveTests, i18n.language)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <Clock className="h-4 w-4 text-blue-500" />
-              <span className="flex-1">{t('lab.dashboard.collectedLabel')}</span>
-              <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.collectedOrders, i18n.language)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <span className="flex-1">{t('lab.dashboard.criticalLabel')}</span>
-              <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.stat, i18n.language)}
-              </span>
-            </div>
           </div>
-        </article>
-      </section>
-    </OpsShell>
+          {activeStudies.length > 0 ? (
+            <div className="mb-3">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">ACTIVE NOW</div>
+              <div className="space-y-3">
+                {activeStudies.slice(0, 3).map((study) => (
+                  <article key={study.id} className="rounded-xl bg-slate-50 p-3">
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="font-['DM_Mono'] font-bold text-violet-700">{study.progressPercent}%</span>
+                      <span className="font-bold text-slate-700">{study.modality}</span>
+                    </div>
+                    <ProgressMeter value={study.progressPercent} tone="accent-violet-500" />
+                    <div className="mt-2 text-sm font-bold text-slate-900">{study.patientName} <span className="text-xs font-normal text-slate-500">· {ageGenderLabel(study.patientAge, study.patientGender)}</span></div>
+                    <div className="text-xs text-slate-500">{study.studyName}</div>
+                    <div className="mt-1 text-xs text-slate-500">{study.room ?? 'Scanner'} · {formatTat(study.tatMinutes)} remaining</div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {reportPending.length > 0 ? (
+            <div className="mb-3">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">REPORT PENDING ({reportPending.length})</div>
+              <div className="space-y-2">
+                {reportPending.map((study) => {
+                  const overdue = (study.tatMinutes ?? 0) > 240;
+                  return (
+                    <div key={study.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                      <div>
+                        <div className="font-bold text-slate-900">{study.modality}</div>
+                        <div className="text-xs text-slate-700">{study.patientName}</div>
+                        <div className="text-xs text-slate-500">{study.studyName}</div>
+                      </div>
+                      <div className={`text-xs font-bold ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
+                        {formatTat(study.tatMinutes)} {overdue ? '🔴 OVERDUE' : '⚠️'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          {scheduledStudies.length > 0 ? (
+            <div>
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">SCHEDULED ({scheduledStudies.length})</div>
+              <div className="space-y-2">
+                {scheduledStudies.map((study) => (
+                  <div key={study.id} className="rounded-xl bg-slate-50 p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-slate-900">{study.modality}</div>
+                      <div className="text-xs font-bold text-slate-600">{formatTimeShort(study.scheduledAt)}</div>
+                    </div>
+                    <div className="text-xs text-slate-700">{study.patientName}</div>
+                    {study.alerts && study.alerts.length > 0 ? <div className="text-xs text-amber-700">⚠️ {study.alerts[0]}</div> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </SectionCard>
+
+        <div className="space-y-4 xl:col-span-2">
+          <SectionCard>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Equipment</div>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700">🩻 RADIOLOGY</div>
+            <div className="space-y-1.5">
+              {radiologyEquipment.map((eq) => (
+                <div key={eq.id} className="flex items-center justify-between text-xs">
+                  <span className="truncate font-semibold text-slate-700">{eq.name.split(' ').slice(0, 2).join(' ')}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${equipmentStatusBadge[eq.status]}`}>
+                    {eq.status === 'online' ? '✅' : eq.status === 'maintenance' ? '🔄' : '⚠️'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="my-2 border-t border-slate-100" />
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">🧪 LABORATORY</div>
+            <div className="space-y-1.5">
+              {labEquipment.map((eq) => (
+                <div key={eq.id} className="flex items-center justify-between text-xs">
+                  <span className="truncate font-semibold text-slate-700">{eq.name.split(' ').slice(0, 2).join(' ')}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${equipmentStatusBadge[eq.status]}`}>
+                    {eq.status === 'online' ? '✅' : eq.status === 'maintenance' ? '🔄' : '⚠️'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => navigate('/lab/equipment')} className="mt-3 w-full text-center text-[11px] font-bold text-indigo-600 hover:text-indigo-700">
+              View All Equipment →
+            </button>
+          </SectionCard>
+
+          <SectionCard>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">🇦🇪 NABIDH HIE · FHIR R4</div>
+            <p className="text-[11px] font-semibold text-emerald-700">Connected · synced 12s ago</p>
+            <div className="mt-3 space-y-2 text-[11px]">
+              <div>🧪 Lab {data?.metrics.nabidhSubmitted ?? 0}/{(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} ({data?.metrics.nabidhSubmitted && data?.metrics.nabidhPending ? Math.round((data.metrics.nabidhSubmitted / ((data.metrics.nabidhSubmitted ?? 0) + (data.metrics.nabidhPending ?? 0))) * 100) : 0}%)</div>
+              <div>🩻 Radiology {data?.metrics.nabidhSubmitted ?? 0}/{(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} ({data?.metrics.nabidhSubmitted && data?.metrics.nabidhPending ? Math.round((data.metrics.nabidhSubmitted / ((data.metrics.nabidhSubmitted ?? 0) + (data.metrics.nabidhPending ?? 0))) * 100) : 0}%)</div>
+              <div>Total: {(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} · {data?.metrics.nabidhPending ?? 0} pending</div>
+            </div>
+            <button type="button" disabled title="Bulk NABIDH submit — coming soon" className="mt-3 w-full cursor-not-allowed rounded-xl bg-violet-100 px-3 py-2 text-[11px] font-bold text-violet-700 opacity-80">
+              📤 Submit All Pending
+            </button>
+          </SectionCard>
+
+          <SectionCard>
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Volume Today</div>
+            <p className="mt-2 text-sm font-bold text-slate-900">
+              {formatNumber(samples.length)} lab + {formatNumber(studies.length)} radiology = {formatNumber(samples.length + studies.length)} total
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">Lab: ⚠️ {formatNumber(data?.metrics.criticalUnnotified)} critical · {formatNumber(data?.metrics.labQueue)} pending · {formatNumber(data?.metrics.nabidhPending)} NABIDH</p>
+            <p className="text-[11px] text-slate-500">Radiology: ⚠️ {formatNumber(data?.metrics.radiologyReports)} reports pending</p>
+            <button type="button" disabled title="Handoff report — coming soon" className="mt-3 w-full cursor-not-allowed rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] font-bold text-indigo-700 opacity-80">
+              📋 Generate Handoff Report
+            </button>
+          </SectionCard>
+        </div>
+      </div>
+    </div>
   );
 };
