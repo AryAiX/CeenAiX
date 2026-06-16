@@ -12,6 +12,14 @@ import { Pill, EmptyState } from './shared/ui';
 
 type OrderTab = 'new' | 'in_progress' | 'completed' | 'rejected' | 'all';
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const [tab, setTab] = useState<OrderTab>('new');
@@ -258,7 +266,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                     if (!labelWindow) return;
                     labelWindow.document.write(`
                       <html>
-                        <head><title>Tube label · ${sample.orderCode}</title>
+                        <head><title>Tube label · ${escapeHtml(sample.orderCode)}</title>
                         <style>
                           body { font-family: 'DM Mono', monospace; padding: 24px; }
                           .label { border: 2px solid #000; padding: 16px; width: 320px; }
@@ -270,14 +278,14 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                         </head>
                         <body>
                           <div class="label">
-                            <h1>${sample.orderCode}</h1>
+                            <h1>${escapeHtml(sample.orderCode)}</h1>
                             <div class="bars">▐▌▌▐▐▌▌▐▐▌▌▐</div>
                             <dl>
-                              <dt>Patient</dt><dd>${sample.patientName}</dd>
-                              <dt>Doctor</dt><dd>${sample.doctorName}</dd>
-                              <dt>Priority</dt><dd>${sample.priority}</dd>
-                              <dt>Tests</dt><dd>${sample.testNames.join(', ')}</dd>
-                              <dt>Specimen</dt><dd>${sample.specimenSummary ?? '—'}</dd>
+                              <dt>Patient</dt><dd>${escapeHtml(sample.patientName)}</dd>
+                              <dt>Doctor</dt><dd>${escapeHtml(sample.doctorName)}</dd>
+                              <dt>Priority</dt><dd>${escapeHtml(sample.priority)}</dd>
+                              <dt>Tests</dt><dd>${escapeHtml(sample.testNames.join(', '))}</dd>
+                              <dt>Specimen</dt><dd>${escapeHtml(sample.specimenSummary ?? '—')}</dd>
                             </dl>
                           </div>
                           <script>window.onload = () => { window.print(); };</script>
