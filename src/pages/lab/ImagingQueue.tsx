@@ -15,7 +15,7 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
     return studies.filter((s) => {
       if (modalityFilter !== 'All ●') {
         const target = modalityFilter.toUpperCase();
-        if (!s.modality.toUpperCase().includes(target)) return false;
+        if (s.modality.toUpperCase() !== target) return false;
       }
       if (statusFilter !== 'All') {
         if (statusFilter === 'Scanning' && s.status !== 'scanning') return false;
