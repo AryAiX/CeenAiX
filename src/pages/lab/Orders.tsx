@@ -42,6 +42,10 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
 
   const handleAcceptAll = async () => {
     if (newOrders.length === 0) return;
+    const confirmed = window.confirm(
+      `Accept all ${newOrders.length} new order(s)? This will claim every order currently in the New tab.`
+    );
+    if (!confirmed) return;
     setOrdersError(null);
     setBulkBusy(true);
     try {
