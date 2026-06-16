@@ -194,7 +194,6 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                           <th className="px-3 py-2">Test Name</th>
                           <th className="px-3 py-2">LOINC Code</th>
                           <th className="px-3 py-2">Specimen</th>
-                          <th className="px-3 py-2">Priority</th>
                           <th className="px-3 py-2">TAT</th>
                         </tr>
                       </thead>
@@ -204,9 +203,6 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                             <td className="px-3 py-2 font-semibold text-slate-900">{t.testName}</td>
                             <td className="px-3 py-2 font-['DM_Mono'] text-xs text-indigo-600">{t.loincCode ?? '—'}</td>
                             <td className="px-3 py-2 text-slate-600">{t.specimen ?? '—'}</td>
-                            <td className="px-3 py-2">
-                              <Pill className={priorityClass[sample.priority]}>{sample.priority}</Pill>
-                            </td>
                             <td className="px-3 py-2 text-slate-600">{t.targetTat ?? '—'}</td>
                           </tr>
                         ))}
