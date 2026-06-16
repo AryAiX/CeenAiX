@@ -60,7 +60,6 @@ const LabQueueFilterSidebar = ({
   setStatuses,
   departments,
   setDepartments,
-  onApply,
   onReset,
   searchQuery,
   setSearchQuery,
@@ -71,7 +70,6 @@ const LabQueueFilterSidebar = ({
   setStatuses: (next: Set<LabStatusFilter>) => void;
   departments: Set<LabDepartmentFilter>;
   setDepartments: (next: Set<LabDepartmentFilter>) => void;
-  onApply: () => void;
   onReset: () => void;
   searchQuery: string;
   setSearchQuery: (next: string) => void;
@@ -165,9 +163,8 @@ const LabQueueFilterSidebar = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 pt-2">
-          <button type="button" onClick={onApply} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">Apply</button>
-          <button type="button" onClick={onReset} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Reset</button>
+        <div className="pt-2">
+          <button type="button" onClick={onReset} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Reset</button>
         </div>
       </div>
     </aside>
@@ -311,7 +308,6 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
         setStatuses={setStatuses}
         departments={departments}
         setDepartments={setDepartments}
-        onApply={() => undefined}
         onReset={() => {
           setPriority('all');
           setStatuses(new Set(['Received', 'Accessioned', 'In Progress', 'Resulted', 'Pending Verify', 'Verified', 'Released']));
