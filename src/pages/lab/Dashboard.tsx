@@ -112,9 +112,11 @@ const CriticalBanner = ({
 export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const data = context.data;
   const [modalityFilter, setModalityFilter] = useState<string>('All');
+  const [priorityFilter, setPriorityFilter] = useState<'All' | 'STAT' | 'Urgent' | 'Routine'>('All');
   const samples = data?.samples ?? [];
   const studies = data?.imagingStudies ?? [];
-  const dashboardSamples = samples.slice(0, 5);
+  const filteredSamples = priorityFilter === 'All' ? samples : samples.filter((s) => s.priority === priorityFilter);
+  const dashboardSamples = filteredSamples.slice(0, 5);
   const activeStudies = studies.filter((s) => s.status === 'scanning');
   const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
   const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
@@ -227,15 +229,39 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Lab Queue</h3>
-              <p className="text-xs text-slate-500">{formatNumber(samples.length)} samples · {formatNumber(samples.filter((s) => s.status !== 'reviewed').length)} active</p>
+              <p className="text-xs text-slate-500">{formatNumber(filteredSamples.length)} samples · {formatNumber(filteredSamples.filter((s) => s.status !== 'reviewed').length)} active</p>
             </div>
             <button type="button" onClick={() => navigate('/lab/queue')} className="text-xs font-bold text-indigo-600 hover:text-indigo-700">View All</button>
           </div>
           <div className="mb-3 flex flex-wrap gap-2">
-            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white opacity-90">All</button>
-            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 opacity-80">STAT ({samples.filter((s) => s.priority === 'STAT').length})</button>
-            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 opacity-80">Urgent ({samples.filter((s) => s.priority === 'Urgent').length})</button>
-            <button type="button" disabled title="Queue filters — coming soon" className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 opacity-80">Routine</button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('All')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('STAT')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'STAT' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              STAT ({samples.filter((s) => s.priority === 'STAT').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('Urgent')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'Urgent' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Urgent ({samples.filter((s) => s.priority === 'Urgent').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('Routine')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'Routine' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Routine ({samples.filter((s) => s.priority === 'Routine').length})
+            </button>
           </div>
           <div className="space-y-3">
             {dashboardSamples.map((sample) => {
@@ -271,9 +297,9 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
               );
             })}
           </div>
-          {samples.length > 5 ? (
+          {filteredSamples.length > 5 ? (
             <button type="button" onClick={() => navigate('/lab/queue')} className="mt-3 w-full rounded-xl bg-slate-50 px-4 py-2.5 text-center text-xs font-bold text-indigo-600 hover:bg-slate-100">
-              {samples.length - 5} more samples · View all in queue →
+              {filteredSamples.length - 5} more samples · View all in queue →
             </button>
           ) : null}
         </SectionCard>
