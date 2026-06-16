@@ -111,6 +111,8 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
   const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
   const radiologyEquipment = (data?.equipment ?? []).filter((e) => e.department === 'radiology').slice(0, 7);
+  const nabidhTotal = (data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0);
+  const nabidhPercent = nabidhTotal > 0 ? Math.round(((data?.metrics.nabidhSubmitted ?? 0) / nabidhTotal) * 100) : 0;
 
   const labMetricCards = [
     {
@@ -368,8 +370,8 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
             <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">🇦🇪 NABIDH HIE · FHIR R4</div>
             <p className="text-[11px] font-semibold text-emerald-700">Connected · synced 12s ago</p>
             <div className="mt-3 space-y-2 text-[11px]">
-              <div>🧪 Lab {data?.metrics.nabidhSubmitted ?? 0}/{(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} ({data?.metrics.nabidhSubmitted && data?.metrics.nabidhPending ? Math.round((data.metrics.nabidhSubmitted / ((data.metrics.nabidhSubmitted ?? 0) + (data.metrics.nabidhPending ?? 0))) * 100) : 0}%)</div>
-              <div>🩻 Radiology {data?.metrics.nabidhSubmitted ?? 0}/{(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} ({data?.metrics.nabidhSubmitted && data?.metrics.nabidhPending ? Math.round((data.metrics.nabidhSubmitted / ((data.metrics.nabidhSubmitted ?? 0) + (data.metrics.nabidhPending ?? 0))) * 100) : 0}%)</div>
+              <div>🧪 Lab {data?.metrics.nabidhSubmitted ?? 0}/{nabidhTotal} ({nabidhPercent}%)</div>
+              <div>🩻 Radiology {data?.metrics.nabidhSubmitted ?? 0}/{nabidhTotal} ({nabidhPercent}%)</div>
               <div>Total: {(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} · {data?.metrics.nabidhPending ?? 0} pending</div>
             </div>
             <button type="button" disabled title="Bulk NABIDH submit — coming soon" className="mt-3 w-full cursor-not-allowed rounded-xl bg-violet-100 px-3 py-2 text-[11px] font-bold text-violet-700 opacity-80">
