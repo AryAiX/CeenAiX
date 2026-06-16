@@ -107,6 +107,10 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
 
   const handleReleaseAndNotify = async () => {
     if (!selected) return;
+    if (!pin.trim()) {
+      setResultsError('Enter your technician PIN to release these results.');
+      return;
+    }
     setResultsError(null);
     setResultsNotice(null);
     setSaving('release');
@@ -115,6 +119,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
       await context.actions.releaseOrder(selected.id);
       setResultsNotice('Results released — the requesting doctor will be notified via the standard alert.');
       setResultDrafts({});
+      setPin('');
     } catch (error) {
       setResultsError(error instanceof Error ? error.message : 'Failed to release results.');
     } finally {
