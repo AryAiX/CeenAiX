@@ -263,7 +263,11 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 <button type="button"
                   onClick={() => {
                     const labelWindow = window.open('', '_blank');
-                    if (!labelWindow) return;
+                    if (!labelWindow) {
+                      setOrdersError('Could not open the print window — please allow popups for this site and try again.');
+                      return;
+                    }
+                    setOrdersError(null);
                     labelWindow.document.write(`
                       <html>
                         <head><title>Tube label · ${escapeHtml(sample.orderCode)}</title>
