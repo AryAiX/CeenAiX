@@ -14,6 +14,7 @@ type ImagingOrderTab = 'new' | 'scheduled' | 'active' | 'completed' | 'rejected'
 export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
   const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
   const [tab, setTab] = useState<ImagingOrderTab>('new');
+  const [rejectError, setRejectError] = useState<string | null>(null);
 
   const counts = {
     new: studies.filter((s) => s.status === 'ordered').length,
@@ -55,6 +56,11 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
           </p>
           <button type="button" disabled title="Pre-auth tracker — coming soon" className="cursor-not-allowed rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 opacity-80">View Pre-Auth Tracker →</button>
         </div>
+        {rejectError ? (
+          <div role="alert" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+            {rejectError}
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {tabs.map((t) => (
             <button type="button"
@@ -188,15 +194,15 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                 </a>
                 <button type="button"
                   onClick={async () => {
+                    setRejectError(null);
                     const reason = window.prompt(
                       `Reject imaging order ${study.accession}?\n\nProvide a short reason that will be saved to the order notes:`
                     );
                     if (reason === null) return;
                     try {
                       await context.actions.rejectOrder(study.id, reason.trim());
-                    } catch {
-                      // The shared error surface for lab orders is already
-                      // wired in the orders page; silent here is intentional.
+                    } catch (error) {
+                      setRejectError(error instanceof Error ? error.message : 'Failed to reject this order.');
                     }
                   }}
                   className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
