@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
@@ -202,6 +202,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set(LAB_DEPARTMENTS));
   const [searchQuery, setSearchQuery] = useState('');
   const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [toolbarError, setToolbarError] = useState<string | null>(null);
@@ -219,7 +220,13 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
     });
   }, [allSamples, priority, statuses, departments, searchQuery]);
 
-  const visible = filtered.slice(0, pageSize);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [priority, statuses, departments, searchQuery, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const releasableSelected = useMemo(
     () =>
       visible.filter(
@@ -362,16 +369,36 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
           <div className="flex-1 overflow-auto">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 text-sm">
               <span className="text-slate-700">
-                Total: <span className="font-bold">{formatNumber(allSamples.length)}</span> samples — showing <span className="font-bold">{visible.length}</span>
+                Showing <span className="font-bold">{filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)}</span> of <span className="font-bold">{formatNumber(filtered.length)}</span> matching samples
+                <span className="text-slate-400"> · {formatNumber(allSamples.length)} total</span>
               </span>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"
-              >
-                <option value={25}>Show 25 per page</option>
-                <option value={50}>Show 50 per page</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"
+                >
+                  <option value={25}>Show 25 per page</option>
+                  <option value={50}>Show 50 per page</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  ← Prev
+                </button>
+                <span className="text-xs font-bold text-slate-500">Page {safePage} of {totalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next →
+                </button>
+              </div>
             </div>
 
             <div className="min-w-[1100px]">
