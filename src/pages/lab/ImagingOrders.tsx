@@ -43,9 +43,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
     return studies;
   }, [studies, tab]);
 
-  // For demo, treat scheduled studies that have preauth_status as "new orders" in hosted parlance
-  const newOrders = studies.filter((s) => s.status === 'scheduled' && s.preauthStatus);
-  const preAuthCount = newOrders.length;
+  const preAuthCount = studies.filter((s) => s.preauthStatus).length;
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
