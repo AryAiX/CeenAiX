@@ -38,7 +38,7 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
         <div>
           <h1 className="font-['Plus_Jakarta_Sans'] text-2xl font-bold text-slate-900">Imaging Queue — {new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            <span className="font-bold">{studies.length}</span> studies today · {active.length} scanning · {released.length} reported · {scheduled.length} scheduled
+            <span className="font-bold">{filtered.length}</span> studies today · {active.length} scanning · {released.length} reported · {scheduled.length} scheduled
           </p>
         </div>
 
