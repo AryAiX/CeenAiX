@@ -435,7 +435,14 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {visible.map((sample) => {
+                  {visible.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="px-3 py-12 text-center text-sm text-slate-500">
+                        No samples match your current filters.
+                        <span className="mt-1 block text-xs text-slate-400">Try adjusting or resetting the filters in the sidebar.</span>
+                      </td>
+                    </tr>
+                  ) : visible.map((sample) => {
                     const isCritical = !!sample.criticalValue;
                     const isStat = sample.priority === 'STAT';
                     const isUrgent = sample.priority === 'Urgent';
