@@ -114,27 +114,32 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
 
   const labMetricCards = [
     {
-      label: `${formatNumber(data?.metrics.sampleCountToday || samples.length)} Samples`,
+      label: 'Samples',
+      value: formatNumber(data?.metrics.sampleCountToday || samples.length),
       caption: 'Total today',
       tone: 'indigo' as const,
     },
     {
-      label: `${formatNumber(data?.criticalValues.length)} Critical`,
+      label: 'Critical',
+      value: formatNumber(data?.criticalValues.length),
       caption: `${formatNumber(data?.metrics.criticalUnnotified)} unnotified ⚠️`,
       tone: 'red' as const,
     },
     {
-      label: '3.2h',
-      caption: 'Avg TAT',
+      label: 'Avg TAT',
+      value: '3.2h',
+      caption: 'Today',
       tone: 'blue' as const,
     },
     {
-      label: `${formatNumber(data?.metrics.nabidhSubmitted)}/${formatNumber((data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0))}`,
-      caption: 'NABIDH submitted',
+      label: 'NABIDH',
+      value: `${formatNumber(data?.metrics.nabidhSubmitted)}/${formatNumber((data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0))}`,
+      caption: 'Submitted',
       tone: 'violet' as const,
     },
     {
-      label: `${formatNumber(data?.qcRuns.filter((r) => r.status === 'passed').length)}/${formatNumber(data?.qcRuns.length)} QC ✅`,
+      label: 'QC ✅',
+      value: `${formatNumber(data?.qcRuns.filter((r) => r.status === 'passed').length)}/${formatNumber(data?.qcRuns.length)}`,
       caption: `${formatNumber(data?.metrics.qualityWarnings)} in maintenance`,
       tone: 'emerald' as const,
     },
@@ -142,27 +147,32 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
 
   const radMetricCards = [
     {
-      label: `${formatNumber(studies.length)} Studies`,
+      label: 'Studies',
+      value: formatNumber(studies.length),
       caption: 'Total today',
       tone: 'blue' as const,
     },
     {
-      label: `${formatNumber(activeStudies.length)} Scanning`,
+      label: 'Scanning',
+      value: formatNumber(activeStudies.length),
       caption: 'Active now',
       tone: 'violet' as const,
     },
     {
-      label: `${formatNumber(data?.metrics.radiologyReports)} Reports`,
+      label: 'Reports',
+      value: formatNumber(data?.metrics.radiologyReports),
       caption: 'Pending sign-off',
       tone: 'orange' as const,
     },
     {
-      label: `${formatNumber(scheduledStudies.length)} Scheduled`,
+      label: 'Scheduled',
+      value: formatNumber(scheduledStudies.length),
       caption: 'Today remaining',
       tone: 'cyan' as const,
     },
     {
-      label: `${formatNumber(data?.metrics.imagingEquipmentWarnings)} Issues ⚠️`,
+      label: 'Issues ⚠️',
+      value: formatNumber(data?.metrics.imagingEquipmentWarnings),
       caption: 'Equipment alerts',
       tone: 'amber' as const,
     },
@@ -178,7 +188,7 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
         <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-600">LABORATORY</div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {labMetricCards.map((card) => (
-            <KpiTile key={card.label} label={card.label} value="" caption={card.caption} tone={card.tone} />
+            <KpiTile key={card.label} label={card.label} value={card.value} caption={card.caption} tone={card.tone} />
           ))}
         </div>
       </div>
@@ -187,7 +197,7 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
         <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600">RADIOLOGY</div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {radMetricCards.map((card) => (
-            <KpiTile key={card.label} label={card.label} value="" caption={card.caption} tone={card.tone} />
+            <KpiTile key={card.label} label={card.label} value={card.value} caption={card.caption} tone={card.tone} />
           ))}
         </div>
       </div>
