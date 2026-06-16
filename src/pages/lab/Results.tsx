@@ -21,6 +21,11 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [resultsNotice, setResultsNotice] = useState<string | null>(null);
   const meta = context.data?.facilityMeta;
+  const qcRuns = context.data?.qcRuns ?? [];
+  const matchingQcRun =
+    qcRuns
+      .filter((run) => run.instrumentName === instrument)
+      .sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0] ?? null;
 
   // Reset the draft buffer when the selected sample changes so values from
   // one patient never leak into another.
@@ -228,9 +233,22 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                   ))}
                 </div>
               </div>
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
-                QC-2026-CH-044 ✅ QC PASS
-              </div>
+              {matchingQcRun ? (
+                <div className={`mt-4 rounded-lg border px-3 py-2 text-sm font-bold ${
+                  matchingQcRun.status === 'passed'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : matchingQcRun.status === 'failed'
+                      ? 'border-rose-200 bg-rose-50 text-rose-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700'
+                }`}>
+                  {matchingQcRun.lotNumber}{' '}
+                  {matchingQcRun.status === 'passed' ? '✅ QC PASS' : matchingQcRun.status === 'failed' ? '❌ QC FAIL' : '⚠️ QC WARNING'}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
+                  No QC run on file for {instrument}
+                </div>
+              )}
             </SectionCard>
 
             <SectionCard>
@@ -267,7 +285,14 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
               <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
                 <div className="rounded-lg bg-slate-50 p-2.5"><div className="text-xs text-slate-500">Abnormal</div><div className="font-bold text-slate-900">{selected.tests.filter((t) => t.isAbnormal).length} of {selected.tests.length} flagged</div></div>
                 <div className="rounded-lg bg-slate-50 p-2.5"><div className="text-xs text-slate-500">Critical</div><div className="font-bold text-slate-900">{selected.criticalValue ? selected.criticalValue : 'None'}</div></div>
-                <div className="rounded-lg bg-emerald-50 p-2.5"><div className="text-xs text-emerald-700">QC</div><div className="font-bold text-emerald-800">✅ Passed for this run</div></div>
+                <div className={`rounded-lg p-2.5 ${matchingQcRun?.status === 'passed' ? 'bg-emerald-50' : matchingQcRun?.status === 'failed' ? 'bg-rose-50' : matchingQcRun?.status === 'warning' ? 'bg-amber-50' : 'bg-slate-50'}`}>
+                  <div className={`text-xs ${matchingQcRun?.status === 'passed' ? 'text-emerald-700' : matchingQcRun?.status === 'failed' ? 'text-rose-700' : matchingQcRun?.status === 'warning' ? 'text-amber-700' : 'text-slate-500'}`}>QC</div>
+                  <div className={`font-bold ${matchingQcRun?.status === 'passed' ? 'text-emerald-800' : matchingQcRun?.status === 'failed' ? 'text-rose-800' : matchingQcRun?.status === 'warning' ? 'text-amber-800' : 'text-slate-700'}`}>
+                    {matchingQcRun
+                      ? matchingQcRun.status === 'passed' ? '✅ Passed for this run' : matchingQcRun.status === 'failed' ? '❌ Failed for this run' : '⚠️ Warning for this run'
+                      : 'No QC on file'}
+                  </div>
+                </div>
               </div>
             </SectionCard>
 
