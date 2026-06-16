@@ -20,7 +20,7 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
       if (statusFilter !== 'All') {
         if (statusFilter === 'Scanning' && s.status !== 'scanning') return false;
         if (statusFilter === 'Report Pending' && s.status !== 'report_pending') return false;
-        if (statusFilter === 'Scheduled' && s.status !== 'scheduled') return false;
+        if (statusFilter === 'Scheduled' && s.status !== 'scheduled' && s.status !== 'ordered') return false;
         if (statusFilter === 'Complete' && s.status !== 'released' && s.status !== 'reported') return false;
       }
       return true;
