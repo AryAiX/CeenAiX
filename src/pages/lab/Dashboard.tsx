@@ -46,11 +46,13 @@ const CriticalBanner = ({
     <div className="rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-red-700">
-            <span>🔴</span>
-            <span>CRITICAL VALUE — UNNOTIFIED</span>
+          <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] ${isAlreadyNotified ? 'text-emerald-700' : 'text-red-700'}`}>
+            <span>{isAlreadyNotified ? '✅' : '🔴'}</span>
+            <span>{isAlreadyNotified ? 'CRITICAL VALUE — NOTIFIED' : 'CRITICAL VALUE — UNNOTIFIED'}</span>
           </div>
-          <p className="mt-1 text-sm font-semibold text-red-700">DHA requires notification within 60 minutes</p>
+          <p className={`mt-1 text-sm font-semibold ${isAlreadyNotified ? 'text-emerald-700' : 'text-red-700'}`}>
+            {isAlreadyNotified ? 'Doctor has already been notified of this critical value' : 'DHA requires notification within 60 minutes'}
+          </p>
         </div>
         <div className="rounded-xl bg-white px-3 py-2 font-['DM_Mono'] text-sm font-bold text-red-700 ring-1 ring-red-200">
           {observed}
