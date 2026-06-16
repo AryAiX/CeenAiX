@@ -243,12 +243,12 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const releasableSelected = useMemo(
     () =>
-      visible.filter(
+      filtered.filter(
         (sample) =>
           selectedSampleIds.has(sample.id) &&
           (sample.status === 'resulted' || sample.status === 'reviewed')
       ),
-    [visible, selectedSampleIds]
+    [filtered, selectedSampleIds]
   );
 
   const toggleSampleSelected = (sampleId: string) => {
