@@ -84,7 +84,13 @@ const CriticalBanner = ({
         <button type="button"
           onClick={() => void handleNotify()}
           disabled={isSaving || isAlreadyNotified}
-          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-emerald-600 disabled:opacity-90"
+          className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed ${
+            isAlreadyNotified
+              ? 'bg-emerald-600 opacity-90'
+              : isSaving
+                ? 'bg-slate-400 opacity-90'
+                : 'bg-red-600 hover:bg-red-700'
+          }`}
         >
           {isAlreadyNotified
             ? '✅ Doctor notified'
