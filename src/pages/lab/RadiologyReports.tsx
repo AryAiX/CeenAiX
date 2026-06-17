@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { LabPageContext } from './shared/types';
 import { ageGenderLabel, formatTat } from './shared/helpers';
@@ -19,9 +19,26 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
   const [savingReport, setSavingReport] = useState<'idle' | 'draft' | 'preliminary' | 'verify'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportNotice, setReportNotice] = useState<string | null>(null);
+  const [manualChecklist, setManualChecklist] = useState<Record<string, boolean>>({});
 
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
+
+  useEffect(() => {
+    setManualChecklist({});
+  }, [selected?.id]);
+
+  const checklistItems = selected
+    ? [
+        { id: 'indication', label: 'Clinical indication referenced', checked: Boolean(selected.clinicalIndication), manual: false },
+        { id: 'anatomy', label: 'All anatomical regions documented', checked: !!manualChecklist.anatomy, manual: true },
+        { id: 'impression', label: 'Impression section complete', checked: !!manualChecklist.impression, manual: true },
+        { id: 'icd10', label: 'ICD-10 coded', checked: Boolean(selected.icd10Code), manual: false },
+        { id: 'comparison', label: 'Comparison study referenced', checked: !!manualChecklist.comparison, manual: true },
+        { id: 'recommendations', label: 'Recommendations included', checked: !!manualChecklist.recommendations, manual: true },
+        { id: 'qa', label: 'QA: measurements consistent with viewer', checked: !!manualChecklist.qa, manual: true },
+      ]
+    : [];
 
   const advanceStudy = async (
     nextStatus: 'reported' | 'released',
@@ -205,23 +222,21 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
             <SectionCard>
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">REPORT CHECKLIST</div>
               <div className="mt-3 space-y-1.5">
-                {[
-                  'Clinical indication referenced',
-                  'All anatomical regions documented',
-                  'Impression section complete',
-                  'ICD-10 coded',
-                  'Comparison study referenced',
-                  'Recommendations included',
-                ].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-sm text-slate-700">
-                    <span className="text-emerald-600">✅</span>
-                    <span>{item}</span>
-                  </div>
+                {checklistItems.map((item) => (
+                  <label key={item.id} className={`flex cursor-pointer items-center gap-2 text-sm ${item.checked ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {item.manual ? (
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={(e) => setManualChecklist((prev) => ({ ...prev, [item.id]: e.target.checked }))}
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                    ) : (
+                      <span className={item.checked ? 'text-emerald-600' : 'text-slate-300'}>{item.checked ? '✅' : '○'}</span>
+                    )}
+                    <span>{item.label}</span>
+                  </label>
                 ))}
-                <div className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="text-slate-400">○</span>
-                  <span>QA: measurements consistent with viewer</span>
-                </div>
               </div>
               {reportError ? (
                 <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
