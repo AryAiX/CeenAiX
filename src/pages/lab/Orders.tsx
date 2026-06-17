@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { LabPageContext } from './shared/types';
 import {
   priorityClass,
@@ -27,6 +28,9 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [showAcceptAllConfirm, setShowAcceptAllConfirm] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; orderCode: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const tabs: Array<{ id: OrderTab; label: string; emoji: string; count: number }> = [
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
@@ -51,20 +55,32 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
 
   const handleAcceptAll = async () => {
     if (newOrders.length === 0) return;
-    const confirmed = window.confirm(
-      `Accept all ${newOrders.length} new order(s)? This will claim every order currently in the New tab.`
-    );
-    if (!confirmed) return;
     setOrdersError(null);
     setBulkBusy(true);
     try {
       for (const order of newOrders) {
         await context.actions.claimSample(order.id);
       }
+      setShowAcceptAllConfirm(false);
     } catch (error) {
       setOrdersError(error instanceof Error ? error.message : 'Bulk accept failed.');
     } finally {
       setBulkBusy(false);
+    }
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectTarget) return;
+    setOrdersError(null);
+    setRowBusyId(rejectTarget.id);
+    try {
+      await context.actions.rejectOrder(rejectTarget.id, rejectReason.trim());
+      setRejectTarget(null);
+      setRejectReason('');
+    } catch (error) {
+      setOrdersError(error instanceof Error ? error.message : 'Reject failed.');
+    } finally {
+      setRowBusyId(null);
     }
   };
 
@@ -89,7 +105,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
           </p>
           <div className="flex gap-2">
             <button type="button"
-              onClick={() => void handleAcceptAll()}
+              onClick={() => setShowAcceptAllConfirm(true)}
               disabled={bulkBusy || newOrders.length === 0}
               className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -317,22 +333,9 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 </a>
                 {tab !== 'rejected' ? (
                   <button type="button"
-                    onClick={async () => {
-                      const reason = window.prompt(
-                        `Reject lab order ${sample.orderCode}?\n\nProvide a short reason that will be saved to the order notes:`
-                      );
-                      if (reason === null) return;
-                      setOrdersError(null);
-                      setRowBusyId(sample.id);
-                      try {
-                        await context.actions.rejectOrder(sample.id, reason.trim());
-                      } catch (error) {
-                        setOrdersError(
-                          error instanceof Error ? error.message : 'Reject failed.'
-                        );
-                      } finally {
-                        setRowBusyId(null);
-                      }
+                    onClick={() => {
+                      setRejectReason('');
+                      setRejectTarget({ id: sample.id, orderCode: sample.orderCode });
                     }}
                     disabled={rowBusyId === sample.id}
                     className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -345,6 +348,83 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
           );
         })}
       </div>
+
+      {showAcceptAllConfirm
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Accept All New Orders</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  This will claim all {newOrders.length} order{newOrders.length === 1 ? '' : 's'} currently in the New tab.
+                </p>
+                {ordersError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{ordersError}</p>
+                ) : null}
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAcceptAllConfirm(false)}
+                    disabled={bulkBusy}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleAcceptAll()}
+                    disabled={bulkBusy}
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {bulkBusy ? 'Accepting…' : 'Yes, Accept All'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {rejectTarget
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Reject Lab Order</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Provide a short reason for rejecting order {rejectTarget.orderCode}. This will be saved to the order notes.
+                </p>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Specimen hemolyzed, insufficient volume…"
+                  className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-rose-300"
+                />
+                {ordersError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{ordersError}</p>
+                ) : null}
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRejectTarget(null)}
+                    disabled={rowBusyId === rejectTarget.id}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleConfirmReject()}
+                    disabled={rowBusyId === rejectTarget.id}
+                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                  >
+                    {rowBusyId === rejectTarget.id ? 'Rejecting…' : 'Reject Order'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
