@@ -2,7 +2,15 @@ import type { LabPortalData, LabPortalEquipment, LabDepartment } from '../../hoo
 import { formatDateShort } from './shared/helpers';
 import { SectionCard, ProgressMeter } from './shared/ui';
 
-const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; department: LabDepartment }) => {
+const EquipmentCard = ({
+  item,
+  department,
+  latestQcRun,
+}: {
+  item: LabPortalEquipment;
+  department: LabDepartment;
+  latestQcRun: { status: 'passed' | 'failed' | 'warning' } | null;
+}) => {
   const statusColor =
     item.status === 'online' ? 'bg-emerald-100 text-emerald-700' :
     item.status === 'maintenance' ? 'bg-amber-100 text-amber-800' :
@@ -80,9 +88,26 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
           <div className="font-['DM_Mono'] text-2xl font-bold text-slate-900">{item.uptimePercent ? `${item.uptimePercent}%` : '—'}</div>
           <div className="text-[10px] uppercase text-slate-500">Uptime</div>
         </div>
-        <div className="rounded-lg bg-emerald-50 p-2">
-          <div className="font-['DM_Mono'] text-2xl font-bold text-emerald-700">✅</div>
-          <div className="text-[10px] uppercase text-emerald-700">QC</div>
+        <div className={`rounded-lg p-2 ${
+          latestQcRun?.status === 'passed' ? 'bg-emerald-50'
+            : latestQcRun?.status === 'failed' ? 'bg-rose-50'
+            : latestQcRun?.status === 'warning' ? 'bg-amber-50'
+            : 'bg-slate-50'
+        }`}>
+          <div className={`font-['DM_Mono'] text-2xl font-bold ${
+            latestQcRun?.status === 'passed' ? 'text-emerald-700'
+              : latestQcRun?.status === 'failed' ? 'text-rose-700'
+              : latestQcRun?.status === 'warning' ? 'text-amber-700'
+              : 'text-slate-400'
+          }`}>
+            {latestQcRun?.status === 'passed' ? '✅' : latestQcRun?.status === 'failed' ? '❌' : latestQcRun?.status === 'warning' ? '⚠️' : '—'}
+          </div>
+          <div className={`text-[10px] uppercase ${
+            latestQcRun?.status === 'passed' ? 'text-emerald-700'
+              : latestQcRun?.status === 'failed' ? 'text-rose-700'
+              : latestQcRun?.status === 'warning' ? 'text-amber-700'
+              : 'text-slate-500'
+          }`}>QC</div>
         </div>
       </div>
 
@@ -131,6 +156,11 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
 export const EquipmentPage = ({ data, department }: { data: LabPortalData | null; department: LabDepartment }) => {
   const items = (data?.equipment ?? []).filter((e) => e.department === department);
   const lowReagents = items.filter((i) => (i.reagents ?? []).some((r) => r.percent < 50));
+  const qcRuns = data?.qcRuns ?? [];
+  const latestQcRunFor = (name: string) =>
+    qcRuns
+      .filter((run) => run.instrumentName === name)
+      .sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0] ?? null;
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
@@ -168,7 +198,7 @@ export const EquipmentPage = ({ data, department }: { data: LabPortalData | null
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <EquipmentCard key={item.id} item={item} department={department} />
+            <EquipmentCard key={item.id} item={item} department={department} latestQcRun={latestQcRunFor(item.name)} />
           ))}
         </div>
       </div>
