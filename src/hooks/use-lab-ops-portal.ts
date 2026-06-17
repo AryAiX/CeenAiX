@@ -54,6 +54,7 @@ export interface LabPortalSampleTest {
   isAbnormal: boolean | null;
   status: LabOrderStatus;
   statusCategory: string | null;
+  instrument: string | null;
 }
 
 export interface LabPortalSample {
@@ -350,6 +351,7 @@ interface LabItemRow {
   reference_min_value: string | null;
   reference_max_value: string | null;
   is_abnormal: boolean | null;
+  instrument: string | null;
 }
 
 interface ProfileRow {
@@ -700,7 +702,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     if (allOrderIds.length > 0) {
       const { data, error } = await supabase
         .from('lab_order_items')
-        .select('id, lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal')
+        .select('id, lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal, instrument')
         .in('lab_order_id', allOrderIds)
         .order('sort_order', { ascending: true });
       if (error) throw error;
@@ -762,6 +764,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
           isAbnormal: item.is_abnormal,
           status: item.status,
           statusCategory: item.status_category,
+          instrument: item.instrument,
         })),
         testNames: items.map((item) => item.test_name),
         priority: normalizePriority(order.urgency),
@@ -1035,6 +1038,7 @@ export function useLabOpsActions(onChange: () => void) {
       resultUnit: string | null;
       referenceRange: string | null;
       isAbnormal?: boolean;
+      instrument?: string | null;
     }) => {
       const { error } = await supabase.rpc('lab_save_item_result', {
         target_item_id: input.itemId,
@@ -1042,6 +1046,7 @@ export function useLabOpsActions(onChange: () => void) {
         result_unit: input.resultUnit,
         reference_range: input.referenceRange,
         is_abnormal: input.isAbnormal ?? false,
+        instrument: input.instrument ?? null,
       });
       if (error) throw error;
       onChange();
