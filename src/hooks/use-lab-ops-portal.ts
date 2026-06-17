@@ -164,6 +164,7 @@ export interface LabPortalEquipment {
   reagents: LabPortalReagent[];
   activeUserLabel: string | null;
   activeRemainingLabel: string | null;
+  isRunning: boolean;
 }
 
 export interface LabPortalQcRun {
@@ -432,6 +433,7 @@ interface EquipmentRow {
   reagents: unknown;
   active_user_label: string | null;
   active_remaining_label: string | null;
+  is_running: boolean;
 }
 
 interface QcRunRow {
@@ -879,6 +881,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       reagents: parseReagents(item.reagents),
       activeUserLabel: item.active_user_label,
       activeRemainingLabel: item.active_remaining_label,
+      isRunning: item.is_running,
     }));
 
     const qcRuns: LabPortalQcRun[] = ((qcData ?? []) as QcRunRow[]).map((run) => ({
