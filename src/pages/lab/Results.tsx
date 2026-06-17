@@ -190,7 +190,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
             <SectionCard>
               <h2 className="font-['Plus_Jakarta_Sans'] text-xl font-bold text-slate-900">{selected.patientName}</h2>
               <p className="text-sm text-slate-500">
-                {ageGenderLabel(selected.patientAge, selected.patientGender)}{selected.bloodType ? ` · ${selected.bloodType}` : ''} · PT-{selected.patientId.slice(0, 3).toUpperCase()}
+                {ageGenderLabel(selected.patientAge, selected.patientGender)}{selected.bloodType ? ` · ${selected.bloodType}` : ''} · {selected.orderCode}
               </p>
               {selected.insurancePlan ? <p className="mt-1 text-xs text-slate-500">{selected.insurancePlan}</p> : null}
               <div className="mt-3 text-xs text-slate-500">
