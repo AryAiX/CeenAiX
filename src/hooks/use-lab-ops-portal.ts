@@ -100,6 +100,7 @@ export interface LabPortalImagingStudy {
   id: string;
   labId: string;
   accession: string;
+  rejectionReason: string | null;
   patientName: string;
   patientAge: number | null;
   patientGender: string | null;
@@ -236,6 +237,7 @@ export interface LabPortalData {
   samples: LabPortalSample[];
   rejectedSamples: LabPortalSample[];
   imagingStudies: LabPortalImagingStudy[];
+  rejectedImagingStudies: LabPortalImagingStudy[];
   equipment: LabPortalEquipment[];
   qcRuns: LabPortalQcRun[];
   nabidhEvents: LabPortalNabidhEvent[];
@@ -366,6 +368,8 @@ interface ImagingStudyRow {
   id: string;
   lab_id: string;
   accession: string;
+  is_deleted: boolean;
+  rejection_reason: string | null;
   patient_name: string;
   patient_age: number | null;
   patient_gender: string | null;
@@ -652,11 +656,12 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       { data: criticalData, error: criticalError },
       { data: topMetricsData, error: topMetricsError },
       { data: volumeData, error: volumeError },
+      { data: rejectedImagingData, error: rejectedImagingError },
     ] = await Promise.all([
       ordersQuery,
       (staffLabIds.length > 0 || labId) ? rejectedOrdersQuery : supabase.from('lab_orders').select('id').limit(0),
       labId
-        ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).order('scheduled_at', { ascending: true })
+        ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).eq('is_deleted', false).order('scheduled_at', { ascending: true })
         : supabase.from('lab_portal_imaging_studies').select('*').limit(0),
       labId
         ? supabase.from('lab_portal_equipment').select('*').eq('lab_id', labId).order('department', { ascending: true })
@@ -679,6 +684,9 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       labId
         ? supabase.from('lab_portal_volume_trends').select('*').eq('lab_id', labId).order('sort_order', { ascending: true })
         : supabase.from('lab_portal_volume_trends').select('*').limit(0),
+      labId
+        ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).eq('is_deleted', true).order('scheduled_at', { ascending: false }).limit(50)
+        : supabase.from('lab_portal_imaging_studies').select('*').limit(0),
     ]);
 
     if (ordersError) throw ordersError;
@@ -691,6 +699,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     if (criticalError) throw criticalError;
     if (topMetricsError) throw topMetricsError;
     if (volumeError) throw volumeError;
+    if (rejectedImagingError) throw rejectedImagingError;
 
     const orders = (orderData ?? []) as LabOrderRow[];
     const rejectedOrders = (rejectedOrderData ?? []) as LabOrderRow[];
@@ -796,7 +805,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     const samples: LabPortalSample[] = orders.map(mapOrderToSample);
     const rejectedSamples: LabPortalSample[] = rejectedOrders.map(mapOrderToSample);
 
-    const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map((study) => ({
+    const mapImagingStudyRow = (study: ImagingStudyRow): LabPortalImagingStudy => ({
       id: study.id,
       labId: study.lab_id,
       accession: study.accession,
@@ -830,7 +839,11 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       doctorDhaLicense: study.doctor_dha_license,
       doctorSpecialty: study.doctor_specialty,
       sourceLabel: study.source_label,
-    }));
+      rejectionReason: study.rejection_reason,
+    });
+
+    const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map(mapImagingStudyRow);
+    const rejectedImagingStudies: LabPortalImagingStudy[] = ((rejectedImagingData ?? []) as ImagingStudyRow[]).map(mapImagingStudyRow);
 
     const equipment: LabPortalEquipment[] = ((equipmentData ?? []) as EquipmentRow[]).map((item) => ({
       id: item.id,
@@ -968,6 +981,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       samples,
       rejectedSamples,
       imagingStudies,
+      rejectedImagingStudies,
       equipment,
       qcRuns,
       nabidhEvents,
@@ -1122,6 +1136,27 @@ export function useLabOpsActions(onChange: () => void) {
   );
 
   /**
+   * Soft-delete an imaging study order. Mirrors rejectOrder's behavior
+   * for lab_orders, but targets lab_portal_imaging_studies, which is a
+   * separate table with its own ID space.
+   */
+  const rejectImagingStudy = useCallback(
+    async (studyId: string, reason?: string) => {
+      const { error } = await supabase
+        .from('lab_portal_imaging_studies')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          rejection_reason: reason ? reason : 'No reason provided',
+        })
+        .eq('id', studyId);
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  /**
    * Records that the prescribing doctor has been notified about a critical
    * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
    * also compute and persist the actual minutes-to-notification on the row.
@@ -1151,6 +1186,7 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       rejectOrder,
+      rejectImagingStudy,
       saveItemResult,
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
@@ -1162,6 +1198,7 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       rejectOrder,
+      rejectImagingStudy,
       saveItemResult,
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
