@@ -10,6 +10,8 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const radEvents = events.filter(
     (e) => e.resourceType === 'ImagingStudy' || (e.resourceType === 'DiagnosticReport' && e.referenceCode.includes('RAD'))
   );
+  const countByType = (list: typeof events, type: string) =>
+    list.filter((e) => e.resourceType === type && e.status === 'submitted').length;
   const submitted = events.filter((e) => e.status === 'submitted').length;
   const pending = events.filter((e) => e.status === 'pending').length;
   const failed = events.filter((e) => e.status === 'failed').length;
@@ -97,9 +99,9 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
           <div className="mt-3 rounded-xl border border-slate-100 p-3">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">FHIR RESOURCES SUBMITTED</div>
             <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-              <div><div className="font-bold text-slate-900">Observation</div><div className="font-['DM_Mono'] text-emerald-700">3,241 ✅</div></div>
-              <div><div className="font-bold text-slate-900">DiagnosticReport</div><div className="font-['DM_Mono'] text-emerald-700">189 ✅</div></div>
-              <div><div className="font-bold text-slate-900">ServiceRequest</div><div className="font-['DM_Mono'] text-emerald-700">47 ✅</div></div>
+              <div><div className="font-bold text-slate-900">Observation</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(labEvents, 'Observation')} ✅</div></div>
+              <div><div className="font-bold text-slate-900">DiagnosticReport</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(labEvents, 'DiagnosticReport')} ✅</div></div>
+              <div><div className="font-bold text-slate-900">ServiceRequest</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(events, 'ServiceRequest')} ✅</div></div>
             </div>
           </div>
         </SectionCard>
@@ -126,8 +128,8 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
           <div className="mt-3 rounded-xl border border-slate-100 p-3">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">FHIR RESOURCES SUBMITTED</div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
-              <div><div className="font-bold text-slate-900">ImagingStudy</div><div className="font-['DM_Mono'] text-emerald-700">28 ✅</div></div>
-              <div><div className="font-bold text-slate-900">DiagnosticReport (radiology)</div><div className="font-['DM_Mono'] text-emerald-700">25 ✅</div></div>
+              <div><div className="font-bold text-slate-900">ImagingStudy</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(radEvents, 'ImagingStudy')} ✅</div></div>
+              <div><div className="font-bold text-slate-900">DiagnosticReport (radiology)</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(radEvents, 'DiagnosticReport')} ✅</div></div>
             </div>
           </div>
           <button type="button" onClick={submitAllPending} className="mt-3 w-full rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700">
