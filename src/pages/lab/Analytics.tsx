@@ -152,6 +152,13 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
                   { label: 'X-Ray', count: data?.imagingStudies.filter((s) => s.modality === 'X-Ray').length ?? 0 },
                   { label: 'USS', count: data?.imagingStudies.filter((s) => s.modality === 'USS').length ?? 0 },
                   { label: 'PET', count: data?.imagingStudies.filter((s) => s.modality === 'PET').length ?? 0 },
+                  {
+                    label: 'Other',
+                    count:
+                      data?.imagingStudies.filter(
+                        (s) => !['MRI', 'CT', 'X-Ray', 'USS', 'PET'].includes(s.modality)
+                      ).length ?? 0,
+                  },
                 ].map((m) => {
                   const pct = totalRad > 0 ? Math.round((m.count / totalRad) * 100) : 0;
                   return (
