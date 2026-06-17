@@ -20,7 +20,7 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
   const criticals = (data?.criticalValues ?? []).filter((c) => c.observedAt >= todayStart);
   const notifiedTimes = criticals
     .map((c) => c.notifiedInMinutes)
-    .filter((n): n is number => typeof n === 'number' && n > 0);
+    .filter((n): n is number => typeof n === 'number');
   const avgNotified = notifiedTimes.length > 0 ? Math.round(notifiedTimes.reduce((sum, n) => sum + n, 0) / notifiedTimes.length) : null;
   const fastestNotified = notifiedTimes.length > 0 ? Math.min(...notifiedTimes) : null;
   const slowestNotified = notifiedTimes.length > 0 ? Math.max(...notifiedTimes) : null;
@@ -198,7 +198,7 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
                       <td className="px-3 py-2 font-semibold text-slate-900">{c.patientName}</td>
                       <td className="px-3 py-2 text-slate-700">{c.testName}</td>
                       <td className="px-3 py-2 text-slate-700">{c.valueLabel}</td>
-                      <td className="px-3 py-2 text-slate-600">{c.notifiedInMinutes ? `${c.notifiedInMinutes} min ${c.notifiedInMinutes > 60 ? '⚠️' : ''}` : '—'}</td>
+                      <td className="px-3 py-2 text-slate-600">{typeof c.notifiedInMinutes === 'number' ? `${c.notifiedInMinutes} min ${c.notifiedInMinutes > 60 ? '⚠️' : ''}` : '—'}</td>
                       <td className="px-3 py-2">
                         {c.status === 'pending' ? <span className="text-amber-700">⚠️ Pending</span> : <span className="text-emerald-700">✅ Notified</span>}
                       </td>
