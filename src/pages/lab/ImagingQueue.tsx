@@ -3,11 +3,14 @@ import type { LabPageContext } from './shared/types';
 import { ageGenderLabel, formatTat, formatTimeShort } from './shared/helpers';
 import { SectionCard, Pill, ProgressMeter } from './shared/ui';
 
-const IMAGING_MODALITIES = ['All ●', 'MRI', 'CT', 'X-Ray', 'USS', 'MAMMO', 'PET'] as const;
 const IMAGING_STATUS_TABS = ['All', 'Scanning', 'Report Pending', 'Scheduled', 'Complete'] as const;
 
 export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
   const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
+  const modalities = useMemo(() => {
+    const unique = Array.from(new Set(studies.map((s) => s.modality.toUpperCase()))).sort();
+    return ['All ●', ...unique];
+  }, [studies]);
   const [modalityFilter, setModalityFilter] = useState<string>('All ●');
   const [statusFilter, setStatusFilter] = useState<string>('All');
 
@@ -43,7 +46,7 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {IMAGING_MODALITIES.map((m) => (
+          {modalities.map((m) => (
             <button type="button"
               key={m}
               onClick={() => setModalityFilter(m)}
