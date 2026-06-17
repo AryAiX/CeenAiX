@@ -540,7 +540,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                         <td className="px-3 py-3">
                           <div className="flex justify-end gap-2">
                             <button type="button"
-                              onClick={() => navigate('/lab/results')}
+                              onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
                               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                             >
                               View
