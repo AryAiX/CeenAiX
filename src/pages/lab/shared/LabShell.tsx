@@ -192,6 +192,7 @@ export const LabShell = ({ page, context, children }: { page: LabPage; context: 
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const sections = useMemo(() => buildNavSections(context.data), [context.data]);
   const facility = context.data?.facility;
   const meta = context.data?.facilityMeta;
@@ -305,7 +306,7 @@ export const LabShell = ({ page, context, children }: { page: LabPage; context: 
             </div>
           ) : null}
           <button type="button"
-            onClick={() => void handleSignOut()}
+            onClick={() => setShowLogoutConfirm(true)}
             className={`flex w-full items-center rounded-xl px-3 py-2 text-red-200 transition hover:bg-red-500/10 ${
               collapsed ? 'justify-center' : 'gap-3'
             }`}
@@ -335,6 +336,34 @@ export const LabShell = ({ page, context, children }: { page: LabPage; context: 
           )}
         </main>
       </div>
+
+      {showLogoutConfirm ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-gray-900">Sign Out</h3>
+            <p className="mt-2 text-sm text-gray-500">Are you sure you want to sign out?</p>
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  void handleSignOut();
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
