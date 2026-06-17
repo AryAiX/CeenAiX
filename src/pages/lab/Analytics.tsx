@@ -12,7 +12,12 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
   const trends = data?.volumeTrends ?? [];
   const topLab = data?.topLabTests ?? [];
   const topImaging = data?.topImagingStudies ?? [];
-  const criticals = data?.criticalValues ?? [];
+  const todayStart = (() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now.toISOString();
+  })();
+  const criticals = (data?.criticalValues ?? []).filter((c) => c.observedAt >= todayStart);
   const notifiedTimes = criticals
     .map((c) => c.notifiedInMinutes)
     .filter((n): n is number => typeof n === 'number' && n > 0);
@@ -22,7 +27,9 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
   const maxVol = Math.max(1, ...trends.map((t) => Math.max(t.labVolume, t.radiologyVolume)));
   const showLab = scope !== 'rad';
   const showRad = scope !== 'lab';
-  const scopedTotal = (showLab ? totalLab : 0) + (showRad ? totalRad : 0);
+  const todayLab = data?.metrics.sampleCountToday ?? 0;
+  const todayRad = data?.metrics.studyCountToday ?? 0;
+  const scopedTotal = (showLab ? todayLab : 0) + (showRad ? todayRad : 0);
 
   return (
     <div className="space-y-4">
