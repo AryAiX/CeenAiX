@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { LabPageContext } from './shared/types';
 import { formatDateShort, formatTimeShort, nabidhBadge } from './shared/helpers';
 import { SectionCard, Pill, KpiTile, ProgressMeter } from './shared/ui';
@@ -17,6 +19,9 @@ const formatRelativeSync = (isoTimestamp: string | null): string => {
 };
 
 export const NabidhPage = ({ context }: { context: LabPageContext }) => {
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [isSubmittingAll, setIsSubmittingAll] = useState(false);
+  const [submitAllError, setSubmitAllError] = useState<string | null>(null);
   const events = context.data?.nabidhEvents ?? [];
   const labEvents = events.filter(
     (e) => e.resourceType === 'Observation' || (e.resourceType === 'DiagnosticReport' && !e.referenceCode.includes('RAD'))
@@ -42,9 +47,21 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
       .map((event) => event.submittedAt as string)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
-  const submitAllPending = () => {
+  const handleSubmitAllPending = async () => {
     const pendingIds = events.filter((e) => e.status !== 'submitted').map((e) => e.id);
-    void context.actions.markNabidhSubmittedBulk(pendingIds);
+    if (pendingIds.length === 0) return;
+    setSubmitAllError(null);
+    setIsSubmittingAll(true);
+    try {
+      await context.actions.markNabidhSubmittedBulk(pendingIds);
+      setShowSubmitConfirm(false);
+    } catch (error) {
+      setSubmitAllError(
+        error instanceof Error ? error.message : 'Could not submit pending NABIDH events.'
+      );
+    } finally {
+      setIsSubmittingAll(false);
+    }
   };
 
   return (
@@ -64,7 +81,12 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
               <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{meta?.nabidhVendorId ?? '—'}</div>
               <div className="text-xs text-slate-500">Vendor ID</div>
             </div>
-            <button type="button" onClick={submitAllPending} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700">
+            <button
+              type="button"
+              onClick={() => setShowSubmitConfirm(true)}
+              disabled={pending + failed === 0}
+              className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
               📤 Submit All {pending + failed} Pending
             </button>
           </div>
@@ -215,6 +237,41 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
           </table>
         </div>
       </SectionCard>
+
+      {showSubmitConfirm
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Submit All Pending to NABIDH</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  This will submit {pending + failed} pending record{pending + failed === 1 ? '' : 's'} to the NABIDH health information exchange. This action cannot be undone.
+                </p>
+                {submitAllError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{submitAllError}</p>
+                ) : null}
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowSubmitConfirm(false)}
+                    disabled={isSubmittingAll}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSubmitAllPending()}
+                    disabled={isSubmittingAll}
+                    className="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {isSubmittingAll ? 'Submitting…' : 'Yes, Submit All'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
