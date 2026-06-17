@@ -38,7 +38,9 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
         <SectionCard className="border-rose-200 bg-rose-50">
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-600">FAILURES</div>
           <div className="mt-2 font-['Plus_Jakarta_Sans'] text-3xl font-bold text-rose-800">{failures}</div>
-          <div className="mt-2 text-xs text-rose-700">No QC failures today ✅</div>
+          <div className="mt-2 text-xs text-rose-700">
+            {failures === 0 ? 'No QC failures today ✅' : `${failures} QC failure${failures === 1 ? '' : 's'} need review ⚠️`}
+          </div>
         </SectionCard>
       </div>
 
