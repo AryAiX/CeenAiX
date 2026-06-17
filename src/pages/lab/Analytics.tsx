@@ -241,11 +241,23 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
 
       <SectionCard className="bg-gradient-to-br from-emerald-50 to-blue-50">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="font-['Plus_Jakarta_Sans'] text-2xl font-bold text-emerald-700">99.7%</div>
-            <p className="text-sm text-slate-700">NABIDH Submission Rate (30 days)</p>
-            <p className="text-xs text-slate-500">2 failed submissions (resolved) · 0 currently failed</p>
-          </div>
+          {(() => {
+            const nabidhAll = data?.nabidhEvents ?? [];
+            const nabidhFailedCount = nabidhAll.filter((e) => e.status === 'failed').length;
+            const nabidhRate =
+              nabidhAll.length > 0
+                ? Math.round((nabidhAll.filter((e) => e.status === 'submitted').length / nabidhAll.length) * 100)
+                : null;
+            return (
+              <div>
+                <div className="font-['Plus_Jakarta_Sans'] text-2xl font-bold text-emerald-700">
+                  {nabidhRate != null ? `${nabidhRate}%` : '—'}
+                </div>
+                <p className="text-sm text-slate-700">NABIDH Submission Rate</p>
+                <p className="text-xs text-slate-500">{nabidhFailedCount} currently failed</p>
+              </div>
+            );
+          })()}
           <a
             href="/lab/nabidh"
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
