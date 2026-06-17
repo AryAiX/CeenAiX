@@ -2,6 +2,20 @@ import type { LabPageContext } from './shared/types';
 import { formatDateShort, formatTimeShort, nabidhBadge } from './shared/helpers';
 import { SectionCard, Pill, KpiTile, ProgressMeter } from './shared/ui';
 
+const formatRelativeSync = (isoTimestamp: string | null): string => {
+  if (!isoTimestamp) return 'Not yet synced';
+  const diffMs = Date.now() - new Date(isoTimestamp).getTime();
+  if (Number.isNaN(diffMs) || diffMs < 0) return 'Not yet synced';
+  const diffSeconds = Math.floor(diffMs / 1000);
+  if (diffSeconds < 60) return `synced ${diffSeconds}s ago`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `synced ${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `synced ${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `synced ${diffDays}d ago`;
+};
+
 export const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const events = context.data?.nabidhEvents ?? [];
   const labEvents = events.filter(
@@ -22,6 +36,11 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const radPending = radEvents.filter((e) => e.status === 'pending').length;
   const radFailed = radEvents.filter((e) => e.status === 'failed').length;
   const meta = context.data?.facilityMeta;
+  const mostRecentNabidhSubmission =
+    events
+      .filter((event) => event.status === 'submitted' && event.submittedAt)
+      .map((event) => event.submittedAt as string)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
   const submitAllPending = () => {
     const pendingIds = events.filter((e) => e.status !== 'submitted').map((e) => e.id);
@@ -37,7 +56,7 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
             <div>
               <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">NABIDH Health Information Exchange</h2>
               <p className="text-sm text-slate-500">National Unified Health Record · FHIR R4 · Real-time submission</p>
-              <p className="mt-1 text-xs font-semibold text-emerald-700">✅ Connected · Last sync: 12 seconds ago</p>
+              <p className="mt-1 text-xs font-semibold text-emerald-700">✅ Connected · {formatRelativeSync(mostRecentNabidhSubmission)}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -56,23 +75,12 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
         <KpiTile label="✅" value={`${submitted}/${events.length}`} caption="submitted" tone="emerald" />
         <KpiTile label="⏳" value={pending} caption="pending" tone="amber" />
         <KpiTile label="❌" value={failed} caption="failed" tone="rose" />
-        {(() => {
-          const lastSubmitted = events
-            .filter((event) => event.status === 'submitted' && event.submittedAt)
-            .sort(
-              (left, right) =>
-                new Date(right.submittedAt ?? 0).getTime() -
-                new Date(left.submittedAt ?? 0).getTime()
-            )[0];
-          return (
-            <KpiTile
-              label="📤"
-              value={lastSubmitted?.submittedAt ? formatTimeShort(lastSubmitted.submittedAt) : '—'}
-              caption="Last bulk"
-              tone="slate"
-            />
-          );
-        })()}
+        <KpiTile
+          label="📤"
+          value={mostRecentNabidhSubmission ? formatTimeShort(mostRecentNabidhSubmission) : '—'}
+          caption="Last bulk"
+          tone="slate"
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
