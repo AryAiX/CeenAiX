@@ -131,9 +131,14 @@ const EquipmentCard = ({
         </div>
       ) : null}
 
-      {item.maintenanceDueAt ? (
-        <p className="mt-3 text-xs text-slate-500">Maintenance due: {formatDateShort(item.maintenanceDueAt)}</p>
-      ) : null}
+      {item.maintenanceDueAt ? (() => {
+        const isOverdue = new Date(item.maintenanceDueAt).getTime() < Date.now();
+        return (
+          <p className={`mt-3 text-xs font-semibold ${isOverdue ? 'text-red-600' : 'text-slate-500'}`}>
+            Maintenance due: {formatDateShort(item.maintenanceDueAt)} {isOverdue ? '🔴 OVERDUE' : ''}
+          </p>
+        );
+      })() : null}
 
       <div className="mt-3 flex gap-2">
         <a
