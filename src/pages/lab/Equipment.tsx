@@ -143,7 +143,7 @@ const EquipmentCard = ({
           {isLab ? '📊 Stats' : '📋 Schedule'}
         </a>
         <a
-          href="/lab/equipment"
+          href={isLab ? '/lab/equipment' : '/lab/imaging/equipment'}
           className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
         >
           {isLab ? '⚙️ Log Maintenance' : '⚙️ Maintenance'}
