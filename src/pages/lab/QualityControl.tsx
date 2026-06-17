@@ -5,9 +5,10 @@ import { SectionCard, Pill } from './shared/ui';
 export const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
   const runs = data?.qcRuns ?? [];
   const passed = runs.filter((r) => r.status === 'passed').length;
-  const maintenance = runs.filter((r) => r.status === 'warning').length;
   const failures = runs.filter((r) => r.status === 'failed').length;
-  const labMaintenance = (data?.equipment ?? []).find((e) => e.department === 'laboratory' && e.status === 'maintenance');
+  const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && e.status === 'maintenance');
+  const labMaintenance = labEquipmentInMaintenance[0];
+  const maintenance = labEquipmentInMaintenance.length;
 
   return (
     <div className="space-y-4">
