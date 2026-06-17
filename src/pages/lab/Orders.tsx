@@ -84,7 +84,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
       <div className="border-b border-slate-200 bg-white px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-700">
-            <span className="font-bold">{tabs[0].count}</span> new orders received — CeenAiX ePrescription
+            <span className="font-bold">{tabs[0].count}</span> new order{tabs[0].count === 1 ? '' : 's'} received
           </p>
           <div className="flex gap-2">
             <button type="button"
