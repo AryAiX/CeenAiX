@@ -17,8 +17,10 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const failed = events.filter((e) => e.status === 'failed').length;
   const labSubmitted = labEvents.filter((e) => e.status === 'submitted').length;
   const labPending = labEvents.filter((e) => e.status === 'pending').length;
+  const labFailed = labEvents.filter((e) => e.status === 'failed').length;
   const radSubmitted = radEvents.filter((e) => e.status === 'submitted').length;
   const radPending = radEvents.filter((e) => e.status === 'pending').length;
+  const radFailed = radEvents.filter((e) => e.status === 'failed').length;
   const meta = context.data?.facilityMeta;
 
   const submitAllPending = () => {
@@ -73,7 +75,7 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
           <div className="mb-3">
             <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🧪 Lab Results</h3>
             <p className="text-sm text-slate-500">Submitted: {labSubmitted}/{labEvents.length} · {labEvents.length > 0 ? Math.round((labSubmitted / labEvents.length) * 100) : 0}%</p>
-            <p className="text-xs text-slate-500">{labPending} pending · 0 failed</p>
+            <p className="text-xs text-slate-500">{labPending} pending · {labFailed} failed</p>
             <ProgressMeter value={labEvents.length > 0 ? (labSubmitted / labEvents.length) * 100 : 0} tone="accent-emerald-500" />
           </div>
           <div className="space-y-2">
@@ -110,7 +112,7 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
           <div className="mb-3">
             <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🩻 Radiology Reports</h3>
             <p className="text-sm text-slate-500">Submitted: {radSubmitted}/{radEvents.length} · {radEvents.length > 0 ? Math.round((radSubmitted / radEvents.length) * 100) : 0}%</p>
-            <p className="text-xs text-slate-500">{radPending} pending · 0 failed</p>
+            <p className="text-xs text-slate-500">{radPending} pending · {radFailed} failed</p>
             <ProgressMeter value={radEvents.length > 0 ? (radSubmitted / radEvents.length) * 100 : 0} tone="accent-emerald-500" />
           </div>
           <div className="space-y-2">
