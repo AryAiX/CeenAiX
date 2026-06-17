@@ -40,9 +40,14 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
               <p className="mt-1 text-xs font-semibold text-emerald-700">✅ Connected · Last sync: 12 seconds ago</p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{meta?.nabidhVendorId ?? '—'}</div>
-            <div className="text-xs text-slate-500">Vendor ID</div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{meta?.nabidhVendorId ?? '—'}</div>
+              <div className="text-xs text-slate-500">Vendor ID</div>
+            </div>
+            <button type="button" onClick={submitAllPending} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700">
+              📤 Submit All {pending + failed} Pending
+            </button>
           </div>
         </div>
       </SectionCard>
@@ -134,9 +139,6 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
               <div><div className="font-bold text-slate-900">DiagnosticReport (radiology)</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(radEvents, 'DiagnosticReport')} ✅</div></div>
             </div>
           </div>
-          <button type="button" onClick={submitAllPending} className="mt-3 w-full rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700">
-            📤 Submit All {pending + failed} Pending
-          </button>
         </SectionCard>
       </div>
 
