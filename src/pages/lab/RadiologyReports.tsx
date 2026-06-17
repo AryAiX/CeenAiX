@@ -74,6 +74,11 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
           {overdueCount > 0 ? <p className="mt-1 text-xs font-bold text-red-600">{overdueCount} overdue</p> : null}
           <button type="button"
             onClick={() => {
+              const isCurrentSelectionPending = selected ? pending.some((s) => s.id === selected.id) : false;
+              if (isCurrentSelectionPending) {
+                setTab('pending');
+                return;
+              }
               const firstPending = pending[0];
               if (firstPending) {
                 setSelectedId(firstPending.id);
