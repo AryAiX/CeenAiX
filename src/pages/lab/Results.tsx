@@ -85,6 +85,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
         resultUnit: test.resultUnit,
         referenceRange: referenceText,
         isAbnormal,
+        instrument,
       });
       saved.push(itemId);
     }
