@@ -18,12 +18,14 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
           Last QC: {formatTimeShort(lastQcRun?.runAt)} · {lastQcRun?.department ?? 'Lab'} ·{' '}
           {lastQcRun?.resultLabel ?? 'No runs yet'}
         </div>
-        <a
-          href="/lab/results/entry"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+        <button
+          type="button"
+          disabled
+          title="QC run entry — coming soon"
+          className="cursor-not-allowed rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white opacity-60"
         >
           Log New QC Run
-        </a>
+        </button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
