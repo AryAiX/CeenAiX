@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { LabPageContext } from './shared/types';
 import {
@@ -10,9 +11,25 @@ import {
 import { SectionCard, Pill, EmptyState } from './shared/ui';
 
 export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
+  const [searchParams] = useSearchParams();
+  const requestedOrderId = searchParams.get('orderId');
   const samples = context.data?.samples ?? [];
   const candidates = samples.filter((s) => s.status === 'resulted' || s.status === 'processing' || s.status === 'collected');
-  const [selectedId, setSelectedId] = useState<string | null>(candidates[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Once data has loaded, select the sample requested via ?orderId= (e.g.
+  // from the Queue page's View button), falling back to the first
+  // candidate if the param is missing or doesn't match a pending sample.
+  useEffect(() => {
+    if (selectedId) return;
+    if (requestedOrderId && candidates.some((s) => s.id === requestedOrderId)) {
+      setSelectedId(requestedOrderId);
+    } else if (candidates[0]) {
+      setSelectedId(candidates[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedOrderId, candidates.length]);
+
   const selected = candidates.find((s) => s.id === selectedId) ?? candidates[0];
   const [instrument, setInstrument] = useState('Roche Cobas 6000');
   const [pin, setPin] = useState('');
@@ -35,6 +52,11 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
     setResultsError(null);
     setResultsNotice(null);
   }, [selectedId2]);
+
+  const requestedSampleNotFound =
+    !!requestedOrderId &&
+    !candidates.some((s) => s.id === requestedOrderId) &&
+    samples.some((s) => s.id === requestedOrderId);
 
   const draftFor = (itemId: string, existing: string | null) =>
     resultDrafts[itemId] ?? existing ?? '';
@@ -216,6 +238,11 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
 
           {/* Right: result entry */}
           <div className="space-y-4">
+            {requestedSampleNotFound ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                The sample you selected from the queue isn't available for result entry right now (it may already be released or rejected). Showing a different pending sample instead.
+              </div>
+            ) : null}
             <SectionCard>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
