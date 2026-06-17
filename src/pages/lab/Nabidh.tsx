@@ -118,14 +118,6 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
                 </div>
                 <h4 className="mt-1 text-sm font-bold text-slate-900">{event.patientName}</h4>
                 <p className="text-xs text-slate-500">{event.reason ?? 'Awaiting submission'}</p>
-                {event.status === 'pending' && event.reason?.toLowerCase().includes('critical') ? (
-                  <button type="button"
-                    onClick={() => void context.actions.markNabidhSubmitted(event.id)}
-                    className="mt-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white"
-                  >
-                    📞 Notify First
-                  </button>
-                ) : null}
               </article>
             ))}
           </div>
