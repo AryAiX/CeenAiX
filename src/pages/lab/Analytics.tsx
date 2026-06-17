@@ -13,6 +13,12 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
   const topLab = data?.topLabTests ?? [];
   const topImaging = data?.topImagingStudies ?? [];
   const criticals = data?.criticalValues ?? [];
+  const notifiedTimes = criticals
+    .map((c) => c.notifiedInMinutes)
+    .filter((n): n is number => typeof n === 'number' && n > 0);
+  const avgNotified = notifiedTimes.length > 0 ? Math.round(notifiedTimes.reduce((sum, n) => sum + n, 0) / notifiedTimes.length) : null;
+  const fastestNotified = notifiedTimes.length > 0 ? Math.min(...notifiedTimes) : null;
+  const slowestNotified = notifiedTimes.length > 0 ? Math.max(...notifiedTimes) : null;
   const maxVol = Math.max(1, ...trends.map((t) => Math.max(t.labVolume, t.radiologyVolume)));
   const showLab = scope !== 'rad';
   const showRad = scope !== 'lab';
@@ -161,7 +167,13 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
         <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Critical Value Tracking — Today</h3>
         {showLab ? (
           <>
-            <p className="mt-1 text-xs text-slate-500">Avg notification: 23 min (target: &lt;60 min ✅) · Fastest: 8 min · Slowest: 76 min ⚠️</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {avgNotified != null ? (
+                <>Avg notification: {avgNotified} min (target: &lt;60 min {avgNotified < 60 ? '✅' : '⚠️'}) · Fastest: {fastestNotified} min · Slowest: {slowestNotified} min {slowestNotified != null && slowestNotified > 60 ? '⚠️' : ''}</>
+              ) : (
+                'No notification timing data available yet.'
+              )}
+            </p>
             <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
