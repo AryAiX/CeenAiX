@@ -50,7 +50,9 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
             <button type="button"
               key={p}
               onClick={() => setPeriod(p)}
-              className={`rounded-lg px-3 py-2 text-xs font-bold ${period === p ? 'bg-indigo-50 text-indigo-700' : 'border border-slate-200 bg-white text-slate-600'}`}
+              disabled={p !== 'today'}
+              title={p !== 'today' ? 'Period filtering — coming soon' : undefined}
+              className={`rounded-lg px-3 py-2 text-xs font-bold ${period === p ? 'bg-indigo-50 text-indigo-700' : 'border border-slate-200 bg-white text-slate-600'} ${p !== 'today' ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               {p === 'today' ? 'Today ●' : p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
