@@ -24,9 +24,16 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
 
+  const [findingsText, setFindingsText] = useState('');
+  const [impressionText, setImpressionText] = useState('');
+  const [recommendationsText, setRecommendationsText] = useState('');
+
   useEffect(() => {
-    setManualChecklist({});
-  }, [selected?.id]);
+    setManualChecklist((selected?.reportChecklist as Record<string, boolean>) ?? {});
+    setFindingsText(selected?.findings ?? '');
+    setImpressionText(selected?.impression ?? '');
+    setRecommendationsText(selected?.recommendations ?? '');
+  }, [selected?.id, selected?.reportChecklist, selected?.findings, selected?.impression, selected?.recommendations]);
 
   const checklistItems = selected
     ? [
@@ -50,7 +57,12 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
     setReportNotice(null);
     setSavingReport(label);
     try {
-      await context.actions.setImagingStudyStatus(selected.id, nextStatus, reportStatus);
+      await context.actions.setImagingStudyStatus(selected.id, nextStatus, reportStatus, {
+        findings: findingsText.trim() || null,
+        impression: impressionText.trim() || null,
+        recommendations: recommendationsText.trim() || null,
+        reportChecklist: manualChecklist,
+      });
       setReportNotice(
         nextStatus === 'released'
           ? 'Report verified and released to the requesting doctor.'
@@ -69,7 +81,9 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
     <div className="flex h-full overflow-hidden">
       <aside className="w-80 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-4">
         <div className="mb-4 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 p-4">
-          <h2 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">{meta?.radiologistName ?? 'Dr. Rania Al Suwaidi'} {meta?.radiologistCredentials ? meta.radiologistCredentials : 'FRCR'}</h2>
+          <h2 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">
+            {meta?.radiologistName ?? 'No radiologist assigned'}{meta?.radiologistCredentials ? ` ${meta.radiologistCredentials}` : ''}
+          </h2>
           <p className="mt-1 text-xs text-slate-600">Radiologist on duty · {pending.length} reports in queue</p>
           {overdueCount > 0 ? <p className="mt-1 text-xs font-bold text-red-600">{overdueCount} overdue</p> : null}
           <button type="button"
@@ -193,8 +207,10 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                 </div>
                 <textarea
                   maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                  value={findingsText}
+                  onChange={(e) => setFindingsText(e.target.value)}
+                  placeholder="Enter findings for this study…"
                   className="mt-2 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                  defaultValue={`Solid finding measured per imaging protocol. AI assist will populate measurements once attached.`}
                 />
               </SectionCard>
             </div>
@@ -203,8 +219,10 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">IMPRESSION *</div>
               <textarea
                 maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                value={impressionText}
+                onChange={(e) => setImpressionText(e.target.value)}
+                placeholder="Enter impression/conclusion for this study…"
                 className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                defaultValue="1. Findings consistent with clinical indication. Recommend follow-up per modality guidelines."
               />
               <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm">
                 <div>
@@ -219,7 +237,13 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                 </div>
                 <div>
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Recommendations</div>
-                  <div className="mt-1 rounded-lg bg-slate-50 p-2 text-xs">Follow-up per Fleischner Society guidelines.</div>
+                  <textarea
+                    maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                    value={recommendationsText}
+                    onChange={(e) => setRecommendationsText(e.target.value)}
+                    placeholder="Follow-up recommendations…"
+                    className="mt-1 min-h-[72px] w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs"
+                  />
                 </div>
               </div>
             </SectionCard>
