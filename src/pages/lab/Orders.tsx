@@ -22,6 +22,7 @@ const escapeHtml = (value: string) =>
 
 export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
+  const rejectedSamples = useMemo(() => context.data?.rejectedSamples ?? [], [context.data?.rejectedSamples]);
   const [tab, setTab] = useState<OrderTab>('new');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
     { id: 'in_progress', emoji: '⏳', label: 'In Progress', count: allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted').length },
     { id: 'completed', emoji: '✅', label: 'Completed', count: allSamples.filter((s) => s.status === 'reviewed').length },
-    { id: 'rejected', emoji: '❌', label: 'Rejected', count: 0 },
+    { id: 'rejected', emoji: '❌', label: 'Rejected', count: rejectedSamples.length },
     { id: 'all', emoji: '', label: 'All', count: allSamples.length },
   ];
 
@@ -39,7 +40,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     if (tab === 'new') return allSamples.filter((s) => s.status === 'ordered');
     if (tab === 'in_progress') return allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted');
     if (tab === 'completed') return allSamples.filter((s) => s.status === 'reviewed');
-    if (tab === 'rejected') return [];
+    if (tab === 'rejected') return rejectedSamples;
     return allSamples;
   }, [allSamples, tab]);
 
@@ -245,17 +246,23 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button"
-                  onClick={() => void handleAcceptOne(sample.id)}
-                  disabled={rowBusyId === sample.id || sample.status !== 'ordered'}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {rowBusyId === sample.id
-                    ? 'Working…'
-                    : sample.status === 'ordered'
-                      ? 'Accept Order'
-                      : 'Accepted'}
-                </button>
+                {tab !== 'rejected' ? (
+                  <button type="button"
+                    onClick={() => void handleAcceptOne(sample.id)}
+                    disabled={rowBusyId === sample.id || sample.status !== 'ordered'}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {rowBusyId === sample.id
+                      ? 'Working…'
+                      : sample.status === 'ordered'
+                        ? 'Accept Order'
+                        : 'Accepted'}
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center rounded-lg bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
+                    ❌ Rejected{sample.clinicalNotes ? `: ${sample.clinicalNotes.replace('[REJECTED] ', '')}` : ''}
+                  </span>
+                )}
                 <button type="button"
                   onClick={() => {
                     const labelWindow = window.open('', '_blank');
@@ -308,29 +315,31 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 >
                   Contact Doctor
                 </a>
-                <button type="button"
-                  onClick={async () => {
-                    const reason = window.prompt(
-                      `Reject lab order ${sample.orderCode}?\n\nProvide a short reason that will be saved to the order notes:`
-                    );
-                    if (reason === null) return;
-                    setOrdersError(null);
-                    setRowBusyId(sample.id);
-                    try {
-                      await context.actions.rejectOrder(sample.id, reason.trim());
-                    } catch (error) {
-                      setOrdersError(
-                        error instanceof Error ? error.message : 'Reject failed.'
+                {tab !== 'rejected' ? (
+                  <button type="button"
+                    onClick={async () => {
+                      const reason = window.prompt(
+                        `Reject lab order ${sample.orderCode}?\n\nProvide a short reason that will be saved to the order notes:`
                       );
-                    } finally {
-                      setRowBusyId(null);
-                    }
-                  }}
-                  disabled={rowBusyId === sample.id}
-                  className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Reject
-                </button>
+                      if (reason === null) return;
+                      setOrdersError(null);
+                      setRowBusyId(sample.id);
+                      try {
+                        await context.actions.rejectOrder(sample.id, reason.trim());
+                      } catch (error) {
+                        setOrdersError(
+                          error instanceof Error ? error.message : 'Reject failed.'
+                        );
+                      } finally {
+                        setRowBusyId(null);
+                      }
+                    }}
+                    disabled={rowBusyId === sample.id}
+                    className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Reject
+                  </button>
+                ) : null}
               </div>
             </article>
           );
