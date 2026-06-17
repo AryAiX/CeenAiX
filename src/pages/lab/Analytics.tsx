@@ -14,6 +14,9 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
   const topImaging = data?.topImagingStudies ?? [];
   const criticals = data?.criticalValues ?? [];
   const maxVol = Math.max(1, ...trends.map((t) => Math.max(t.labVolume, t.radiologyVolume)));
+  const showLab = scope !== 'rad';
+  const showRad = scope !== 'lab';
+  const scopedTotal = (showLab ? totalLab : 0) + (showRad ? totalRad : 0);
 
   return (
     <div className="space-y-4">
@@ -41,8 +44,8 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
           ))}
           <button type="button"
             onClick={() => {
-              const samples = data?.samples ?? [];
-              const studies = data?.imagingStudies ?? [];
+              const samples = showLab ? data?.samples ?? [] : [];
+              const studies = showRad ? data?.imagingStudies ?? [] : [];
               const header = ['kind', 'id', 'patient_name', 'status', 'ordered_at_or_scheduled_at'];
               const escape = (v: string | number | null | undefined) => {
                 if (v === null || v === undefined) return '';
@@ -77,9 +80,9 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <KpiTile label="Lab Samples" value={formatNumber(totalLab)} tone="indigo" />
-        <KpiTile label="Radiology Studies" value={formatNumber(totalRad)} tone="blue" />
-        <KpiTile label="Total Today" value={formatNumber(totalLab + totalRad)} tone="violet" />
+        <KpiTile label="Lab Samples" value={showLab ? formatNumber(totalLab) : '—'} tone="indigo" />
+        <KpiTile label="Radiology Studies" value={showRad ? formatNumber(totalRad) : '—'} tone="blue" />
+        <KpiTile label="Total Today" value={formatNumber(scopedTotal)} tone="violet" />
         {(() => {
           // Compliance from live NABIDH events; fall back to '—' when there
           // are no events to score.
@@ -102,8 +105,8 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
         <SectionCard>
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Daily Volume — 7-Day Trend</h3>
           <div className="mt-3 flex gap-3 text-xs">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-500" /> Lab</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> Radiology</span>
+            {showLab ? <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-500" /> Lab</span> : null}
+            {showRad ? <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> Radiology</span> : null}
           </div>
           <div className="mt-4 grid grid-cols-7 gap-2">
             {trends.map((t) => {
@@ -112,8 +115,8 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
               return (
                 <div key={t.id} className="flex h-48 flex-col justify-end rounded-xl bg-slate-50 p-2">
                   <div className="flex flex-1 items-end gap-1">
-                    <div className="w-full rounded-t bg-indigo-500" style={{ height: `${labH}%` }} />
-                    <div className="w-full rounded-t bg-blue-500" style={{ height: `${radH}%` }} />
+                    {showLab ? <div className="w-full rounded-t bg-indigo-500" style={{ height: `${labH}%` }} /> : null}
+                    {showRad ? <div className="w-full rounded-t bg-blue-500" style={{ height: `${radH}%` }} /> : null}
                   </div>
                   <div className="mt-2 text-center font-['DM_Mono'] text-[11px] text-slate-500">{t.dayLabel}</div>
                 </div>
@@ -124,83 +127,103 @@ export const AnalyticsView = ({ data }: { data: LabPortalData | null }) => {
 
         <SectionCard>
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Modality Breakdown — Radiology</h3>
-          <p className="mt-1 text-xs text-slate-500">{totalRad} studies</p>
-          <div className="mt-4 space-y-2">
-            {[
-              { label: 'MRI', count: data?.imagingStudies.filter((s) => s.modality === 'MRI').length ?? 0 },
-              { label: 'CT', count: data?.imagingStudies.filter((s) => s.modality === 'CT').length ?? 0 },
-              { label: 'X-Ray', count: data?.imagingStudies.filter((s) => s.modality === 'X-Ray').length ?? 0 },
-              { label: 'USS', count: data?.imagingStudies.filter((s) => s.modality === 'USS').length ?? 0 },
-              { label: 'PET', count: data?.imagingStudies.filter((s) => s.modality === 'PET').length ?? 0 },
-            ].map((m) => {
-              const pct = totalRad > 0 ? Math.round((m.count / totalRad) * 100) : 0;
-              return (
-                <div key={m.label}>
-                  <div className="flex justify-between text-xs">
-                    <span className="font-semibold text-slate-700">{m.label}</span>
-                    <span className="font-bold text-slate-700">{pct}% ({m.count})</span>
-                  </div>
-                  <ProgressMeter value={pct} tone="accent-blue-500" />
-                </div>
-              );
-            })}
-          </div>
+          {showRad ? (
+            <>
+              <p className="mt-1 text-xs text-slate-500">{totalRad} studies</p>
+              <div className="mt-4 space-y-2">
+                {[
+                  { label: 'MRI', count: data?.imagingStudies.filter((s) => s.modality === 'MRI').length ?? 0 },
+                  { label: 'CT', count: data?.imagingStudies.filter((s) => s.modality === 'CT').length ?? 0 },
+                  { label: 'X-Ray', count: data?.imagingStudies.filter((s) => s.modality === 'X-Ray').length ?? 0 },
+                  { label: 'USS', count: data?.imagingStudies.filter((s) => s.modality === 'USS').length ?? 0 },
+                  { label: 'PET', count: data?.imagingStudies.filter((s) => s.modality === 'PET').length ?? 0 },
+                ].map((m) => {
+                  const pct = totalRad > 0 ? Math.round((m.count / totalRad) * 100) : 0;
+                  return (
+                    <div key={m.label}>
+                      <div className="flex justify-between text-xs">
+                        <span className="font-semibold text-slate-700">{m.label}</span>
+                        <span className="font-bold text-slate-700">{pct}% ({m.count})</span>
+                      </div>
+                      <ProgressMeter value={pct} tone="accent-blue-500" />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">Not applicable when scope is set to Lab.</p>
+          )}
         </SectionCard>
       </div>
 
       <SectionCard>
         <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Critical Value Tracking — Today</h3>
-        <p className="mt-1 text-xs text-slate-500">Avg notification: 23 min (target: &lt;60 min ✅) · Fastest: 8 min · Slowest: 76 min ⚠️</p>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
-              <tr>
-                <th className="px-3 py-2">Patient</th>
-                <th className="px-3 py-2">Test</th>
-                <th className="px-3 py-2">Critical Value</th>
-                <th className="px-3 py-2">Notified In</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {criticals.map((c) => (
-                <tr key={c.id}>
-                  <td className="px-3 py-2 font-semibold text-slate-900">{c.patientName}</td>
-                  <td className="px-3 py-2 text-slate-700">{c.testName}</td>
-                  <td className="px-3 py-2 text-slate-700">{c.valueLabel}</td>
-                  <td className="px-3 py-2 text-slate-600">{c.notifiedInMinutes ? `${c.notifiedInMinutes} min ${c.notifiedInMinutes > 60 ? '⚠️' : ''}` : '—'}</td>
-                  <td className="px-3 py-2">
-                    {c.status === 'pending' ? <span className="text-amber-700">⚠️ Pending</span> : <span className="text-emerald-700">✅ Notified</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {showLab ? (
+          <>
+            <p className="mt-1 text-xs text-slate-500">Avg notification: 23 min (target: &lt;60 min ✅) · Fastest: 8 min · Slowest: 76 min ⚠️</p>
+            <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2">Patient</th>
+                    <th className="px-3 py-2">Test</th>
+                    <th className="px-3 py-2">Critical Value</th>
+                    <th className="px-3 py-2">Notified In</th>
+                    <th className="px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {criticals.map((c) => (
+                    <tr key={c.id}>
+                      <td className="px-3 py-2 font-semibold text-slate-900">{c.patientName}</td>
+                      <td className="px-3 py-2 text-slate-700">{c.testName}</td>
+                      <td className="px-3 py-2 text-slate-700">{c.valueLabel}</td>
+                      <td className="px-3 py-2 text-slate-600">{c.notifiedInMinutes ? `${c.notifiedInMinutes} min ${c.notifiedInMinutes > 60 ? '⚠️' : ''}` : '—'}</td>
+                      <td className="px-3 py-2">
+                        {c.status === 'pending' ? <span className="text-amber-700">⚠️ Pending</span> : <span className="text-emerald-700">✅ Notified</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-slate-500">Not applicable when scope is set to Radiology.</p>
+        )}
       </SectionCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <SectionCard>
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🧪 Top Requested Lab Tests</h3>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {topLab.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
-                <span className="font-semibold text-slate-700">{m.label}</span>
-                <span className="font-['DM_Mono'] text-lg font-bold text-indigo-700">{m.value}</span>
-              </div>
-            ))}
-          </div>
+          {showLab ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {topLab.map((m) => (
+                <div key={m.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
+                  <span className="font-semibold text-slate-700">{m.label}</span>
+                  <span className="font-['DM_Mono'] text-lg font-bold text-indigo-700">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">Not applicable when scope is set to Radiology.</p>
+          )}
         </SectionCard>
         <SectionCard>
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🩻 Top Imaging Studies</h3>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {topImaging.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
-                <span className="font-semibold text-slate-700">{m.label}</span>
-                <span className="font-['DM_Mono'] text-lg font-bold text-blue-700">{m.value}</span>
-              </div>
-            ))}
-          </div>
+          {showRad ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {topImaging.map((m) => (
+                <div key={m.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
+                  <span className="font-semibold text-slate-700">{m.label}</span>
+                  <span className="font-['DM_Mono'] text-lg font-bold text-blue-700">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">Not applicable when scope is set to Lab.</p>
+          )}
         </SectionCard>
       </div>
 
