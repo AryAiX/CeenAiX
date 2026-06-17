@@ -402,7 +402,7 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
                     <ProgressMeter value={study.progressPercent} tone="accent-violet-500" />
                     <div className="mt-2 text-sm font-bold text-slate-900">{study.patientName} <span className="text-xs font-normal text-slate-500">· {ageGenderLabel(study.patientAge, study.patientGender)}</span></div>
                     <div className="text-xs text-slate-500">{study.studyName}</div>
-                    <div className="mt-1 text-xs text-slate-500">{study.room ?? 'Scanner'} · {formatTat(study.tatMinutes)} remaining</div>
+                    <div className="mt-1 text-xs text-slate-500">{study.room ?? 'Scanner'} · {formatTat(study.tatMinutes)} elapsed</div>
                   </article>
                 ))}
               </div>
