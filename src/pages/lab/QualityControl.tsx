@@ -4,6 +4,7 @@ import { SectionCard, Pill } from './shared/ui';
 
 export const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
   const runs = data?.qcRuns ?? [];
+  const lastQcRun = [...runs].sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0];
   const passed = runs.filter((r) => r.status === 'passed').length;
   const failures = runs.filter((r) => r.status === 'failed').length;
   const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && e.status === 'maintenance');
@@ -14,8 +15,8 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-xs font-bold text-slate-500">
-          Last QC: {formatTimeShort(runs[0]?.runAt)} · {runs[0]?.department ?? 'Lab'} ·{' '}
-          {runs[0]?.resultLabel ?? 'No runs yet'}
+          Last QC: {formatTimeShort(lastQcRun?.runAt)} · {lastQcRun?.department ?? 'Lab'} ·{' '}
+          {lastQcRun?.resultLabel ?? 'No runs yet'}
         </div>
         <a
           href="/lab/results/entry"
