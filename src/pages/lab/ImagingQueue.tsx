@@ -90,7 +90,7 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
                     <ProgressMeter value={study.progressPercent} tone="accent-blue-500" />
                   </div>
                   <p className="mt-2 text-sm font-semibold text-slate-700">{study.studyName}</p>
-                  <p className="mt-1 text-xs text-slate-500">~{formatTat(study.tatMinutes)} remaining · {study.room ?? 'Scanner'}</p>
+                  <p className="mt-1 text-xs text-slate-500">~{formatTat(study.tatMinutes)} elapsed · {study.room ?? 'Scanner'}</p>
                   <Pill className="mt-2 bg-blue-100 text-blue-700 ring-blue-200">SCANNING</Pill>
                 </article>
               ))}
