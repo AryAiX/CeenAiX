@@ -101,6 +101,10 @@ export interface LabPortalImagingStudy {
   labId: string;
   accession: string;
   rejectionReason: string | null;
+  findings: string | null;
+  impression: string | null;
+  recommendations: string | null;
+  reportChecklist: Record<string, boolean> | null;
   patientName: string;
   patientAge: number | null;
   patientGender: string | null;
@@ -370,6 +374,10 @@ interface ImagingStudyRow {
   accession: string;
   is_deleted: boolean;
   rejection_reason: string | null;
+  findings: string | null;
+  impression: string | null;
+  recommendations: string | null;
+  report_checklist: Record<string, boolean> | null;
   patient_name: string;
   patient_age: number | null;
   patient_gender: string | null;
@@ -840,6 +848,10 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       doctorSpecialty: study.doctor_specialty,
       sourceLabel: study.source_label,
       rejectionReason: study.rejection_reason,
+      findings: study.findings,
+      impression: study.impression,
+      recommendations: study.recommendations,
+      reportChecklist: study.report_checklist,
     });
 
     const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map(mapImagingStudyRow);
@@ -1099,10 +1111,32 @@ export function useLabOpsActions(onChange: () => void) {
    * Save Draft / Submit Preliminary / Verify & Sign buttons.
    */
   const setImagingStudyStatus = useCallback(
-    async (studyId: string, status: ImagingStatus, reportStatus?: string | null) => {
+    async (
+      studyId: string,
+      status: ImagingStatus,
+      reportStatus?: string | null,
+      reportContent?: {
+        findings?: string | null;
+        impression?: string | null;
+        recommendations?: string | null;
+        reportChecklist?: Record<string, boolean> | null;
+      }
+    ) => {
       const update: Record<string, unknown> = { status };
       if (reportStatus !== undefined) {
         update.report_status = reportStatus;
+      }
+      if (reportContent?.findings !== undefined) {
+        update.findings = reportContent.findings;
+      }
+      if (reportContent?.impression !== undefined) {
+        update.impression = reportContent.impression;
+      }
+      if (reportContent?.recommendations !== undefined) {
+        update.recommendations = reportContent.recommendations;
+      }
+      if (reportContent?.reportChecklist !== undefined) {
+        update.report_checklist = reportContent.reportChecklist;
       }
       const { error } = await supabase
         .from('lab_portal_imaging_studies')
