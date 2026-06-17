@@ -42,7 +42,7 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
       <div className="grid gap-3 md:grid-cols-4">
         <KpiTile label="✅" value={`${submitted}/${events.length}`} caption="submitted" tone="emerald" />
         <KpiTile label="⏳" value={pending} caption="pending" tone="amber" />
-        <KpiTile label="✅" value={failed} caption="failed" tone="rose" />
+        <KpiTile label="❌" value={failed} caption="failed" tone="rose" />
         {(() => {
           const lastSubmitted = events
             .filter((event) => event.status === 'submitted' && event.submittedAt)
