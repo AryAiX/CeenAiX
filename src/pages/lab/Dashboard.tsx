@@ -64,8 +64,8 @@ const CriticalBanner = ({
           ['Patient', critical.patientName],
           ['Test', critical.testName],
           ['Value', critical.valueLabel],
-          ['Reference', '3.5–5.0 mEq/L'],
-          ['Doctor', 'Dr. Maryam Al Sayed · Al Zahra Clinic'],
+          ['Reference', critical.referenceRange ?? 'Not recorded'],
+          ['Doctor', [critical.doctorName, critical.facilityName].filter(Boolean).join(' · ') || 'Not recorded'],
           ['Resulted', `${observed} · ${critical.notifiedInMinutes ?? 0} min ago`],
         ].map(([label, value]) => (
           <div key={String(label)} className="rounded-xl bg-white/85 p-3 ring-1 ring-red-100">

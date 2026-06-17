@@ -205,6 +205,9 @@ export interface LabPortalCriticalValue {
   patientName: string;
   testName: string;
   valueLabel: string;
+  referenceRange: string | null;
+  doctorName: string | null;
+  facilityName: string | null;
   notifiedInMinutes: number | null;
   status: 'pending' | 'notified';
   observedAt: string;
@@ -463,6 +466,9 @@ interface CriticalValueRow {
   patient_name: string;
   test_name: string;
   value_label: string;
+  reference_range: string | null;
+  doctor_name: string | null;
+  facility_name: string | null;
   notified_in_minutes: number | null;
   status: 'pending' | 'notified';
   observed_at: string;
@@ -879,6 +885,9 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       patientName: row.patient_name,
       testName: row.test_name,
       valueLabel: row.value_label,
+      referenceRange: row.reference_range,
+      doctorName: row.doctor_name,
+      facilityName: row.facility_name,
       notifiedInMinutes: row.notified_in_minutes,
       status: row.status,
       observedAt: row.observed_at,
