@@ -135,6 +135,26 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const studies = data?.imagingStudies ?? [];
   const filteredSamples = priorityFilter === 'All' ? samples : samples.filter((s) => s.priority === priorityFilter);
   const dashboardSamples = filteredSamples.slice(0, 5);
+  const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
+  const [sampleActionError, setSampleActionError] = useState<string | null>(null);
+
+  const handleSampleAction = async (sample: (typeof dashboardSamples)[number]) => {
+    if (sample.status === 'ordered') {
+      setSampleActionError(null);
+      setProcessingSampleId(sample.id);
+      try {
+        await context.actions.startProcessing(sample.id);
+      } catch (error) {
+        setSampleActionError(
+          error instanceof Error ? error.message : 'Could not start processing this sample.'
+        );
+      } finally {
+        setProcessingSampleId(null);
+      }
+      return;
+    }
+    navigate('/lab/queue');
+  };
   const activeStudies = studies.filter((s) => s.status === 'scanning');
   const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
   const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
@@ -303,6 +323,9 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
               Routine ({samples.filter((s) => s.priority === 'Routine').length})
             </button>
           </div>
+          {sampleActionError ? (
+            <p className="mb-2 text-xs font-semibold text-red-600" role="alert">{sampleActionError}</p>
+          ) : null}
           <div className="space-y-3">
             {dashboardSamples.map((sample) => {
               const code = sample.orderCode.split('-').slice(-1)[0];
@@ -326,11 +349,11 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
                     </div>
                     <button
                       type="button"
-                      disabled
-                      title="Sample actions — open full queue to process"
-                      className="cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 opacity-80"
+                      onClick={() => void handleSampleAction(sample)}
+                      disabled={processingSampleId === sample.id}
+                      className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {action}
+                      {processingSampleId === sample.id ? 'Starting…' : action}
                     </button>
                   </div>
                 </article>
