@@ -252,10 +252,15 @@ export interface LabPortalData {
     nabidhPending: number;
     nabidhSubmitted: number;
     nabidhFailed: number;
+    nabidhPendingLab: number;
+    nabidhSubmittedLab: number;
+    nabidhPendingRadiology: number;
+    nabidhSubmittedRadiology: number;
     criticalUnnotified: number;
     completedToday: number;
     sampleCountToday: number;
     studyCountToday: number;
+    avgTatMinutes: number | null;
   };
 }
 
@@ -904,6 +909,19 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     const pendingNabidh = nabidhEvents.filter((event) => event.status === 'pending').length;
     const submittedNabidh = nabidhEvents.filter((event) => event.status === 'submitted').length;
     const failedNabidh = nabidhEvents.filter((event) => event.status === 'failed').length;
+    // ImagingStudy events are radiology; DiagnosticReport and Observation
+    // events both represent lab results.
+    const isRadiologyEvent = (event: LabPortalNabidhEvent) => event.resourceType === 'ImagingStudy';
+    const nabidhPendingLab = nabidhEvents.filter((event) => event.status === 'pending' && !isRadiologyEvent(event)).length;
+    const nabidhSubmittedLab = nabidhEvents.filter((event) => event.status === 'submitted' && !isRadiologyEvent(event)).length;
+    const nabidhPendingRadiology = nabidhEvents.filter((event) => event.status === 'pending' && isRadiologyEvent(event)).length;
+    const nabidhSubmittedRadiology = nabidhEvents.filter((event) => event.status === 'submitted' && isRadiologyEvent(event)).length;
+    const tatValues = samples
+      .filter((sample) => sample.orderedAt >= startOfToday && typeof sample.tatMinutes === 'number')
+      .map((sample) => sample.tatMinutes as number);
+    const avgTatMinutes = tatValues.length > 0
+      ? Math.round(tatValues.reduce((sum, value) => sum + value, 0) / tatValues.length)
+      : null;
 
     return {
       facility,
@@ -931,10 +949,15 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         nabidhPending: pendingNabidh,
         nabidhSubmitted: submittedNabidh,
         nabidhFailed: failedNabidh,
+        nabidhPendingLab,
+        nabidhSubmittedLab,
+        nabidhPendingRadiology,
+        nabidhSubmittedRadiology,
         criticalUnnotified: criticalValues.filter((c) => c.status === 'pending').length,
         completedToday: samples.filter((sample) => sample.releasedAt && sample.releasedAt >= startOfToday).length,
         sampleCountToday: samples.filter((sample) => sample.orderedAt >= startOfToday).length,
         studyCountToday: imagingStudies.filter((study) => (study.scheduledAt ?? '') >= startOfToday).length,
+        avgTatMinutes,
       },
     };
   }, [memoizedUserId]);
