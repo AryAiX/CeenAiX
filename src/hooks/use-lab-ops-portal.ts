@@ -233,6 +233,7 @@ export interface LabPortalData {
   facility: LabFacilityProfile | null;
   facilityMeta: LabFacilityMeta | null;
   samples: LabPortalSample[];
+  rejectedSamples: LabPortalSample[];
   imagingStudies: LabPortalImagingStudy[];
   equipment: LabPortalEquipment[];
   qcRuns: LabPortalQcRun[];
@@ -621,8 +622,26 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       ordersQuery = ordersQuery.or(`assigned_lab_id.eq.${labId},assigned_lab_id.is.null`);
     }
 
+    // Rejected orders (is_deleted = true) are excluded from the main
+    // query above so they don't pollute normal counts/tabs, but we still
+    // fetch the ones this lab rejected so they can be reviewed in a
+    // dedicated "Rejected" tab rather than disappearing entirely.
+    let rejectedOrdersQuery = supabase
+      .from('lab_orders')
+      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender')
+      .eq('is_deleted', true)
+      .order('ordered_at', { ascending: false })
+      .limit(50);
+
+    if (staffLabIds.length > 0) {
+      rejectedOrdersQuery = rejectedOrdersQuery.in('assigned_lab_id', staffLabIds);
+    } else if (labId) {
+      rejectedOrdersQuery = rejectedOrdersQuery.eq('assigned_lab_id', labId);
+    }
+
     const [
       { data: orderData, error: ordersError },
+      { data: rejectedOrderData, error: rejectedOrdersError },
       { data: imagingData, error: imagingError },
       { data: equipmentData, error: equipmentError },
       { data: qcData, error: qcError },
@@ -633,6 +652,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       { data: volumeData, error: volumeError },
     ] = await Promise.all([
       ordersQuery,
+      (staffLabIds.length > 0 || labId) ? rejectedOrdersQuery : supabase.from('lab_orders').select('id').limit(0),
       labId
         ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).order('scheduled_at', { ascending: true })
         : supabase.from('lab_portal_imaging_studies').select('*').limit(0),
@@ -660,6 +680,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     ]);
 
     if (ordersError) throw ordersError;
+    if (rejectedOrdersError) throw rejectedOrdersError;
     if (imagingError) throw imagingError;
     if (equipmentError) throw equipmentError;
     if (qcError) throw qcError;
@@ -670,20 +691,23 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     if (volumeError) throw volumeError;
 
     const orders = (orderData ?? []) as LabOrderRow[];
+    const rejectedOrders = (rejectedOrderData ?? []) as LabOrderRow[];
     const orderIds = orders.map((order) => order.id);
+    const rejectedOrderIds = rejectedOrders.map((order) => order.id);
+    const allOrderIds = [...orderIds, ...rejectedOrderIds];
 
     let itemRows: LabItemRow[] = [];
-    if (orderIds.length > 0) {
+    if (allOrderIds.length > 0) {
       const { data, error } = await supabase
         .from('lab_order_items')
         .select('id, lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal')
-        .in('lab_order_id', orderIds)
+        .in('lab_order_id', allOrderIds)
         .order('sort_order', { ascending: true });
       if (error) throw error;
       itemRows = (data ?? []) as LabItemRow[];
     }
 
-    const participantIds = Array.from(new Set(orders.flatMap((order) => [order.patient_id, order.doctor_id])));
+    const participantIds = Array.from(new Set([...orders, ...rejectedOrders].flatMap((order) => [order.patient_id, order.doctor_id])));
     const profilesById = new Map<string, ProfileRow>();
     if (participantIds.length > 0) {
       const { data, error } = await supabase
@@ -701,7 +725,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       itemsByOrder.set(item.lab_order_id, existing);
     });
 
-    const samples: LabPortalSample[] = orders.map((order) => {
+    const mapOrderToSample = (order: LabOrderRow): LabPortalSample => {
       const items = itemsByOrder.get(order.id) ?? [];
       const patient = profilesById.get(order.patient_id);
       const doctor = profilesById.get(order.doctor_id);
@@ -764,7 +788,10 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         technicianInitials: order.technician_initials,
         sourceLabel: order.source_label,
       };
-    });
+    };
+
+    const samples: LabPortalSample[] = orders.map(mapOrderToSample);
+    const rejectedSamples: LabPortalSample[] = rejectedOrders.map(mapOrderToSample);
 
     const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map((study) => ({
       id: study.id,
@@ -936,6 +963,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       facility,
       facilityMeta,
       samples,
+      rejectedSamples,
       imagingStudies,
       equipment,
       qcRuns,
