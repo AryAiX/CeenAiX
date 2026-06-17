@@ -23,12 +23,8 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const [isSubmittingAll, setIsSubmittingAll] = useState(false);
   const [submitAllError, setSubmitAllError] = useState<string | null>(null);
   const events = context.data?.nabidhEvents ?? [];
-  const labEvents = events.filter(
-    (e) => e.resourceType === 'Observation' || (e.resourceType === 'DiagnosticReport' && !e.referenceCode.includes('RAD'))
-  );
-  const radEvents = events.filter(
-    (e) => e.resourceType === 'ImagingStudy' || (e.resourceType === 'DiagnosticReport' && e.referenceCode.includes('RAD'))
-  );
+  const labEvents = events.filter((e) => e.resourceType !== 'ImagingStudy');
+  const radEvents = events.filter((e) => e.resourceType === 'ImagingStudy');
   const countByType = (list: typeof events, type: string) =>
     list.filter((e) => e.resourceType === type && e.status === 'submitted').length;
   const submitted = events.filter((e) => e.status === 'submitted').length;
@@ -138,7 +134,7 @@ export const NabidhPage = ({ context }: { context: LabPageContext }) => {
             <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
               <div><div className="font-bold text-slate-900">Observation</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(labEvents, 'Observation')} ✅</div></div>
               <div><div className="font-bold text-slate-900">DiagnosticReport</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(labEvents, 'DiagnosticReport')} ✅</div></div>
-              <div><div className="font-bold text-slate-900">ServiceRequest</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(events, 'ServiceRequest')} ✅</div></div>
+              <div><div className="font-bold text-slate-900">ServiceRequest</div><div className="font-['DM_Mono'] text-emerald-700">{countByType(labEvents, 'ServiceRequest')} ✅</div></div>
             </div>
           </div>
         </SectionCard>
