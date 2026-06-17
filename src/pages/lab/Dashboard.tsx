@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import type { LabPortalData } from '../../hooks';
 import type { LabPageContext } from './shared/types';
@@ -127,6 +128,9 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const data = context.data;
   const [modalityFilter, setModalityFilter] = useState<string>('All');
   const [priorityFilter, setPriorityFilter] = useState<'All' | 'STAT' | 'Urgent' | 'Routine'>('All');
+  const [isSubmittingNabidh, setIsSubmittingNabidh] = useState(false);
+  const [nabidhSubmitError, setNabidhSubmitError] = useState<string | null>(null);
+  const [showNabidhConfirm, setShowNabidhConfirm] = useState(false);
   const samples = data?.samples ?? [];
   const studies = data?.imagingStudies ?? [];
   const filteredSamples = priorityFilter === 'All' ? samples : samples.filter((s) => s.priority === priorityFilter);
@@ -213,6 +217,26 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   ];
 
   const navigate = useNavigate();
+
+  const handleSubmitAllPendingNabidh = async () => {
+    const pendingEventIds = (data?.nabidhEvents ?? [])
+      .filter((event) => event.status === 'pending')
+      .map((event) => event.id);
+    if (pendingEventIds.length === 0) return;
+    setNabidhSubmitError(null);
+    setIsSubmittingNabidh(true);
+    try {
+      await context.actions.markNabidhSubmittedBulk(pendingEventIds);
+      setShowNabidhConfirm(false);
+    } catch (error) {
+      setNabidhSubmitError(
+        error instanceof Error ? error.message : 'Could not submit pending NABIDH events.'
+      );
+    } finally {
+      setIsSubmittingNabidh(false);
+    }
+  };
+
   const mostRecentNabidhSubmission = (data?.nabidhEvents ?? [])
     .filter((event) => event.status === 'submitted' && event.submittedAt)
     .map((event) => event.submittedAt as string)
@@ -460,8 +484,20 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
               <div>🩻 Radiology {data?.metrics.nabidhSubmittedRadiology ?? 0}/{(data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0)} ({(data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0) > 0 ? Math.round(((data?.metrics.nabidhSubmittedRadiology ?? 0) / ((data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0))) * 100) : 0}%)</div>
               <div>Total: {(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} · {data?.metrics.nabidhPending ?? 0} pending</div>
             </div>
-            <button type="button" disabled title="Bulk NABIDH submit — coming soon" className="mt-3 w-full cursor-not-allowed rounded-xl bg-violet-100 px-3 py-2 text-[11px] font-bold text-violet-700 opacity-80">
-              📤 Submit All Pending
+            {nabidhSubmitError ? (
+              <p className="mt-2 text-[11px] font-semibold text-red-600" role="alert">{nabidhSubmitError}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowNabidhConfirm(true)}
+              disabled={isSubmittingNabidh || (data?.metrics.nabidhPending ?? 0) === 0}
+              className="mt-3 w-full rounded-xl bg-violet-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-100 disabled:text-violet-700 disabled:opacity-80"
+            >
+              {isSubmittingNabidh
+                ? 'Submitting…'
+                : (data?.metrics.nabidhPending ?? 0) === 0
+                  ? '✅ All submitted'
+                  : `📤 Submit All Pending (${data?.metrics.nabidhPending})`}
             </button>
           </SectionCard>
 
@@ -478,6 +514,41 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
           </SectionCard>
         </div>
       </div>
+
+      {showNabidhConfirm
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Submit All Pending to NABIDH</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  This will submit {data?.metrics.nabidhPending ?? 0} pending record{(data?.metrics.nabidhPending ?? 0) === 1 ? '' : 's'} to the NABIDH health information exchange. This action cannot be undone.
+                </p>
+                {nabidhSubmitError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{nabidhSubmitError}</p>
+                ) : null}
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowNabidhConfirm(false)}
+                    disabled={isSubmittingNabidh}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSubmitAllPendingNabidh()}
+                    disabled={isSubmittingNabidh}
+                    className="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {isSubmittingNabidh ? 'Submitting…' : 'Yes, Submit All'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
