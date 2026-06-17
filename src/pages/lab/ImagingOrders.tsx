@@ -122,7 +122,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
               <span className={`absolute left-0 top-0 h-full w-1.5 ${accent.bar}`} aria-hidden="true" />
 
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-['DM_Mono'] text-sm font-bold text-slate-700">{study.accession.replace(/^(MRI|CT|USS|XR|PET|X-Ray)/, 'IORD')}</span>
+                <span className="font-['DM_Mono'] text-sm font-bold text-slate-700">{study.accession.replace(/^[A-Za-z-]+(?=-?\d)/, 'IORD')}</span>
                 <Pill className={priorityClass[study.priority]}>{accent.label}</Pill>
                 <span className="text-xs text-slate-500">Today {formatTimeShort(study.scheduledAt)}</span>
                 <Pill className={
