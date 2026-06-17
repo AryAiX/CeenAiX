@@ -926,7 +926,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     const nabidhPendingRadiology = nabidhEvents.filter((event) => event.status === 'pending' && isRadiologyEvent(event)).length;
     const nabidhSubmittedRadiology = nabidhEvents.filter((event) => event.status === 'submitted' && isRadiologyEvent(event)).length;
     const tatValues = samples
-      .filter((sample) => sample.orderedAt >= startOfToday && typeof sample.tatMinutes === 'number')
+      .filter((sample) => sample.releasedAt && sample.releasedAt >= startOfToday && typeof sample.tatMinutes === 'number')
       .map((sample) => sample.tatMinutes as number);
     const avgTatMinutes = tatValues.length > 0
       ? Math.round(tatValues.reduce((sum, value) => sum + value, 0) / tatValues.length)
