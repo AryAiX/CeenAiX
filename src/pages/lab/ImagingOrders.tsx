@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import type { LabPageContext } from './shared/types';
 import {
@@ -15,9 +16,28 @@ type ImagingOrderTab = 'new' | 'scheduled' | 'active' | 'completed' | 'rejected'
 export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
   const navigate = useNavigate();
   const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
+  const rejectedStudies = useMemo(() => context.data?.rejectedImagingStudies ?? [], [context.data?.rejectedImagingStudies]);
   const [tab, setTab] = useState<ImagingOrderTab>('new');
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; accession: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectBusyId, setRejectBusyId] = useState<string | null>(null);
+
+  const handleConfirmReject = async () => {
+    if (!rejectTarget) return;
+    setRejectError(null);
+    setRejectBusyId(rejectTarget.id);
+    try {
+      await context.actions.rejectImagingStudy(rejectTarget.id, rejectReason.trim());
+      setRejectTarget(null);
+      setRejectReason('');
+    } catch (error) {
+      setRejectError(error instanceof Error ? error.message : 'Failed to reject this order.');
+    } finally {
+      setRejectBusyId(null);
+    }
+  };
 
   const handleAcceptAndSchedule = async (studyId: string) => {
     setRejectError(null);
@@ -37,7 +57,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
     scheduled: studies.filter((s) => s.status === 'scheduled').length,
     active: studies.filter((s) => s.status === 'scanning').length,
     completed: studies.filter((s) => s.status === 'released' || s.status === 'reported').length,
-    rejected: 0,
+    rejected: rejectedStudies.length,
     all: studies.length,
   };
 
@@ -55,9 +75,9 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
     if (tab === 'scheduled') return studies.filter((s) => s.status === 'scheduled');
     if (tab === 'active') return studies.filter((s) => s.status === 'scanning');
     if (tab === 'completed') return studies.filter((s) => s.status === 'released' || s.status === 'reported');
-    if (tab === 'rejected') return [];
+    if (tab === 'rejected') return rejectedStudies;
     return studies;
-  }, [studies, tab]);
+  }, [studies, rejectedStudies, tab]);
 
   const preAuthCount = studies.filter((s) => s.preauthStatus).length;
 
@@ -200,40 +220,83 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleAcceptAndSchedule(study.id)}
-                  disabled={acceptingId === study.id || study.status !== 'ordered'}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {acceptingId === study.id
-                    ? 'Accepting…'
-                    : study.status === 'ordered'
-                      ? 'Accept & Schedule'
-                      : 'Accepted'}
-                </button>
-                <button type="button"
-                  onClick={async () => {
-                    setRejectError(null);
-                    const reason = window.prompt(
-                      `Reject imaging order ${study.accession}?\n\nProvide a short reason that will be saved to the order notes:`
-                    );
-                    if (reason === null) return;
-                    try {
-                      await context.actions.rejectOrder(study.id, reason.trim());
-                    } catch (error) {
-                      setRejectError(error instanceof Error ? error.message : 'Failed to reject this order.');
-                    }
-                  }}
-                  className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                >
-                  Reject
-                </button>
+                {tab !== 'rejected' ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleAcceptAndSchedule(study.id)}
+                    disabled={acceptingId === study.id || study.status !== 'ordered'}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {acceptingId === study.id
+                      ? 'Accepting…'
+                      : study.status === 'ordered'
+                        ? 'Accept & Schedule'
+                        : 'Accepted'}
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center rounded-lg bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
+                    ❌ Rejected{study.rejectionReason ? `: ${study.rejectionReason}` : ''}
+                  </span>
+                )}
+                {tab !== 'rejected' ? (
+                  <button type="button"
+                    onClick={() => {
+                      setRejectReason('');
+                      setRejectTarget({ id: study.id, accession: study.accession });
+                    }}
+                    disabled={rejectBusyId === study.id}
+                    className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Reject
+                  </button>
+                ) : null}
               </div>
             </article>
           );
         })}
       </div>
+
+      {rejectTarget
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Reject Imaging Order</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Provide a short reason for rejecting order {rejectTarget.accession}. This will be saved with the study.
+                </p>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Contraindicated due to patient condition…"
+                  className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-rose-300"
+                />
+                {rejectError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{rejectError}</p>
+                ) : null}
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRejectTarget(null)}
+                    disabled={rejectBusyId === rejectTarget.id}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleConfirmReject()}
+                    disabled={rejectBusyId === rejectTarget.id}
+                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                  >
+                    {rejectBusyId === rejectTarget.id ? 'Rejecting…' : 'Reject Order'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
