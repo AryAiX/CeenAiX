@@ -13,6 +13,20 @@ import {
 } from './shared/helpers';
 import { SectionCard, Pill, KpiTile, ProgressMeter } from './shared/ui';
 
+const formatRelativeSync = (isoTimestamp: string | null): string => {
+  if (!isoTimestamp) return 'Not yet synced';
+  const diffMs = Date.now() - new Date(isoTimestamp).getTime();
+  if (Number.isNaN(diffMs) || diffMs < 0) return 'Not yet synced';
+  const diffSeconds = Math.floor(diffMs / 1000);
+  if (diffSeconds < 60) return `synced ${diffSeconds}s ago`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `synced ${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `synced ${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `synced ${diffDays}d ago`;
+};
+
 const CriticalBanner = ({
   data,
   actions,
@@ -199,6 +213,10 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   ];
 
   const navigate = useNavigate();
+  const mostRecentNabidhSubmission = (data?.nabidhEvents ?? [])
+    .filter((event) => event.status === 'submitted' && event.submittedAt)
+    .map((event) => event.submittedAt as string)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
   return (
     <div className="space-y-4">
@@ -434,7 +452,9 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
 
           <SectionCard>
             <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">🇦🇪 NABIDH HIE · FHIR R4</div>
-            <p className="text-[11px] font-semibold text-emerald-700">Connected · synced 12s ago</p>
+            <p className="text-[11px] font-semibold text-emerald-700">
+              Connected · {formatRelativeSync(mostRecentNabidhSubmission)}
+            </p>
             <div className="mt-3 space-y-2 text-[11px]">
               <div>🧪 Lab {data?.metrics.nabidhSubmittedLab ?? 0}/{(data?.metrics.nabidhSubmittedLab ?? 0) + (data?.metrics.nabidhPendingLab ?? 0)} ({(data?.metrics.nabidhSubmittedLab ?? 0) + (data?.metrics.nabidhPendingLab ?? 0) > 0 ? Math.round(((data?.metrics.nabidhSubmittedLab ?? 0) / ((data?.metrics.nabidhSubmittedLab ?? 0) + (data?.metrics.nabidhPendingLab ?? 0))) * 100) : 0}%)</div>
               <div>🩻 Radiology {data?.metrics.nabidhSubmittedRadiology ?? 0}/{(data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0)} ({(data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0) > 0 ? Math.round(((data?.metrics.nabidhSubmittedRadiology ?? 0) / ((data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0))) * 100) : 0}%)</div>
