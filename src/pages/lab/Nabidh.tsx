@@ -4,8 +4,12 @@ import { SectionCard, Pill, KpiTile, ProgressMeter } from './shared/ui';
 
 export const NabidhPage = ({ context }: { context: LabPageContext }) => {
   const events = context.data?.nabidhEvents ?? [];
-  const labEvents = events.filter((e) => e.resourceType === 'Observation' || e.resourceType === 'DiagnosticReport');
-  const radEvents = events.filter((e) => e.resourceType === 'ImagingStudy' || (e.resourceType === 'DiagnosticReport' && e.referenceCode.includes('RAD')));
+  const labEvents = events.filter(
+    (e) => e.resourceType === 'Observation' || (e.resourceType === 'DiagnosticReport' && !e.referenceCode.includes('RAD'))
+  );
+  const radEvents = events.filter(
+    (e) => e.resourceType === 'ImagingStudy' || (e.resourceType === 'DiagnosticReport' && e.referenceCode.includes('RAD'))
+  );
   const submitted = events.filter((e) => e.status === 'submitted').length;
   const pending = events.filter((e) => e.status === 'pending').length;
   const failed = events.filter((e) => e.status === 'failed').length;
