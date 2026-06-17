@@ -81,7 +81,7 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
               {runs.map((run) => (
                 <tr key={run.id}>
                   <td className="px-3 py-2 text-slate-500">{formatTimeShort(run.runAt)}</td>
-                  <td className="px-3 py-2 text-slate-600 capitalize">{run.department === 'laboratory' ? 'Chemistry' : run.department}</td>
+                  <td className="px-3 py-2 text-slate-600 capitalize">{run.department === 'laboratory' ? 'Laboratory' : run.department}</td>
                   <td className="px-3 py-2 font-semibold text-slate-900">{run.instrumentName}</td>
                   <td className="px-3 py-2 font-['DM_Mono'] text-xs text-slate-500">{run.lotNumber}</td>
                   <td className="px-3 py-2 text-slate-600">{run.levelLabel}</td>
