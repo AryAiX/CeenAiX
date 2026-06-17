@@ -8,7 +8,6 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
   const passed = runs.filter((r) => r.status === 'passed').length;
   const failures = runs.filter((r) => r.status === 'failed').length;
   const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && e.status === 'maintenance');
-  const labMaintenance = labEquipmentInMaintenance[0];
   const maintenance = labEquipmentInMaintenance.length;
 
   return (
@@ -37,7 +36,11 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
         <SectionCard className="border-amber-200 bg-amber-50">
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">MAINTENANCE ⚠️</div>
           <div className="mt-2 font-['Plus_Jakarta_Sans'] text-3xl font-bold text-amber-900">{maintenance}</div>
-          <div className="mt-2 text-xs text-amber-800">{labMaintenance?.name ?? 'No instruments under maintenance'}</div>
+          <div className="mt-2 text-xs text-amber-800">
+            {labEquipmentInMaintenance.length === 0
+              ? 'No instruments under maintenance'
+              : labEquipmentInMaintenance.map((e) => e.name).join(', ')}
+          </div>
         </SectionCard>
         <SectionCard className="border-rose-200 bg-rose-50">
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-600">FAILURES</div>
@@ -48,16 +51,16 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
         </SectionCard>
       </div>
 
-      {labMaintenance ? (
-        <SectionCard className="border-amber-200 bg-amber-50">
-          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{labMaintenance.name} ({labMaintenance.equipmentType}) — Under Maintenance</h2>
-          {labMaintenance.subtitle ? (
-            <p className="mt-1 text-sm text-amber-800">{labMaintenance.subtitle}</p>
+      {labEquipmentInMaintenance.map((equipment) => (
+        <SectionCard key={equipment.id} className="border-amber-200 bg-amber-50">
+          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{equipment.name} ({equipment.equipmentType}) — Under Maintenance</h2>
+          {equipment.subtitle ? (
+            <p className="mt-1 text-sm text-amber-800">{equipment.subtitle}</p>
           ) : (
             <p className="mt-1 text-sm text-amber-800">No additional maintenance details recorded.</p>
           )}
-          {labMaintenance.alert ? (
-            <p className="mt-2 text-sm text-amber-800">{labMaintenance.alert}</p>
+          {equipment.alert ? (
+            <p className="mt-2 text-sm text-amber-800">{equipment.alert}</p>
           ) : null}
           <a
             href="/lab/equipment"
@@ -66,7 +69,7 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
             View Maintenance Log →
           </a>
         </SectionCard>
-      ) : null}
+      ))}
 
       <SectionCard>
         <h2 className="mb-3 font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">QC Results — Today</h2>
