@@ -140,7 +140,6 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
                   </div>
                   <div className="mt-1 font-bold text-slate-900">{study.patientName}</div>
                   <div className="text-xs text-slate-600">{study.studyName}</div>
-                  <div className="mt-1 text-xs text-slate-500">Patient: Not yet arrived</div>
                   {study.alerts && study.alerts.length > 0 ? <div className="mt-1 text-xs text-amber-700">⚠️ {study.alerts[0]}</div> : null}
                 </div>
               ))}
