@@ -51,8 +51,14 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
       {labMaintenance ? (
         <SectionCard className="border-amber-200 bg-amber-50">
           <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{labMaintenance.name} ({labMaintenance.equipmentType}) — Under Maintenance</h2>
-          <p className="mt-1 text-sm text-amber-800">Since {formatTimeShort(labMaintenance.maintenanceDueAt)} · ETA: 3:00 PM · Reason: Daily maintenance + ISI calibration</p>
-          <p className="mt-2 text-sm text-amber-800">Samples rerouted to Sysmex CA-600 backup analyzer. ✅ All coagulation samples being processed.</p>
+          {labMaintenance.subtitle ? (
+            <p className="mt-1 text-sm text-amber-800">{labMaintenance.subtitle}</p>
+          ) : (
+            <p className="mt-1 text-sm text-amber-800">No additional maintenance details recorded.</p>
+          )}
+          {labMaintenance.alert ? (
+            <p className="mt-2 text-sm text-amber-800">{labMaintenance.alert}</p>
+          ) : null}
           <a
             href="/lab/equipment"
             className="mt-3 inline-flex rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
