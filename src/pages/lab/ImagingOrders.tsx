@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { LabPageContext } from './shared/types';
 import {
   priorityClass,
@@ -12,9 +13,24 @@ import { Pill, EmptyState } from './shared/ui';
 type ImagingOrderTab = 'new' | 'scheduled' | 'active' | 'completed' | 'rejected' | 'all';
 
 export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
+  const navigate = useNavigate();
   const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
   const [tab, setTab] = useState<ImagingOrderTab>('new');
   const [rejectError, setRejectError] = useState<string | null>(null);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+
+  const handleAcceptAndSchedule = async (studyId: string) => {
+    setRejectError(null);
+    setAcceptingId(studyId);
+    try {
+      await context.actions.setImagingStudyStatus(studyId, 'scheduled');
+      navigate('/lab/imaging/queue');
+    } catch (error) {
+      setRejectError(error instanceof Error ? error.message : 'Failed to accept this study.');
+    } finally {
+      setAcceptingId(null);
+    }
+  };
 
   const counts = {
     new: studies.filter((s) => s.status === 'ordered').length,
@@ -184,12 +200,18 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <a
-                  href="/lab/imaging/queue"
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                <button
+                  type="button"
+                  onClick={() => void handleAcceptAndSchedule(study.id)}
+                  disabled={acceptingId === study.id || study.status !== 'ordered'}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Accept &amp; Schedule
-                </a>
+                  {acceptingId === study.id
+                    ? 'Accepting…'
+                    : study.status === 'ordered'
+                      ? 'Accept & Schedule'
+                      : 'Accepted'}
+                </button>
                 <button type="button"
                   onClick={async () => {
                     setRejectError(null);
