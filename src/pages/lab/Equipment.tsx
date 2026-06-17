@@ -19,7 +19,7 @@ const EquipmentCard = ({
   // Hosted display labels:
   //   Radiology: SCANNING (active scan), ONLINE, SCHEDULED (next slot soon), QA IN PROGRESS, MAINTENANCE
   //   Laboratory: RUNNING (active batch), ONLINE, MAINTENANCE, WARNING
-  const isActivelyRunning = !!item.activeRemainingLabel && /remaining|ongoing/i.test(item.activeRemainingLabel);
+  const isActivelyRunning = item.isRunning;
   const displayLabel = (() => {
     if (item.status === 'maintenance' && !isActivelyRunning) return 'MAINTENANCE';
     if (department === 'radiology') {
