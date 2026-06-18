@@ -75,6 +75,7 @@ export interface LabPortalSample {
   testNames: string[];
   priority: LabPriority;
   status: LabOrderStatus;
+  isClaimed: boolean;
   orderedAt: string;
   collectedAt: string | null;
   receivedAt: string | null;
@@ -788,6 +789,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         testNames: items.map((item) => item.test_name),
         priority: normalizePriority(order.urgency),
         status: order.status,
+        isClaimed: labId != null && order.assigned_lab_id === labId,
         orderedAt: order.ordered_at,
         collectedAt: order.sample_collection_at,
         receivedAt: order.sample_collection_at ?? order.ordered_at,
