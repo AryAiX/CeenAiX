@@ -136,26 +136,6 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const studies = data?.imagingStudies ?? [];
   const filteredSamples = priorityFilter === 'All' ? myLabQueueSamples : myLabQueueSamples.filter((s) => s.priority === priorityFilter);
   const dashboardSamples = filteredSamples.slice(0, 5);
-  const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
-  const [sampleActionError, setSampleActionError] = useState<string | null>(null);
-
-  const handleSampleAction = async (sample: (typeof dashboardSamples)[number]) => {
-    if (sample.status === 'ordered') {
-      setSampleActionError(null);
-      setProcessingSampleId(sample.id);
-      try {
-        await context.actions.startProcessing(sample.id);
-      } catch (error) {
-        setSampleActionError(
-          error instanceof Error ? error.message : 'Could not start processing this sample.'
-        );
-      } finally {
-        setProcessingSampleId(null);
-      }
-      return;
-    }
-    navigate('/lab/queue');
-  };
   const activeStudies = studies.filter((s) => s.status === 'scanning');
   const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
   const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
@@ -324,20 +304,15 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
               Routine ({myLabQueueSamples.filter((s) => s.priority === 'Routine').length})
             </button>
           </div>
-          {sampleActionError ? (
-            <p className="mb-2 text-xs font-semibold text-red-600" role="alert">{sampleActionError}</p>
-          ) : null}
           <div className="space-y-3">
             {dashboardSamples.map((sample) => {
               const code = sample.orderCode.split('-').slice(-1)[0];
-              const action =
-                sample.status === 'resulted' || sample.criticalValue
-                  ? '📞 Notify'
-                  : sample.status === 'ordered'
-                  ? '▶ Process'
-                  : '📋 View';
               return (
-                <article key={sample.id} className="rounded-xl bg-slate-50 p-3">
+                <article
+                  key={sample.id}
+                  onClick={() => navigate(`/lab/queue?search=${encodeURIComponent(sample.orderCode)}`)}
+                  className="cursor-pointer rounded-xl border border-transparent bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="font-['DM_Mono'] text-xs font-bold text-slate-500">{code}</div>
@@ -348,14 +323,6 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
                       {sample.criticalValue ? <div className="mt-1 text-xs font-bold text-red-600">{sample.criticalValue} ↑↑</div> : null}
                       <Pill className={`mt-2 ${sampleStatusBadge[sample.status]}`}>{sampleStatusLabel(sample.status, !!sample.criticalValue)}</Pill>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleSampleAction(sample)}
-                      disabled={processingSampleId === sample.id}
-                      className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {processingSampleId === sample.id ? 'Starting…' : action}
-                    </button>
                   </div>
                 </article>
               );
