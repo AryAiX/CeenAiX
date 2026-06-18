@@ -28,6 +28,14 @@ const formatRelativeSync = (isoTimestamp: string | null): string => {
   return `synced ${diffDays}d ago`;
 };
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
 const CriticalBanner = ({
   data,
   actions,
@@ -41,6 +49,9 @@ const CriticalBanner = ({
   if (!critical) return null;
   const observed = formatTimeShort(critical.observedAt);
   const isAlreadyNotified = critical.status === 'notified';
+  const elapsedMinutes = isAlreadyNotified
+    ? critical.notifiedInMinutes ?? 0
+    : Math.max(0, Math.round((Date.now() - new Date(critical.observedAt).getTime()) / 60000));
 
   const handleNotify = async () => {
     setErrorMessage(null);
@@ -48,11 +59,7 @@ const CriticalBanner = ({
     try {
       await actions.markCriticalValueNotified(critical.id, critical.observedAt);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Could not mark this critical value as notified.'
-      );
+      setErrorMessage(getErrorMessage(error, 'Could not mark this critical value as notified.'));
     } finally {
       setIsSaving(false);
     }
@@ -81,7 +88,7 @@ const CriticalBanner = ({
           ['Value', critical.valueLabel],
           ['Reference', critical.referenceRange ?? 'Not recorded'],
           ['Doctor', [critical.doctorName, critical.facilityName].filter(Boolean).join(' · ') || 'Not recorded'],
-          ['Resulted', `${observed} · ${critical.notifiedInMinutes ?? 0} min ago`],
+          ['Resulted', `${observed} · ${elapsedMinutes} min ago`],
         ].map(([label, value]) => (
           <div key={String(label)} className="rounded-xl bg-white/85 p-3 ring-1 ring-red-100">
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-400">{label}</div>
@@ -154,7 +161,7 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const labMetricCards = [
     {
       label: 'Samples',
-      value: formatNumber(data?.metrics.sampleCountToday || samples.length),
+      value: formatNumber(data?.metrics.sampleCountToday ?? samples.length),
       caption: 'Total today',
       tone: 'indigo' as const,
     },
@@ -230,9 +237,7 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
       await context.actions.markNabidhSubmittedBulk(pendingEventIds);
       setShowNabidhConfirm(false);
     } catch (error) {
-      setNabidhSubmitError(
-        error instanceof Error ? error.message : 'Could not submit pending NABIDH events.'
-      );
+      setNabidhSubmitError(getErrorMessage(error, 'Could not submit pending NABIDH events.'));
     } finally {
       setIsSubmittingNabidh(false);
     }
