@@ -133,7 +133,6 @@ const CriticalBanner = ({
 
 export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const data = context.data;
-  const [modalityFilter, setModalityFilter] = useState<string>('All');
   const [priorityFilter, setPriorityFilter] = useState<'All' | 'STAT' | 'Urgent' | 'Routine'>('All');
   const [isSubmittingNabidh, setIsSubmittingNabidh] = useState(false);
   const [nabidhSubmitError, setNabidhSubmitError] = useState<string | null>(null);
@@ -147,16 +146,6 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
   const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
   const radiologyEquipment = (data?.equipment ?? []).filter((e) => e.department === 'radiology').slice(0, 7);
-  const filteredStudies =
-    modalityFilter === 'All'
-      ? studies
-      : modalityFilter === 'Other'
-        ? studies.filter((s) => !['MRI', 'CT', 'USS', 'X-Ray'].includes(s.modality))
-        : studies.filter((s) => s.modality === modalityFilter);
-  const filteredActiveStudies = filteredStudies.filter((s) => s.status === 'scanning');
-  const filteredReportPending = filteredStudies.filter((s) => s.status === 'report_pending').slice(0, 2);
-  const filteredScheduledStudies = filteredStudies.filter((s) => s.status === 'scheduled' || s.status === 'ordered').slice(0, 3);
-  const filteredCompletedStudies = filteredStudies.filter((s) => s.status === 'reported' || s.status === 'released').slice(0, 2);
 
   const labMetricCards = [
     {
@@ -344,30 +333,20 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Imaging Queue</h3>
-              <p className="text-xs text-slate-500">{formatNumber(filteredStudies.length)} studies · {formatNumber(filteredActiveStudies.length)} scanning</p>
+              <p className="text-xs text-slate-500">{formatNumber(studies.length)} studies · {formatNumber(activeStudies.length)} scanning</p>
             </div>
             <button type="button" onClick={() => navigate('/lab/imaging/queue')} className="text-xs font-bold text-blue-600 hover:text-blue-700">View All</button>
           </div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {['All', 'MRI', 'CT', 'USS', 'X-Ray', 'Other'].map((m) => (
-              <button
-                type="button"
-                key={m}
-                onClick={() => setModalityFilter(m)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                  modalityFilter === m ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-          {filteredActiveStudies.length > 0 ? (
+          {activeStudies.length > 0 ? (
             <div className="mb-3">
               <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">ACTIVE NOW</div>
               <div className="space-y-3">
-                {filteredActiveStudies.slice(0, 3).map((study) => (
-                  <article key={study.id} className="rounded-xl bg-slate-50 p-3">
+                {activeStudies.slice(0, 2).map((study) => (
+                  <article
+                    key={study.id}
+                    onClick={() => navigate('/lab/imaging/queue')}
+                    className="cursor-pointer rounded-xl border border-transparent bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50/40"
+                  >
                     <div className="mb-2 flex items-center justify-between text-xs">
                       <span className="font-['DM_Mono'] font-bold text-violet-700">{study.progressPercent}%</span>
                       <span className="font-bold text-slate-700">{study.modality}</span>
@@ -380,63 +359,16 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
                 ))}
               </div>
             </div>
-          ) : null}
-          {filteredReportPending.length > 0 ? (
-            <div className="mb-3">
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">REPORT PENDING ({filteredReportPending.length})</div>
-              <div className="space-y-2">
-                {filteredReportPending.map((study) => {
-                  const overdue = (study.tatMinutes ?? 0) > 240;
-                  return (
-                    <div key={study.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                      <div>
-                        <div className="font-bold text-slate-900">{study.modality}</div>
-                        <div className="text-xs text-slate-700">{study.patientName}</div>
-                        <div className="text-xs text-slate-500">{study.studyName}</div>
-                      </div>
-                      <div className={`text-xs font-bold ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
-                        {formatTat(study.tatMinutes)} {overdue ? '🔴 OVERDUE' : '⚠️'}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-          {filteredScheduledStudies.length > 0 ? (
-            <div className="mb-3">
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">SCHEDULED ({filteredScheduledStudies.length})</div>
-              <div className="space-y-2">
-                {filteredScheduledStudies.map((study) => (
-                  <div key={study.id} className="rounded-xl bg-slate-50 p-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="font-bold text-slate-900">{study.modality}</div>
-                      <div className="text-xs font-bold text-slate-600">{formatTimeShort(study.scheduledAt)}</div>
-                    </div>
-                    <div className="text-xs text-slate-700">{study.patientName}</div>
-                    {study.alerts && study.alerts.length > 0 ? <div className="text-xs text-amber-700">⚠️ {study.alerts[0]}</div> : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {filteredCompletedStudies.length > 0 ? (
-            <div>
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">REPORTED / RELEASED ({filteredCompletedStudies.length})</div>
-              <div className="space-y-2">
-                {filteredCompletedStudies.map((study) => (
-                  <div key={study.id} className="rounded-xl bg-slate-50 p-3 text-sm">
-                    <div className="text-xs font-bold text-slate-700">
-                      {study.modality}
-                      <span className="ml-2 text-emerald-700">✅ {study.status === 'released' ? 'Released' : 'Reported'}</span>
-                    </div>
-                    <div className="mt-1 font-bold text-slate-900">{study.patientName}</div>
-                    <div className="text-xs text-slate-600">{study.studyName}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          ) : (
+            <p className="mb-3 text-sm text-slate-500">No studies actively scanning right now.</p>
+          )}
+          <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <span className="font-bold text-amber-600">{formatNumber(studies.filter((s) => s.status === 'report_pending').length)} report pending</span>
+            <span className="mx-2 text-slate-300">·</span>
+            <span className="font-bold text-slate-700">{formatNumber(studies.filter((s) => s.status === 'scheduled' || s.status === 'ordered').length)} scheduled</span>
+            <span className="mx-2 text-slate-300">·</span>
+            <span className="text-slate-500">{formatNumber(studies.filter((s) => s.status === 'reported' || s.status === 'released').length)} reported</span>
+          </div>
         </SectionCard>
 
         <div className="space-y-4 xl:col-span-2">
