@@ -45,7 +45,7 @@ const sampleMatchesStatusFilter = (sample: LabPortalSample, statuses: Set<LabSta
 };
 
 const sampleMatchesDepartment = (sample: LabPortalSample, departments: Set<LabDepartmentFilter>) => {
-  if (departments.size === 0) return true;
+  if (departments.size === 0 || departments.size === LAB_DEPARTMENTS.length) return true;
   const haystack = sample.testNames.join(' ').toLowerCase();
   const map: Array<[LabDepartmentFilter, string[]]> = [
     ['Chemistry', ['k+', 'na+', 'cl-', 'creatinine', 'glucose', 'lipid', 'hba1c', 'urea', 'cholesterol']],
