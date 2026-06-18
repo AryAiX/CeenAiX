@@ -132,8 +132,9 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
   const [nabidhSubmitError, setNabidhSubmitError] = useState<string | null>(null);
   const [showNabidhConfirm, setShowNabidhConfirm] = useState(false);
   const samples = data?.samples ?? [];
+  const myLabQueueSamples = samples.filter((s) => s.isClaimed);
   const studies = data?.imagingStudies ?? [];
-  const filteredSamples = priorityFilter === 'All' ? samples : samples.filter((s) => s.priority === priorityFilter);
+  const filteredSamples = priorityFilter === 'All' ? myLabQueueSamples : myLabQueueSamples.filter((s) => s.priority === priorityFilter);
   const dashboardSamples = filteredSamples.slice(0, 5);
   const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
   const [sampleActionError, setSampleActionError] = useState<string | null>(null);
@@ -306,21 +307,21 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
               onClick={() => setPriorityFilter('STAT')}
               className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'STAT' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-              STAT ({samples.filter((s) => s.priority === 'STAT').length})
+              STAT ({myLabQueueSamples.filter((s) => s.priority === 'STAT').length})
             </button>
             <button
               type="button"
               onClick={() => setPriorityFilter('Urgent')}
               className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'Urgent' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-              Urgent ({samples.filter((s) => s.priority === 'Urgent').length})
+              Urgent ({myLabQueueSamples.filter((s) => s.priority === 'Urgent').length})
             </button>
             <button
               type="button"
               onClick={() => setPriorityFilter('Routine')}
               className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'Routine' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-              Routine ({samples.filter((s) => s.priority === 'Routine').length})
+              Routine ({myLabQueueSamples.filter((s) => s.priority === 'Routine').length})
             </button>
           </div>
           {sampleActionError ? (
