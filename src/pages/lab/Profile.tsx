@@ -25,7 +25,7 @@ export const ProfilePage = ({ data }: { data: LabPortalData | null }) => {
         </div>
       </SectionCard>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr,360px]">
+      {tab === '🏥 Facility Info' ? (
         <SectionCard>
           <div className="flex items-start gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 font-['DM_Mono'] text-xl font-bold text-indigo-600">
@@ -53,22 +53,32 @@ export const ProfilePage = ({ data }: { data: LabPortalData | null }) => {
             ))}
           </div>
         </SectionCard>
+      ) : null}
 
-        <div className="space-y-4">
-          <SectionCard>
-            <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🧪 DHA Lab License</h3>
-            <p className="mt-2 font-['DM_Mono'] text-sm font-bold text-slate-900">{meta?.dhaLabLicense ?? '—'}</p>
-            <p className="mt-1 text-sm text-emerald-700">✅ Valid — expires {meta?.dhaLabExpiry ?? '—'}</p>
-            <p className="mt-1 text-xs text-slate-500">{meta?.dhaLabAccreditations ?? '—'}</p>
-          </SectionCard>
-          <SectionCard>
-            <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🩻 DHA Radiology License</h3>
-            <p className="mt-2 font-['DM_Mono'] text-sm font-bold text-slate-900">{meta?.dhaRadiologyLicense ?? '—'}</p>
-            <p className="mt-1 text-sm text-emerald-700">✅ Valid — expires {meta?.dhaRadiologyExpiry ?? '—'}</p>
-            <p className="mt-1 text-xs text-slate-500">{meta?.dhaRadiologyAccreditations ?? '—'}</p>
-          </SectionCard>
-        </div>
-      </div>
+      {tab === '🧪 Lab Accreditation' ? (
+        <SectionCard>
+          <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🧪 DHA Lab License</h3>
+          <p className="mt-2 font-['DM_Mono'] text-sm font-bold text-slate-900">{meta?.dhaLabLicense ?? '—'}</p>
+          <p className="mt-1 text-sm text-emerald-700">✅ Valid — expires {meta?.dhaLabExpiry ?? '—'}</p>
+          <p className="mt-1 text-xs text-slate-500">{meta?.dhaLabAccreditations ?? '—'}</p>
+        </SectionCard>
+      ) : null}
+
+      {tab === '🩻 Radiology Accreditation' ? (
+        <SectionCard>
+          <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🩻 DHA Radiology License</h3>
+          <p className="mt-2 font-['DM_Mono'] text-sm font-bold text-slate-900">{meta?.dhaRadiologyLicense ?? '—'}</p>
+          <p className="mt-1 text-sm text-emerald-700">✅ Valid — expires {meta?.dhaRadiologyExpiry ?? '—'}</p>
+          <p className="mt-1 text-xs text-slate-500">{meta?.dhaRadiologyAccreditations ?? '—'}</p>
+        </SectionCard>
+      ) : null}
+
+      {tab === '📋 Test & Imaging Menu' || tab === '👥 Staff' || tab === '⚙️ Integrations' ? (
+        <SectionCard>
+          <p className="text-sm font-semibold text-slate-700">{tab}</p>
+          <p className="mt-1 text-sm text-slate-500">This section is coming soon.</p>
+        </SectionCard>
+      ) : null}
     </div>
   );
 };
