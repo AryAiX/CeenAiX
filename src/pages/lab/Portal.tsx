@@ -25,6 +25,10 @@ const LabPageBody = ({ page, context }: { page: LabPage; context: ReturnType<typ
     return <EmptyState label="Loading Lab & Radiology workspace..." />;
   }
 
+  if (context.error) {
+    return <EmptyState label={`Couldn't load the Lab & Radiology workspace: ${context.error}`} />;
+  }
+
   switch (page) {
     case 'dashboard':
       return <DashboardView context={context} />;
