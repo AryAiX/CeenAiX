@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { LabPriority, LabPortalSample } from '../../hooks';
@@ -25,6 +25,14 @@ const LAB_DEPARTMENTS = ['Chemistry', 'Haematology', 'Microbiology', 'Immunology
 
 type LabStatusFilter = (typeof LAB_STATUS_OPTIONS)[number];
 type LabDepartmentFilter = (typeof LAB_DEPARTMENTS)[number];
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
 
 const sampleMatchesStatusFilter = (sample: LabPortalSample, statuses: Set<LabStatusFilter>) => {
   if (statuses.size === 0) return true;
@@ -208,18 +216,21 @@ const downloadCsv = (filename: string, rows: ReadonlyArray<ReadonlyArray<string 
 
 export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const [priority, setPriority] = useState<'all' | LabPriority>('all');
   const [statuses, setStatuses] = useState<Set<LabStatusFilter>>(new Set([
     'Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released',
   ]));
   const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set(LAB_DEPARTMENTS));
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') ?? '');
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [toolbarError, setToolbarError] = useState<string | null>(null);
+  const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
+  const [rowActionError, setRowActionError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return allSamples.filter((sample) => {
@@ -261,6 +272,18 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
       }
       return next;
     });
+  };
+
+  const handleStartProcessing = async (sampleId: string) => {
+    setRowActionError(null);
+    setProcessingSampleId(sampleId);
+    try {
+      await context.actions.startProcessing(sampleId);
+    } catch (error) {
+      setRowActionError(getErrorMessage(error, 'Could not start processing this sample.'));
+    } finally {
+      setProcessingSampleId(null);
+    }
   };
 
   const handleExportCsv = () => {
@@ -369,12 +392,12 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
               Export CSV
             </button>
           </div>
-          {toolbarError ? (
+          {toolbarError || rowActionError ? (
             <div
               role="alert"
               className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700"
             >
-              {toolbarError}
+              {toolbarError ?? rowActionError}
             </div>
           ) : null}
         </div>
@@ -539,6 +562,15 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex justify-end gap-2">
+                            {sample.status === 'ordered' && sample.isClaimed ? (
+                              <button type="button"
+                                onClick={() => void handleStartProcessing(sample.id)}
+                                disabled={processingSampleId === sample.id}
+                                className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {processingSampleId === sample.id ? 'Starting…' : '▶ Process'}
+                              </button>
+                            ) : null}
                             <button type="button"
                               onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
                               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
