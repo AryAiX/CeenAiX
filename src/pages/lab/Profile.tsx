@@ -4,6 +4,13 @@ import { SectionCard } from './shared/ui';
 
 const PROFILE_TABS = ['🏥 Facility Info', '🧪 Lab Accreditation', '🩻 Radiology Accreditation', '📋 Test & Imaging Menu', '👥 Staff', '⚙️ Integrations'] as const;
 
+const licenseStatus = (expiry: string | null): 'valid' | 'expired' | 'unknown' => {
+  if (!expiry) return 'unknown';
+  const expiryDate = new Date(expiry);
+  if (Number.isNaN(expiryDate.getTime())) return 'unknown';
+  return expiryDate.getTime() < Date.now() ? 'expired' : 'valid';
+};
+
 export const ProfilePage = ({ data }: { data: LabPortalData | null }) => {
   const [tab, setTab] = useState<string>(PROFILE_TABS[0]);
   const facility = data?.facility;
@@ -59,7 +66,13 @@ export const ProfilePage = ({ data }: { data: LabPortalData | null }) => {
         <SectionCard>
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🧪 DHA Lab License</h3>
           <p className="mt-2 font-['DM_Mono'] text-sm font-bold text-slate-900">{meta?.dhaLabLicense ?? '—'}</p>
-          <p className="mt-1 text-sm text-emerald-700">✅ Valid — expires {meta?.dhaLabExpiry ?? '—'}</p>
+          {licenseStatus(meta?.dhaLabExpiry ?? null) === 'valid' ? (
+            <p className="mt-1 text-sm font-semibold text-emerald-700">✅ Valid — expires {meta?.dhaLabExpiry}</p>
+          ) : licenseStatus(meta?.dhaLabExpiry ?? null) === 'expired' ? (
+            <p className="mt-1 text-sm font-semibold text-red-600">⚠️ Expired — was valid until {meta?.dhaLabExpiry}</p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-500">Expiry date not on file</p>
+          )}
           <p className="mt-1 text-xs text-slate-500">{meta?.dhaLabAccreditations ?? '—'}</p>
         </SectionCard>
       ) : null}
@@ -68,7 +81,13 @@ export const ProfilePage = ({ data }: { data: LabPortalData | null }) => {
         <SectionCard>
           <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">🩻 DHA Radiology License</h3>
           <p className="mt-2 font-['DM_Mono'] text-sm font-bold text-slate-900">{meta?.dhaRadiologyLicense ?? '—'}</p>
-          <p className="mt-1 text-sm text-emerald-700">✅ Valid — expires {meta?.dhaRadiologyExpiry ?? '—'}</p>
+          {licenseStatus(meta?.dhaRadiologyExpiry ?? null) === 'valid' ? (
+            <p className="mt-1 text-sm font-semibold text-emerald-700">✅ Valid — expires {meta?.dhaRadiologyExpiry}</p>
+          ) : licenseStatus(meta?.dhaRadiologyExpiry ?? null) === 'expired' ? (
+            <p className="mt-1 text-sm font-semibold text-red-600">⚠️ Expired — was valid until {meta?.dhaRadiologyExpiry}</p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-500">Expiry date not on file</p>
+          )}
           <p className="mt-1 text-xs text-slate-500">{meta?.dhaRadiologyAccreditations ?? '—'}</p>
         </SectionCard>
       ) : null}
