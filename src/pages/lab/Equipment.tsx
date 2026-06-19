@@ -142,12 +142,14 @@ const EquipmentCard = ({
 
       <div className="mt-3 flex gap-2">
         {isLab ? (
-          <a
-            href="/lab/analytics"
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+          <button
+            type="button"
+            disabled
+            title="Per-equipment stats — coming soon"
+            className="flex-1 cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-400 opacity-70 text-center"
           >
             📊 Stats
-          </a>
+          </button>
         ) : (
           <button
             type="button"
@@ -168,12 +170,14 @@ const EquipmentCard = ({
             ⚙️ Log Maintenance
           </button>
         ) : (
-          <a
-            href="/lab/imaging/equipment"
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+          <button
+            type="button"
+            disabled
+            title="Maintenance logging — coming soon"
+            className="flex-1 cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-400 opacity-70 text-center"
           >
             ⚙️ Maintenance
-          </a>
+          </button>
         )}
       </div>
     </SectionCard>
