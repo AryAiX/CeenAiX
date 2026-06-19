@@ -770,6 +770,7 @@ export const CreateLabOrder: React.FC = () => {
         lab_test_catalog_suggestion_id: item.labTestCatalogSuggestionId,
         test_name: item.testName,
         test_code: item.testCode || null,
+        loinc_code: item.testCode || null,
         status: 'ordered',
       }))
     );
