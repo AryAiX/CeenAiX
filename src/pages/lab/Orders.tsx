@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { LabPageContext } from './shared/types';
 import {
   priorityClass,
+  formatDateShort,
   formatTimeShort,
   ageGenderLabel,
   bloodTypeColor,
@@ -157,7 +158,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-['DM_Mono'] text-sm font-bold text-slate-700">{sample.orderCode.replace('LAB', 'ORD')}</span>
                 <Pill className={priorityClass[sample.priority]}>{accent.label}</Pill>
-                <span className="text-xs text-slate-500">Today {formatTimeShort(sample.orderedAt)}</span>
+                <span className="text-xs text-slate-500">{formatDateShort(sample.orderedAt)} · {formatTimeShort(sample.orderedAt)}</span>
                 <Pill className={
                   (sample.sourceLabel ?? '').toLowerCase().includes('walk-in')
                     ? 'bg-slate-100 text-slate-700 ring-slate-200'
