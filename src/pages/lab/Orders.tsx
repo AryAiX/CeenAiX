@@ -22,6 +22,22 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const REJECT_REASONS = [
+  'Specimen hemolyzed',
+  'Insufficient sample volume',
+  'Wrong container/tube type',
+  'Specimen clotted',
+  'Specimen contaminated or leaked in transit',
+  'Specimen expired (outside stability window)',
+  'Mislabeled specimen / patient ID mismatch',
+  'No specimen received',
+  'Duplicate order (already in progress)',
+  'Test not offered by this lab',
+  'Missing required clinical information',
+  'Insurance pre-authorization not approved',
+  'Other',
+] as const;
+
 export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const rejectedSamples = useMemo(() => context.data?.rejectedSamples ?? [], [context.data?.rejectedSamples]);
@@ -32,6 +48,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [showAcceptAllConfirm, setShowAcceptAllConfirm] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; orderCode: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [selectedRejectReason, setSelectedRejectReason] = useState('');
   const [showTatInfoModal, setShowTatInfoModal] = useState(false);
   const [showSpecimenInfoModal, setShowSpecimenInfoModal] = useState(false);
 
@@ -73,13 +90,20 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   };
 
   const handleConfirmReject = async () => {
-    if (!rejectTarget) return;
+    if (!rejectTarget || !selectedRejectReason) return;
+    const finalReason =
+      selectedRejectReason === 'Other'
+        ? rejectReason.trim()
+        : rejectReason.trim()
+          ? `${selectedRejectReason} — ${rejectReason.trim()}`
+          : selectedRejectReason;
     setOrdersError(null);
     setRowBusyId(rejectTarget.id);
     try {
-      await context.actions.rejectOrder(rejectTarget.id, rejectReason.trim());
+      await context.actions.rejectOrder(rejectTarget.id, finalReason);
       setRejectTarget(null);
       setRejectReason('');
+      setSelectedRejectReason('');
     } catch (error) {
       setOrdersError(error instanceof Error ? error.message : 'Reject failed.');
     } finally {
@@ -358,6 +382,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button type="button"
                     onClick={() => {
                       setRejectReason('');
+                      setSelectedRejectReason('');
                       setRejectTarget({ id: sample.id, orderCode: sample.orderCode });
                     }}
                     disabled={rowBusyId === sample.id}
@@ -459,13 +484,27 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
               <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
                 <h3 className="text-lg font-bold text-gray-900">Reject Lab Order</h3>
                 <p className="mt-2 text-sm text-gray-500">
-                  Provide a short reason for rejecting order {rejectTarget.orderCode}. This will be saved to the order notes.
+                  Select a reason for rejecting order {rejectTarget.orderCode}.
                 </p>
+                <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-xl border border-gray-200 p-2">
+                  {REJECT_REASONS.map((reason) => (
+                    <label key={reason} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="reject-reason"
+                        checked={selectedRejectReason === reason}
+                        onChange={() => setSelectedRejectReason(reason)}
+                        className="h-3.5 w-3.5 border-gray-300 text-rose-600 focus:ring-rose-500"
+                      />
+                      <span>{reason}</span>
+                    </label>
+                  ))}
+                </div>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Specimen hemolyzed, insufficient volume…"
+                  rows={2}
+                  placeholder={selectedRejectReason === 'Other' ? 'Please describe the reason…' : 'Additional details (optional)'}
                   className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-rose-300"
                 />
                 {ordersError ? (
@@ -483,8 +522,12 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button
                     type="button"
                     onClick={() => void handleConfirmReject()}
-                    disabled={rowBusyId === rejectTarget.id}
-                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                    disabled={
+                      rowBusyId === rejectTarget.id ||
+                      !selectedRejectReason ||
+                      (selectedRejectReason === 'Other' && !rejectReason.trim())
+                    }
+                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {rowBusyId === rejectTarget.id ? 'Rejecting…' : 'Reject Order'}
                   </button>
