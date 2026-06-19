@@ -22,6 +22,14 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
 const REJECT_REASONS = [
   'Specimen hemolyzed',
   'Insufficient sample volume',
@@ -83,7 +91,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
       }
       setShowAcceptAllConfirm(false);
     } catch (error) {
-      setOrdersError(error instanceof Error ? error.message : 'Bulk accept failed.');
+      setOrdersError(getErrorMessage(error, 'Bulk accept failed.'));
     } finally {
       setBulkBusy(false);
     }
@@ -105,7 +113,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
       setRejectReason('');
       setSelectedRejectReason('');
     } catch (error) {
-      setOrdersError(error instanceof Error ? error.message : 'Reject failed.');
+      setOrdersError(getErrorMessage(error, 'Reject failed.'));
     } finally {
       setRowBusyId(null);
     }
@@ -117,7 +125,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     try {
       await context.actions.claimSample(sampleId);
     } catch (error) {
-      setOrdersError(error instanceof Error ? error.message : 'Accept failed.');
+      setOrdersError(getErrorMessage(error, 'Accept failed.'));
     } finally {
       setRowBusyId(null);
     }
