@@ -33,6 +33,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [rejectTarget, setRejectTarget] = useState<{ id: string; orderCode: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showTatInfoModal, setShowTatInfoModal] = useState(false);
+  const [showSpecimenInfoModal, setShowSpecimenInfoModal] = useState(false);
 
   const tabs: Array<{ id: OrderTab; label: string; emoji: string; count: number }> = [
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
@@ -221,7 +222,17 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                           <tr key={`${sample.id}-${t.testName}`}>
                             <td className="px-3 py-2 font-semibold text-slate-900">{t.testName}</td>
                             <td className="px-3 py-2 font-['DM_Mono'] text-xs text-indigo-600">{t.loincCode ?? '—'}</td>
-                            <td className="px-3 py-2 text-slate-600">{t.specimen ?? '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {t.specimen ?? (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowSpecimenInfoModal(true)}
+                                  className="text-xs font-semibold text-amber-700 underline decoration-dotted hover:text-amber-800"
+                                >
+                                  Not set
+                                </button>
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-slate-600">
                               {t.targetTat ?? (
                                 <button
@@ -408,6 +419,29 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button
                     type="button"
                     onClick={() => setShowTatInfoModal(false)}
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {showSpecimenInfoModal
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Specimen Type Not Set</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  This test's specimen type hasn't been added to the test catalog yet. Order creation is already set up to capture this correctly — your lab manager just needs to fill in the specimen type for this test in the catalog.
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowSpecimenInfoModal(false)}
                     className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
                   >
                     Got it
