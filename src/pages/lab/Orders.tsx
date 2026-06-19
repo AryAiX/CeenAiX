@@ -334,48 +334,50 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                     ❌ Rejected{sample.clinicalNotes ? `: ${sample.clinicalNotes.replace('[REJECTED] ', '')}` : ''}
                   </span>
                 )}
-                <button type="button"
-                  onClick={() => {
-                    const labelWindow = window.open('', '_blank');
-                    if (!labelWindow) {
-                      setOrdersError('Could not open the print window — please allow popups for this site and try again.');
-                      return;
-                    }
-                    setOrdersError(null);
-                    labelWindow.document.write(`
-                      <html>
-                        <head><title>Tube label · ${escapeHtml(sample.orderCode)}</title>
-                        <style>
-                          body { font-family: 'DM Mono', monospace; padding: 24px; }
-                          .label { border: 2px solid #000; padding: 16px; width: 320px; }
-                          h1 { font-size: 18px; margin: 0 0 4px; }
-                          dl { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; font-size: 12px; }
-                          dt { color: #555; }
-                          .bars { font-size: 28px; letter-spacing: 4px; margin-top: 8px; }
-                        </style>
-                        </head>
-                        <body>
-                          <div class="label">
-                            <h1>${escapeHtml(sample.orderCode)}</h1>
-                            <div class="bars">▐▌▌▐▐▌▌▐▐▌▌▐</div>
-                            <dl>
-                              <dt>Patient</dt><dd>${escapeHtml(sample.patientName)}</dd>
-                              <dt>Doctor</dt><dd>${escapeHtml(sample.doctorName)}</dd>
-                              <dt>Priority</dt><dd>${escapeHtml(sample.priority)}</dd>
-                              <dt>Tests</dt><dd>${escapeHtml(sample.testNames.join(', '))}</dd>
-                              <dt>Specimen</dt><dd>${escapeHtml(sample.specimenSummary ?? '—')}</dd>
-                            </dl>
-                          </div>
-                          <script>window.onload = () => { window.print(); };</script>
-                        </body>
-                      </html>
-                    `);
-                    labelWindow.document.close();
-                  }}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                >
-                  Print Tube Labels
-                </button>
+                {tab !== 'new' ? (
+                  <button type="button"
+                    onClick={() => {
+                      const labelWindow = window.open('', '_blank');
+                      if (!labelWindow) {
+                        setOrdersError('Could not open the print window — please allow popups for this site and try again.');
+                        return;
+                      }
+                      setOrdersError(null);
+                      labelWindow.document.write(`
+                        <html>
+                          <head><title>Tube label · ${escapeHtml(sample.orderCode)}</title>
+                          <style>
+                            body { font-family: 'DM Mono', monospace; padding: 24px; }
+                            .label { border: 2px solid #000; padding: 16px; width: 320px; }
+                            h1 { font-size: 18px; margin: 0 0 4px; }
+                            dl { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; font-size: 12px; }
+                            dt { color: #555; }
+                            .bars { font-size: 28px; letter-spacing: 4px; margin-top: 8px; }
+                          </style>
+                          </head>
+                          <body>
+                            <div class="label">
+                              <h1>${escapeHtml(sample.orderCode)}</h1>
+                              <div class="bars">▐▌▌▐▐▌▌▐▐▌▌▐</div>
+                              <dl>
+                                <dt>Patient</dt><dd>${escapeHtml(sample.patientName)}</dd>
+                                <dt>Doctor</dt><dd>${escapeHtml(sample.doctorName)}</dd>
+                                <dt>Priority</dt><dd>${escapeHtml(sample.priority)}</dd>
+                                <dt>Tests</dt><dd>${escapeHtml(sample.testNames.join(', '))}</dd>
+                                <dt>Specimen</dt><dd>${escapeHtml(sample.specimenSummary ?? '—')}</dd>
+                              </dl>
+                            </div>
+                            <script>window.onload = () => { window.print(); };</script>
+                          </body>
+                        </html>
+                      `);
+                      labelWindow.document.close();
+                    }}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    Print Tube Labels
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setShowContactDoctorModal(true)}
