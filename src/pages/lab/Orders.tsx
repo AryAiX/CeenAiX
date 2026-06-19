@@ -50,6 +50,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [selectedRejectReason, setSelectedRejectReason] = useState('');
   const [showTatInfoModal, setShowTatInfoModal] = useState(false);
   const [showSpecimenInfoModal, setShowSpecimenInfoModal] = useState(false);
+  const [showContactDoctorModal, setShowContactDoctorModal] = useState(false);
 
   const tabs: Array<{ id: OrderTab; label: string; emoji: string; count: number }> = [
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
@@ -367,16 +368,13 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 >
                   Print Tube Labels
                 </button>
-                <a
-                  href={`mailto:?subject=${encodeURIComponent(
-                    `Re: lab order ${sample.orderCode} for ${sample.patientName}`
-                  )}&body=${encodeURIComponent(
-                    `Dr. ${sample.doctorName},\n\nRegarding lab order ${sample.orderCode} for ${sample.patientName}.\n\n`
-                  )}`}
+                <button
+                  type="button"
+                  onClick={() => setShowContactDoctorModal(true)}
                   className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                 >
                   Contact Doctor
-                </a>
+                </button>
                 {tab !== 'rejected' ? (
                   <button type="button"
                     onClick={() => {
@@ -466,6 +464,29 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button
                     type="button"
                     onClick={() => setShowSpecimenInfoModal(false)}
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {showContactDoctorModal
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Direct Messaging Coming Soon</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Contacting a doctor directly isn't available yet from the Lab Portal. Patient, Doctor, Pharmacy, and Clinic portals already have a messaging system — the Lab Portal needs its own dedicated messaging page built to connect into it.
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowContactDoctorModal(false)}
                     className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
                   >
                     Got it
