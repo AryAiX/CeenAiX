@@ -141,12 +141,23 @@ const EquipmentCard = ({
       })() : null}
 
       <div className="mt-3 flex gap-2">
-        <a
-          href={isLab ? '/lab/analytics' : '/lab/imaging/equipment'}
-          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
-        >
-          {isLab ? '📊 Stats' : '📋 Schedule'}
-        </a>
+        {isLab ? (
+          <a
+            href="/lab/analytics"
+            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+          >
+            📊 Stats
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            title="Equipment scheduling — coming soon"
+            className="flex-1 cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-400 opacity-70 text-center"
+          >
+            📋 Schedule
+          </button>
+        )}
         {isLab ? (
           <button
             type="button"
