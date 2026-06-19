@@ -341,7 +341,7 @@ export const DashboardView = ({ context }: { context: LabPageContext }) => {
             <div className="mb-3">
               <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">ACTIVE NOW</div>
               <div className="space-y-3">
-                {activeStudies.slice(0, 2).map((study) => (
+                {activeStudies.slice(0, 4).map((study) => (
                   <article
                     key={study.id}
                     onClick={() => navigate('/lab/imaging/queue')}
