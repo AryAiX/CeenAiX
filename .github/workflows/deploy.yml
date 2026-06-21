@@ -1,7 +1,7 @@
 name: Release
 
-# Manual release only (Actions → Release → Run workflow).
-# Does NOT run on push/merge. Dev deploys via the Build workflow (ci.yml).
+# Production release: manual (Actions → Release) or push to main with `[release]` in
+# the commit message. Dev deploys via the Build workflow (ci.yml).
 #
 # Existing prod secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROD_PROJECT_REF,
 # VERCEL_* , VITE_SUPABASE_PROD_* .
@@ -12,6 +12,8 @@ name: Release
 # AZURE_UAE_SUPABASE_FUNCTIONS_URL, AZURE_UAE_POSTGRES_PASSWORD.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       target:
@@ -37,6 +39,7 @@ on:
 jobs:
   release-plan:
     name: Validate release target
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -49,8 +52,8 @@ jobs:
       - name: Validate selected target and required secrets
         id: plan
         env:
-          TARGET: ${{ inputs.target }}
-          APPLY_AZURE_UAE_MIGRATIONS: ${{ inputs.apply_azure_uae_migrations }}
+          TARGET: ${{ inputs.target || 'production' }}
+          APPLY_AZURE_UAE_MIGRATIONS: ${{ inputs.apply_azure_uae_migrations || false }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
           VERCEL_TOKEN_B64: ${{ secrets.VERCEL_TOKEN_B64 }}
@@ -142,7 +145,7 @@ jobs:
   prod-supabase:
     name: Production Supabase
     needs: release-plan
-    if: ${{ needs.release-plan.outputs.run_production == 'true' }}
+    if: ${{ needs.release-plan.result == 'success' && needs.release-plan.outputs.run_production == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -169,7 +172,7 @@ jobs:
           SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
           SUPABASE_PROD_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
           SUPABASE_RESEND_SMTP_PASSWORD: ${{ secrets.SUPABASE_RESEND_SMTP_PASSWORD }}
-          SKIP_PROD_MIGRATION_CHECK: ${{ inputs.skip_prod_migration_check }}
+          SKIP_PROD_MIGRATION_CHECK: ${{ inputs.skip_prod_migration_check || false }}
         run: bash scripts/prod-release-supabase.sh
 
   prod-deploy:
