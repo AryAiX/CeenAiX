@@ -202,6 +202,16 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
+      - name: Force preview PIN gate in pulled Vercel env
+        run: |
+          for env_file in .vercel/.env.production.local .env.production.local; do
+            if [[ -f "${env_file}" ]]; then
+              grep -v '^VITE_PREVIEW_PIN_GATE=' "${env_file}" > "${env_file}.tmp" || true
+              mv "${env_file}.tmp" "${env_file}"
+              printf '%s\n' 'VITE_PREVIEW_PIN_GATE="true"' >> "${env_file}"
+            fi
+          done
+
       - name: Build production artifacts
         run: |
           VERCEL_TOKEN_CLEAN="$(python - <<'PY'
