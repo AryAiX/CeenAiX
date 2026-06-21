@@ -5,7 +5,16 @@ export const PREVIEW_PIN_CODE = '6969';
 
 export const PREVIEW_ACCESS_CHANGED_EVENT = 'ceenaix-preview-access-changed';
 
+/** Hosted domains that always require the preview PIN until public launch. */
+const PREVIEW_PIN_GATED_HOSTS = new Set(['ceenaix.com', 'www.ceenaix.com', 'dev.ceenaix.com']);
+
 export function isPreviewPinGateEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    if (PREVIEW_PIN_GATED_HOSTS.has(window.location.hostname)) {
+      return true;
+    }
+  }
+
   return import.meta.env.VITE_PREVIEW_PIN_GATE !== 'false';
 }
 
