@@ -110,7 +110,7 @@ The production deployment is functional without changing Vercel dashboard env va
 ```yaml
 VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_PROD_URL }}
 VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PROD_ANON_KEY }}
-VITE_PREVIEW_PIN_GATE: "false"
+VITE_PREVIEW_PIN_GATE: "true"
 ```
 
 This is important because the local Vercel project link is stale and the Vercel dashboard environment had previously pointed production at the dev Supabase project. For GitHub-driven production deploys, the static Vite bundle is compiled against prod regardless of the dashboard env.

@@ -218,7 +218,8 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_PROD_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PROD_ANON_KEY }}
-          VITE_PREVIEW_PIN_GATE: "false"
+          # Keep preview PIN gate enabled on prod (6969) until public launch.
+          VITE_PREVIEW_PIN_GATE: "true"
 
       - name: Deploy to Vercel production
         run: |
