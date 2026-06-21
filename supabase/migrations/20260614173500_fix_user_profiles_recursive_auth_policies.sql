@@ -15,7 +15,7 @@ AS $$
     SELECT 1
     FROM public.user_profiles up
     WHERE up.user_id = auth.uid()
-      AND up.role IN ('super_admin', 'admin')
+      AND up.role = 'super_admin'
   );
 $$;
 
