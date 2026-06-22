@@ -336,9 +336,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
       }
       setSelectedSampleIds(new Set());
     } catch (error) {
-      setToolbarError(
-        error instanceof Error ? error.message : 'Bulk release failed.'
-      );
+      setToolbarError(getErrorMessage(error, 'Bulk release failed.'));
     } finally {
       setBulkBusy(false);
     }
