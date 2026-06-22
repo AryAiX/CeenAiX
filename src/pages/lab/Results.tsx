@@ -15,22 +15,29 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const requestedOrderId = searchParams.get('orderId');
   const samples = context.data?.samples ?? [];
   const candidates = samples.filter((s) => s.status === 'resulted' || s.status === 'processing' || s.status === 'collected');
+  const completedSamples = samples.filter((s) => s.status === 'reviewed');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Once data has loaded, select the sample requested via ?orderId= (e.g.
   // from the Queue page's View button), falling back to the first
   // candidate if the param is missing or doesn't match a pending sample.
   useEffect(() => {
     if (selectedId) return;
-    if (requestedOrderId && candidates.some((s) => s.id === requestedOrderId)) {
+    const allSamples = [...candidates, ...completedSamples];
+    if (requestedOrderId && allSamples.some((s) => s.id === requestedOrderId)) {
       setSelectedId(requestedOrderId);
     } else if (candidates[0]) {
       setSelectedId(candidates[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedOrderId, candidates.length]);
+  }, [requestedOrderId, candidates.length, completedSamples.length]);
 
-  const selected = candidates.find((s) => s.id === selectedId) ?? candidates[0];
+  const selected =
+    candidates.find((s) => s.id === selectedId) ??
+    completedSamples.find((s) => s.id === selectedId) ??
+    candidates[0];
+  const isCompleted = selected?.status === 'reviewed';
   const [instrument, setInstrument] = useState('Roche Cobas 6000');
   const [pin, setPin] = useState('');
   const [resultDrafts, setResultDrafts] = useState<Record<string, string>>({});
@@ -181,6 +188,24 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
             </button>
           ))}
         </div>
+        {completedSamples.length > 0 ? (
+          <>
+            <div className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Completed</div>
+            <div className="space-y-1.5">
+              {completedSamples.map((s) => (
+                <button type="button"
+                  key={s.id}
+                  onClick={() => setSelectedId(s.id)}
+                  className={`w-full rounded-lg p-2 text-left transition ${selectedId === s.id ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'hover:bg-slate-50'}`}
+                >
+                  <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{s.orderCode}</div>
+                  <div className="mt-0.5 text-sm font-semibold text-slate-900">{s.patientName}</div>
+                  <Pill className="mt-1 bg-emerald-100 text-emerald-700 ring-emerald-200">Released</Pill>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
       </aside>
 
       {/* Main: result entry workspace */}
@@ -237,13 +262,118 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
             </SectionCard>
           </div>
 
-          {/* Right: result entry */}
+          {/* Right: result entry or read-only completed view */}
           <div className="space-y-4">
-            {requestedSampleNotFound ? (
+            {isCompleted ? (
+              <>
+                <SectionCard>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Results — Released</h2>
+                      <p className="text-sm text-slate-500">{selected.patientName} · {selected.orderCode}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const win = window.open('', '_blank');
+                          if (!win) return;
+                          win.document.write(`
+                            <html><head><title>Results · ${selected.orderCode}</title>
+                            <style>body{font-family:Arial,sans-serif;padding:24px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ddd;padding:8px;text-align:left;} th{background:#f5f5f5;}</style>
+                            </head><body>
+                            <h2>Lab Results — ${selected.orderCode}</h2>
+                            <p><strong>Patient:</strong> ${selected.patientName}</p>
+                            <p><strong>Doctor:</strong> ${selected.doctorName}</p>
+                            <table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th></tr></thead>
+                            <tbody>${selected.tests.map((t) => `<tr><td>${t.testName}</td><td>${t.resultValue ?? '—'}</td><td>${t.resultUnit ?? '—'}</td><td>${t.referenceText ?? '—'}</td><td>${t.isAbnormal ? '⚠️ Abnormal' : '✅'}</td></tr>`).join('')}</tbody>
+                            </table>
+                            <script>window.onload=()=>{window.print();}</script>
+                            </body></html>
+                          `);
+                          win.document.close();
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        🖨️ Print
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const header = ['Test', 'Result', 'Unit', 'Reference Range', 'Flag'];
+                          const rows = selected.tests.map((t) => [
+                            t.testName,
+                            t.resultValue ?? '—',
+                            t.resultUnit ?? '—',
+                            t.referenceText ?? '—',
+                            t.isAbnormal ? 'Abnormal' : 'Normal',
+                          ]);
+                          const escape = (v: string) => v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+                          const body = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+                          const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `results-${selected.orderCode}-${new Date().toISOString().slice(0, 10)}.csv`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        ⬇️ Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowShareModal(true)}
+                        className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                      >
+                        🔗 Share
+                      </button>
+                    </div>
+                  </div>
+                </SectionCard>
+                <SectionCard>
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">TEST RESULTS</div>
+                  <div className="overflow-x-auto rounded-xl border border-slate-100">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                        <tr>
+                          <th className="px-3 py-2">Test</th>
+                          <th className="px-3 py-2">Result</th>
+                          <th className="px-3 py-2">Unit</th>
+                          <th className="px-3 py-2">Reference Range</th>
+                          <th className="px-3 py-2">Flag</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {selected.tests.map((t) => (
+                          <tr key={t.itemId}>
+                            <td className="px-3 py-2 font-semibold text-slate-900">{t.testName}</td>
+                            <td className={`px-3 py-2 font-bold ${t.isAbnormal ? 'text-rose-700' : 'text-slate-900'}`}>{t.resultValue ?? '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{t.resultUnit ?? '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{t.referenceText ?? '—'}</td>
+                            <td className="px-3 py-2">
+                              {t.isAbnormal
+                                ? <Pill className="bg-rose-100 text-rose-700 ring-rose-200">⚠️ Abnormal</Pill>
+                                : <Pill className="bg-emerald-100 text-emerald-700 ring-emerald-200">✅ Normal</Pill>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </SectionCard>
+              </>
+            ) : null}
+            {!isCompleted && requestedSampleNotFound ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
                 The sample you selected from the queue isn't available for result entry right now (it may already be released or rejected). Showing a different pending sample instead.
               </div>
             ) : null}
+            {!isCompleted ? (
+            <>
             <SectionCard>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -373,9 +503,29 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                 </button>
               </div>
             </SectionCard>
+            </>) : null}
           </div>
         </div>
       </div>
+      {showShareModal
+        ? <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-900">Share Results — Coming Soon</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Sharing results directly with the patient or doctor isn't available yet from the Lab Portal. Cross-portal result sharing will be set up in the third review pass once all portals are connected.
+              </p>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(false)}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        : null}
     </div>
   );
 };
