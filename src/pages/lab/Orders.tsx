@@ -134,26 +134,28 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   return (
     <div className="flex h-full flex-col bg-slate-50">
       <div className="border-b border-slate-200 bg-white px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-700">
-            <span className="font-bold">{tabs[0].count}</span> new order{tabs[0].count === 1 ? '' : 's'} received
-          </p>
-          <div className="flex gap-2">
-            <button type="button"
-              onClick={() => setShowAcceptAllConfirm(true)}
-              disabled={bulkBusy || newOrders.length === 0}
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {bulkBusy ? 'Accepting…' : `Accept All (${newOrders.length})`}
-            </button>
-            <button type="button"
-              onClick={() => setTab('new')}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-            >
-              Review Each
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-700">
+              <span className="font-bold">{tabs[0].count}</span> new order{tabs[0].count === 1 ? '' : 's'} received
+            </p>
+            {tab === 'new' ? (
+              <div className="flex gap-2">
+                <button type="button"
+                  onClick={() => setShowAcceptAllConfirm(true)}
+                  disabled={bulkBusy || newOrders.length === 0}
+                  className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {bulkBusy ? 'Accepting…' : `Accept All (${newOrders.length})`}
+                </button>
+                <button type="button"
+                  onClick={() => setTab('new')}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  Review Each
+                </button>
+              </div>
+            ) : null}
           </div>
-        </div>
         {ordersError ? (
           <div
             role="alert"
