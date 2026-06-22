@@ -348,7 +348,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                     View Results
                   </a>
                 ) : null}
-                {tab !== 'new' ? (
+                {tab !== 'new' && tab !== 'completed' ? (
                   <button type="button"
                     onClick={() => {
                       const labelWindow = window.open('', '_blank');
