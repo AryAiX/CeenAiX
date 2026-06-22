@@ -317,23 +317,19 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {tab !== 'rejected' ? (
+                {tab === 'new' ? (
                   <button type="button"
                     onClick={() => void handleAcceptOne(sample.id)}
                     disabled={rowBusyId === sample.id || sample.status !== 'ordered'}
                     className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {rowBusyId === sample.id
-                      ? 'Working…'
-                      : sample.status === 'ordered'
-                        ? 'Accept Order'
-                        : 'Accepted'}
+                    {rowBusyId === sample.id ? 'Working…' : 'Accept Order'}
                   </button>
-                ) : (
+                ) : tab === 'rejected' ? (
                   <span className="inline-flex items-center rounded-lg bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
                     ❌ Rejected{sample.clinicalNotes ? `: ${sample.clinicalNotes.replace('[REJECTED] ', '')}` : ''}
                   </span>
-                )}
+                ) : null}
                 {tab !== 'new' ? (
                   <button type="button"
                     onClick={() => {
@@ -385,7 +381,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 >
                   Contact Doctor
                 </button>
-                {tab !== 'rejected' ? (
+                {tab === 'new' ? (
                   <button type="button"
                     onClick={() => {
                       setRejectReason('');
