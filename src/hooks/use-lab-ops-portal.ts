@@ -1154,20 +1154,16 @@ export function useLabOpsActions(onChange: () => void) {
   );
 
   /**
-   * Soft-delete a lab order (the canonical clinical-data convention — we
-   * never hard-delete records that carry patient context). Used when a lab
-   * rejects an incoming order that cannot be processed.
+   * Soft-delete a lab order via the lab_reject_order RPC, which handles
+   * authorization internally using SECURITY DEFINER — bypassing the RLS
+   * policy that was blocking direct table updates from lab staff sessions.
    */
   const rejectOrder = useCallback(
     async (orderId: string, reason?: string) => {
-      const { error } = await supabase
-        .from('lab_orders')
-        .update({
-          is_deleted: true,
-          deleted_at: new Date().toISOString(),
-          clinical_notes: reason ? `[REJECTED] ${reason}` : '[REJECTED] No reason provided',
-        })
-        .eq('id', orderId);
+      const { error } = await supabase.rpc('lab_reject_order', {
+        target_order_id: orderId,
+        rejection_reason: reason ?? 'No reason provided',
+      });
       if (error) throw error;
       onChange();
     },
