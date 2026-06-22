@@ -547,7 +547,6 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                           }`}>
                             {formatTat(sample.tatMinutes)}
                           </div>
-                          <div>Target: &lt;4h</div>
                         </td>
                         <td className="px-3 py-3">
                           <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
