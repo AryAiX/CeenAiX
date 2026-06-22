@@ -332,6 +332,14 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                     ❌ Rejected{sample.clinicalNotes ? `: ${sample.clinicalNotes.replace('[REJECTED] ', '')}` : ''}
                   </span>
                 ) : null}
+                {tab === 'in_progress' ? (
+                  <a
+                    href={`/lab/results?orderId=${sample.id}`}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+                  >
+                    View in Results
+                  </a>
+                ) : null}
                 {tab !== 'new' ? (
                   <button type="button"
                     onClick={() => {
