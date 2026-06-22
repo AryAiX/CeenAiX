@@ -12,7 +12,7 @@ import {
 } from './shared/helpers';
 import { Pill, EmptyState } from './shared/ui';
 
-type OrderTab = 'new' | 'in_progress' | 'completed' | 'rejected' | 'all';
+type OrderTab = 'new' | 'in_progress' | 'completed' | 'rejected';
 
 const escapeHtml = (value: string) =>
   value
@@ -65,7 +65,6 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     { id: 'in_progress', emoji: '⏳', label: 'In Progress', count: allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted').length },
     { id: 'completed', emoji: '✅', label: 'Completed', count: allSamples.filter((s) => s.status === 'reviewed').length },
     { id: 'rejected', emoji: '❌', label: 'Rejected', count: rejectedSamples.length },
-    { id: 'all', emoji: '', label: 'All', count: allSamples.length },
   ];
 
   const filtered = useMemo(() => {
@@ -73,7 +72,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     if (tab === 'in_progress') return allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted');
     if (tab === 'completed') return allSamples.filter((s) => s.status === 'reviewed');
     if (tab === 'rejected') return rejectedSamples;
-    return allSamples;
+    return [];
   }, [allSamples, tab]);
 
   const newOrders = useMemo(
@@ -350,7 +349,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                     View Results
                   </a>
                 ) : null}
-                {tab !== 'new' && tab !== 'completed' && tab !== 'rejected' ? (
+                {tab === 'in_progress' ? (
                   <button type="button"
                     onClick={() => {
                       const labelWindow = window.open('', '_blank');
