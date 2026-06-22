@@ -232,13 +232,13 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 </div>
               </div>
 
-              {sample.clinicalNotes ? (
+              {sample.clinicalNotes && tab !== 'completed' ? (
                 <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                   <span className="font-bold">Clinical Notes:</span> {sample.clinicalNotes}
                 </div>
               ) : null}
 
-              {sample.tests.length > 0 ? (
+              {sample.tests.length > 0 && tab !== 'completed' ? (
                 <div className="mt-4">
                   <div className="mb-2 text-xs font-bold text-slate-700">Tests Ordered</div>
                   <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -286,24 +286,26 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                 </div>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                {sample.specimenSummary ? (
-                  <span><span className="font-bold">Specimen:</span> {sample.specimenSummary}</span>
-                ) : null}
-                <span className="text-slate-300">·</span>
-                <span>
-                  <span className="font-bold">Fasting:</span>{' '}
-                  <span className={
-                    !sample.fastingInstructions || sample.fastingInstructions.toLowerCase().includes('not required')
-                      ? 'text-emerald-700'
-                      : 'text-amber-700'
-                  }>
-                    {sample.fastingInstructions ?? 'Not required'}
+              {tab !== 'completed' ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                  {sample.specimenSummary ? (
+                    <span><span className="font-bold">Specimen:</span> {sample.specimenSummary}</span>
+                  ) : null}
+                  <span className="text-slate-300">·</span>
+                  <span>
+                    <span className="font-bold">Fasting:</span>{' '}
+                    <span className={
+                      !sample.fastingInstructions || sample.fastingInstructions.toLowerCase().includes('not required')
+                        ? 'text-emerald-700'
+                        : 'text-amber-700'
+                    }>
+                      {sample.fastingInstructions ?? 'Not required'}
+                    </span>
                   </span>
-                </span>
-              </div>
+                </div>
+              ) : null}
 
-              {sample.preauthStatus ? (
+              {sample.preauthStatus && tab !== 'completed' ? (
                 <div className="mt-3 text-xs">
                   <span className="font-bold text-slate-700">Insurance Pre-auth:</span>{' '}
                   <span className={
