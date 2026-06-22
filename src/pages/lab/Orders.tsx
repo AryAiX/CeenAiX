@@ -53,6 +53,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [showAcceptAllConfirm, setShowAcceptAllConfirm] = useState(false);
+  const [acceptAllSelected, setAcceptAllSelected] = useState<Set<string>>(new Set());
   const [rejectTarget, setRejectTarget] = useState<{ id: string; orderCode: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [selectedRejectReason, setSelectedRejectReason] = useState('');
@@ -81,14 +82,15 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   );
 
   const handleAcceptAll = async () => {
-    if (newOrders.length === 0) return;
+    if (acceptAllSelected.size === 0) return;
     setOrdersError(null);
     setBulkBusy(true);
     try {
-      for (const order of newOrders) {
+      for (const order of newOrders.filter((o) => acceptAllSelected.has(o.id))) {
         await context.actions.claimSample(order.id);
       }
       setShowAcceptAllConfirm(false);
+      setAcceptAllSelected(new Set());
     } catch (error) {
       setOrdersError(getErrorMessage(error, 'Bulk accept failed.'));
     } finally {
@@ -140,17 +142,14 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
             {tab === 'new' ? (
               <div className="flex gap-2">
                 <button type="button"
-                  onClick={() => setShowAcceptAllConfirm(true)}
+                  onClick={() => {
+                    setAcceptAllSelected(new Set(newOrders.map((o) => o.id)));
+                    setShowAcceptAllConfirm(true);
+                  }}
                   disabled={bulkBusy || newOrders.length === 0}
                   className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {bulkBusy ? 'Accepting…' : `Accept All (${newOrders.length})`}
-                </button>
-                <button type="button"
-                  onClick={() => setTab('new')}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                >
-                  Review Each
                 </button>
               </div>
             ) : null}
@@ -422,18 +421,60 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
       {showAcceptAllConfirm
         ? createPortal(
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-                <h3 className="text-lg font-bold text-gray-900">Accept All New Orders</h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  This will claim all {newOrders.length} order{newOrders.length === 1 ? '' : 's'} currently in the New tab.
+              <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Accept Lab Orders</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Select the orders you want to accept. All are pre-selected by default.
                 </p>
+                <div className="mt-4 space-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={acceptAllSelected.size === newOrders.length}
+                      onChange={() => {
+                        if (acceptAllSelected.size === newOrders.length) {
+                          setAcceptAllSelected(new Set());
+                        } else {
+                          setAcceptAllSelected(new Set(newOrders.map((o) => o.id)));
+                        }
+                      }}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Select all ({newOrders.length})</span>
+                  </label>
+                  <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-slate-100 p-2">
+                    {newOrders.map((order) => (
+                      <label key={order.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={acceptAllSelected.has(order.id)}
+                          onChange={() => {
+                            const next = new Set(acceptAllSelected);
+                            if (next.has(order.id)) next.delete(order.id);
+                            else next.add(order.id);
+                            setAcceptAllSelected(next);
+                          }}
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-900">{order.patientName}</div>
+                          <div className="text-xs text-slate-500">{order.orderCode.replace('LAB', 'ORD')} · {order.testNames.slice(0, 2).join(', ')}{order.testNames.length > 2 ? ` +${order.testNames.length - 2} more` : ''}</div>
+                          <div className="text-xs text-slate-500">{order.doctorName} · {formatDateShort(order.orderedAt)} {formatTimeShort(order.orderedAt)}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 {ordersError ? (
-                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{ordersError}</p>
+                  <p className="mt-3 text-sm font-semibold text-red-600" role="alert">{ordersError}</p>
                 ) : null}
-                <div className="mt-6 flex items-center gap-3">
+                <div className="mt-4 flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowAcceptAllConfirm(false)}
+                    onClick={() => {
+                      setShowAcceptAllConfirm(false);
+                      setAcceptAllSelected(new Set());
+                    }}
                     disabled={bulkBusy}
                     className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
                   >
@@ -442,10 +483,10 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button
                     type="button"
                     onClick={() => void handleAcceptAll()}
-                    disabled={bulkBusy}
-                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                    disabled={bulkBusy || acceptAllSelected.size === 0}
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {bulkBusy ? 'Accepting…' : 'Yes, Accept All'}
+                    {bulkBusy ? 'Accepting…' : `Accept ${acceptAllSelected.size} Order${acceptAllSelected.size === 1 ? '' : 's'}`}
                   </button>
                 </div>
               </div>
