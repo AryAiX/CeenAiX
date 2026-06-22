@@ -95,6 +95,7 @@ export interface LabPortalSample {
   technicianName: string | null;
   technicianInitials: string | null;
   sourceLabel: string | null;
+  rejectionReason: string | null;
 }
 
 export interface LabPortalImagingStudy {
@@ -340,6 +341,7 @@ interface LabOrderRow {
   patient_display_name: string | null;
   patient_age: number | null;
   patient_gender: string | null;
+  rejection_reason: string | null;
 }
 
 interface LabItemRow {
@@ -628,7 +630,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
 
     let ordersQuery = supabase
       .from('lab_orders')
-      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender')
+      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender, rejection_reason')
       .eq('is_deleted', false)
       .order('ordered_at', { ascending: false })
       .limit(150);
@@ -645,7 +647,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     // dedicated "Rejected" tab rather than disappearing entirely.
     let rejectedOrdersQuery = supabase
       .from('lab_orders')
-      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender')
+      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender, rejection_reason')
       .eq('is_deleted', true)
       .order('ordered_at', { ascending: false })
       .limit(50);
@@ -811,6 +813,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         technicianName: order.technician_name,
         technicianInitials: order.technician_initials,
         sourceLabel: order.source_label,
+        rejectionReason: order.rejection_reason,
       };
     };
 
