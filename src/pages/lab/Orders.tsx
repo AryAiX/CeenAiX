@@ -340,6 +340,14 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
                     View in Results
                   </a>
                 ) : null}
+                {tab === 'completed' ? (
+                  <a
+                    href={`/lab/results?orderId=${sample.id}`}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                  >
+                    View Results
+                  </a>
+                ) : null}
                 {tab !== 'new' ? (
                   <button type="button"
                     onClick={() => {
