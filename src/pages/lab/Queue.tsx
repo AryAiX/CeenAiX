@@ -229,6 +229,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [toolbarError, setToolbarError] = useState<string | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
   const [rowActionError, setRowActionError] = useState<string | null>(null);
 
@@ -366,7 +367,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
         <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <button type="button"
-              onClick={() => navigate('/lab/results/entry')}
+              onClick={() => setShowImportModal(true)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50"
             >
               Import Samples
@@ -588,6 +589,25 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
           </div>
         </div>
       </div>
+      {showImportModal ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Import Samples — Coming Soon</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Sample importing isn't available yet. This feature will allow bulk importing of samples directly into the lab queue from external sources.
+            </p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
