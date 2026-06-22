@@ -651,9 +651,9 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       .limit(50);
 
     if (staffLabIds.length > 0) {
-      rejectedOrdersQuery = rejectedOrdersQuery.in('assigned_lab_id', staffLabIds);
+      rejectedOrdersQuery = rejectedOrdersQuery.or(`assigned_lab_id.in.(${staffLabIds.join(',')}),assigned_lab_id.is.null`);
     } else if (labId) {
-      rejectedOrdersQuery = rejectedOrdersQuery.eq('assigned_lab_id', labId);
+      rejectedOrdersQuery = rejectedOrdersQuery.or(`assigned_lab_id.eq.${labId},assigned_lab_id.is.null`);
     }
 
     const [
