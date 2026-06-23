@@ -22,7 +22,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const [searchParams] = useSearchParams();
   const requestedOrderId = searchParams.get('orderId');
   const samples = context.data?.samples ?? [];
-  const candidates = samples.filter((s) => s.status === 'resulted' || s.status === 'processing' || s.status === 'collected');
+  const candidates = samples.filter((s) => s.status === 'resulted' || s.status === 'processing');
   const completedSamples = samples.filter((s) => s.status === 'reviewed');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
