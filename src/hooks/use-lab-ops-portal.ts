@@ -1047,6 +1047,15 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  const confirmSpecimen = useCallback(
+    async (orderId: string) => {
+      const { error } = await supabase.rpc('lab_confirm_specimen', { target_order_id: orderId });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const startProcessing = useCallback(
     async (orderId: string) => {
       const { error } = await supabase.rpc('lab_start_processing', { target_order_id: orderId });
@@ -1221,6 +1230,7 @@ export function useLabOpsActions(onChange: () => void) {
   return useMemo(
     () => ({
       claimSample,
+      confirmSpecimen,
       startProcessing,
       releaseOrder,
       rejectOrder,
@@ -1233,6 +1243,7 @@ export function useLabOpsActions(onChange: () => void) {
     }),
     [
       claimSample,
+      confirmSpecimen,
       startProcessing,
       releaseOrder,
       rejectOrder,
