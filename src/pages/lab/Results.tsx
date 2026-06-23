@@ -10,6 +10,14 @@ import {
 } from './shared/helpers';
 import { SectionCard, Pill, EmptyState } from './shared/ui';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
 export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const [searchParams] = useSearchParams();
   const requestedOrderId = searchParams.get('orderId');
@@ -112,7 +120,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
           : 'Nothing to save — enter at least one value first.'
       );
     } catch (error) {
-      setResultsError(error instanceof Error ? error.message : 'Failed to save drafts.');
+      setResultsError(getErrorMessage(error, 'Failed to save drafts.'));
     } finally {
       setSaving('idle');
     }
@@ -134,7 +142,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
       setResultDrafts({});
       setPin('');
     } catch (error) {
-      setResultsError(error instanceof Error ? error.message : 'Failed to release results.');
+      setResultsError(getErrorMessage(error, 'Failed to release results.'));
     } finally {
       setSaving('idle');
     }
@@ -156,7 +164,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
       setResultDrafts({});
       setPin('');
     } catch (error) {
-      setResultsError(error instanceof Error ? error.message : 'Failed to release results.');
+      setResultsError(getErrorMessage(error, 'Failed to release results.'));
     } finally {
       setSaving('idle');
     }
