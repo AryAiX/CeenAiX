@@ -64,6 +64,12 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
     ],
     [context.data?.equipment]
   );
+
+  useEffect(() => {
+    if (instrument === '' && labInstruments.length > 0) {
+      setInstrument(labInstruments[0]);
+    }
+  }, [labInstruments, instrument]);
   const matchingQcRun =
     qcRuns
       .filter((run) => run.instrumentName === instrument)
