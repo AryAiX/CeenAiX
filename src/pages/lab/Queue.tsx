@@ -502,13 +502,15 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                     return (
                       <tr key={sample.id} className={`align-top ${rowBgClass}`}>
                         <td className="px-3 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedSampleIds.has(sample.id)}
-                            onChange={() => toggleSampleSelected(sample.id)}
-                            aria-label={`Select sample ${sample.orderCode}`}
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          />
+                          {sample.status === 'resulted' ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedSampleIds.has(sample.id)}
+                              onChange={() => toggleSampleSelected(sample.id)}
+                              aria-label={`Select sample ${sample.orderCode}`}
+                              className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          ) : null}
                         </td>
                         <td className="relative px-3 py-3">
                           <span className={`absolute left-0 top-0 h-full w-1 ${indicatorClass}`} aria-hidden="true" />
