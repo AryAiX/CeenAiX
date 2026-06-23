@@ -239,9 +239,8 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between"><dt className="text-slate-500">Sample ID</dt><dd className="font-['DM_Mono'] font-bold text-slate-900">{selected.orderCode}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Type</dt><dd className="text-slate-700">{selected.specimenSummary ?? '—'}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Collected</dt><dd className="text-slate-700">{formatTimeShort(selected.collectedAt)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Received</dt><dd className="text-slate-700">{formatTimeShort(selected.receivedAt)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Accessioned</dt><dd className="text-slate-700">{formatTimeShort(selected.receivedAt)}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Collected</dt><dd className="text-slate-700">{formatTimeShort(selected.collectedAt) ?? '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Received / Accessioned</dt><dd className="text-slate-700">{formatTimeShort(selected.receivedAt) ?? '—'}</dd></div>
               </dl>
             </SectionCard>
             <SectionCard>
