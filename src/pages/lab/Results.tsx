@@ -26,6 +26,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const completedSamples = samples.filter((s) => s.status === 'reviewed');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showNotifyDoctorModal, setShowNotifyDoctorModal] = useState(false);
 
   // Once data has loaded, select the sample requested via ?orderId= (e.g.
   // from the Queue page's View button), falling back to the first
@@ -148,26 +149,8 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
     }
   };
 
-  const handleReleaseAndNotify = async () => {
-    if (!selected) return;
-    if (!pin.trim()) {
-      setResultsError('Enter your technician PIN to release these results.');
-      return;
-    }
-    setResultsError(null);
-    setResultsNotice(null);
-    setSaving('release');
-    try {
-      await persistDrafts();
-      await context.actions.releaseOrder(selected.id);
-      setResultsNotice('Results released — the requesting doctor will be notified via the standard alert.');
-      setResultDrafts({});
-      setPin('');
-    } catch (error) {
-      setResultsError(getErrorMessage(error, 'Failed to release results.'));
-    } finally {
-      setSaving('idle');
-    }
+  const handleReleaseAndNotify = () => {
+    setShowNotifyDoctorModal(true);
   };
 
   if (!selected) {
@@ -526,6 +509,25 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                 <button
                   type="button"
                   onClick={() => setShowShareModal(false)}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        : null}
+      {showNotifyDoctorModal
+        ? <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-900">Doctor Notification — Coming Soon</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Sending result notifications directly to the doctor's portal isn't available yet. This requires a cross-portal connection between the Lab Portal and Doctor Portal that will be set up in the third review pass. To release results internally in the meantime, use Verify & Release.
+              </p>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowNotifyDoctorModal(false)}
                   className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
                 >
                   Got it
