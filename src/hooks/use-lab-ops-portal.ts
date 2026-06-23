@@ -1074,6 +1074,18 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  const releaseOrderWithPin = useCallback(
+    async (orderId: string, pin: string) => {
+      const { error } = await supabase.rpc('lab_release_order_with_pin', {
+        target_order_id: orderId,
+        technician_pin: pin,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const saveItemResult = useCallback(
     async (input: {
       itemId: string;
@@ -1233,6 +1245,7 @@ export function useLabOpsActions(onChange: () => void) {
       confirmSpecimen,
       startProcessing,
       releaseOrder,
+      releaseOrderWithPin,
       rejectOrder,
       rejectImagingStudy,
       saveItemResult,
@@ -1246,6 +1259,7 @@ export function useLabOpsActions(onChange: () => void) {
       confirmSpecimen,
       startProcessing,
       releaseOrder,
+      releaseOrderWithPin,
       rejectOrder,
       rejectImagingStudy,
       saveItemResult,
