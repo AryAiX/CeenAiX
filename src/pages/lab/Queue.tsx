@@ -232,6 +232,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const [toolbarError, setToolbarError] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
+  const [confirmingSpecimenId, setConfirmingSpecimenId] = useState<string | null>(null);
   const [rowActionError, setRowActionError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -274,6 +275,18 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
       }
       return next;
     });
+  };
+
+  const handleConfirmSpecimen = async (sampleId: string) => {
+    setRowActionError(null);
+    setConfirmingSpecimenId(sampleId);
+    try {
+      await context.actions.confirmSpecimen(sampleId);
+    } catch (error) {
+      setRowActionError(getErrorMessage(error, 'Could not confirm specimen receipt.'));
+    } finally {
+      setConfirmingSpecimenId(null);
+    }
   };
 
   const handleStartProcessing = async (sampleId: string) => {
@@ -563,13 +576,21 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                           <div className="flex justify-end gap-2">
                             {sample.status === 'ordered' && sample.isClaimed ? (
                               <button type="button"
+                                onClick={() => void handleConfirmSpecimen(sample.id)}
+                                disabled={confirmingSpecimenId === sample.id}
+                                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {confirmingSpecimenId === sample.id ? 'Confirming…' : '✅ Confirm Specimen'}
+                              </button>
+                            ) : sample.status === 'collected' ? (
+                              <button type="button"
                                 onClick={() => void handleStartProcessing(sample.id)}
                                 disabled={processingSampleId === sample.id}
                                 className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {processingSampleId === sample.id ? 'Starting…' : '▶ Process'}
                               </button>
-                            ) : sample.status === 'collected' || sample.status === 'processing' ? (
+                            ) : sample.status === 'processing' ? (
                               <button type="button"
                                 onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
                                 className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-100"
