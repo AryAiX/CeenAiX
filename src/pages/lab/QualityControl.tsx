@@ -1,17 +1,80 @@
 import { useState } from 'react';
-import type { LabPortalData } from '../../hooks';
+import type { LabPageContext } from './shared/types';
 import { formatTimeShort } from './shared/helpers';
 import { SectionCard, Pill } from './shared/ui';
 
-export const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
+export const QualityControlView = ({ context }: { context: LabPageContext }) => {
+  const data = context.data;
   const [showLeveyJenningsModal, setShowLeveyJenningsModal] = useState(false);
   const [showViewLogModal, setShowViewLogModal] = useState(false);
+  const [showQcRunModal, setShowQcRunModal] = useState(false);
+  const [qcForm, setQcForm] = useState({
+    instrumentName: '',
+    department: 'laboratory',
+    lotNumber: '',
+    levelLabel: 'Level 1',
+    resultLabel: '',
+    status: 'passed' as 'passed' | 'warning' | 'failed',
+  });
+  const [qcSaving, setQcSaving] = useState(false);
+  const [qcError, setQcError] = useState<string | null>(null);
   const runs = data?.qcRuns ?? [];
   const lastQcRun = [...runs].sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0];
   const passed = runs.filter((r) => r.status === 'passed').length;
   const failures = runs.filter((r) => r.status === 'failed').length;
   const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && e.status === 'maintenance');
   const maintenance = labEquipmentInMaintenance.length;
+  const labInstruments = (data?.equipment ?? [])
+    .filter((e) => e.department === 'laboratory')
+    .map((e) => e.name);
+
+  const handleLogQcRun = async () => {
+    if (!qcForm.instrumentName) {
+      setQcError('Please select an instrument.');
+      return;
+    }
+    if (!qcForm.lotNumber.trim()) {
+      setQcError('Please enter a QC lot number.');
+      return;
+    }
+    if (!qcForm.resultLabel.trim()) {
+      setQcError('Please enter a result label.');
+      return;
+    }
+    setQcError(null);
+    setQcSaving(true);
+    try {
+      await context.actions.logQcRun({
+        instrumentName: qcForm.instrumentName,
+        department: qcForm.department,
+        lotNumber: qcForm.lotNumber.trim(),
+        levelLabel: qcForm.levelLabel,
+        resultLabel: qcForm.resultLabel.trim(),
+        status: qcForm.status,
+      });
+      setShowQcRunModal(false);
+      setQcForm({
+        instrumentName: '',
+        department: 'laboratory',
+        lotNumber: '',
+        levelLabel: 'Level 1',
+        resultLabel: '',
+        status: 'passed',
+      });
+    } catch (error) {
+      setQcError(getErrorMessage(error, 'Failed to log QC run.'));
+    } finally {
+      setQcSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -22,9 +85,19 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
         </div>
         <button
           type="button"
-          disabled
-          title="QC run entry — coming soon"
-          className="cursor-not-allowed rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white opacity-60"
+          onClick={() => {
+            setQcError(null);
+            setQcForm({
+              instrumentName: labInstruments[0] ?? '',
+              department: 'laboratory',
+              lotNumber: '',
+              levelLabel: 'Level 1',
+              resultLabel: '',
+              status: 'passed',
+            });
+            setShowQcRunModal(true);
+          }}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
         >
           Log New QC Run
         </button>
@@ -133,6 +206,114 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
           </table>
         </div>
       </SectionCard>
+      {showQcRunModal ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Log New QC Run</h3>
+            <p className="mt-1 text-sm text-gray-500">Record a quality control run for a lab instrument.</p>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Instrument</span>
+                <select
+                  value={qcForm.instrumentName}
+                  onChange={(e) => setQcForm((f) => ({ ...f, instrumentName: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                >
+                  <option value="">Select instrument…</option>
+                  {labInstruments.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Department</span>
+                <select
+                  value={qcForm.department}
+                  onChange={(e) => setQcForm((f) => ({ ...f, department: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                >
+                  <option value="laboratory">Laboratory</option>
+                  <option value="radiology">Radiology</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">QC Lot Number</span>
+                <input
+                  type="text"
+                  value={qcForm.lotNumber}
+                  onChange={(e) => setQcForm((f) => ({ ...f, lotNumber: e.target.value }))}
+                  placeholder="e.g. LOT-2026-001"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Level</span>
+                <select
+                  value={qcForm.levelLabel}
+                  onChange={(e) => setQcForm((f) => ({ ...f, levelLabel: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                >
+                  <option value="Level 1">Level 1 (Low)</option>
+                  <option value="Level 2">Level 2 (Normal)</option>
+                  <option value="Level 3">Level 3 (High)</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Result Label</span>
+                <input
+                  type="text"
+                  value={qcForm.resultLabel}
+                  onChange={(e) => setQcForm((f) => ({ ...f, resultLabel: e.target.value }))}
+                  placeholder="e.g. Passed, Failed, Out of Range"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                />
+              </label>
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Status</span>
+                <div className="flex gap-2">
+                  {(['passed', 'warning', 'failed'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setQcForm((f) => ({ ...f, status: s }))}
+                      className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold capitalize transition ${
+                        qcForm.status === s
+                          ? s === 'passed' ? 'bg-emerald-600 text-white'
+                            : s === 'warning' ? 'bg-amber-500 text-white'
+                            : 'bg-rose-600 text-white'
+                          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {s === 'passed' ? '✅ Passed' : s === 'warning' ? '⚠️ Warning' : '❌ Failed'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {qcError ? (
+              <p className="mt-3 text-sm font-semibold text-red-600" role="alert">{qcError}</p>
+            ) : null}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQcRunModal(false)}
+                disabled={qcSaving}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleLogQcRun()}
+                disabled={qcSaving}
+                className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {qcSaving ? 'Saving…' : 'Log QC Run'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showLeveyJenningsModal ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
