@@ -562,17 +562,39 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                               <button type="button"
                                 onClick={() => void handleStartProcessing(sample.id)}
                                 disabled={processingSampleId === sample.id}
-                                className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {processingSampleId === sample.id ? 'Starting…' : '▶ Process'}
                               </button>
-                            ) : null}
-                            <button type="button"
-                              onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
-                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                            >
-                              View
-                            </button>
+                            ) : sample.status === 'collected' || sample.status === 'processing' ? (
+                              <button type="button"
+                                onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
+                                className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                              >
+                                🧪 Enter Results
+                              </button>
+                            ) : sample.status === 'resulted' ? (
+                              <button type="button"
+                                onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
+                                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100"
+                              >
+                                ✅ Verify & Release
+                              </button>
+                            ) : sample.status === 'reviewed' ? (
+                              <button type="button"
+                                onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
+                                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                              >
+                                📋 View Results
+                              </button>
+                            ) : (
+                              <button type="button"
+                                onClick={() => navigate(`/lab/results?orderId=${sample.id}`)}
+                                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                              >
+                                View
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
