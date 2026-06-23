@@ -39,7 +39,7 @@ const LabPageBody = ({ page, context }: { page: LabPage; context: ReturnType<typ
     case 'results':
       return <LabResultsPage context={context} />;
     case 'qc':
-      return <QualityControlView data={context.data} />;
+      return <QualityControlView context={context} />;
     case 'imaging-queue':
       return <ImagingQueueView context={context} />;
     case 'imaging-orders':
