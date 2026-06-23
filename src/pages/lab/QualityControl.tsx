@@ -28,8 +28,11 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
   const [qcError, setQcError] = useState<string | null>(null);
   const runs = data?.qcRuns ?? [];
   const lastQcRun = [...runs].sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0];
-  const passed = runs.filter((r) => r.status === 'passed').length;
-  const failures = runs.filter((r) => r.status === 'failed').length;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayRuns = runs.filter((r) => new Date(r.runAt).getTime() >= todayStart.getTime());
+  const passed = todayRuns.filter((r) => r.status === 'passed').length;
+  const failures = todayRuns.filter((r) => r.status === 'failed').length;
   const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && e.status === 'maintenance');
   const maintenance = labEquipmentInMaintenance.length;
   const labInstruments = (data?.equipment ?? [])
@@ -106,8 +109,8 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
       <div className="grid gap-3 md:grid-cols-3">
         <SectionCard className="border-emerald-200 bg-emerald-50">
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">QC PASS ✅</div>
-          <div className="mt-2 font-['Plus_Jakarta_Sans'] text-3xl font-bold text-emerald-800">{passed}/{runs.length}</div>
-          <div className="mt-2 text-xs text-emerald-700">All instruments today</div>
+          <div className="mt-2 font-['Plus_Jakarta_Sans'] text-3xl font-bold text-emerald-800">{passed}/{todayRuns.length}</div>
+          <div className="mt-2 text-xs text-emerald-700">{todayRuns.length === 0 ? 'No QC runs logged today' : 'Instruments passed today'}</div>
         </SectionCard>
         <SectionCard className="border-amber-200 bg-amber-50">
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">MAINTENANCE ⚠️</div>
@@ -122,7 +125,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-600">FAILURES</div>
           <div className="mt-2 font-['Plus_Jakarta_Sans'] text-3xl font-bold text-rose-800">{failures}</div>
           <div className="mt-2 text-xs text-rose-700">
-            {failures === 0 ? 'No QC failures today ✅' : `${failures} QC failure${failures === 1 ? '' : 's'} need review ⚠️`}
+            {todayRuns.length === 0 ? 'No runs logged today' : failures === 0 ? 'No QC failures today ✅' : `${failures} QC failure${failures === 1 ? '' : 's'} need review ⚠️`}
           </div>
         </SectionCard>
       </div>
