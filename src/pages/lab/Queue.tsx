@@ -219,10 +219,8 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const [searchParams] = useSearchParams();
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
   const [priority, setPriority] = useState<'all' | LabPriority>('all');
-  const [statuses, setStatuses] = useState<Set<LabStatusFilter>>(new Set([
-    'Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released',
-  ]));
-  const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set(LAB_DEPARTMENTS));
+  const [statuses, setStatuses] = useState<Set<LabStatusFilter>>(new Set());
+  const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set());
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') ?? '');
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -353,8 +351,8 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
         setDepartments={setDepartments}
         onReset={() => {
           setPriority('all');
-          setStatuses(new Set(['Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released']));
-          setDepartments(new Set(LAB_DEPARTMENTS));
+          setStatuses(new Set());
+          setDepartments(new Set());
           setSearchQuery('');
         }}
         searchQuery={searchQuery}
