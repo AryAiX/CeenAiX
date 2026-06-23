@@ -62,14 +62,14 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [showContactDoctorModal, setShowContactDoctorModal] = useState(false);
 
   const tabs: Array<{ id: OrderTab; label: string; emoji: string; count: number }> = [
-    { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
+    { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered' && !s.isClaimed).length },
     { id: 'in_progress', emoji: '⏳', label: 'In Progress', count: allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted').length },
     { id: 'completed', emoji: '✅', label: 'Completed', count: allSamples.filter((s) => s.status === 'reviewed').length },
     { id: 'rejected', emoji: '❌', label: 'Rejected', count: rejectedSamples.length },
   ];
 
   const filtered = useMemo(() => {
-    if (tab === 'new') return allSamples.filter((s) => s.status === 'ordered');
+    if (tab === 'new') return allSamples.filter((s) => s.status === 'ordered' && !s.isClaimed);
     if (tab === 'in_progress') return allSamples.filter((s) => s.status === 'collected' || s.status === 'processing' || s.status === 'resulted');
     if (tab === 'completed') return allSamples.filter((s) => s.status === 'reviewed');
     if (tab === 'rejected') return rejectedSamples;
@@ -77,7 +77,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   }, [allSamples, tab]);
 
   const newOrders = useMemo(
-    () => allSamples.filter((s) => s.status === 'ordered'),
+    () => allSamples.filter((s) => s.status === 'ordered' && !s.isClaimed),
     [allSamples]
   );
 
