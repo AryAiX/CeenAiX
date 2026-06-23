@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { LabPageContext } from './shared/types';
@@ -47,7 +47,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
     completedSamples.find((s) => s.id === selectedId) ??
     candidates[0];
   const isCompleted = selected?.status === 'reviewed';
-  const [instrument, setInstrument] = useState('Roche Cobas 6000');
+  const [instrument, setInstrument] = useState('');
   const [pin, setPin] = useState('');
   const [resultDrafts, setResultDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<'idle' | 'draft' | 'release' | 'verify'>('idle');
@@ -55,6 +55,15 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const [resultsNotice, setResultsNotice] = useState<string | null>(null);
   const meta = context.data?.facilityMeta;
   const qcRuns = context.data?.qcRuns ?? [];
+  const labInstruments = useMemo(
+    () => [
+      ...(context.data?.equipment ?? [])
+        .filter((e) => e.department === 'laboratory' && e.status !== 'maintenance')
+        .map((e) => e.name),
+      'Manual Entry',
+    ],
+    [context.data?.equipment]
+  );
   const matchingQcRun =
     qcRuns
       .filter((run) => run.instrumentName === instrument)
@@ -371,7 +380,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                   <div className="text-xs font-bold text-slate-500">Select Instrument:</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {['Roche Cobas 6000', 'Cobas 8000', 'Manual Entry'].map((inst) => (
+                  {labInstruments.map((inst) => (
                     <button type="button"
                       key={inst}
                       onClick={() => setInstrument(inst)}
