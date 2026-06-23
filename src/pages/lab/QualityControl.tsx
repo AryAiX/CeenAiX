@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import type { LabPortalData } from '../../hooks';
 import { formatTimeShort } from './shared/helpers';
 import { SectionCard, Pill } from './shared/ui';
 
 export const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
+  const [showLeveyJenningsModal, setShowLeveyJenningsModal] = useState(false);
+  const [showViewLogModal, setShowViewLogModal] = useState(false);
   const runs = data?.qcRuns ?? [];
   const lastQcRun = [...runs].sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0];
   const passed = runs.filter((r) => r.status === 'passed').length;
@@ -107,19 +110,21 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
                   </td>
                   <td className="px-3 py-2 text-slate-600">
                     {run.status === 'warning' ? (
-                      <a
-                        href="/lab/equipment"
-                        className="text-xs font-bold text-amber-700"
+                      <button
+                        type="button"
+                        onClick={() => setShowViewLogModal(true)}
+                        className="text-xs font-bold text-amber-700 underline decoration-dotted hover:text-amber-800"
                       >
                         View Log
-                      </a>
+                      </button>
                     ) : (
-                      <a
-                        href="/lab/analytics"
-                        className="text-xs font-bold text-indigo-600"
+                      <button
+                        type="button"
+                        onClick={() => setShowLeveyJenningsModal(true)}
+                        className="text-xs font-bold text-indigo-600 underline decoration-dotted hover:text-indigo-800"
                       >
                         Levey-Jennings
-                      </a>
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -128,6 +133,44 @@ export const QualityControlView = ({ data }: { data: LabPortalData | null }) => 
           </table>
         </div>
       </SectionCard>
+      {showLeveyJenningsModal ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Levey-Jennings Chart — Coming Soon</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Levey-Jennings charts show an instrument's QC results plotted over time, making it easy to spot trends or drift before results actually fail. This feature hasn't been built yet and will be added in a future pass.
+            </p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowLeveyJenningsModal(false)}
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showViewLogModal ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Maintenance Log — Coming Soon</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Viewing the detailed maintenance log for a specific instrument isn't available yet. This will link directly to the instrument's maintenance history once per-equipment logging is built.
+            </p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowViewLogModal(false)}
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
