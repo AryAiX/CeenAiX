@@ -1221,6 +1221,29 @@ export function useLabOpsActions(onChange: () => void) {
    * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
    * also compute and persist the actual minutes-to-notification on the row.
    */
+  const logQcRun = useCallback(
+    async (input: {
+      instrumentName: string;
+      department: string;
+      lotNumber: string;
+      levelLabel: string;
+      resultLabel: string;
+      status: 'passed' | 'warning' | 'failed';
+    }) => {
+      const { error } = await supabase.rpc('lab_log_qc_run', {
+        p_instrument_name: input.instrumentName,
+        p_department: input.department,
+        p_lot_number: input.lotNumber,
+        p_level_label: input.levelLabel,
+        p_result_label: input.resultLabel,
+        p_status: input.status,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const markCriticalValueNotified = useCallback(
     async (criticalValueId: string, observedAtIso: string | null) => {
       const observedAt = observedAtIso ? new Date(observedAtIso) : null;
@@ -1247,6 +1270,7 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       releaseOrderWithPin,
+      logQcRun,
       rejectOrder,
       rejectImagingStudy,
       saveItemResult,
@@ -1261,6 +1285,7 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       releaseOrderWithPin,
+      logQcRun,
       rejectOrder,
       rejectImagingStudy,
       saveItemResult,
