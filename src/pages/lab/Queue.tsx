@@ -260,7 +260,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
       filtered.filter(
         (sample) =>
           selectedSampleIds.has(sample.id) &&
-          (sample.status === 'resulted' || sample.status === 'reviewed')
+          sample.status === 'resulted'
       ),
     [filtered, selectedSampleIds]
   );
@@ -389,7 +389,7 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
               disabled={bulkBusy || releasableSelected.length === 0}
               title={
                 releasableSelected.length === 0
-                  ? 'Select rows with status Resulted or Reviewed to release.'
+                  ? 'Select rows with status Pending Verify to release.'
                   : `Release ${releasableSelected.length} selected sample(s).`
               }
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
