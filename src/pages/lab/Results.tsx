@@ -138,7 +138,7 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
     setSaving('verify');
     try {
       await persistDrafts();
-      await context.actions.releaseOrder(selected.id);
+      await context.actions.releaseOrderWithPin(selected.id, pin.trim());
       setResultsNotice('Results verified and released to the requesting doctor.');
       setResultDrafts({});
       setPin('');
