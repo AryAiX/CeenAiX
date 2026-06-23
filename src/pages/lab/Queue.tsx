@@ -217,7 +217,10 @@ const downloadCsv = (filename: string, rows: ReadonlyArray<ReadonlyArray<string 
 export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
+  const allSamples = useMemo(
+    () => (context.data?.samples ?? []).filter((s) => s.isClaimed),
+    [context.data?.samples]
+  );
   const [priority, setPriority] = useState<'all' | LabPriority>('all');
   const [statuses, setStatuses] = useState<Set<LabStatusFilter>>(new Set());
   const [departments, setDepartments] = useState<Set<LabDepartmentFilter>>(new Set());
