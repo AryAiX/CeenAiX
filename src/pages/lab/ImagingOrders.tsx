@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { LabPageContext } from './shared/types';
 import {
   priorityClass,
+  formatDateShort,
   formatTimeShort,
   ageGenderLabel,
   insurancePillClass,
@@ -132,7 +133,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-['DM_Mono'] text-sm font-bold text-slate-700">{study.accession.replace(/^[A-Za-z-]+(?=-?\d)/, 'IORD')}</span>
                 <Pill className={priorityClass[study.priority]}>{accent.label}</Pill>
-                <span className="text-xs text-slate-500">Today {formatTimeShort(study.scheduledAt)}</span>
+                <span className="text-xs text-slate-500">{formatDateShort(study.scheduledAt)} · {formatTimeShort(study.scheduledAt)}</span>
                 <Pill className={
                   (study.sourceLabel ?? '').toLowerCase().includes('walk-in')
                     ? 'bg-slate-100 text-slate-700 ring-slate-200'
