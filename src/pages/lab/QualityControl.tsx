@@ -18,7 +18,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
   const [showQcRunModal, setShowQcRunModal] = useState(false);
   const [qcForm, setQcForm] = useState({
     instrumentName: '',
-    department: 'laboratory',
     lotNumber: '',
     levelLabel: 'Level 1',
     status: 'passed' as 'passed' | 'warning' | 'failed',
@@ -67,7 +66,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
     try {
       await context.actions.logQcRun({
         instrumentName: qcForm.instrumentName,
-        department: qcForm.department,
+        department: 'laboratory',
         lotNumber: qcForm.lotNumber.trim(),
         levelLabel: qcForm.levelLabel,
         resultLabel: resultLabelFromStatus(qcForm.status),
@@ -76,7 +75,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
       setShowQcRunModal(false);
       setQcForm({
         instrumentName: '',
-        department: 'laboratory',
         lotNumber: '',
         levelLabel: 'Level 1',
         status: 'passed',
@@ -101,7 +99,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
             setQcError(null);
             setQcForm({
               instrumentName: labInstruments[0] ?? '',
-              department: 'laboratory',
               lotNumber: '',
               levelLabel: 'Level 1',
               status: 'passed',
@@ -273,17 +270,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                   {labInstruments.map((name) => (
                     <option key={name} value={name}>{name}</option>
                   ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-700">Department</span>
-                <select
-                  value={qcForm.department}
-                  onChange={(e) => setQcForm((f) => ({ ...f, department: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
-                >
-                  <option value="laboratory">Laboratory</option>
-                  <option value="radiology">Radiology</option>
                 </select>
               </label>
               <label className="block">
