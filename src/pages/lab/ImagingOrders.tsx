@@ -243,7 +243,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                     ❌ Rejected{study.rejectionReason ? `: ${study.rejectionReason}` : ''}
                   </span>
                 ) : null}
-                {tab !== 'rejected' ? (
+                {tab === 'new' ? (
                   <button type="button"
                     onClick={() => {
                       setRejectReason('');
