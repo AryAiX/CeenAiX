@@ -21,9 +21,14 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
     department: 'laboratory',
     lotNumber: '',
     levelLabel: 'Level 1',
-    resultLabel: '',
     status: 'passed' as 'passed' | 'warning' | 'failed',
   });
+
+  const resultLabelFromStatus = (status: 'passed' | 'warning' | 'failed') => {
+    if (status === 'passed') return 'Within acceptable range';
+    if (status === 'warning') return 'Borderline — monitor closely';
+    return 'Outside acceptable range';
+  };
   const [qcSaving, setQcSaving] = useState(false);
   const [qcError, setQcError] = useState<string | null>(null);
   const runs = data?.qcRuns ?? [];
@@ -57,10 +62,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
       setQcError('Please enter a QC lot number.');
       return;
     }
-    if (!qcForm.resultLabel.trim()) {
-      setQcError('Please enter a result label.');
-      return;
-    }
     setQcError(null);
     setQcSaving(true);
     try {
@@ -69,7 +70,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
         department: qcForm.department,
         lotNumber: qcForm.lotNumber.trim(),
         levelLabel: qcForm.levelLabel,
-        resultLabel: qcForm.resultLabel.trim(),
+        resultLabel: resultLabelFromStatus(qcForm.status),
         status: qcForm.status,
       });
       setShowQcRunModal(false);
@@ -78,7 +79,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
         department: 'laboratory',
         lotNumber: '',
         levelLabel: 'Level 1',
-        resultLabel: '',
         status: 'passed',
       });
     } catch (error) {
@@ -104,7 +104,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
               department: 'laboratory',
               lotNumber: '',
               levelLabel: 'Level 1',
-              resultLabel: '',
               status: 'passed',
             });
             setShowQcRunModal(true);
@@ -308,16 +307,6 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                   <option value="Level 2">Level 2 (Normal)</option>
                   <option value="Level 3">Level 3 (High)</option>
                 </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-700">Result Label</span>
-                <input
-                  type="text"
-                  value={qcForm.resultLabel}
-                  onChange={(e) => setQcForm((f) => ({ ...f, resultLabel: e.target.value }))}
-                  placeholder="e.g. Passed, Failed, Out of Range"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
-                />
               </label>
               <div>
                 <span className="mb-1 block text-xs font-semibold text-slate-700">Status</span>
