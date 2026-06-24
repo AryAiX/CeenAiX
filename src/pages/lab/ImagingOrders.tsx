@@ -46,6 +46,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [rejectReason, setRejectReason] = useState('');
   const [selectedRejectReason, setSelectedRejectReason] = useState('');
   const [rejectBusyId, setRejectBusyId] = useState<string | null>(null);
+  const [showPreAuthModal, setShowPreAuthModal] = useState(false);
 
   const handleConfirmReject = async () => {
     if (!rejectTarget || !selectedRejectReason) return;
@@ -234,16 +235,13 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                       <span className="font-semibold text-amber-800">{study.preauthStatus}</span>
                       {' ⚠️'}
                     </div>
-                    <a
-                      href={`mailto:?subject=${encodeURIComponent(
-                        `Pre-auth request: ${study.accession} ${study.studyName}`
-                      )}&body=${encodeURIComponent(
-                        `Patient: ${study.patientName}\nStudy: ${study.studyName}\nModality: ${study.modality}\nPrescriber: ${study.doctorName}\nInsurance: ${study.insurancePlan ?? '—'}\nClinical indication: ${study.clinicalIndication ?? '—'}\n\nPlease initiate pre-authorization.`
-                      )}`}
+                    <button
+                      type="button"
+                      onClick={() => setShowPreAuthModal(true)}
                       className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
                     >
                       📋 Request Pre-Auth
-                    </a>
+                    </button>
                   </div>
                   {study.preauthCoverage ? <div className="mt-1 text-xs text-amber-700">{study.preauthCoverage}</div> : null}
                 </div>
@@ -283,6 +281,28 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
         })}
       </div>
 
+      {showPreAuthModal
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Insurance Pre-Auth — Coming Soon</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Submitting pre-authorization requests directly through the portal isn't available yet. This requires integration with the insurance provider's system which will be built as part of the cross-portal connection pass. For now please contact the insurance provider through your existing process.
+                </p>
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowPreAuthModal(false)}
+                    className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
       {rejectTarget
         ? createPortal(
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
