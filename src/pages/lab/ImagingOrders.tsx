@@ -14,6 +14,19 @@ import { Pill, EmptyState } from './shared/ui';
 
 type ImagingOrderTab = 'new' | 'scheduled' | 'active' | 'completed' | 'rejected' | 'all';
 
+const IMAGING_REJECT_REASONS = [
+  'Patient cancelled appointment',
+  'Patient contraindicated (e.g. pacemaker for MRI)',
+  'Patient pregnant — study deferred',
+  'Patient unable to cooperate',
+  'Duplicate order already in progress',
+  'Incorrect modality requested',
+  'Missing clinical indication',
+  'Study not clinically justified',
+  'Insurance pre-authorization not approved',
+  'Missing referral documentation',
+] as const;
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) return error.message;
   if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
@@ -31,16 +44,24 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; accession: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [selectedRejectReason, setSelectedRejectReason] = useState('');
   const [rejectBusyId, setRejectBusyId] = useState<string | null>(null);
 
   const handleConfirmReject = async () => {
-    if (!rejectTarget) return;
+    if (!rejectTarget || !selectedRejectReason) return;
+    const finalReason =
+      selectedRejectReason === 'Other'
+        ? rejectReason.trim()
+        : rejectReason.trim()
+          ? `${selectedRejectReason} — ${rejectReason.trim()}`
+          : selectedRejectReason;
     setRejectError(null);
     setRejectBusyId(rejectTarget.id);
     try {
-      await context.actions.rejectImagingStudy(rejectTarget.id, rejectReason.trim());
+      await context.actions.rejectImagingStudy(rejectTarget.id, finalReason);
       setRejectTarget(null);
       setRejectReason('');
+      setSelectedRejectReason('');
     } catch (error) {
       setRejectError(getErrorMessage(error, 'Failed to reject this order.'));
     } finally {
@@ -247,6 +268,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button type="button"
                     onClick={() => {
                       setRejectReason('');
+                      setSelectedRejectReason('');
                       setRejectTarget({ id: study.id, accession: study.accession });
                     }}
                     disabled={rejectBusyId === study.id}
@@ -264,18 +286,44 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
       {rejectTarget
         ? createPortal(
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
                 <h3 className="text-lg font-bold text-gray-900">Reject Imaging Order</h3>
                 <p className="mt-2 text-sm text-gray-500">
-                  Provide a short reason for rejecting order {rejectTarget.accession}. This will be saved with the study.
+                  Select a reason for rejecting order {rejectTarget.accession}.
                 </p>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Contraindicated due to patient condition…"
-                  className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-rose-300"
-                />
+                <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-4 rounded-xl border border-gray-200 p-4">
+                  {IMAGING_REJECT_REASONS.map((reason) => (
+                    <label key={reason} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1 text-sm text-gray-700 hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="imaging-reject-reason"
+                        checked={selectedRejectReason === reason}
+                        onChange={() => setSelectedRejectReason(reason)}
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 border-gray-300 text-rose-600 focus:ring-rose-500"
+                      />
+                      <span>{reason}</span>
+                    </label>
+                  ))}
+                </div>
+                <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 px-2 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="imaging-reject-reason"
+                    checked={selectedRejectReason === 'Other'}
+                    onChange={() => setSelectedRejectReason('Other')}
+                    className="h-3.5 w-3.5 border-gray-300 text-rose-600 focus:ring-rose-500"
+                  />
+                  <span>Other</span>
+                </label>
+                {selectedRejectReason === 'Other' ? (
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    rows={2}
+                    placeholder="Please describe the reason…"
+                    className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-rose-300"
+                  />
+                ) : null}
                 {rejectError ? (
                   <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{rejectError}</p>
                 ) : null}
@@ -291,8 +339,12 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                   <button
                     type="button"
                     onClick={() => void handleConfirmReject()}
-                    disabled={rejectBusyId === rejectTarget.id}
-                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                    disabled={
+                      rejectBusyId === rejectTarget.id ||
+                      !selectedRejectReason ||
+                      (selectedRejectReason === 'Other' && !rejectReason.trim())
+                    }
+                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {rejectBusyId === rejectTarget.id ? 'Rejecting…' : 'Reject Order'}
                   </button>
