@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { LabPageContext } from './shared/types';
-import { formatTimeShort } from './shared/helpers';
+import { formatDateShort, formatTimeShort } from './shared/helpers';
 import { SectionCard, Pill } from './shared/ui';
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -83,7 +83,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-xs font-bold text-slate-500">
-          Last QC: {formatTimeShort(lastQcRun?.runAt)} · {lastQcRun?.department ?? 'Lab'} ·{' '}
+          Last QC: {lastQcRun ? `${formatDateShort(lastQcRun.runAt)} · ${formatTimeShort(lastQcRun.runAt)}` : '—'} · {lastQcRun?.department ?? 'Lab'} ·{' '}
           {lastQcRun?.resultLabel ?? 'No runs yet'}
         </div>
         <button
