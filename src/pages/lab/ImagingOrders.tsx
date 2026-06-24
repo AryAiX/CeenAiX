@@ -157,11 +157,15 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
                 <Pill className={priorityClass[study.priority]}>{accent.label}</Pill>
                 <span className="text-xs text-slate-500">{formatDateShort(study.scheduledAt)} · {formatTimeShort(study.scheduledAt)}</span>
                 <Pill className={
-                  (study.sourceLabel ?? '').toLowerCase().includes('walk-in')
+                  !study.sourceLabel
+                    ? 'bg-slate-100 text-slate-500 ring-slate-200'
+                    : study.sourceLabel.toLowerCase().includes('walk-in')
                     ? 'bg-slate-100 text-slate-700 ring-slate-200'
                     : 'bg-emerald-100 text-emerald-700 ring-emerald-200'
                 }>
-                  {study.sourceLabel ?? 'CeenAiX ePrescription'} {(study.sourceLabel ?? '').toLowerCase().includes('walk-in') ? '' : '✅'}
+                  {study.sourceLabel
+                    ? `${study.sourceLabel}${study.sourceLabel.toLowerCase().includes('walk-in') ? '' : ' ✅'}`
+                    : 'Unknown source'}
                 </Pill>
               </div>
 
