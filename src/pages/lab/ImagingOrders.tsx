@@ -110,7 +110,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
     return studies;
   }, [studies, rejectedStudies, tab]);
 
-  const preAuthCount = studies.filter((s) => s.preauthStatus).length;
+  const preAuthCount = studies.filter((s) => s.preauthStatus === 'Pre-auth required').length;
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
