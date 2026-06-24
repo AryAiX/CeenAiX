@@ -229,24 +229,20 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {tab !== 'rejected' ? (
+                {tab === 'new' ? (
                   <button
                     type="button"
                     onClick={() => void handleAcceptAndSchedule(study.id)}
                     disabled={acceptingId === study.id || study.status !== 'ordered'}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {acceptingId === study.id
-                      ? 'Accepting…'
-                      : study.status === 'ordered'
-                        ? 'Accept & Schedule'
-                        : 'Accepted'}
+                    {acceptingId === study.id ? 'Accepting…' : 'Accept & Schedule'}
                   </button>
-                ) : (
+                ) : tab === 'rejected' ? (
                   <span className="inline-flex items-center rounded-lg bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
                     ❌ Rejected{study.rejectionReason ? `: ${study.rejectionReason}` : ''}
                   </span>
-                )}
+                ) : null}
                 {tab !== 'rejected' ? (
                   <button type="button"
                     onClick={() => {
