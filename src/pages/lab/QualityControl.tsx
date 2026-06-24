@@ -39,6 +39,15 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
     .filter((e) => e.department === 'laboratory')
     .map((e) => e.name);
 
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const yesterdayDateStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const [dateFilter, setDateFilter] = useState<string>(todayDateStr);
+
+  const filteredRuns = runs.filter((r) => {
+    if (!dateFilter) return true;
+    return r.runAt.slice(0, 10) === dateFilter;
+  });
+
   const handleLogQcRun = async () => {
     if (!qcForm.instrumentName) {
       setQcError('Please select an instrument.');
@@ -151,7 +160,38 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
       ))}
 
       <SectionCard>
-        <h2 className="mb-3 font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">QC Results — Today</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">QC Results — {dateFilter === todayDateStr ? 'Today' : dateFilter === yesterdayDateStr ? 'Yesterday' : dateFilter}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDateFilter(todayDateStr)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${dateFilter === todayDateStr ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateFilter(yesterdayDateStr)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${dateFilter === yesterdayDateStr ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              Yesterday
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateFilter('')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${!dateFilter ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              All Recent
+            </button>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 outline-none focus:border-indigo-300"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto rounded-xl border border-slate-100">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
@@ -166,7 +206,15 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {runs.map((run) => (
+              {filteredRuns.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-500">
+                    No QC runs found for this date.
+                    <span className="mt-1 block text-xs text-slate-400">Try selecting a different date or use All Recent.</span>
+                  </td>
+                </tr>
+              ) : null}
+              {filteredRuns.map((run) => (
                 <tr key={run.id}>
                   <td className="px-3 py-2 text-slate-500">{formatTimeShort(run.runAt)}</td>
                   <td className="px-3 py-2 text-slate-600 capitalize">{run.department === 'laboratory' ? 'Laboratory' : run.department}</td>
