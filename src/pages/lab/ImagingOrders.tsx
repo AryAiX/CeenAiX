@@ -13,6 +13,14 @@ import { Pill, EmptyState } from './shared/ui';
 
 type ImagingOrderTab = 'new' | 'scheduled' | 'active' | 'completed' | 'rejected' | 'all';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
 export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
   const navigate = useNavigate();
   const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
@@ -33,7 +41,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
       setRejectTarget(null);
       setRejectReason('');
     } catch (error) {
-      setRejectError(error instanceof Error ? error.message : 'Failed to reject this order.');
+      setRejectError(getErrorMessage(error, 'Failed to reject this order.'));
     } finally {
       setRejectBusyId(null);
     }
@@ -46,7 +54,7 @@ export const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
       await context.actions.setImagingStudyStatus(studyId, 'scheduled');
       navigate('/lab/imaging/queue');
     } catch (error) {
-      setRejectError(error instanceof Error ? error.message : 'Failed to accept this study.');
+      setRejectError(getErrorMessage(error, 'Failed to accept this study.'));
     } finally {
       setAcceptingId(null);
     }
