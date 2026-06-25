@@ -21,6 +21,7 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const [searchParams] = useSearchParams();
   const requestedOrderId = searchParams.get('orderId');
+  const requestedInstrument = searchParams.get('instrument');
   const samples = context.data?.samples ?? [];
   const candidates = samples.filter((s) => s.status === 'resulted' || s.status === 'processing');
   const completedSamples = samples.filter((s) => s.status === 'reviewed');
@@ -67,9 +68,13 @@ export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
 
   useEffect(() => {
     if (instrument === '' && labInstruments.length > 0) {
-      setInstrument(labInstruments[0]);
+      if (requestedInstrument && labInstruments.includes(requestedInstrument)) {
+        setInstrument(requestedInstrument);
+      } else {
+        setInstrument(labInstruments[0]);
+      }
     }
-  }, [labInstruments, instrument]);
+  }, [labInstruments, instrument, requestedInstrument]);
   const matchingQcRun =
     qcRuns
       .filter((run) => run.instrumentName === instrument)
