@@ -15,7 +15,12 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
   const data = context.data;
   const [showLeveyJenningsModal, setShowLeveyJenningsModal] = useState(false);
   const [showViewLogModal, setShowViewLogModal] = useState(false);
-  const [showReviewFailureModal, setShowReviewFailureModal] = useState(false);
+  const [reviewFailureTarget, setReviewFailureTarget] = useState<{ id: string; instrumentName: string } | null>(null);
+  const [failureNotes, setFailureNotes] = useState('');
+  const [failureAction, setFailureAction] = useState<'maintenance' | 'replacement' | null>(null);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [showReplacementModal, setShowReplacementModal] = useState(false);
   const [showQcRunModal, setShowQcRunModal] = useState(false);
   const [qcForm, setQcForm] = useState({
     instrumentName: '',
@@ -52,6 +57,30 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
     if (!dateFilter) return true;
     return r.runAt.slice(0, 10) === dateFilter;
   });
+
+  const handleReviewFailure = async () => {
+    if (!reviewFailureTarget || !failureNotes.trim() || !failureAction) return;
+    if (failureAction === 'replacement') {
+      setShowReplacementModal(true);
+      return;
+    }
+    setReviewError(null);
+    setReviewSaving(true);
+    try {
+      await context.actions.reviewQcFailure({
+        runId: reviewFailureTarget.id,
+        failureNotes: failureNotes.trim(),
+        action: failureAction,
+      });
+      setReviewFailureTarget(null);
+      setFailureNotes('');
+      setFailureAction(null);
+    } catch (error) {
+      setReviewError(getErrorMessage(error, 'Failed to save failure review.'));
+    } finally {
+      setReviewSaving(false);
+    }
+  };
 
   const handleLogQcRun = async () => {
     if (!qcForm.instrumentName) {
@@ -252,7 +281,12 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setShowReviewFailureModal(true)}
+                        onClick={() => {
+                          setFailureNotes('');
+                          setFailureAction(null);
+                          setReviewError(null);
+                          setReviewFailureTarget({ id: run.id, instrumentName: run.instrumentName });
+                        }}
                         className="text-xs font-bold text-rose-600 underline decoration-dotted hover:text-rose-800"
                       >
                         Review Failure
@@ -390,18 +424,88 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
           </div>
         </div>
       ) : null}
-      {showReviewFailureModal ? (
+      {reviewFailureTarget ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Review QC Failure</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Document the failure for <span className="font-semibold text-slate-700">{reviewFailureTarget.instrumentName}</span> and choose a next action.
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Failure Notes</span>
+                <textarea
+                  value={failureNotes}
+                  onChange={(e) => setFailureNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Describe what failed and the suspected cause…"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-rose-300"
+                />
+              </label>
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Action</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFailureAction('maintenance')}
+                    className={`flex-1 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
+                      failureAction === 'maintenance'
+                        ? 'bg-amber-500 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    🔧 Flag for Maintenance
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFailureAction('replacement')}
+                    className={`flex-1 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
+                      failureAction === 'replacement'
+                        ? 'bg-rose-600 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    🔄 Request Replacement
+                  </button>
+                </div>
+              </div>
+            </div>
+            {reviewError ? (
+              <p className="mt-3 text-sm font-semibold text-red-600" role="alert">{reviewError}</p>
+            ) : null}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setReviewFailureTarget(null)}
+                disabled={reviewSaving}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReviewFailure()}
+                disabled={reviewSaving || !failureNotes.trim() || !failureAction}
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reviewSaving ? 'Saving…' : 'Submit Review'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showReplacementModal ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900">Review Failure — Coming Soon</h3>
+            <h3 className="text-lg font-bold text-gray-900">Request Replacement — Coming Soon</h3>
             <p className="mt-2 text-sm text-gray-500">
-              A dedicated failure review workflow — where lab staff can document the cause, corrective action taken, and sign off on resolution — hasn't been built yet. This will be added in a future pass once the QC audit trail feature is designed.
+              Submitting an instrument replacement request isn't available yet. This requires a procurement workflow that will be built in a future pass. Please contact your lab manager directly to initiate a replacement request.
             </p>
             <div className="mt-6">
               <button
                 type="button"
-                onClick={() => setShowReviewFailureModal(false)}
-                className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700"
+                onClick={() => setShowReplacementModal(false)}
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
               >
                 Got it
               </button>
