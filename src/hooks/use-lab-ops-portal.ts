@@ -1250,6 +1250,41 @@ export function useLabOpsActions(onChange: () => void) {
    * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
    * also compute and persist the actual minutes-to-notification on the row.
    */
+  const logMaintenance = useCallback(
+    async (input: {
+      equipmentId: string;
+      maintenanceType: 'scheduled' | 'unscheduled';
+      reason: string;
+      performedBy?: string | null;
+      expectedReturnAt?: string | null;
+      notes?: string | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_log_maintenance', {
+        p_equipment_id: input.equipmentId,
+        p_maintenance_type: input.maintenanceType,
+        p_reason: input.reason,
+        p_performed_by: input.performedBy ?? null,
+        p_expected_return_at: input.expectedReturnAt ?? null,
+        p_notes: input.notes ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const markEquipmentOnline = useCallback(
+    async (equipmentId: string, notes?: string | null) => {
+      const { error } = await supabase.rpc('lab_mark_equipment_online', {
+        p_equipment_id: equipmentId,
+        p_notes: notes ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const logQcRun = useCallback(
     async (input: {
       instrumentName: string;
@@ -1307,6 +1342,8 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       releaseOrderWithPin,
+      logMaintenance,
+      markEquipmentOnline,
       logQcRun,
       reviewQcFailure,
       rejectOrder,
@@ -1323,6 +1360,8 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       releaseOrderWithPin,
+      logMaintenance,
+      markEquipmentOnline,
       logQcRun,
       reviewQcFailure,
       rejectOrder,
