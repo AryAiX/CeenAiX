@@ -27,6 +27,10 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
     lotNumber: '',
     levelLabel: 'Level 1',
     status: 'passed' as 'passed' | 'warning' | 'failed',
+    resultValue: '',
+    targetValue: '',
+    sdValue: '',
+    unit: '',
   });
 
   const resultLabelFromStatus = (status: 'passed' | 'warning' | 'failed') => {
@@ -101,6 +105,10 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
         levelLabel: qcForm.levelLabel,
         resultLabel: resultLabelFromStatus(qcForm.status),
         status: qcForm.status,
+        resultValue: qcForm.resultValue ? Number(qcForm.resultValue) : null,
+        targetValue: qcForm.targetValue ? Number(qcForm.targetValue) : null,
+        sdValue: qcForm.sdValue ? Number(qcForm.sdValue) : null,
+        unit: qcForm.unit.trim() || null,
       });
       setShowQcRunModal(false);
       setQcForm({
@@ -108,6 +116,10 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
         lotNumber: '',
         levelLabel: 'Level 1',
         status: 'passed',
+        resultValue: '',
+        targetValue: '',
+        sdValue: '',
+        unit: '',
       });
     } catch (error) {
       setQcError(getErrorMessage(error, 'Failed to log QC run.'));
@@ -132,6 +144,10 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
               lotNumber: '',
               levelLabel: 'Level 1',
               status: 'passed',
+              resultValue: '',
+              targetValue: '',
+              sdValue: '',
+              unit: '',
             });
             setShowQcRunModal(true);
           }}
@@ -340,6 +356,51 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                   <option value="Level 3">Level 3 (High)</option>
                 </select>
               </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">Result Value</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={qcForm.resultValue}
+                    onChange={(e) => setQcForm((f) => ({ ...f, resultValue: e.target.value }))}
+                    placeholder="e.g. 4.2"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">Unit</span>
+                  <input
+                    type="text"
+                    value={qcForm.unit}
+                    onChange={(e) => setQcForm((f) => ({ ...f, unit: e.target.value }))}
+                    placeholder="e.g. mmol/L"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">Target Value</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={qcForm.targetValue}
+                    onChange={(e) => setQcForm((f) => ({ ...f, targetValue: e.target.value }))}
+                    placeholder="e.g. 4.0"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">SD Value</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={qcForm.sdValue}
+                    onChange={(e) => setQcForm((f) => ({ ...f, sdValue: e.target.value }))}
+                    placeholder="e.g. 0.2"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+                  />
+                </label>
+              </div>
               <div>
                 <span className="mb-1 block text-xs font-semibold text-slate-700">Status</span>
                 <div className="flex gap-2">
