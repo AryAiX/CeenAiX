@@ -179,6 +179,10 @@ export interface LabPortalQcRun {
   resultLabel: string;
   status: 'passed' | 'warning' | 'failed';
   runAt: string;
+  resultValue: number | null;
+  targetValue: number | null;
+  sdValue: number | null;
+  unit: string | null;
 }
 
 export interface LabPortalNabidhEvent {
@@ -450,6 +454,10 @@ interface QcRunRow {
   result_label: string;
   status: 'passed' | 'warning' | 'failed';
   run_at: string;
+  result_value: number | null;
+  target_value: number | null;
+  sd_value: number | null;
+  unit: string | null;
 }
 
 interface NabidhEventRow {
@@ -900,6 +908,10 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       resultLabel: run.result_label,
       status: run.status,
       runAt: run.run_at,
+      resultValue: run.result_value,
+      targetValue: run.target_value,
+      sdValue: run.sd_value,
+      unit: run.unit,
     }));
 
     const nabidhEvents: LabPortalNabidhEvent[] = ((nabidhData ?? []) as NabidhEventRow[]).map((event) => ({
@@ -1246,6 +1258,10 @@ export function useLabOpsActions(onChange: () => void) {
       levelLabel: string;
       resultLabel: string;
       status: 'passed' | 'warning' | 'failed';
+      resultValue?: number | null;
+      targetValue?: number | null;
+      sdValue?: number | null;
+      unit?: string | null;
     }) => {
       const { error } = await supabase.rpc('lab_log_qc_run', {
         p_instrument_name: input.instrumentName,
@@ -1254,6 +1270,10 @@ export function useLabOpsActions(onChange: () => void) {
         p_level_label: input.levelLabel,
         p_result_label: input.resultLabel,
         p_status: input.status,
+        p_result_value: input.resultValue ?? null,
+        p_target_value: input.targetValue ?? null,
+        p_sd_value: input.sdValue ?? null,
+        p_unit: input.unit ?? null,
       });
       if (error) throw error;
       onChange();
