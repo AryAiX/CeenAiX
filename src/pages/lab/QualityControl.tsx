@@ -15,6 +15,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
   const data = context.data;
   const [showLeveyJenningsModal, setShowLeveyJenningsModal] = useState(false);
   const [showViewLogModal, setShowViewLogModal] = useState(false);
+  const [showReviewFailureModal, setShowReviewFailureModal] = useState(false);
   const [showQcRunModal, setShowQcRunModal] = useState(false);
   const [qcForm, setQcForm] = useState({
     instrumentName: '',
@@ -229,7 +230,15 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                     </Pill>
                   </td>
                   <td className="px-3 py-2 text-slate-600">
-                    {run.status === 'warning' ? (
+                    {run.status === 'passed' ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowLeveyJenningsModal(true)}
+                        className="text-xs font-bold text-indigo-600 underline decoration-dotted hover:text-indigo-800"
+                      >
+                        Levey-Jennings
+                      </button>
+                    ) : run.status === 'warning' ? (
                       <button
                         type="button"
                         onClick={() => setShowViewLogModal(true)}
@@ -240,10 +249,10 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setShowLeveyJenningsModal(true)}
-                        className="text-xs font-bold text-indigo-600 underline decoration-dotted hover:text-indigo-800"
+                        onClick={() => setShowReviewFailureModal(true)}
+                        className="text-xs font-bold text-rose-600 underline decoration-dotted hover:text-rose-800"
                       >
-                        Levey-Jennings
+                        Review Failure
                       </button>
                     )}
                   </td>
@@ -371,6 +380,25 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                 type="button"
                 onClick={() => setShowViewLogModal(false)}
                 className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showReviewFailureModal ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Review Failure — Coming Soon</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              A dedicated failure review workflow — where lab staff can document the cause, corrective action taken, and sign off on resolution — hasn't been built yet. This will be added in a future pass once the QC audit trail feature is designed.
+            </p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowReviewFailureModal(false)}
+                className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700"
               >
                 Got it
               </button>
