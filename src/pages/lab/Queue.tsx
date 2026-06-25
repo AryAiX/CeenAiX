@@ -234,6 +234,15 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
   const [processingSampleId, setProcessingSampleId] = useState<string | null>(null);
   const [confirmingSpecimenId, setConfirmingSpecimenId] = useState<string | null>(null);
   const [rowActionError, setRowActionError] = useState<string | null>(null);
+  const [processTarget, setProcessTarget] = useState<{ id: string; patientName: string } | null>(null);
+  const [selectedInstrument, setSelectedInstrument] = useState('');
+  const [processModalError, setProcessModalError] = useState<string | null>(null);
+  const labInstruments = useMemo(
+    () => (context.data?.equipment ?? [])
+      .filter((e) => e.department === 'laboratory' && e.status !== 'maintenance')
+      .map((e) => e.name),
+    [context.data?.equipment]
+  );
 
   const filtered = useMemo(() => {
     return allSamples.filter((sample) => {
@@ -289,13 +298,17 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
     }
   };
 
-  const handleStartProcessing = async (sampleId: string) => {
-    setRowActionError(null);
-    setProcessingSampleId(sampleId);
+  const handleStartProcessing = async () => {
+    if (!processTarget || !selectedInstrument) return;
+    setProcessModalError(null);
+    setProcessingSampleId(processTarget.id);
     try {
-      await context.actions.startProcessing(sampleId);
+      await context.actions.startProcessing(processTarget.id, selectedInstrument);
+      setProcessTarget(null);
+      setSelectedInstrument('');
+      navigate(`/lab/results?orderId=${processTarget.id}&instrument=${encodeURIComponent(selectedInstrument)}`);
     } catch (error) {
-      setRowActionError(getErrorMessage(error, 'Could not start processing this sample.'));
+      setProcessModalError(getErrorMessage(error, 'Could not start processing this sample.'));
     } finally {
       setProcessingSampleId(null);
     }
@@ -586,7 +599,11 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
                               </button>
                             ) : sample.status === 'collected' ? (
                               <button type="button"
-                                onClick={() => void handleStartProcessing(sample.id)}
+                                onClick={() => {
+                                  setProcessModalError(null);
+                                  setSelectedInstrument(labInstruments[0] ?? '');
+                                  setProcessTarget({ id: sample.id, patientName: sample.patientName });
+                                }}
                                 disabled={processingSampleId === sample.id}
                                 className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
                               >
@@ -632,6 +649,54 @@ export const LabQueuePage = ({ context }: { context: LabPageContext }) => {
           </div>
         </div>
       </div>
+      {processTarget ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Select Instrument</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Which instrument will process <span className="font-semibold text-slate-700">{processTarget.patientName}</span>'s sample?
+            </p>
+            <div className="mt-4 space-y-1">
+              {labInstruments.map((name) => (
+                <label key={name} className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                  <input
+                    type="radio"
+                    name="process-instrument"
+                    checked={selectedInstrument === name}
+                    onChange={() => setSelectedInstrument(name)}
+                    className="h-3.5 w-3.5 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-semibold">{name}</span>
+                </label>
+              ))}
+              {labInstruments.length === 0 ? (
+                <p className="text-sm text-slate-500">No instruments available. Please check equipment status.</p>
+              ) : null}
+            </div>
+            {processModalError ? (
+              <p className="mt-3 text-sm font-semibold text-red-600" role="alert">{processModalError}</p>
+            ) : null}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setProcessTarget(null)}
+                disabled={!!processingSampleId}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleStartProcessing()}
+                disabled={!selectedInstrument || !!processingSampleId}
+                className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {processingSampleId ? 'Starting…' : '▶ Start Processing'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showImportModal ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
