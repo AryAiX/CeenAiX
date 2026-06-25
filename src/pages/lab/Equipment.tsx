@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { LabPortalData, LabPortalEquipment, LabDepartment } from '../../hooks';
 import { formatDateShort } from './shared/helpers';
 import { SectionCard, ProgressMeter } from './shared/ui';
@@ -185,6 +186,7 @@ const EquipmentCard = ({
 };
 
 export const EquipmentPage = ({ data, department }: { data: LabPortalData | null; department: LabDepartment }) => {
+  const [showPurchaseOrderModal, setShowPurchaseOrderModal] = useState(false);
   const items = (data?.equipment ?? []).filter((e) => e.department === department);
   const lowReagents = items.filter((i) => (i.reagents ?? []).some((r) => r.percent < 50));
   const qcRuns = data?.qcRuns ?? [];
@@ -209,20 +211,13 @@ export const EquipmentPage = ({ data, department }: { data: LabPortalData | null
                     .join(' · ')}
                 </p>
               </div>
-              <a
-                href={`mailto:?subject=${encodeURIComponent('Reagent purchase order')}&body=${encodeURIComponent(
-                  lowReagents
-                    .flatMap((eq) =>
-                      eq.reagents
-                        .filter((r) => r.percent < 50)
-                        .map((r) => `- ${eq.name} · ${r.name} at ${r.percent}%`)
-                    )
-                    .join('\n')
-                )}`}
+              <button
+                type="button"
+                onClick={() => setShowPurchaseOrderModal(true)}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
               >
                 📦 Generate Purchase Order
-              </a>
+              </button>
             </div>
           </SectionCard>
         ) : null}
@@ -233,6 +228,25 @@ export const EquipmentPage = ({ data, department }: { data: LabPortalData | null
           ))}
         </div>
       </div>
+      {showPurchaseOrderModal ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Generate Purchase Order — Coming Soon</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Generating and submitting purchase orders directly through the portal isn't available yet. This requires integration with your procurement system which will be built in a future pass. Please contact your supplier through your existing process.
+            </p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowPurchaseOrderModal(false)}
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
