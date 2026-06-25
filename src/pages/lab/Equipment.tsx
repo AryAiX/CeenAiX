@@ -272,10 +272,16 @@ export const EquipmentPage = ({ context, department }: { context: LabPageContext
   const items = (data?.equipment ?? []).filter((e) => e.department === department);
   const lowReagents = items.filter((i) => (i.reagents ?? []).some((r) => r.percent < 50));
   const qcRuns = data?.qcRuns ?? [];
-  const latestQcRunFor = (name: string) =>
-    qcRuns
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const latestQcRunFor = (name: string) => {
+    const instrumentRuns = qcRuns
       .filter((run) => run.instrumentName === name)
-      .sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0] ?? null;
+      .sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime());
+    const todayRun = instrumentRuns.find((run) => new Date(run.runAt).getTime() >= todayStart.getTime());
+    return todayRun ?? instrumentRuns[0] ?? null;
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
