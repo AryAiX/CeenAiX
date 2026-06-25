@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { LabPortalData, LabPortalEquipment, LabDepartment } from '../../hooks';
+import type { LabPortalEquipment, LabDepartment } from '../../hooks';
+import type { LabPageContext } from './shared/types';
 import { formatDateShort } from './shared/helpers';
 import { SectionCard, ProgressMeter } from './shared/ui';
 
@@ -7,10 +8,12 @@ const EquipmentCard = ({
   item,
   department,
   latestQcRun,
+  context: _context,
 }: {
   item: LabPortalEquipment;
   department: LabDepartment;
   latestQcRun: { status: 'passed' | 'failed' | 'warning' } | null;
+  context: LabPageContext;
 }) => {
   const statusColor =
     item.status === 'online' ? 'bg-emerald-100 text-emerald-700' :
@@ -185,7 +188,8 @@ const EquipmentCard = ({
   );
 };
 
-export const EquipmentPage = ({ data, department }: { data: LabPortalData | null; department: LabDepartment }) => {
+export const EquipmentPage = ({ context, department }: { context: LabPageContext; department: LabDepartment }) => {
+  const data = context.data;
   const [showPurchaseOrderModal, setShowPurchaseOrderModal] = useState(false);
   const items = (data?.equipment ?? []).filter((e) => e.department === department);
   const lowReagents = items.filter((i) => (i.reagents ?? []).some((r) => r.percent < 50));
@@ -224,7 +228,7 @@ export const EquipmentPage = ({ data, department }: { data: LabPortalData | null
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <EquipmentCard key={item.id} item={item} department={department} latestQcRun={latestQcRunFor(item.name)} />
+            <EquipmentCard key={item.id} item={item} department={department} latestQcRun={latestQcRunFor(item.name)} context={context} />
           ))}
         </div>
       </div>

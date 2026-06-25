@@ -47,9 +47,9 @@ const LabPageBody = ({ page, context }: { page: LabPage; context: ReturnType<typ
     case 'imaging-reports':
       return <RadiologyReportsPage context={context} />;
     case 'imaging-equipment':
-      return <EquipmentPage data={context.data} department="radiology" />;
+      return <EquipmentPage context={context} department="radiology" />;
     case 'equipment':
-      return <EquipmentPage data={context.data} department="laboratory" />;
+      return <EquipmentPage context={context} department="laboratory" />;
     case 'nabidh':
       return <NabidhPage context={context} />;
     case 'analytics':
