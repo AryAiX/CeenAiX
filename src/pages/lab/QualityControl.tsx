@@ -138,7 +138,10 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
 
       {labEquipmentInMaintenance.map((equipment) => (
         <SectionCard key={equipment.id} className="border-amber-200 bg-amber-50">
-          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{equipment.name} ({equipment.equipmentType}) — {equipment.status === 'warning' ? 'QC Warning' : 'Under Maintenance'}</h2>
+          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">
+            {equipment.name} ({equipment.equipmentType}) —{' '}
+            {equipment.status === 'warning' ? '⚠️ QC Warning' : '🔧 Under Maintenance'}
+          </h2>
           {equipment.subtitle ? (
             <p className="mt-1 text-sm text-amber-800">{equipment.subtitle}</p>
           ) : (
