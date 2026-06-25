@@ -1216,6 +1216,23 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  const reviewQcFailure = useCallback(
+    async (input: {
+      runId: string;
+      failureNotes: string;
+      action: 'maintenance' | 'replacement';
+    }) => {
+      const { error } = await supabase.rpc('lab_review_qc_failure', {
+        p_run_id: input.runId,
+        p_failure_notes: input.failureNotes,
+        p_action: input.action,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   /**
    * Records that the prescribing doctor has been notified about a critical
    * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
@@ -1271,6 +1288,7 @@ export function useLabOpsActions(onChange: () => void) {
       releaseOrder,
       releaseOrderWithPin,
       logQcRun,
+      reviewQcFailure,
       rejectOrder,
       rejectImagingStudy,
       saveItemResult,
@@ -1286,6 +1304,7 @@ export function useLabOpsActions(onChange: () => void) {
       releaseOrder,
       releaseOrderWithPin,
       logQcRun,
+      reviewQcFailure,
       rejectOrder,
       rejectImagingStudy,
       saveItemResult,
