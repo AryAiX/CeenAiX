@@ -1070,8 +1070,11 @@ export function useLabOpsActions(onChange: () => void) {
   );
 
   const startProcessing = useCallback(
-    async (orderId: string) => {
-      const { error } = await supabase.rpc('lab_start_processing', { target_order_id: orderId });
+    async (orderId: string, instrumentName?: string | null) => {
+      const { error } = await supabase.rpc('lab_start_processing', {
+        target_order_id: orderId,
+        p_instrument_name: instrumentName ?? null,
+      });
       if (error) throw error;
       onChange();
     },
