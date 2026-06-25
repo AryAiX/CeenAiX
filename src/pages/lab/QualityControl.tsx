@@ -38,7 +38,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
   const todayRuns = runs.filter((r) => new Date(r.runAt).getTime() >= todayStart.getTime());
   const passed = todayRuns.filter((r) => r.status === 'passed').length;
   const failures = todayRuns.filter((r) => r.status === 'failed').length;
-  const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && e.status === 'maintenance');
+  const labEquipmentInMaintenance = (data?.equipment ?? []).filter((e) => e.department === 'laboratory' && (e.status === 'maintenance' || e.status === 'warning'));
   const maintenance = labEquipmentInMaintenance.length;
   const labInstruments = (data?.equipment ?? [])
     .filter((e) => e.department === 'laboratory')
@@ -119,7 +119,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
           <div className="mt-2 text-xs text-emerald-700">{todayRuns.length === 0 ? 'No QC runs logged today' : 'Instruments passed today'}</div>
         </SectionCard>
         <SectionCard className="border-amber-200 bg-amber-50">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">MAINTENANCE ⚠️</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">NEEDS ATTENTION ⚠️</div>
           <div className="mt-2 font-['Plus_Jakarta_Sans'] text-3xl font-bold text-amber-900">{maintenance}</div>
           <div className="mt-2 text-xs text-amber-800">
             {labEquipmentInMaintenance.length === 0
@@ -138,7 +138,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
 
       {labEquipmentInMaintenance.map((equipment) => (
         <SectionCard key={equipment.id} className="border-amber-200 bg-amber-50">
-          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{equipment.name} ({equipment.equipmentType}) — Under Maintenance</h2>
+          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-amber-950">{equipment.name} ({equipment.equipmentType}) — {equipment.status === 'warning' ? 'QC Warning' : 'Under Maintenance'}</h2>
           {equipment.subtitle ? (
             <p className="mt-1 text-sm text-amber-800">{equipment.subtitle}</p>
           ) : (
