@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, Tooltip, ResponsiveContainer } from 'recharts';
 import type { LabPageContext } from './shared/types';
 import { formatDateShort, formatTimeShort } from './shared/helpers';
 import { SectionCard, Pill } from './shared/ui';
@@ -13,7 +14,11 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 
 export const QualityControlView = ({ context }: { context: LabPageContext }) => {
   const data = context.data;
-  const [showLeveyJenningsModal, setShowLeveyJenningsModal] = useState(false);
+  const [leveyJenningsTarget, setLeveyJenningsTarget] = useState<{
+    instrumentName: string;
+    lotNumber: string;
+    levelLabel: string;
+  } | null>(null);
   const [showViewLogModal, setShowViewLogModal] = useState(false);
   const [reviewFailureTarget, setReviewFailureTarget] = useState<{ id: string; instrumentName: string } | null>(null);
   const [failureNotes, setFailureNotes] = useState('');
@@ -281,7 +286,11 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
                     {run.status === 'passed' ? (
                       <button
                         type="button"
-                        onClick={() => setShowLeveyJenningsModal(true)}
+                        onClick={() => setLeveyJenningsTarget({
+                          instrumentName: run.instrumentName,
+                          lotNumber: run.lotNumber,
+                          levelLabel: run.levelLabel,
+                        })}
                         className="text-xs font-bold text-indigo-600 underline decoration-dotted hover:text-indigo-800"
                       >
                         Levey-Jennings
@@ -447,25 +456,115 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
           </div>
         </div>
       ) : null}
-      {showLeveyJenningsModal ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900">Levey-Jennings Chart — Coming Soon</h3>
-            <p className="mt-2 text-sm text-gray-500">
-              Levey-Jennings charts show an instrument's QC results plotted over time, making it easy to spot trends or drift before results actually fail. This feature hasn't been built yet and will be added in a future pass.
-            </p>
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setShowLeveyJenningsModal(false)}
-                className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
-              >
-                Got it
-              </button>
+      {leveyJenningsTarget ? (() => {
+        const chartRuns = runs.filter(
+          (r) =>
+            r.instrumentName === leveyJenningsTarget.instrumentName &&
+            r.lotNumber === leveyJenningsTarget.lotNumber &&
+            r.levelLabel === leveyJenningsTarget.levelLabel &&
+            r.resultValue != null &&
+            r.targetValue != null
+        );
+        const target = chartRuns[0]?.targetValue ?? 0;
+        const sd = chartRuns[0]?.sdValue ?? 0;
+        const unit = chartRuns[0]?.unit ?? '';
+        const chartData = chartRuns
+          .sort((a, b) => new Date(a.runAt).getTime() - new Date(b.runAt).getTime())
+          .map((r) => ({
+            time: `${formatDateShort(r.runAt)} ${formatTimeShort(r.runAt)}`,
+            value: r.resultValue,
+            status: r.status,
+          }));
+        const CustomDot = (props: { cx?: number; cy?: number; payload?: { status: string } }) => {
+          const { cx, cy, payload } = props;
+          if (cx == null || cy == null) return null;
+          const color = payload?.status === 'passed' ? '#10b981' : payload?.status === 'warning' ? '#f59e0b' : '#ef4444';
+          return <circle cx={cx} cy={cy} r={5} fill={color} stroke="white" strokeWidth={1.5} />;
+        };
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Levey-Jennings Chart</h3>
+                  <p className="text-sm text-slate-500">
+                    {leveyJenningsTarget.instrumentName} · {leveyJenningsTarget.lotNumber} · {leveyJenningsTarget.levelLabel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLeveyJenningsTarget(null)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
+              {chartData.length === 0 ? (
+                <div className="mt-6 rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                  No numeric QC data available for this instrument + lot + level combination yet.
+                  <span className="mt-1 block text-xs text-slate-400">Log new QC runs with result values to see the chart.</span>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
+                    <span><span className="font-bold">Target:</span> {target} {unit}</span>
+                    <span><span className="font-bold">SD:</span> {sd} {unit}</span>
+                    <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" /> Passed</span>
+                    <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" /> Warning</span>
+                    <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" /> Failed</span>
+                  </div>
+                  <div className="mt-4 h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis
+                          dataKey="time"
+                          tick={{ fontSize: 10, fill: '#94a3b8' }}
+                          angle={-35}
+                          textAnchor="end"
+                          interval={0}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: '#94a3b8' }}
+                          domain={[
+                            Math.min(target - sd * 3.5, ...chartData.map((d) => d.value ?? 0)),
+                            Math.max(target + sd * 3.5, ...chartData.map((d) => d.value ?? 0)),
+                          ]}
+                          tickFormatter={(v) => `${Number(v).toFixed(1)}`}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value ?? ''} ${unit}`, 'Result']}
+                          labelStyle={{ fontSize: 11 }}
+                          contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                        />
+                        {sd > 0 ? (
+                          <>
+                            <ReferenceLine y={target} stroke="#64748b" strokeWidth={1.5} label={{ value: 'Mean', position: 'right', fontSize: 10, fill: '#64748b' }} />
+                            <ReferenceLine y={target + sd} stroke="#10b981" strokeDasharray="4 2" strokeWidth={1} label={{ value: '+1SD', position: 'right', fontSize: 9, fill: '#10b981' }} />
+                            <ReferenceLine y={target - sd} stroke="#10b981" strokeDasharray="4 2" strokeWidth={1} label={{ value: '-1SD', position: 'right', fontSize: 9, fill: '#10b981' }} />
+                            <ReferenceLine y={target + sd * 2} stroke="#f59e0b" strokeDasharray="4 2" strokeWidth={1} label={{ value: '+2SD', position: 'right', fontSize: 9, fill: '#f59e0b' }} />
+                            <ReferenceLine y={target - sd * 2} stroke="#f59e0b" strokeDasharray="4 2" strokeWidth={1} label={{ value: '-2SD', position: 'right', fontSize: 9, fill: '#f59e0b' }} />
+                            <ReferenceLine y={target + sd * 3} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1} label={{ value: '+3SD', position: 'right', fontSize: 9, fill: '#ef4444' }} />
+                            <ReferenceLine y={target - sd * 3} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1} label={{ value: '-3SD', position: 'right', fontSize: 9, fill: '#ef4444' }} />
+                          </>
+                        ) : null}
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke="#6366f1"
+                          strokeWidth={1.5}
+                          dot={<CustomDot />}
+                          activeDot={{ r: 7 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      ) : null}
+        );
+      })() : null}
       {showViewLogModal ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
