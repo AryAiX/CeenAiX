@@ -9,11 +9,15 @@ const EquipmentCard = ({
   department,
   latestQcRun,
   context: _context,
+  onMaintenanceClick,
+  onMarkOnlineClick,
 }: {
   item: LabPortalEquipment;
   department: LabDepartment;
   latestQcRun: { status: 'passed' | 'failed' | 'warning' } | null;
   context: LabPageContext;
+  onMaintenanceClick: () => void;
+  onMarkOnlineClick: () => void;
 }) => {
   const statusColor =
     item.status === 'online' ? 'bg-emerald-100 text-emerald-700' :
@@ -144,7 +148,7 @@ const EquipmentCard = ({
         );
       })() : null}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {isLab ? (
           <button
             type="button"
@@ -167,9 +171,8 @@ const EquipmentCard = ({
         {isLab ? (
           <button
             type="button"
-            disabled
-            title="Maintenance logging — coming soon"
-            className="flex-1 cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-400 opacity-70 text-center"
+            onClick={onMaintenanceClick}
+            className="flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 text-center"
           >
             ⚙️ Log Maintenance
           </button>
@@ -183,6 +186,15 @@ const EquipmentCard = ({
             ⚙️ Maintenance
           </button>
         )}
+        {isLab && (item.status === 'maintenance' || item.status === 'warning') ? (
+          <button
+            type="button"
+            onClick={onMarkOnlineClick}
+            className="flex-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 text-center"
+          >
+            ✅ Mark Online
+          </button>
+        ) : null}
       </div>
     </SectionCard>
   );
@@ -191,6 +203,72 @@ const EquipmentCard = ({
 export const EquipmentPage = ({ context, department }: { context: LabPageContext; department: LabDepartment }) => {
   const data = context.data;
   const [showPurchaseOrderModal, setShowPurchaseOrderModal] = useState(false);
+  const [maintenanceTarget, setMaintenanceTarget] = useState<{ id: string; name: string } | null>(null);
+  const [onlineTarget, setOnlineTarget] = useState<{ id: string; name: string } | null>(null);
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    maintenanceType: 'scheduled' as 'scheduled' | 'unscheduled',
+    reason: '',
+    performedBy: '',
+    expectedReturnAt: '',
+    notes: '',
+  });
+  const [onlineNotes, setOnlineNotes] = useState('');
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [onlineSaving, setOnlineSaving] = useState(false);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [onlineError, setOnlineError] = useState<string | null>(null);
+
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error) return error.message;
+    if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+      return (error as { message: string }).message;
+    }
+    return fallback;
+  };
+
+  const handleLogMaintenance = async () => {
+    if (!maintenanceTarget || !maintenanceForm.reason.trim()) return;
+    setMaintenanceError(null);
+    setMaintenanceSaving(true);
+    try {
+      await context.actions.logMaintenance({
+        equipmentId: maintenanceTarget.id,
+        maintenanceType: maintenanceForm.maintenanceType,
+        reason: maintenanceForm.reason.trim(),
+        performedBy: maintenanceForm.performedBy.trim() || null,
+        expectedReturnAt: maintenanceForm.expectedReturnAt || null,
+        notes: maintenanceForm.notes.trim() || null,
+      });
+      setMaintenanceTarget(null);
+      setMaintenanceForm({
+        maintenanceType: 'scheduled',
+        reason: '',
+        performedBy: '',
+        expectedReturnAt: '',
+        notes: '',
+      });
+    } catch (error) {
+      setMaintenanceError(getErrorMessage(error, 'Failed to log maintenance.'));
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
+  const handleMarkOnline = async () => {
+    if (!onlineTarget) return;
+    setOnlineError(null);
+    setOnlineSaving(true);
+    try {
+      await context.actions.markEquipmentOnline(onlineTarget.id, onlineNotes.trim() || null);
+      setOnlineTarget(null);
+      setOnlineNotes('');
+    } catch (error) {
+      setOnlineError(getErrorMessage(error, 'Failed to mark equipment as online.'));
+    } finally {
+      setOnlineSaving(false);
+    }
+  };
+
   const items = (data?.equipment ?? []).filter((e) => e.department === department);
   const lowReagents = items.filter((i) => (i.reagents ?? []).some((r) => r.percent < 50));
   const qcRuns = data?.qcRuns ?? [];
@@ -228,10 +306,156 @@ export const EquipmentPage = ({ context, department }: { context: LabPageContext
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <EquipmentCard key={item.id} item={item} department={department} latestQcRun={latestQcRunFor(item.name)} context={context} />
+            <EquipmentCard
+              key={item.id}
+              item={item}
+              department={department}
+              latestQcRun={latestQcRunFor(item.name)}
+              context={context}
+              onMaintenanceClick={() => {
+                setMaintenanceForm({ maintenanceType: 'scheduled', reason: '', performedBy: '', expectedReturnAt: '', notes: '' });
+                setMaintenanceError(null);
+                setMaintenanceTarget({ id: item.id, name: item.name });
+              }}
+              onMarkOnlineClick={() => {
+                setOnlineNotes('');
+                setOnlineError(null);
+                setOnlineTarget({ id: item.id, name: item.name });
+              }}
+            />
           ))}
         </div>
       </div>
+      {maintenanceTarget ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Log Maintenance</h3>
+            <p className="mt-1 text-sm text-gray-500">Record a maintenance event for <span className="font-semibold text-slate-700">{maintenanceTarget.name}</span>.</p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Type</span>
+                <div className="flex gap-2">
+                  {(['scheduled', 'unscheduled'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setMaintenanceForm((f) => ({ ...f, maintenanceType: t }))}
+                      className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold capitalize transition ${
+                        maintenanceForm.maintenanceType === t
+                          ? 'bg-amber-500 text-white'
+                          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {t === 'scheduled' ? '📅 Scheduled' : '⚠️ Unscheduled'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Reason <span className="text-rose-500">*</span></span>
+                <input
+                  type="text"
+                  value={maintenanceForm.reason}
+                  onChange={(e) => setMaintenanceForm((f) => ({ ...f, reason: e.target.value }))}
+                  placeholder="e.g. Daily calibration, Pump failure…"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-300"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Performed By</span>
+                <input
+                  type="text"
+                  value={maintenanceForm.performedBy}
+                  onChange={(e) => setMaintenanceForm((f) => ({ ...f, performedBy: e.target.value }))}
+                  placeholder="e.g. Siemens Field Service"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-300"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Expected Return</span>
+                <input
+                  type="datetime-local"
+                  value={maintenanceForm.expectedReturnAt}
+                  onChange={(e) => setMaintenanceForm((f) => ({ ...f, expectedReturnAt: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-300"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">Notes</span>
+                <textarea
+                  value={maintenanceForm.notes}
+                  onChange={(e) => setMaintenanceForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Any additional details…"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-300"
+                />
+              </label>
+            </div>
+            {maintenanceError ? (
+              <p className="mt-3 text-sm font-semibold text-red-600" role="alert">{maintenanceError}</p>
+            ) : null}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMaintenanceTarget(null)}
+                disabled={maintenanceSaving}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleLogMaintenance()}
+                disabled={maintenanceSaving || !maintenanceForm.reason.trim()}
+                className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {maintenanceSaving ? 'Saving…' : 'Log Maintenance'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {onlineTarget ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Mark as Online</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Confirm that <span className="font-semibold text-slate-700">{onlineTarget.name}</span> is back online and ready for use.
+            </p>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-semibold text-slate-700">Completion Notes (optional)</span>
+              <textarea
+                value={onlineNotes}
+                onChange={(e) => setOnlineNotes(e.target.value)}
+                rows={2}
+                placeholder="e.g. Calibration completed, instrument running normally…"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-300"
+              />
+            </label>
+            {onlineError ? (
+              <p className="mt-3 text-sm font-semibold text-red-600" role="alert">{onlineError}</p>
+            ) : null}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setOnlineTarget(null)}
+                disabled={onlineSaving}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMarkOnline()}
+                disabled={onlineSaving}
+                className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {onlineSaving ? 'Saving…' : '✅ Mark Online'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showPurchaseOrderModal ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
