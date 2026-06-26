@@ -31,6 +31,11 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
   const [manualChecklist, setManualChecklist] = useState<Record<string, boolean>>({});
 
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
+
+  useEffect(() => {
+    setSelectedId(list[0]?.id ?? null);
+  }, [tab]);
+
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
   const isReadOnly = selected?.status === 'released';
 
