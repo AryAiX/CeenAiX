@@ -1155,6 +1155,29 @@ export function useLabOpsActions(onChange: () => void) {
    * reported → released). Used by the radiology reporting workspace's
    * Save Draft / Submit Preliminary / Verify & Sign buttons.
    */
+  const signRadiologyReport = useCallback(
+    async (input: {
+      studyId: string;
+      pin: string;
+      findings?: string | null;
+      impression?: string | null;
+      recommendations?: string | null;
+      reportChecklist?: Record<string, boolean> | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_sign_radiology_report', {
+        p_study_id: input.studyId,
+        p_radiologist_pin: input.pin,
+        p_findings: input.findings ?? null,
+        p_impression: input.impression ?? null,
+        p_recommendations: input.recommendations ?? null,
+        p_report_checklist: input.reportChecklist ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const setImagingStudyStatus = useCallback(
     async (
       studyId: string,
@@ -1356,6 +1379,7 @@ export function useLabOpsActions(onChange: () => void) {
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
       setImagingStudyStatus,
+      signRadiologyReport,
     }),
     [
       claimSample,
@@ -1374,6 +1398,7 @@ export function useLabOpsActions(onChange: () => void) {
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
       setImagingStudyStatus,
+      signRadiologyReport,
     ],
   );
 }
