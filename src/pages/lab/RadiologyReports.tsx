@@ -31,6 +31,7 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
 
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
+  const isReadOnly = selected?.status === 'released';
 
   const [findingsText, setFindingsText] = useState('');
   const [impressionText, setImpressionText] = useState('');
@@ -259,7 +260,8 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                   value={findingsText}
                   onChange={(e) => setFindingsText(e.target.value)}
                   placeholder="Enter findings for this study…"
-                  className="mt-2 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                  readOnly={isReadOnly}
+                  className={`mt-2 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm ${isReadOnly ? 'cursor-not-allowed bg-slate-50 text-slate-500' : ''}`}
                 />
               </SectionCard>
             </div>
@@ -271,7 +273,8 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                 value={impressionText}
                 onChange={(e) => setImpressionText(e.target.value)}
                 placeholder="Enter impression/conclusion for this study…"
-                className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                readOnly={isReadOnly}
+                className={`mt-2 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm ${isReadOnly ? 'cursor-not-allowed bg-slate-50 text-slate-500' : ''}`}
               />
               <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm">
                 <div>
@@ -291,7 +294,8 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                     value={recommendationsText}
                     onChange={(e) => setRecommendationsText(e.target.value)}
                     placeholder="Follow-up recommendations…"
-                    className="mt-1 min-h-[72px] w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs"
+                    readOnly={isReadOnly}
+                    className={`mt-1 min-h-[72px] w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs ${isReadOnly ? 'cursor-not-allowed text-slate-500' : ''}`}
                   />
                 </div>
               </div>
@@ -326,29 +330,37 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                   {reportNotice}
                 </div>
               ) : null}
-              <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button type="button"
-                  onClick={() => void handleSaveDraft()}
-                  disabled={savingReport !== 'idle'}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {savingReport === 'draft' ? 'Saving…' : '💾 Save Draft'}
-                </button>
-                <button type="button"
-                  onClick={() => void advanceStudy('reported', 'preliminary', 'preliminary')}
-                  disabled={savingReport !== 'idle'}
-                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {savingReport === 'preliminary' ? 'Submitting…' : '📤 Submit Preliminary'}
-                </button>
-                <button type="button"
-                  onClick={() => void advanceStudy('released', 'verify', 'final')}
-                  disabled={savingReport !== 'idle'}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {savingReport === 'verify' ? 'Verifying…' : 'Verify & Sign Report'}
-                </button>
-              </div>
+              {isReadOnly ? (
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700">
+                    ✅ Report Verified & Released
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button type="button"
+                    onClick={() => void handleSaveDraft()}
+                    disabled={savingReport !== 'idle'}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingReport === 'draft' ? 'Saving…' : '💾 Save Draft'}
+                  </button>
+                  <button type="button"
+                    onClick={() => void advanceStudy('reported', 'preliminary', 'preliminary')}
+                    disabled={savingReport !== 'idle'}
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingReport === 'preliminary' ? 'Submitting…' : '📤 Submit Preliminary'}
+                  </button>
+                  <button type="button"
+                    onClick={() => void advanceStudy('released', 'verify', 'final')}
+                    disabled={savingReport !== 'idle'}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingReport === 'verify' ? 'Verifying…' : 'Verify & Sign Report'}
+                  </button>
+                </div>
+              )}
             </SectionCard>
           </div>
         </div>
