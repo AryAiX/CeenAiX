@@ -1,12 +1,36 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { LabPageContext } from './shared/types';
 import { ageGenderLabel, formatTat, formatTimeShort } from './shared/helpers';
 import { SectionCard, Pill, ProgressMeter } from './shared/ui';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
 const IMAGING_STATUS_TABS = ['All', 'Scanning', 'Report Pending', 'Scheduled', 'Complete'] as const;
 
 export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
+  const navigate = useNavigate();
   const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleSetStatus = async (studyId: string, status: 'scanning' | 'report_pending') => {
+    setActionError(null);
+    setActionBusyId(studyId);
+    try {
+      await context.actions.setImagingStudyStatus(studyId, status);
+    } catch (error) {
+      setActionError(getErrorMessage(error, 'Could not update study status.'));
+    } finally {
+      setActionBusyId(null);
+    }
+  };
   const modalities = useMemo(() => {
     const unique = Array.from(new Set(studies.map((s) => s.modality.toUpperCase()))).sort();
     return ['All ●', ...unique];
@@ -41,7 +65,7 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
         <div>
           <h1 className="font-['Plus_Jakarta_Sans'] text-2xl font-bold text-slate-900">Imaging Queue — {new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            <span className="font-bold">{filtered.length}</span> studies today · {active.length} scanning · {released.length} reported · {scheduled.length} scheduled
+            <span className="font-bold">{filtered.length}</span> studies · {active.length} scanning · {released.length} reported · {scheduled.length} scheduled
           </p>
         </div>
 
@@ -69,6 +93,11 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
           ))}
         </div>
 
+        {actionError ? (
+          <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+            {actionError}
+          </div>
+        ) : null}
         {active.length > 0 ? (
           <SectionCard>
             <div className="mb-3 flex items-center justify-between">
@@ -95,6 +124,14 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
                   <p className="mt-2 text-sm font-semibold text-slate-700">{study.studyName}</p>
                   <p className="mt-1 text-xs text-slate-500">~{formatTat(study.tatMinutes)} elapsed · {study.room ?? 'Scanner'}</p>
                   <Pill className="mt-2 bg-blue-100 text-blue-700 ring-blue-200">SCANNING</Pill>
+                  <button
+                    type="button"
+                    onClick={() => void handleSetStatus(study.id, 'report_pending')}
+                    disabled={actionBusyId === study.id}
+                    className="mt-3 w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionBusyId === study.id ? 'Updating…' : '✅ Complete Scan'}
+                  </button>
                 </article>
               ))}
             </div>
@@ -118,8 +155,17 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
                       <div className="text-xs text-slate-500">{study.studyName}</div>
                       <div className="text-xs text-slate-500">{study.doctorName}</div>
                     </div>
-                    <div className={`text-xs font-bold ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
-                      {formatTat(study.tatMinutes)} {overdue ? '🔴' : '⚠️'}
+                    <div className="flex flex-col items-end gap-2">
+                      <div className={`text-xs font-bold ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
+                        {formatTat(study.tatMinutes)} {overdue ? '🔴' : '⚠️'}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/lab/imaging/reports?studyId=${study.id}`)}
+                        className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                      >
+                        📝 Write Report
+                      </button>
                     </div>
                   </div>
                 );
@@ -144,6 +190,14 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
                   <div className="mt-1 font-bold text-slate-900">{study.patientName}</div>
                   <div className="text-xs text-slate-600">{study.studyName}</div>
                   {study.alerts && study.alerts.length > 0 ? <div className="mt-1 text-xs text-amber-700">⚠️ {study.alerts[0]}</div> : null}
+                  <button
+                    type="button"
+                    onClick={() => void handleSetStatus(study.id, 'scanning')}
+                    disabled={actionBusyId === study.id}
+                    className="mt-2 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionBusyId === study.id ? 'Starting…' : '▶ Begin Scan'}
+                  </button>
                 </div>
               ))}
             </div>
@@ -162,10 +216,23 @@ export const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
                   <div className="text-xs font-bold text-slate-700">{study.modality}<span className="ml-2 text-emerald-700">✅ {study.status === 'released' ? 'Released' : 'Reported'}</span></div>
                   <div className="mt-1 font-bold text-slate-900">{study.patientName}</div>
                   <div className="text-xs text-slate-600">{study.studyName}</div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/lab/imaging/reports?studyId=${study.id}`)}
+                    className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    📋 View Report
+                  </button>
                 </div>
               ))}
             </div>
           </SectionCard>
+        ) : null}
+        {filtered.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+            No studies match your current filters.
+            <span className="mt-1 block text-xs text-slate-400">Try adjusting the modality or status filter above.</span>
+          </div>
         ) : null}
       </div>
     </div>
