@@ -204,7 +204,7 @@ export const QualityControlView = ({ context }: { context: LabPageContext }) => 
             href="/lab/equipment"
             className="mt-3 inline-flex rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
           >
-            View Maintenance Log →
+            Go to Equipment →
           </a>
         </SectionCard>
       ))}
