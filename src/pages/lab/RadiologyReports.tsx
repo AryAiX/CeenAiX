@@ -167,7 +167,15 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                 <div className="mt-1 font-bold text-sm text-slate-900">{study.patientName}</div>
                 <div className="text-xs text-slate-500">{study.studyName}</div>
                 <div className="text-xs text-slate-500">{study.doctorName}</div>
-                <div className="mt-2 text-xs font-bold text-blue-600">▶ Report</div>
+                <div className={`mt-2 text-xs font-bold ${
+                  tab === 'done'
+                    ? 'text-emerald-600'
+                    : tab === 'draft'
+                    ? 'text-indigo-600'
+                    : 'text-blue-600'
+                }`}>
+                  {tab === 'done' ? '📋 View' : tab === 'draft' ? '✏️ Continue' : '▶ Report'}
+                </div>
               </button>
             );
           })}
