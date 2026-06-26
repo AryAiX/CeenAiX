@@ -160,8 +160,18 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
               >
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className="text-slate-700">{study.modality}</span>
-                  <span className={overdue ? 'text-red-600' : 'text-amber-600'}>
-                    {formatTat(study.tatMinutes)} {overdue ? '🔴 OVERDUE' : '⚠️'}
+                  <span className={
+                    tab === 'done'
+                      ? 'text-emerald-600'
+                      : overdue
+                      ? 'text-red-600'
+                      : 'text-amber-600'
+                  }>
+                    {tab === 'done'
+                      ? '✅ Done'
+                      : overdue
+                      ? `${formatTat(study.tatMinutes)} 🔴 OVERDUE`
+                      : `${formatTat(study.tatMinutes)} ⚠️`}
                   </span>
                 </div>
                 <div className="mt-1 font-bold text-sm text-slate-900">{study.patientName}</div>
