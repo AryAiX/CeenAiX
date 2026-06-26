@@ -27,6 +27,7 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
   const [savingReport, setSavingReport] = useState<'idle' | 'draft' | 'preliminary' | 'verify'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportNotice, setReportNotice] = useState<string | null>(null);
+  const [radiologistPin, setRadiologistPin] = useState('');
   const [manualChecklist, setManualChecklist] = useState<Record<string, boolean>>({});
 
   const list = tab === 'pending' ? pending : tab === 'draft' ? draft : done;
@@ -55,6 +56,33 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
         { id: 'qa', label: 'QA: measurements consistent with viewer', checked: !!manualChecklist.qa, manual: true },
       ]
     : [];
+
+  const handleVerifyAndSign = async () => {
+    if (!selected) return;
+    if (!radiologistPin.trim()) {
+      setReportError('Enter your radiologist PIN to verify and sign this report.');
+      return;
+    }
+    setReportError(null);
+    setReportNotice(null);
+    setSavingReport('verify');
+    try {
+      await context.actions.signRadiologyReport({
+        studyId: selected.id,
+        pin: radiologistPin.trim(),
+        findings: findingsText.trim() || null,
+        impression: impressionText.trim() || null,
+        recommendations: recommendationsText.trim() || null,
+        reportChecklist: manualChecklist,
+      });
+      setReportNotice('Report verified and released to the requesting doctor.');
+      setRadiologistPin('');
+    } catch (error) {
+      setReportError(getErrorMessage(error, 'Failed to verify and sign report.'));
+    } finally {
+      setSavingReport('idle');
+    }
+  };
 
   const handleSaveDraft = async () => {
     if (!selected) return;
@@ -320,6 +348,21 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                   </label>
                 ))}
               </div>
+              {!isReadOnly ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                    <div className="text-xs text-slate-500">Radiologist</div>
+                    <div className="font-bold text-slate-900">{meta?.radiologistName ?? 'Unassigned'} · {meta?.radiologistCredentials ?? 'Radiologist'}</div>
+                  </div>
+                  <input
+                    type="password"
+                    value={radiologistPin}
+                    onChange={(e) => setRadiologistPin(e.target.value)}
+                    placeholder="Radiologist PIN"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              ) : null}
               {reportError ? (
                 <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
                   {reportError}
@@ -353,7 +396,7 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
                     {savingReport === 'preliminary' ? 'Submitting…' : '📤 Submit Preliminary'}
                   </button>
                   <button type="button"
-                    onClick={() => void advanceStudy('released', 'verify', 'final')}
+                    onClick={() => void handleVerifyAndSign()}
                     disabled={savingReport !== 'idle'}
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
