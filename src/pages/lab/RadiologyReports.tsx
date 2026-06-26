@@ -6,6 +6,14 @@ import { SectionCard, EmptyState } from './shared/ui';
 
 type ReportTab = 'pending' | 'draft' | 'done';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
 export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
   const studies = context.data?.imagingStudies ?? [];
   const meta = context.data?.facilityMeta;
@@ -69,9 +77,7 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
           : 'Report saved.'
       );
     } catch (error) {
-      setReportError(
-        error instanceof Error ? error.message : 'Could not update the radiology report.'
-      );
+      setReportError(getErrorMessage(error, 'Could not update the radiology report.'));
     } finally {
       setSavingReport('idle');
     }
