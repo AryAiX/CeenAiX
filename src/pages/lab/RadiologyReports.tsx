@@ -55,6 +55,31 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
       ]
     : [];
 
+  const handleSaveDraft = async () => {
+    if (!selected) return;
+    setReportError(null);
+    setReportNotice(null);
+    setSavingReport('draft');
+    try {
+      await context.actions.setImagingStudyStatus(
+        selected.id,
+        selected.status,
+        'draft',
+        {
+          findings: findingsText.trim() || null,
+          impression: impressionText.trim() || null,
+          recommendations: recommendationsText.trim() || null,
+          reportChecklist: manualChecklist,
+        }
+      );
+      setReportNotice('Draft saved — study remains in Pending queue.');
+    } catch (error) {
+      setReportError(getErrorMessage(error, 'Could not save draft.'));
+    } finally {
+      setSavingReport('idle');
+    }
+  };
+
   const advanceStudy = async (
     nextStatus: 'reported' | 'released',
     label: 'idle' | 'draft' | 'preliminary' | 'verify',
@@ -285,7 +310,7 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
               ) : null}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
                 <button type="button"
-                  onClick={() => void advanceStudy('reported', 'draft', 'draft')}
+                  onClick={() => void handleSaveDraft()}
                   disabled={savingReport !== 'idle'}
                   className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
