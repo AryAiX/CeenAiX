@@ -54,6 +54,7 @@ export interface LabPortalSampleTest {
   isAbnormal: boolean | null;
   status: LabOrderStatus;
   statusCategory: string | null;
+  instrument: string | null;
 }
 
 export interface LabPortalSample {
@@ -74,6 +75,7 @@ export interface LabPortalSample {
   testNames: string[];
   priority: LabPriority;
   status: LabOrderStatus;
+  isClaimed: boolean;
   orderedAt: string;
   collectedAt: string | null;
   receivedAt: string | null;
@@ -93,12 +95,18 @@ export interface LabPortalSample {
   technicianName: string | null;
   technicianInitials: string | null;
   sourceLabel: string | null;
+  rejectionReason: string | null;
 }
 
 export interface LabPortalImagingStudy {
   id: string;
   labId: string;
   accession: string;
+  rejectionReason: string | null;
+  findings: string | null;
+  impression: string | null;
+  recommendations: string | null;
+  reportChecklist: Record<string, boolean> | null;
   patientName: string;
   patientAge: number | null;
   patientGender: string | null;
@@ -158,6 +166,7 @@ export interface LabPortalEquipment {
   reagents: LabPortalReagent[];
   activeUserLabel: string | null;
   activeRemainingLabel: string | null;
+  isRunning: boolean;
 }
 
 export interface LabPortalQcRun {
@@ -170,6 +179,10 @@ export interface LabPortalQcRun {
   resultLabel: string;
   status: 'passed' | 'warning' | 'failed';
   runAt: string;
+  resultValue: number | null;
+  targetValue: number | null;
+  sdValue: number | null;
+  unit: string | null;
 }
 
 export interface LabPortalNabidhEvent {
@@ -205,6 +218,9 @@ export interface LabPortalCriticalValue {
   patientName: string;
   testName: string;
   valueLabel: string;
+  referenceRange: string | null;
+  doctorName: string | null;
+  facilityName: string | null;
   notifiedInMinutes: number | null;
   status: 'pending' | 'notified';
   observedAt: string;
@@ -230,7 +246,9 @@ export interface LabPortalData {
   facility: LabFacilityProfile | null;
   facilityMeta: LabFacilityMeta | null;
   samples: LabPortalSample[];
+  rejectedSamples: LabPortalSample[];
   imagingStudies: LabPortalImagingStudy[];
+  rejectedImagingStudies: LabPortalImagingStudy[];
   equipment: LabPortalEquipment[];
   qcRuns: LabPortalQcRun[];
   nabidhEvents: LabPortalNabidhEvent[];
@@ -252,10 +270,15 @@ export interface LabPortalData {
     nabidhPending: number;
     nabidhSubmitted: number;
     nabidhFailed: number;
+    nabidhPendingLab: number;
+    nabidhSubmittedLab: number;
+    nabidhPendingRadiology: number;
+    nabidhSubmittedRadiology: number;
     criticalUnnotified: number;
     completedToday: number;
     sampleCountToday: number;
     studyCountToday: number;
+    avgTatMinutes: number | null;
   };
 }
 
@@ -303,6 +326,7 @@ interface LabOrderRow {
   lab_order_code: string | null;
   nabidh_reference: string | null;
   sample_collection_at: string | null;
+  sample_received_at: string | null;
   results_released_at: string | null;
   due_by: string | null;
   urgency: LabOrderUrgency | null;
@@ -322,6 +346,7 @@ interface LabOrderRow {
   patient_display_name: string | null;
   patient_age: number | null;
   patient_gender: string | null;
+  rejection_reason: string | null;
 }
 
 interface LabItemRow {
@@ -341,6 +366,7 @@ interface LabItemRow {
   reference_min_value: string | null;
   reference_max_value: string | null;
   is_abnormal: boolean | null;
+  instrument: string | null;
 }
 
 interface ProfileRow {
@@ -355,6 +381,12 @@ interface ImagingStudyRow {
   id: string;
   lab_id: string;
   accession: string;
+  is_deleted: boolean;
+  rejection_reason: string | null;
+  findings: string | null;
+  impression: string | null;
+  recommendations: string | null;
+  report_checklist: Record<string, boolean> | null;
   patient_name: string;
   patient_age: number | null;
   patient_gender: string | null;
@@ -409,6 +441,7 @@ interface EquipmentRow {
   reagents: unknown;
   active_user_label: string | null;
   active_remaining_label: string | null;
+  is_running: boolean;
 }
 
 interface QcRunRow {
@@ -421,6 +454,10 @@ interface QcRunRow {
   result_label: string;
   status: 'passed' | 'warning' | 'failed';
   run_at: string;
+  result_value: number | null;
+  target_value: number | null;
+  sd_value: number | null;
+  unit: string | null;
 }
 
 interface NabidhEventRow {
@@ -458,6 +495,9 @@ interface CriticalValueRow {
   patient_name: string;
   test_name: string;
   value_label: string;
+  reference_range: string | null;
+  doctor_name: string | null;
+  facility_name: string | null;
   notified_in_minutes: number | null;
   status: 'pending' | 'notified';
   observed_at: string;
@@ -599,7 +639,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
 
     let ordersQuery = supabase
       .from('lab_orders')
-      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender')
+      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, sample_received_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender, rejection_reason')
       .eq('is_deleted', false)
       .order('ordered_at', { ascending: false })
       .limit(150);
@@ -610,8 +650,26 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       ordersQuery = ordersQuery.or(`assigned_lab_id.eq.${labId},assigned_lab_id.is.null`);
     }
 
+    // Rejected orders (is_deleted = true) are excluded from the main
+    // query above so they don't pollute normal counts/tabs, but we still
+    // fetch the ones this lab rejected so they can be reviewed in a
+    // dedicated "Rejected" tab rather than disappearing entirely.
+    let rejectedOrdersQuery = supabase
+      .from('lab_orders')
+      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, sample_received_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender, rejection_reason')
+      .eq('is_deleted', true)
+      .order('ordered_at', { ascending: false })
+      .limit(50);
+
+    if (staffLabIds.length > 0) {
+      rejectedOrdersQuery = rejectedOrdersQuery.or(`assigned_lab_id.in.(${staffLabIds.join(',')}),assigned_lab_id.is.null`);
+    } else if (labId) {
+      rejectedOrdersQuery = rejectedOrdersQuery.or(`assigned_lab_id.eq.${labId},assigned_lab_id.is.null`);
+    }
+
     const [
       { data: orderData, error: ordersError },
+      { data: rejectedOrderData, error: rejectedOrdersError },
       { data: imagingData, error: imagingError },
       { data: equipmentData, error: equipmentError },
       { data: qcData, error: qcError },
@@ -620,10 +678,12 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       { data: criticalData, error: criticalError },
       { data: topMetricsData, error: topMetricsError },
       { data: volumeData, error: volumeError },
+      { data: rejectedImagingData, error: rejectedImagingError },
     ] = await Promise.all([
       ordersQuery,
+      (staffLabIds.length > 0 || labId) ? rejectedOrdersQuery : supabase.from('lab_orders').select('id').limit(0),
       labId
-        ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).order('scheduled_at', { ascending: true })
+        ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).eq('is_deleted', false).order('scheduled_at', { ascending: true })
         : supabase.from('lab_portal_imaging_studies').select('*').limit(0),
       labId
         ? supabase.from('lab_portal_equipment').select('*').eq('lab_id', labId).order('department', { ascending: true })
@@ -646,9 +706,13 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       labId
         ? supabase.from('lab_portal_volume_trends').select('*').eq('lab_id', labId).order('sort_order', { ascending: true })
         : supabase.from('lab_portal_volume_trends').select('*').limit(0),
+      labId
+        ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).eq('is_deleted', true).order('scheduled_at', { ascending: false }).limit(50)
+        : supabase.from('lab_portal_imaging_studies').select('*').limit(0),
     ]);
 
     if (ordersError) throw ordersError;
+    if (rejectedOrdersError) throw rejectedOrdersError;
     if (imagingError) throw imagingError;
     if (equipmentError) throw equipmentError;
     if (qcError) throw qcError;
@@ -657,22 +721,26 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     if (criticalError) throw criticalError;
     if (topMetricsError) throw topMetricsError;
     if (volumeError) throw volumeError;
+    if (rejectedImagingError) throw rejectedImagingError;
 
     const orders = (orderData ?? []) as LabOrderRow[];
+    const rejectedOrders = (rejectedOrderData ?? []) as LabOrderRow[];
     const orderIds = orders.map((order) => order.id);
+    const rejectedOrderIds = rejectedOrders.map((order) => order.id);
+    const allOrderIds = [...orderIds, ...rejectedOrderIds];
 
     let itemRows: LabItemRow[] = [];
-    if (orderIds.length > 0) {
+    if (allOrderIds.length > 0) {
       const { data, error } = await supabase
         .from('lab_order_items')
-        .select('id, lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal')
-        .in('lab_order_id', orderIds)
+        .select('id, lab_order_id, test_name, status, status_category, result_value, result_unit, flag, resulted_at, loinc_code, specimen_type, target_tat, reference_text, reference_min_value, reference_max_value, is_abnormal, instrument')
+        .in('lab_order_id', allOrderIds)
         .order('sort_order', { ascending: true });
       if (error) throw error;
       itemRows = (data ?? []) as LabItemRow[];
     }
 
-    const participantIds = Array.from(new Set(orders.flatMap((order) => [order.patient_id, order.doctor_id])));
+    const participantIds = Array.from(new Set([...orders, ...rejectedOrders].flatMap((order) => [order.patient_id, order.doctor_id])));
     const profilesById = new Map<string, ProfileRow>();
     if (participantIds.length > 0) {
       const { data, error } = await supabase
@@ -690,7 +758,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       itemsByOrder.set(item.lab_order_id, existing);
     });
 
-    const samples: LabPortalSample[] = orders.map((order) => {
+    const mapOrderToSample = (order: LabOrderRow): LabPortalSample => {
       const items = itemsByOrder.get(order.id) ?? [];
       const patient = profilesById.get(order.patient_id);
       const doctor = profilesById.get(order.doctor_id);
@@ -727,13 +795,15 @@ export function useLabOpsPortal(userId: string | null | undefined) {
           isAbnormal: item.is_abnormal,
           status: item.status,
           statusCategory: item.status_category,
+          instrument: item.instrument,
         })),
         testNames: items.map((item) => item.test_name),
         priority: normalizePriority(order.urgency),
         status: order.status,
+        isClaimed: labId != null && order.assigned_lab_id === labId,
         orderedAt: order.ordered_at,
         collectedAt: order.sample_collection_at,
-        receivedAt: order.sample_collection_at ?? order.ordered_at,
+        receivedAt: order.sample_received_at ?? order.sample_collection_at ?? order.ordered_at,
         dueBy: order.due_by,
         releasedAt: order.results_released_at,
         tatMinutes: minutesBetween(order.sample_collection_at ?? order.ordered_at, order.results_released_at ?? new Date().toISOString()),
@@ -752,10 +822,14 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         technicianName: order.technician_name,
         technicianInitials: order.technician_initials,
         sourceLabel: order.source_label,
+        rejectionReason: order.rejection_reason,
       };
-    });
+    };
 
-    const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map((study) => ({
+    const samples: LabPortalSample[] = orders.map(mapOrderToSample);
+    const rejectedSamples: LabPortalSample[] = rejectedOrders.map(mapOrderToSample);
+
+    const mapImagingStudyRow = (study: ImagingStudyRow): LabPortalImagingStudy => ({
       id: study.id,
       labId: study.lab_id,
       accession: study.accession,
@@ -789,7 +863,15 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       doctorDhaLicense: study.doctor_dha_license,
       doctorSpecialty: study.doctor_specialty,
       sourceLabel: study.source_label,
-    }));
+      rejectionReason: study.rejection_reason,
+      findings: study.findings,
+      impression: study.impression,
+      recommendations: study.recommendations,
+      reportChecklist: study.report_checklist,
+    });
+
+    const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map(mapImagingStudyRow);
+    const rejectedImagingStudies: LabPortalImagingStudy[] = ((rejectedImagingData ?? []) as ImagingStudyRow[]).map(mapImagingStudyRow);
 
     const equipment: LabPortalEquipment[] = ((equipmentData ?? []) as EquipmentRow[]).map((item) => ({
       id: item.id,
@@ -813,6 +895,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       reagents: parseReagents(item.reagents),
       activeUserLabel: item.active_user_label,
       activeRemainingLabel: item.active_remaining_label,
+      isRunning: item.is_running,
     }));
 
     const qcRuns: LabPortalQcRun[] = ((qcData ?? []) as QcRunRow[]).map((run) => ({
@@ -825,6 +908,10 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       resultLabel: run.result_label,
       status: run.status,
       runAt: run.run_at,
+      resultValue: run.result_value,
+      targetValue: run.target_value,
+      sdValue: run.sd_value,
+      unit: run.unit,
     }));
 
     const nabidhEvents: LabPortalNabidhEvent[] = ((nabidhData ?? []) as NabidhEventRow[]).map((event) => ({
@@ -874,6 +961,9 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       patientName: row.patient_name,
       testName: row.test_name,
       valueLabel: row.value_label,
+      referenceRange: row.reference_range,
+      doctorName: row.doctor_name,
+      facilityName: row.facility_name,
       notifiedInMinutes: row.notified_in_minutes,
       status: row.status,
       observedAt: row.observed_at,
@@ -904,12 +994,27 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     const pendingNabidh = nabidhEvents.filter((event) => event.status === 'pending').length;
     const submittedNabidh = nabidhEvents.filter((event) => event.status === 'submitted').length;
     const failedNabidh = nabidhEvents.filter((event) => event.status === 'failed').length;
+    // ImagingStudy events are radiology; DiagnosticReport and Observation
+    // events both represent lab results.
+    const isRadiologyEvent = (event: LabPortalNabidhEvent) => event.resourceType === 'ImagingStudy';
+    const nabidhPendingLab = nabidhEvents.filter((event) => event.status === 'pending' && !isRadiologyEvent(event)).length;
+    const nabidhSubmittedLab = nabidhEvents.filter((event) => event.status === 'submitted' && !isRadiologyEvent(event)).length;
+    const nabidhPendingRadiology = nabidhEvents.filter((event) => event.status === 'pending' && isRadiologyEvent(event)).length;
+    const nabidhSubmittedRadiology = nabidhEvents.filter((event) => event.status === 'submitted' && isRadiologyEvent(event)).length;
+    const tatValues = samples
+      .filter((sample) => sample.releasedAt && sample.releasedAt >= startOfToday && typeof sample.tatMinutes === 'number')
+      .map((sample) => sample.tatMinutes as number);
+    const avgTatMinutes = tatValues.length > 0
+      ? Math.round(tatValues.reduce((sum, value) => sum + value, 0) / tatValues.length)
+      : null;
 
     return {
       facility,
       facilityMeta,
       samples,
+      rejectedSamples,
       imagingStudies,
+      rejectedImagingStudies,
       equipment,
       qcRuns,
       nabidhEvents,
@@ -931,10 +1036,15 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         nabidhPending: pendingNabidh,
         nabidhSubmitted: submittedNabidh,
         nabidhFailed: failedNabidh,
+        nabidhPendingLab,
+        nabidhSubmittedLab,
+        nabidhPendingRadiology,
+        nabidhSubmittedRadiology,
         criticalUnnotified: criticalValues.filter((c) => c.status === 'pending').length,
         completedToday: samples.filter((sample) => sample.releasedAt && sample.releasedAt >= startOfToday).length,
         sampleCountToday: samples.filter((sample) => sample.orderedAt >= startOfToday).length,
         studyCountToday: imagingStudies.filter((study) => (study.scheduledAt ?? '') >= startOfToday).length,
+        avgTatMinutes,
       },
     };
   }, [memoizedUserId]);
@@ -950,9 +1060,21 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
-  const startProcessing = useCallback(
+  const confirmSpecimen = useCallback(
     async (orderId: string) => {
-      const { error } = await supabase.rpc('lab_start_processing', { target_order_id: orderId });
+      const { error } = await supabase.rpc('lab_confirm_specimen', { target_order_id: orderId });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const startProcessing = useCallback(
+    async (orderId: string, instrumentName?: string | null) => {
+      const { error } = await supabase.rpc('lab_start_processing', {
+        target_order_id: orderId,
+        p_instrument_name: instrumentName ?? null,
+      });
       if (error) throw error;
       onChange();
     },
@@ -968,6 +1090,18 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  const releaseOrderWithPin = useCallback(
+    async (orderId: string, pin: string) => {
+      const { error } = await supabase.rpc('lab_release_order_with_pin', {
+        target_order_id: orderId,
+        technician_pin: pin,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const saveItemResult = useCallback(
     async (input: {
       itemId: string;
@@ -975,6 +1109,7 @@ export function useLabOpsActions(onChange: () => void) {
       resultUnit: string | null;
       referenceRange: string | null;
       isAbnormal?: boolean;
+      instrument?: string | null;
     }) => {
       const { error } = await supabase.rpc('lab_save_item_result', {
         target_item_id: input.itemId,
@@ -982,6 +1117,7 @@ export function useLabOpsActions(onChange: () => void) {
         result_unit: input.resultUnit,
         reference_range: input.referenceRange,
         is_abnormal: input.isAbnormal ?? false,
+        instrument: input.instrument ?? null,
       });
       if (error) throw error;
       onChange();
@@ -1019,11 +1155,56 @@ export function useLabOpsActions(onChange: () => void) {
    * reported → released). Used by the radiology reporting workspace's
    * Save Draft / Submit Preliminary / Verify & Sign buttons.
    */
+  const signRadiologyReport = useCallback(
+    async (input: {
+      studyId: string;
+      pin: string;
+      findings?: string | null;
+      impression?: string | null;
+      recommendations?: string | null;
+      reportChecklist?: Record<string, boolean> | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_sign_radiology_report', {
+        p_study_id: input.studyId,
+        p_radiologist_pin: input.pin,
+        p_findings: input.findings ?? null,
+        p_impression: input.impression ?? null,
+        p_recommendations: input.recommendations ?? null,
+        p_report_checklist: input.reportChecklist ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const setImagingStudyStatus = useCallback(
-    async (studyId: string, status: ImagingStatus, reportStatus?: string | null) => {
+    async (
+      studyId: string,
+      status: ImagingStatus,
+      reportStatus?: string | null,
+      reportContent?: {
+        findings?: string | null;
+        impression?: string | null;
+        recommendations?: string | null;
+        reportChecklist?: Record<string, boolean> | null;
+      }
+    ) => {
       const update: Record<string, unknown> = { status };
       if (reportStatus !== undefined) {
         update.report_status = reportStatus;
+      }
+      if (reportContent?.findings !== undefined) {
+        update.findings = reportContent.findings;
+      }
+      if (reportContent?.impression !== undefined) {
+        update.impression = reportContent.impression;
+      }
+      if (reportContent?.recommendations !== undefined) {
+        update.recommendations = reportContent.recommendations;
+      }
+      if (reportContent?.reportChecklist !== undefined) {
+        update.report_checklist = reportContent.reportChecklist;
       }
       const { error } = await supabase
         .from('lab_portal_imaging_studies')
@@ -1036,20 +1217,54 @@ export function useLabOpsActions(onChange: () => void) {
   );
 
   /**
-   * Soft-delete a lab order (the canonical clinical-data convention — we
-   * never hard-delete records that carry patient context). Used when a lab
-   * rejects an incoming order that cannot be processed.
+   * Soft-delete a lab order via the lab_reject_order RPC, which handles
+   * authorization internally using SECURITY DEFINER — bypassing the RLS
+   * policy that was blocking direct table updates from lab staff sessions.
    */
   const rejectOrder = useCallback(
     async (orderId: string, reason?: string) => {
+      const { error } = await supabase.rpc('lab_reject_order', {
+        target_order_id: orderId,
+        rejection_reason: reason ?? 'No reason provided',
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  /**
+   * Soft-delete an imaging study order. Mirrors rejectOrder's behavior
+   * for lab_orders, but targets lab_portal_imaging_studies, which is a
+   * separate table with its own ID space.
+   */
+  const rejectImagingStudy = useCallback(
+    async (studyId: string, reason?: string) => {
       const { error } = await supabase
-        .from('lab_orders')
+        .from('lab_portal_imaging_studies')
         .update({
           is_deleted: true,
           deleted_at: new Date().toISOString(),
-          clinical_notes: reason ? `[REJECTED] ${reason}` : '[REJECTED] No reason provided',
+          rejection_reason: reason ? reason : 'No reason provided',
         })
-        .eq('id', orderId);
+        .eq('id', studyId);
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const reviewQcFailure = useCallback(
+    async (input: {
+      runId: string;
+      failureNotes: string;
+      action: 'maintenance' | 'replacement';
+    }) => {
+      const { error } = await supabase.rpc('lab_review_qc_failure', {
+        p_run_id: input.runId,
+        p_failure_notes: input.failureNotes,
+        p_action: input.action,
+      });
       if (error) throw error;
       onChange();
     },
@@ -1061,6 +1276,72 @@ export function useLabOpsActions(onChange: () => void) {
    * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
    * also compute and persist the actual minutes-to-notification on the row.
    */
+  const logMaintenance = useCallback(
+    async (input: {
+      equipmentId: string;
+      maintenanceType: 'scheduled' | 'unscheduled';
+      reason: string;
+      performedBy?: string | null;
+      expectedReturnAt?: string | null;
+      notes?: string | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_log_maintenance', {
+        p_equipment_id: input.equipmentId,
+        p_maintenance_type: input.maintenanceType,
+        p_reason: input.reason,
+        p_performed_by: input.performedBy ?? null,
+        p_expected_return_at: input.expectedReturnAt ?? null,
+        p_notes: input.notes ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const markEquipmentOnline = useCallback(
+    async (equipmentId: string, notes?: string | null) => {
+      const { error } = await supabase.rpc('lab_mark_equipment_online', {
+        p_equipment_id: equipmentId,
+        p_notes: notes ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const logQcRun = useCallback(
+    async (input: {
+      instrumentName: string;
+      department: string;
+      lotNumber: string;
+      levelLabel: string;
+      resultLabel: string;
+      status: 'passed' | 'warning' | 'failed';
+      resultValue?: number | null;
+      targetValue?: number | null;
+      sdValue?: number | null;
+      unit?: string | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_log_qc_run', {
+        p_instrument_name: input.instrumentName,
+        p_department: input.department,
+        p_lot_number: input.lotNumber,
+        p_level_label: input.levelLabel,
+        p_result_label: input.resultLabel,
+        p_status: input.status,
+        p_result_value: input.resultValue ?? null,
+        p_target_value: input.targetValue ?? null,
+        p_sd_value: input.sdValue ?? null,
+        p_unit: input.unit ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   const markCriticalValueNotified = useCallback(
     async (criticalValueId: string, observedAtIso: string | null) => {
       const observedAt = observedAtIso ? new Date(observedAtIso) : null;
@@ -1083,25 +1364,41 @@ export function useLabOpsActions(onChange: () => void) {
   return useMemo(
     () => ({
       claimSample,
+      confirmSpecimen,
       startProcessing,
       releaseOrder,
+      releaseOrderWithPin,
+      logMaintenance,
+      markEquipmentOnline,
+      logQcRun,
+      reviewQcFailure,
       rejectOrder,
+      rejectImagingStudy,
       saveItemResult,
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
       setImagingStudyStatus,
+      signRadiologyReport,
     }),
     [
       claimSample,
+      confirmSpecimen,
       startProcessing,
       releaseOrder,
+      releaseOrderWithPin,
+      logMaintenance,
+      markEquipmentOnline,
+      logQcRun,
+      reviewQcFailure,
       rejectOrder,
+      rejectImagingStudy,
       saveItemResult,
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
       setImagingStudyStatus,
+      signRadiologyReport,
     ],
   );
 }

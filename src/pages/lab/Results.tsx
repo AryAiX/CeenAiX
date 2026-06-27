@@ -1,0 +1,560 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import type { LabPageContext } from './shared/types';
+import {
+  ageGenderLabel,
+  formatTimeShort,
+  sampleStatusBadge,
+  sampleStatusLabel,
+} from './shared/helpers';
+import { SectionCard, Pill, EmptyState } from './shared/ui';
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
+
+export const LabResultsPage = ({ context }: { context: LabPageContext }) => {
+  const [searchParams] = useSearchParams();
+  const requestedOrderId = searchParams.get('orderId');
+  const requestedInstrument = searchParams.get('instrument');
+  const samples = context.data?.samples ?? [];
+  const candidates = samples.filter((s) => s.status === 'resulted' || s.status === 'processing');
+  const completedSamples = samples.filter((s) => s.status === 'reviewed');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showNotifyDoctorModal, setShowNotifyDoctorModal] = useState(false);
+
+  // Once data has loaded, select the sample requested via ?orderId= (e.g.
+  // from the Queue page's View button), falling back to the first
+  // candidate if the param is missing or doesn't match a pending sample.
+  useEffect(() => {
+    if (selectedId) return;
+    const allSamples = [...candidates, ...completedSamples];
+    if (requestedOrderId && allSamples.some((s) => s.id === requestedOrderId)) {
+      setSelectedId(requestedOrderId);
+    } else if (candidates[0]) {
+      setSelectedId(candidates[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedOrderId, candidates.length, completedSamples.length]);
+
+  const selected =
+    candidates.find((s) => s.id === selectedId) ??
+    completedSamples.find((s) => s.id === selectedId) ??
+    candidates[0];
+  const isCompleted = selected?.status === 'reviewed';
+  const [instrument, setInstrument] = useState('');
+  const [pin, setPin] = useState('');
+  const [resultDrafts, setResultDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<'idle' | 'draft' | 'release' | 'verify'>('idle');
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [resultsNotice, setResultsNotice] = useState<string | null>(null);
+  const meta = context.data?.facilityMeta;
+  const qcRuns = context.data?.qcRuns ?? [];
+  const labInstruments = useMemo(
+    () => [
+      ...(context.data?.equipment ?? [])
+        .filter((e) => e.department === 'laboratory' && e.status !== 'maintenance')
+        .map((e) => e.name),
+      'Manual Entry',
+    ],
+    [context.data?.equipment]
+  );
+
+  useEffect(() => {
+    if (instrument === '' && labInstruments.length > 0) {
+      if (requestedInstrument && labInstruments.includes(requestedInstrument)) {
+        setInstrument(requestedInstrument);
+      } else {
+        setInstrument(labInstruments[0]);
+      }
+    }
+  }, [labInstruments, instrument, requestedInstrument]);
+  const matchingQcRun =
+    qcRuns
+      .filter((run) => run.instrumentName === instrument)
+      .sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime())[0] ?? null;
+
+  // Reset the draft buffer when the selected sample changes so values from
+  // one patient never leak into another.
+  const selectedId2 = selected?.id ?? null;
+  useEffect(() => {
+    setResultDrafts({});
+    setResultsError(null);
+    setResultsNotice(null);
+  }, [selectedId2]);
+
+  const requestedSampleNotFound =
+    !!requestedOrderId &&
+    !candidates.some((s) => s.id === requestedOrderId) &&
+    samples.some((s) => s.id === requestedOrderId);
+
+  const draftFor = (itemId: string, existing: string | null) =>
+    resultDrafts[itemId] ?? existing ?? '';
+
+  const persistDrafts = async () => {
+    if (!selected) return [] as string[];
+    const entries = Object.entries(resultDrafts).filter(([, value]) => value.trim().length > 0);
+    const itemsById = new Map(selected.tests.map((test) => [test.itemId, test] as const));
+    const saved: string[] = [];
+    for (const [itemId, value] of entries) {
+      const test = itemsById.get(itemId);
+      if (!test) continue;
+      const numeric = Number.parseFloat(value);
+      const referenceMin = test.referenceMin ? Number.parseFloat(test.referenceMin) : null;
+      const referenceMax = test.referenceMax ? Number.parseFloat(test.referenceMax) : null;
+      const referenceText =
+        test.referenceText ??
+        (referenceMin != null && referenceMax != null ? `${referenceMin}-${referenceMax}` : null);
+      const isAbnormal =
+        !Number.isNaN(numeric) && referenceMin != null && referenceMax != null
+          ? numeric < referenceMin || numeric > referenceMax
+          : Boolean(test.isAbnormal);
+      await context.actions.saveItemResult({
+        itemId,
+        resultValue: value.trim(),
+        resultUnit: test.resultUnit,
+        referenceRange: referenceText,
+        isAbnormal,
+        instrument,
+      });
+      saved.push(itemId);
+    }
+    return saved;
+  };
+
+  const handleSaveDraft = async () => {
+    if (!selected) return;
+    setResultsError(null);
+    setResultsNotice(null);
+    setSaving('draft');
+    try {
+      const saved = await persistDrafts();
+      setResultsNotice(
+        saved.length > 0
+          ? `Saved ${saved.length} result${saved.length === 1 ? '' : 's'} as draft.`
+          : 'Nothing to save — enter at least one value first.'
+      );
+    } catch (error) {
+      setResultsError(getErrorMessage(error, 'Failed to save drafts.'));
+    } finally {
+      setSaving('idle');
+    }
+  };
+
+  const handleVerifyAndRelease = async () => {
+    if (!selected) return;
+    if (!pin.trim()) {
+      setResultsError('Enter your technician PIN to verify the release.');
+      return;
+    }
+    setResultsError(null);
+    setResultsNotice(null);
+    setSaving('verify');
+    try {
+      await persistDrafts();
+      await context.actions.releaseOrderWithPin(selected.id, pin.trim());
+      setResultsNotice('Results verified and released to the requesting doctor.');
+      setResultDrafts({});
+      setPin('');
+    } catch (error) {
+      setResultsError(getErrorMessage(error, 'Failed to release results.'));
+    } finally {
+      setSaving('idle');
+    }
+  };
+
+  const handleReleaseAndNotify = () => {
+    setShowNotifyDoctorModal(true);
+  };
+
+  if (!selected) {
+    return (
+      <div className="h-full overflow-y-auto p-5">
+        <EmptyState label="No samples available for result entry." />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Left rail: sample selector */}
+      <aside className="w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3">
+        <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Pending Samples</div>
+        <div className="space-y-1.5">
+          {candidates.map((s) => (
+            <button type="button"
+              key={s.id}
+              onClick={() => setSelectedId(s.id)}
+              className={`w-full rounded-lg p-2 text-left transition ${selectedId === s.id || (!selectedId && s.id === candidates[0]?.id) ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'}`}
+            >
+              <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{s.orderCode}</div>
+              <div className="mt-0.5 text-sm font-semibold text-slate-900">{s.patientName}</div>
+              <Pill className={`mt-1 ${sampleStatusBadge[s.status]}`}>{sampleStatusLabel(s.status, !!s.criticalValue)}</Pill>
+            </button>
+          ))}
+        </div>
+        {completedSamples.length > 0 ? (
+          <>
+            <div className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Completed</div>
+            <div className="space-y-1.5">
+              {completedSamples.map((s) => (
+                <button type="button"
+                  key={s.id}
+                  onClick={() => setSelectedId(s.id)}
+                  className={`w-full rounded-lg p-2 text-left transition ${selectedId === s.id ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'hover:bg-slate-50'}`}
+                >
+                  <div className="font-['DM_Mono'] text-xs font-bold text-slate-700">{s.orderCode}</div>
+                  <div className="mt-0.5 text-sm font-semibold text-slate-900">{s.patientName}</div>
+                  <Pill className="mt-1 bg-emerald-100 text-emerald-700 ring-emerald-200">Released</Pill>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </aside>
+
+      {/* Main: result entry workspace */}
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-5">
+        <div className="grid gap-4 xl:grid-cols-[320px,1fr]">
+          {/* Patient panel */}
+          <div className="space-y-4">
+            <SectionCard>
+              <h2 className="font-['Plus_Jakarta_Sans'] text-xl font-bold text-slate-900">{selected.patientName}</h2>
+              <p className="text-sm text-slate-500">
+                {ageGenderLabel(selected.patientAge, selected.patientGender)}{selected.bloodType ? ` · ${selected.bloodType}` : ''} · {selected.orderCode}
+              </p>
+              {selected.insurancePlan ? <p className="mt-1 text-xs text-slate-500">{selected.insurancePlan}</p> : null}
+              <div className="mt-3 text-xs text-slate-500">
+                Emirates ID lookup is handled inside the patient portal —
+                request a re-verification from{' '}
+                <a href="/lab/profile" className="font-semibold text-indigo-600 underline">
+                  the lab profile workspace
+                </a>{' '}
+                if needed.
+              </div>
+            </SectionCard>
+            <SectionCard>
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">SAMPLE INFO</div>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between"><dt className="text-slate-500">Sample ID</dt><dd className="font-['DM_Mono'] font-bold text-slate-900">{selected.orderCode}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Type</dt><dd className="text-slate-700">{selected.specimenSummary ?? '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Collected</dt><dd className="text-slate-700">{formatTimeShort(selected.collectedAt) ?? '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Received / Accessioned</dt><dd className="text-slate-700">{formatTimeShort(selected.receivedAt) ?? '—'}</dd></div>
+              </dl>
+            </SectionCard>
+            <SectionCard>
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">REQUESTING DOCTOR</div>
+              <p className="font-bold text-slate-900">{selected.doctorName}</p>
+              <p className="text-sm text-slate-600">{selected.doctorSpecialty ?? 'Clinician'} · {selected.clinicName}</p>
+              {selected.doctorDhaLicense ? <p className="mt-1 text-xs text-emerald-700">{selected.doctorDhaLicense} ✅</p> : null}
+              {selected.clinicalNotes ? (
+                <p className="mt-3 rounded-lg bg-blue-50 p-3 text-xs text-blue-900">{selected.clinicalNotes}</p>
+              ) : null}
+            </SectionCard>
+            <SectionCard>
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">TESTS ORDERED</div>
+              <div className="space-y-2">
+                {selected.tests.map((t) => (
+                  <div key={`order-${t.testName}`} className="rounded-lg bg-slate-50 p-2">
+                    <div className="font-bold text-sm text-slate-900">{t.testName}</div>
+                    <div className="font-['DM_Mono'] text-[10px] text-slate-500">
+                      {t.loincCode} · {selected.priority}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Right: result entry or read-only completed view */}
+          <div className="space-y-4">
+            {isCompleted ? (
+              <>
+                <SectionCard>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Results — Released</h2>
+                      <p className="text-sm text-slate-500">{selected.patientName} · {selected.orderCode}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const win = window.open('', '_blank');
+                          if (!win) return;
+                          win.document.write(`
+                            <html><head><title>Results · ${selected.orderCode}</title>
+                            <style>body{font-family:Arial,sans-serif;padding:24px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ddd;padding:8px;text-align:left;} th{background:#f5f5f5;}</style>
+                            </head><body>
+                            <h2>Lab Results — ${selected.orderCode}</h2>
+                            <p><strong>Patient:</strong> ${selected.patientName}</p>
+                            <p><strong>Doctor:</strong> ${selected.doctorName}</p>
+                            <table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th></tr></thead>
+                            <tbody>${selected.tests.map((t) => `<tr><td>${t.testName}</td><td>${t.resultValue ?? '—'}</td><td>${t.resultUnit ?? '—'}</td><td>${t.referenceText ?? '—'}</td><td>${t.isAbnormal ? '⚠️ Abnormal' : '✅'}</td></tr>`).join('')}</tbody>
+                            </table>
+                            <script>window.onload=()=>{window.print();}</script>
+                            </body></html>
+                          `);
+                          win.document.close();
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        🖨️ Print
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const header = ['Test', 'Result', 'Unit', 'Reference Range', 'Flag'];
+                          const rows = selected.tests.map((t) => [
+                            t.testName,
+                            t.resultValue ?? '—',
+                            t.resultUnit ?? '—',
+                            t.referenceText ?? '—',
+                            t.isAbnormal ? 'Abnormal' : 'Normal',
+                          ]);
+                          const escape = (v: string) => v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+                          const body = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+                          const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `results-${selected.orderCode}-${new Date().toISOString().slice(0, 10)}.csv`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        ⬇️ Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowShareModal(true)}
+                        className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                      >
+                        🔗 Share
+                      </button>
+                    </div>
+                  </div>
+                </SectionCard>
+                <SectionCard>
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">TEST RESULTS</div>
+                  <div className="overflow-x-auto rounded-xl border border-slate-100">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                        <tr>
+                          <th className="px-3 py-2">Test</th>
+                          <th className="px-3 py-2">Result</th>
+                          <th className="px-3 py-2">Unit</th>
+                          <th className="px-3 py-2">Reference Range</th>
+                          <th className="px-3 py-2">Flag</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {selected.tests.map((t) => (
+                          <tr key={t.itemId}>
+                            <td className="px-3 py-2 font-semibold text-slate-900">{t.testName}</td>
+                            <td className={`px-3 py-2 font-bold ${t.isAbnormal ? 'text-rose-700' : 'text-slate-900'}`}>{t.resultValue ?? '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{t.resultUnit ?? '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{t.referenceText ?? '—'}</td>
+                            <td className="px-3 py-2">
+                              {t.isAbnormal
+                                ? <Pill className="bg-rose-100 text-rose-700 ring-rose-200">⚠️ Abnormal</Pill>
+                                : <Pill className="bg-emerald-100 text-emerald-700 ring-emerald-200">✅ Normal</Pill>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </SectionCard>
+              </>
+            ) : null}
+            {!isCompleted && requestedSampleNotFound ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                The sample you selected from the queue isn't available for result entry right now (it may already be released or rejected). Showing a different pending sample instead.
+              </div>
+            ) : null}
+            {!isCompleted ? (
+            <>
+            <SectionCard>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-500">Select Instrument:</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {labInstruments.map((inst) => (
+                    <button type="button"
+                      key={inst}
+                      onClick={() => setInstrument(inst)}
+                      className={`rounded-lg px-3 py-2 text-xs font-bold ${instrument === inst ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+                    >
+                      {instrument === inst ? `${inst} ●` : inst}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {matchingQcRun ? (
+                <div className={`mt-4 rounded-lg border px-3 py-2 text-sm font-bold ${
+                  matchingQcRun.status === 'passed'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : matchingQcRun.status === 'failed'
+                      ? 'border-rose-200 bg-rose-50 text-rose-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700'
+                }`}>
+                  {matchingQcRun.lotNumber}{' '}
+                  {matchingQcRun.status === 'passed' ? '✅ QC PASS' : matchingQcRun.status === 'failed' ? '❌ QC FAIL' : '⚠️ QC WARNING'}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
+                  No QC run on file for {instrument}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard>
+              <div className="mb-3">
+                <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Result Entry — All Panels</h2>
+                <p className="text-sm text-slate-500">{selected.patientName} · {selected.orderCode}</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {selected.tests.map((t) => (
+                  <label key={`entry-${t.itemId}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="font-bold text-sm text-slate-900">{t.testName}</div>
+                    <div className="font-['DM_Mono'] text-[10px] text-slate-500">LOINC: {t.loincCode ?? '—'}</div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={draftFor(t.itemId, t.resultValue)}
+                        onChange={(event) =>
+                          setResultDrafts((current) => ({
+                            ...current,
+                            [t.itemId]: event.target.value,
+                          }))
+                        }
+                        placeholder="Value"
+                        maxLength={FORM_FIELD_LIMITS.shortText}
+                        className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                      />
+                      <span className="text-xs text-slate-500">{t.resultUnit ?? '—'}</span>
+                    </div>
+                    <div className="mt-1.5 text-[10px] text-slate-500">Ref: {t.referenceText ?? '—'}</div>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg bg-slate-50 p-2.5"><div className="text-xs text-slate-500">Abnormal</div><div className="font-bold text-slate-900">{selected.tests.filter((t) => t.isAbnormal).length} of {selected.tests.length} flagged</div></div>
+                <div className="rounded-lg bg-slate-50 p-2.5"><div className="text-xs text-slate-500">Critical</div><div className="font-bold text-slate-900">{selected.criticalValue ? selected.criticalValue : 'None'}</div></div>
+                <div className={`rounded-lg p-2.5 ${matchingQcRun?.status === 'passed' ? 'bg-emerald-50' : matchingQcRun?.status === 'failed' ? 'bg-rose-50' : matchingQcRun?.status === 'warning' ? 'bg-amber-50' : 'bg-slate-50'}`}>
+                  <div className={`text-xs ${matchingQcRun?.status === 'passed' ? 'text-emerald-700' : matchingQcRun?.status === 'failed' ? 'text-rose-700' : matchingQcRun?.status === 'warning' ? 'text-amber-700' : 'text-slate-500'}`}>QC</div>
+                  <div className={`font-bold ${matchingQcRun?.status === 'passed' ? 'text-emerald-800' : matchingQcRun?.status === 'failed' ? 'text-rose-800' : matchingQcRun?.status === 'warning' ? 'text-amber-800' : 'text-slate-700'}`}>
+                    {matchingQcRun
+                      ? matchingQcRun.status === 'passed' ? '✅ Passed for this run' : matchingQcRun.status === 'failed' ? '❌ Failed for this run' : '⚠️ Warning for this run'
+                      : 'No QC on file'}
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard>
+              <div className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">VERIFICATION SIGN-OFF</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                  <div className="text-xs text-slate-500">Technician</div>
+                  <div className="font-bold text-slate-900">{meta?.technicianName ?? selected.technicianName ?? 'Unassigned'} · {meta?.technicianCredentials ?? 'Lab Tech'}</div>
+                </div>
+                <input
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Technician PIN"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              {resultsError ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
+                  {resultsError}
+                </div>
+              ) : null}
+              {resultsNotice ? (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                  {resultsNotice}
+                </div>
+              ) : null}
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button type="button"
+                  onClick={() => void handleSaveDraft()}
+                  disabled={saving !== 'idle'}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving === 'draft' ? 'Saving…' : '💾 Save Draft'}
+                </button>
+                <button type="button"
+                  onClick={() => void handleReleaseAndNotify()}
+                  disabled={saving !== 'idle'}
+                  className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving === 'release' ? 'Releasing…' : 'Release & Notify Doctor'}
+                </button>
+                <button type="button"
+                  onClick={() => void handleVerifyAndRelease()}
+                  disabled={saving !== 'idle'}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving === 'verify' ? 'Verifying…' : 'Verify & Release'}
+                </button>
+              </div>
+            </SectionCard>
+            </>) : null}
+          </div>
+        </div>
+      </div>
+      {showShareModal
+        ? <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-900">Share Results — Coming Soon</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Sharing results directly with the patient or doctor isn't available yet from the Lab Portal. Cross-portal result sharing will be set up in the third review pass once all portals are connected.
+              </p>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(false)}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        : null}
+      {showNotifyDoctorModal
+        ? <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-900">Doctor Notification — Coming Soon</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Sending result notifications directly to the doctor's portal isn't available yet. This requires a cross-portal connection between the Lab Portal and Doctor Portal that will be set up in the third review pass. To release results internally in the meantime, use Verify & Release.
+              </p>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowNotifyDoctorModal(false)}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        : null}
+    </div>
+  );
+};

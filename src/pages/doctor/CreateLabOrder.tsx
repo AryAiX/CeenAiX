@@ -32,6 +32,7 @@ interface DraftLabOrderItem {
   testName: string;
   testNameAr: string;
   testCode: string;
+  specimen: string;
 }
 
 interface DraftNewLabTestSuggestion {
@@ -65,6 +66,7 @@ const createDraftLabOrderItem = (): DraftLabOrderItem => ({
   testName: '',
   testNameAr: '',
   testCode: '',
+  specimen: '',
 });
 
 const createDraftLabTestSuggestion = (displayNameEn = ''): DraftNewLabTestSuggestion => ({
@@ -87,6 +89,7 @@ const buildPendingSuggestionSelection = (
     | 'proposed_display_name_ar'
     | 'proposed_short_name_en'
     | 'proposed_source_code'
+    | 'proposed_specimen'
   >,
   fallbackCatalog?: LabTestCatalog | null
 ) => ({
@@ -100,6 +103,7 @@ const buildPendingSuggestionSelection = (
     getLabTestCatalogDisplayNameAr(fallbackCatalog ?? { display_name_ar: null }) ||
     '',
   testCode: suggestion.proposed_source_code?.trim() || fallbackCatalog?.source_code?.trim() || '',
+  specimen: suggestion.proposed_specimen?.trim() || fallbackCatalog?.specimen?.trim() || '',
 });
 
 const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
@@ -149,6 +153,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       testName: '',
       testNameAr: '',
       testCode: '',
+      specimen: '',
     });
     setTranslationDraft('');
     setShowTranslationForm(false);
@@ -165,6 +170,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       testName: getLabTestCatalogDisplayNameEn(catalogMatch),
       testNameAr: getLabTestCatalogDisplayNameAr(catalogMatch) || '',
       testCode: catalogMatch.source_code?.trim() || '',
+      specimen: catalogMatch.specimen?.trim() || '',
     });
     setTranslationDraft(getLabTestCatalogDisplayNameAr(catalogMatch) || '');
     setShowTranslationForm(false);
@@ -181,6 +187,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       | 'proposed_display_name_ar'
       | 'proposed_short_name_en'
       | 'proposed_source_code'
+      | 'proposed_specimen'
     >,
     fallbackCatalog?: LabTestCatalog | null
   ) => {
@@ -320,6 +327,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                   testName: '',
                   testNameAr: '',
                   testCode: '',
+                  specimen: '',
                 })
               }
               placeholder={t('doctor.createLabOrder.searchTestPlaceholder')}
@@ -735,6 +743,7 @@ export const CreateLabOrder: React.FC = () => {
         labTestCatalogSuggestionId: item.labTestCatalogSuggestionId,
         testName: item.testName.trim(),
         testCode: item.testCode.trim(),
+        specimen: item.specimen.trim(),
       }))
       .filter((item) => item.testName.length > 0);
 
@@ -770,6 +779,8 @@ export const CreateLabOrder: React.FC = () => {
         lab_test_catalog_suggestion_id: item.labTestCatalogSuggestionId,
         test_name: item.testName,
         test_code: item.testCode || null,
+        loinc_code: item.testCode || null,
+        specimen_type: item.specimen || null,
         status: 'ordered',
       }))
     );

@@ -1,192 +1,482 @@
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
+import type { LabPortalData } from '../../hooks';
+import type { LabPageContext } from './shared/types';
 import {
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  FlaskConical,
-  Gauge,
-  Inbox,
-  ListChecks,
-  Zap,
-} from 'lucide-react';
-import { PortalQueryBanner } from '../../components/PortalQueryBanner';
-import { OpsShell } from '../../components/OpsShell';
-import { useAuth } from '../../lib/auth-context';
-import { useLabDashboard } from '../../hooks';
-import type { LabWorklistItem } from '../../hooks/use-lab-dashboard';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
-import { LAB_NAV_ITEMS } from './navItems';
+  formatNumber,
+  formatTimeShort,
+  formatTat,
+  ageGenderLabel,
+  equipmentStatusBadge,
+  sampleStatusBadge,
+  sampleStatusLabel,
+} from './shared/helpers';
+import { SectionCard, Pill, KpiTile, ProgressMeter } from './shared/ui';
 
-const STATUS_PILL: Record<LabWorklistItem['status'], string> = {
-  ordered: 'bg-amber-50 text-amber-700 ring-amber-200',
-  collected: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
-  processing: 'bg-blue-50 text-blue-700 ring-blue-200',
-  resulted: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  reviewed: 'bg-slate-100 text-slate-600 ring-slate-200',
+const formatRelativeSync = (isoTimestamp: string | null): string => {
+  if (!isoTimestamp) return 'Not yet synced';
+  const diffMs = Date.now() - new Date(isoTimestamp).getTime();
+  if (Number.isNaN(diffMs) || diffMs < 0) return 'Not yet synced';
+  const diffSeconds = Math.floor(diffMs / 1000);
+  if (diffSeconds < 60) return `synced ${diffSeconds}s ago`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `synced ${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `synced ${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `synced ${diffDays}d ago`;
 };
 
-const formatNumber = (value: number | null | undefined, language: string) =>
-  typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
 
-export const LabDashboard = () => {
-  const { t, i18n } = useTranslation('common');
-  const { user } = useAuth();
-  const { data, loading, error, refetch } = useLabDashboard(user?.id ?? null);
+const CriticalBanner = ({
+  data,
+  actions,
+}: {
+  data: LabPortalData | null;
+  actions: LabPageContext['actions'];
+}) => {
+  const critical = data?.criticalValues.find((c) => c.status === 'pending') ?? data?.criticalValues[0];
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  if (!critical) return null;
+  const observed = formatTimeShort(critical.observedAt);
+  const isAlreadyNotified = critical.status === 'notified';
+  const elapsedMinutes = isAlreadyNotified
+    ? critical.notifiedInMinutes ?? 0
+    : Math.max(0, Math.round((Date.now() - new Date(critical.observedAt).getTime()) / 60000));
 
-  const kpis = useMemo(
-    () => [
-      {
-        label: t('lab.dashboard.kpiPending'),
-        value: data?.metrics.pendingOrders,
-        icon: Inbox,
-        accent: 'from-amber-500 to-orange-500',
-      },
-      {
-        label: t('lab.dashboard.kpiInProgress'),
-        value: data?.metrics.inProgressOrders,
-        icon: Activity,
-        accent: 'from-cyan-500 to-blue-600',
-      },
-      {
-        label: t('lab.dashboard.kpiCompletedToday'),
-        value: data?.metrics.completedToday,
-        icon: CheckCircle2,
-        accent: 'from-emerald-500 to-teal-600',
-      },
-      {
-        label: t('lab.dashboard.kpiStat'),
-        value: data?.metrics.stat,
-        icon: Zap,
-        accent: 'from-rose-500 to-orange-500',
-      },
-    ],
-    [data?.metrics, t],
+  const handleNotify = async () => {
+    setErrorMessage(null);
+    setIsSaving(true);
+    try {
+      await actions.markCriticalValueNotified(critical.id, critical.observedAt);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, 'Could not mark this critical value as notified.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  return (
+    <div className="rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] ${isAlreadyNotified ? 'text-emerald-700' : 'text-red-700'}`}>
+            <span>{isAlreadyNotified ? '✅' : '🔴'}</span>
+            <span>{isAlreadyNotified ? 'CRITICAL VALUE — NOTIFIED' : 'CRITICAL VALUE — UNNOTIFIED'}</span>
+          </div>
+          <p className={`mt-1 text-sm font-semibold ${isAlreadyNotified ? 'text-emerald-700' : 'text-red-700'}`}>
+            {isAlreadyNotified ? 'Doctor has already been notified of this critical value' : 'DHA requires notification within 60 minutes'}
+          </p>
+        </div>
+        <div className="rounded-xl bg-white px-3 py-2 font-['DM_Mono'] text-sm font-bold text-red-700 ring-1 ring-red-200">
+          {observed}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {[
+          ['Patient', critical.patientName],
+          ['Test', critical.testName],
+          ['Value', critical.valueLabel],
+          ['Reference', critical.referenceRange ?? 'Not recorded'],
+          ['Doctor', [critical.doctorName, critical.facilityName].filter(Boolean).join(' · ') || 'Not recorded'],
+          ['Resulted', `${observed} · ${elapsedMinutes} min ago`],
+        ].map(([label, value]) => (
+          <div key={String(label)} className="rounded-xl bg-white/85 p-3 ring-1 ring-red-100">
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-400">{label}</div>
+            <div className="mt-1 text-sm font-bold text-red-950">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {errorMessage ? (
+        <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-red-700 ring-1 ring-red-200" role="alert">
+          {errorMessage}
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button"
+          onClick={() => void handleNotify()}
+          disabled={isSaving || isAlreadyNotified}
+          className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed ${
+            isAlreadyNotified
+              ? 'bg-emerald-600 opacity-90'
+              : isSaving
+                ? 'bg-slate-400 opacity-90'
+                : 'bg-red-600 hover:bg-red-700'
+          }`}
+        >
+          {isAlreadyNotified
+            ? '✅ Doctor notified'
+            : isSaving
+              ? 'Recording…'
+              : 'Mark Doctor Notified'}
+        </button>
+        <a
+          href="/lab/queue"
+          className="inline-flex items-center rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
+        >
+          Open in queue
+        </a>
+      </div>
+    </div>
   );
+};
+
+export const DashboardView = ({ context }: { context: LabPageContext }) => {
+  const data = context.data;
+  const [priorityFilter, setPriorityFilter] = useState<'All' | 'STAT' | 'Urgent' | 'Routine'>('All');
+  const [isSubmittingNabidh, setIsSubmittingNabidh] = useState(false);
+  const [nabidhSubmitError, setNabidhSubmitError] = useState<string | null>(null);
+  const [showNabidhConfirm, setShowNabidhConfirm] = useState(false);
+  const samples = data?.samples ?? [];
+  const myLabQueueSamples = samples.filter((s) => s.isClaimed);
+  const studies = data?.imagingStudies ?? [];
+  const filteredSamples = priorityFilter === 'All' ? myLabQueueSamples : myLabQueueSamples.filter((s) => s.priority === priorityFilter);
+  const dashboardSamples = filteredSamples.slice(0, 5);
+  const activeStudies = studies.filter((s) => s.status === 'scanning');
+  const scheduledStudies = studies.filter((s) => s.status === 'scheduled').slice(0, 3);
+  const labEquipment = (data?.equipment ?? []).filter((e) => e.department === 'laboratory').slice(0, 4);
+  const radiologyEquipment = (data?.equipment ?? []).filter((e) => e.department === 'radiology').slice(0, 7);
+
+  const labMetricCards = [
+    {
+      label: 'Samples',
+      value: formatNumber(data?.metrics.sampleCountToday ?? samples.length),
+      caption: 'Total today',
+      tone: 'indigo' as const,
+    },
+    {
+      label: 'Critical',
+      value: formatNumber(data?.criticalValues.length),
+      caption: `${formatNumber(data?.metrics.criticalUnnotified)} unnotified ⚠️`,
+      tone: 'red' as const,
+    },
+    {
+      label: 'Avg TAT',
+      value: formatTat(data?.metrics.avgTatMinutes ?? null),
+      caption: 'Today',
+      tone: 'blue' as const,
+    },
+    {
+      label: 'NABIDH',
+      value: `${formatNumber(data?.metrics.nabidhSubmitted)}/${formatNumber((data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0))}`,
+      caption: 'Submitted',
+      tone: 'violet' as const,
+    },
+    {
+      label: 'QC ✅',
+      value: `${formatNumber(data?.qcRuns.filter((r) => r.status === 'passed').length)}/${formatNumber(data?.qcRuns.length)}`,
+      caption: `${formatNumber(data?.metrics.qualityWarnings)} in maintenance`,
+      tone: 'emerald' as const,
+    },
+  ];
+
+  const radMetricCards = [
+    {
+      label: 'Studies',
+      value: formatNumber(studies.length),
+      caption: 'Total today',
+      tone: 'blue' as const,
+    },
+    {
+      label: 'Scanning',
+      value: formatNumber(activeStudies.length),
+      caption: 'Active now',
+      tone: 'violet' as const,
+    },
+    {
+      label: 'Reports',
+      value: formatNumber(data?.metrics.radiologyReports),
+      caption: 'Pending sign-off',
+      tone: 'orange' as const,
+    },
+    {
+      label: 'Scheduled',
+      value: formatNumber(scheduledStudies.length),
+      caption: 'Today remaining',
+      tone: 'cyan' as const,
+    },
+    {
+      label: 'Issues ⚠️',
+      value: formatNumber(data?.metrics.imagingEquipmentWarnings),
+      caption: 'Equipment alerts',
+      tone: 'amber' as const,
+    },
+  ];
+
+  const navigate = useNavigate();
+
+  const handleSubmitAllPendingNabidh = async () => {
+    const pendingEventIds = (data?.nabidhEvents ?? [])
+      .filter((event) => event.status === 'pending')
+      .map((event) => event.id);
+    if (pendingEventIds.length === 0) return;
+    setNabidhSubmitError(null);
+    setIsSubmittingNabidh(true);
+    try {
+      await context.actions.markNabidhSubmittedBulk(pendingEventIds);
+      setShowNabidhConfirm(false);
+    } catch (error) {
+      setNabidhSubmitError(getErrorMessage(error, 'Could not submit pending NABIDH events.'));
+    } finally {
+      setIsSubmittingNabidh(false);
+    }
+  };
+
+  const mostRecentNabidhSubmission = (data?.nabidhEvents ?? [])
+    .filter((event) => event.status === 'submitted' && event.submittedAt)
+    .map((event) => event.submittedAt as string)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
   return (
-    <OpsShell
-      title={t('lab.dashboard.title')}
-      subtitle={data?.labName ?? t('lab.dashboard.subtitle')}
-      eyebrow={t('lab.dashboard.eyebrow')}
-      navItems={LAB_NAV_ITEMS(t)}
-      accent="emerald"
-    >
-      <PortalQueryBanner error={error} onRetry={() => void refetch()} />
+    <div className="space-y-4">
+      <CriticalBanner data={data} actions={context.actions} />
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <article
-              key={kpi.label}
-              className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      <div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-600">LABORATORY</div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {labMetricCards.map((card) => (
+            <KpiTile key={card.label} label={card.label} value={card.value} caption={card.caption} tone={card.tone} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600">RADIOLOGY</div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {radMetricCards.map((card) => (
+            <KpiTile key={card.label} label={card.label} value={card.value} caption={card.caption} tone={card.tone} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-12">
+        <SectionCard className="xl:col-span-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Lab Queue</h3>
+              <p className="text-xs text-slate-500">{formatNumber(filteredSamples.length)} samples · {formatNumber(filteredSamples.filter((s) => s.status !== 'reviewed').length)} active</p>
+            </div>
+            <button type="button" onClick={() => navigate('/lab/queue')} className="text-xs font-bold text-indigo-600 hover:text-indigo-700">View All</button>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('All')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-              <div
-                aria-hidden
-                className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${kpi.accent} opacity-10`}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {kpi.label}
-                </span>
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${kpi.accent} text-white shadow-sm`}
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('STAT')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'STAT' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              STAT ({myLabQueueSamples.filter((s) => s.priority === 'STAT').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('Urgent')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'Urgent' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Urgent ({myLabQueueSamples.filter((s) => s.priority === 'Urgent').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('Routine')}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${priorityFilter === 'Routine' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Routine ({myLabQueueSamples.filter((s) => s.priority === 'Routine').length})
+            </button>
+          </div>
+          <div className="space-y-3">
+            {dashboardSamples.map((sample) => {
+              const code = sample.orderCode.split('-').slice(-1)[0];
+              return (
+                <article
+                  key={sample.id}
+                  onClick={() => navigate(`/lab/queue?search=${encodeURIComponent(sample.orderCode)}`)}
+                  className="cursor-pointer rounded-xl border border-transparent bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40"
                 >
-                  <Icon className="h-4 w-4" />
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-['DM_Mono'] text-xs font-bold text-slate-500">{code}</div>
+                      <div className="mt-1 text-sm font-bold text-slate-900">{sample.patientName} <span className="text-xs font-normal text-slate-500">· {ageGenderLabel(sample.patientAge, sample.patientGender)}</span></div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {sample.testNames.length} tests · {sample.testNames.slice(0, 3).join(' · ')}
+                      </div>
+                      {sample.criticalValue ? <div className="mt-1 text-xs font-bold text-red-600">{sample.criticalValue} ↑↑</div> : null}
+                      <Pill className={`mt-2 ${sampleStatusBadge[sample.status]}`}>{sampleStatusLabel(sample.status, !!sample.criticalValue)}</Pill>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {filteredSamples.length > 5 ? (
+            <button type="button" onClick={() => navigate('/lab/queue')} className="mt-3 w-full rounded-xl bg-slate-50 px-4 py-2.5 text-center text-xs font-bold text-indigo-600 hover:bg-slate-100">
+              {filteredSamples.length - 5} more samples · View all in queue →
+            </button>
+          ) : null}
+        </SectionCard>
+
+        <SectionCard className="xl:col-span-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Imaging Queue</h3>
+              <p className="text-xs text-slate-500">{formatNumber(studies.length)} studies · {formatNumber(activeStudies.length)} scanning</p>
+            </div>
+            <button type="button" onClick={() => navigate('/lab/imaging/queue')} className="text-xs font-bold text-blue-600 hover:text-blue-700">View All</button>
+          </div>
+          {activeStudies.length > 0 ? (
+            <div className="mb-3">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">ACTIVE NOW</div>
+              <div className="space-y-3">
+                {activeStudies.slice(0, 4).map((study) => (
+                  <article
+                    key={study.id}
+                    onClick={() => navigate('/lab/imaging/queue')}
+                    className="cursor-pointer rounded-xl border border-transparent bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50/40"
+                  >
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="font-['DM_Mono'] font-bold text-violet-700">{study.progressPercent}%</span>
+                      <span className="font-bold text-slate-700">{study.modality}</span>
+                    </div>
+                    <ProgressMeter value={study.progressPercent} tone="accent-violet-500" />
+                    <div className="mt-2 text-sm font-bold text-slate-900">{study.patientName} <span className="text-xs font-normal text-slate-500">· {ageGenderLabel(study.patientAge, study.patientGender)}</span></div>
+                    <div className="text-xs text-slate-500">{study.studyName}</div>
+                    <div className="mt-1 text-xs text-slate-500">{study.room ?? 'Scanner'} · {formatTat(study.tatMinutes)} elapsed</div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="mb-3 text-sm text-slate-500">No studies actively scanning right now.</p>
+          )}
+          <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <span className="font-bold text-amber-600">{formatNumber(studies.filter((s) => s.status === 'report_pending').length)} report pending</span>
+            <span className="mx-2 text-slate-300">·</span>
+            <span className="font-bold text-slate-700">{formatNumber(studies.filter((s) => s.status === 'scheduled' || s.status === 'ordered').length)} scheduled</span>
+            <span className="mx-2 text-slate-300">·</span>
+            <span className="text-slate-500">{formatNumber(studies.filter((s) => s.status === 'reported' || s.status === 'released').length)} reported</span>
+          </div>
+        </SectionCard>
+
+        <div className="space-y-4 xl:col-span-2">
+          <SectionCard>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Equipment</div>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700">🩻 RADIOLOGY</div>
+            <div className="space-y-1.5">
+              {radiologyEquipment.map((eq) => (
+                <div key={eq.id} className="flex items-center justify-between text-xs">
+                  <span className="truncate font-semibold text-slate-700">{eq.name.split(' ').slice(0, 2).join(' ')}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${equipmentStatusBadge[eq.status]}`}>
+                    {eq.status === 'online' ? '✅' : eq.status === 'maintenance' ? '🔄' : '⚠️'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="my-2 border-t border-slate-100" />
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">🧪 LABORATORY</div>
+            <div className="space-y-1.5">
+              {labEquipment.map((eq) => (
+                <div key={eq.id} className="flex items-center justify-between text-xs">
+                  <span className="truncate font-semibold text-slate-700">{eq.name.split(' ').slice(0, 2).join(' ')}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${equipmentStatusBadge[eq.status]}`}>
+                    {eq.status === 'online' ? '✅' : eq.status === 'maintenance' ? '🔄' : '⚠️'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => navigate('/lab/equipment')} className="mt-3 w-full text-center text-[11px] font-bold text-indigo-600 hover:text-indigo-700">
+              View All Equipment →
+            </button>
+          </SectionCard>
+
+          <SectionCard>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">🇦🇪 NABIDH HIE · FHIR R4</div>
+            <p className="text-[11px] font-semibold text-emerald-700">
+              Connected · {formatRelativeSync(mostRecentNabidhSubmission)}
+            </p>
+            <div className="mt-3 space-y-2 text-[11px]">
+              <div>🧪 Lab {data?.metrics.nabidhSubmittedLab ?? 0}/{(data?.metrics.nabidhSubmittedLab ?? 0) + (data?.metrics.nabidhPendingLab ?? 0)} ({(data?.metrics.nabidhSubmittedLab ?? 0) + (data?.metrics.nabidhPendingLab ?? 0) > 0 ? Math.round(((data?.metrics.nabidhSubmittedLab ?? 0) / ((data?.metrics.nabidhSubmittedLab ?? 0) + (data?.metrics.nabidhPendingLab ?? 0))) * 100) : 0}%)</div>
+              <div>🩻 Radiology {data?.metrics.nabidhSubmittedRadiology ?? 0}/{(data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0)} ({(data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0) > 0 ? Math.round(((data?.metrics.nabidhSubmittedRadiology ?? 0) / ((data?.metrics.nabidhSubmittedRadiology ?? 0) + (data?.metrics.nabidhPendingRadiology ?? 0))) * 100) : 0}%)</div>
+              <div>Total: {(data?.metrics.nabidhSubmitted ?? 0) + (data?.metrics.nabidhPending ?? 0)} · {data?.metrics.nabidhPending ?? 0} pending</div>
+            </div>
+            {nabidhSubmitError ? (
+              <p className="mt-2 text-[11px] font-semibold text-red-600" role="alert">{nabidhSubmitError}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowNabidhConfirm(true)}
+              disabled={isSubmittingNabidh || (data?.metrics.nabidhPending ?? 0) === 0}
+              className="mt-3 w-full rounded-xl bg-violet-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-100 disabled:text-violet-700 disabled:opacity-80"
+            >
+              {isSubmittingNabidh
+                ? 'Submitting…'
+                : (data?.metrics.nabidhPending ?? 0) === 0
+                  ? '✅ All submitted'
+                  : `📤 Submit All Pending (${data?.metrics.nabidhPending})`}
+            </button>
+          </SectionCard>
+
+          <SectionCard>
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Volume Today</div>
+            <p className="mt-2 text-sm font-bold text-slate-900">
+              {formatNumber(samples.length)} lab + {formatNumber(studies.length)} radiology = {formatNumber(samples.length + studies.length)} total
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">Lab: ⚠️ {formatNumber(data?.metrics.criticalUnnotified)} critical · {formatNumber(data?.metrics.labQueue)} pending · {formatNumber(data?.metrics.nabidhPending)} NABIDH</p>
+            <p className="text-[11px] text-slate-500">Radiology: ⚠️ {formatNumber(data?.metrics.radiologyReports)} reports pending</p>
+            <button type="button" disabled title="Handoff report — coming soon" className="mt-3 w-full cursor-not-allowed rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] font-bold text-indigo-700 opacity-80">
+              📋 Generate Handoff Report
+            </button>
+          </SectionCard>
+        </div>
+      </div>
+
+      {showNabidhConfirm
+        ? createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900">Submit All Pending to NABIDH</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  This will submit {data?.metrics.nabidhPending ?? 0} pending record{(data?.metrics.nabidhPending ?? 0) === 1 ? '' : 's'} to the NABIDH health information exchange. This action cannot be undone.
+                </p>
+                {nabidhSubmitError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{nabidhSubmitError}</p>
+                ) : null}
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowNabidhConfirm(false)}
+                    disabled={isSubmittingNabidh}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSubmitAllPendingNabidh()}
+                    disabled={isSubmittingNabidh}
+                    className="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {isSubmittingNabidh ? 'Submitting…' : 'Yes, Submit All'}
+                  </button>
                 </div>
               </div>
-              <p className="mt-4 text-3xl font-bold text-slate-900">
-                {loading ? '…' : formatNumber(kpi.value, i18n.language)}
-              </p>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="mt-8 grid gap-4 lg:grid-cols-[2fr,1fr]">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {t('lab.dashboard.worklistHeading')}
-              </h2>
-              <p className="mt-1 text-lg font-bold text-slate-900">
-                {formatNumber(data?.worklist?.length ?? 0, i18n.language)} {t('lab.dashboard.worklistCountLabel')}
-              </p>
-            </div>
-            <Link
-              to="/lab/results/entry"
-              className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-            >
-              <ListChecks className="h-3.5 w-3.5" />
-              {t('lab.dashboard.worklistCta')}
-            </Link>
-          </div>
-
-          <ul className="mt-4 divide-y divide-slate-100">
-            {(data?.worklist ?? []).slice(0, 8).map((item) => (
-              <li key={item.id} className="flex items-center gap-3 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <FlaskConical className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    {item.patientName ?? t('lab.dashboard.anonPatient')}
-                  </p>
-                  <p className="truncate text-xs text-slate-500">
-                    {item.firstTestName ?? t('lab.dashboard.untitledTest')} •{' '}
-                    {item.testCount} {t('lab.dashboard.testsLabel')}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1 ${
-                    STATUS_PILL[item.status] ?? STATUS_PILL.ordered
-                  }`}
-                >
-                  {t(`lab.status.${item.status}`)}
-                </span>
-              </li>
-            ))}
-            {(!data || data.worklist.length === 0) && !loading ? (
-              <li className="py-6 text-center text-sm text-slate-500">
-                {t('lab.dashboard.worklistEmpty')}
-              </li>
-            ) : null}
-          </ul>
-        </article>
-
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            {t('lab.dashboard.qualityHeading')}
-          </h2>
-          <div className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Gauge className="h-4 w-4 text-emerald-500" />
-              <span className="flex-1">{t('lab.dashboard.turnaroundLabel')}</span>
-              <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.totalActiveTests, i18n.language)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <Clock className="h-4 w-4 text-blue-500" />
-              <span className="flex-1">{t('lab.dashboard.collectedLabel')}</span>
-              <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.collectedOrders, i18n.language)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <span className="flex-1">{t('lab.dashboard.criticalLabel')}</span>
-              <span className="font-semibold text-slate-900">
-                {formatNumber(data?.metrics.stat, i18n.language)}
-              </span>
-            </div>
-          </div>
-        </article>
-      </section>
-    </OpsShell>
+            </div>,
+            document.body
+          )
+        : null}
+    </div>
   );
 };

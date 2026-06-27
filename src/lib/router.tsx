@@ -43,6 +43,7 @@ import { DoctorPatients } from '../pages/doctor/Patients';
 import { DoctorPatientDetail } from '../pages/doctor/PatientDetail';
 import { DoctorLabOrders } from '../pages/doctor/LabOrders';
 import { CreateLabOrder } from '../pages/doctor/CreateLabOrder';
+import { CreateImagingOrder } from '../pages/doctor/CreateImagingOrder';
 import { DoctorMessages } from '../pages/doctor/Messages';
 import { DoctorNotifications } from '../pages/doctor/Notifications';
 import { DoctorSchedule } from '../pages/doctor/Schedule';
@@ -82,6 +83,7 @@ import {
   LabOrders,
   LabProfile,
   LabQualityControl,
+  LabQueue,
   LabRadiology,
   LabRadiologyReports,
   LabReferrals,
@@ -357,6 +359,10 @@ export const router = createBrowserRouter([
     element: withPortalProtection(<DoctorImaging />, 'doctor'),
   },
   {
+    path: '/doctor/imaging/new',
+    element: withPortalProtection(<CreateImagingOrder />, 'doctor'),
+  },
+  {
     path: '/doctor/earnings',
     element: withPortalProtection(<DoctorEarnings />, 'doctor'),
   },
@@ -482,7 +488,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/lab/queue',
-    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabReferrals />)}</ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabQueue />)}</ProtectedRoute>,
   },
   {
     path: '/lab/orders',
