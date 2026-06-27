@@ -43,6 +43,7 @@ import { DoctorPatients } from '../pages/doctor/Patients';
 import { DoctorPatientDetail } from '../pages/doctor/PatientDetail';
 import { DoctorLabOrders } from '../pages/doctor/LabOrders';
 import { CreateLabOrder } from '../pages/doctor/CreateLabOrder';
+import { CreateImagingOrder } from '../pages/doctor/CreateImagingOrder';
 import { DoctorMessages } from '../pages/doctor/Messages';
 import { DoctorNotifications } from '../pages/doctor/Notifications';
 import { DoctorSchedule } from '../pages/doctor/Schedule';
@@ -356,6 +357,10 @@ export const router = createBrowserRouter([
   {
     path: '/doctor/imaging',
     element: withPortalProtection(<DoctorImaging />, 'doctor'),
+  },
+  {
+    path: '/doctor/imaging/new',
+    element: withPortalProtection(<CreateImagingOrder />, 'doctor'),
   },
   {
     path: '/doctor/earnings',
