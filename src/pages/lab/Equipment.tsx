@@ -8,14 +8,12 @@ const EquipmentCard = ({
   item,
   department,
   latestQcRun,
-  context: _context,
   onMaintenanceClick,
   onMarkOnlineClick,
 }: {
   item: LabPortalEquipment;
   department: LabDepartment;
   latestQcRun: { status: 'passed' | 'failed' | 'warning' } | null;
-  context: LabPageContext;
   onMaintenanceClick: () => void;
   onMarkOnlineClick: () => void;
 }) => {
@@ -317,7 +315,6 @@ export const EquipmentPage = ({ context, department }: { context: LabPageContext
               item={item}
               department={department}
               latestQcRun={latestQcRunFor(item.name)}
-              context={context}
               onMaintenanceClick={() => {
                 setMaintenanceForm({ maintenanceType: 'scheduled', reason: '', performedBy: '', expectedReturnAt: '', notes: '' });
                 setMaintenanceError(null);

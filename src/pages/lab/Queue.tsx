@@ -20,10 +20,9 @@ import { Pill } from './shared/ui';
 
 const LAB_PRIORITIES: LabPriority[] = ['STAT', 'Urgent', 'Routine'];
 const LAB_LIFECYCLE_STATUSES = ['Received', 'Accessioned', 'In Progress', 'Pending Verify', 'Verified / Released'] as const;
-const LAB_STATUS_OPTIONS = [...LAB_LIFECYCLE_STATUSES, 'NABIDH Submitted'] as const;
 const LAB_DEPARTMENTS = ['Chemistry', 'Haematology', 'Microbiology', 'Immunology', 'Coagulation', 'Urinalysis'] as const;
 
-type LabStatusFilter = (typeof LAB_STATUS_OPTIONS)[number];
+type LabStatusFilter = (typeof LAB_LIFECYCLE_STATUSES)[number] | 'NABIDH Submitted';
 type LabDepartmentFilter = (typeof LAB_DEPARTMENTS)[number];
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
