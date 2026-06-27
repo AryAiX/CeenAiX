@@ -74,7 +74,7 @@ export const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     if (tab === 'completed') return allSamples.filter((s) => s.status === 'reviewed');
     if (tab === 'rejected') return rejectedSamples;
     return [];
-  }, [allSamples, tab]);
+  }, [allSamples, tab, rejectedSamples]);
 
   const newOrders = useMemo(
     () => allSamples.filter((s) => s.status === 'ordered' && !s.isClaimed),

@@ -34,7 +34,7 @@ export const RadiologyReportsPage = ({ context }: { context: LabPageContext }) =
 
   useEffect(() => {
     setSelectedId(list[0]?.id ?? null);
-  }, [tab]);
+  }, [tab, list]);
 
   const selected = studies.find((s) => s.id === selectedId) ?? list[0] ?? null;
   const isReadOnly = selected?.status === 'released';
