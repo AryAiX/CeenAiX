@@ -111,13 +111,22 @@ export const DoctorImaging = () => {
             <h1 className="text-3xl font-bold">{t('doctor.imaging.featureQueueTitle')}</h1>
             <p className="mt-2 max-w-2xl text-violet-100">{t('doctor.imaging.subtitle')}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/doctor/lab-orders')}
-            className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
-          >
-            {t('doctor.imaging.openLabOrders', { defaultValue: 'Open lab orders' })}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/doctor/imaging/new')}
+              className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-violet-700 backdrop-blur transition hover:bg-white/90"
+            >
+              🔬 New Imaging Order
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/doctor/lab-orders')}
+              className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+            >
+              {t('doctor.imaging.openLabOrders', { defaultValue: 'Open lab orders' })}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -250,12 +259,6 @@ export const DoctorImaging = () => {
         )}
       </div>
 
-      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
-        {t('doctor.imaging.footerNote', {
-          defaultValue:
-            'Doctor Imaging is backed by lab order items that look like radiology studies. Dedicated imaging/DICOM tables are still needed for full viewer parity.',
-        })}
-      </div>
     </div>
   );
 };
