@@ -273,6 +273,8 @@ export interface LabOrderItem extends BaseRecord {
   test_name_ar?: string | null;
   test_code: string | null;
   loinc_code: string | null;
+  specimen_type: string | null;
+  target_tat: string | null;
   display_name_long: string | null;
   description: string | null;
   status: LabOrderStatus;
@@ -285,6 +287,8 @@ export interface LabOrderItem extends BaseRecord {
   reference_text: string | null;
   reference_min: number | null;
   reference_max: number | null;
+  reference_min_value: string | null;
+  reference_max_value: string | null;
   is_abnormal: boolean | null;
   doctor_comment: string | null;
   patient_explanation: string | null;
