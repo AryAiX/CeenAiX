@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, type ComponentType, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import {
   FileText, DollarSign, Shield, AlertTriangle, Users, Stethoscope, CheckSquare,
   Calendar, Clock, Download, Bell, Plus, ChevronDown, ChevronUp, RefreshCw,
   AlertCircle, Loader, CheckCircle, Lock, X, Settings, Archive,
   FileSpreadsheet, Mail, Send, Search, Trash2, GripVertical, ChevronRight, Eye,
+  type LucideIcon,
 } from 'lucide-react';
 import InsuranceShell, { useInsurancePageData } from './InsuranceShell';
 
@@ -144,7 +145,7 @@ const ALL_ARCHIVE: ReportHistoryItem[] = [
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type IconComp = ComponentType<{ size?: number; color?: string }>;
+type IconComp = LucideIcon;
 
 const CATEGORY_ICONS: Record<ReportCategory, IconComp> = {
   claims: FileText, financial: DollarSign, preauth: Shield, fraud: AlertTriangle,
@@ -303,15 +304,14 @@ function GenerateReportModal({ report, onClose, onSuccess }: GenerateReportModal
   const [progressPct, setProgressPct] = useState(0);
 
   useEffect(() => {
-    if (report) {
-      setSelectedFormat(report.formats[0] ?? null);
-      setStep('config');
-      setProgressStep(0);
-      setProgressPct(0);
-      setPhiConfirmed(false);
-      setDelivery('download');
-      setEmailTo('');
-    }
+    if (!report) return;
+    setSelectedFormat(report.formats[0] ?? null);
+    setStep('config');
+    setProgressStep(0);
+    setProgressPct(0);
+    setPhiConfirmed(false);
+    setDelivery('download');
+    setEmailTo('');
   }, [report]);
 
   useEffect(() => {
@@ -345,6 +345,7 @@ function GenerateReportModal({ report, onClose, onSuccess }: GenerateReportModal
   function handleGenerate() { setStep('progress'); setProgressStep(0); setProgressPct(0); }
 
   function handleDone() {
+    if (!report) return;
     const label = delivery === 'dha' ? 'submitted to DHA' : delivery === 'email' ? 'sent via email' : 'ready to download';
     onSuccess(`${report.title} ${label} successfully`);
     onClose();
@@ -612,6 +613,7 @@ function ScheduleReportModal({ report, onClose, onSuccess }: ScheduleReportModal
     setSubmitting(true);
     await new Promise<void>(r => setTimeout(r, 1400));
     setSubmitting(false);
+    if (!report) return;
     onSuccess(`Schedule saved — ${report.title} will run ${getNextRunText()}`);
     onClose();
   }
