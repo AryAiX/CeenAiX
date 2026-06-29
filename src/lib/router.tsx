@@ -97,17 +97,15 @@ import { PharmacyProfile } from '../pages/pharmacy/Profile';
 import { PharmacyReports } from '../pages/pharmacy/Reports';
 import { PharmacyRevenue } from '../pages/pharmacy/Revenue';
 import { PharmacySettings } from '../pages/pharmacy/Settings';
-import {
-  InsuranceClaims,
-  InsuranceFraudDetection,
-  InsuranceMembers,
-  InsuranceNetworkProviders,
-  InsurancePortal,
-  InsurancePreAuthorizations,
-  InsuranceReports,
-  InsuranceRiskAnalytics,
-  InsuranceSettings,
-} from '../pages/insurance/Portal';
+import { InsuranceDashboard } from '../pages/insurance/Dashboard';
+import { InsurancePreAuthorizations } from '../pages/insurance/PreAuthorizations';
+import { InsuranceClaims } from '../pages/insurance/Claims';
+import { InsuranceMembers } from '../pages/insurance/Members';
+import { InsuranceFraudDetection } from '../pages/insurance/FraudDetection';
+import { InsuranceRiskAnalytics } from '../pages/insurance/RiskAnalytics';
+import { InsuranceNetworkProviders } from '../pages/insurance/NetworkProviders';
+import { InsuranceReports } from '../pages/insurance/Reports';
+import { InsuranceSettings } from '../pages/insurance/Settings';
 // clinic pages are rendered via ClinicPortal
 import ClinicPortal from '../pages/clinic/ClinicPortal';
 import { AppointmentDesignShowcase } from '../pages/AppointmentDesignShowcase';
@@ -596,11 +594,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/insurance/portal',
-    element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsurancePortal />)}</ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsuranceDashboard />)}</ProtectedRoute>,
   },
   {
     path: '/insurance/dashboard',
-    element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsurancePortal />)}</ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsuranceDashboard />)}</ProtectedRoute>,
   },
   {
     path: '/insurance/pre-authorizations',
