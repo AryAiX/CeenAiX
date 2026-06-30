@@ -868,8 +868,11 @@ export const InsuranceDashboard = () => {
       value: loading ? '…' : `${profile?.aiAutoApprovalPercent ?? 0}%`,
       label: 'AI Auto-Approval',
       sub: `${formatNumber(profile?.claimsTodayApprovedCount)} of ${formatNumber(profile?.claimsTodayCount)} claims`,
-      badge: profile?.aiAutoApprovalChangePercent != null ? `↑ +${profile.aiAutoApprovalChangePercent}%` : undefined,
-      badgeColor: '#059669', badgeBg: '#DCFCE7',
+      badge: profile?.aiAutoApprovalChangePercent != null
+        ? `${profile.aiAutoApprovalChangePercent >= 0 ? '↑ +' : '↓ '}${profile.aiAutoApprovalChangePercent}%`
+        : undefined,
+      badgeColor: (profile?.aiAutoApprovalChangePercent ?? 0) >= 0 ? '#059669' : '#DC2626',
+      badgeBg: (profile?.aiAutoApprovalChangePercent ?? 0) >= 0 ? '#DCFCE7' : '#FEE2E2',
       href: '/insurance/analytics',
     },
     {
