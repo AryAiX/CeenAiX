@@ -28,7 +28,16 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { type InsuranceClaim, type InsurancePayerProfile } from '../../hooks';
+import {
+  type InsuranceClaim,
+  approveClaim,
+  bulkApproveClaims,
+  bulkDenyClaims,
+  denyClaim,
+  flagClaimForReview,
+  resolveClaimAppeal,
+  submitManualClaim,
+} from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
   PreAuthAlert,
@@ -37,55 +46,6 @@ import InsuranceShell, {
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
-
-// ─── Static mock data (shown when Supabase returns empty) ────────────────────
-
-const MOCK_PROFILE_CLAIMS: InsurancePayerProfile = {
-  displayName: 'Daman National Health',
-  arabicName: 'الضمان للتأمين الصحي الوطني',
-  regulatorName: 'DHA — Dubai Health Authority',
-  activeMembers: 8247,
-  membersGold: 2847,
-  membersSilver: 3104,
-  membersBasic: 1892,
-  officerName: 'Sarah Al Mansouri',
-  officerTitle: 'Senior Claims Officer',
-  aiAutoApprovalPercent: 78.2,
-  aiAutoApprovalChangePercent: 3.1,
-  avgProcessingHours: 4.2,
-  slaTargetStandardHours: 8,
-  slaTargetUrgentHours: 4,
-  claimsTodayTotalAed: 1_247_840,
-  claimsTodayCount: 312,
-  claimsTodayApprovedCount: 244,
-  claimsTodayApprovedAed: 981_200,
-  claimsTodayPendingCount: 48,
-  claimsTodayPendingAed: 196_400,
-  claimsTodayDeniedCount: 20,
-  claimsTodayDeniedAed: 70_240,
-  claimsTodayAppealedCount: 0,
-  claimsTodayAppealedAed: 0,
-  damanExposureTodayAed: 151,
-  claimsMtdAed: 4_800_000,
-  claimsBudgetAed: 4_000_000,
-  claimsBudgetPct: 120,
-  priorMonthGrowthPercent: 8.4,
-};
-
-const MOCK_CLAIMS: InsuranceClaim[] = [
-  { id: 'mc-1',  externalRef: 'CLM-20260407-9001', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Cleveland Clinic Abu Dhabi', amountAed: 18_500, status: 'approved',     submittedAt: '2026-04-07T08:00:00.000Z' },
-  { id: 'mc-2',  externalRef: 'CLM-20260407-9002', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', planTier: 'silver', claimType: 'Outpatient', providerName: 'Mediclinic City Hospital',   amountAed: 4_200,  status: 'under_review', submittedAt: '2026-04-07T08:30:00.000Z' },
-  { id: 'mc-3',  externalRef: 'CLM-20260407-9003', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Burjeel Hospital',           amountAed: 85_000, status: 'submitted',    submittedAt: '2026-04-07T09:00:00.000Z' },
-  { id: 'mc-4',  externalRef: 'CLM-20260407-9004', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', planTier: 'basic',  claimType: 'Inpatient',  providerName: 'NMC Healthcare',             amountAed: 12_300, status: 'approved',     submittedAt: '2026-04-07T09:30:00.000Z' },
-  { id: 'mc-5',  externalRef: 'CLM-20260407-9005', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Aster Hospital Mankhool',    amountAed: 42_000, status: 'under_review', submittedAt: '2026-04-07T10:00:00.000Z' },
-  { id: 'mc-6',  externalRef: 'CLM-20260407-9006', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Prime Hospital',             amountAed: 22_500, status: 'submitted',    submittedAt: '2026-04-07T10:30:00.000Z' },
-  { id: 'mc-7',  externalRef: 'CLM-20260407-9007', patientName: 'Khalid Al Rashidi',   planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Mediclinic Al Noor',         amountAed: 56_000, status: 'denied',       submittedAt: '2026-04-07T11:00:00.000Z' },
-  { id: 'mc-8',  externalRef: 'CLM-20260407-9008', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', planTier: 'basic',  claimType: 'Inpatient',  providerName: 'Saudi German Hospital',      amountAed: 9_800,  status: 'approved',     submittedAt: '2026-04-07T11:30:00.000Z' },
-  { id: 'mc-9',  externalRef: 'CLM-20260407-9009', patientName: 'Ibrahim Al Mansoori', planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Outpatient', providerName: 'Corniche Hospital',          amountAed: 7_200,  status: 'approved',     submittedAt: '2026-04-07T12:00:00.000Z' },
-  { id: 'mc-10', externalRef: 'CLM-20260407-9010', patientName: 'Latifa Al Muhairi',   planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Emirates Hospital',          amountAed: 18_900, status: 'appealed',     submittedAt: '2026-04-07T12:30:00.000Z' },
-  { id: 'mc-11', externalRef: 'CLM-20260407-9011', patientName: 'Ali Al Shamsi',       planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Thumbay Hospital',           amountAed: 31_500, status: 'approved',     submittedAt: '2026-04-07T13:00:00.000Z' },
-  { id: 'mc-12', externalRef: 'CLM-20260407-9012', patientName: 'Hana Al Zarouni',     planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Mediclinic Parkview',        amountAed: 15_800, status: 'denied',       submittedAt: '2026-04-07T13:30:00.000Z' },
-];
 
 // ─── Helpers & Constants ──────────────────────────────────────────────────────
 
@@ -150,12 +110,7 @@ const MOCK_PATIENTS = [
 
 const CLAIM_TYPES = ['Consultation', 'Lab', 'Radiology', 'Pharmacy', 'Surgery', 'Emergency', 'Physiotherapy', 'Specialist'];
 
-const toStatusKey = (
-  status: InsuranceClaim['status'],
-  localDecision?: 'approved' | 'denied',
-): StatusKey => {
-  if (localDecision === 'approved') return 'APPROVED';
-  if (localDecision === 'denied')   return 'DENIED';
+const toStatusKey = (status: InsuranceClaim['status']): StatusKey => {
   if (status === 'submitted' || status === 'under_review') return 'PENDING';
   if (status === 'approved')  return 'APPROVED';
   if (status === 'denied')    return 'DENIED';
@@ -214,6 +169,7 @@ const AppealReviewModal = ({
   const [dismissReason, setDismissReason] = useState('');
   const [showDismiss, setShowDismiss] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const damanPays = getDamanPays(claim);
 
@@ -223,15 +179,29 @@ const AppealReviewModal = ({
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  const handleUphold = () => {
+  const handleUphold = async () => {
     setSubmitting(true);
-    setTimeout(() => { onUphold(claim.id); setSubmitting(false); }, 700);
+    setActionError(null);
+    try {
+      await resolveClaimAppeal(claim.id, 'approved', notes.trim() || null);
+      onUphold(claim.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to uphold appeal. Please try again.');
+      setSubmitting(false);
+    }
   };
 
-  const handleDismiss = () => {
+  const handleDismiss = async () => {
     if (!dismissReason.trim()) return;
     setSubmitting(true);
-    setTimeout(() => { onDismiss(claim.id, dismissReason); setSubmitting(false); }, 700);
+    setActionError(null);
+    try {
+      await resolveClaimAppeal(claim.id, 'denied', notes.trim() || null, dismissReason);
+      onDismiss(claim.id, dismissReason);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to dismiss appeal. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -328,7 +298,12 @@ const AppealReviewModal = ({
         </div>
 
         <div className="flex-shrink-0" style={{ padding: '12px 20px', borderTop: '1px solid #F1F5F9' }}>
-          <button onClick={handleUphold} disabled={submitting}
+          {actionError && (
+            <div className="rounded-lg px-3 py-2 mb-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12 }}>
+              {actionError}
+            </div>
+          )}
+          <button onClick={() => void handleUphold()} disabled={submitting}
             className="w-full rounded-xl py-3 flex items-center justify-center gap-2 mb-2 transition-colors"
             style={{ background: submitting ? '#94A3B8' : '#059669', color: '#fff', fontSize: 14, fontWeight: 700 }}>
             <CheckCircle2 style={{ width: 15, height: 15 }} />
@@ -342,7 +317,7 @@ const AppealReviewModal = ({
               Dismiss Appeal — Maintain Denial
             </button>
           ) : (
-            <button onClick={handleDismiss}
+            <button onClick={() => void handleDismiss()}
               disabled={!dismissReason.trim() || submitting}
               className="w-full rounded-xl py-2.5 transition-colors"
               style={{ background: !dismissReason.trim() ? '#F1F5F9' : '#DC2626', color: !dismissReason.trim() ? '#94A3B8' : '#fff', fontSize: 13, fontWeight: 700 }}>
@@ -563,6 +538,7 @@ const ManualClaimModal = ({
   const [aiDone, setAiDone] = useState(false);
   const [aiResult, setAiResult] = useState<'eligible' | 'flag' | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const gross = parseFloat(grossAmount) || 0;
   const copay = Math.round(gross * 0.1);
@@ -591,13 +567,32 @@ const ManualClaimModal = ({
     setStep(s => s + 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!selectedPatient || !selectedDoctor) return;
     setSubmitting(true);
-    setTimeout(() => {
+    setActionError(null);
+    const patientParts = selectedPatient.split(' — ');
+    const doctorParts  = selectedDoctor.split(' — ');
+    const tierLabel    = patientParts[2] ?? '';
+    try {
+      await submitManualClaim({
+        patientName:        patientParts[0] ?? '',
+        planName:           tierLabel,
+        planTier:           tierLabel.toLowerCase(),
+        providerName:       doctorParts[2] ?? '',
+        doctorName:         doctorParts[0] ?? '',
+        claimType,
+        amountAed:          gross,
+        diagnosisIcdCode:   selectedIcd10?.code ?? null,
+        cptCode:            cpt.trim() || null,
+        aiEligibilityResult: aiResult,
+      });
       onToast('Manual claim submitted for review', 'success');
-      setSubmitting(false);
       onClose();
-    }, 900);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit claim. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   const filteredPatients = MOCK_PATIENTS.filter(
@@ -902,8 +897,13 @@ const ManualClaimModal = ({
               Next <ChevronRight style={{ width: 13, height: 13 }} />
             </button>
           )}
+          {step === 2 && actionError && (
+            <div className="rounded-lg px-3 py-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12 }}>
+              {actionError}
+            </div>
+          )}
           {step === 2 && (
-            <button onClick={handleSubmit} disabled={submitting || aiChecking}
+            <button onClick={() => void handleSubmit()} disabled={submitting || aiChecking}
               className="flex-1 rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
               style={{ background: submitting || aiChecking ? '#94A3B8' : '#1E3A5F', color: '#fff', fontSize: 14, fontWeight: 700, minHeight: 48 }}>
               <FileText style={{ width: 15, height: 15 }} />
@@ -932,6 +932,7 @@ const ClaimDetailDrawer = ({
   const [denyReason, setDenyReason] = useState(DENY_REASONS[0]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<'approved' | 'denied' | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const currentIdx = allClaims.findIndex(c => c.id === claim.id);
   const prevClaim  = currentIdx > 0 ? allClaims[currentIdx - 1] : null;
@@ -951,22 +952,30 @@ const ClaimDetailDrawer = ({
     onToast(`Copied ${label}`, 'info');
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     setSubmitting(true);
-    setTimeout(() => {
-      onDecision(claim.id, 'approved', decideNote || 'Approved by claims officer');
+    setActionError(null);
+    try {
+      await approveClaim(claim.id, decideNote.trim() || null);
       setSuccess('approved');
+      onDecision(claim.id, 'approved', decideNote || 'Approved by claims officer');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to approve claim. Please try again.');
       setSubmitting(false);
-    }, 600);
+    }
   };
 
-  const handleDeny = () => {
+  const handleDeny = async () => {
     setSubmitting(true);
-    setTimeout(() => {
-      onDecision(claim.id, 'denied', denyReason);
+    setActionError(null);
+    try {
+      await denyClaim(claim.id, denyReason);
       setSuccess('denied');
+      onDecision(claim.id, 'denied', denyReason);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to deny claim. Please try again.');
       setSubmitting(false);
-    }, 600);
+    }
   };
 
   return (
@@ -1166,7 +1175,12 @@ const ClaimDetailDrawer = ({
               placeholder="Optional approval note..."
               className="w-full rounded-lg px-3 py-2 resize-none outline-none mb-2"
               style={{ fontSize: 12, background: '#fff', border: '1px solid #86EFAC', color: '#0F172A' }} />
-            <button onClick={handleApprove} disabled={submitting}
+            {actionError && (
+              <div className="rounded-lg px-3 py-2 mb-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12 }}>
+                {actionError}
+              </div>
+            )}
+            <button onClick={() => void handleApprove()} disabled={submitting}
               className="w-full rounded-lg py-2.5 flex items-center justify-center gap-2 mb-2 transition-colors"
               style={{ background: submitting ? '#94A3B8' : '#059669', color: '#fff', fontSize: 13, fontWeight: 700 }}>
               <CheckCircle2 style={{ width: 14, height: 14 }} />
@@ -1180,7 +1194,7 @@ const ClaimDetailDrawer = ({
                   {DENY_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <button onClick={handleDeny} disabled={submitting}
+              <button onClick={() => void handleDeny()} disabled={submitting}
                 className="flex items-center gap-1.5 rounded-lg px-4 py-2 transition-colors flex-shrink-0"
                 style={{ background: submitting ? '#94A3B8' : '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', fontSize: 12, fontWeight: 700 }}>
                 <XCircle style={{ width: 12, height: 12 }} /> Deny
@@ -1216,7 +1230,13 @@ const ClaimDetailDrawer = ({
             onMouseLeave={e => { e.currentTarget.style.background = '#F1F5F9'; }}>
             <FileText style={{ width: 11, height: 11 }} /> EOB
           </button>
-          <button onClick={() => onToast(`${getShortRef(claim.externalRef)} flagged for investigation`, 'warning')}
+          <button onClick={() => {
+              flagClaimForReview(claim.id).then(() => {
+                onToast(`${getShortRef(claim.externalRef)} flagged for investigation`, 'warning');
+              }).catch((err: unknown) => {
+                onToast(err instanceof Error ? err.message : 'Failed to flag claim', 'warning');
+              });
+            }}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors"
             style={{ background: '#FFF7ED', color: '#EA580C', fontSize: 11, border: '1px solid #FED7AA' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#FEE7C7'; }}
@@ -1251,18 +1271,8 @@ const PER_PAGE = 10;
 
 export const InsuranceClaims = () => {
   const { data, loading, error, claimTotal, refetch, overduePreAuth } = useInsurancePageData();
-  const claims  = useMemo(() =>
-    (data?.claims.length ?? 0) > 0 ? data!.claims : MOCK_CLAIMS,
-    [data?.claims]);
-  const profile = (data?.profile?.activeMembers ?? 0) > 0 ? data!.profile! : MOCK_PROFILE_CLAIMS;
-
-  // Optimistic decisions (approve/deny/appeal uphold/dismiss)
-  const [localDecisions, setLocalDecisions] = useState<Record<string, 'approved' | 'denied'>>({});
-
-  const effectiveStatusKey = useCallback(
-    (c: InsuranceClaim): StatusKey => toStatusKey(c.status, localDecisions[c.id]),
-    [localDecisions],
-  );
+  const claims  = data?.claims ?? [];
+  const profile = data?.profile ?? null;
 
   // UI state
   const [drawerClaim,  setDrawerClaim]  = useState<InsuranceClaim | null>(null);
@@ -1288,7 +1298,7 @@ export const InsuranceClaims = () => {
 
   // Filtered
   const filtered = useMemo(() => {
-    let rows = claims.filter(c => TAB_FILTERS[tab](effectiveStatusKey(c)));
+    let rows = claims.filter(c => TAB_FILTERS[tab](toStatusKey(c.status)));
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter(c =>
@@ -1299,13 +1309,13 @@ export const InsuranceClaims = () => {
       );
     }
     return rows;
-  }, [claims, tab, search, effectiveStatusKey]);
+  }, [claims, tab, search]);
 
   const paginated  = useMemo(() => filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE), [filtered, page]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
 
   const tabCount = (key: TabKey) =>
-    claims.filter(c => TAB_FILTERS[key](effectiveStatusKey(c))).length;
+    claims.filter(c => TAB_FILTERS[key](toStatusKey(c.status))).length;
 
   // Stat counts
   const approvedCount = tabCount('approved');
@@ -1326,7 +1336,7 @@ export const InsuranceClaims = () => {
 
   // Decisions
   const applyDecision = useCallback((id: string, decision: 'approved' | 'denied', note: string) => {
-    setLocalDecisions(p => ({ ...p, [id]: decision }));
+    void refetchRef.current();
     toast(
       decision === 'approved' ? `Claim approved — ${note}` : `Claim denied — ${note}`,
       decision === 'approved' ? 'success' : 'warning',
@@ -1334,38 +1344,40 @@ export const InsuranceClaims = () => {
     if (drawerClaim?.id === id) setDrawerClaim(null);
   }, [drawerClaim, toast]);
 
-  const applyUphold = useCallback((id: string) => {
-    setLocalDecisions(p => ({ ...p, [id]: 'approved' }));
+  const applyUphold = useCallback((_id: string) => {
+    void refetchRef.current();
     toast('Appeal upheld — claim approved', 'success');
     setAppealClaim(null);
   }, [toast]);
 
-  const applyDismiss = useCallback((id: string, reason: string) => {
-    setLocalDecisions(p => ({ ...p, [id]: 'denied' }));
+  const applyDismiss = useCallback((_id: string, reason: string) => {
+    void refetchRef.current();
     toast(`Appeal dismissed — ${reason}`, 'warning');
     setAppealClaim(null);
   }, [toast]);
 
-  const bulkApprove = () => {
+  const bulkApprove = async () => {
     const ids = Array.from(selectedIds);
-    setLocalDecisions(p => {
-      const n = { ...p };
-      ids.forEach(id => { n[id] = 'approved'; });
-      return n;
-    });
-    toast(`${ids.length} claims approved in bulk`, 'success');
-    setSelectedIds(new Set());
+    try {
+      await bulkApproveClaims(ids);
+      await refetchRef.current();
+      toast(`${ids.length} claims approved in bulk`, 'success');
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Bulk approval failed — please retry', 'warning');
+    }
   };
 
-  const bulkDeny = () => {
+  const bulkDeny = async () => {
     const ids = Array.from(selectedIds);
-    setLocalDecisions(p => {
-      const n = { ...p };
-      ids.forEach(id => { n[id] = 'denied'; });
-      return n;
-    });
-    toast(`${ids.length} claims denied`, 'warning');
-    setSelectedIds(new Set());
+    try {
+      await bulkDenyClaims(ids);
+      await refetchRef.current();
+      toast(`${ids.length} claims denied`, 'warning');
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Bulk denial failed — please retry', 'warning');
+    }
   };
 
   return (
@@ -1510,7 +1522,7 @@ export const InsuranceClaims = () => {
                         </td>
                       </tr>
                     ) : paginated.map(claim => {
-                      const sk       = effectiveStatusKey(claim);
+                      const sk       = toStatusKey(claim.status);
                       const s        = STATUS_MAP[sk];
                       const plan     = getPlanColor(claim.planTier);
                       const isSelected = selectedIds.has(claim.id);
@@ -1596,16 +1608,32 @@ export const InsuranceClaims = () => {
                               </button>
                               {isPendingRow && (
                                 <>
-                                  <button onClick={() => setDrawerClaim(claim)}
+                                  <button onClick={e => {
+                                    e.stopPropagation();
+                                    approveClaim(claim.id).then(() => {
+                                      void refetchRef.current();
+                                      toast(`Claim ${getShortRef(claim.externalRef)} approved`, 'success');
+                                    }).catch((err: unknown) => {
+                                      toast(err instanceof Error ? err.message : 'Approval failed', 'warning');
+                                    });
+                                  }}
                                     className="rounded p-1 transition-colors"
                                     style={{ color: '#059669', background: '#F0FDF4' }}
-                                    title="Approve">
+                                    title="Quick Approve">
                                     <CheckCircle2 style={{ width: 12, height: 12 }} />
                                   </button>
-                                  <button onClick={() => setDrawerClaim(claim)}
+                                  <button onClick={e => {
+                                    e.stopPropagation();
+                                    denyClaim(claim.id, DENY_REASONS[0]!).then(() => {
+                                      void refetchRef.current();
+                                      toast(`Claim ${getShortRef(claim.externalRef)} denied`, 'warning');
+                                    }).catch((err: unknown) => {
+                                      toast(err instanceof Error ? err.message : 'Denial failed', 'warning');
+                                    });
+                                  }}
                                     className="rounded p-1 transition-colors"
                                     style={{ color: '#DC2626', background: '#FFF5F5' }}
-                                    title="Deny">
+                                    title="Quick Deny">
                                     <XCircle style={{ width: 12, height: 12 }} />
                                   </button>
                                 </>
@@ -1632,8 +1660,24 @@ export const InsuranceClaims = () => {
                                       { label: 'Download EOB',   icon: <Download style={{ width: 12, height: 12 }} />,     action: () => { toast(`EOB downloaded for ${getShortRef(claim.externalRef)}`, 'success'); setOpenMenuId(null); } },
                                       { label: 'Copy Claim Ref', icon: <Copy style={{ width: 12, height: 12 }} />,          action: () => { navigator.clipboard.writeText(claim.externalRef).catch(() => {}); toast('Claim ID copied', 'info'); setOpenMenuId(null); } },
                                       ...(isPendingRow ? [
-                                        { label: 'Quick Approve', icon: <CheckCircle2 style={{ width: 12, height: 12 }} />, action: () => { setDrawerClaim(claim); setOpenMenuId(null); } },
-                                        { label: 'Quick Deny',    icon: <XCircle     style={{ width: 12, height: 12 }} />, action: () => { setDrawerClaim(claim); setOpenMenuId(null); } },
+                                        { label: 'Quick Approve', icon: <CheckCircle2 style={{ width: 12, height: 12 }} />, action: () => {
+                                          setOpenMenuId(null);
+                                          approveClaim(claim.id).then(() => {
+                                            void refetchRef.current();
+                                            toast(`Claim ${getShortRef(claim.externalRef)} approved`, 'success');
+                                          }).catch((err: unknown) => {
+                                            toast(err instanceof Error ? err.message : 'Approval failed', 'warning');
+                                          });
+                                        }},
+                                        { label: 'Quick Deny', icon: <XCircle style={{ width: 12, height: 12 }} />, action: () => {
+                                          setOpenMenuId(null);
+                                          denyClaim(claim.id, DENY_REASONS[0]!).then(() => {
+                                            void refetchRef.current();
+                                            toast(`Claim ${getShortRef(claim.externalRef)} denied`, 'warning');
+                                          }).catch((err: unknown) => {
+                                            toast(err instanceof Error ? err.message : 'Denial failed', 'warning');
+                                          });
+                                        }},
                                       ] : []),
                                       ...(isAppealed ? [
                                         { label: 'Review Appeal', icon: <Scale style={{ width: 12, height: 12 }} />,        action: () => { setAppealClaim(claim); setOpenMenuId(null); } },
@@ -1665,7 +1709,7 @@ export const InsuranceClaims = () => {
             {view === 'card' && (
               <div className="grid gap-3 p-4" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                 {paginated.map(claim => {
-                  const sk   = effectiveStatusKey(claim);
+                  const sk   = toStatusKey(claim.status);
                   const s    = STATUS_MAP[sk];
                   const plan = getPlanColor(claim.planTier);
                   return (
@@ -1769,14 +1813,14 @@ export const InsuranceClaims = () => {
             <span style={{ fontSize: 13, color: '#E2E8F0' }}>claims selected</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={bulkApprove}
+            <button onClick={() => void bulkApprove()}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 transition-colors"
               style={{ background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#047857'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#059669'; }}>
               <CheckCircle2 style={{ width: 13, height: 13 }} /> Approve Selected
             </button>
-            <button onClick={bulkDeny}
+            <button onClick={() => void bulkDeny()}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 transition-colors"
               style={{ background: '#DC2626', color: '#fff', fontSize: 12, fontWeight: 700 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#B91C1C'; }}

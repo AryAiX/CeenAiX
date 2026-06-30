@@ -84,6 +84,19 @@ export interface InsuranceClaim {
   amountAed: number;
   status: 'submitted' | 'under_review' | 'approved' | 'denied' | 'appealed';
   submittedAt: string;
+  approvalNote: string | null;
+  denialReason: string | null;
+  appealReviewNote: string | null;
+  appealDismissalReason: string | null;
+  doctorName: string | null;
+  diagnosisIcdCode: string | null;
+  cptCode: string | null;
+  aiEligibilityResult: string | null;
+  submissionMethod: string | null;
+  flaggedForReview: boolean;
+  flaggedReason: string | null;
+  flaggedAt: string | null;
+  adjudicatedAt: string | null;
 }
 
 export interface InsuranceMember {
@@ -275,6 +288,19 @@ interface ClaimRow {
   amount_aed: number | string | null;
   status: InsuranceClaim['status'];
   submitted_at: string;
+  approval_note: string | null;
+  denial_reason: string | null;
+  appeal_review_note: string | null;
+  appeal_dismissal_reason: string | null;
+  doctor_name: string | null;
+  diagnosis_icd_code: string | null;
+  cpt_code: string | null;
+  ai_eligibility_result: string | null;
+  submission_method: string | null;
+  flagged_for_review: boolean | null;
+  flagged_reason: string | null;
+  flagged_at: string | null;
+  adjudicated_at: string | null;
 }
 
 interface MemberRow {
@@ -483,6 +509,100 @@ export async function requestPreAuthInfo(
   if (error) throw error;
 }
 
+export async function approveClaim(
+  claimId: string,
+  approvalNote?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_approve_claim', {
+    p_claim_id: claimId,
+    p_approval_note: approvalNote ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function denyClaim(
+  claimId: string,
+  denialReason: string
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_deny_claim', {
+    p_claim_id: claimId,
+    p_denial_reason: denialReason,
+  });
+  if (error) throw error;
+}
+
+export async function bulkApproveClaims(claimIds: string[]): Promise<void> {
+  const { error } = await supabase.rpc('insurance_bulk_approve_claims', {
+    p_claim_ids: claimIds,
+  });
+  if (error) throw error;
+}
+
+export async function bulkDenyClaims(
+  claimIds: string[],
+  denialReason?: string
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_bulk_deny_claims', {
+    p_claim_ids: claimIds,
+    p_denial_reason: denialReason ?? 'Bulk denial',
+  });
+  if (error) throw error;
+}
+
+export async function resolveClaimAppeal(
+  claimId: string,
+  decision: 'approved' | 'denied',
+  reviewNote?: string | null,
+  dismissalReason?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_resolve_claim_appeal', {
+    p_claim_id: claimId,
+    p_decision: decision,
+    p_review_note: reviewNote ?? null,
+    p_dismissal_reason: dismissalReason ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function submitManualClaim(input: {
+  patientName: string;
+  planName: string;
+  planTier: string;
+  providerName: string;
+  doctorName: string;
+  claimType: string;
+  amountAed: number;
+  diagnosisIcdCode?: string | null;
+  cptCode?: string | null;
+  aiEligibilityResult?: string | null;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('insurance_submit_manual_claim', {
+    p_patient_name: input.patientName,
+    p_plan_name: input.planName,
+    p_plan_tier: input.planTier,
+    p_provider_name: input.providerName,
+    p_doctor_name: input.doctorName,
+    p_claim_type: input.claimType,
+    p_amount_aed: input.amountAed,
+    p_diagnosis_icd_code: input.diagnosisIcdCode ?? null,
+    p_cpt_code: input.cptCode ?? null,
+    p_ai_eligibility_result: input.aiEligibilityResult ?? null,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function flagClaimForReview(
+  claimId: string,
+  flagReason?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_flag_claim_for_review', {
+    p_claim_id: claimId,
+    p_flag_reason: flagReason ?? null,
+  });
+  if (error) throw error;
+}
+
 export function useInsurancePortal() {
   return useQuery<InsurancePortalData>(async () => {
     const { data: userResult, error: userError } = await supabase.auth.getUser();
@@ -545,7 +665,7 @@ export function useInsurancePortal() {
         .order('sla_due_at', { ascending: true }),
       supabase
         .from('insurance_claims')
-        .select('id, external_ref, patient_name, plan_name, plan_tier, claim_type, provider_name, amount_aed, status, submitted_at')
+        .select('id, external_ref, patient_name, plan_name, plan_tier, claim_type, provider_name, amount_aed, status, submitted_at, approval_note, denial_reason, appeal_review_note, appeal_dismissal_reason, doctor_name, diagnosis_icd_code, cpt_code, ai_eligibility_result, submission_method, flagged_for_review, flagged_reason, flagged_at, adjudicated_at')
         .eq('organization_id', org.id)
         .order('submitted_at', { ascending: false }),
       supabase
@@ -690,6 +810,19 @@ export function useInsurancePortal() {
         amountAed: toNumber(row.amount_aed),
         status: row.status,
         submittedAt: row.submitted_at,
+        approvalNote: row.approval_note,
+        denialReason: row.denial_reason,
+        appealReviewNote: row.appeal_review_note,
+        appealDismissalReason: row.appeal_dismissal_reason,
+        doctorName: row.doctor_name,
+        diagnosisIcdCode: row.diagnosis_icd_code,
+        cptCode: row.cpt_code,
+        aiEligibilityResult: row.ai_eligibility_result,
+        submissionMethod: row.submission_method,
+        flaggedForReview: row.flagged_for_review ?? false,
+        flaggedReason: row.flagged_reason,
+        flaggedAt: row.flagged_at,
+        adjudicatedAt: row.adjudicated_at,
       })),
       members: ((memberResult.data ?? []) as MemberRow[]).map((row) => ({
         id: row.id,

@@ -89,11 +89,18 @@ export type {
   PharmacyStaffMember,
 } from './use-pharmacy-prescription-queue';
 export {
+  approveClaim,
   approvePreAuthorization,
+  bulkApproveClaims,
   bulkApprovePreAuthorizations,
+  bulkDenyClaims,
+  denyClaim,
   denyPreAuthorization,
+  flagClaimForReview,
   requestPreAuthInfo,
+  resolveClaimAppeal,
   setInsuranceSettingEnabled,
+  submitManualClaim,
   useInsurancePortal,
 } from './use-insurance-portal';
 export type {
