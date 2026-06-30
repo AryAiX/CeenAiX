@@ -351,6 +351,11 @@ const PreAuthDetailPanel = ({
   const [success, setSuccess]         = useState<'approved' | 'denied' | 'info' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const changeMode = (next: DecisionMode) => {
+    setActionError(null);
+    setMode(next);
+  };
+
   const ai      = aiColors[aiRecUpper(pa.aiRecommendation)];
   const slaHrs  = pa.priority === 'urgent' || pa.status === 'overdue' ? 4 : 8;
   const slaMins = slaRemainingMins(pa.slaDueAt);
@@ -551,21 +556,21 @@ const PreAuthDetailPanel = ({
 
         {!success && mode === 'none' && (
           <div className="flex gap-2">
-            <button onClick={() => setMode('approve')}
+            <button onClick={() => changeMode('approve')}
               className="flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 transition-colors"
               style={{ background: '#059669', color: '#fff', fontSize: 13, fontWeight: 700 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#047857'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#059669'; }}>
               <CheckCircle2 style={{ width: 15, height: 15 }} /> Approve
             </button>
-            <button onClick={() => setMode('deny')}
+            <button onClick={() => changeMode('deny')}
               className="flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 transition-colors"
               style={{ background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 700 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#B91C1C'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#DC2626'; }}>
               <XCircle style={{ width: 15, height: 15 }} /> Deny
             </button>
-            <button onClick={() => setMode('info')}
+            <button onClick={() => changeMode('info')}
               className="flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 transition-colors"
               style={{ background: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0', fontSize: 13, fontWeight: 600 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
@@ -582,7 +587,7 @@ const PreAuthDetailPanel = ({
                 <CheckCircle2 style={{ width: 14, height: 14, color: '#059669' }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>Approve Pre-Authorization</span>
               </div>
-              <button onClick={() => setMode('none')} style={{ fontSize: 11, color: '#94A3B8' }}>Cancel</button>
+              <button onClick={() => changeMode('none')} style={{ fontSize: 11, color: '#94A3B8' }}>Cancel</button>
             </div>
             <div className="mb-3">
               <label style={{ fontSize: 11, color: '#065F46', fontWeight: 600, display: 'block', marginBottom: 4 }}>
@@ -603,6 +608,11 @@ const PreAuthDetailPanel = ({
                 className="w-full rounded-lg px-3 py-2 resize-none outline-none"
                 style={{ fontSize: 12, background: '#fff', border: '1px solid #86EFAC', color: '#0F172A' }} />
             </div>
+            {actionError && mode === 'approve' && (
+              <div className="rounded-lg px-3 py-2 mb-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', fontSize: 12, color: '#991B1B' }}>
+                {actionError}
+              </div>
+            )}
             <button onClick={() => void handleApprove()} disabled={submitting}
               className="w-full rounded-lg py-2.5 flex items-center justify-center gap-2 transition-colors"
               style={{ background: submitting ? '#94A3B8' : '#059669', color: '#fff', fontSize: 13, fontWeight: 700 }}>
@@ -619,7 +629,7 @@ const PreAuthDetailPanel = ({
                 <XCircle style={{ width: 14, height: 14, color: '#DC2626' }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#991B1B' }}>Deny Pre-Authorization</span>
               </div>
-              <button onClick={() => setMode('none')} style={{ fontSize: 11, color: '#94A3B8' }}>Cancel</button>
+              <button onClick={() => changeMode('none')} style={{ fontSize: 11, color: '#94A3B8' }}>Cancel</button>
             </div>
             <div className="mb-3">
               <label style={{ fontSize: 11, color: '#991B1B', fontWeight: 600, display: 'block', marginBottom: 4 }}>Denial Reason</label>
@@ -666,7 +676,7 @@ const PreAuthDetailPanel = ({
                 <MessageSquare style={{ width: 14, height: 14, color: '#2563EB' }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#1E40AF' }}>Request Additional Information</span>
               </div>
-              <button onClick={() => setMode('none')} style={{ fontSize: 11, color: '#94A3B8' }}>Cancel</button>
+              <button onClick={() => changeMode('none')} style={{ fontSize: 11, color: '#94A3B8' }}>Cancel</button>
             </div>
             <div className="mb-3">
               <label style={{ fontSize: 11, color: '#1E40AF', fontWeight: 600, display: 'block', marginBottom: 6 }}>Documents required</label>
