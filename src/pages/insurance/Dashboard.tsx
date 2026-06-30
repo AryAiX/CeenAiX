@@ -50,101 +50,7 @@ import type {
   InsuranceAiInsight,
   InsuranceNetworkProvider,
   InsuranceMonthlyClaimsVolumePoint,
-  InsurancePreAuthorization,
-  InsurancePayerProfile,
 } from '../../hooks';
-
-// ─── Static mock data (shown when Supabase returns empty) ────────────────────
-
-const _sla = (offsetHours: number) =>
-  new Date(Date.now() + offsetHours * 3_600_000).toISOString();
-
-const MOCK_PROFILE: InsurancePayerProfile = {
-  displayName: 'Daman National Health',
-  arabicName: 'الضمان للتأمين الصحي الوطني',
-  regulatorName: 'DHA — Dubai Health Authority',
-  activeMembers: 8247,
-  membersGold: 2847,
-  membersSilver: 3104,
-  membersBasic: 1892,
-  officerName: 'Sarah Al Mansouri',
-  officerTitle: 'Senior Claims Officer',
-  aiAutoApprovalPercent: 78.2,
-  aiAutoApprovalChangePercent: 3.1,
-  avgProcessingHours: 4.2,
-  slaTargetStandardHours: 8,
-  slaTargetUrgentHours: 4,
-  claimsTodayTotalAed: 1_247_840,
-  claimsTodayCount: 312,
-  claimsTodayApprovedCount: 244,
-  claimsTodayApprovedAed: 981_200,
-  claimsTodayPendingCount: 48,
-  claimsTodayPendingAed: 196_400,
-  claimsTodayDeniedCount: 20,
-  claimsTodayDeniedAed: 70_240,
-  claimsTodayAppealedCount: 0,
-  claimsTodayAppealedAed: 0,
-  damanExposureTodayAed: 151,
-  claimsMtdAed: 4_800_000,
-  claimsBudgetAed: 4_000_000,
-  claimsBudgetPct: 120,
-  priorMonthGrowthPercent: 8.4,
-};
-
-const MOCK_PRE_AUTHS: InsurancePreAuthorization[] = [
-  { id: 'mpa-1',  externalRef: 'PA-20260407-00912', patientName: 'Ahmed Al Rashidi',    patientAge: 54, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Fatima Al Zaabi',   providerName: 'Cleveland Clinic Abu Dhabi',  procedureName: 'Coronary Angiography',         procedureIcdCode: 'I25.10', priority: 'urgent',  status: 'overdue', requestedAmountAed: 18_500, approvedAmountAed: null,   coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 94, requestedAt: '2026-04-07T06:00:00.000Z', slaDueAt: _sla(-2) },
-  { id: 'mpa-2',  externalRef: 'PA-20260407-00891', patientName: 'Noura Al Hammadi',    patientAge: 38, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Khalid Al Nuaimi',  providerName: 'Mediclinic City Hospital',    procedureName: 'MRI Brain with Contrast',      procedureIcdCode: 'G35',    priority: 'urgent',  status: 'overdue', requestedAmountAed: 4_200,  approvedAmountAed: null,   coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'review',  aiConfidencePercent: 61, requestedAt: '2026-04-07T04:30:00.000Z', slaDueAt: _sla(-1) },
-  { id: 'mpa-3',  externalRef: 'PA-20260407-00876', patientName: 'Mohammed Al Kaabi',   patientAge: 67, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Sara Al Blooshi',   providerName: 'Burjeel Hospital',            procedureName: 'CABG Surgery',                 procedureIcdCode: 'I25.5',  priority: 'urgent',  status: 'review',  requestedAmountAed: 85_000, approvedAmountAed: null,   coverageLabel: 'Covered 90%',  coveragePercent: 90,  isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 97, requestedAt: '2026-04-07T07:00:00.000Z', slaDueAt: _sla(1.5) },
-  { id: 'mpa-4',  externalRef: 'PA-20260407-00862', patientName: 'Aisha Al Marzouqi',   patientAge: 29, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Omar Al Suwaidi',   providerName: 'NMC Healthcare',              procedureName: 'Laparoscopic Cholecystectomy', procedureIcdCode: 'K80.20', priority: 'routine', status: 'review',  requestedAmountAed: 12_300, approvedAmountAed: null,   coverageLabel: 'Covered 70%',  coveragePercent: 70,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 88, requestedAt: '2026-04-07T07:30:00.000Z', slaDueAt: _sla(4) },
-  { id: 'mpa-5',  externalRef: 'PA-20260407-00849', patientName: 'Saeed Al Falasi',     patientAge: 72, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Layla Al Khatri',   providerName: 'Aster Hospital Mankhool',     procedureName: 'Total Knee Replacement',       procedureIcdCode: 'M17.11', priority: 'urgent',  status: 'review',  requestedAmountAed: 42_000, approvedAmountAed: null,   coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: false, aiRecommendation: 'review',  aiConfidencePercent: 72, requestedAt: '2026-04-07T08:00:00.000Z', slaDueAt: _sla(2) },
-  { id: 'mpa-6',  externalRef: 'PA-20260407-00834', patientName: 'Mariam Al Qubaisi',   patientAge: 45, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Hamad Al Mazrouei', providerName: 'Prime Hospital',              procedureName: 'Hysterectomy',                 procedureIcdCode: 'N81.1',  priority: 'routine', status: 'review',  requestedAmountAed: 22_500, approvedAmountAed: null,   coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 91, requestedAt: '2026-04-07T08:30:00.000Z', slaDueAt: _sla(6) },
-  { id: 'mpa-7',  externalRef: 'PA-20260407-00821', patientName: 'Khalid Al Rashidi',   patientAge: 55, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Hessa Al Dhaheri',  providerName: 'Mediclinic Al Noor',          procedureName: 'Spinal Fusion L4-L5',          procedureIcdCode: 'M51.16', priority: 'routine', status: 'review',  requestedAmountAed: 56_000, approvedAmountAed: null,   coverageLabel: 'Covered 90%',  coveragePercent: 90,  isCeenaixEprescribed: true,  aiRecommendation: 'deny',    aiConfidencePercent: 78, requestedAt: '2026-04-07T09:00:00.000Z', slaDueAt: _sla(5) },
-  { id: 'mpa-8',  externalRef: 'PA-20260407-00809', patientName: 'Fatima Al Neyadi',    patientAge: 34, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Jassim Al Awadhi',  providerName: 'Saudi German Hospital',       procedureName: 'Appendectomy',                 procedureIcdCode: 'K35.2',  priority: 'urgent',  status: 'review',  requestedAmountAed: 9_800,  approvedAmountAed: null,   coverageLabel: 'Covered 70%',  coveragePercent: 70,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 96, requestedAt: '2026-04-07T09:30:00.000Z', slaDueAt: _sla(3) },
-  { id: 'mpa-9',  externalRef: 'PA-20260407-00796', patientName: 'Ibrahim Al Mansoori', patientAge: 61, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Maryam Al Shehhi',  providerName: 'Corniche Hospital',           procedureName: 'Cataract Surgery',             procedureIcdCode: 'H26.9',  priority: 'routine', status: 'review',  requestedAmountAed: 7_200,  approvedAmountAed: null,   coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 99, requestedAt: '2026-04-07T10:00:00.000Z', slaDueAt: _sla(7) },
-  { id: 'mpa-10', externalRef: 'PA-20260407-00783', patientName: 'Latifa Al Muhairi',   patientAge: 42, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Tariq Al Mazrouei', providerName: 'Emirates Hospital',           procedureName: 'Thyroidectomy',                procedureIcdCode: 'E06.3',  priority: 'routine', status: 'review',  requestedAmountAed: 18_900, approvedAmountAed: null,   coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'review',  aiConfidencePercent: 55, requestedAt: '2026-04-07T10:30:00.000Z', slaDueAt: _sla(8) },
-  { id: 'mpa-11', externalRef: 'PA-20260407-00771', patientName: 'Ali Al Shamsi',       patientAge: 48, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Reem Al Khoori',    providerName: 'Thumbay Hospital',            procedureName: 'Prostatectomy',                procedureIcdCode: 'C61',    priority: 'routine', status: 'approved',requestedAmountAed: 31_500, approvedAmountAed: 31_500, coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 93, requestedAt: '2026-04-06T08:00:00.000Z', slaDueAt: _sla(-4) },
-  { id: 'mpa-12', externalRef: 'PA-20260407-00758', patientName: 'Hana Al Zarouni',     patientAge: 31, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Faisal Al Hammadi', providerName: 'Mediclinic Parkview',         procedureName: 'Laparoscopic Myomectomy',      procedureIcdCode: 'D25.1',  priority: 'routine', status: 'approved',requestedAmountAed: 15_800, approvedAmountAed: 15_800, coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 87, requestedAt: '2026-04-06T09:00:00.000Z', slaDueAt: _sla(-3) },
-  { id: 'mpa-13', externalRef: 'PA-20260407-00745', patientName: 'Yousef Al Dhaheri',   patientAge: 58, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Amna Al Blooshi',   providerName: 'Burjeel Day Surgery Centre',  procedureName: 'Hip Replacement',              procedureIcdCode: 'M16.11', priority: 'routine', status: 'approved',requestedAmountAed: 48_000, approvedAmountAed: 48_000, coverageLabel: 'Covered 90%',  coveragePercent: 90,  isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 96, requestedAt: '2026-04-06T10:00:00.000Z', slaDueAt: _sla(-6) },
-  { id: 'mpa-14', externalRef: 'PA-20260407-00732', patientName: 'Shaikha Al Mualla',   patientAge: 27, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Nasser Al Khoury',  providerName: 'Al Zahra Hospital',           procedureName: 'Tonsillectomy',                procedureIcdCode: 'J35.01', priority: 'routine', status: 'approved',requestedAmountAed: 6_400,  approvedAmountAed: 6_400,  coverageLabel: 'Covered 70%',  coveragePercent: 70,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 98, requestedAt: '2026-04-05T11:00:00.000Z', slaDueAt: _sla(-8) },
-  { id: 'mpa-15', externalRef: 'PA-20260407-00219', patientName: 'Rashid Al Nuaimi',    patientAge: 63, patientGender: 'male',   planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Badria Al Hashimi', providerName: 'Sheikh Khalifa Medical City', procedureName: 'Colonoscopy & Polypectomy',    procedureIcdCode: 'K57.30', priority: 'routine', status: 'denied',  requestedAmountAed: 3_900,  approvedAmountAed: null,   coverageLabel: 'Not covered',  coveragePercent: 0,   isCeenaixEprescribed: false, aiRecommendation: 'deny',    aiConfidencePercent: 82, requestedAt: '2026-04-05T12:00:00.000Z', slaDueAt: _sla(-10) },
-  { id: 'mpa-16', externalRef: 'PA-20260407-00121', patientName: 'Moza Al Reyami',      patientAge: 44, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Waleed Al Suwaidi', providerName: 'Canadian Specialist Hospital', procedureName: 'Knee Arthroscopy',             procedureIcdCode: 'M23.20', priority: 'routine', status: 'denied',  requestedAmountAed: 8_750,  approvedAmountAed: null,   coverageLabel: 'Excluded',     coveragePercent: 0,   isCeenaixEprescribed: false, aiRecommendation: 'deny',    aiConfidencePercent: 76, requestedAt: '2026-04-04T14:00:00.000Z', slaDueAt: _sla(-12) },
-];
-
-const MOCK_CLAIMS: InsuranceClaim[] = [
-  { id: 'mc-1',  externalRef: 'CLM-20260407-9001', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Cleveland Clinic Abu Dhabi', amountAed: 18_500, status: 'approved',     submittedAt: '2026-04-07T08:00:00.000Z' },
-  { id: 'mc-2',  externalRef: 'CLM-20260407-9002', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', planTier: 'silver', claimType: 'Outpatient', providerName: 'Mediclinic City Hospital',   amountAed: 4_200,  status: 'under_review', submittedAt: '2026-04-07T08:30:00.000Z' },
-  { id: 'mc-3',  externalRef: 'CLM-20260407-9003', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Burjeel Hospital',           amountAed: 85_000, status: 'submitted',    submittedAt: '2026-04-07T09:00:00.000Z' },
-  { id: 'mc-4',  externalRef: 'CLM-20260407-9004', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', planTier: 'basic',  claimType: 'Inpatient',  providerName: 'NMC Healthcare',             amountAed: 12_300, status: 'approved',     submittedAt: '2026-04-07T09:30:00.000Z' },
-  { id: 'mc-5',  externalRef: 'CLM-20260407-9005', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Aster Hospital Mankhool',    amountAed: 42_000, status: 'under_review', submittedAt: '2026-04-07T10:00:00.000Z' },
-  { id: 'mc-6',  externalRef: 'CLM-20260407-9006', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Prime Hospital',             amountAed: 22_500, status: 'submitted',    submittedAt: '2026-04-07T10:30:00.000Z' },
-  { id: 'mc-7',  externalRef: 'CLM-20260407-9007', patientName: 'Khalid Al Rashidi',   planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Mediclinic Al Noor',         amountAed: 56_000, status: 'denied',       submittedAt: '2026-04-07T11:00:00.000Z' },
-  { id: 'mc-8',  externalRef: 'CLM-20260407-9008', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', planTier: 'basic',  claimType: 'Inpatient',  providerName: 'Saudi German Hospital',      amountAed: 9_800,  status: 'approved',     submittedAt: '2026-04-07T11:30:00.000Z' },
-  { id: 'mc-9',  externalRef: 'CLM-20260407-9009', patientName: 'Ibrahim Al Mansoori', planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Outpatient', providerName: 'Corniche Hospital',          amountAed: 7_200,  status: 'approved',     submittedAt: '2026-04-07T12:00:00.000Z' },
-  { id: 'mc-10', externalRef: 'CLM-20260407-9010', patientName: 'Latifa Al Muhairi',   planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Emirates Hospital',          amountAed: 18_900, status: 'appealed',     submittedAt: '2026-04-07T12:30:00.000Z' },
-  { id: 'mc-11', externalRef: 'CLM-20260407-9011', patientName: 'Ali Al Shamsi',       planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Thumbay Hospital',           amountAed: 31_500, status: 'approved',     submittedAt: '2026-04-07T13:00:00.000Z' },
-  { id: 'mc-12', externalRef: 'CLM-20260407-9012', patientName: 'Hana Al Zarouni',     planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Mediclinic Parkview',        amountAed: 15_800, status: 'denied',       submittedAt: '2026-04-07T13:30:00.000Z' },
-];
-
-const MOCK_FRAUD_ALERTS: InsuranceFraudAlert[] = [
-  { id: 'mfa-1', externalRef: 'FRAUD-2026-0041', subjectName: 'Dr. Sami Al Aryan — NMC Deira',        subjectType: 'provider', reason: 'Ghost consultations: 38 claims submitted for patients with no matching appointment record in CeenAiX within the billing period.',                                       score: 91, exposureAmountAed: 148_200, severity: 'high',   status: 'open'         },
-  { id: 'mfa-2', externalRef: 'FRAUD-2026-0038', subjectName: 'City Pharmacy — Al Quoz Branch',       subjectType: 'provider', reason: 'Phantom pharmacy dispensing: High-value medication claims with no matching DHA prescription record. Pattern observed across 12 patient accounts in 9 days.',        score: 87, exposureAmountAed: 94_600,  severity: 'high',   status: 'investigating' },
-  { id: 'mfa-3', externalRef: 'FRAUD-2026-0035', subjectName: 'Al Manara Clinic — Sharjah',           subjectType: 'provider', reason: 'Upcoding pattern detected: Routine consultations consistently billed as complex specialist reviews. Average upcoding margin 340% above peer benchmark.',             score: 74, exposureAmountAed: 62_400,  severity: 'medium', status: 'open'         },
-  { id: 'mfa-4', externalRef: 'FRAUD-2026-0033', subjectName: 'Spine & Joint Centre — Abu Dhabi',     subjectType: 'provider', reason: 'Duplicate billing: 14 procedures billed twice within 72-hour windows under different claim references.',                                                             score: 68, exposureAmountAed: 41_750,  severity: 'medium', status: 'investigating' },
-  { id: 'mfa-5', externalRef: 'FRAUD-2026-0029', subjectName: 'Member: Hassan Al Suwaidi (MBR-8841)', subjectType: 'member',   reason: "Out-of-hours consultation pattern: 22 specialist visits billed between 23:00–02:00 from the same provider, whose licence does not cover overnight services.",         score: 63, exposureAmountAed: 28_900,  severity: 'medium', status: 'open'         },
-];
-
-const MOCK_AI_INSIGHTS: InsuranceAiInsight[] = [
-  { id: 'mai-1', insightType: 'cluster_risk',          title: 'Musculoskeletal Cluster Cost Spike',           description: 'AI detected a 31% increase in musculoskeletal claims from Deira catchment area. 3 providers account for 78% of volume. Recommend targeted utilization review before end of quarter.', savingsLabel: 'Est. savings: AED 240K–380K', savingsAedMin: 240_000, savingsAedMax: 380_000, subjectRef: null, primaryActionLabel: 'View Cluster Analysis', primaryActionUrl: '/insurance/analytics', secondaryActionLabel: 'Export CSV',      secondaryActionUrl: null,                  displayOrder: 1 },
-  { id: 'mai-2', insightType: 'preventive',            title: 'Diabetes HbA1c Monitoring Gap — 847 Members', description: '847 members with ICD-coded Type 2 Diabetes have not had an HbA1c test in 6 months. Proactive outreach could reduce downstream hospitalisation risk and cost by up to AED 1.8M.',      savingsLabel: 'Projected: AED 1.2M–1.8M',   savingsAedMin: 1_200_000, savingsAedMax: 1_800_000, subjectRef: null, primaryActionLabel: 'Launch Outreach',       primaryActionUrl: null,                   secondaryActionLabel: 'View Members',    secondaryActionUrl: '/insurance/members',  displayOrder: 2 },
-  { id: 'mai-3', insightType: 'high_quality_provider', title: 'Cleveland Clinic ADH: Top AI Efficiency Score', description: 'Cleveland Clinic Abu Dhabi achieved 98.2% AI pre-auth accuracy this month with zero SLA breaches and the lowest readmission rate in network.',                                          savingsLabel: null,                          savingsAedMin: null,      savingsAedMax: null,      subjectRef: null, primaryActionLabel: 'View Provider Profile', primaryActionUrl: '/insurance/network',   secondaryActionLabel: null,              secondaryActionUrl: null,                  displayOrder: 3 },
-];
-
-const MOCK_MONTHLY_VOLUME: InsuranceMonthlyClaimsVolumePoint[] = [
-  { id: 'mv-1', year: 2026, month: 3, monthLabel: 'Mar 2026', claimsCount: 4_210, claimsValueAed: 3_940_000, growthPct: -2.4, isCurrentMonth: false },
-  { id: 'mv-2', year: 2026, month: 4, monthLabel: 'Apr 2026', claimsCount: 4_840, claimsValueAed: 4_420_000, growthPct: 12.2, isCurrentMonth: false },
-  { id: 'mv-3', year: 2026, month: 5, monthLabel: 'May 2026', claimsCount: 5_190, claimsValueAed: 4_690_000, growthPct:  6.1, isCurrentMonth: false },
-  { id: 'mv-4', year: 2026, month: 6, monthLabel: 'Jun 2026', claimsCount: 3_120, claimsValueAed: 2_840_000, growthPct: null, isCurrentMonth: true  },
-];
 
 // ─── KPI Strip ────────────────────────────────────────────────────────────────
 
@@ -879,15 +785,14 @@ const QuickActionsStrip = ({
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export const InsuranceDashboard = () => {
+  const navigate = useNavigate();
   const { data, loading, error, overduePreAuth, openFraud, refetch } = useInsurancePageData();
-  const profile       = (data?.profile?.activeMembers ?? 0) > 0 ? data!.profile! : MOCK_PROFILE;
-  const preAuths      = useMemo(() =>
-    (data?.preAuthorizations.length ?? 0) > 0 ? data!.preAuthorizations : MOCK_PRE_AUTHS,
-    [data?.preAuthorizations]);
-  const fraudAlerts   = (data?.fraudAlerts.length       ?? 0) > 0 ? data!.fraudAlerts       : MOCK_FRAUD_ALERTS;
-  const aiInsights    = (data?.aiInsights.length         ?? 0) > 0 ? data!.aiInsights        : MOCK_AI_INSIGHTS;
-  const monthlyVolume = (data?.monthlyClaimsVolume.length ?? 0) > 0 ? data!.monthlyClaimsVolume : MOCK_MONTHLY_VOLUME;
-  const claims        = (data?.claims.length             ?? 0) > 0 ? data!.claims            : MOCK_CLAIMS;
+  const profile       = data?.profile ?? null;
+  const preAuths      = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
+  const fraudAlerts   = data?.fraudAlerts ?? [];
+  const aiInsights    = data?.aiInsights ?? [];
+  const monthlyVolume = data?.monthlyClaimsVolume ?? [];
+  const claims        = data?.claims ?? [];
   const providers     = data?.networkProviders ?? [];
 
   const pendingPreAuths  = preAuths.filter(p => p.status === 'review' || p.status === 'overdue');
@@ -989,7 +894,7 @@ export const InsuranceDashboard = () => {
       icon: Users, accent: '#7C3AED',
       value: loading ? '…' : formatNumber(profile?.activeMembers),
       label: 'Active Members',
-      sub: `Gold · Silver · Basic`,
+      sub: `Gold ${formatNumber(profile?.membersGold)} · Silver ${formatNumber(profile?.membersSilver)} · Basic ${formatNumber(profile?.membersBasic)}`,
       href: '/insurance/members',
     },
   ];
@@ -1038,6 +943,7 @@ export const InsuranceDashboard = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => navigate('/insurance/preauth')}
                     className="rounded-lg px-3 py-1.5 transition-colors"
                     style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#475569', fontSize: 11, fontWeight: 600 }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
@@ -1071,6 +977,7 @@ export const InsuranceDashboard = () => {
               <PreAuthHostedTable rows={filtered} max={5} onApproved={stableRefetch} />
               {filtered.length > 5 && (
                 <button
+                  onClick={() => navigate('/insurance/preauth')}
                   className="mt-3 w-full rounded-lg px-4 py-2 transition-colors"
                   style={{ background: '#F8FAFC', color: '#1E3A5F', fontSize: 11, fontWeight: 700 }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
