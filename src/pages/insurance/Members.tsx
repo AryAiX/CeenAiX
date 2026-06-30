@@ -34,7 +34,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { type InsuranceMember } from '../../hooks';
+import { type InsuranceMember, type InsurancePayerProfile } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
   PreAuthAlert,
@@ -42,6 +42,51 @@ import InsuranceShell, {
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
+
+// ─── Static mock data (shown when Supabase returns empty) ────────────────────
+
+const MOCK_PROFILE_MEMBERS: InsurancePayerProfile = {
+  displayName: 'Daman National Health',
+  arabicName: 'الضمان للتأمين الصحي الوطني',
+  regulatorName: 'DHA — Dubai Health Authority',
+  activeMembers: 8247,
+  membersGold: 2847,
+  membersSilver: 3104,
+  membersBasic: 1892,
+  officerName: 'Sarah Al Mansouri',
+  officerTitle: 'Senior Claims Officer',
+  aiAutoApprovalPercent: 78.2,
+  aiAutoApprovalChangePercent: 3.1,
+  avgProcessingHours: 4.2,
+  slaTargetStandardHours: 8,
+  slaTargetUrgentHours: 4,
+  claimsTodayTotalAed: 1_247_840,
+  claimsTodayCount: 312,
+  claimsTodayApprovedCount: 244,
+  claimsTodayApprovedAed: 981_200,
+  claimsTodayPendingCount: 48,
+  claimsTodayPendingAed: 196_400,
+  claimsTodayDeniedCount: 20,
+  claimsTodayDeniedAed: 70_240,
+  claimsTodayAppealedCount: 0,
+  claimsTodayAppealedAed: 0,
+  damanExposureTodayAed: 151,
+  claimsMtdAed: 4_800_000,
+  claimsBudgetAed: 4_000_000,
+  claimsBudgetPct: 120,
+  priorMonthGrowthPercent: 8.4,
+};
+
+const MOCK_MEMBERS: InsuranceMember[] = [
+  { id: 'mm-1', externalMemberId: 'MBR-2026-4471', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   utilizationPercent: 82, claimCount: 7,  riskLevel: 'high',   isActive: true  },
+  { id: 'mm-2', externalMemberId: 'MBR-2026-4472', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', utilizationPercent: 34, claimCount: 2,  riskLevel: 'low',    isActive: true  },
+  { id: 'mm-3', externalMemberId: 'MBR-2026-4473', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   utilizationPercent: 91, claimCount: 12, riskLevel: 'high',   isActive: true  },
+  { id: 'mm-4', externalMemberId: 'MBR-2026-4474', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', utilizationPercent: 18, claimCount: 1,  riskLevel: 'low',    isActive: true  },
+  { id: 'mm-5', externalMemberId: 'MBR-2026-4475', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   utilizationPercent: 67, claimCount: 5,  riskLevel: 'medium', isActive: true  },
+  { id: 'mm-6', externalMemberId: 'MBR-2026-4476', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', utilizationPercent: 55, claimCount: 3,  riskLevel: 'medium', isActive: true  },
+  { id: 'mm-7', externalMemberId: 'MBR-2026-4477', patientName: 'Hassan Al Suwaidi',   planName: 'Gold Enhanced',   utilizationPercent: 95, claimCount: 22, riskLevel: 'high',   isActive: true  },
+  { id: 'mm-8', externalMemberId: 'MBR-2026-4478', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', utilizationPercent: 28, claimCount: 2,  riskLevel: 'low',    isActive: false },
+];
 
 // ─── Helpers & Constants ──────────────────────────────────────────────────────
 
@@ -949,7 +994,7 @@ const PopulationAnalytics = ({
           <BarChart data={utilBuckets} barSize={28}>
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
             <YAxis hide />
-            <Tooltip formatter={(v: number) => [`${v} members`]} labelStyle={{ fontSize: 12 }} />
+            <Tooltip formatter={(v: number | string | readonly (string | number)[] | undefined) => [`${v ?? 0} members`]} labelStyle={{ fontSize: 12 }} />
             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {utilBuckets.map((b, i) => <Cell key={i} fill={b.color} />)}
             </Bar>
@@ -978,8 +1023,10 @@ const PopulationAnalytics = ({
 
 export const InsuranceMembers = () => {
   const { data, loading, error, refetch, overduePreAuth } = useInsurancePageData();
-  const members = useMemo(() => data?.members ?? [], [data?.members]);
-  const profile = data?.profile;
+  const members = useMemo(() =>
+    (data?.members.length ?? 0) > 0 ? data!.members : MOCK_MEMBERS,
+    [data?.members]);
+  const profile = (data?.profile?.activeMembers ?? 0) > 0 ? data!.profile! : MOCK_PROFILE_MEMBERS;
 
   const [tab,          setTab]          = useState<Tab>('all');
   const [viewMode,     setViewMode]     = useState<ViewMode>('table');

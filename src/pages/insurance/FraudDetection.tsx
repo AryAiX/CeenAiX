@@ -19,6 +19,16 @@ import InsuranceShell, {
   useInsurancePageData,
 } from './InsuranceShell';
 
+// ─── Static mock data (shown when Supabase returns empty) ────────────────────
+
+const MOCK_FRAUD_ALERTS: InsuranceFraudAlert[] = [
+  { id: 'mfa-1', externalRef: 'FRAUD-2026-0041', subjectName: 'Dr. Sami Al Aryan — NMC Deira',        subjectType: 'provider', reason: 'Ghost consultations: 38 claims submitted for patients with no matching appointment record in CeenAiX within the billing period.',                                  score: 91, exposureAmountAed: 148_200, severity: 'high',   status: 'open'         },
+  { id: 'mfa-2', externalRef: 'FRAUD-2026-0038', subjectName: 'City Pharmacy — Al Quoz Branch',       subjectType: 'provider', reason: 'Phantom pharmacy dispensing: High-value medication claims with no matching DHA prescription record. Pattern observed across 12 patient accounts in 9 days.',   score: 87, exposureAmountAed: 94_600,  severity: 'high',   status: 'investigating' },
+  { id: 'mfa-3', externalRef: 'FRAUD-2026-0035', subjectName: 'Al Manara Clinic — Sharjah',           subjectType: 'provider', reason: 'Upcoding pattern detected: Routine consultations consistently billed as complex specialist reviews. Average upcoding margin 340% above peer benchmark.',        score: 74, exposureAmountAed: 62_400,  severity: 'medium', status: 'open'         },
+  { id: 'mfa-4', externalRef: 'FRAUD-2026-0033', subjectName: 'Spine & Joint Centre — Abu Dhabi',     subjectType: 'provider', reason: 'Duplicate billing: 14 procedures billed twice within 72-hour windows under different claim references.',                                                        score: 68, exposureAmountAed: 41_750,  severity: 'medium', status: 'investigating' },
+  { id: 'mfa-5', externalRef: 'FRAUD-2026-0029', subjectName: 'Member: Hassan Al Suwaidi (MBR-8841)', subjectType: 'member',   reason: "Out-of-hours consultation pattern: 22 specialist visits billed between 23:00–02:00 from the same provider, whose licence does not cover overnight services.",    score: 63, exposureAmountAed: 28_900,  severity: 'medium', status: 'open'         },
+];
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MONO = { fontFamily: 'DM Mono, monospace' };
@@ -877,7 +887,7 @@ const InvestigationWorkspace = ({
                   <AreaChart data={dailyPattern}>
                     <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v: number) => [`${v} claims`, 'Daily count']} />
+                    <Tooltip formatter={(v) => [`${v ?? 0} claims`, 'Daily count']} />
                     <ReferenceLine y={6} stroke="#10B981" strokeDasharray="4 4" />
                     <Area type="monotone" dataKey="count" stroke="#EF4444" strokeWidth={2} fill="rgba(239,68,68,0.15)" />
                   </AreaChart>
@@ -892,7 +902,7 @@ const InvestigationWorkspace = ({
                   <BarChart data={HOURLY_DATA} barSize={10}>
                     <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} interval={3} />
                     <YAxis tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v: number) => [`${v} claims`]} />
+                    <Tooltip formatter={(v) => [`${v ?? 0} claims`]} />
                     <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                       {HOURLY_DATA.map((d, i) => (
                         <Cell key={i} fill={d.hour === '2:00' || d.hour === '3:00' ? '#DC2626' : '#CBD5E1'} />
@@ -1263,7 +1273,7 @@ const AnalyticsTab = () => (
           <LineChart data={AI_ACCURACY}>
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(v: number) => [`${v}%`]} />
+            <Tooltip formatter={(v) => [`${v ?? ''}%`]} />
             <Line type="monotone" dataKey="truePositive"  name="True Positive Rate"  stroke="#0D9488" strokeWidth={2} dot={{ fill: '#0D9488' }} />
             <Line type="monotone" dataKey="falsePositive" name="False Positive Rate" stroke="#EF4444" strokeWidth={2} dot={{ fill: '#EF4444' }} />
           </LineChart>
@@ -1309,7 +1319,9 @@ const AnalyticsTab = () => (
 
 export const InsuranceFraudDetection = () => {
   const { data, loading, error, openFraud, refetch, overduePreAuth } = useInsurancePageData();
-  const alerts   = useMemo(() => data?.fraudAlerts ?? [], [data?.fraudAlerts]);
+  const alerts = useMemo(() =>
+    (data?.fraudAlerts.length ?? 0) > 0 ? data!.fraudAlerts : MOCK_FRAUD_ALERTS,
+    [data?.fraudAlerts]);
   const resolved = useMemo(() => alerts.filter(a => a.status === 'resolved'), [alerts]);
   const active   = useMemo(() => alerts.filter(a => a.status !== 'resolved'),  [alerts]);
 

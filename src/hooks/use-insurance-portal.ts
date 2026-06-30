@@ -455,7 +455,7 @@ export function useInsurancePortal() {
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', userResult.user.id)
-        .eq('is_active', true)
+        .is('ends_at', null)
         .limit(1);
       if (membershipError) throw membershipError;
       memberOrganizationId = ((membershipRows ?? []) as OrganizationMemberRow[])[0]?.organization_id ?? null;

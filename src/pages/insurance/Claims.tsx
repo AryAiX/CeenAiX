@@ -28,7 +28,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { type InsuranceClaim } from '../../hooks';
+import { type InsuranceClaim, type InsurancePayerProfile } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
   PreAuthAlert,
@@ -37,6 +37,55 @@ import InsuranceShell, {
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
+
+// ─── Static mock data (shown when Supabase returns empty) ────────────────────
+
+const MOCK_PROFILE_CLAIMS: InsurancePayerProfile = {
+  displayName: 'Daman National Health',
+  arabicName: 'الضمان للتأمين الصحي الوطني',
+  regulatorName: 'DHA — Dubai Health Authority',
+  activeMembers: 8247,
+  membersGold: 2847,
+  membersSilver: 3104,
+  membersBasic: 1892,
+  officerName: 'Sarah Al Mansouri',
+  officerTitle: 'Senior Claims Officer',
+  aiAutoApprovalPercent: 78.2,
+  aiAutoApprovalChangePercent: 3.1,
+  avgProcessingHours: 4.2,
+  slaTargetStandardHours: 8,
+  slaTargetUrgentHours: 4,
+  claimsTodayTotalAed: 1_247_840,
+  claimsTodayCount: 312,
+  claimsTodayApprovedCount: 244,
+  claimsTodayApprovedAed: 981_200,
+  claimsTodayPendingCount: 48,
+  claimsTodayPendingAed: 196_400,
+  claimsTodayDeniedCount: 20,
+  claimsTodayDeniedAed: 70_240,
+  claimsTodayAppealedCount: 0,
+  claimsTodayAppealedAed: 0,
+  damanExposureTodayAed: 151,
+  claimsMtdAed: 4_800_000,
+  claimsBudgetAed: 4_000_000,
+  claimsBudgetPct: 120,
+  priorMonthGrowthPercent: 8.4,
+};
+
+const MOCK_CLAIMS: InsuranceClaim[] = [
+  { id: 'mc-1',  externalRef: 'CLM-20260407-9001', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Cleveland Clinic Abu Dhabi', amountAed: 18_500, status: 'approved',     submittedAt: '2026-04-07T08:00:00.000Z' },
+  { id: 'mc-2',  externalRef: 'CLM-20260407-9002', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', planTier: 'silver', claimType: 'Outpatient', providerName: 'Mediclinic City Hospital',   amountAed: 4_200,  status: 'under_review', submittedAt: '2026-04-07T08:30:00.000Z' },
+  { id: 'mc-3',  externalRef: 'CLM-20260407-9003', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Burjeel Hospital',           amountAed: 85_000, status: 'submitted',    submittedAt: '2026-04-07T09:00:00.000Z' },
+  { id: 'mc-4',  externalRef: 'CLM-20260407-9004', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', planTier: 'basic',  claimType: 'Inpatient',  providerName: 'NMC Healthcare',             amountAed: 12_300, status: 'approved',     submittedAt: '2026-04-07T09:30:00.000Z' },
+  { id: 'mc-5',  externalRef: 'CLM-20260407-9005', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Aster Hospital Mankhool',    amountAed: 42_000, status: 'under_review', submittedAt: '2026-04-07T10:00:00.000Z' },
+  { id: 'mc-6',  externalRef: 'CLM-20260407-9006', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Prime Hospital',             amountAed: 22_500, status: 'submitted',    submittedAt: '2026-04-07T10:30:00.000Z' },
+  { id: 'mc-7',  externalRef: 'CLM-20260407-9007', patientName: 'Khalid Al Rashidi',   planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Mediclinic Al Noor',         amountAed: 56_000, status: 'denied',       submittedAt: '2026-04-07T11:00:00.000Z' },
+  { id: 'mc-8',  externalRef: 'CLM-20260407-9008', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', planTier: 'basic',  claimType: 'Inpatient',  providerName: 'Saudi German Hospital',      amountAed: 9_800,  status: 'approved',     submittedAt: '2026-04-07T11:30:00.000Z' },
+  { id: 'mc-9',  externalRef: 'CLM-20260407-9009', patientName: 'Ibrahim Al Mansoori', planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Outpatient', providerName: 'Corniche Hospital',          amountAed: 7_200,  status: 'approved',     submittedAt: '2026-04-07T12:00:00.000Z' },
+  { id: 'mc-10', externalRef: 'CLM-20260407-9010', patientName: 'Latifa Al Muhairi',   planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Emirates Hospital',          amountAed: 18_900, status: 'appealed',     submittedAt: '2026-04-07T12:30:00.000Z' },
+  { id: 'mc-11', externalRef: 'CLM-20260407-9011', patientName: 'Ali Al Shamsi',       planName: 'Gold Enhanced',   planTier: 'gold',   claimType: 'Inpatient',  providerName: 'Thumbay Hospital',           amountAed: 31_500, status: 'approved',     submittedAt: '2026-04-07T13:00:00.000Z' },
+  { id: 'mc-12', externalRef: 'CLM-20260407-9012', patientName: 'Hana Al Zarouni',     planName: 'Silver Standard', planTier: 'silver', claimType: 'Inpatient',  providerName: 'Mediclinic Parkview',        amountAed: 15_800, status: 'denied',       submittedAt: '2026-04-07T13:30:00.000Z' },
+];
 
 // ─── Helpers & Constants ──────────────────────────────────────────────────────
 
@@ -1202,8 +1251,10 @@ const PER_PAGE = 10;
 
 export const InsuranceClaims = () => {
   const { data, loading, error, claimTotal, refetch, overduePreAuth } = useInsurancePageData();
-  const claims = useMemo(() => data?.claims ?? [], [data?.claims]);
-  const profile = data?.profile;
+  const claims  = useMemo(() =>
+    (data?.claims.length ?? 0) > 0 ? data!.claims : MOCK_CLAIMS,
+    [data?.claims]);
+  const profile = (data?.profile?.activeMembers ?? 0) > 0 ? data!.profile! : MOCK_PROFILE_CLAIMS;
 
   // Optimistic decisions (approve/deny/appeal uphold/dismiss)
   const [localDecisions, setLocalDecisions] = useState<Record<string, 'approved' | 'denied'>>({});
