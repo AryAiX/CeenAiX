@@ -63,6 +63,14 @@ export interface InsurancePreAuthorization {
   aiConfidencePercent: number | null;
   requestedAt: string;
   slaDueAt: string;
+  approvalNote: string | null;
+  validityDays: number | null;
+  denialReason: string | null;
+  denialNote: string | null;
+  infoRequested: boolean;
+  infoRequestedItems: string[] | null;
+  infoRequestedNote: string | null;
+  infoRequestedAt: string | null;
 }
 
 export interface InsuranceClaim {
@@ -246,6 +254,14 @@ interface PreAuthRow {
   ai_confidence_percent: number | null;
   requested_at: string;
   sla_due_at: string;
+  approval_note: string | null;
+  validity_days: number | null;
+  denial_reason: string | null;
+  denial_note: string | null;
+  info_requested: boolean | null;
+  info_requested_items: string[] | null;
+  info_requested_note: string | null;
+  info_requested_at: string | null;
 }
 
 interface ClaimRow {
@@ -416,15 +432,53 @@ export async function setInsuranceSettingEnabled(
 }
 
 /**
- * Approve a single pre-authorization row. Returns the updated row id so the
- * caller can drop it from any in-flight selection state without refetching.
+ * Approve a single pre-authorization row. The RPC computes the approved amount
+ * itself; requestedAmountAed is kept in the signature for backward compatibility
+ * with existing callers but is not sent to the server.
  */
 export async function approvePreAuthorization(
   preAuthId: string,
-  _requestedAmountAed: number | null
+  _requestedAmountAed: number | null,
+  approvalNote?: string | null,
+  validityDays?: number | null
 ): Promise<void> {
   const { error } = await supabase.rpc('insurance_approve_pre_authorization', {
     p_pre_auth_id: preAuthId,
+    p_approval_note: approvalNote ?? null,
+    p_validity_days: validityDays ?? null,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Deny a single pre-authorization row with a mandatory reason and optional note.
+ */
+export async function denyPreAuthorization(
+  preAuthId: string,
+  denialReason: string,
+  denialNote?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_deny_pre_authorization', {
+    p_pre_auth_id: preAuthId,
+    p_denial_reason: denialReason,
+    p_denial_note: denialNote ?? null,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Request additional information from the provider for a pre-authorization,
+ * pausing the SLA clock per DHA protocol.
+ */
+export async function requestPreAuthInfo(
+  preAuthId: string,
+  requestedItems: string[],
+  note?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_request_pre_auth_info', {
+    p_pre_auth_id: preAuthId,
+    p_requested_items: requestedItems,
+    p_note: note ?? null,
   });
   if (error) throw error;
 }
@@ -485,7 +539,7 @@ export function useInsurancePortal() {
       supabase
         .from('insurance_pre_authorizations')
         .select(
-          'id, external_ref, patient_name, patient_age, patient_gender, plan_tier, plan_label, clinician_name, provider_name, procedure_name, procedure_icd_code, priority, status, requested_amount_aed, approved_amount_aed, coverage_label, coverage_percent, is_ceenaix_eprescribed, ai_recommendation, ai_confidence_percent, requested_at, sla_due_at'
+          'id, external_ref, patient_name, patient_age, patient_gender, plan_tier, plan_label, clinician_name, provider_name, procedure_name, procedure_icd_code, priority, status, requested_amount_aed, approved_amount_aed, coverage_label, coverage_percent, is_ceenaix_eprescribed, ai_recommendation, ai_confidence_percent, requested_at, sla_due_at, approval_note, validity_days, denial_reason, denial_note, info_requested, info_requested_items, info_requested_note, info_requested_at'
         )
         .eq('organization_id', org.id)
         .order('sla_due_at', { ascending: true }),
@@ -616,6 +670,14 @@ export function useInsurancePortal() {
         aiConfidencePercent: row.ai_confidence_percent,
         requestedAt: row.requested_at,
         slaDueAt: row.sla_due_at,
+        approvalNote: row.approval_note,
+        validityDays: row.validity_days,
+        denialReason: row.denial_reason,
+        denialNote: row.denial_note,
+        infoRequested: row.info_requested ?? false,
+        infoRequestedItems: row.info_requested_items,
+        infoRequestedNote: row.info_requested_note,
+        infoRequestedAt: row.info_requested_at,
       })),
       claims: ((claimResult.data ?? []) as ClaimRow[]).map((row) => ({
         id: row.id,

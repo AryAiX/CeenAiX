@@ -22,7 +22,12 @@ import {
   XCircle,
   X,
 } from 'lucide-react';
-import { approvePreAuthorization, bulkApprovePreAuthorizations } from '../../hooks';
+import {
+  approvePreAuthorization,
+  bulkApprovePreAuthorizations,
+  denyPreAuthorization,
+  requestPreAuthInfo,
+} from '../../hooks';
 import type { InsurancePreAuthorization } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
@@ -30,30 +35,6 @@ import InsuranceShell, {
   formatCurrency,
   useInsurancePageData,
 } from './InsuranceShell';
-
-// ─── Static mock data (shown when Supabase returns empty) ────────────────────
-
-const _slaPA = (offsetHours: number) =>
-  new Date(Date.now() + offsetHours * 3_600_000).toISOString();
-
-const MOCK_PRE_AUTHS: InsurancePreAuthorization[] = [
-  { id: 'mpa-1',  externalRef: 'PA-20260407-00912', patientName: 'Ahmed Al Rashidi',    patientAge: 54, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Fatima Al Zaabi',   providerName: 'Cleveland Clinic Abu Dhabi',  procedureName: 'Coronary Angiography',         procedureIcdCode: 'I25.10', priority: 'urgent',  status: 'overdue', requestedAmountAed: 18_500, approvedAmountAed: null,   coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 94, requestedAt: '2026-04-07T06:00:00.000Z', slaDueAt: _slaPA(-2) },
-  { id: 'mpa-2',  externalRef: 'PA-20260407-00891', patientName: 'Noura Al Hammadi',    patientAge: 38, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Khalid Al Nuaimi',  providerName: 'Mediclinic City Hospital',    procedureName: 'MRI Brain with Contrast',      procedureIcdCode: 'G35',    priority: 'urgent',  status: 'overdue', requestedAmountAed: 4_200,  approvedAmountAed: null,   coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'review',  aiConfidencePercent: 61, requestedAt: '2026-04-07T04:30:00.000Z', slaDueAt: _slaPA(-1) },
-  { id: 'mpa-3',  externalRef: 'PA-20260407-00876', patientName: 'Mohammed Al Kaabi',   patientAge: 67, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Sara Al Blooshi',   providerName: 'Burjeel Hospital',            procedureName: 'CABG Surgery',                 procedureIcdCode: 'I25.5',  priority: 'urgent',  status: 'review',  requestedAmountAed: 85_000, approvedAmountAed: null,   coverageLabel: 'Covered 90%',  coveragePercent: 90,  isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 97, requestedAt: '2026-04-07T07:00:00.000Z', slaDueAt: _slaPA(1.5) },
-  { id: 'mpa-4',  externalRef: 'PA-20260407-00862', patientName: 'Aisha Al Marzouqi',   patientAge: 29, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Omar Al Suwaidi',   providerName: 'NMC Healthcare',              procedureName: 'Laparoscopic Cholecystectomy', procedureIcdCode: 'K80.20', priority: 'routine', status: 'review',  requestedAmountAed: 12_300, approvedAmountAed: null,   coverageLabel: 'Covered 70%',  coveragePercent: 70,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 88, requestedAt: '2026-04-07T07:30:00.000Z', slaDueAt: _slaPA(4) },
-  { id: 'mpa-5',  externalRef: 'PA-20260407-00849', patientName: 'Saeed Al Falasi',     patientAge: 72, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Layla Al Khatri',   providerName: 'Aster Hospital Mankhool',     procedureName: 'Total Knee Replacement',       procedureIcdCode: 'M17.11', priority: 'urgent',  status: 'review',  requestedAmountAed: 42_000, approvedAmountAed: null,   coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: false, aiRecommendation: 'review',  aiConfidencePercent: 72, requestedAt: '2026-04-07T08:00:00.000Z', slaDueAt: _slaPA(2) },
-  { id: 'mpa-6',  externalRef: 'PA-20260407-00834', patientName: 'Mariam Al Qubaisi',   patientAge: 45, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Hamad Al Mazrouei', providerName: 'Prime Hospital',              procedureName: 'Hysterectomy',                 procedureIcdCode: 'N81.1',  priority: 'routine', status: 'review',  requestedAmountAed: 22_500, approvedAmountAed: null,   coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 91, requestedAt: '2026-04-07T08:30:00.000Z', slaDueAt: _slaPA(6) },
-  { id: 'mpa-7',  externalRef: 'PA-20260407-00821', patientName: 'Khalid Al Rashidi',   patientAge: 55, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Hessa Al Dhaheri',  providerName: 'Mediclinic Al Noor',          procedureName: 'Spinal Fusion L4-L5',          procedureIcdCode: 'M51.16', priority: 'routine', status: 'review',  requestedAmountAed: 56_000, approvedAmountAed: null,   coverageLabel: 'Covered 90%',  coveragePercent: 90,  isCeenaixEprescribed: true,  aiRecommendation: 'deny',    aiConfidencePercent: 78, requestedAt: '2026-04-07T09:00:00.000Z', slaDueAt: _slaPA(5) },
-  { id: 'mpa-8',  externalRef: 'PA-20260407-00809', patientName: 'Fatima Al Neyadi',    patientAge: 34, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Jassim Al Awadhi',  providerName: 'Saudi German Hospital',       procedureName: 'Appendectomy',                 procedureIcdCode: 'K35.2',  priority: 'urgent',  status: 'review',  requestedAmountAed: 9_800,  approvedAmountAed: null,   coverageLabel: 'Covered 70%',  coveragePercent: 70,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 96, requestedAt: '2026-04-07T09:30:00.000Z', slaDueAt: _slaPA(3) },
-  { id: 'mpa-9',  externalRef: 'PA-20260407-00796', patientName: 'Ibrahim Al Mansoori', patientAge: 61, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Maryam Al Shehhi',  providerName: 'Corniche Hospital',           procedureName: 'Cataract Surgery',             procedureIcdCode: 'H26.9',  priority: 'routine', status: 'review',  requestedAmountAed: 7_200,  approvedAmountAed: null,   coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 99, requestedAt: '2026-04-07T10:00:00.000Z', slaDueAt: _slaPA(7) },
-  { id: 'mpa-10', externalRef: 'PA-20260407-00783', patientName: 'Latifa Al Muhairi',   patientAge: 42, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Tariq Al Mazrouei', providerName: 'Emirates Hospital',           procedureName: 'Thyroidectomy',                procedureIcdCode: 'E06.3',  priority: 'routine', status: 'review',  requestedAmountAed: 18_900, approvedAmountAed: null,   coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'review',  aiConfidencePercent: 55, requestedAt: '2026-04-07T10:30:00.000Z', slaDueAt: _slaPA(8) },
-  { id: 'mpa-11', externalRef: 'PA-20260407-00771', patientName: 'Ali Al Shamsi',       patientAge: 48, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Reem Al Khoori',    providerName: 'Thumbay Hospital',            procedureName: 'Prostatectomy',                procedureIcdCode: 'C61',    priority: 'routine', status: 'approved',requestedAmountAed: 31_500, approvedAmountAed: 31_500, coverageLabel: 'Covered 100%', coveragePercent: 100, isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 93, requestedAt: '2026-04-06T08:00:00.000Z', slaDueAt: _slaPA(-4) },
-  { id: 'mpa-12', externalRef: 'PA-20260407-00758', patientName: 'Hana Al Zarouni',     patientAge: 31, patientGender: 'female', planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Faisal Al Hammadi', providerName: 'Mediclinic Parkview',         procedureName: 'Laparoscopic Myomectomy',      procedureIcdCode: 'D25.1',  priority: 'routine', status: 'approved',requestedAmountAed: 15_800, approvedAmountAed: 15_800, coverageLabel: 'Covered 80%',  coveragePercent: 80,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 87, requestedAt: '2026-04-06T09:00:00.000Z', slaDueAt: _slaPA(-3) },
-  { id: 'mpa-13', externalRef: 'PA-20260407-00745', patientName: 'Yousef Al Dhaheri',   patientAge: 58, patientGender: 'male',   planTier: 'gold',   planLabel: 'Gold',   clinicianName: 'Dr. Amna Al Blooshi',   providerName: 'Burjeel Day Surgery Centre',  procedureName: 'Hip Replacement',              procedureIcdCode: 'M16.11', priority: 'routine', status: 'approved',requestedAmountAed: 48_000, approvedAmountAed: 48_000, coverageLabel: 'Covered 90%',  coveragePercent: 90,  isCeenaixEprescribed: true,  aiRecommendation: 'approve', aiConfidencePercent: 96, requestedAt: '2026-04-06T10:00:00.000Z', slaDueAt: _slaPA(-6) },
-  { id: 'mpa-14', externalRef: 'PA-20260407-00732', patientName: 'Shaikha Al Mualla',   patientAge: 27, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Nasser Al Khoury',  providerName: 'Al Zahra Hospital',           procedureName: 'Tonsillectomy',                procedureIcdCode: 'J35.01', priority: 'routine', status: 'approved',requestedAmountAed: 6_400,  approvedAmountAed: 6_400,  coverageLabel: 'Covered 70%',  coveragePercent: 70,  isCeenaixEprescribed: false, aiRecommendation: 'approve', aiConfidencePercent: 98, requestedAt: '2026-04-05T11:00:00.000Z', slaDueAt: _slaPA(-8) },
-  { id: 'mpa-15', externalRef: 'PA-20260407-00219', patientName: 'Rashid Al Nuaimi',    patientAge: 63, patientGender: 'male',   planTier: 'silver', planLabel: 'Silver', clinicianName: 'Dr. Badria Al Hashimi', providerName: 'Sheikh Khalifa Medical City', procedureName: 'Colonoscopy & Polypectomy',    procedureIcdCode: 'K57.30', priority: 'routine', status: 'denied',  requestedAmountAed: 3_900,  approvedAmountAed: null,   coverageLabel: 'Not covered',  coveragePercent: 0,   isCeenaixEprescribed: false, aiRecommendation: 'deny',    aiConfidencePercent: 82, requestedAt: '2026-04-05T12:00:00.000Z', slaDueAt: _slaPA(-10) },
-  { id: 'mpa-16', externalRef: 'PA-20260407-00121', patientName: 'Moza Al Reyami',      patientAge: 44, patientGender: 'female', planTier: 'basic',  planLabel: 'Basic',  clinicianName: 'Dr. Waleed Al Suwaidi', providerName: 'Canadian Specialist Hospital', procedureName: 'Knee Arthroscopy',             procedureIcdCode: 'M23.20', priority: 'routine', status: 'denied',  requestedAmountAed: 8_750,  approvedAmountAed: null,   coverageLabel: 'Excluded',     coveragePercent: 0,   isCeenaixEprescribed: false, aiRecommendation: 'deny',    aiConfidencePercent: 76, requestedAt: '2026-04-04T14:00:00.000Z', slaDueAt: _slaPA(-12) },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -351,12 +332,13 @@ const BulkApproveModal = ({
 type DecisionMode = 'none' | 'approve' | 'deny' | 'info';
 
 const PreAuthDetailPanel = ({
-  pa, onClose, onApproved, onDenied,
+  pa, onClose, onApproved, onDenied, onInfoRequested,
 }: {
   pa: InsurancePreAuthorization;
   onClose: () => void;
   onApproved: () => void;
   onDenied: (id: string) => void;
+  onInfoRequested: () => void;
 }) => {
   const [mode, setMode]               = useState<DecisionMode>('none');
   const [validity, setValidity]       = useState('30');
@@ -367,6 +349,7 @@ const PreAuthDetailPanel = ({
   const [infoNote, setInfoNote]       = useState('');
   const [submitting, setSubmitting]   = useState(false);
   const [success, setSuccess]         = useState<'approved' | 'denied' | 'info' | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const ai      = aiColors[aiRecUpper(pa.aiRecommendation)];
   const slaHrs  = pa.priority === 'urgent' || pa.status === 'overdue' ? 4 : 8;
@@ -379,28 +362,46 @@ const PreAuthDetailPanel = ({
 
   const handleApprove = async () => {
     setSubmitting(true);
+    setActionError(null);
     try {
-      await approvePreAuthorization(pa.id, pa.requestedAmountAed);
+      await approvePreAuthorization(
+        pa.id,
+        pa.requestedAmountAed,
+        approveNote.trim() || null,
+        parseInt(validity, 10),
+      );
       setSuccess('approved');
       setTimeout(() => { onApproved(); onClose(); }, 1400);
-    } catch {
+    } catch (err) {
       setSubmitting(false);
+      setActionError(err instanceof Error ? err.message : 'Approval failed. Please try again.');
     }
   };
 
-  const handleDeny = () => {
+  const handleDeny = async () => {
     setSubmitting(true);
-    setTimeout(() => {
-      onDenied(pa.id);
+    setActionError(null);
+    try {
+      await denyPreAuthorization(pa.id, denyReason, denyNote.trim() || null);
       setSuccess('denied');
-      setTimeout(() => onClose(), 1200);
+      setTimeout(() => { onDenied(pa.id); onClose(); }, 1200);
+    } catch (err) {
       setSubmitting(false);
-    }, 600);
+      setActionError(err instanceof Error ? err.message : 'Denial failed. Please try again.');
+    }
   };
 
-  const handleInfoRequest = () => {
+  const handleInfoRequest = async () => {
     setSubmitting(true);
-    setTimeout(() => { setSuccess('info'); setSubmitting(false); }, 600);
+    setActionError(null);
+    try {
+      await requestPreAuthInfo(pa.id, infoItems, infoNote.trim() || null);
+      setSuccess('info');
+      onInfoRequested();
+    } catch (err) {
+      setSubmitting(false);
+      setActionError(err instanceof Error ? err.message : 'Info request failed. Please try again.');
+    }
   };
 
   return (
@@ -644,7 +645,12 @@ const PreAuthDetailPanel = ({
                 A denial letter will be automatically generated and sent to the provider and patient.
               </span>
             </div>
-            <button onClick={handleDeny} disabled={submitting}
+            {actionError && mode === 'deny' && (
+              <div className="rounded-lg px-3 py-2 mb-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', fontSize: 12, color: '#991B1B' }}>
+                {actionError}
+              </div>
+            )}
+            <button onClick={() => void handleDeny()} disabled={submitting}
               className="w-full rounded-lg py-2.5 flex items-center justify-center gap-2 transition-colors"
               style={{ background: submitting ? '#94A3B8' : '#DC2626', color: '#fff', fontSize: 13, fontWeight: 700 }}>
               <XCircle style={{ width: 14, height: 14 }} />
@@ -683,7 +689,12 @@ const PreAuthDetailPanel = ({
             <div className="rounded-lg px-3 py-2 mb-3 flex items-center gap-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
               <span style={{ fontSize: 11, color: '#92400E' }}>SLA clock paused while awaiting information per DHA protocol</span>
             </div>
-            <button onClick={handleInfoRequest} disabled={submitting || infoItems.length === 0}
+            {actionError && mode === 'info' && (
+              <div className="rounded-lg px-3 py-2 mb-2" style={{ background: '#DBEAFE', border: '1px solid #93C5FD', fontSize: 12, color: '#1E40AF' }}>
+                {actionError}
+              </div>
+            )}
+            <button onClick={() => void handleInfoRequest()} disabled={submitting || infoItems.length === 0}
               className="w-full rounded-lg py-2.5 flex items-center justify-center gap-2 transition-colors"
               style={{ background: submitting || infoItems.length === 0 ? '#94A3B8' : '#2563EB', color: '#fff', fontSize: 13, fontWeight: 700 }}>
               <MessageSquare style={{ width: 14, height: 14 }} />
@@ -713,12 +724,7 @@ type SortKey = 'priority' | 'sla' | 'cost';
 
 export const InsurancePreAuthorizations = () => {
   const { data, error, overduePreAuth, refetch } = useInsurancePageData();
-  const preAuths = useMemo(() =>
-    (data?.preAuthorizations.length ?? 0) > 0 ? data!.preAuthorizations : MOCK_PRE_AUTHS,
-    [data?.preAuthorizations]);
-
-  // ── Local override state (optimistic deny) ──
-  const [deniedIds, setDeniedIds] = useState<Set<string>>(new Set());
+  const preAuths = useMemo(() => data?.preAuthorizations ?? [], [data?.preAuthorizations]);
 
   // ── UI state ──
   const [selectedPanel, setSelectedPanel] = useState<InsurancePreAuthorization | null>(null);
@@ -740,9 +746,9 @@ export const InsurancePreAuthorizations = () => {
 
   // ── Derived sets ──
   const pendingRows   = useMemo(() =>
-    preAuths.filter(p => p.status !== 'approved' && !deniedIds.has(p.id)), [preAuths, deniedIds]);
+    preAuths.filter(p => p.status !== 'approved' && p.status !== 'denied'), [preAuths]);
   const processedRows = useMemo(() =>
-    preAuths.filter(p => p.status === 'approved' || deniedIds.has(p.id)), [preAuths, deniedIds]);
+    preAuths.filter(p => p.status === 'approved' || p.status === 'denied'), [preAuths]);
 
   const aiBulkApproveRows = useMemo(() =>
     pendingRows.filter(p => p.aiRecommendation === 'approve' && (p.aiConfidencePercent ?? 0) >= 95),
@@ -792,8 +798,8 @@ export const InsurancePreAuthorizations = () => {
     }
   };
 
-  const handleDenied = (id: string) => {
-    setDeniedIds(prev => new Set([...prev, id]));
+  const handleDenied = (_id: string) => {
+    void refetch();
     toast('Pre-authorization denied — denial letter queued', 'warning');
   };
 
@@ -1009,7 +1015,7 @@ export const InsurancePreAuthorizations = () => {
                 const plan   = getPlanColor(pa.planLabel);
                 const slaMins = slaRemainingMins(pa.slaDueAt);
                 const slaHrs  = pa.priority === 'urgent' || pa.status === 'overdue' ? 4 : 8;
-                const isProcessed = pa.status === 'approved' || deniedIds.has(pa.id);
+                const isProcessed = pa.status === 'approved' || pa.status === 'denied';
                 return (
                   <div
                     key={pa.id}
@@ -1096,8 +1102,8 @@ export const InsurancePreAuthorizations = () => {
                     <div>
                       {isProcessed ? (
                         <span className="rounded px-1.5 py-0.5 inline-block"
-                          style={{ background: deniedIds.has(pa.id) ? '#FEE2E2' : '#DCFCE7', color: deniedIds.has(pa.id) ? '#991B1B' : '#065F46', fontSize: 10, fontWeight: 700 }}>
-                          {deniedIds.has(pa.id) ? 'DENIED' : 'APPROVED'}
+                          style={{ background: pa.status === 'denied' ? '#FEE2E2' : '#DCFCE7', color: pa.status === 'denied' ? '#991B1B' : '#065F46', fontSize: 10, fontWeight: 700 }}>
+                          {pa.status === 'denied' ? 'DENIED' : 'APPROVED'}
                         </span>
                       ) : (
                         <SlaChip mins={slaMins} slaHours={slaHrs} />
@@ -1148,7 +1154,7 @@ export const InsurancePreAuthorizations = () => {
                 const plan   = getPlanColor(pa.planLabel);
                 const slaMins = slaRemainingMins(pa.slaDueAt);
                 const slaHrs  = pa.priority === 'urgent' || pa.status === 'overdue' ? 4 : 8;
-                const isProcessed = pa.status === 'approved' || deniedIds.has(pa.id);
+                const isProcessed = pa.status === 'approved' || pa.status === 'denied';
                 return (
                   <div key={pa.id} onClick={() => setSelectedPanel(pa)}
                     className="rounded-xl cursor-pointer transition-all"
@@ -1177,8 +1183,8 @@ export const InsurancePreAuthorizations = () => {
                         </span>
                       </div>
                       {isProcessed ? (
-                        <span className="rounded px-1.5 py-0.5" style={{ background: deniedIds.has(pa.id) ? '#FEE2E2' : '#DCFCE7', color: deniedIds.has(pa.id) ? '#991B1B' : '#065F46', fontSize: 10, fontWeight: 700 }}>
-                          {deniedIds.has(pa.id) ? 'DENIED' : 'APPROVED'}
+                        <span className="rounded px-1.5 py-0.5" style={{ background: pa.status === 'denied' ? '#FEE2E2' : '#DCFCE7', color: pa.status === 'denied' ? '#991B1B' : '#065F46', fontSize: 10, fontWeight: 700 }}>
+                          {pa.status === 'denied' ? 'DENIED' : 'APPROVED'}
                         </span>
                       ) : (
                         <SlaChip mins={slaMins} slaHours={slaHrs} />
@@ -1199,6 +1205,7 @@ export const InsurancePreAuthorizations = () => {
               onClose={() => setSelectedPanel(null)}
               onApproved={() => { void refetch(); toast('Pre-authorization approved successfully', 'success'); setSelectedPanel(null); }}
               onDenied={handleDenied}
+              onInfoRequested={() => { void refetch(); toast('Information request sent to provider', 'info'); }}
             />
           </div>
         )}

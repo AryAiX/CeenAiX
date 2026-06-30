@@ -91,6 +91,8 @@ export type {
 export {
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  denyPreAuthorization,
+  requestPreAuthInfo,
   setInsuranceSettingEnabled,
   useInsurancePortal,
 } from './use-insurance-portal';
