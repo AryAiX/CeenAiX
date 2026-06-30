@@ -509,10 +509,11 @@ const EOBExportModal = ({
 // ─── ManualClaimModal ─────────────────────────────────────────────────────────
 
 const ManualClaimModal = ({
-  onClose, onToast,
+  onClose, onToast, onSubmitted,
 }: {
   onClose: () => void;
   onToast: (msg: string, type: Toast['type']) => void;
+  onSubmitted: () => void;
 }) => {
   const [step, setStep] = useState(0);
 
@@ -588,6 +589,7 @@ const ManualClaimModal = ({
         aiEligibilityResult: aiResult,
       });
       onToast('Manual claim submitted for review', 'success');
+      onSubmitted();
       onClose();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to submit claim. Please try again.');
@@ -873,6 +875,11 @@ const ManualClaimModal = ({
                   </div>
                 </div>
               )}
+              {actionError && (
+                <div className="rounded-lg px-3 py-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12 }}>
+                  {actionError}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -896,11 +903,6 @@ const ManualClaimModal = ({
               }}>
               Next <ChevronRight style={{ width: 13, height: 13 }} />
             </button>
-          )}
-          {step === 2 && actionError && (
-            <div className="rounded-lg px-3 py-2" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12 }}>
-              {actionError}
-            </div>
           )}
           {step === 2 && (
             <button onClick={() => void handleSubmit()} disabled={submitting || aiChecking}
@@ -958,7 +960,10 @@ const ClaimDetailDrawer = ({
     try {
       await approveClaim(claim.id, decideNote.trim() || null);
       setSuccess('approved');
-      onDecision(claim.id, 'approved', decideNote || 'Approved by claims officer');
+      setTimeout(() => {
+        onDecision(claim.id, 'approved', decideNote || 'Approved by claims officer');
+        onClose();
+      }, 1400);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to approve claim. Please try again.');
       setSubmitting(false);
@@ -971,7 +976,10 @@ const ClaimDetailDrawer = ({
     try {
       await denyClaim(claim.id, denyReason);
       setSuccess('denied');
-      onDecision(claim.id, 'denied', denyReason);
+      setTimeout(() => {
+        onDecision(claim.id, 'denied', denyReason);
+        onClose();
+      }, 1200);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to deny claim. Please try again.');
       setSubmitting(false);
@@ -1335,14 +1343,13 @@ export const InsuranceClaims = () => {
     setSelectedIds(prev => prev.size === paginated.length ? new Set() : new Set(paginated.map(c => c.id)));
 
   // Decisions
-  const applyDecision = useCallback((id: string, decision: 'approved' | 'denied', note: string) => {
+  const applyDecision = useCallback((_id: string, decision: 'approved' | 'denied', note: string) => {
     void refetchRef.current();
     toast(
       decision === 'approved' ? `Claim approved — ${note}` : `Claim denied — ${note}`,
       decision === 'approved' ? 'success' : 'warning',
     );
-    if (drawerClaim?.id === id) setDrawerClaim(null);
-  }, [drawerClaim, toast]);
+  }, [toast]);
 
   const applyUphold = useCallback((_id: string) => {
     void refetchRef.current();
@@ -1682,7 +1689,15 @@ export const InsuranceClaims = () => {
                                       ...(isAppealed ? [
                                         { label: 'Review Appeal', icon: <Scale style={{ width: 12, height: 12 }} />,        action: () => { setAppealClaim(claim); setOpenMenuId(null); } },
                                       ] : []),
-                                      { label: 'Flag for Review', icon: <Shield style={{ width: 12, height: 12 }} />,      action: () => { toast(`${getShortRef(claim.externalRef)} flagged for review`, 'warning'); setOpenMenuId(null); } },
+                                      { label: 'Flag for Review', icon: <Shield style={{ width: 12, height: 12 }} />, action: () => {
+                                          setOpenMenuId(null);
+                                          flagClaimForReview(claim.id).then(() => {
+                                            void refetchRef.current();
+                                            toast(`${getShortRef(claim.externalRef)} flagged for investigation`, 'warning');
+                                          }).catch((err: unknown) => {
+                                            toast(err instanceof Error ? err.message : 'Failed to flag claim', 'warning');
+                                          });
+                                        }},
                                     ].map(item => (
                                       <button key={item.label} onClick={item.action}
                                         className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
@@ -1873,6 +1888,7 @@ export const InsuranceClaims = () => {
         <ManualClaimModal
           onClose={() => setShowManual(false)}
           onToast={toast}
+          onSubmitted={() => void refetchRef.current()}
         />
       )}
 
