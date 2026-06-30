@@ -393,20 +393,10 @@ export async function bulkApprovePreAuthorizations(
   preAuthIds: ReadonlyArray<{ id: string; requestedAmountAed: number | null }>
 ): Promise<void> {
   if (preAuthIds.length === 0) return;
-  const now = new Date().toISOString();
-  // Run sequentially so each row's approved_amount can mirror its own
-  // requested amount (a single multi-row UPDATE with the SAME value is wrong).
-  for (const row of preAuthIds) {
-    const { error } = await supabase
-      .from('insurance_pre_authorizations')
-      .update({
-        status: 'approved',
-        approved_amount_aed: row.requestedAmountAed ?? 0,
-        decision_at: now,
-      })
-      .eq('id', row.id);
-    if (error) throw error;
-  }
+  const { error } = await supabase.rpc('insurance_bulk_approve_pre_authorizations', {
+    p_pre_auth_ids: preAuthIds.map((row) => row.id),
+  });
+  if (error) throw error;
 }
 
 /**
@@ -418,10 +408,10 @@ export async function setInsuranceSettingEnabled(
   settingId: string,
   enabled: boolean
 ): Promise<void> {
-  const { error } = await supabase
-    .from('insurance_settings')
-    .update({ enabled, updated_at: new Date().toISOString() })
-    .eq('id', settingId);
+  const { error } = await supabase.rpc('insurance_set_setting_enabled', {
+    p_setting_id: settingId,
+    p_enabled: enabled,
+  });
   if (error) throw error;
 }
 
@@ -431,16 +421,11 @@ export async function setInsuranceSettingEnabled(
  */
 export async function approvePreAuthorization(
   preAuthId: string,
-  requestedAmountAed: number | null
+  _requestedAmountAed: number | null
 ): Promise<void> {
-  const { error } = await supabase
-    .from('insurance_pre_authorizations')
-    .update({
-      status: 'approved',
-      approved_amount_aed: requestedAmountAed ?? 0,
-      decision_at: new Date().toISOString(),
-    })
-    .eq('id', preAuthId);
+  const { error } = await supabase.rpc('insurance_approve_pre_authorization', {
+    p_pre_auth_id: preAuthId,
+  });
   if (error) throw error;
 }
 
