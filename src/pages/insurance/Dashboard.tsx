@@ -803,8 +803,8 @@ export const InsuranceDashboard = () => {
   const aiMedium         = fraudAlerts.filter(a => a.severity === 'medium' && a.status !== 'resolved').length;
 
   const aiBulkApprove = useMemo(
-    () => preAuths.filter(p => p.aiRecommendation === 'approve' && (p.aiConfidencePercent ?? 0) >= 95 && p.status !== 'approved'),
-    [preAuths],
+    () => preAuths.filter(p => p.aiRecommendation === 'approve' && (p.aiConfidencePercent ?? 0) >= (data?.profile?.aiConfidenceThresholdPct ?? 95) && p.status !== 'approved'),
+    [preAuths, data?.profile?.aiConfidenceThresholdPct],
   );
   const aiBulkApproveCount = aiBulkApprove.length;
   const [bulkBusy, setBulkBusy]   = useState(false);

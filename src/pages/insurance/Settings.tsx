@@ -29,7 +29,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { setInsuranceSettingEnabled } from '../../hooks';
+import { setInsuranceSettingEnabled, updatePayerProfile } from '../../hooks';
 import InsuranceShell, { useInsurancePageData } from './InsuranceShell';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -364,14 +364,28 @@ interface SectionProps {
   profileName?: string;
   profileOfficer?: string;
   profileTitle?: string;
+  // Lifted state for wired sections
+  arabicName?: string;
+  setArabicName?: (v: string) => void;
+  email?: string;
+  setEmail?: (v: string) => void;
+  phone?: string;
+  setPhone?: (v: string) => void;
+  officerName?: string;
+  setOfficerName?: (v: string) => void;
+  officerTitle?: string;
+  setOfficerTitle?: (v: string) => void;
+  standardHours?: string;
+  setStandardHours?: (v: string) => void;
+  urgentHours?: string;
+  setUrgentHours?: (v: string) => void;
+  aiThreshold?: string;
+  setAiThreshold?: (v: string) => void;
 }
 
 // ── Company Profile ───────────────────────────────────────────────────────────
 
-function CompanyProfileSection({ dirty, markDirty, onSave, saving, profileName, profileOfficer, profileTitle }: SectionProps) {
-  const [arabicName, setArabicName] = useState('شركة ضمان للتأمين الوطني للصحة');
-  const [email, setEmail] = useState('mariam.khateeb@daman.ae');
-  const [phone, setPhone] = useState('+971 4 209 4000');
+function CompanyProfileSection({ dirty, markDirty, onSave, saving, profileName, profileOfficer, profileTitle, arabicName = '', setArabicName, email = '', setEmail, phone = '', setPhone }: SectionProps) {
   const [language, setLanguage] = useState<'english' | 'arabic' | 'both'>('english');
   const companyName = profileName ?? 'Daman National Health Insurance';
   const initials = companyName.charAt(0).toUpperCase();
@@ -401,16 +415,16 @@ function CompanyProfileSection({ dirty, markDirty, onSave, saving, profileName, 
         <SSettingsInput value={companyName} onChange={() => {}} readOnly width={220} />
       </SettingRow>
       <SettingRow label="Company Name (AR)" desc="Displayed in Arabic language interface">
-        <SSettingsInput value={arabicName} onChange={v => { setArabicName(v); markDirty('company-profile'); }} width={220} changed={dirty['company-profile']} />
+        <SSettingsInput value={arabicName} onChange={v => { setArabicName?.(v); markDirty('company-profile'); }} width={220} changed={dirty['company-profile']} />
       </SettingRow>
       <SettingRow label="License Number" desc="Insurance Authority license number" locked>
         <SSettingsInput value="CBUAE-INS-2006-001847" onChange={() => {}} readOnly mono width={200} />
       </SettingRow>
       <SettingRow label="Primary Contact Email" desc="Used for system notifications and DHA communications">
-        <SSettingsInput value={email} onChange={v => { setEmail(v); markDirty('company-profile'); }} width={220} type="email" />
+        <SSettingsInput value={email} onChange={v => { setEmail?.(v); markDirty('company-profile'); }} width={220} type="email" />
       </SettingRow>
       <SettingRow label="Support Phone" desc="Displayed to members on CeenAiX patient portal">
-        <SSettingsInput value={phone} onChange={v => { setPhone(v); markDirty('company-profile'); }} width={160} />
+        <SSettingsInput value={phone} onChange={v => { setPhone?.(v); markDirty('company-profile'); }} width={160} />
       </SettingRow>
       <SettingRow label="Contact Person" desc="Primary technical contact for CeenAiX platform issues">
         <div style={{ display: 'flex', gap: 8 }}>
@@ -440,12 +454,10 @@ function CompanyProfileSection({ dirty, markDirty, onSave, saving, profileName, 
 
 // ── My Account ────────────────────────────────────────────────────────────────
 
-function MyAccountSection({ dirty, markDirty, onSave, saving, profileOfficer, profileTitle }: SectionProps) {
-  const [name, setName] = useState(profileOfficer ?? 'Mariam Al Khateeb');
-  const [title, setTitle] = useState(profileTitle ?? 'Senior Claims Officer');
+function MyAccountSection({ dirty, markDirty, onSave, saving, officerName = '', setOfficerName, officerTitle = '', setOfficerTitle }: SectionProps) {
   const [mobile, setMobile] = useState('+971 50 XXX XXXX');
   const [defaultView, setDefaultView] = useState('preauth');
-  const initials = name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  const initials = officerName.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <SCard
@@ -462,17 +474,17 @@ function MyAccountSection({ dirty, markDirty, onSave, saving, profileOfficer, pr
           <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>{initials}</span>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{name}</div>
-          <div style={{ fontSize: 11, color: '#94A3B8' }}>{title}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{officerName}</div>
+          <div style={{ fontSize: 11, color: '#94A3B8' }}>{officerTitle}</div>
         </div>
         <SmallBtn>📷 Change Photo</SmallBtn>
       </div>
 
       <SettingRow label="Full Name">
-        <SSettingsInput value={name} onChange={v => { setName(v); markDirty('my-account'); }} width={200} />
+        <SSettingsInput value={officerName} onChange={v => { setOfficerName?.(v); markDirty('my-account'); }} width={200} />
       </SettingRow>
       <SettingRow label="Job Title">
-        <SSettingsInput value={title} onChange={v => { setTitle(v); markDirty('my-account'); }} width={200} />
+        <SSettingsInput value={officerTitle} onChange={v => { setOfficerTitle?.(v); markDirty('my-account'); }} width={200} />
       </SettingRow>
       <SettingRow label="Department">
         <SSettingsSelect
@@ -787,10 +799,8 @@ function PlanConfigSection({ dirty, markDirty, onSave, saving }: SectionProps) {
 
 // ── Pre-Auth & SLA ────────────────────────────────────────────────────────────
 
-function PreAuthSlaSection({ dirty, markDirty, onSave, saving }: SectionProps) {
-  const [urgentTarget, setUrgentTarget] = useState('2');
+function PreAuthSlaSection({ dirty, markDirty, onSave, saving, urgentHours = '4', setUrgentHours, standardHours = '8', setStandardHours }: SectionProps) {
   const [highTarget, setHighTarget] = useState('4');
-  const [stdTarget, setStdTarget] = useState('12');
   const [bulkThreshold, setBulkThreshold] = useState('90');
   const [responseWindow, setResponseWindow] = useState('3');
   const [validityDays, setValidityDays] = useState('30');
@@ -833,13 +843,13 @@ function PreAuthSlaSection({ dirty, markDirty, onSave, saving }: SectionProps) {
 
       <SectionLabel>Daman Internal Targets</SectionLabel>
       <SettingRow label="Urgent (internal goal)" desc="DHA limit: 4h — buffer ensures compliance">
-        <SSettingsInput value={urgentTarget} onChange={v => { setUrgentTarget(v); markDirty('preauth-sla'); }} unit="hours" mono width={60} />
+        <SSettingsInput value={urgentHours} onChange={v => { setUrgentHours?.(v); markDirty('preauth-sla'); }} unit="hours" mono width={60} />
       </SettingRow>
       <SettingRow label="High Priority" desc="DHA limit: 8h">
         <SSettingsInput value={highTarget} onChange={v => { setHighTarget(v); markDirty('preauth-sla'); }} unit="hours" mono width={60} />
       </SettingRow>
       <SettingRow label="Standard" desc="DHA limit: 24h">
-        <SSettingsInput value={stdTarget} onChange={v => { setStdTarget(v); markDirty('preauth-sla'); }} unit="hours" mono width={60} />
+        <SSettingsInput value={standardHours} onChange={v => { setStandardHours?.(v); markDirty('preauth-sla'); }} unit="hours" mono width={60} />
       </SettingRow>
       <InfoCard color="emerald">Buffer time protects against SLA breaches and DHA penalties.</InfoCard>
 
@@ -900,11 +910,10 @@ function PreAuthSlaSection({ dirty, markDirty, onSave, saving }: SectionProps) {
 
 // ── AI & Automation ───────────────────────────────────────────────────────────
 
-function AIAutomationSection({ dirty, markDirty, onSave, saving, settings, onToggleSetting, busyId }: SectionProps) {
+function AIAutomationSection({ dirty, markDirty, onSave, saving, settings, onToggleSetting, busyId, aiThreshold = '95', setAiThreshold }: SectionProps) {
   const [showRecs, setShowRecs] = useState(true);
   const [showConfidence, setShowConfidence] = useState(true);
   const [showReasoning, setShowReasoning] = useState(true);
-  const [autoApproveThreshold, setAutoApproveThreshold] = useState('90');
   const [autoDenyThreshold, setAutoDenyThreshold] = useState('99');
   const [autoDenyReason, setAutoDenyReason] = useState(true);
   const [fraudSensitivity, setFraudSensitivity] = useState('medium');
@@ -914,7 +923,7 @@ function AIAutomationSection({ dirty, markDirty, onSave, saving, settings, onTog
   const [fpRateAlert, setFpRateAlert] = useState('8');
   const [monthlyReport, setMonthlyReport] = useState(true);
 
-  const approvalPct = Math.max(0, Math.min(100, (Number(autoApproveThreshold) - 80) / 20 * 100));
+  const approvalPct = Math.max(0, Math.min(100, (Number(aiThreshold) - 80) / 20 * 100));
 
   // If there's a real "ai_auto_approve" setting in Supabase, use it; otherwise fall back to local state
   const aiAutoApproveSetting = settings['ai_auto_approve'];
@@ -926,7 +935,7 @@ function AIAutomationSection({ dirty, markDirty, onSave, saving, settings, onTog
       title="AI & Automation"
       desc="Configure CeenAiX AI behaviour for your portal"
       hasChanges={dirty['ai-automation']}
-      onSave={() => onSave('ai-automation', `AI threshold updated — ${autoApproveThreshold}% confidence required`)}
+      onSave={() => onSave('ai-automation', `AI threshold updated — ${aiThreshold}% confidence required`)}
       saving={saving === 'ai-automation'}
     >
       <div style={{ padding: '14px 16px', borderRadius: 10, background: '#F5F3FF', border: '1px solid #DDD6FE', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -961,12 +970,12 @@ function AIAutomationSection({ dirty, markDirty, onSave, saving, settings, onTog
       ) : null}
       <SettingRow label="Auto-approve threshold" desc="Claims where AI confidence ≥ this are auto-approved">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', minWidth: 160 }}>
-          <SSettingsInput value={autoApproveThreshold} onChange={v => { setAutoApproveThreshold(v); markDirty('ai-automation'); }} unit="%" mono width={70} changed={dirty['ai-automation']} />
+          <SSettingsInput value={aiThreshold} onChange={v => { setAiThreshold?.(v); markDirty('ai-automation'); }} unit="%" mono width={70} changed={dirty['ai-automation']} />
           <div style={{ width: 160, background: '#E2E8F0', borderRadius: 4, height: 6, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${approvalPct}%`, background: '#0D9488', borderRadius: 4, transition: 'width 0.2s' }} />
           </div>
-          <div style={{ fontSize: 10, color: '#0D9488', fontFamily: 'DM Mono, monospace' }}>At {autoApproveThreshold}%: ~{Math.round(approvalPct * 0.78 + 20)}% claims auto-approved</div>
-          {Number(autoApproveThreshold) < 85 && (
+          <div style={{ fontSize: 10, color: '#0D9488', fontFamily: 'DM Mono, monospace' }}>At {aiThreshold}%: ~{Math.round(approvalPct * 0.78 + 20)}% claims auto-approved</div>
+          {Number(aiThreshold) < 85 && (
             <div style={{ fontSize: 11, color: '#D97706', fontStyle: 'italic', textAlign: 'right' }}>⚠️ Below 85% significantly increases false positives</div>
           )}
         </div>
@@ -1883,7 +1892,17 @@ import React from 'react';
 export const InsuranceSettings = () => {
   const { data, error, refetch } = useInsurancePageData();
   const supabaseSettings = data?.settings ?? [];
-  const profile = data?.profile;
+  const profile = data?.profile ?? null;
+
+  // Lifted state for wired settings sections (initialised from real profile data)
+  const [arabicName, setArabicName] = useState(profile?.arabicName ?? '');
+  const [email, setEmail] = useState(profile?.contactEmail ?? '');
+  const [phone, setPhone] = useState(profile?.contactPhone ?? '');
+  const [officerName, setOfficerName] = useState(profile?.officerName ?? '');
+  const [officerTitle, setOfficerTitle] = useState(profile?.officerTitle ?? '');
+  const [standardHours, setStandardHours] = useState(String(profile?.slaTargetStandardHours ?? 8));
+  const [urgentHours, setUrgentHours] = useState(String(profile?.slaTargetUrgentHours ?? 4));
+  const [aiThreshold, setAiThreshold] = useState(String(profile?.aiConfidenceThresholdPct ?? 95));
 
   // ── Real Supabase toggle logic (from stub) ────────────────────────────────
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1952,21 +1971,54 @@ export const InsuranceSettings = () => {
 
   async function handleSave(sectionId: string, msg: string) {
     setSaving(sectionId);
-    await new Promise(r => setTimeout(r, 500));
-    setSaving(null);
-    setDirty(prev => ({ ...prev, [sectionId]: false }));
-    addToast(`✅ ${msg}`, 'success');
+    try {
+      if (sectionId === 'company-profile') {
+        await updatePayerProfile({
+          arabicName: arabicName.trim() || null,
+          contactEmail: email.trim() || null,
+          contactPhone: phone.trim() || null,
+        });
+      } else if (sectionId === 'my-account') {
+        await updatePayerProfile({
+          officerName: officerName.trim() || null,
+          officerTitle: officerTitle.trim() || null,
+        });
+      } else if (sectionId === 'preauth-sla') {
+        await updatePayerProfile({
+          slaStandardHours: Number(standardHours) || null,
+          slaUrgentHours: Number(urgentHours) || null,
+        });
+      } else if (sectionId === 'ai-automation') {
+        await updatePayerProfile({
+          aiConfidenceThresholdPct: Number(aiThreshold) || null,
+        });
+      } else {
+        await new Promise(r => setTimeout(r, 400));
+        setDirty(prev => ({ ...prev, [sectionId]: false }));
+        addToast(`✅ ${msg} (local only — sync coming soon)`, 'info');
+        return;
+      }
+      void refetch();
+      setDirty(prev => ({ ...prev, [sectionId]: false }));
+      addToast(`✅ ${msg}`, 'success');
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : `Failed to save ${msg}`,
+        'warning',
+      );
+    } finally {
+      setSaving(null);
+    }
   }
 
   async function handleSaveAll() {
-    const dirtySections = Object.entries(dirty).filter(([, v]) => v).map(([k]) => k);
+    const dirtySections = Object.entries(dirty)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
     for (const sec of dirtySections) {
-      setSaving(sec);
-      await new Promise(r => setTimeout(r, 300));
+      await handleSave(sec, sec.replace(/-/g, ' '));
     }
-    setSaving(null);
-    setDirty({});
-    addToast('✅ All changes saved successfully', 'success');
+    addToast('✅ All changes saved', 'success');
   }
 
   function scrollToSection(id: string) {
@@ -1988,6 +2040,14 @@ export const InsuranceSettings = () => {
     profileName: profile?.displayName,
     profileOfficer: profile?.officerName,
     profileTitle: profile?.officerTitle,
+    arabicName, setArabicName,
+    email, setEmail,
+    phone, setPhone,
+    officerName, setOfficerName,
+    officerTitle, setOfficerTitle,
+    standardHours, setStandardHours,
+    urgentHours, setUrgentHours,
+    aiThreshold, setAiThreshold,
   };
 
   return (
