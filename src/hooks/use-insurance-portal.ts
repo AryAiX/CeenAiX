@@ -147,6 +147,11 @@ export interface InsuranceNetworkProvider {
   denialRatePercent: number | null;
   fraudScore: 'low' | 'medium' | 'high' | null;
   networkNote: string | null;
+  status?: string;
+  flaggedAt?: string | null;
+  flaggedReason?: string | null;
+  terminatedAt?: string | null;
+  terminationReason?: string | null;
 }
 
 export interface InsuranceRiskSegment {
@@ -356,6 +361,11 @@ interface NetworkProviderRow {
   denial_rate_percent: number | string | null;
   fraud_score: InsuranceNetworkProvider['fraudScore'];
   network_note: string | null;
+  status: string | null;
+  flagged_at: string | null;
+  flagged_reason: string | null;
+  terminated_at: string | null;
+  termination_reason: string | null;
 }
 
 interface RiskSegmentRow {
@@ -622,6 +632,33 @@ export async function flagClaimForReview(
   if (error) throw error;
 }
 
+export async function updateProviderStatus(
+  providerId: string,
+  status: string,
+  reason?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_update_provider_status', {
+    p_provider_id: providerId,
+    p_status: status,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function addProviderNote(
+  providerId: string,
+  note: string,
+  authorName: string
+): Promise<string> {
+  const { data, error } = await supabase.rpc('insurance_add_provider_note', {
+    p_provider_id: providerId,
+    p_note: note,
+    p_author_name: authorName,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function updateFraudAlertStatus(
   alertId: string,
   status: string,
@@ -750,7 +787,7 @@ export function useInsurancePortal() {
         .order('score', { ascending: false }),
       supabase
         .from('insurance_network_providers')
-        .select('id, provider_name, specialty, claims_count, approval_rate_percent, average_cost_aed, performance_flag, denial_rate_percent, fraud_score, network_note')
+        .select('id, provider_name, specialty, claims_count, approval_rate_percent, average_cost_aed, performance_flag, denial_rate_percent, fraud_score, network_note, status, flagged_at, flagged_reason, terminated_at, termination_reason')
         .eq('organization_id', org.id)
         .order('claims_count', { ascending: false }),
       supabase
@@ -931,6 +968,11 @@ export function useInsurancePortal() {
         denialRatePercent: toNullableNumber(row.denial_rate_percent),
         fraudScore: row.fraud_score,
         networkNote: row.network_note,
+        status: row.status ?? undefined,
+        flaggedAt: row.flagged_at,
+        flaggedReason: row.flagged_reason,
+        terminatedAt: row.terminated_at,
+        terminationReason: row.termination_reason,
       })),
       riskSegments: ((segmentResult.data ?? []) as RiskSegmentRow[]).map((row) => ({
         id: row.id,

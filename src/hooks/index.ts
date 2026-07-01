@@ -90,6 +90,7 @@ export type {
 } from './use-pharmacy-prescription-queue';
 export {
   addFraudInvestigationNote,
+  addProviderNote,
   approveClaim,
   approvePreAuthorization,
   assignFraudAlert,
@@ -105,6 +106,7 @@ export {
   setInsuranceSettingEnabled,
   submitManualClaim,
   updateFraudAlertStatus,
+  updateProviderStatus,
   useInsurancePortal,
 } from './use-insurance-portal';
 export type {
