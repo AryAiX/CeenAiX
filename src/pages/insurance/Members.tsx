@@ -34,7 +34,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { type InsuranceMember, type InsurancePayerProfile } from '../../hooks';
+import { useNavigate } from 'react-router-dom';
+import {
+  flagMemberForReview,
+  logWellnessOutreach,
+  type InsuranceMember,
+} from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
   PreAuthAlert,
@@ -42,51 +47,6 @@ import InsuranceShell, {
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
-
-// ─── Static mock data (shown when Supabase returns empty) ────────────────────
-
-const MOCK_PROFILE_MEMBERS: InsurancePayerProfile = {
-  displayName: 'Daman National Health',
-  arabicName: 'الضمان للتأمين الصحي الوطني',
-  regulatorName: 'DHA — Dubai Health Authority',
-  activeMembers: 8247,
-  membersGold: 2847,
-  membersSilver: 3104,
-  membersBasic: 1892,
-  officerName: 'Sarah Al Mansouri',
-  officerTitle: 'Senior Claims Officer',
-  aiAutoApprovalPercent: 78.2,
-  aiAutoApprovalChangePercent: 3.1,
-  avgProcessingHours: 4.2,
-  slaTargetStandardHours: 8,
-  slaTargetUrgentHours: 4,
-  claimsTodayTotalAed: 1_247_840,
-  claimsTodayCount: 312,
-  claimsTodayApprovedCount: 244,
-  claimsTodayApprovedAed: 981_200,
-  claimsTodayPendingCount: 48,
-  claimsTodayPendingAed: 196_400,
-  claimsTodayDeniedCount: 20,
-  claimsTodayDeniedAed: 70_240,
-  claimsTodayAppealedCount: 0,
-  claimsTodayAppealedAed: 0,
-  damanExposureTodayAed: 151,
-  claimsMtdAed: 4_800_000,
-  claimsBudgetAed: 4_000_000,
-  claimsBudgetPct: 120,
-  priorMonthGrowthPercent: 8.4,
-};
-
-const MOCK_MEMBERS: InsuranceMember[] = [
-  { id: 'mm-1', externalMemberId: 'MBR-2026-4471', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   utilizationPercent: 82, claimCount: 7,  riskLevel: 'high',   isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-2', externalMemberId: 'MBR-2026-4472', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', utilizationPercent: 34, claimCount: 2,  riskLevel: 'low',    isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-3', externalMemberId: 'MBR-2026-4473', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   utilizationPercent: 91, claimCount: 12, riskLevel: 'high',   isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-4', externalMemberId: 'MBR-2026-4474', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', utilizationPercent: 18, claimCount: 1,  riskLevel: 'low',    isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-5', externalMemberId: 'MBR-2026-4475', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   utilizationPercent: 67, claimCount: 5,  riskLevel: 'medium', isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-6', externalMemberId: 'MBR-2026-4476', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', utilizationPercent: 55, claimCount: 3,  riskLevel: 'medium', isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-7', externalMemberId: 'MBR-2026-4477', patientName: 'Hassan Al Suwaidi',   planName: 'Gold Enhanced',   utilizationPercent: 95, claimCount: 22, riskLevel: 'high',   isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-  { id: 'mm-8', externalMemberId: 'MBR-2026-4478', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', utilizationPercent: 28, claimCount: 2,  riskLevel: 'low',    isActive: false, flaggedForReview: false, flaggedReason: null, flaggedAt: null },
-];
 
 // ─── Helpers & Constants ──────────────────────────────────────────────────────
 
@@ -272,22 +232,24 @@ type Audience = 'all' | 'high_risk' | 'benefit_alert';
 type Channel  = 'sms' | 'email' | 'push';
 
 const WellnessCampaignModal = ({
-  members, onClose, onSend,
+  members, onClose, onSend, onError,
 }: {
   members: InsuranceMember[];
   onClose: () => void;
   onSend: (count: number) => void;
+  onError: (msg: string) => void;
 }) => {
-  const [step,       setStep]       = useState(0);
-  const [audience,   setAudience]   = useState<Audience>('high_risk');
-  const [filterPlan, setFilterPlan] = useState<PlanKey[]>([]);
-  const [templateId, setTemplateId] = useState('annual_checkup');
-  const [subjectEn,  setSubjectEn]  = useState(TEMPLATES[0].subject);
-  const [subjectAr,  setSubjectAr]  = useState(TEMPLATES[0].subjectAr);
-  const [messageEn,  setMessageEn]  = useState(TEMPLATES[0].msgEn);
-  const [messageAr,  setMessageAr]  = useState(TEMPLATES[0].msgAr);
-  const [channels,   setChannels]   = useState<Channel[]>(['sms', 'email']);
-  const [sending,    setSending]    = useState(false);
+  const [step,          setStep]          = useState(0);
+  const [audience,      setAudience]      = useState<Audience>('high_risk');
+  const [filterPlan,    setFilterPlan]    = useState<PlanKey[]>([]);
+  const [templateId,    setTemplateId]    = useState('annual_checkup');
+  const [subjectEn,     setSubjectEn]     = useState(TEMPLATES[0].subject);
+  const [subjectAr,     setSubjectAr]     = useState(TEMPLATES[0].subjectAr);
+  const [messageEn,     setMessageEn]     = useState(TEMPLATES[0].msgEn);
+  const [messageAr,     setMessageAr]     = useState(TEMPLATES[0].msgAr);
+  const [channels,      setChannels]      = useState<Channel[]>(['sms', 'email']);
+  const [sending,       setSending]       = useState(false);
+  const [campaignError, setCampaignError] = useState<string | null>(null);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -312,9 +274,28 @@ const WellnessCampaignModal = ({
     if (t) { setSubjectEn(t.subject); setSubjectAr(t.subjectAr); setMessageEn(t.msgEn); setMessageAr(t.msgAr); }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     setSending(true);
-    setTimeout(() => { setSending(false); onSend(audienceCount); }, 1400);
+    setCampaignError(null);
+    try {
+      await logWellnessOutreach({
+        audience,
+        recipientCount: audienceCount,
+        channels,
+        messageEn,
+        memberId: null,
+        planFilter: filterPlan.length > 0 ? filterPlan : null,
+        subjectEn: subjectEn.trim() || null,
+        subjectAr: subjectAr.trim() || null,
+        messageAr: messageAr.trim() || null,
+      });
+      onSend(audienceCount);
+    } catch (err) {
+      setSending(false);
+      const msg = err instanceof Error ? err.message : 'Failed to send campaign';
+      setCampaignError(msg);
+      onError(msg);
+    }
   };
 
   const steps      = ['Audience', 'Message', 'Preview & Send'];
@@ -501,24 +482,31 @@ const WellnessCampaignModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-white">
-          <button onClick={step === 0 ? onClose : () => setStep(s => s - 1)}
-            className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-600 border border-slate-300 hover:bg-slate-50 transition-colors">
-            {step === 0 ? 'Cancel' : 'Back'}
-          </button>
-          {step < 2 ? (
-            <button onClick={() => setStep(s => s + 1)} disabled={!canProceed}
-              className="px-6 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
-              style={{ backgroundColor: '#0F2D4A' }}>
-              Continue
-            </button>
-          ) : (
-            <button onClick={handleSend} disabled={sending}
-              className="flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60 justify-center"
-              style={{ backgroundColor: '#0F2D4A', minWidth: 180 }}>
-              {sending ? 'Sending...' : <><Send size={15} /> Send Campaign</>}
-            </button>
+        <div className="flex-shrink-0 bg-white" style={{ borderTop: '1px solid #F1F5F9' }}>
+          {campaignError && (
+            <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, borderRadius: 10, padding: '8px 12px', margin: '8px 24px 0' }}>
+              {campaignError}
+            </div>
           )}
+          <div className="flex items-center justify-between px-6 py-4">
+            <button onClick={step === 0 ? onClose : () => setStep(s => s - 1)}
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-600 border border-slate-300 hover:bg-slate-50 transition-colors">
+              {step === 0 ? 'Cancel' : 'Back'}
+            </button>
+            {step < 2 ? (
+              <button onClick={() => setStep(s => s + 1)} disabled={!canProceed}
+                className="px-6 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
+                style={{ backgroundColor: '#0F2D4A' }}>
+                Continue
+              </button>
+            ) : (
+              <button onClick={() => void handleSend()} disabled={sending}
+                className="flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60 justify-center"
+                style={{ backgroundColor: '#0F2D4A', minWidth: 180 }}>
+                {sending ? 'Sending...' : <><Send size={15} /> Send Campaign</>}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -530,14 +518,16 @@ const WellnessCampaignModal = ({
 type DrawerTab = 'overview' | 'claims' | 'health' | 'benefits';
 
 const MemberDetailDrawer = ({
-  member, allMembers, onClose, onToast, onNavigate,
+  member, allMembers, onClose, onToast, onNavigate, refetch,
 }: {
   member: InsuranceMember;
   allMembers: InsuranceMember[];
   onClose: () => void;
   onToast: (msg: string, type: Toast['type']) => void;
   onNavigate: (m: InsuranceMember) => void;
+  refetch: () => void;
 }) => {
+  const navigate = useNavigate();
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('overview');
 
   const idx   = allMembers.findIndex(m => m.id === member.id);
@@ -697,17 +687,47 @@ const MemberDetailDrawer = ({
 
               {/* Actions */}
               <div className="flex gap-2 flex-wrap">
-                {[
-                  { label: 'Wellness Outreach', bg: '#EFF6FF', color: '#1E3A5F',  action: () => onToast(`Wellness outreach sent to ${member.patientName}`, 'success') },
-                  { label: 'View Pre-Auths',    bg: '#EEF2FF', color: '#4338CA',  action: () => onToast('Navigating to pre-auths for this member', 'info')           },
-                  { label: 'Flag for Review',   bg: '#FFFBEB', color: '#92400E',  action: () => onToast(`${member.patientName} flagged for care review`, 'warning')  },
-                ].map(a => (
-                  <button key={a.label} onClick={a.action}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-2 flex-1"
-                    style={{ fontSize: 12, fontWeight: 600, background: a.bg, color: a.color, border: `1px solid ${a.color}20` }}>
-                    <Send style={{ width: 12, height: 12 }} />{a.label}
-                  </button>
-                ))}
+                <button
+                  onClick={async () => {
+                    try {
+                      await logWellnessOutreach({
+                        audience: 'single_member',
+                        recipientCount: 1,
+                        channels: ['sms', 'email'],
+                        messageEn: 'Your annual health check-up is due. Please contact your provider to schedule an appointment.',
+                        memberId: member.id,
+                        subjectEn: 'Health Check-Up Reminder',
+                      });
+                      void refetch();
+                      onToast(`Wellness outreach logged for ${member.patientName}`, 'success');
+                    } catch (err) {
+                      onToast(err instanceof Error ? err.message : 'Failed to log outreach', 'warning');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 flex-1"
+                  style={{ fontSize: 12, fontWeight: 600, background: '#EFF6FF', color: '#1E3A5F', border: '1px solid #1E3A5F20' }}>
+                  <Send style={{ width: 12, height: 12 }} />Wellness Outreach
+                </button>
+                <button
+                  onClick={() => navigate('/insurance/preauth')}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 flex-1"
+                  style={{ fontSize: 12, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: '1px solid #4338CA20' }}>
+                  <Send style={{ width: 12, height: 12 }} />View Pre-Auths
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await flagMemberForReview(member.id, 'Flagged for care review');
+                      void refetch();
+                      onToast(`${member.patientName} flagged for care review`, 'success');
+                    } catch (err) {
+                      onToast(err instanceof Error ? err.message : 'Failed to flag member', 'warning');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 flex-1"
+                  style={{ fontSize: 12, fontWeight: 600, background: '#FFFBEB', color: '#92400E', border: '1px solid #92400E20' }}>
+                  <Send style={{ width: 12, height: 12 }} />Flag for Review
+                </button>
               </div>
             </>
           )}
@@ -858,7 +878,23 @@ const MemberDetailDrawer = ({
         {/* Footer */}
         <div className="flex-shrink-0 flex items-center justify-between" style={{ padding: '12px 20px', borderTop: '1px solid #F1F5F9' }}>
           <div className="flex gap-2">
-            <button onClick={() => onToast(`Wellness outreach sent to ${member.patientName}`, 'success')}
+            <button
+              onClick={async () => {
+                try {
+                  await logWellnessOutreach({
+                    audience: 'single_member',
+                    recipientCount: 1,
+                    channels: ['sms', 'email'],
+                    messageEn: 'Your annual health check-up is due. Please contact your provider to schedule an appointment.',
+                    memberId: member.id,
+                    subjectEn: 'Health Check-Up Reminder',
+                  });
+                  void refetch();
+                  onToast(`Wellness outreach logged for ${member.patientName}`, 'success');
+                } catch (err) {
+                  onToast(err instanceof Error ? err.message : 'Failed to log outreach', 'warning');
+                }
+              }}
               className="flex items-center gap-1.5 rounded-lg px-3 py-2"
               style={{ fontSize: 11, background: '#EFF6FF', color: '#1E3A5F', border: '1px solid #BFDBFE' }}>
               <Send style={{ width: 11, height: 11 }} /> Wellness
@@ -1023,10 +1059,8 @@ const PopulationAnalytics = ({
 
 export const InsuranceMembers = () => {
   const { data, loading, error, refetch, overduePreAuth } = useInsurancePageData();
-  const members = useMemo(() =>
-    (data?.members.length ?? 0) > 0 ? data!.members : MOCK_MEMBERS,
-    [data?.members]);
-  const profile = (data?.profile?.activeMembers ?? 0) > 0 ? data!.profile! : MOCK_PROFILE_MEMBERS;
+  const members = useMemo(() => data?.members ?? [], [data?.members]);
+  const profile = data?.profile ?? null;
 
   const [tab,          setTab]          = useState<Tab>('all');
   const [viewMode,     setViewMode]     = useState<ViewMode>('table');
@@ -1564,6 +1598,7 @@ export const InsuranceMembers = () => {
           onClose={() => setOpenMember(null)}
           onToast={toast}
           onNavigate={setOpenMember}
+          refetch={() => void refetch()}
         />
       )}
 
@@ -1573,6 +1608,7 @@ export const InsuranceMembers = () => {
           members={filtered}
           onClose={() => setShowWellness(false)}
           onSend={count => { setShowWellness(false); toast(`Wellness campaign sent to ${count} members`, 'success'); }}
+          onError={msg => toast(msg, 'warning')}
         />
       )}
 
