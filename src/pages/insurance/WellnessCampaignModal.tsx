@@ -72,15 +72,17 @@ const getBenefitAlert = (m: InsuranceMember): 'EXHAUSTED' | 'NEAR_LIMIT' | null 
 // ─── WellnessCampaignModal ────────────────────────────────────────────────────
 
 export const WellnessCampaignModal = ({
-  members, onClose, onSend, onError,
+  members, initialAudience, onClose, onSend, onError,
 }: {
   members: InsuranceMember[];
+  initialAudience?: string;
   onClose: () => void;
   onSend: (count: number) => void;
   onError: (msg: string) => void;
 }) => {
   const [step,          setStep]          = useState(0);
-  const [audience,      setAudience]      = useState<Audience>('high_risk');
+  const [audience,      setAudience]      = useState<Audience>(
+    (initialAudience as Audience) ?? 'high_risk');
   const [filterPlan,    setFilterPlan]    = useState<PlanKey[]>([]);
   const [filterRisk,    setFilterRisk]    = useState<RiskFilter[]>([]);
   const [templateId,    setTemplateId]    = useState('annual_checkup');

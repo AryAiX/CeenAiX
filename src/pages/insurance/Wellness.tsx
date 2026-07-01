@@ -100,7 +100,8 @@ export const InsuranceWellness = () => {
   // Table state
   const [search,      setSearch]      = useState('');
   const [riskFilter,  setRiskFilter]  = useState<RiskFilterKey>('all');
-  const [showModal,   setShowModal]   = useState(false);
+  const [modalAudience, setModalAudience] = useState<string | null>(null);
+  const showModal = modalAudience !== null;
   const [toasts,      setToasts]      = useState<Toast[]>([]);
 
   // Toast helper
@@ -209,7 +210,7 @@ export const InsuranceWellness = () => {
             </p>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => setModalAudience('all')}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white flex-shrink-0 transition-all hover:opacity-90"
             style={{ backgroundColor: '#0D9488' }}
           >
@@ -490,7 +491,8 @@ export const InsuranceWellness = () => {
 
                   {/* CTA */}
                   <button
-                    onClick={() => setShowModal(true)}
+                    onClick={() => setModalAudience(rec.riskKey === 'high' ? 'high_risk'
+                      : rec.riskKey === 'medium' ? 'medium_risk' : 'low_risk')}
                     disabled={count === 0}
                     className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ backgroundColor: '#0F2D4A' }}
@@ -509,11 +511,12 @@ export const InsuranceWellness = () => {
       {showModal && (
         <WellnessCampaignModal
           members={members}
-          onClose={() => setShowModal(false)}
+          initialAudience={modalAudience ?? 'all'}
+          onClose={() => setModalAudience(null)}
           onSend={count => {
-            setShowModal(false);
+            setModalAudience(null);
             void refetch();
-            addToast(`Wellness campaign sent to ${count} member${count !== 1 ? 's' : ''}`, 'success');
+            addToast(`Wellness campaign logged for ${count} member${count !== 1 ? 's' : ''}`, 'success');
           }}
           onError={msg => {
             addToast(msg, 'warning');
