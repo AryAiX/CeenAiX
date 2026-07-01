@@ -662,6 +662,14 @@ const InvestigationWorkspace = ({
     text: `Automated fraud detection. Case created by CeenAiX AI on anomaly threshold breach. AI confidence: ${alert.score}%. Evidence: ${alert.reason}. Case ready for investigator review and DHA reporting.`,
   }]);
 
+  const STATUS_KEY_TO_DB: Record<StatusKey, string> = {
+    NEW:            'open',
+    UNDER_REVIEW:   'investigating',
+    MONITORING:     'monitoring',
+    CONFIRMED:      'confirmed',
+    FALSE_POSITIVE: 'false_positive',
+  };
+
   const rk        = toRiskKey(alert.severity);
   const rc        = RISK_CFG[rk];
   const nabidhPct = deriveNabidhPct(alert.score);
@@ -738,12 +746,14 @@ const InvestigationWorkspace = ({
                   {STATUS_OPTIONS.map(opt => (
                     <button key={opt.value} onClick={async () => {
                       const newStatus = opt.value as StatusKey;
+                      const prevStatus = status;
                       setStatus(newStatus);
                       setShowStatusDrop(false);
                       try {
-                        await updateFraudAlertStatus(alert.id, newStatus.toLowerCase());
+                        await updateFraudAlertStatus(alert.id, STATUS_KEY_TO_DB[newStatus]);
                         void refetch();
                       } catch (err) {
+                        setStatus(prevStatus);
                         onToast(err instanceof Error ? err.message : 'Failed to update status', 'error');
                       }
                     }}
