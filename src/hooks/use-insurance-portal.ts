@@ -120,6 +120,20 @@ export interface InsuranceFraudAlert {
   exposureAmountAed: number;
   severity: 'high' | 'medium' | 'low';
   status: 'open' | 'investigating' | 'resolved';
+  assignedOfficerName?: string | null;
+  assignedAt?: string | null;
+  resolutionNote?: string | null;
+  falsePositiveReason?: string | null;
+  closedAt?: string | null;
+}
+
+export interface InvestigationNote {
+  id: string;
+  fraudAlertId: string;
+  authorName: string;
+  isAi: boolean;
+  note: string;
+  createdAt: string;
 }
 
 export interface InsuranceNetworkProvider {
@@ -324,6 +338,11 @@ interface FraudRow {
   exposure_amount_aed: number | string | null;
   severity: InsuranceFraudAlert['severity'];
   status: InsuranceFraudAlert['status'];
+  assigned_officer_name: string | null;
+  assigned_at: string | null;
+  resolution_note: string | null;
+  false_positive_reason: string | null;
+  closed_at: string | null;
 }
 
 interface NetworkProviderRow {
@@ -603,6 +622,57 @@ export async function flagClaimForReview(
   if (error) throw error;
 }
 
+export async function updateFraudAlertStatus(
+  alertId: string,
+  status: string,
+  resolutionNote?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_update_fraud_alert_status', {
+    p_alert_id: alertId,
+    p_status: status,
+    p_resolution_note: resolutionNote ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function markFraudFalsePositive(
+  alertId: string,
+  falsePositiveReason: string,
+  resolutionNote?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_mark_fraud_false_positive', {
+    p_alert_id: alertId,
+    p_false_positive_reason: falsePositiveReason,
+    p_resolution_note: resolutionNote ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function assignFraudAlert(
+  alertId: string,
+  officerName: string
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_assign_fraud_alert', {
+    p_alert_id: alertId,
+    p_officer_name: officerName,
+  });
+  if (error) throw error;
+}
+
+export async function addFraudInvestigationNote(
+  alertId: string,
+  note: string,
+  authorName: string
+): Promise<string> {
+  const { data, error } = await supabase.rpc('insurance_add_fraud_investigation_note', {
+    p_alert_id: alertId,
+    p_note: note,
+    p_author_name: authorName,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export function useInsurancePortal() {
   return useQuery<InsurancePortalData>(async () => {
     const { data: userResult, error: userError } = await supabase.auth.getUser();
@@ -675,7 +745,7 @@ export function useInsurancePortal() {
         .order('patient_name', { ascending: true }),
       supabase
         .from('insurance_fraud_alerts')
-        .select('id, external_ref, subject_name, subject_type, reason, score, exposure_amount_aed, severity, status')
+        .select('id, external_ref, subject_name, subject_type, reason, score, exposure_amount_aed, severity, status, assigned_officer_name, assigned_at, resolution_note, false_positive_reason, closed_at')
         .eq('organization_id', org.id)
         .order('score', { ascending: false }),
       supabase
@@ -844,6 +914,11 @@ export function useInsurancePortal() {
         exposureAmountAed: toNumber(row.exposure_amount_aed),
         severity: row.severity,
         status: row.status,
+        assignedOfficerName: row.assigned_officer_name,
+        assignedAt: row.assigned_at,
+        resolutionNote: row.resolution_note,
+        falsePositiveReason: row.false_positive_reason,
+        closedAt: row.closed_at,
       })),
       networkProviders: ((providerResult.data ?? []) as NetworkProviderRow[]).map((row) => ({
         id: row.id,
