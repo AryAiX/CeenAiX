@@ -16,7 +16,7 @@ import InsuranceShell, {
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
-import { type InsuranceNetworkProvider } from '../../hooks';
+import { type InsuranceNetworkProvider, updateProviderStatus, addProviderNote } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -320,7 +320,13 @@ function toProviderVM(p: InsuranceNetworkProvider, idx: number): ProviderVM {
   const fraudMap: Record<string, FraudLevel> = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH' };
   const fraudLevel: FraudLevel = p.fraudScore ? (fraudMap[p.fraudScore] ?? 'LOW') : 'LOW';
 
-  const status: ProviderStatus = p.fraudScore === 'high' ? 'Flagged'
+  const statusMap: Record<string, ProviderStatus> = {
+    active: 'Active', pending: 'Pending', under_review: 'Under Review',
+    flagged: 'Flagged', suspended: 'Suspended', terminated: 'Terminated',
+  };
+  const status: ProviderStatus = p.status
+    ? (statusMap[p.status] ?? 'Active')
+    : p.fraudScore === 'high' ? 'Flagged'
     : p.performanceFlag === 'under_review' ? 'Under Review'
     : p.performanceFlag === 'suspended' ? 'Suspended'
     : 'Active';
@@ -824,7 +830,7 @@ function PendingTab({ onToast }: { onToast: (m: string, t: ToastType) => void })
 
 // ─── ReviewTab ────────────────────────────────────────────────────────────────
 
-function ReviewTab({ providers, onToast }: { providers: ProviderVM[]; onToast: (m: string, t: ToastType) => void }) {
+function ReviewTab({ providers, onToast, refetch }: { providers: ProviderVM[]; onToast: (m: string, t: ToastType) => void; refetch: () => void }) {
   const reviewItems = providers.filter(p => p.status === 'Under Review' || p.status === 'Suspended' || p.status === 'Flagged');
   return (
     <div className="p-4 flex flex-col gap-4">
@@ -848,12 +854,28 @@ function ReviewTab({ providers, onToast }: { providers: ProviderVM[]; onToast: (
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => onToast(`Fraud investigation opened for ${p.name}`, 'warning')} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              <button onClick={async () => {
+                try {
+                  await updateProviderStatus(p.id, 'under_review');
+                  onToast(`Fraud investigation opened for ${p.name}`, 'warning');
+                  void refetch();
+                } catch (err) {
+                  onToast(err instanceof Error ? err.message : 'Failed to open investigation', 'warning');
+                }
+              }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: isFraud ? '#FFF5F5' : '#FFF7ED', color: isFraud ? '#DC2626' : '#EA580C', border: `1px solid ${isFraud ? '#FCA5A5' : '#FED7AA'}`, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
                 View Investigation
               </button>
               {isFraud && (
-                <button onClick={() => onToast(`${p.name} terminated — DHA notified`, 'warning')} className="py-2.5 px-4 rounded-xl text-sm font-semibold"
+                <button onClick={async () => {
+                  try {
+                    await updateProviderStatus(p.id, 'terminated', 'Terminated following fraud investigation');
+                    onToast(`${p.name} terminated — DHA notified`, 'warning');
+                    void refetch();
+                  } catch (err) {
+                    onToast(err instanceof Error ? err.message : 'Failed to terminate provider', 'warning');
+                  }
+                }} className="py-2.5 px-4 rounded-xl text-sm font-semibold"
                   style={{ background: 'transparent', color: '#DC2626', border: '1px solid #FCA5A5', fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
                   Terminate
                 </button>
@@ -1292,7 +1314,7 @@ const DONUT_DATA = [
   { name: 'Other', value: 11, color: '#CBD5E1' },
 ];
 
-function DrawerOverview({ provider, onToast }: { provider: ProviderVM; onToast: (m: string, t: ToastType) => void }) {
+function DrawerOverview({ provider, onToast, refetch }: { provider: ProviderVM; onToast: (m: string, t: ToastType) => void; refetch: () => void }) {
   const initials = provider.name.replace('Dr. ', '').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
   return (
     <div className="p-5 flex flex-col gap-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 180px)' }}>
@@ -1380,7 +1402,15 @@ function DrawerOverview({ provider, onToast }: { provider: ProviderVM; onToast: 
             { label: 'Send Email', bg: '#EFF6FF', color: '#1E40AF', onClick: () => onToast('Email composer opened', 'info') },
             { label: 'Message', bg: '#F1F5F9', color: '#475569', onClick: () => onToast('Messaging opened', 'info') },
             { label: 'Renew Contract', bg: '#F0FDFA', color: '#0F766E', onClick: () => onToast('Contract renewal initiated', 'success') },
-            { label: 'Flag for Review', bg: '#FFFBEB', color: '#92400E', onClick: () => onToast('Provider flagged for review', 'warning') },
+            { label: 'Flag for Review', bg: '#FFFBEB', color: '#92400E', onClick: async () => {
+              try {
+                await updateProviderStatus(provider.id, 'flagged');
+                onToast('Provider flagged for review', 'warning');
+                void refetch();
+              } catch (err) {
+                onToast(err instanceof Error ? err.message : 'Failed to flag provider', 'warning');
+              }
+            }},
           ].map(btn => (
             <button key={btn.label} onClick={btn.onClick} className="px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
               style={{ background: btn.bg, color: btn.color, fontFamily: 'Inter, sans-serif', border: 'none', cursor: 'pointer' }}>
@@ -1633,16 +1663,21 @@ function DrawerContract({ provider, onToast }: { provider: ProviderVM; onToast: 
   );
 }
 
-function DrawerNotes({ provider, onToast }: { provider: ProviderVM; onToast: (m: string, t: ToastType) => void }) {
+function DrawerNotes({ provider, onToast, refetch }: { provider: ProviderVM; onToast: (m: string, t: ToastType) => void; refetch: () => void }) {
   const [note, setNote] = useState('');
-  const [notes, setNotes] = useState([
+  const [notes] = useState([
     { text: provider.networkNote ?? 'No notes added yet.', author: 'Network Management', date: 'Jan 2024' },
   ]);
-  const addNote = () => {
+  const addNote = async () => {
     if (!note.trim()) return;
-    setNotes(n => [...n, { text: note.trim(), author: 'Insurance Officer', date: new Date().toLocaleDateString('en', { month: 'short', year: 'numeric' }) }]);
-    setNote('');
-    onToast('Note added successfully', 'success');
+    try {
+      await addProviderNote(provider.id, note.trim(), 'Insurance Officer');
+      setNote('');
+      onToast('Note added successfully', 'success');
+      void refetch();
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to add note', 'warning');
+    }
   };
   return (
     <div className="p-5 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 180px)' }}>
@@ -1658,7 +1693,7 @@ function DrawerNotes({ provider, onToast }: { provider: ProviderVM; onToast: (m:
       <div>
         <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={FORM_FIELD_LIMITS.clinicalNotes} placeholder="Add an internal note..." rows={3}
           className="w-full rounded-xl p-3 resize-none" style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', border: '1px solid #E2E8F0', outline: 'none', color: '#374151' }} />
-        <button onClick={addNote} className="mt-2 px-4 py-2 rounded-xl text-xs font-semibold"
+        <button onClick={() => void addNote()} className="mt-2 px-4 py-2 rounded-xl text-xs font-semibold"
           style={{ background: '#1E3A5F', color: '#fff', fontFamily: 'Inter, sans-serif', border: 'none', cursor: 'pointer' }}>
           Add Note
         </button>
@@ -1667,10 +1702,11 @@ function DrawerNotes({ provider, onToast }: { provider: ProviderVM; onToast: (m:
   );
 }
 
-function ProviderDetailDrawer({ provider, onClose, onToast }: {
+function ProviderDetailDrawer({ provider, onClose, onToast, refetch }: {
   provider: ProviderVM;
   onClose: () => void;
   onToast: (m: string, t: ToastType) => void;
+  refetch: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   return (
@@ -1708,11 +1744,11 @@ function ProviderDetailDrawer({ provider, onClose, onToast }: {
         </div>
 
         <div className="flex-1 overflow-hidden">
-          {activeTab === 'overview' && <DrawerOverview provider={provider} onToast={onToast} />}
+          {activeTab === 'overview' && <DrawerOverview provider={provider} onToast={onToast} refetch={refetch} />}
           {activeTab === 'performance' && <DrawerPerformance provider={provider} />}
           {activeTab === 'claims' && <DrawerClaims provider={provider} />}
           {activeTab === 'contract' && <DrawerContract provider={provider} onToast={onToast} />}
-          {activeTab === 'notes' && <DrawerNotes provider={provider} onToast={onToast} />}
+          {activeTab === 'notes' && <DrawerNotes provider={provider} onToast={onToast} refetch={refetch} />}
         </div>
 
         <div className="flex-shrink-0 flex items-center gap-2 px-5" style={{ height: 56, borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
@@ -1934,7 +1970,7 @@ export const InsuranceNetworkProviders = () => {
         )}
         {activeTab === 'pending' && <PendingTab onToast={addToast} />}
         {activeTab === 'top' && <TopTab providers={displayProviders} onView={p => setOpenDrawer(p)} onToast={addToast} />}
-        {activeTab === 'review' && <ReviewTab providers={displayProviders} onToast={addToast} />}
+        {activeTab === 'review' && <ReviewTab providers={displayProviders} onToast={addToast} refetch={refetch} />}
         {activeTab === 'terminated' && <TerminatedTab onToast={addToast} />}
       </article>
 
@@ -1962,7 +1998,7 @@ export const InsuranceNetworkProviders = () => {
       )}
 
       {/* Drawer */}
-      {openDrawer && <ProviderDetailDrawer provider={openDrawer} onClose={() => setOpenDrawer(null)} onToast={addToast} />}
+      {openDrawer && <ProviderDetailDrawer provider={openDrawer} onClose={() => setOpenDrawer(null)} onToast={addToast} refetch={refetch} />}
 
       {/* Credentialing modal */}
       {showCredentialing && <CredentialingModal onClose={() => setShowCredentialing(false)} onToast={addToast} />}
