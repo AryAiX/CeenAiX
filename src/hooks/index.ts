@@ -89,18 +89,22 @@ export type {
   PharmacyStaffMember,
 } from './use-pharmacy-prescription-queue';
 export {
+  addFraudInvestigationNote,
   approveClaim,
   approvePreAuthorization,
+  assignFraudAlert,
   bulkApproveClaims,
   bulkApprovePreAuthorizations,
   bulkDenyClaims,
   denyClaim,
   denyPreAuthorization,
   flagClaimForReview,
+  markFraudFalsePositive,
   requestPreAuthInfo,
   resolveClaimAppeal,
   setInsuranceSettingEnabled,
   submitManualClaim,
+  updateFraudAlertStatus,
   useInsurancePortal,
 } from './use-insurance-portal';
 export type {
@@ -116,6 +120,7 @@ export type {
   InsuranceReportRun,
   InsuranceRiskSegment,
   InsuranceSetting,
+  InvestigationNote,
 } from './use-insurance-portal';
 export {
   useAdminMetrics,

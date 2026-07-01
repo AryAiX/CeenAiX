@@ -10,7 +10,13 @@ import {
   Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip,
   XAxis, YAxis,
 } from 'recharts';
-import { type InsuranceFraudAlert } from '../../hooks';
+import {
+  type InsuranceFraudAlert,
+  updateFraudAlertStatus,
+  markFraudFalsePositive,
+  assignFraudAlert,
+  addFraudInvestigationNote,
+} from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
   PreAuthAlert,
@@ -18,16 +24,6 @@ import InsuranceShell, {
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
-
-// ─── Static mock data (shown when Supabase returns empty) ────────────────────
-
-const MOCK_FRAUD_ALERTS: InsuranceFraudAlert[] = [
-  { id: 'mfa-1', externalRef: 'FRAUD-2026-0041', subjectName: 'Dr. Sami Al Aryan — NMC Deira',        subjectType: 'provider', reason: 'Ghost consultations: 38 claims submitted for patients with no matching appointment record in CeenAiX within the billing period.',                                  score: 91, exposureAmountAed: 148_200, severity: 'high',   status: 'open'         },
-  { id: 'mfa-2', externalRef: 'FRAUD-2026-0038', subjectName: 'City Pharmacy — Al Quoz Branch',       subjectType: 'provider', reason: 'Phantom pharmacy dispensing: High-value medication claims with no matching DHA prescription record. Pattern observed across 12 patient accounts in 9 days.',   score: 87, exposureAmountAed: 94_600,  severity: 'high',   status: 'investigating' },
-  { id: 'mfa-3', externalRef: 'FRAUD-2026-0035', subjectName: 'Al Manara Clinic — Sharjah',           subjectType: 'provider', reason: 'Upcoding pattern detected: Routine consultations consistently billed as complex specialist reviews. Average upcoding margin 340% above peer benchmark.',        score: 74, exposureAmountAed: 62_400,  severity: 'medium', status: 'open'         },
-  { id: 'mfa-4', externalRef: 'FRAUD-2026-0033', subjectName: 'Spine & Joint Centre — Abu Dhabi',     subjectType: 'provider', reason: 'Duplicate billing: 14 procedures billed twice within 72-hour windows under different claim references.',                                                        score: 68, exposureAmountAed: 41_750,  severity: 'medium', status: 'investigating' },
-  { id: 'mfa-5', externalRef: 'FRAUD-2026-0029', subjectName: 'Member: Hassan Al Suwaidi (MBR-8841)', subjectType: 'member',   reason: "Out-of-hours consultation pattern: 22 specialist visits billed between 23:00–02:00 from the same provider, whose licence does not cover overnight services.",    score: 63, exposureAmountAed: 28_900,  severity: 'medium', status: 'open'         },
-];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -564,14 +560,23 @@ const DhaReportModal = ({
 const FalsePositiveModal = ({
   alert, onClose, onConfirm,
 }: { alert: InsuranceFraudAlert; onClose: () => void; onConfirm: () => void }) => {
-  const [reason,     setReason]     = useState('');
-  const [notes,      setNotes]      = useState('');
-  const [confirming, setConfirming] = useState(false);
+  const [reason,      setReason]      = useState('');
+  const [notes,       setNotes]       = useState('');
+  const [confirming,  setConfirming]  = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!reason || !notes.trim()) return;
     setConfirming(true);
-    setTimeout(() => { setConfirming(false); onConfirm(); }, 1400);
+    setActionError(null);
+    try {
+      await markFraudFalsePositive(alert.id, reason, notes.trim() || null);
+      onConfirm();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to mark as false positive');
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -614,7 +619,12 @@ const FalsePositiveModal = ({
           </div>
         </div>
         <div className="px-6 pb-5 space-y-2">
-          <button onClick={handleConfirm} disabled={!reason || !notes.trim() || confirming}
+          {actionError && (
+            <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, borderRadius: 10, padding: '8px 12px' }}>
+              {actionError}
+            </div>
+          )}
+          <button onClick={() => void handleConfirm()} disabled={!reason || !notes.trim() || confirming}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-40 bg-emerald-600">
             {confirming ? 'Clearing case...' : '✅ Confirm — Mark as False Positive'}
           </button>
@@ -631,7 +641,7 @@ type WsTab = 'summary' | 'claims' | 'patterns' | 'nabidh' | 'timeline' | 'notes'
 interface NoteItem { time: string; author: string; text: string; isAi?: boolean }
 
 const InvestigationWorkspace = ({
-  alert, onClose, onToast, onFreeze, onSuspend, onDhaReport,
+  alert, onClose, onToast, onFreeze, onSuspend, onDhaReport, refetch,
 }: {
   alert: InsuranceFraudAlert;
   onClose: () => void;
@@ -639,6 +649,7 @@ const InvestigationWorkspace = ({
   onFreeze: () => void;
   onSuspend: () => void;
   onDhaReport: () => void;
+  refetch: () => void;
 }) => {
   const [tab,             setTab]             = useState<WsTab>('summary');
   const [status,          setStatus]          = useState(toStatusKey(alert.status));
@@ -646,7 +657,7 @@ const InvestigationWorkspace = ({
   const [showStatusDrop,  setShowStatusDrop]  = useState(false);
   const [showAssignDrop,  setShowAssignDrop]  = useState(false);
   const [note,            setNote]            = useState('');
-  const [notes,           setNotes]           = useState<NoteItem[]>([{
+  const [notes] = useState<NoteItem[]>([{
     time: 'Auto-detected', author: 'CeenAiX AI', isAi: true,
     text: `Automated fraud detection. Case created by CeenAiX AI on anomaly threshold breach. AI confidence: ${alert.score}%. Evidence: ${alert.reason}. Case ready for investigator review and DHA reporting.`,
   }]);
@@ -662,11 +673,16 @@ const InvestigationWorkspace = ({
       count: Math.max(1, Math.round(alert.score / 5) + (i % 3 === 0 ? 3 : 0)),
     })), [alert.score]);
 
-  const addNote = () => {
+  const addNote = async () => {
     if (!note.trim()) return;
-    setNotes(n => [...n, { time: new Date().toLocaleString('en-AE'), author: 'Investigator', text: note }]);
-    setNote('');
-    onToast('Investigation note added', 'success');
+    const noteText = note;
+    try {
+      await addFraudInvestigationNote(alert.id, noteText, 'Investigator');
+      setNote('');
+      onToast('Investigation note added', 'success');
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to add note', 'error');
+    }
   };
 
   const WS_TABS: { id: WsTab; label: string; icon: React.ElementType }[] = [
@@ -720,7 +736,17 @@ const InvestigationWorkspace = ({
               {showStatusDrop && (
                 <div className="absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-slate-200 z-10 overflow-hidden w-52">
                   {STATUS_OPTIONS.map(opt => (
-                    <button key={opt.value} onClick={() => { setStatus(opt.value as StatusKey); setShowStatusDrop(false); }}
+                    <button key={opt.value} onClick={async () => {
+                      const newStatus = opt.value as StatusKey;
+                      setStatus(newStatus);
+                      setShowStatusDrop(false);
+                      try {
+                        await updateFraudAlertStatus(alert.id, newStatus.toLowerCase());
+                        void refetch();
+                      } catch (err) {
+                        onToast(err instanceof Error ? err.message : 'Failed to update status', 'error');
+                      }
+                    }}
                       className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between">
                       {opt.label}
                       {status === opt.value && <Check size={13} className="text-emerald-500" />}
@@ -738,10 +764,28 @@ const InvestigationWorkspace = ({
               </button>
               {showAssignDrop && (
                 <div className="absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-slate-200 z-10 overflow-hidden w-52">
-                  <button onClick={() => { setAssigned(null); setShowAssignDrop(false); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50 italic">Unassigned</button>
+                  <button onClick={async () => {
+                    setAssigned(null);
+                    setShowAssignDrop(false);
+                    try {
+                      await assignFraudAlert(alert.id, '');
+                      void refetch();
+                    } catch (err) {
+                      onToast(err instanceof Error ? err.message : 'Failed to unassign', 'error');
+                    }
+                  }} className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50 italic">Unassigned</button>
                   {TEAM.map(m => (
-                    <button key={m} onClick={() => { setAssigned(m); setShowAssignDrop(false); onToast(`Case assigned to ${m}`, 'success'); }}
+                    <button key={m} onClick={async () => {
+                      setAssigned(m);
+                      setShowAssignDrop(false);
+                      try {
+                        await assignFraudAlert(alert.id, m);
+                        onToast(`Case assigned to ${m}`, 'success');
+                        void refetch();
+                      } catch (err) {
+                        onToast(err instanceof Error ? err.message : 'Failed to assign', 'error');
+                      }
+                    }}
                       className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between">
                       {m}
                       {assigned === m && <Check size={13} className="text-emerald-500" />}
@@ -1050,7 +1094,7 @@ const InvestigationWorkspace = ({
                 <textarea value={note} onChange={e => setNote(e.target.value)} rows={4}
                   placeholder="Add investigation notes..."
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none resize-none" />
-                <button onClick={addNote} disabled={!note.trim()}
+                <button onClick={() => void addNote()} disabled={!note.trim()}
                   className="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-40 hover:opacity-90 transition-all" style={{ backgroundColor: '#0F2D4A' }}>
                   + Add Note
                 </button>
@@ -1076,7 +1120,7 @@ const InvestigationWorkspace = ({
 
 const FraudCaseCard = ({
   alert,
-  onOpen, onFreeze, onSuspend, onDha, onFalsePositive, onToast,
+  onOpen, onFreeze, onSuspend, onDha, onFalsePositive, onToast, refetch,
 }: {
   alert: InsuranceFraudAlert;
   onOpen: (a: InsuranceFraudAlert) => void;
@@ -1085,6 +1129,7 @@ const FraudCaseCard = ({
   onDha: (a: InsuranceFraudAlert) => void;
   onFalsePositive: (a: InsuranceFraudAlert) => void;
   onToast: (msg: string, type: Toast['type']) => void;
+  refetch: () => void;
 }) => {
   const rk   = toRiskKey(alert.severity);
   const rc   = RISK_CFG[rk];
@@ -1209,8 +1254,16 @@ const FraudCaseCard = ({
           </button>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={() => onToast(`Case ${alert.externalRef} assigned to Mariam Al Khateeb`, 'success')}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">👁 Assign to Me</button>
+          <button onClick={async () => {
+            const me = TEAM[0];
+            try {
+              await assignFraudAlert(alert.id, me);
+              onToast(`Case ${alert.externalRef} assigned to ${me}`, 'success');
+              void refetch();
+            } catch (err) {
+              onToast(err instanceof Error ? err.message : 'Failed to assign', 'error');
+            }
+          }} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">👁 Assign to Me</button>
           <button onClick={() => onSuspend(alert)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 transition-colors">📤 Suspend</button>
           <button onClick={() => onFalsePositive(alert)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">✅ False Positive</button>
         </div>
@@ -1319,9 +1372,7 @@ const AnalyticsTab = () => (
 
 export const InsuranceFraudDetection = () => {
   const { data, loading, error, openFraud, refetch, overduePreAuth } = useInsurancePageData();
-  const alerts = useMemo(() =>
-    (data?.fraudAlerts.length ?? 0) > 0 ? data!.fraudAlerts : MOCK_FRAUD_ALERTS,
-    [data?.fraudAlerts]);
+  const alerts = useMemo(() => data?.fraudAlerts ?? [], [data?.fraudAlerts]);
   const resolved = useMemo(() => alerts.filter(a => a.status === 'resolved'), [alerts]);
   const active   = useMemo(() => alerts.filter(a => a.status !== 'resolved'),  [alerts]);
 
@@ -1529,6 +1580,7 @@ export const InsuranceFraudDetection = () => {
                   onDha={setDhaAlert}
                   onFalsePositive={setFpAlert}
                   onToast={addToast}
+                  refetch={refetch}
                 />
               ))
             )}
@@ -1604,6 +1656,7 @@ export const InsuranceFraudDetection = () => {
           onFreeze={() => { setOpenWorkspace(null); setFreezeAlert(openWorkspace); }}
           onSuspend={() => { setOpenWorkspace(null); setSuspendAlert(openWorkspace); }}
           onDhaReport={() => { setOpenWorkspace(null); setDhaAlert(openWorkspace); }}
+          refetch={refetch}
         />
       )}
 
