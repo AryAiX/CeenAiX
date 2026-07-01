@@ -38,6 +38,9 @@ export interface InsurancePayerProfile {
   claimsBudgetAed: number | null;
   claimsBudgetPct: number | null;
   priorMonthGrowthPercent: number | null;
+  aiConfidenceThresholdPct?: number;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
 }
 
 export interface InsurancePreAuthorization {
@@ -261,6 +264,9 @@ interface PayerProfileRow {
   claims_budget_aed: number | string | null;
   claims_budget_pct: number | string | null;
   prior_month_growth_percent: number | string | null;
+  ai_confidence_threshold_pct: number | string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
 }
 
 interface PreAuthRow {
@@ -632,6 +638,29 @@ export async function flagClaimForReview(
   if (error) throw error;
 }
 
+export async function updatePayerProfile(updates: {
+  arabicName?: string | null;
+  officerName?: string | null;
+  officerTitle?: string | null;
+  slaStandardHours?: number | null;
+  slaUrgentHours?: number | null;
+  aiConfidenceThresholdPct?: number | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+}): Promise<void> {
+  const { error } = await supabase.rpc('insurance_update_payer_profile', {
+    p_arabic_name: updates.arabicName ?? null,
+    p_officer_name: updates.officerName ?? null,
+    p_officer_title: updates.officerTitle ?? null,
+    p_sla_standard_hours: updates.slaStandardHours ?? null,
+    p_sla_urgent_hours: updates.slaUrgentHours ?? null,
+    p_ai_confidence_threshold_pct: updates.aiConfidenceThresholdPct ?? null,
+    p_contact_email: updates.contactEmail ?? null,
+    p_contact_phone: updates.contactPhone ?? null,
+  });
+  if (error) throw error;
+}
+
 export async function updateProviderStatus(
   providerId: string,
   status: string,
@@ -759,7 +788,7 @@ export function useInsurancePortal() {
       supabase
         .from('insurance_payer_profiles')
         .select(
-          'display_name, arabic_name, regulator_name, active_members, members_gold, members_silver, members_basic, officer_name, officer_title, ai_auto_approval_percent, ai_auto_approval_change_percent, avg_processing_hours, sla_target_standard_hours, sla_target_urgent_hours, claims_today_total_aed, claims_today_count, claims_today_approved_count, claims_today_approved_aed, claims_today_pending_count, claims_today_pending_aed, claims_today_denied_count, claims_today_denied_aed, claims_today_appealed_count, claims_today_appealed_aed, daman_exposure_today_aed, claims_mtd_aed, claims_budget_aed, claims_budget_pct, prior_month_growth_percent'
+          'display_name, arabic_name, regulator_name, active_members, members_gold, members_silver, members_basic, officer_name, officer_title, ai_auto_approval_percent, ai_auto_approval_change_percent, avg_processing_hours, sla_target_standard_hours, sla_target_urgent_hours, claims_today_total_aed, claims_today_count, claims_today_approved_count, claims_today_approved_aed, claims_today_pending_count, claims_today_pending_aed, claims_today_denied_count, claims_today_denied_aed, claims_today_appealed_count, claims_today_appealed_aed, daman_exposure_today_aed, claims_mtd_aed, claims_budget_aed, claims_budget_pct, prior_month_growth_percent, ai_confidence_threshold_pct, contact_email, contact_phone'
         )
         .eq('organization_id', org.id)
         .maybeSingle(),
@@ -872,6 +901,9 @@ export function useInsurancePortal() {
             claimsBudgetAed: toNullableNumber(profile.claims_budget_aed),
             claimsBudgetPct: toNullableNumber(profile.claims_budget_pct),
             priorMonthGrowthPercent: toNullableNumber(profile.prior_month_growth_percent),
+            aiConfidenceThresholdPct: toNullableNumber(profile.ai_confidence_threshold_pct) ?? undefined,
+            contactEmail: profile.contact_email,
+            contactPhone: profile.contact_phone,
           }
         : null,
       preAuthorizations: ((preAuthResult.data ?? []) as PreAuthRow[]).map((row) => ({

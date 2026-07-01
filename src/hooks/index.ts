@@ -106,6 +106,7 @@ export {
   setInsuranceSettingEnabled,
   submitManualClaim,
   updateFraudAlertStatus,
+  updatePayerProfile,
   updateProviderStatus,
   useInsurancePortal,
 } from './use-insurance-portal';
