@@ -100,6 +100,8 @@ export {
   denyClaim,
   denyPreAuthorization,
   flagClaimForReview,
+  flagMemberForReview,
+  logWellnessOutreach,
   markFraudFalsePositive,
   requestPreAuthInfo,
   resolveClaimAppeal,

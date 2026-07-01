@@ -78,14 +78,14 @@ const MOCK_PROFILE_MEMBERS: InsurancePayerProfile = {
 };
 
 const MOCK_MEMBERS: InsuranceMember[] = [
-  { id: 'mm-1', externalMemberId: 'MBR-2026-4471', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   utilizationPercent: 82, claimCount: 7,  riskLevel: 'high',   isActive: true  },
-  { id: 'mm-2', externalMemberId: 'MBR-2026-4472', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', utilizationPercent: 34, claimCount: 2,  riskLevel: 'low',    isActive: true  },
-  { id: 'mm-3', externalMemberId: 'MBR-2026-4473', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   utilizationPercent: 91, claimCount: 12, riskLevel: 'high',   isActive: true  },
-  { id: 'mm-4', externalMemberId: 'MBR-2026-4474', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', utilizationPercent: 18, claimCount: 1,  riskLevel: 'low',    isActive: true  },
-  { id: 'mm-5', externalMemberId: 'MBR-2026-4475', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   utilizationPercent: 67, claimCount: 5,  riskLevel: 'medium', isActive: true  },
-  { id: 'mm-6', externalMemberId: 'MBR-2026-4476', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', utilizationPercent: 55, claimCount: 3,  riskLevel: 'medium', isActive: true  },
-  { id: 'mm-7', externalMemberId: 'MBR-2026-4477', patientName: 'Hassan Al Suwaidi',   planName: 'Gold Enhanced',   utilizationPercent: 95, claimCount: 22, riskLevel: 'high',   isActive: true  },
-  { id: 'mm-8', externalMemberId: 'MBR-2026-4478', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', utilizationPercent: 28, claimCount: 2,  riskLevel: 'low',    isActive: false },
+  { id: 'mm-1', externalMemberId: 'MBR-2026-4471', patientName: 'Ahmed Al Rashidi',    planName: 'Gold Enhanced',   utilizationPercent: 82, claimCount: 7,  riskLevel: 'high',   isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-2', externalMemberId: 'MBR-2026-4472', patientName: 'Noura Al Hammadi',    planName: 'Silver Standard', utilizationPercent: 34, claimCount: 2,  riskLevel: 'low',    isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-3', externalMemberId: 'MBR-2026-4473', patientName: 'Mohammed Al Kaabi',   planName: 'Gold Enhanced',   utilizationPercent: 91, claimCount: 12, riskLevel: 'high',   isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-4', externalMemberId: 'MBR-2026-4474', patientName: 'Aisha Al Marzouqi',   planName: 'Basic Essential', utilizationPercent: 18, claimCount: 1,  riskLevel: 'low',    isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-5', externalMemberId: 'MBR-2026-4475', patientName: 'Saeed Al Falasi',     planName: 'Gold Enhanced',   utilizationPercent: 67, claimCount: 5,  riskLevel: 'medium', isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-6', externalMemberId: 'MBR-2026-4476', patientName: 'Mariam Al Qubaisi',   planName: 'Silver Standard', utilizationPercent: 55, claimCount: 3,  riskLevel: 'medium', isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-7', externalMemberId: 'MBR-2026-4477', patientName: 'Hassan Al Suwaidi',   planName: 'Gold Enhanced',   utilizationPercent: 95, claimCount: 22, riskLevel: 'high',   isActive: true,  flaggedForReview: false, flaggedReason: null, flaggedAt: null },
+  { id: 'mm-8', externalMemberId: 'MBR-2026-4478', patientName: 'Fatima Al Neyadi',    planName: 'Basic Essential', utilizationPercent: 28, claimCount: 2,  riskLevel: 'low',    isActive: false, flaggedForReview: false, flaggedReason: null, flaggedAt: null },
 ];
 
 // ─── Helpers & Constants ──────────────────────────────────────────────────────

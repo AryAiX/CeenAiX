@@ -111,6 +111,9 @@ export interface InsuranceMember {
   claimCount: number;
   riskLevel: 'low' | 'medium' | 'high';
   isActive: boolean;
+  flaggedForReview: boolean;
+  flaggedReason: string | null;
+  flaggedAt: string | null;
 }
 
 export interface InsuranceFraudAlert {
@@ -337,6 +340,9 @@ interface MemberRow {
   claim_count: number;
   risk_level: InsuranceMember['riskLevel'];
   is_active: boolean;
+  flagged_for_review: boolean | null;
+  flagged_reason: string | null;
+  flagged_at: string | null;
 }
 
 interface FraudRow {
@@ -806,7 +812,7 @@ export function useInsurancePortal() {
         .order('submitted_at', { ascending: false }),
       supabase
         .from('insurance_members')
-        .select('id, external_member_id, patient_name, plan_name, utilization_percent, claim_count, risk_level, is_active')
+        .select('id, external_member_id, patient_name, plan_name, utilization_percent, claim_count, risk_level, is_active, flagged_for_review, flagged_reason, flagged_at')
         .eq('organization_id', org.id)
         .order('patient_name', { ascending: true }),
       supabase
@@ -972,6 +978,9 @@ export function useInsurancePortal() {
         claimCount: row.claim_count,
         riskLevel: row.risk_level,
         isActive: row.is_active,
+        flaggedForReview: row.flagged_for_review ?? false,
+        flaggedReason: row.flagged_reason,
+        flaggedAt: row.flagged_at,
       })),
       fraudAlerts: ((fraudResult.data ?? []) as FraudRow[]).map((row) => ({
         id: row.id,
@@ -1054,4 +1063,41 @@ export function useInsurancePortal() {
       })),
     };
   }, []);
+}
+
+export async function flagMemberForReview(
+  memberId: string,
+  flagReason?: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_flag_member_for_review', {
+    p_member_id: memberId,
+    p_flag_reason: flagReason ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function logWellnessOutreach(input: {
+  audience: string;
+  recipientCount: number;
+  channels: string[];
+  messageEn: string;
+  memberId?: string | null;
+  planFilter?: string[] | null;
+  subjectEn?: string | null;
+  subjectAr?: string | null;
+  messageAr?: string | null;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('insurance_log_wellness_outreach', {
+    p_audience: input.audience,
+    p_recipient_count: input.recipientCount,
+    p_channels: input.channels,
+    p_message_en: input.messageEn,
+    p_member_id: input.memberId ?? null,
+    p_plan_filter: input.planFilter ?? null,
+    p_subject_en: input.subjectEn ?? null,
+    p_subject_ar: input.subjectAr ?? null,
+    p_message_ar: input.messageAr ?? null,
+  });
+  if (error) throw error;
+  return data as string;
 }
