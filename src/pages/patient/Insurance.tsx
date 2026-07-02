@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle,
+  Clock,
   Download,
   Eye,
   FileText,
@@ -14,17 +15,20 @@ import {
   Heart,
   Phone,
   Pill,
+  RefreshCw,
   Search,
   Shield,
   ShieldCheck,
   Stethoscope,
   Video,
+  XCircle,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { supabase } from '../../lib/supabase';
 
 type InsuranceTab = 'claims' | 'preauth' | 'benefits' | 'documents';
 type StatusFilter = 'all' | PatientInsuranceActivity['status'];
@@ -42,6 +46,83 @@ export const PatientInsurance = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, loading, error, refetch } = usePatientInsurance(user?.id);
+
+  type RegistrationStatus = 'loading' | 'none' | 'pending' | 'approved' | 'rejected' | 'has_insurance';
+  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus>('loading');
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<
+    Array<{ id: string; name: string; provider_company: string; coverage_type: string | null }>
+  >([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const checkStatus = async () => {
+      const { data: existing } = await supabase
+        .from('patient_insurance')
+        .select('id')
+        .eq('patient_id', user.id)
+        .eq('is_primary', true)
+        .maybeSingle();
+
+      if (existing) {
+        setRegistrationStatus('has_insurance');
+        return;
+      }
+
+      const { data: request } = await supabase
+        .from('insurance_member_requests')
+        .select('status, rejection_reason')
+        .eq('patient_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (request) {
+        setRegistrationStatus(request.status as RegistrationStatus);
+        setRejectionReason((request.rejection_reason as string | null) ?? null);
+        return;
+      }
+
+      const { data: plans } = await supabase
+        .from('insurance_plans')
+        .select('id, name, provider_company, coverage_type')
+        .eq('is_active', true)
+        .not('organization_id', 'is', null);
+
+      setAvailablePlans(
+        (plans ?? []) as Array<{ id: string; name: string; provider_company: string; coverage_type: string | null }>
+      );
+      setRegistrationStatus('none');
+    };
+
+    void checkStatus();
+  }, [user?.id]);
+
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [policyNumber, setPolicyNumber] = useState('');
+  const [memberId, setMemberId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmitRegistration = async () => {
+    if (!selectedPlanId) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc('submit_insurance_registration', {
+        p_insurance_plan_id: selectedPlanId,
+        p_policy_number: policyNumber.trim() || null,
+        p_member_id: memberId.trim() || null,
+      });
+      if (rpcError) throw rpcError;
+      setRegistrationStatus('pending');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const [tab, setTab] = useState<InsuranceTab>('claims');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -204,12 +285,205 @@ export const PatientInsurance = () => {
     },
   ];
 
-  if (loading) {
+  if (loading || registrationStatus === 'loading') {
     return (
       <div className="space-y-5">
         <Skeleton className="h-20 rounded-2xl" />
         <Skeleton className="h-72 rounded-2xl" />
         <Skeleton className="h-80 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (registrationStatus === 'none') {
+    return (
+      <div className="animate-fadeIn space-y-5">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+            <Shield className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{t('patient.insurance.title')}</h1>
+            <p className="text-xs text-slate-400">{t('patient.insurance.subtitle')}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="mx-auto max-w-lg">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100">
+                <ShieldCheck className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Register Your Insurance</h2>
+                <p className="text-sm text-slate-500">
+                  Connect your insurance plan to access coverage, pre-authorizations and claims on CeenAiX
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Insurance Plan <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">Select a plan…</option>
+                  {availablePlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} — {plan.provider_company}
+                    </option>
+                  ))}
+                </select>
+                {availablePlans.length === 0 && (
+                  <p className="mt-1.5 text-xs text-slate-400">No active plans available at this time.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Policy Number <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={policyNumber}
+                  maxLength={FORM_FIELD_LIMITS.shortText}
+                  onChange={(e) => setPolicyNumber(e.target.value)}
+                  placeholder="e.g. POL-1234567"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Member ID <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={memberId}
+                  maxLength={FORM_FIELD_LIMITS.shortText}
+                  onChange={(e) => setMemberId(e.target.value)}
+                  placeholder="e.g. MBR-987654"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              {submitError ? (
+                <div
+                  role="alert"
+                  className="flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                >
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  {submitError}
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                disabled={!selectedPlanId || submitting}
+                onClick={() => void handleSubmitRegistration()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Submit Registration
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (registrationStatus === 'pending') {
+    return (
+      <div className="animate-fadeIn space-y-5">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+            <Shield className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{t('patient.insurance.title')}</h1>
+            <p className="text-xs text-slate-400">{t('patient.insurance.subtitle')}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-10 shadow-sm">
+          <div className="mx-auto max-w-md text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100">
+              <Clock className="h-8 w-8 text-amber-600" />
+            </div>
+            <h2 className="mb-3 text-xl font-bold text-slate-900">Registration Pending</h2>
+            <p className="text-sm leading-relaxed text-slate-600">
+              Your insurance registration request has been submitted and is waiting for approval from your insurance
+              provider. You will be notified once it is reviewed.
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700">
+              <Clock className="h-4 w-4" />
+              Awaiting insurer review
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (registrationStatus === 'rejected') {
+    return (
+      <div className="animate-fadeIn space-y-5">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+            <Shield className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{t('patient.insurance.title')}</h1>
+            <p className="text-xs text-slate-400">{t('patient.insurance.subtitle')}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-10 shadow-sm">
+          <div className="mx-auto max-w-md text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100">
+              <XCircle className="h-8 w-8 text-rose-600" />
+            </div>
+            <h2 className="mb-3 text-xl font-bold text-slate-900">Registration Not Approved</h2>
+            <p className="text-sm leading-relaxed text-slate-600">
+              Your insurance registration was not approved.
+              {rejectionReason ? (
+                <>
+                  {' '}
+                  <span className="font-medium text-rose-700">{rejectionReason}</span>
+                </>
+              ) : null}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setRegistrationStatus('none');
+                setSelectedPlanId('');
+                setPolicyNumber('');
+                setMemberId('');
+                setSubmitError(null);
+              }}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Try Again
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
