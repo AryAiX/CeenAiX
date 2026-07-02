@@ -480,6 +480,23 @@ export const BookAppointment: React.FC = () => {
         }
       }
 
+      // Insurance pre-auth check — fire-and-forget, non-blocking.
+      // Works for every patient automatically using their own specific
+      // insurance plan. If the patient has no insurance, or their plan
+      // does not require pre-auth, the RPC exits cleanly with no error.
+      // The booking always succeeds regardless of this call.
+      if (appointmentId) {
+        void supabase
+          .rpc('create_preauth_from_appointment', {
+            p_appointment_id: appointmentId,
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[Insurance] Pre-auth check failed:', error.message);
+            }
+          });
+      }
+
       if (appointmentId && !isRescheduling) {
         const { data: preVisitAssessment, error: preVisitAssessmentError } = await supabase
           .from('appointment_pre_visit_assessments')
