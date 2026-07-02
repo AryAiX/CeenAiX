@@ -274,6 +274,25 @@ export const DoctorAppointmentDetail: React.FC = () => {
       return;
     }
 
+    // Insurance claim creation — fire-and-forget, non-blocking.
+    // Automatically creates a real insurance claim in the officer's
+    // Claims page when a consultation is marked complete.
+    // Works for every patient using their own specific insurance plan.
+    // Duplicate-safe — if called twice for the same appointment,
+    // the second call exits cleanly with no duplicate claim created.
+    // The status update always succeeds regardless of this call.
+    if (status === 'completed' && data.appointment.id) {
+      void supabase
+        .rpc('create_claim_from_appointment', {
+          p_appointment_id: data.appointment.id,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.warn('[Insurance] Claim creation failed:', error.message);
+          }
+        });
+    }
+
     setFeedback({ type: 'success', message: t('doctor.appointmentDetail.statusSaved') });
     refetch();
   };
