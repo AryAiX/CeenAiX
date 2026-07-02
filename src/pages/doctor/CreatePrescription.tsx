@@ -1152,6 +1152,24 @@ export const CreatePrescription: React.FC = () => {
       action_url: '/patient/prescriptions',
     });
 
+    // Insurance pre-auth check — fire-and-forget, non-blocking.
+    // Checks each prescription item against the medication catalog.
+    // Only items flagged as requires_pre_auth = true will trigger
+    // a pre-auth request. Custom or unlinked medications are skipped.
+    // The prescription save always succeeds regardless of this call.
+    const prescriptionId = insertedPrescription.id;
+    if (prescriptionId) {
+      void supabase
+        .rpc('create_preauth_from_prescription', {
+          p_prescription_id: prescriptionId,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.warn('[Insurance] Prescription pre-auth check failed:', error.message);
+          }
+        });
+    }
+
     setSaving(false);
     setShowValidationErrors(false);
     setSavedPrescriptionId(insertedPrescription.id);
