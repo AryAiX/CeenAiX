@@ -4,10 +4,12 @@ import {
   AlertTriangle,
   BarChart2,
   Brain,
+  CheckCircle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Clock,
   Copy,
   DollarSign,
   Download,
@@ -21,6 +23,7 @@ import {
   User,
   Users,
   X,
+  XCircle,
 } from 'lucide-react';
 import {
   Bar,
@@ -44,9 +47,11 @@ import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import InsuranceShell, {
   PreAuthAlert,
   formatCurrency,
+  formatDate,
   formatNumber,
   useInsurancePageData,
 } from './InsuranceShell';
+import { supabase } from '../../lib/supabase';
 
 // ─── Helpers & Constants ──────────────────────────────────────────────────────
 
@@ -768,6 +773,92 @@ export const InsuranceMembers = () => {
   const members = useMemo(() => data?.members ?? [], [data?.members]);
   const profile = data?.profile ?? null;
 
+  // ── Pending registration requests ────────────────────────────────────────────
+  const [requests, setRequests] = useState<Array<{
+    id: string;
+    patient_name: string;
+    policy_number: string | null;
+    member_id: string | null;
+    created_at: string;
+    insurance_plans: { name: string; provider_company: string } | null;
+  }>>([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  const [actionBusy,  setActionBusy]  = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadRequests = async () => {
+    setRequestsLoading(true);
+    const { data: rows } = await supabase
+      .from('insurance_member_requests')
+      .select('id, patient_name, policy_number, member_id, created_at, insurance_plans(name, provider_company)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+    setRequests(
+      (rows ?? []).map(r => {
+        const raw = r as {
+          id: string;
+          patient_name: string;
+          policy_number: string | null;
+          member_id: string | null;
+          created_at: string;
+          insurance_plans: Array<{ name: string; provider_company: string }> | { name: string; provider_company: string } | null;
+        };
+        const plans = raw.insurance_plans;
+        const plan = Array.isArray(plans) ? (plans[0] ?? null) : plans;
+        return {
+          id: raw.id,
+          patient_name: raw.patient_name,
+          policy_number: raw.policy_number,
+          member_id: raw.member_id,
+          created_at: raw.created_at,
+          insurance_plans: plan,
+        };
+      })
+    );
+    setRequestsLoading(false);
+  };
+
+  useEffect(() => { void loadRequests(); }, []);
+
+  const handleApprove = async (requestId: string) => {
+    setActionError(null);
+    setActionBusy(requestId);
+    try {
+      const { error: rpcError } = await supabase
+        .rpc('approve_insurance_member_request', { p_request_id: requestId });
+      if (rpcError) throw rpcError;
+      void loadRequests();
+      void refetch();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Approval failed');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const handleReject = async (requestId: string, reason: string) => {
+    setActionError(null);
+    setActionBusy(requestId);
+    try {
+      const { error: rpcError } = await supabase
+        .rpc('reject_insurance_member_request', {
+          p_request_id: requestId,
+          p_rejection_reason: reason || null,
+        });
+      if (rpcError) throw rpcError;
+      void loadRequests();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Rejection failed');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // ── Top-level page tab (Members / Pending Requests) ──────────────────────────
+  const [activeTab,    setActiveTab]    = useState<'members' | 'requests'>('members');
+  const [rejectingId,  setRejectingId]  = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   const [tab,          setTab]          = useState<Tab>('all');
   const [viewMode,     setViewMode]     = useState<ViewMode>('table');
   const [search,       setSearch]       = useState('');
@@ -892,7 +983,184 @@ export const InsuranceMembers = () => {
         ))}
       </div>
 
-      {/* Main card */}
+      {/* Top-level tab switcher: Members | Pending Requests */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('members')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+            activeTab === 'members'
+              ? 'border-blue-600 bg-blue-50 text-blue-700'
+              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+          }`}
+        >
+          <Users size={14} />
+          Members
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('requests')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+            activeTab === 'requests'
+              ? 'border-blue-600 bg-blue-50 text-blue-700'
+              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+          }`}
+        >
+          <Clock size={14} />
+          Pending Requests
+          {requests.length > 0 && (
+            <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white">
+              {requests.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'requests' ? (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3"
+            style={{ borderBottom: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Pending Registration Requests</h2>
+              <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>Review and approve or reject member insurance registration requests</p>
+            </div>
+          </div>
+
+          {actionError ? (
+            <div className="mx-5 mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+              <XCircle size={15} className="flex-shrink-0" />
+              {actionError}
+            </div>
+          ) : null}
+
+          {requestsLoading ? (
+            <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+              <Clock size={18} className="mr-2 animate-spin text-slate-400" />
+              Loading requests…
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <CheckCircle size={36} className="text-emerald-400 mb-3" />
+              <p className="text-sm font-semibold text-slate-600">No pending registration requests</p>
+              <p className="text-xs text-slate-400 mt-1">All caught up!</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100" style={{ backgroundColor: '#F8FAFC' }}>
+                    {['Patient', 'Plan', 'Policy Number', 'Member ID', 'Submitted', 'Actions'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map(req => {
+                    const isRejecting = rejectingId === req.id;
+                    const isBusy = actionBusy === req.id;
+                    return (
+                      <>
+                        <tr key={req.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="px-5 py-3">
+                            <p className="text-sm font-semibold text-slate-800">{req.patient_name}</p>
+                          </td>
+                          <td className="px-5 py-3">
+                            {req.insurance_plans ? (
+                              <>
+                                <p className="text-sm font-semibold text-slate-800">{req.insurance_plans.name}</p>
+                                <p className="text-xs text-slate-400">{req.insurance_plans.provider_company}</p>
+                              </>
+                            ) : (
+                              <span className="text-xs text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="font-mono text-sm text-slate-700">{req.policy_number ?? '—'}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="font-mono text-sm text-slate-700">{req.member_id ?? '—'}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="text-sm text-slate-500">{formatDate(req.created_at)}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void handleApprove(req.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <CheckCircle size={12} />
+                                {isBusy ? 'Processing…' : 'Approve'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => {
+                                  if (isRejecting) {
+                                    setRejectingId(null);
+                                    setRejectReason('');
+                                  } else {
+                                    setRejectingId(req.id);
+                                    setRejectReason('');
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <XCircle size={12} />
+                                Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isRejecting && (
+                          <tr key={`${req.id}-reject`} className="bg-rose-50 border-b border-rose-100">
+                            <td colSpan={6} className="px-5 py-3">
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="text"
+                                  value={rejectReason}
+                                  onChange={e => setRejectReason(e.target.value)}
+                                  placeholder="Reason for rejection (optional)"
+                                  className="flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => {
+                                    void handleReject(req.id, rejectReason).then(() => {
+                                      setRejectingId(null);
+                                      setRejectReason('');
+                                    });
+                                  }}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {isBusy ? 'Processing…' : 'Confirm Reject'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setRejectingId(null); setRejectReason(''); }}
+                                  className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:bg-rose-100 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {activeTab === 'members' ? (
+      <>{/* Main card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {/* Page header */}
         <div className="flex items-center justify-between px-5 py-3"
@@ -1268,6 +1536,7 @@ export const InsuranceMembers = () => {
           )
         )}
       </div>
+      </>) : null}
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
