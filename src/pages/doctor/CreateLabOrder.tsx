@@ -788,6 +788,25 @@ export const CreateLabOrder: React.FC = () => {
       action_url: '/patient/appointments',
     });
 
+    // Insurance pre-auth check — fire-and-forget, non-blocking.
+    // Checks each lab order item against the lab test catalog.
+    // Only items flagged as requires_pre_auth = true will trigger
+    // a pre-auth request. Routine or unlinked tests are skipped.
+    // Also updates lab_orders.preauth_status to 'pending' if needed.
+    // The lab order save always succeeds regardless of this call.
+    const labOrderId = insertedLabOrder.id;
+    if (labOrderId) {
+      void supabase
+        .rpc('create_preauth_from_lab_order', {
+          p_lab_order_id: labOrderId,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.warn('[Insurance] Lab order pre-auth check failed:', error.message);
+          }
+        });
+    }
+
     setSaving(false);
     setShowValidationErrors(false);
     setFeedback({ type: 'success', message: t('doctor.createLabOrder.saveSuccess') });
