@@ -1099,7 +1099,7 @@ export const InsurancePreAuthorizations = () => {
                     {/* Cost */}
                     <div>
                       <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
-                        AED {(pa.requestedAmountAed / 1000).toFixed(0)}K
+                        {formatCurrency(pa.requestedAmountAed)}
                       </div>
                       {pa.coverageLabel && (
                         <div style={{ fontSize: 9, color: pa.coverageLabel.toLowerCase().includes('not') ? '#DC2626' : '#059669', marginTop: 1, fontWeight: 600 }}>
@@ -1189,7 +1189,7 @@ export const InsurancePreAuthorizations = () => {
                           {aiRecUpper(pa.aiRecommendation)} {pa.aiConfidencePercent != null ? `${pa.aiConfidencePercent}%` : ''}
                         </span>
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
-                          AED {(pa.requestedAmountAed / 1000).toFixed(0)}K
+                          {formatCurrency(pa.requestedAmountAed)}
                         </span>
                       </div>
                       {isProcessed ? (
