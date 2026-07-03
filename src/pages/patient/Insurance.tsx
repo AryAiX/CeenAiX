@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
-  AlertCircle,
-  Calendar,
   CheckCircle,
   Clock,
   Download,
@@ -24,7 +22,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
+import {
+  usePatientInsurance,
+  type PatientInsuranceActivity,
+  type PatientRealPreAuth,
+  type PatientRealClaim,
+} from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
@@ -46,6 +49,8 @@ export const PatientInsurance = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, loading, error, refetch } = usePatientInsurance(user?.id);
+  const realPreAuths: PatientRealPreAuth[] = data?.realPreAuths ?? [];
+  const realClaims: PatientRealClaim[] = data?.realClaims ?? [];
 
   type RegistrationStatus = 'loading' | 'none' | 'pending' | 'approved' | 'rejected' | 'has_insurance';
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus>('loading');
@@ -663,6 +668,56 @@ export const PatientInsurance = () => {
         <div className="p-6">
           {tab === 'claims' ? (
             <div className="space-y-5">
+              {realClaims.length > 0 && (
+                <div className="mb-4 space-y-3">
+                  {realClaims.map((claim) => (
+                    <div key={claim.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-5 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                          claim.status === 'approved' ? 'bg-emerald-50' :
+                          claim.status === 'denied'   ? 'bg-rose-50'    :
+                          'bg-blue-50'
+                        }`}>
+                          {claim.status === 'approved'
+                            ? <CheckCircle className="h-5 w-5 text-emerald-600" />
+                            : claim.status === 'denied'
+                            ? <XCircle className="h-5 w-5 text-rose-600" />
+                            : <FileText className="h-5 w-5 text-blue-600" />}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900">
+                            {claim.claimType ?? 'Consultation'}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {claim.doctorName ?? claim.providerName}
+                          </div>
+                          <div className="mt-0.5 font-mono text-xs text-slate-400">
+                            {claim.externalRef}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="font-mono text-sm font-bold text-slate-800">
+                            AED {claim.amountAed.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {new Date(claim.submittedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold border ${statusClasses(
+                          claim.status === 'approved' ? 'approved' :
+                          claim.status === 'denied'   ? 'denied'   :
+                          claim.status === 'under_review' ? 'review' :
+                          'pending'
+                        )}`}>
+                          {claim.status.charAt(0).toUpperCase() + claim.status.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-xl bg-slate-50 p-5">
                   <div className="text-xs uppercase tracking-wide text-slate-400">{t('patient.insurance.totalActivity')}</div>
@@ -768,27 +823,59 @@ export const PatientInsurance = () => {
 
           {tab === 'preauth' ? (
             <div className="space-y-4">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-                <div className="mb-2 flex items-center gap-2 text-lg font-bold text-slate-900">
-                  <AlertCircle className="h-5 w-5 text-amber-600" />
-                  {t('patient.insurance.preauthTitle')}
+              {realPreAuths.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+                  <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <div className="font-semibold text-slate-700">No pre-authorization requests yet</div>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Pre-authorizations will appear here when your doctor orders a procedure
+                    or medication that requires prior approval from your insurer.
+                  </p>
                 </div>
-                <p className="text-sm text-slate-600">{t('patient.insurance.preauthBody')}</p>
-              </div>
-              {['MRI / CT imaging', 'High-cost branded medication', 'Elective procedures'].map((label) => (
-                <div key={label} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <div className="font-bold text-slate-900">{label}</div>
-                      <div className="text-sm text-slate-500">{primaryPlan?.planName ?? t('patient.insurance.noPlan')}</div>
+              ) : (
+                realPreAuths.map((pa) => (
+                  <div key={pa.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                        pa.status === 'approved' ? 'bg-emerald-50' :
+                        pa.status === 'denied'   ? 'bg-rose-50'    :
+                        'bg-amber-50'
+                      }`}>
+                        {pa.status === 'approved'
+                          ? <CheckCircle className="h-5 w-5 text-emerald-600" />
+                          : pa.status === 'denied'
+                          ? <XCircle className="h-5 w-5 text-rose-600" />
+                          : <Clock className="h-5 w-5 text-amber-600" />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900">{pa.procedureName}</div>
+                        <div className="text-sm text-slate-500">
+                          {pa.clinicianName} · {pa.providerName}
+                        </div>
+                        <div className="mt-0.5 font-mono text-xs text-slate-400">{pa.externalRef}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="font-mono text-sm font-bold text-slate-800">
+                          AED {pa.requestedAmountAed.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {new Date(pa.requestedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold border ${statusClasses(
+                        pa.status === 'approved' ? 'approved' :
+                        pa.status === 'denied'   ? 'denied'   :
+                        pa.status === 'review'   ? 'review'   :
+                        'pending'
+                      )}`}>
+                        {pa.status.charAt(0).toUpperCase() + pa.status.slice(1)}
+                      </span>
                     </div>
                   </div>
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                    {t('patient.insurance.ruleBased')}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           ) : null}
 
@@ -906,9 +993,6 @@ export const PatientInsurance = () => {
         </div>
       </div>
 
-      <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        {t('patient.insurance.dataNote')}
-      </div>
     </div>
   );
 };

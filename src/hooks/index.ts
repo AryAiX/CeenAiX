@@ -11,7 +11,7 @@ export { usePatientPrescriptions } from './use-patient-prescriptions';
 export { usePatientPrimaryInsurance } from './use-patient-primary-insurance';
 export type { PatientPrimaryInsurance } from './use-patient-primary-insurance';
 export { usePatientInsurance } from './use-patient-insurance';
-export type { PatientInsuranceActivity, PatientInsuranceData, PatientInsurancePlan } from './use-patient-insurance';
+export type { PatientInsuranceActivity, PatientInsuranceData, PatientInsurancePlan, PatientRealPreAuth, PatientRealClaim } from './use-patient-insurance';
 export { usePatientLabResults } from './use-patient-lab-results';
 export type { PatientLabOrderRecord } from './use-patient-lab-results';
 export { usePatientRecords } from './use-patient-records';
