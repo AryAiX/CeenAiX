@@ -322,7 +322,7 @@ export const PharmacyDispensing = () => {
       // Fire-and-forget: create an insurance claim when the prescription is fully dispensed
       if (workflowStatus === 'dispensed') {
         void supabase
-          .rpc('create_claim_from_prescription', { p_prescription_id: row.id })
+          .rpc('create_claim_from_prescription', { p_prescription_id: row.dbPrescriptionId })
           .then(({ error }) => {
             if (error) console.warn('[Insurance] Failed to create claim from dispensed prescription:', error.message);
           });

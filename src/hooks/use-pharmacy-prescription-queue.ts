@@ -57,6 +57,7 @@ export interface PharmacyQueuePrescriptionItem {
   allergyFlag: boolean;
   assignedTo: string | null;
   patientUserId: string | null;
+  dbPrescriptionId: string | null;
 }
 
 export interface PharmacyInventoryDerivedItem {
@@ -172,6 +173,7 @@ interface StaffRow {
 
 interface DispensingTaskRow {
   id: string;
+  prescription_id: string | null;
   external_ref: string;
   patient_name: string;
   prescriber_name: string;
@@ -450,7 +452,7 @@ export function usePharmacyPrescriptionQueue() {
         .order('created_at', { ascending: true }),
       supabase
         .from('pharmacy_dispensing_tasks')
-        .select('id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
+        .select('id, prescription_id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
         .eq('organization_id', org.id)
         .order('received_at', { ascending: false }),
       supabase
@@ -520,6 +522,7 @@ export function usePharmacyPrescriptionQueue() {
         allergyFlag: task.allergy_flag,
         assignedTo: task.assigned_to,
         patientUserId: task.patient_user_id,
+        dbPrescriptionId: task.prescription_id,
       };
     });
 
