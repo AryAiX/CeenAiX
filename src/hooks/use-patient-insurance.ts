@@ -34,12 +34,40 @@ export interface PatientInsuranceActivity {
   source: 'appointments' | 'lab_orders' | 'prescriptions';
 }
 
+export interface PatientRealPreAuth {
+  id: string;
+  externalRef: string;
+  procedureName: string;
+  providerName: string;
+  clinicianName: string;
+  status: string;
+  requestedAmountAed: number;
+  requestedAt: string;
+  slaDueAt: string;
+  planLabel: string | null;
+}
+
+export interface PatientRealClaim {
+  id: string;
+  externalRef: string;
+  patientName: string;
+  planName: string;
+  providerName: string;
+  doctorName: string | null;
+  claimType: string | null;
+  amountAed: number;
+  status: string;
+  submittedAt: string;
+}
+
 export interface PatientInsuranceData {
   patientName: string | null;
   email: string | null;
   plans: PatientInsurancePlan[];
   primaryPlan: PatientInsurancePlan | null;
   activity: PatientInsuranceActivity[];
+  realPreAuths: PatientRealPreAuth[];
+  realClaims: PatientRealClaim[];
 }
 
 type PlanJoin =
@@ -86,10 +114,12 @@ export function usePatientInsurance(userId: string | null | undefined) {
         plans: [],
         primaryPlan: null,
         activity: [],
+        realPreAuths: [],
+        realClaims: [],
       };
     }
 
-    const [profileResult, insuranceResult, appointmentsResult, labOrdersResult, prescriptionsResult] = await Promise.all([
+    const [profileResult, insuranceResult, appointmentsResult, labOrdersResult, prescriptionsResult, preAuthResult, claimsResult] = await Promise.all([
       supabase
         .from('user_profiles')
         .select('full_name, first_name, last_name, email')
@@ -122,6 +152,18 @@ export function usePatientInsurance(userId: string | null | undefined) {
         .eq('is_deleted', false)
         .order('prescribed_at', { ascending: false })
         .limit(6),
+      supabase
+        .from('insurance_pre_authorizations')
+        .select('id, external_ref, procedure_name, provider_name, clinician_name, status, requested_amount_aed, requested_at, sla_due_at, plan_label')
+        .eq('patient_id', userId)
+        .order('requested_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('insurance_claims')
+        .select('id, external_ref, patient_name, plan_name, provider_name, doctor_name, claim_type, amount_aed, status, submitted_at')
+        .eq('patient_id', userId)
+        .order('submitted_at', { ascending: false })
+        .limit(20),
     ]);
 
     if (profileResult.error) throw profileResult.error;
@@ -129,6 +171,8 @@ export function usePatientInsurance(userId: string | null | undefined) {
     if (appointmentsResult.error) throw appointmentsResult.error;
     if (labOrdersResult.error) throw labOrdersResult.error;
     if (prescriptionsResult.error) throw prescriptionsResult.error;
+    if (preAuthResult.error) throw preAuthResult.error;
+    if (claimsResult.error) throw claimsResult.error;
 
     const plans = ((insuranceResult.data ?? []) as Array<{
       id: string;
@@ -256,6 +300,54 @@ export function usePatientInsurance(userId: string | null | undefined) {
       [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ??
       null;
 
+    const realPreAuths: PatientRealPreAuth[] = ((preAuthResult.data ?? []) as Array<{
+      id: string;
+      external_ref: string;
+      procedure_name: string;
+      provider_name: string;
+      clinician_name: string;
+      status: string;
+      requested_amount_aed: number;
+      requested_at: string;
+      sla_due_at: string;
+      plan_label: string | null;
+    }>).map(row => ({
+      id: row.id,
+      externalRef: row.external_ref,
+      procedureName: row.procedure_name,
+      providerName: row.provider_name,
+      clinicianName: row.clinician_name,
+      status: row.status,
+      requestedAmountAed: row.requested_amount_aed,
+      requestedAt: row.requested_at,
+      slaDueAt: row.sla_due_at,
+      planLabel: row.plan_label,
+    }));
+
+    const realClaims: PatientRealClaim[] = ((claimsResult.data ?? []) as Array<{
+      id: string;
+      external_ref: string;
+      patient_name: string;
+      plan_name: string;
+      provider_name: string;
+      doctor_name: string | null;
+      claim_type: string | null;
+      amount_aed: number;
+      status: string;
+      submitted_at: string;
+    }>).map(row => ({
+      id: row.id,
+      externalRef: row.external_ref,
+      patientName: row.patient_name,
+      planName: row.plan_name,
+      providerName: row.provider_name,
+      doctorName: row.doctor_name,
+      claimType: row.claim_type,
+      amountAed: row.amount_aed,
+      status: row.status,
+      submittedAt: row.submitted_at,
+    }));
+
     return {
       patientName: patientName || null,
       email: profile?.email ?? null,
@@ -264,6 +356,8 @@ export function usePatientInsurance(userId: string | null | undefined) {
       activity: [...appointmentRows, ...labRows, ...prescriptionRows]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10),
+      realPreAuths,
+      realClaims,
     };
   }, [userId]);
 }
