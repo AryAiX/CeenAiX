@@ -14,6 +14,7 @@ import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { supabase } from '../../lib/supabase';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 import { inferPrescriptionWorkflowStatus } from './prescription-status';
 
@@ -318,6 +319,14 @@ export const PharmacyDispensing = () => {
             ? 'dispensed'
             : 'on_hold';
       await Promise.all(row.taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, workflowStatus)));
+      // Fire-and-forget: create an insurance claim when the prescription is fully dispensed
+      if (workflowStatus === 'dispensed') {
+        void supabase
+          .rpc('create_claim_from_prescription', { p_prescription_id: row.id })
+          .then(({ error }) => {
+            if (error) console.warn('[Insurance] Failed to create claim from dispensed prescription:', error.message);
+          });
+      }
       refetch();
     } catch (error) {
       setActionError(
