@@ -25,7 +25,7 @@ export const Header: React.FC = () => {
   return (
     <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/85 backdrop-blur-lg">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between">
+        <div className="flex h-16 items-center justify-between sm:h-20">
           <button
             type="button"
             className="flex cursor-pointer items-center gap-3 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ceenai-cyan"
@@ -33,7 +33,7 @@ export const Header: React.FC = () => {
             aria-label={t('header.home')}
           >
             <img src="/favicon.svg" alt="" aria-hidden className="h-10 w-10 rounded-xl" />
-            <div>
+            <div className="hidden sm:block">
               <span className="block bg-gradient-to-r from-ceenai-cyan via-ceenai-blue to-ceenai-navy bg-clip-text text-2xl font-bold text-transparent">
                 CeenAiX
               </span>
@@ -43,7 +43,7 @@ export const Header: React.FC = () => {
             </div>
           </button>
 
-          <div className="hidden items-center space-x-8 md:flex">
+          <div className="hidden items-center space-x-6 lg:flex xl:space-x-8">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -63,19 +63,19 @@ export const Header: React.FC = () => {
             })}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher dense />
             <button
               type="button"
               onClick={() => openRegistration('patient')}
-              className="rounded-full bg-gradient-to-r from-ceenai-cyan to-ceenai-blue px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl"
+              className="rounded-full bg-gradient-to-r from-ceenai-cyan to-ceenai-blue px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl sm:px-5 sm:py-2.5 sm:text-sm"
             >
               {t('header.patient')}
             </button>
             <button
               type="button"
               onClick={() => openRegistration('doctor')}
-              className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 transition hover:border-ceenai-cyan hover:text-ceenai-blue"
+              className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 transition hover:border-ceenai-cyan hover:text-ceenai-blue sm:px-5 sm:py-2.5 sm:text-sm"
             >
               {t('header.doctor')}
             </button>

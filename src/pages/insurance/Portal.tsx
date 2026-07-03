@@ -225,7 +225,7 @@ const InsuranceShell = ({
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      <aside className={`flex shrink-0 flex-col bg-[#0F2D4A] transition-all duration-300 ${collapsed ? 'w-[72px]' : 'w-[260px]'}`}>
+      <aside className={`hidden shrink-0 flex-col bg-[#0F2D4A] transition-all duration-300 lg:flex ${collapsed ? 'w-[72px]' : 'w-[260px]'}`}>
         <div className="flex h-16 items-center justify-between border-b border-white/[0.06] px-4">
           {!collapsed ? (
             <div>
@@ -335,8 +335,8 @@ const InsuranceShell = ({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-5">
-          <div className="flex min-w-0 shrink-0 items-center gap-3 lg:basis-[280px]">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-3 sm:px-5">
+          <div className="flex min-w-0 shrink items-center gap-3 lg:basis-[280px]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1E3A5F] text-base font-bold text-white">
               {payerName.charAt(0)}
             </div>
@@ -455,7 +455,34 @@ const InsuranceShell = ({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-6 py-5">
+        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = currentPath === item.href;
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => navigate(item.href)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-[#0F2D4A] text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+                {item.badge ? (
+                  <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${item.badgeTone ? badgeClasses[item.badgeTone] : ''} ${item.pulse ? 'animate-pulse' : ''}`}>
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
+
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <div className="space-y-5">
             {loadError ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
