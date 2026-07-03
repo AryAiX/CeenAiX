@@ -89,7 +89,7 @@ export const OpsShell = ({
     return (
       <div className="flex h-screen overflow-hidden bg-slate-50">
         <aside
-          className={`relative flex h-full shrink-0 flex-col bg-emerald-950 transition-all duration-300 ${
+          className={`relative hidden h-full shrink-0 flex-col bg-emerald-950 transition-all duration-300 lg:flex ${
             pharmacyCollapsed ? 'w-[72px]' : 'w-[260px]'
           }`}
         >
@@ -243,9 +243,9 @@ export const OpsShell = ({
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <header className="sticky top-0 z-30 min-h-16 shrink-0 border-b border-slate-200 bg-white">
             <div className="flex h-16 items-center gap-4 px-6">
-              <div className="shrink-0">
-                <h1 className="text-[18px] font-bold text-slate-900">{title}</h1>
-                <div className="text-[12px] text-slate-400">
+              <div className="min-w-0 shrink">
+                <h1 className="truncate text-[18px] font-bold text-slate-900">{title}</h1>
+                <div className="truncate text-[12px] text-slate-400">
                   {subtitle ?? t('opsShell.defaultSubtitle', { defaultValue: 'Live operations' })}
                 </div>
               </div>
@@ -300,6 +300,35 @@ export const OpsShell = ({
               </div>
             </div>
           </header>
+          <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = location.pathname === item.href;
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  disabled={item.disabled}
+                  onClick={() => goTo(item.href, item.disabled)}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                    active
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
+                  } ${item.disabled ? 'opacity-60' : ''}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                  {item.badge ? (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white ${
+                      item.badgeTone === 'amber' ? 'bg-amber-500' : 'bg-blue-500'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </nav>
           <main className="flex-1 overflow-auto">{children}</main>
         </div>
         {showLogoutConfirm ? (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import ClinicSidebar from './ClinicSidebar';
@@ -54,6 +54,18 @@ const pageMeta: Record<ClinicPage, { title: string; subtitle: string }> = {
   settings:     { title: 'Settings',            subtitle: 'Clinic profile and configuration' },
 };
 
+const mobileNavItems: Array<{ page: ClinicPage; label: string; href: string }> = [
+  { page: 'dashboard', label: 'Dashboard', href: '/clinic/dashboard' },
+  { page: 'doctors', label: 'Doctors', href: '/clinic/doctors' },
+  { page: 'appointments', label: 'Appointments', href: '/clinic/appointments' },
+  { page: 'patients', label: 'Patients', href: '/clinic/patients' },
+  { page: 'pricing', label: 'Pricing', href: '/clinic/pricing' },
+  { page: 'messages', label: 'Messages', href: '/clinic/messages' },
+  { page: 'notifications', label: 'Notifications', href: '/clinic/notifications' },
+  { page: 'analytics', label: 'Analytics', href: '/clinic/analytics' },
+  { page: 'settings', label: 'Settings', href: '/clinic/settings' },
+];
+
 function getPageFromPath(path: string): ClinicPage {
   if (path.includes('/clinic/doctors'))      return 'doctors';
   if (path.includes('/clinic/appointments')) return 'appointments';
@@ -71,6 +83,7 @@ export default function ClinicPortal() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [portalMeta, setPortalMeta] = useState<ClinicPortalMeta>(defaultMeta);
   const location = useLocation();
+  const navigate = useNavigate();
   const page = getPageFromPath(location.pathname);
 
   const meta = pageMeta[page];
@@ -178,9 +191,30 @@ export default function ClinicPortal() {
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden">
-      <ClinicSidebar isCollapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(c => !c)} activeTab={page} meta={portalMeta} />
+      <div className="hidden lg:block">
+        <ClinicSidebar isCollapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(c => !c)} activeTab={page} meta={portalMeta} />
+      </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page !== 'messages' && <ClinicTopBar title={meta.title} subtitle={meta.subtitle} meta={portalMeta} />}
+        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {mobileNavItems.map((item) => {
+            const active = page === item.page;
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => navigate(item.href)}
+                className={`inline-flex shrink-0 items-center rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-teal-50 hover:text-teal-700'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
         <main className="flex-1 overflow-y-auto">
           {page === 'dashboard'    && <ClinicDashboard />}
           {page === 'doctors'      && <ClinicDoctors />}

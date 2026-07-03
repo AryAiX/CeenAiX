@@ -20,13 +20,13 @@ export default function ClinicTopBar({ title, subtitle, meta }: ClinicTopBarProp
     .toUpperCase() || 'CL';
 
   return (
-    <div className="h-[64px] bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
-      <div>
-        <h1 className="font-bold text-slate-900 text-lg leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{title}</h1>
-        {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+    <div className="h-[64px] bg-white border-b border-slate-200 flex items-center justify-between gap-3 px-3 sm:px-6 shrink-0">
+      <div className="min-w-0">
+        <h1 className="truncate font-bold text-slate-900 text-lg leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{title}</h1>
+        {subtitle && <p className="truncate text-xs text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3">
-        <div className="relative">
+        <div className="relative hidden sm:block">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
