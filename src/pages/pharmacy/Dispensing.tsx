@@ -36,6 +36,7 @@ interface PrescriptionListRow {
   receivedTimeAgo: string;
   priority: PharmacyQueuePrescriptionItem['priority'];
   hasAllergyFlag: boolean;
+  dbPrescriptionId: string | null;
 }
 
 const filterLabels: Record<FilterType, string> = {
@@ -186,6 +187,7 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
       receivedTimeAgo,
       priority: first.priority,
       hasAllergyFlag: group.some((item) => item.allergyFlag),
+      dbPrescriptionId: first.dbPrescriptionId,
     };
   });
 };
@@ -320,7 +322,7 @@ export const PharmacyDispensing = () => {
             : 'on_hold';
       await Promise.all(row.taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, workflowStatus)));
       // Fire-and-forget: create an insurance claim when the prescription is fully dispensed
-      if (workflowStatus === 'dispensed') {
+      if (workflowStatus === 'dispensed' && row.dbPrescriptionId) {
         void supabase
           .rpc('create_claim_from_prescription', { p_prescription_id: row.dbPrescriptionId })
           .then(({ error }) => {
