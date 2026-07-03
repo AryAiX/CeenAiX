@@ -348,11 +348,22 @@ export function usePatientInsurance(userId: string | null | undefined) {
       submittedAt: row.submitted_at,
     }));
 
+    const dynamicAnnualUsed = realClaims
+      .filter(c => c.status !== 'denied')
+      .reduce((sum, c) => sum + c.amountAed, 0);
+
     return {
       patientName: patientName || null,
       email: profile?.email ?? null,
       plans,
-      primaryPlan,
+      primaryPlan: primaryPlan
+        ? {
+            ...primaryPlan,
+            annualLimitUsed: realClaims.length > 0
+              ? dynamicAnnualUsed
+              : primaryPlan.annualLimitUsed,
+          }
+        : null,
       activity: [...appointmentRows, ...labRows, ...prescriptionRows]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10),
