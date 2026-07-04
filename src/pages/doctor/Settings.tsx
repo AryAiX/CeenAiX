@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, Building2, CalendarRange, CheckCircle, Clock, Globe, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
+import { Bell, Building2, CalendarRange, CheckCircle, Clock, Globe, LayoutDashboard, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -16,6 +16,38 @@ interface DoctorSettingsPrefs {
 }
 
 const GENERAL_LANGUAGE_OPTIONS = ['English', 'Arabic'];
+
+const DASHBOARD_CARD_IDS = [
+  'appointments-today',
+  'prescriptions-today',
+  'lab-orders-today',
+  'unread-messages',
+  'revenue-today',
+  'dha-status',
+] as const;
+
+type DashboardCardId = typeof DASHBOARD_CARD_IDS[number];
+type DashboardPrefs = Record<DashboardCardId, boolean>;
+
+const DEFAULT_DASHBOARD_PREFS: DashboardPrefs = {
+  'appointments-today': true,
+  'prescriptions-today': true,
+  'lab-orders-today': true,
+  'unread-messages': true,
+  'revenue-today': true,
+  'dha-status': true,
+};
+
+function normalizeDashboardPrefs(value: unknown): DashboardPrefs {
+  const raw = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  const result = { ...DEFAULT_DASHBOARD_PREFS };
+  for (const id of DASHBOARD_CARD_IDS) {
+    if (typeof raw[id] === 'boolean') {
+      result[id] = raw[id] as boolean;
+    }
+  }
+  return result;
+}
 
 const DEFAULT_PREFS: DoctorSettingsPrefs = {
   email: true,
@@ -78,6 +110,9 @@ export const DoctorSettings = () => {
   const [generalLanguages, setGeneralLanguages] = useState<string[]>([]);
   const [generalSaving, setGeneralSaving] = useState(false);
   const [generalSaveError, setGeneralSaveError] = useState<string | null>(null);
+  const [dashboardPrefs, setDashboardPrefs] = useState<DashboardPrefs>(DEFAULT_DASHBOARD_PREFS);
+  const [dashboardSaving, setDashboardSaving] = useState(false);
+  const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
   const [clinicSearch, setClinicSearch] = useState('');
   const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
@@ -112,6 +147,7 @@ export const DoctorSettings = () => {
         doctorProfile.years_of_experience != null ? String(doctorProfile.years_of_experience) : ''
       );
       setGeneralLanguages(Array.isArray(doctorProfile.languages_spoken) ? doctorProfile.languages_spoken : []);
+      setDashboardPrefs(normalizeDashboardPrefs(doctorProfile.dashboard_preferences));
     }
   }, [doctorProfile]);
 
@@ -138,6 +174,28 @@ export const DoctorSettings = () => {
     void fetchMyClinic();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  const saveDashboardPrefs = async (nextPrefs: DashboardPrefs) => {
+    if (!user?.id) return;
+    setDashboardSaving(true);
+    setDashboardSaveError(null);
+    const { error } = await supabase
+      .from('doctor_profiles')
+      .update({ dashboard_preferences: nextPrefs })
+      .eq('user_id', user.id);
+    setDashboardSaving(false);
+    if (error) {
+      setDashboardSaveError(error.message);
+      return;
+    }
+    await refreshProfile();
+  };
+
+  const toggleDashboardCard = (id: DashboardCardId) => {
+    const next = { ...dashboardPrefs, [id]: !dashboardPrefs[id] };
+    setDashboardPrefs(next);
+    void saveDashboardPrefs(next);
+  };
 
   const handleSaveGeneral = async () => {
     if (!user?.id) return;
@@ -295,6 +353,23 @@ export const DoctorSettings = () => {
     );
   }
 
+  const DashboardToggleRow = ({ cardId, title, body }: { cardId: DashboardCardId; title: string; body: string }) => (
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div>
+        <div className="font-bold text-slate-900">{title}</div>
+        <p className="mt-1 text-sm text-slate-500">{body}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => toggleDashboardCard(cardId)}
+        className={`relative h-7 w-12 rounded-full transition ${dashboardPrefs[cardId] ? 'bg-cyan-600' : 'bg-slate-300'}`}
+        aria-pressed={dashboardPrefs[cardId]}
+      >
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${dashboardPrefs[cardId] ? 'start-6' : 'start-1'}`} />
+      </button>
+    </div>
+  );
+
   const ToggleRow = ({ prefKey, title, body }: { prefKey: keyof DoctorSettingsPrefs; title: string; body: string }) => (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
       <div>
@@ -396,12 +471,37 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
                   'This section is reserved for real profile, security, device, integration, and clinical workspace settings as those tables become available. Notifications below remain fully persisted.',
               })}
+            </div>
+          ) : null}
+
+          {activeSection === 'dashboard' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {t('doctor.settings.sections.dashboard', { defaultValue: 'Dashboard' })}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    {dashboardSaving ? 'Saving…' : 'Choose which summary cards appear on your dashboard.'}
+                  </p>
+                </div>
+              </div>
+              {dashboardSaveError && <p className="text-xs text-red-500">{dashboardSaveError}</p>}
+              <div className="space-y-4">
+                <DashboardToggleRow cardId="appointments-today" title="Appointments Today" body="Today's appointment count and progress." />
+                <DashboardToggleRow cardId="prescriptions-today" title="Prescriptions Written" body="Prescriptions issued today." />
+                <DashboardToggleRow cardId="lab-orders-today" title="Lab Orders Today" body="Lab orders placed today and critical results pending." />
+                <DashboardToggleRow cardId="unread-messages" title="Unread Messages" body="Unread patient message threads." />
+                <DashboardToggleRow cardId="revenue-today" title="Revenue Today" body="Estimated revenue from today's booked visits." />
+                <DashboardToggleRow cardId="dha-status" title="DHA Status" body="Your license verification status." />
+              </div>
             </div>
           ) : null}
 
