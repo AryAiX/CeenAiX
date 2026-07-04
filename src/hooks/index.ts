@@ -40,6 +40,8 @@ export { useDoctorLabOrders } from './use-doctor-lab-orders';
 export { useDoctorNotifications } from './use-doctor-notifications';
 export { usePatientNotifications } from './use-patient-notifications';
 export type { PatientDerivedNotification, PatientNotificationsData } from './use-patient-notifications';
+export { usePharmacyNotifications } from './use-pharmacy-notifications';
+export type { PharmacyDerivedNotification, PharmacyNotificationsData } from './use-pharmacy-notifications';
 export { useMedicationCatalogSearch } from './use-medication-catalog-search';
 export { useLabTestCatalogSearch } from './use-lab-test-catalog-search';
 export { useDoctorSchedule } from './use-doctor-schedule';
