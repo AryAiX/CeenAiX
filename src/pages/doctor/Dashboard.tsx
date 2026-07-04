@@ -498,7 +498,9 @@ export const DoctorDashboard: React.FC = () => {
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-        {metricCards.map((card) => {
+        {metricCards
+          .filter((card) => (doctorProfile?.dashboard_preferences as Record<string, boolean> | null | undefined)?.[card.id] !== false)
+          .map((card) => {
           const Icon = card.icon;
           const color = cardColorClasses[card.color as keyof typeof cardColorClasses];
 
