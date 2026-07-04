@@ -197,11 +197,9 @@ export const DoctorSettings = () => {
     { key: 'appearance', label: t('doctor.settings.sections.appearance', { defaultValue: 'Appearance' }) },
     { key: 'notifications', label: t('doctor.settings.sections.notifications', { defaultValue: 'Notifications' }) },
     { key: 'dashboard', label: t('doctor.settings.sections.dashboard', { defaultValue: 'Dashboard' }) },
-    { key: 'clinical-tools', label: t('doctor.settings.sections.clinicalTools', { defaultValue: 'Clinical Tools' }) },
     { key: 'lab-and-imaging', label: t('doctor.settings.sections.labImaging', { defaultValue: 'Lab & Imaging' }) },
     { key: 'privacy', label: t('doctor.settings.sections.privacy', { defaultValue: 'Privacy' }) },
     { key: 'security', label: t('doctor.settings.sections.security', { defaultValue: 'Security' }) },
-    { key: 'language', label: t('doctor.settings.sections.language', { defaultValue: 'Language' }) },
     { key: 'integrations', label: t('doctor.settings.sections.integrations', { defaultValue: 'Integrations' }) },
     { key: 'help', label: t('doctor.settings.sections.help', { defaultValue: 'Help' }) },
   ];
