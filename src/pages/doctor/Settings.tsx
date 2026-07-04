@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, Building2, Calendar, CalendarRange, CheckCircle, ChevronDown, Clock, FileText, Globe, HelpCircle, LayoutDashboard, Link2, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, Video, X, XCircle } from 'lucide-react';
+import { Bell, Building2, Calendar, CalendarRange, CheckCircle, ChevronDown, Clock, EyeOff, FileText, Globe, HelpCircle, LayoutDashboard, Link2, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, Video, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -177,6 +177,8 @@ export const DoctorSettings = () => {
   const [dashboardSaving, setDashboardSaving] = useState(false);
   const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+  const [privacySaving, setPrivacySaving] = useState(false);
+  const [privacySaveError, setPrivacySaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
   const [clinicSearch, setClinicSearch] = useState('');
   const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
@@ -386,6 +388,22 @@ export const DoctorSettings = () => {
     }
   };
 
+  const handleToggleReadReceipts = async () => {
+    if (!user?.id) return;
+    setPrivacySaving(true);
+    setPrivacySaveError(null);
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ hide_read_receipts: !(profile?.hide_read_receipts ?? false) })
+      .eq('user_id', user.id);
+    setPrivacySaving(false);
+    if (error) {
+      setPrivacySaveError(error.message);
+      return;
+    }
+    refetch();
+  };
+
   const save = async (nextPrefs: DoctorSettingsPrefs) => {
     if (!user?.id) return;
     setSaving(true);
@@ -535,7 +553,7 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' && activeSection !== 'integrations' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' && activeSection !== 'integrations' && activeSection !== 'privacy' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
@@ -732,6 +750,39 @@ export const DoctorSettings = () => {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          ) : null}
+
+          {activeSection === 'privacy' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <EyeOff className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {t('doctor.settings.sections.privacy', { defaultValue: 'Privacy' })}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    {privacySaving ? 'Saving…' : 'Control what others can see about your activity.'}
+                  </p>
+                </div>
+              </div>
+              {privacySaveError && <p className="text-xs text-red-500">{privacySaveError}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+                <div>
+                  <div className="font-bold text-slate-900">Hide read receipts</div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    When on, people you message won't see when you've read their messages.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleToggleReadReceipts()}
+                  className={`relative h-7 w-12 rounded-full transition ${profile?.hide_read_receipts ? 'bg-cyan-600' : 'bg-slate-300'}`}
+                  aria-pressed={profile?.hide_read_receipts ?? false}
+                >
+                  <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${profile?.hide_read_receipts ? 'start-6' : 'start-1'}`} />
+                </button>
               </div>
             </div>
           ) : null}
