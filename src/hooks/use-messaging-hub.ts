@@ -28,6 +28,12 @@ interface UserProfileRow {
   email: string | null;
 }
 
+interface CounterpartyDetailRow {
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+}
+
 interface MessagePreviewRow {
   id: string;
   conversation_id: string;
@@ -109,10 +115,8 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await Promise.all([
           counterpartIds.length > 0
             ? supabase
-                .from('user_profiles')
-                .select('user_id, full_name, email')
-                .in('user_id', counterpartIds)
-            : Promise.resolve({ data: [] as UserProfileRow[], error: null }),
+                .rpc('get_message_counterparty_details', { p_user_ids: counterpartIds })
+            : Promise.resolve({ data: [] as CounterpartyDetailRow[], error: null }),
           conversationIds.length > 0
             ? supabase
                 .from('messages')
@@ -134,7 +138,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         (counterpartProfiles ?? []).map((profile) => [
           profile.user_id,
           {
-            name: profile.full_name?.trim() || profile.email?.trim() || careTeamFallback(),
+            name: profile.display_name?.trim() || profile.email?.trim() || careTeamFallback(),
             email: profile.email ?? null,
           },
         ])
