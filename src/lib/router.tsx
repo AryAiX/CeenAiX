@@ -90,6 +90,7 @@ import {
   LabSettings,
 } from '../pages/lab/Portal';
 import { PharmacyDashboard } from '../pages/pharmacy/Dashboard';
+import { PharmacyNotifications } from '../pages/pharmacy/Notifications';
 import { PharmacyDispensing } from '../pages/pharmacy/Dispensing';
 import { PharmacyInventory } from '../pages/pharmacy/Inventory';
 import { PharmacyMessages } from '../pages/pharmacy/Messages';
@@ -579,6 +580,12 @@ export const router = createBrowserRouter([
     path: '/pharmacy/revenue',
     element: (
       <ProtectedRoute allowedRoles={['pharmacy']}>{withLayout(<PharmacyRevenue />)}</ProtectedRoute>
+    ),
+  },
+  {
+    path: '/pharmacy/notifications',
+    element: (
+      <ProtectedRoute allowedRoles={['pharmacy']}>{withLayout(<PharmacyNotifications />)}</ProtectedRoute>
     ),
   },
   {
