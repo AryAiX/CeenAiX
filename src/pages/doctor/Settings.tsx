@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, Building2, CalendarRange, CheckCircle, Clock, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
+import { Bell, Building2, CalendarRange, CheckCircle, Clock, Globe, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -14,6 +14,8 @@ interface DoctorSettingsPrefs {
   autoConfirmFollowUps: boolean;
   shareCalendar: boolean;
 }
+
+const GENERAL_LANGUAGE_OPTIONS = ['English', 'Arabic'];
 
 const DEFAULT_PREFS: DoctorSettingsPrefs = {
   email: true,
@@ -58,7 +60,7 @@ export const DoctorSettings = () => {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, doctorProfile } = useAuth();
+  const { user, doctorProfile, refreshProfile } = useAuth();
   const { data: profile, loading, refetch } = useUserProfile();
   const { data: schedule } = useDoctorSchedule(user?.id);
   const [myClinicRecord, setMyClinicRecord] = useState<{
@@ -72,6 +74,10 @@ export const DoctorSettings = () => {
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [generalYearsExperience, setGeneralYearsExperience] = useState('');
+  const [generalLanguages, setGeneralLanguages] = useState<string[]>([]);
+  const [generalSaving, setGeneralSaving] = useState(false);
+  const [generalSaveError, setGeneralSaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
   const [clinicSearch, setClinicSearch] = useState('');
   const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
@@ -101,6 +107,15 @@ export const DoctorSettings = () => {
   }, [profile]);
 
   useEffect(() => {
+    if (doctorProfile) {
+      setGeneralYearsExperience(
+        doctorProfile.years_of_experience != null ? String(doctorProfile.years_of_experience) : ''
+      );
+      setGeneralLanguages(Array.isArray(doctorProfile.languages_spoken) ? doctorProfile.languages_spoken : []);
+    }
+  }, [doctorProfile]);
+
+  useEffect(() => {
     const section = searchParams.get('section');
     if (section) {
       setActiveSection(section);
@@ -123,6 +138,27 @@ export const DoctorSettings = () => {
     void fetchMyClinic();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  const handleSaveGeneral = async () => {
+    if (!user?.id) return;
+    setGeneralSaving(true);
+    setGeneralSaveError(null);
+    try {
+      const { error } = await supabase
+        .from('doctor_profiles')
+        .update({
+          years_of_experience: generalYearsExperience ? Number(generalYearsExperience) : null,
+          languages_spoken: generalLanguages,
+        })
+        .eq('user_id', user.id);
+      if (error) throw error;
+      await refreshProfile();
+    } catch (err) {
+      setGeneralSaveError(err instanceof Error ? err.message : 'Unable to save changes.');
+    } finally {
+      setGeneralSaving(false);
+    }
+  };
 
   const handleAcceptInvite = async () => {
     if (!myClinicRecord || !user?.id) return;
@@ -360,12 +396,72 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
                   'This section is reserved for real profile, security, device, integration, and clinical workspace settings as those tables become available. Notifications below remain fully persisted.',
               })}
+            </div>
+          ) : null}
+
+          {activeSection === 'general' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6">
+              <div className="flex items-center gap-3">
+                <Globe className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {t('doctor.settings.sections.general', { defaultValue: 'General' })}
+                  </h2>
+                  <p className="text-sm text-slate-500">Years of experience and languages you speak with patients.</p>
+                </div>
+              </div>
+
+              {generalSaveError && <p className="text-xs text-red-500">{generalSaveError}</p>}
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Years of experience</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={70}
+                  value={generalYearsExperience}
+                  onChange={(e) => setGeneralYearsExperience(e.target.value)}
+                  className="w-full max-w-xs rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Languages spoken</label>
+                <div className="flex flex-wrap gap-2">
+                  {GENERAL_LANGUAGE_OPTIONS.map((lang) => {
+                    const selected = generalLanguages.includes(lang);
+                    return (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() =>
+                          setGeneralLanguages((prev) => (prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]))
+                        }
+                        className={`rounded-full px-4 py-2 text-sm font-medium border transition ${
+                          selected ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {lang}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleSaveGeneral()}
+                disabled={generalSaving}
+                className="rounded-xl bg-cyan-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:bg-cyan-700 disabled:opacity-50"
+              >
+                {generalSaving ? 'Saving…' : 'Save changes'}
+              </button>
             </div>
           ) : null}
 
