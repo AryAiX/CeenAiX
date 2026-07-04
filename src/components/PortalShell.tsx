@@ -873,12 +873,6 @@ export const PortalShell = ({
         </nav>
 
         {!doctorSidebarCollapsed ? (
-          <div className="px-3 pb-2 border-t border-white/[0.06] pt-2 mt-1">
-            {renderDoctorNavItem({ href: '/doctor/settings', label: t('nav.settings'), icon: Settings }, 'doctor-settings')}
-          </div>
-        ) : null}
-
-        {!doctorSidebarCollapsed ? (
         <div className="border-t border-white/[0.06] p-3.5 space-y-2.5">
           <p className="px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500">TODAY</p>
           <div className="space-y-2 text-[12px]">
