@@ -16,6 +16,7 @@ export interface ConversationCounterparty {
   id: string;
   name: string;
   email: string | null;
+  role: string | null;
 }
 
 export interface ConversationListItem {

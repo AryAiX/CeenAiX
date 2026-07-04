@@ -32,6 +32,12 @@ interface CounterpartyDetailRow {
   user_id: string;
   display_name: string | null;
   email: string | null;
+  role: string | null;
+}
+
+interface CounterpartyRoleRow {
+  user_id: string;
+  role: string | null;
 }
 
 interface MessagePreviewRow {
@@ -111,7 +117,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         )
       );
 
-      const [{ data: counterpartProfiles, error: counterpartProfilesError }, messagePreviewsResult] =
+      const [{ data: counterpartProfiles, error: counterpartProfilesError }, messagePreviewsResult, counterpartRolesResult] =
         await Promise.all([
           counterpartIds.length > 0
             ? supabase
@@ -124,6 +130,9 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
                 .in('conversation_id', conversationIds)
                 .order('sent_at', { ascending: false })
             : Promise.resolve({ data: [] as MessagePreviewRow[], error: null }),
+          counterpartIds.length > 0
+            ? supabase.rpc('get_message_counterparty_roles', { p_user_ids: counterpartIds })
+            : Promise.resolve({ data: [] as CounterpartyRoleRow[], error: null }),
         ]);
 
       if (counterpartProfilesError) {
@@ -134,12 +143,21 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         throw messagePreviewsResult.error;
       }
 
+      if (counterpartRolesResult.error) {
+        throw counterpartRolesResult.error;
+      }
+
+      const roleById = new Map(
+        (counterpartRolesResult.data ?? []).map((row: CounterpartyRoleRow) => [row.user_id, row.role])
+      );
+
       const profileById = new Map(
         (counterpartProfiles ?? []).map((profile) => [
           profile.user_id,
           {
             name: profile.display_name?.trim() || profile.email?.trim() || careTeamFallback(),
             email: profile.email ?? null,
+            role: roleById.get(profile.user_id) ?? null,
           },
         ])
       );
@@ -164,8 +182,8 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         .map((conversation) => {
           const counterpartId = getConversationCounterpartyId(conversation, userId);
           const counterpart = counterpartId
-            ? profileById.get(counterpartId) ?? { name: careTeamFallback(), email: null }
-            : { name: careTeamFallback(), email: null };
+            ? profileById.get(counterpartId) ?? { name: careTeamFallback(), email: null, role: null }
+            : { name: careTeamFallback(), email: null, role: null };
           const lastMessage = lastMessageByConversationId.get(conversation.id);
 
           return {
@@ -179,6 +197,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
               id: counterpartId ?? '',
               name: counterpart.name,
               email: counterpart.email,
+              role: counterpart.role,
             },
           };
         })

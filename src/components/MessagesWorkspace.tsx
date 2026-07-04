@@ -232,7 +232,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   }, [conversations, searchQuery]);
 
   const doctorQuickActions = useMemo(() => {
-    if (role !== 'doctor' || !user?.id || !activeConversation) {
+    if (role !== 'doctor' || !user?.id || !activeConversation || activeConversation.counterpart.role !== 'patient') {
       return [];
     }
 
