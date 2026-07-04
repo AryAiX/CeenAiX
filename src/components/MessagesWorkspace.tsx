@@ -1055,7 +1055,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     )}
                     {isOwn && editingMessageId !== message.id ? (
                       <div className="mt-1 flex items-center justify-end gap-1">
-                        {message.read_at ? (
+                        {message.read_at && !activeConversation.counterpart.hideReadReceipts ? (
                           <span className="text-[10px] text-white/70">✓✓ Read</span>
                         ) : (
                           <span className="text-[10px] text-white/60">✓ Sent</span>
