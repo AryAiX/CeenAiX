@@ -339,6 +339,7 @@ const navEntriesForData = (data: InsurancePortalData | null): NavEntry[] => {
     { item: { id: 'reports',   href: '/insurance/reports',   label: 'Reports',             Icon: FileBarChart,    subLabel: 'DHA format available',  subLabelColor: 'rgba(45,212,191,0.6)' } },
     { divider: true },
     { section: 'ACCOUNT' },
+    { item: { id: 'notifications', href: '/insurance/notifications', label: 'Notifications', Icon: Bell } },
     { item: { id: 'settings',  href: '/insurance/settings',  label: 'Settings',            Icon: Settings, iconSize: 16, secondary: true } },
   ];
 };
@@ -832,7 +833,11 @@ const InsuranceShell = ({
                       </div>
                     ))}
                     <div className="px-4 py-2.5" style={{ borderTop: '1px solid #F1F5F9' }}>
-                      <button className="text-center w-full" style={{ fontSize: 12, color: '#2563EB', fontWeight: 600 }}>
+                      <button
+                        type="button"
+                        onClick={() => { setShowNotifications(false); navigate('/insurance/notifications'); }}
+                        className="text-center w-full" style={{ fontSize: 12, color: '#2563EB', fontWeight: 600 }}
+                      >
                         View all notifications
                       </button>
                     </div>
