@@ -108,6 +108,7 @@ import { InsuranceNetworkProviders } from '../pages/insurance/NetworkProviders';
 import { InsuranceReports } from '../pages/insurance/Reports';
 import { InsuranceSettings } from '../pages/insurance/Settings';
 import { InsuranceWellness } from '../pages/insurance/Wellness';
+import { InsuranceNotifications } from '../pages/insurance/Notifications';
 // clinic pages are rendered via ClinicPortal
 import ClinicPortal from '../pages/clinic/ClinicPortal';
 import { AppointmentDesignShowcase } from '../pages/AppointmentDesignShowcase';
@@ -647,6 +648,10 @@ export const router = createBrowserRouter([
   {
     path: '/insurance/wellness',
     element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsuranceWellness />)}</ProtectedRoute>,
+  },
+  {
+    path: '/insurance/notifications',
+    element: <ProtectedRoute allowedRoles={['insurance']}>{withLayout(<InsuranceNotifications />)}</ProtectedRoute>,
   },
   {
     path: '/insurance/settings',
