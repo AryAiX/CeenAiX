@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, Building2, CalendarRange, CheckCircle, ChevronDown, Clock, FileText, Globe, HelpCircle, LayoutDashboard, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
+import { Bell, Building2, Calendar, CalendarRange, CheckCircle, ChevronDown, Clock, FileText, Globe, HelpCircle, LayoutDashboard, Link2, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, Video, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -53,6 +53,27 @@ const SUPPORT_EMAIL = 'support@ceenaix.com'; // TODO: confirm real support inbox
 const SUPPORT_PHONE = '+971-XXX-XXXX'; // TODO: confirm real support number
 const TERMS_URL = '/legal/terms'; // TODO: confirm this route exists
 const PRIVACY_URL = '/legal/privacy'; // TODO: confirm this route exists
+
+const INTEGRATION_PREVIEWS = [
+  {
+    id: 'nabidh',
+    icon: Link2,
+    title: 'NABIDH Connection',
+    body: 'Connect to the UAE national health information exchange. Managed at the clinic/facility level.',
+  },
+  {
+    id: 'calendar-sync',
+    icon: Calendar,
+    title: 'Calendar Sync',
+    body: 'Sync your CeenAiX schedule with Google Calendar or Outlook.',
+  },
+  {
+    id: 'telemedicine',
+    icon: Video,
+    title: 'Telemedicine Settings',
+    body: 'Configure your video consultation provider and preferences.',
+  },
+];
 
 const FAQ_ITEMS = [
   {
@@ -514,7 +535,7 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' && activeSection !== 'integrations' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
@@ -676,6 +697,41 @@ export const DoctorSettings = () => {
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeSection === 'integrations' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {t('doctor.settings.sections.integrations', { defaultValue: 'Integrations' })}
+                </h2>
+                <p className="text-sm text-slate-500">These connections are planned but not yet available.</p>
+              </div>
+              <div className="space-y-3">
+                {INTEGRATION_PREVIEWS.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+                          <Icon className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-500">{item.title}</div>
+                          <p className="mt-0.5 text-sm text-slate-400">{item.body}</p>
+                        </div>
+                      </div>
+                      <span className="flex-shrink-0 rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-500">
+                        Coming soon
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ) : null}
