@@ -129,6 +129,8 @@ export type {
   InsuranceSetting,
   InvestigationNote,
 } from './use-insurance-portal';
+export { useInsuranceNotifications } from './use-insurance-notifications';
+export type { InsuranceNotificationsData } from './use-insurance-notifications';
 export {
   useAdminMetrics,
   useAdminUsers,
