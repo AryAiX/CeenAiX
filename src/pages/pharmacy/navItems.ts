@@ -1,5 +1,6 @@
 import {
   BarChart2,
+  Bell,
   CircleDollarSign,
   ClipboardList,
   MessageSquare,
@@ -61,6 +62,12 @@ export const PHARMACY_NAV_ITEMS = (t: TFunction, counts: PharmacyNavCounts = {})
     label: 'Revenue',
     icon: CircleDollarSign,
     section: 'analytics',
+  },
+  {
+    href: '/pharmacy/notifications',
+    label: 'Notifications',
+    icon: Bell,
+    section: 'account',
   },
   {
     href: '/pharmacy/profile',
