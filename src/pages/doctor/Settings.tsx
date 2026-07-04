@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, Building2, CalendarRange, CheckCircle, Clock, Globe, LayoutDashboard, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
+import { Bell, Building2, CalendarRange, CheckCircle, ChevronDown, Clock, FileText, Globe, HelpCircle, LayoutDashboard, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -48,6 +48,48 @@ function normalizeDashboardPrefs(value: unknown): DashboardPrefs {
   }
   return result;
 }
+
+const SUPPORT_EMAIL = 'support@ceenaix.com'; // TODO: confirm real support inbox
+const SUPPORT_PHONE = '+971-XXX-XXXX'; // TODO: confirm real support number
+const TERMS_URL = '/legal/terms'; // TODO: confirm this route exists
+const PRIVACY_URL = '/legal/privacy'; // TODO: confirm this route exists
+
+const FAQ_ITEMS = [
+  {
+    id: 'write-prescription',
+    question: 'How do I write a prescription?',
+    answer:
+      'Go to Prescriptions, or use the "Write Prescription" quick action on your Dashboard. Medications flagged as high-cost or specialty automatically trigger an insurance pre-authorization for your patient.',
+  },
+  {
+    id: 'order-lab-test',
+    question: 'How do I order a lab test?',
+    answer:
+      'Use "Order Lab Test" from your Dashboard or the Labs page. Certain tests (MRI, CT, PET, biopsy, genetic tests) automatically request insurance pre-authorization on your patient\'s behalf.',
+  },
+  {
+    id: 'preauth-pending',
+    question: "Why does a patient's insurance pre-authorization show as pending?",
+    answer:
+      "Pre-authorizations are reviewed by the patient's insurance provider and typically resolve within the SLA shown (4-8 hours depending on urgency). This step happens outside of CeenAiX.",
+  },
+  {
+    id: 'message-patient',
+    question: 'How do I message a patient?',
+    answer: 'Open Messages from the sidebar, or use "Message Patient" from your Dashboard quick actions.',
+  },
+  {
+    id: 'customize-dashboard',
+    question: 'Can I customize my Dashboard?',
+    answer: 'Yes, go to Settings, then Dashboard, to choose which summary cards appear.',
+  },
+  {
+    id: 'join-clinic',
+    question: 'How do I join a clinic?',
+    answer:
+      'Go to Settings, then My Clinic, to search for and request to join a clinic. The clinic administrator will need to approve your request before it becomes active.',
+  },
+];
 
 const DEFAULT_PREFS: DoctorSettingsPrefs = {
   email: true,
@@ -113,6 +155,7 @@ export const DoctorSettings = () => {
   const [dashboardPrefs, setDashboardPrefs] = useState<DashboardPrefs>(DEFAULT_DASHBOARD_PREFS);
   const [dashboardSaving, setDashboardSaving] = useState(false);
   const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null);
+  const [openFaqId, setOpenFaqId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
   const [clinicSearch, setClinicSearch] = useState('');
   const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
@@ -471,7 +514,7 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
@@ -562,6 +605,78 @@ export const DoctorSettings = () => {
               >
                 {generalSaving ? 'Saving…' : 'Save changes'}
               </button>
+            </div>
+          ) : null}
+
+          {activeSection === 'help' ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-3">
+                  <HelpCircle className="h-6 w-6 text-cyan-600" />
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {t('doctor.settings.sections.help', { defaultValue: 'Help' })}
+                    </h2>
+                    <p className="text-sm text-slate-500">Contact support, frequently asked questions, and policies.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <a
+                    href={`mailto:${SUPPORT_EMAIL}`}
+                    className="flex items-center gap-3 rounded-xl border border-slate-100 p-4 hover:bg-slate-50 transition"
+                  >
+                    <Mail className="h-5 w-5 text-cyan-600" />
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">Email support</div>
+                      <div className="text-sm text-slate-500">{SUPPORT_EMAIL}</div>
+                    </div>
+                  </a>
+                  <a
+                    href={`tel:${SUPPORT_PHONE}`}
+                    className="flex items-center gap-3 rounded-xl border border-slate-100 p-4 hover:bg-slate-50 transition"
+                  >
+                    <Phone className="h-5 w-5 text-cyan-600" />
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">Call support</div>
+                      <div className="text-sm text-slate-500">{SUPPORT_PHONE}</div>
+                    </div>
+                  </a>
+                </div>
+
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <a href={TERMS_URL} className="inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 hover:underline">
+                    <FileText className="h-4 w-4" /> Terms of Service
+                  </a>
+                  <a href={PRIVACY_URL} className="inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 hover:underline">
+                    <FileText className="h-4 w-4" /> Privacy Policy
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-400">Frequently Asked Questions</h3>
+                <div className="space-y-2">
+                  {FAQ_ITEMS.map((item) => {
+                    const isOpen = openFaqId === item.id;
+                    return (
+                      <div key={item.id} className="rounded-xl border border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setOpenFaqId(isOpen ? null : item.id)}
+                          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+                        >
+                          <span className="text-sm font-semibold text-slate-900">{item.question}</span>
+                          <ChevronDown className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isOpen ? (
+                          <p className="px-4 pb-4 text-sm text-slate-500">{item.answer}</p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           ) : null}
 
