@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
+import { supabase } from '../lib/supabase';
 
 export interface OpsShellNavItem {
   href: string;
@@ -62,6 +63,40 @@ export const OpsShell = ({
   const isArabic = i18n.language.startsWith('ar');
   const [pharmacyCollapsed, setPharmacyCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    void supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+      .then(({ count }) => {
+        setUnreadNotificationsCount(count ?? 0);
+      });
+
+    const channel = supabase
+      .channel(`pharmacy-notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          setUnreadNotificationsCount((prev) => prev + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const displayName =
     profile?.full_name?.trim() || profile?.first_name?.trim() || user?.email?.split('@')[0] || 'CeenAiX';
@@ -280,9 +315,20 @@ export const OpsShell = ({
                   <ClipboardPlus className="h-4 w-4" />
                   <span>{t('opsShell.newManualRx', { defaultValue: 'New Manual Rx' })}</span>
                 </button>
-                <button className="relative rounded-lg p-2 transition hover:bg-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnreadNotificationsCount(0);
+                    navigate('/pharmacy/notifications');
+                  }}
+                  className="relative rounded-lg p-2 transition hover:bg-slate-100"
+                >
                   <Bell className="h-5 w-5 text-slate-500" />
-                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500" />
+                  {unreadNotificationsCount > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                      {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                    </span>
+                  ) : null}
                 </button>
                 <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-100">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 text-xs font-bold text-white">
