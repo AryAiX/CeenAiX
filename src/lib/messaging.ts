@@ -17,6 +17,7 @@ export interface ConversationCounterparty {
   name: string;
   email: string | null;
   role: string | null;
+  hideReadReceipts: boolean;
 }
 
 export interface ConversationListItem {
