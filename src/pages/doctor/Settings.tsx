@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, Building2, Calendar, CalendarRange, CheckCircle, ChevronDown, Clock, EyeOff, FileText, Globe, HelpCircle, LayoutDashboard, Link2, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, Video, X, XCircle } from 'lucide-react';
+import { Bell, Building2, Calendar, CalendarRange, CheckCircle, ChevronDown, Clock, EyeOff, FileText, Globe, HelpCircle, LayoutDashboard, Link2, Lock, Mail, Phone, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, Video, X, XCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -177,6 +177,11 @@ export const DoctorSettings = () => {
   const [dashboardSaving, setDashboardSaving] = useState(false);
   const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [securitySaving, setSecuritySaving] = useState(false);
+  const [securitySaveError, setSecuritySaveError] = useState<string | null>(null);
+  const [securitySuccess, setSecuritySuccess] = useState(false);
   const [privacySaving, setPrivacySaving] = useState(false);
   const [privacySaveError, setPrivacySaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('notifications');
@@ -404,6 +409,29 @@ export const DoctorSettings = () => {
     refetch();
   };
 
+  const handleChangePassword = async () => {
+    setSecuritySaveError(null);
+    setSecuritySuccess(false);
+    if (newPassword.length < 8) {
+      setSecuritySaveError('Password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecuritySaveError('Passwords do not match.');
+      return;
+    }
+    setSecuritySaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSecuritySaving(false);
+    if (error) {
+      setSecuritySaveError(error.message);
+      return;
+    }
+    setNewPassword('');
+    setConfirmPassword('');
+    setSecuritySuccess(true);
+  };
+
   const save = async (nextPrefs: DoctorSettingsPrefs) => {
     if (!user?.id) return;
     setSaving(true);
@@ -553,7 +581,7 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' && activeSection !== 'integrations' && activeSection !== 'privacy' ? (
+          {activeSection !== 'notifications' && activeSection !== 'my-clinic' && activeSection !== 'general' && activeSection !== 'dashboard' && activeSection !== 'help' && activeSection !== 'integrations' && activeSection !== 'privacy' && activeSection !== 'security' ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
               {t('doctor.settings.placeholderSection', {
                 defaultValue:
@@ -784,6 +812,54 @@ export const DoctorSettings = () => {
                   <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${profile?.hide_read_receipts ? 'start-6' : 'start-1'}`} />
                 </button>
               </div>
+            </div>
+          ) : null}
+
+          {activeSection === 'security' ? (
+            <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4 max-w-lg">
+              <div className="flex items-center gap-3">
+                <Lock className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {t('doctor.settings.sections.security', { defaultValue: 'Security' })}
+                  </h2>
+                  <p className="text-sm text-slate-500">Change your account password.</p>
+                </div>
+              </div>
+
+              {securitySaveError && <p className="text-xs text-red-500">{securitySaveError}</p>}
+              {securitySuccess && <p className="text-xs text-emerald-600">Password updated successfully.</p>}
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">New password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-none"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Confirm new password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-none"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleChangePassword()}
+                disabled={securitySaving || !newPassword || !confirmPassword}
+                className="rounded-xl bg-cyan-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:bg-cyan-700 disabled:opacity-50"
+              >
+                {securitySaving ? 'Updating…' : 'Update password'}
+              </button>
             </div>
           ) : null}
 
