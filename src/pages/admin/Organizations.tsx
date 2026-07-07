@@ -320,7 +320,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
                 slug: o.slug ?? '',
                 city: o.city ?? '',
                 notes: o.notes ?? '',
-              })) as unknown as Record<string, unknown>[],
+              } satisfies Record<string, unknown>)),
               `organizations-${new Date().toISOString().slice(0, 10)}.csv`,
             )
           }
@@ -364,7 +364,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
         onClose={() => setOnboardOpen(false)}
         onCreated={(org) => {
           setOnboardOpen(false);
-          context.refreshOrganizations();
+          context.refetchAll();
           setCreatedToast(`Created ${org.name} (${titleCase(org.kind)}) — status set to pending.`);
           if (createdToastTimeoutRef.current !== null) {
             window.clearTimeout(createdToastTimeoutRef.current);
@@ -403,6 +403,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
               ).map((kind) => (
                 <button
                   key={kind.key}
+                  type="button"
                   onClick={() => setFilterKind((current) => (current === kind.key ? 'all' : kind.key))}
                   className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                     filterKind === kind.key
@@ -421,6 +422,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
               {['active', 'pending', 'suspended', 'archived'].map((status) => (
                 <button
                   key={status}
+                  type="button"
                   onClick={() => setStatusFilter((current) => (current === status ? 'all' : status))}
                   className={`rounded-full px-3 py-1 text-xs font-bold transition ${
                     statusFilter === status
@@ -434,6 +436,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
             </div>
           </div>
           <button
+            type="button"
             onClick={() => {
               setFilterKind('all');
               setStatusFilter('all');
@@ -482,10 +485,21 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   );
 };
 
+/**
+ * Temporary helpers: the Organization schema does not yet have dedicated
+ * dha_license or nabidh_connected fields, so we parse the notes free-text
+ * as a stopgap until those columns are added via migration.
+ */
+const extractDhaFromNotes = (notes: string | null): string =>
+  notes?.match(/DHA-[A-Z]-\d{4}-\d{3,}/)?.[0] ?? '—';
+
+const extractNabidhFromNotes = (notes: string | null): 'connected' | 'disconnected' =>
+  notes?.toLowerCase().includes('nabidh connected') ? 'connected' : 'disconnected';
+
 const OrganizationCard = ({ org }: { org: Organization }) => {
   const navigate = useNavigate();
-  const dha = org.notes?.match(/DHA-[A-Z]-\d{4}-\d{3,}/)?.[0] ?? '—';
-  const nabidh = org.notes?.toLowerCase().includes('nabidh connected') ? 'connected' : 'disconnected';
+  const dha = extractDhaFromNotes(org.notes);
+  const nabidh = extractNabidhFromNotes(org.notes);
   const kindTone =
     org.kind === 'hospital'
       ? 'violet'
@@ -524,11 +538,13 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
       <dl className="grid grid-cols-2 gap-3 text-xs">
         <div className="rounded-xl bg-slate-50 p-2">
           <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Active Users</dt>
-          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{org.seats_used}</dd>
+          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{org.seats_used ?? 0}</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
-          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Type</dt>
-          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">{titleCase(org.kind)}</dd>
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Seats</dt>
+          <dd className="font-['DM_Mono'] text-base font-bold text-slate-900">
+            {org.seats_used ?? 0} / {org.seats_allocated}
+          </dd>
         </div>
         <div className="col-span-2 rounded-xl bg-slate-50 p-2">
           <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">NABIDH Status</dt>
@@ -549,9 +565,9 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/admin/organizations')}
+          onClick={() => navigate(`/admin/organizations/${org.id}`)}
           className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
-          title="Edit organization details in the onboarding workspace"
+          title="View organization details"
         >
           Edit
         </button>
