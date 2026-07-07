@@ -5,16 +5,27 @@ import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, form
 import type { AdminInsurancePartnerRow } from '../../types/database';
 
 type InsuranceFilter = 'all' | 'premium' | 'standard' | 'api_issues' | 'fraud';
+/**
+ * platform_revenue_label is a display string (e.g. "AED 12,500/mo").
+ * No numeric revenue field exists on AdminInsurancePartnerRow yet —
+ * this parse is a stopgap until a platform_revenue_aed column is added.
+ */
+const parseRevenueLabel = (label: string | null): number => {
+  const match = label?.match(/AED\s*([\d,]+)/);
+  return match ? parseInt(match[1].replace(/,/g, ''), 10) : 0;
+};
+
 const InsuranceView = ({ context }: { context: AdminContext }) => {
   const navigate = useNavigate();
   const partners = context.insurancePartners;
+  const ctx = context.dashboard?.context;
   const [filter, setFilter] = useState<InsuranceFilter>('all');
 
   const filtered = useMemo(() => {
     if (filter === 'premium') return partners.filter((p) => p.partner_tier === 'premium');
     if (filter === 'standard') return partners.filter((p) => p.partner_tier === 'standard');
     if (filter === 'api_issues') return partners.filter((p) => p.api_status !== 'healthy');
-    if (filter === 'fraud') return partners.filter((p) => p.fraud_alert_count > 0);
+    if (filter === 'fraud') return partners.filter((p) => (p.fraud_alert_count || 0) > 0);
     return partners;
   }, [partners, filter]);
 
@@ -22,11 +33,13 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
   const totalClaimsToday = partners.reduce((acc, p) => acc + p.claims_today, 0);
   const totalClaimValueToday = partners.reduce((acc, p) => acc + p.claim_value_today_aed, 0);
   const apisHealthy = partners.filter((p) => p.api_status === 'healthy').length;
-  const fraudOpen = partners.reduce((acc, p) => acc + p.fraud_alert_count, 0);
-  const monthlyRevenue = partners.reduce((acc, p) => {
-    const match = p.platform_revenue_label?.match(/AED\s*([\d,]+)/);
-    return acc + (match ? parseInt(match[1].replace(/,/g, ''), 10) : 0);
-  }, 0);
+  const fraudOpen = partners.reduce((acc, p) => acc + (p.fraud_alert_count || 0), 0);
+  const monthlyRevenue = partners.reduce((acc, p) => acc + parseRevenueLabel(p.platform_revenue_label), 0);
+
+  const insuredMembersPct =
+    ctx?.total_patients && totalMembers
+      ? `${((totalMembers / ctx.total_patients) * 100).toFixed(1)}% of all platform patients`
+      : `Across ${partners.length} insurer${partners.length !== 1 ? 's' : ''}`;
 
   const tabs: { key: InsuranceFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -68,7 +81,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
                 claim_value_today_aed: p.claim_value_today_aed,
                 fraud_alert_count: p.fraud_alert_count,
                 platform_revenue_label: p.platform_revenue_label ?? '',
-              })) as unknown as Record<string, unknown>[],
+              } satisfies Record<string, unknown>)),
               `insurance-partners-${new Date().toISOString().slice(0, 10)}.csv`,
             )
           }
@@ -91,7 +104,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
           <div className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 text-sm ring-1 ring-amber-200">
             <span className="font-semibold text-amber-800">
               {damanWarning.api_warning_label ||
-                `${damanWarning.insurer_name} API degraded — ${damanWarning.api_latency_ms}ms avg response since 1:20 PM`}
+                `${damanWarning.insurer_name} API degraded — ${damanWarning.api_latency_ms ?? '—'}ms avg latency`}
             </span>
             <a
               href={`mailto:?subject=${encodeURIComponent(
@@ -118,7 +131,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         <KpiTile
           label="Insured Members"
           value={formatNumber(totalMembers)}
-          caption="60.2% of all platform patients"
+          caption={insuredMembersPct}
           icon={Users}
           iconTone="bg-teal-50 text-teal-600 ring-teal-100"
         />
@@ -147,8 +160,8 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
           label="APIs Healthy"
           value={`${apisHealthy}/${partners.length} ✅`}
           caption={
-            partners.find((p) => p.api_status !== 'healthy')?.insurer_name
-              ? `⚠️ ${partners.find((p) => p.api_status !== 'healthy')?.insurer_name} degraded`
+            damanWarning
+              ? `⚠️ ${damanWarning.insurer_name} degraded`
               : 'All operational'
           }
           icon={Plug}
@@ -161,6 +174,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => setFilter(tab.key)}
               className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
                 filter === tab.key
@@ -180,8 +194,8 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         </div>
 
         <div className="mt-4 text-sm text-slate-500">
-          {partners.length} insurance partners · {formatNumber(totalMembers)} insured members · Monthly claims:{' '}
-          {formatAed(totalClaimValueToday * 30)}
+          {partners.length} insurance partners · {formatNumber(totalMembers)} insured members · Claims today:{' '}
+          {formatAed(totalClaimValueToday)}
         </div>
       </Card>
     </div>
