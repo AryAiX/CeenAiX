@@ -5,6 +5,9 @@ import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, form
 
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
 
+const prevMonthName = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+  .toLocaleDateString(undefined, { month: 'long' });
+
 const AdminPatientsView = ({ context }: { context: AdminContext }) => {
   const navigate = useNavigate();
   const ctx = context.dashboard?.context;
@@ -72,7 +75,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
                 city: p.city ?? '',
                 insurance_plan: p.insurance_plan ?? '',
                 status_label: p.status_label,
-              })) as unknown as Record<string, unknown>[],
+              } satisfies Record<string, unknown>)),
               `patients-${new Date().toISOString().slice(0, 10)}.csv`,
             )
           }
@@ -112,13 +115,13 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
         <KpiTile
           label="New This Month"
           value={formatNumber(ctx?.patients_new_month ?? 0)}
-          trend="↑ +12.4% vs March"
+          trend={`↑ +${ctx?.patient_change_pct?.toFixed(1) ?? '0.0'}% vs ${prevMonthName}`}
           icon={CheckCircle2}
           iconTone="bg-blue-50 text-blue-600 ring-blue-100"
         />
         <KpiTile
           label="Pending Verification"
-          value="0"
+          value={formatNumber(0)}
           caption="All patients auto-verified ✅"
           icon={ShieldCheck}
           iconTone="bg-purple-50 text-purple-600 ring-purple-100"
@@ -138,6 +141,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setFilter(tab.key)}
                 className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
                   filter === tab.key
@@ -200,9 +204,13 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
                           ) : null}
                         </div>
                         <div className="text-xs text-slate-500">
-                          {row.age ? `${row.age}` : ''}
-                          {row.gender ? `${row.gender === 'female' ? 'F' : 'M'}` : ''}
-                          {row.blood_type ? ` · ${row.blood_type}` : ''}
+                          {[
+                            row.age ? `${row.age}` : null,
+                            row.gender ? (row.gender === 'female' ? 'F' : 'M') : null,
+                            row.blood_type ?? null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                       </div>
                     </div>
@@ -252,7 +260,15 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
                             : '🔒 Suspended'}
                     </Pill>
                   </td>
-                  <td className="px-3 py-3 text-right text-slate-400">⋯</td>
+                  <td className="px-3 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/patients/${row.id}`)}
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 ? (
@@ -289,7 +305,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
 
 export const AdminPatients = () => {
   const context = useAdminContextValue();
-  useEffect(() => { document.title = 'AdminPatients · CeenAiX Admin'; }, []);
+  useEffect(() => { document.title = 'Patients · CeenAiX Admin'; }, []);
   return (
     <AdminShell page="patients" context={context}>
       {context.loading && !context.metrics ? (
