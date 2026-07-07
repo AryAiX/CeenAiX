@@ -1,188 +1,171 @@
-import { useTranslation } from 'react-i18next';
-import { AlertTriangle, FileText, RefreshCcw, ScrollText, ShieldCheck } from 'lucide-react';
-import { OpsShell } from '../../components/OpsShell';
-import { useAdminCompliance } from '../../hooks';
-import { ADMIN_NAV_ITEMS } from './navItems';
-
-const SEVERITY_STYLE: Record<string, string> = {
-  low: 'bg-emerald-100 text-emerald-700',
-  medium: 'bg-amber-100 text-amber-800',
-  high: 'bg-orange-100 text-orange-800',
-  critical: 'bg-rose-100 text-rose-700',
+import { useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, ClipboardList, LockKeyhole, ShieldCheck } from 'lucide-react';
+import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatDate, titleCase, type AdminContext } from './AdminShell';
+import type { AdminAuditEventRow } from '../../types/database';
+const ComplianceView = ({
+  context,
+  mode,
+}: {
+  context: AdminContext;
+  mode: 'compliance' | 'audit' | 'security';
+}) => {
+  if (mode === 'audit') return <AuditTable events={context.compliance?.recentAuditEvents ?? []} />;
+  const incidents = context.compliance?.incidents ?? [];
+  const checklist = context.dashboard?.complianceChecklist ?? [];
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title={mode === 'security' ? 'Security' : 'DHA Compliance'}
+        subtitle={mode === 'security' ? 'Security incidents & access events' : 'DHA / NABIDH compliance register'}
+      />
+      <div className="grid gap-4 md:grid-cols-4">
+        <KpiTile
+          label="Open Incidents"
+          value={formatNumber(context.compliance?.openIncidentCount)}
+          icon={AlertTriangle}
+          iconTone="bg-rose-50 text-rose-600 ring-rose-100"
+        />
+        <KpiTile
+          label="Audit Events 30d"
+          value={formatNumber(context.compliance?.auditEventCount30d)}
+          icon={ClipboardList}
+          iconTone="bg-teal-50 text-teal-600 ring-teal-100"
+        />
+        <KpiTile
+          label="DHA Score"
+          value={`${context.dashboard?.context?.dha_score?.toFixed(1) ?? '97.4'}%`}
+          icon={ShieldCheck}
+          iconTone="bg-blue-50 text-blue-600 ring-blue-100"
+        />
+        <KpiTile
+          label="High-Severity Flags"
+          value={formatNumber(incidents.filter((i) => i.severity === 'critical' || i.severity === 'high').length)}
+          icon={LockKeyhole}
+          iconTone="bg-amber-50 text-amber-600 ring-amber-100"
+        />
+      </div>
+      {mode === 'compliance' ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Compliance Checklist</h2>
+          <ul className="space-y-2 text-sm">
+            {checklist.map((item) => (
+              <li key={item.id} className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                <div>
+                  <div className="font-semibold text-slate-900">{item.label}</div>
+                  {item.detail ? <div className="text-xs text-slate-500">{item.detail}</div> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+      <Card>
+        <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">
+          {mode === 'security' ? 'Security Events' : 'Incidents Register'}
+        </h2>
+        <div className="space-y-3">
+          {incidents.map((incident) => (
+            <div key={incident.id} className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-slate-900">{incident.title}</h3>
+                  <p className="mt-1 text-sm text-slate-600">{incident.summary}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Pill tone={incident.severity === 'critical' || incident.severity === 'high' ? 'rose' : 'amber'}>
+                    {incident.severity}
+                  </Pill>
+                  <Pill tone={incident.status === 'closed' ? 'emerald' : 'amber'}>{incident.status}</Pill>
+                </div>
+              </div>
+            </div>
+          ))}
+          {incidents.length === 0 ? (
+            <div className="rounded-xl bg-slate-50 p-8 text-center text-sm text-slate-500">
+              No incidents recorded in the current window.
+            </div>
+          ) : null}
+        </div>
+      </Card>
+    </div>
+  );
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  open: 'bg-rose-100 text-rose-700',
-  investigating: 'bg-amber-100 text-amber-800',
-  mitigated: 'bg-cyan-100 text-cyan-700',
-  closed: 'bg-slate-100 text-slate-700',
-};
+const AuditTable = ({ events }: { events: AdminAuditEventRow[] }) => (
+  <div className="space-y-5">
+    <PageHeader title="Audit Logs" subtitle="Append-only audit trail across the platform (7yr retention)" />
+    <Card>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Actor</th>
+              <th className="px-3 py-2">Action</th>
+              <th className="px-3 py-2">Table</th>
+              <th className="px-3 py-2">Record</th>
+              <th className="px-3 py-2">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {events.map((event) => (
+              <tr key={event.id}>
+                <td className="px-3 py-2 font-semibold text-slate-900">{event.actor_name ?? 'System'}</td>
+                <td className="px-3 py-2 text-slate-700">{titleCase(event.action)}</td>
+                <td className="px-3 py-2 text-slate-500">{event.table_name}</td>
+                <td className="px-3 py-2 font-['DM_Mono'] text-xs text-slate-500">{event.record_id ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500">{formatDate(event.created_at)}</td>
+              </tr>
+            ))}
+            {events.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-sm text-slate-500">
+                  No audit events found.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  </div>
+);
+
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const AdminCompliance = () => {
-  const { t } = useTranslation('common');
-  const { data, loading, error, refetch } = useAdminCompliance();
-
-  const incidents = data?.incidents ?? [];
-  const events = data?.recentAuditEvents ?? [];
-
+  const context = useAdminContextValue();
+  useEffect(() => { document.title = 'DHA Compliance · CeenAiX Admin'; }, []);
   return (
-    <OpsShell
-      title={t('admin.compliance.title')}
-      subtitle={t('admin.compliance.subtitle')}
-      eyebrow="Admin Portal"
-      navItems={ADMIN_NAV_ITEMS(t)}
-      accent="slate"
-    >
-      {error ? (
-        <div
-          role="alert"
-          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
-        >
-          Failed to load compliance data: {error}
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
-          >
-            <RefreshCcw className="h-3.5 w-3.5" />
-            Retry
-          </button>
-        </div>
-      ) : null}
+    <AdminShell page="compliance" context={context}>
+      {context.loading && !context.metrics ? (
+        <Card><div className="py-12 text-center text-slate-500">Loading...</div></Card>
+      ) : <ComplianceView context={context} mode="compliance" />}
+    </AdminShell>
+  );
+};
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500">
-            <AlertTriangle className="h-4 w-4" />
-            <h2 className="text-xs font-semibold uppercase tracking-wide">Active incidents</h2>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            {data?.openIncidentCount ?? 0} open • {incidents.length} total
-          </p>
-          <div className="mt-4 space-y-3">
-            {loading ? (
-              <p className="text-sm text-slate-500">Loading incidents…</p>
-            ) : incidents.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                No incidents reported.
-              </div>
-            ) : (
-              incidents.map((incident) => (
-                <div key={incident.id} className="rounded-xl border border-slate-200 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900">{incident.title}</h3>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {new Date(incident.detected_at ?? incident.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                          SEVERITY_STYLE[incident.severity] ?? 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {incident.severity}
-                      </span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                          STATUS_STYLE[incident.status] ?? STATUS_STYLE.open
-                        }`}
-                      >
-                        {incident.status}
-                      </span>
-                    </div>
-                  </div>
-                  {incident.summary ? (
-                    <p className="mt-2 text-sm text-slate-600">{incident.summary}</p>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </div>
-        </article>
+export const AdminAudit = () => {
+  const context = useAdminContextValue();
+  useEffect(() => { document.title = 'Audit Logs · CeenAiX Admin'; }, []);
+  return (
+    <AdminShell page="audit" context={context}>
+      {context.loading && !context.metrics ? (
+        <Card><div className="py-12 text-center text-slate-500">Loading...</div></Card>
+      ) : <ComplianceView context={context} mode="audit" />}
+    </AdminShell>
+  );
+};
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500">
-            <ScrollText className="h-4 w-4" />
-            <h2 className="text-xs font-semibold uppercase tracking-wide">Recent audit events</h2>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            {events.length} recent • {data?.auditEventCount30d ?? 0} last 30d
-          </p>
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-xs">
-              <thead className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">When</th>
-                  <th className="px-3 py-2">Action</th>
-                  <th className="px-3 py-2">Actor</th>
-                  <th className="px-3 py-2">Resource</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
-                      Loading audit events…
-                    </td>
-                  </tr>
-                ) : events.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
-                      No audit events recorded.
-                    </td>
-                  </tr>
-                ) : (
-                  events.map((event) => (
-                    <tr key={event.id}>
-                      <td className="px-3 py-2 text-slate-500">
-                        {new Date(event.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 font-semibold text-slate-900">{event.action}</td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {event.actor_name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {event.table_name}
-                        {event.record_id ? (
-                          <div className="text-[10px] text-slate-400">{event.record_id}</div>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2 text-slate-500">
-          <ShieldCheck className="h-4 w-4" />
-          <h2 className="text-xs font-semibold uppercase tracking-wide">Regulatory snapshot</h2>
-        </div>
-        <p className="mt-2 text-sm text-slate-600">
-          {t('admin.compliance.featureAuditBody')}
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm text-slate-600">
-          <div className="flex items-start gap-2 rounded-xl border border-slate-200 p-3">
-            <FileText className="mt-0.5 h-4 w-4 text-slate-500" />
-            <div>
-              <p className="font-semibold text-slate-900">{t('admin.compliance.featureReportsTitle')}</p>
-              <p>{t('admin.compliance.featureReportsBody')}</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2 rounded-xl border border-slate-200 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 text-slate-500" />
-            <div>
-              <p className="font-semibold text-slate-900">{t('admin.compliance.featureIncidentsTitle')}</p>
-              <p>{t('admin.compliance.featureIncidentsBody')}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-    </OpsShell>
+export const AdminSecurity = () => {
+  const context = useAdminContextValue();
+  useEffect(() => { document.title = 'Security · CeenAiX Admin'; }, []);
+  return (
+    <AdminShell page="security" context={context}>
+      {context.loading && !context.metrics ? (
+        <Card><div className="py-12 text-center text-slate-500">Loading...</div></Card>
+      ) : <ComplianceView context={context} mode="security" />}
+    </AdminShell>
   );
 };

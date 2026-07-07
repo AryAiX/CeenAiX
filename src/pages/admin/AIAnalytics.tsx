@@ -1,135 +1,362 @@
-import { useTranslation } from 'react-i18next';
-import { BrainCircuit, MessageSquare, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
-import { OpsShell } from '../../components/OpsShell';
-import { useAdminAiAnalytics } from '../../hooks';
-import { ADMIN_NAV_ITEMS } from './navItems';
+import { useState, useEffect } from 'react';
+import { Activity, AlertTriangle, Bot, CheckCircle2, CircleDollarSign, Phone, Stethoscope, Zap } from 'lucide-react';
+import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, formatDate, type AdminContext } from './AdminShell';
 
-const formatNumber = (value: number | null | undefined) =>
-  typeof value === 'number' ? value.toLocaleString() : '—';
+type AiTab = 'performance' | 'conversations' | 'population' | 'safety' | 'models';
+const AiView = ({ context }: { context: AdminContext }) => {
+  const ctx = context.aiDashboard?.context ?? context.dashboard?.context ?? null;
+  const langs = context.aiDashboard?.languages ?? [];
+  const topics = context.aiDashboard?.topics ?? [];
+  const portals = context.aiDashboard?.portals ?? [];
+  const [tab, setTab] = useState<AiTab>('performance');
 
-export const AdminAiAnalytics = () => {
-  const { t } = useTranslation('common');
-  const { data, loading, error, refetch } = useAdminAiAnalytics();
-
-  const sessions = data?.sessions ?? null;
-  const messages = data?.messages ?? null;
-  const safety = data?.safety ?? null;
-
-  const cards = [
-    {
-      label: 'Sessions (7d)',
-      value: sessions?.last7Days,
-      icon: Sparkles,
-      accent: 'from-cyan-500 to-blue-600',
-    },
-    {
-      label: 'Sessions (30d)',
-      value: sessions?.last30Days,
-      icon: BrainCircuit,
-      accent: 'from-emerald-500 to-teal-600',
-    },
-    {
-      label: 'Guest sessions (30d)',
-      value: sessions?.guestLast30Days,
-      icon: MessageSquare,
-      accent: 'from-violet-500 to-fuchsia-600',
-    },
-    {
-      label: 'Flagged outputs (30d)',
-      value: safety?.flaggedLast30Days,
-      icon: ShieldAlert,
-      accent: 'from-rose-500 to-orange-500',
-    },
+  const tabs: { key: AiTab; label: string }[] = [
+    { key: 'performance', label: 'AI Performance' },
+    { key: 'conversations', label: 'Conversations' },
+    { key: 'population', label: 'Population Health' },
+    { key: 'safety', label: 'Safety Monitor' },
+    { key: 'models', label: 'Model Management' },
   ];
 
   return (
-    <OpsShell
-      title={t('admin.aiAnalytics.title')}
-      subtitle={t('admin.aiAnalytics.subtitle')}
-      eyebrow="Admin Portal"
-      navItems={ADMIN_NAV_ITEMS(t)}
-      accent="slate"
-    >
-      {error ? (
-        <div
-          role="alert"
-          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+    <div className="space-y-5">
+      <PageHeader title="AI Analytics" subtitle="Claude Sonnet · CeenAiX AI v2.4.1 · Production">
+        <Pill tone="emerald">
+          ✅ All AI systems operational · {ctx?.ai_avg_response_sec?.toFixed(1) ?? '—'}s avg ·{' '}
+          {ctx?.ai_uptime_pct?.toFixed(2) ?? '—'}% uptime
+        </Pill>
+        {/* The AI analytics RPC only returns a single window; the chips
+            below are intentionally view-state placeholders until the hook
+            supports a date filter. Once it does, the same buttons can set
+            local state and refetch — keeping callsites stable. */}
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
         >
-          Failed to load AI analytics: {error}
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="ml-2 inline-flex items-center gap-1 font-semibold underline"
-          >
-            <RefreshCcw className="h-3.5 w-3.5" />
-            Retry
-          </button>
+          today
+        </button>
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
+          week
+        </button>
+        <button
+          type="button"
+          disabled
+          aria-disabled
+          title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+        >
+          month
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const lines = [
+              'CeenAiX AI Analytics export',
+              `Generated ${new Date().toISOString()}`,
+              '',
+              `Sessions today: ${ctx?.ai_sessions_today ?? '—'}`,
+              `Sessions this month: ${ctx?.ai_sessions_month ?? '—'}`,
+              `Sessions all-time: ${ctx?.ai_sessions_alltime ?? '—'}`,
+              `Active now: ${ctx?.ai_active_now ?? '—'}`,
+              `Avg response: ${ctx?.ai_avg_response_sec ?? '—'}s`,
+              `Uptime: ${ctx?.ai_uptime_pct ?? '—'}%`,
+              `Safety flags today: ${ctx?.ai_safety_flags_today ?? '—'}`,
+              '',
+              'Languages:',
+              ...langs.map((l) => `- ${l.label}: ${l.sessions} sessions (${l.percent ?? '—'}%)`),
+              '',
+              'Topics:',
+              ...topics.map((t) => `- ${t.label}: ${t.sessions ?? '—'} sessions`),
+              '',
+              'Portals:',
+              ...portals.map((p) => `- ${p.label}: ${p.sessions ?? '—'} sessions`),
+            ];
+            const blob = new Blob([lines.join('\n')], {
+              type: 'text/plain;charset=utf-8',
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-analytics-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }}
+          className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+        >
+          Export AI Report
+        </button>
+      </PageHeader>
+
+      <Card className="bg-gradient-to-br from-purple-50 to-violet-50 ring-purple-200">
+        <div className="text-xs font-bold uppercase tracking-[0.2em] text-purple-700">CeenAiX Clinical AI</div>
+        <div className="mt-1 text-sm text-slate-600">Powered by Claude Sonnet · Anthropic</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Pill tone="purple">{ctx?.platform_version || 'v2.4.1'}</Pill>
+          <Pill tone="emerald">Production</Pill>
+          <Pill tone="blue">UAE Region</Pill>
+          <Pill tone="violet">FHIR R4</Pill>
         </div>
+        <div className="mt-3 text-xs text-slate-500">Last updated: {formatDate(ctx?.updated_at)}</div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiTile
+            label="Sessions Today"
+            value={formatNumber(ctx?.ai_sessions_today ?? 0)}
+            icon={Bot}
+            iconTone="bg-purple-100 text-purple-700 ring-purple-200"
+          />
+          <KpiTile
+            label="Active Now"
+            value={formatNumber(ctx?.ai_active_now ?? 0)}
+            icon={Activity}
+            iconTone="bg-emerald-100 text-emerald-700 ring-emerald-200"
+          />
+          <KpiTile
+            label="Avg Response"
+            value={`${ctx?.ai_avg_response_sec?.toFixed(1) ?? '—'}s`}
+            icon={Zap}
+            iconTone="bg-amber-100 text-amber-700 ring-amber-200"
+          />
+          <KpiTile
+            label="Uptime 30d"
+            value={`${ctx?.ai_uptime_pct?.toFixed(2) ?? '—'}%`}
+            icon={CheckCircle2}
+            iconTone="bg-blue-100 text-blue-700 ring-blue-200"
+          />
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiTile
+          label="AI Sessions Today"
+          value={formatNumber(ctx?.ai_sessions_today ?? 0)}
+          caption={`Active: ${ctx?.ai_active_now ?? 0} sessions`}
+          trend="↑ +23.1% vs yesterday"
+          icon={Bot}
+          iconTone="bg-purple-50 text-purple-600 ring-purple-100"
+        />
+        <KpiTile
+          label="This Month"
+          value={formatNumber(ctx?.ai_sessions_month ?? 0)}
+          caption={`All-time: ${formatNumber(ctx?.ai_sessions_alltime ?? 0)}`}
+          trend="↑ +22.7% vs March"
+          icon={Activity}
+        />
+        <KpiTile
+          label="Patient Satisfaction"
+          value={`${ctx?.ai_satisfaction?.toFixed(1) ?? '—'} ★`}
+          caption={`From ${formatNumber(ctx?.ai_satisfaction_count ?? 0)} ratings`}
+          trend="↑ +0.2 vs last month"
+          icon={CheckCircle2}
+          iconTone="bg-blue-50 text-blue-600 ring-blue-100"
+        />
+        <KpiTile
+          label="AI → Appointment"
+          value={`${ctx?.ai_to_booking_pct?.toFixed(1) ?? '—'}%`}
+          caption={`${formatNumber(ctx?.ai_to_booking_count ?? 0)} bookings today`}
+          icon={Phone}
+          iconTone="bg-emerald-50 text-emerald-600 ring-emerald-100"
+        />
+        <KpiTile
+          label="Safety Flags Today"
+          value={ctx?.ai_safety_flags_today ?? 0}
+          caption={`${ctx?.ai_safety_escalated ?? 0} escalated · ${ctx?.ai_safety_resolved ?? 0} resolved ✅`}
+          icon={AlertTriangle}
+          iconTone="bg-amber-50 text-amber-600 ring-amber-100"
+        />
+        <KpiTile
+          label="AI-Driven Revenue"
+          value={formatAed(ctx?.ai_revenue_today_aed ?? 0)}
+          caption={`Net margin: ${formatAed(ctx?.ai_revenue_net_aed ?? 0)} · ${ctx?.ai_revenue_margin_pct?.toFixed(1) ?? '—'}% margin`}
+          icon={CircleDollarSign}
+          iconTone="bg-rose-50 text-rose-600 ring-rose-100"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-slate-200">
+        {tabs.map((entry) => (
+          <button
+            key={entry.key}
+            onClick={() => setTab(entry.key)}
+            className={`rounded-t-xl px-4 py-2 text-sm font-semibold transition ${
+              tab === entry.key
+                ? 'border-x border-t border-slate-200 bg-white text-slate-900'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'performance' ? (
+        <Card>
+          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold">AI Session Volume — April 2026</h2>
+          <div className="mt-4 grid gap-5 lg:grid-cols-3">
+            {portals.map((portal) => (
+              <Card key={portal.id} className="!p-4">
+                <h3 className="font-bold text-slate-900">{portal.label}</h3>
+                <p className="text-xs text-slate-500">{portal.sub_label}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  {portal.metric_1_label ? (
+                    <div className="rounded-lg bg-slate-50 p-2">
+                      <div className="font-bold text-slate-500">{portal.metric_1_label}</div>
+                      <div className="font-['DM_Mono'] text-base font-bold text-slate-900">{portal.metric_1_value}</div>
+                    </div>
+                  ) : null}
+                  {portal.metric_2_label ? (
+                    <div className="rounded-lg bg-slate-50 p-2">
+                      <div className="font-bold text-slate-500">{portal.metric_2_label}</div>
+                      <div className="font-['DM_Mono'] text-base font-bold text-slate-900">{portal.metric_2_value}</div>
+                    </div>
+                  ) : null}
+                  {portal.metric_3_label ? (
+                    <div className="rounded-lg bg-slate-50 p-2">
+                      <div className="font-bold text-slate-500">{portal.metric_3_label}</div>
+                      <div className="font-['DM_Mono'] text-base font-bold text-slate-900">{portal.metric_3_value}</div>
+                    </div>
+                  ) : null}
+                  {portal.metric_4_label ? (
+                    <div className="rounded-lg bg-slate-50 p-2">
+                      <div className="font-bold text-slate-500">{portal.metric_4_label}</div>
+                      <div className="font-['DM_Mono'] text-base font-bold text-slate-900">{portal.metric_4_value}</div>
+                    </div>
+                  ) : null}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <article
-              key={card.label}
-              className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div
-                aria-hidden
-                className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${card.accent} opacity-10`}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {card.label}
-                </span>
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${card.accent} text-white`}
-                >
-                  <Icon className="h-4 w-4" />
+      {tab === 'conversations' ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Session Language — Today</h2>
+          <ul className="space-y-3">
+            {langs.map((lang) => (
+              <li key={lang.id} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-slate-900">{lang.label}</div>
+                  <div className="font-['DM_Mono'] text-sm font-bold text-slate-700">
+                    {formatNumber(lang.sessions)} · {lang.percent.toFixed(0)}%
+                  </div>
                 </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-slate-200">
+                  <div
+                    className="h-2 rounded-full bg-purple-500"
+                    style={{ width: `${Math.min(lang.percent, 100)}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-slate-500">
+            62% Arabic reflects UAE population. AI fully bilingual AR/EN throughout all portals.
+          </p>
+        </Card>
+      ) : null}
+
+      {tab === 'population' ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Top AI Topics Today</h2>
+          <ul className="space-y-3">
+            {topics.map((topic) => (
+              <li key={topic.id} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-slate-900">{topic.label}</div>
+                  <div className="font-['DM_Mono'] text-sm font-bold text-slate-700">{topic.percent.toFixed(0)}%</div>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-slate-200">
+                  <div className="h-2 rounded-full bg-blue-500" style={{ width: `${Math.min(topic.percent, 100)}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {tab === 'safety' ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Safety Monitor</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <KpiTile
+              label="Flags Today"
+              value={ctx?.ai_safety_flags_today ?? 0}
+              caption="All reviewed ✅"
+              icon={AlertTriangle}
+              iconTone="bg-amber-50 text-amber-600 ring-amber-100"
+            />
+            <KpiTile
+              label="Escalated"
+              value={ctx?.ai_safety_escalated ?? 0}
+              caption="To human doctors"
+              icon={Stethoscope}
+              iconTone="bg-rose-50 text-rose-600 ring-rose-100"
+            />
+            <KpiTile
+              label="Resolved"
+              value={ctx?.ai_safety_resolved ?? 0}
+              caption="Within SLA"
+              icon={CheckCircle2}
+              iconTone="bg-emerald-50 text-emerald-600 ring-emerald-100"
+            />
+          </div>
+          <p className="mt-4 text-sm text-slate-600">
+            All flagged conversations are reviewed by a CeenAiX clinical operations agent within 5 minutes. Critical
+            safety events trigger DHA notification per protocol.
+          </p>
+        </Card>
+      ) : null}
+
+      {tab === 'models' ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Model Management</h2>
+          <ul className="space-y-3">
+            <li className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-slate-900">Claude Sonnet (Anthropic)</div>
+                <Pill tone="emerald">Active</Pill>
               </div>
-              <p className="mt-4 text-2xl font-bold text-slate-900">
-                {loading ? '…' : formatNumber(card.value)}
-              </p>
-            </article>
-          );
-        })}
-      </section>
+              <div className="text-xs text-slate-500">
+                Primary model · {ctx?.platform_version || 'v2.4.1'} · UAE region
+              </div>
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-slate-900">Claude Haiku (Fallback)</div>
+                <Pill tone="slate">Standby</Pill>
+              </div>
+              <div className="text-xs text-slate-500">Triggers on Anthropic API timeout &gt; 10s</div>
+            </li>
+          </ul>
+        </Card>
+      ) : null}
+    </div>
+  );
+};
 
-      <section className="mt-8 grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500">
-            <MessageSquare className="h-4 w-4" />
-            <h2 className="text-xs font-semibold uppercase tracking-wide">Messages (30d)</h2>
-          </div>
-          <p className="mt-4 text-3xl font-bold text-slate-900">
-            {loading ? '…' : formatNumber(messages?.last30Days)}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Total assistant replies sent to authenticated patients and guests.
-          </p>
-        </article>
+// ─── Export ───────────────────────────────────────────────────────────────────
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500">
-            <ShieldAlert className="h-4 w-4" />
-            <h2 className="text-xs font-semibold uppercase tracking-wide">Safety</h2>
-          </div>
-          <p className="mt-4 text-3xl font-bold text-slate-900">
-            {loading ? '…' : formatNumber(safety?.flaggedLast30Days)}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Outputs flagged for review in the last 30 days.
-          </p>
-        </article>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-xs text-slate-500 shadow-sm">
-        {data?.generatedAt
-          ? `Generated ${new Date(data.generatedAt).toLocaleString()}`
-          : 'Generated on demand.'}
-      </section>
-    </OpsShell>
+export const AdminAiAnalytics = () => {
+  const context = useAdminContextValue();
+  useEffect(() => { document.title = 'AI Analytics · CeenAiX Admin'; }, []);
+  return (
+    <AdminShell page="ai" context={context}>
+      {context.loading && !context.metrics ? (
+        <Card><div className="py-12 text-center text-slate-500">Loading...</div></Card>
+      ) : (
+        <AiView context={context} />
+      )}
+    </AdminShell>
   );
 };

@@ -52,24 +52,18 @@ import { DoctorSettings } from '../pages/doctor/Settings';
 import { DoctorImaging } from '../pages/doctor/Imaging';
 import { DoctorEarnings } from '../pages/doctor/Earnings';
 import { DoctorPortal } from '../pages/doctor/Portal';
-import {
-  AdminAiAnalytics,
-  AdminAudit,
-  AdminCompliance,
-  AdminDashboard,
-  AdminDiagnostics,
-  AdminDoctors,
-  AdminInsurance,
-  AdminIntegrations,
-  AdminNabidh,
-  AdminOrganizations,
-  AdminPatients,
-  AdminPlatformSettings,
-  AdminRevenue,
-  AdminSecurity,
-  AdminSystemHealth,
-  AdminUsers,
-} from '../pages/admin/Portal';
+import { AdminDashboard } from '../pages/admin/Dashboard';
+import { AdminPatients } from '../pages/admin/Patients';
+import { AdminDoctors } from '../pages/admin/Doctors';
+import { AdminOrganizations } from '../pages/admin/Organizations';
+import { AdminInsurance } from '../pages/admin/Insurance';
+import { AdminAiAnalytics } from '../pages/admin/AIAnalytics';
+import { AdminIntegrations, AdminNabidh, AdminSystemHealth } from '../pages/admin/Integrations';
+import { AdminRevenue } from '../pages/admin/Revenue';
+import { AdminCompliance, AdminAudit, AdminSecurity } from '../pages/admin/Compliance';
+import { AdminUsers } from '../pages/admin/Users';
+import { AdminDiagnostics } from '../pages/admin/Diagnostics';
+import { AdminPlatformSettings } from '../pages/admin/PlatformSettings';
 import { AdminClinics } from '../pages/admin/Clinics';
 import {
   LabAnalytics,
