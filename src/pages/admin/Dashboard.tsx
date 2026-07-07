@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, Bot, Building2, CheckCircle2, CircleDollarSign, FileText, ShieldCheck, Stethoscope, Terminal, Users, type LucideIcon } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, degradedServiceCount, todayStamp, todayTime, type AdminContext } from './AdminShell';
 const issueTone = (severity: string) => {
@@ -58,6 +58,7 @@ const RevenueBars = ({
     );
   }
   const max = Math.max(...revenueDaily.map((row) => Math.max(row.total_aed, row.target_aed)), 1);
+  const avgDailyTarget = revenueDaily.reduce((s, r) => s + r.target_aed, 0) / revenueDaily.length;
   return (
     <div>
       <div className="grid h-44 grid-cols-7 items-end gap-2">
@@ -100,7 +101,7 @@ const RevenueBars = ({
           <span className="h-2 w-2 rounded-sm bg-purple-500" /> AI Services
         </span>
         <span className="ml-auto text-slate-500">
-          Daily target {formatAed(revenueDaily[0]?.target_aed ?? 0)}
+          Daily target {formatAed(avgDailyTarget)}
         </span>
       </div>
     </div>
@@ -195,13 +196,13 @@ const QuickActions = ({ context }: { context: AdminContext }) => {
     },
     {
       label: 'Fraud Review',
-      value: `${context.insurancePartners.reduce((acc, p) => acc + p.fraud_alert_count, 0)} flagged`,
+      value: `${context.insurancePartners.reduce((acc, p) => acc + (p.fraud_alert_count || 0), 0)} flagged`,
       icon: AlertTriangle,
       href: '/admin/insurance',
     },
     {
       label: 'Generate Report',
-      value: 'April 2026',
+      value: new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
       icon: FileText,
       href: '/admin/revenue',
     },
@@ -253,9 +254,22 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
   const revenueDaily = context.dashboard?.revenueDaily ?? [];
   const orgsSummary = context.dashboard?.orgsSummary;
 
+  const [liveTime, setLiveTime] = useState(todayTime);
+  useEffect(() => {
+    const id = setInterval(() => setLiveTime(todayTime()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const [mapView, setMapView] = useState<'map' | 'satellite'>('map');
+  const [activityPaused, setActivityPaused] = useState(false);
+  const [revenuePeriod, setRevenuePeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [aiPeriod, setAiPeriod] = useState<'today' | 'week' | 'month'>('today');
+
+  const currentMonthLabel = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
   return (
     <div className="space-y-5">
-      <PageHeader title="Platform Dashboard" subtitle={`${todayStamp()} · ${todayTime()}`}>
+      <PageHeader title="Platform Dashboard" subtitle={`${todayStamp()} · ${liveTime}`}>
         <Pill tone="emerald">{formatNumber(ctx?.active_sessions ?? 0)} active sessions</Pill>
         {issues.length ? <Pill tone="amber">{issues.length} issues detected</Pill> : null}
       </PageHeader>
@@ -367,8 +381,18 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
               </p>
             </div>
             <div className="flex gap-2">
-              <button className="rounded-lg bg-teal-600 px-3 py-1 text-xs font-bold text-white">map</button>
-              <button className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setMapView('map')}
+                className={`rounded-lg px-3 py-1 text-xs font-bold ${mapView === 'map' ? 'bg-teal-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                map
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapView('satellite')}
+                className={`rounded-lg px-3 py-1 text-xs font-bold ${mapView === 'satellite' ? 'bg-teal-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
                 satellite
               </button>
             </div>
@@ -424,27 +448,39 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
               <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold">Live Activity</h2>
               <p className="text-xs font-bold text-emerald-600">REAL-TIME</p>
             </div>
-            <button className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">
-              Pause
+            <button
+              type="button"
+              onClick={() => setActivityPaused((p) => !p)}
+              className={`rounded-lg border px-3 py-1 text-xs font-bold ${activityPaused ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              {activityPaused ? 'Resume' : 'Pause'}
             </button>
           </div>
           <div className="space-y-2">
-            {liveActivity.map((event) => (
-              <div key={event.id} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm font-semibold text-slate-900">{event.title}</div>
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                    {event.ago_label || ''}
-                  </span>
-                </div>
-                {event.detail ? <div className="mt-0.5 text-xs text-slate-500">{event.detail}</div> : null}
+            {activityPaused ? (
+              <div className="rounded-xl bg-amber-50 p-4 text-center text-sm text-amber-700 ring-1 ring-amber-200">
+                Live feed paused
               </div>
-            ))}
-            {liveActivity.length === 0 ? (
-              <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-                No live activity yet.
-              </div>
-            ) : null}
+            ) : (
+              <>
+                {liveActivity.map((event) => (
+                  <div key={event.id} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-semibold text-slate-900">{event.title}</div>
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                        {event.ago_label || ''}
+                      </span>
+                    </div>
+                    {event.detail ? <div className="mt-0.5 text-xs text-slate-500">{event.detail}</div> : null}
+                  </div>
+                ))}
+                {liveActivity.length === 0 ? (
+                  <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    No live activity yet.
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
           <div className="mt-3 text-xs text-slate-500">
             Showing live activity across all CeenAiX portals · Today: {formatNumber(ctx?.ai_sessions_today)} AI sessions
@@ -484,17 +520,20 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
             <div>
               <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold">Platform Revenue</h2>
               <p className="text-xs text-slate-500">
-                April 2026 · {formatAed(ctx?.revenue_target_aed ?? 0)} target
+                {currentMonthLabel} · {formatAed(ctx?.revenue_target_aed ?? 0)} target
               </p>
             </div>
             <div className="flex gap-2">
-              <button className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white">Daily</button>
-              <button className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600">
-                Weekly
-              </button>
-              <button className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600">
-                Monthly
-              </button>
+              {(['daily', 'weekly', 'monthly'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setRevenuePeriod(p)}
+                  className={`rounded-lg px-3 py-1 text-xs font-bold capitalize ${revenuePeriod === p ? 'bg-emerald-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -587,9 +626,16 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
               <p className="text-xs font-bold text-purple-600">Powered by Claude Sonnet · CeenAiX AI</p>
             </div>
             <div className="flex gap-1">
-              <button className="rounded-lg bg-purple-600 px-2 py-1 text-[11px] font-bold text-white">Today</button>
-              <button className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600">Week</button>
-              <button className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600">Month</button>
+              {(['today', 'week', 'month'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setAiPeriod(p)}
+                  className={`rounded-lg px-2 py-1 text-[11px] font-bold capitalize ${aiPeriod === p ? 'bg-purple-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
           <div className="rounded-xl bg-purple-50 p-3 ring-1 ring-purple-100">
@@ -622,7 +668,11 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
               <div className="font-bold text-slate-500">Escalation rate</div>
-              <div className="font-['DM_Mono'] text-base font-bold text-slate-900">0.03%</div>
+              <div className="font-['DM_Mono'] text-base font-bold text-slate-900">
+                {ctx?.ai_safety_escalated != null && ctx?.ai_sessions_today
+                  ? `${((ctx.ai_safety_escalated / ctx.ai_sessions_today) * 100).toFixed(2)}%`
+                  : '—'}
+              </div>
             </div>
           </div>
           <div className="mt-3 text-xs text-emerald-700">
