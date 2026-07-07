@@ -1,43 +1,15 @@
 import { useEffect } from 'react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, titleCase, type AdminContext } from './AdminShell';
+import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, exportRowsToCsv, titleCase, type AdminContext } from './AdminShell';
+import { Activity, CheckCircle2, AlertTriangle, WifiOff } from 'lucide-react';
 import type { ServiceHealthSnapshot } from '../../types/database';
-const ServicesView = ({
-  context,
-  mode,
-}: {
-  context: AdminContext;
-  mode: 'system' | 'integrations' | 'nabidh';
-}) => {
-  const services =
-    mode === 'integrations'
-      ? context.systemHealth?.integrations ?? []
-      : mode === 'nabidh'
-        ? (context.systemHealth?.integrations ?? []).filter(
-            (service) =>
-              service.service_name.toLowerCase().includes('nabidh') ||
-              service.message?.toLowerCase().includes('nabidh'),
-          )
-        : [...(context.systemHealth?.services ?? []), ...(context.systemHealth?.aiServices ?? [])];
 
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title={mode === 'integrations' ? 'Integrations' : mode === 'nabidh' ? 'NABIDH' : 'System Health'}
-        subtitle="Latest service health snapshots"
-      />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {services.map((service) => (
-          <ServiceCard key={service.id} service={service} />
-        ))}
-        {services.length === 0 ? (
-          <Card className="md:col-span-2 xl:col-span-3">
-            <div className="py-12 text-center text-slate-500">No service checks returned for this category.</div>
-          </Card>
-        ) : null}
-      </div>
-    </div>
-  );
-};
+const isNabidhService = (s: ServiceHealthSnapshot) =>
+  s.service_name.toLowerCase().includes('nabidh') ||
+  s.service_key.toLowerCase().includes('nabidh') ||
+  s.message?.toLowerCase().includes('nabidh');
+
+const statusTone = (status: string) =>
+  status === 'healthy' ? 'emerald' : status === 'degraded' ? 'amber' : 'rose';
 
 const ServiceCard = ({ service }: { service: ServiceHealthSnapshot }) => (
   <Card>
@@ -48,17 +20,138 @@ const ServiceCard = ({ service }: { service: ServiceHealthSnapshot }) => (
           {service.region ?? 'UAE'} · {titleCase(service.category)}
         </p>
       </div>
-      <Pill tone={service.status === 'healthy' ? 'emerald' : service.status === 'degraded' ? 'amber' : 'rose'}>
+      <Pill tone={statusTone(service.status)}>
         {service.status}
       </Pill>
     </div>
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
       <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Latency</div>
-      <div className="font-['DM_Mono'] text-2xl font-bold text-slate-900">{service.latency_ms ?? 0}ms</div>
+      <div className="font-['DM_Mono'] text-2xl font-bold text-slate-900">
+        {service.latency_ms != null ? `${service.latency_ms}ms` : '—'}
+      </div>
     </div>
     <p className="mt-3 text-sm text-slate-500">{service.message ?? 'No current incidents reported.'}</p>
   </Card>
 );
+
+const ServiceGrid = ({ services, emptyLabel }: { services: ServiceHealthSnapshot[]; emptyLabel: string }) => (
+  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {services.map((s) => <ServiceCard key={s.id} service={s} />)}
+    {services.length === 0 ? (
+      <Card className="md:col-span-2 xl:col-span-3">
+        <div className="py-12 text-center text-slate-500">{emptyLabel}</div>
+      </Card>
+    ) : null}
+  </div>
+);
+
+const ServicesView = ({
+  context,
+  mode,
+}: {
+  context: AdminContext;
+  mode: 'system' | 'integrations' | 'nabidh';
+}) => {
+  const platformServices = context.systemHealth?.services ?? [];
+  const integrations = context.systemHealth?.integrations ?? [];
+  const aiServices = context.systemHealth?.aiServices ?? [];
+
+  const services =
+    mode === 'integrations'
+      ? integrations
+      : mode === 'nabidh'
+        ? integrations.filter(isNabidhService)
+        : [...platformServices, ...aiServices];
+
+  const healthy = services.filter((s) => s.status === 'healthy').length;
+  const degraded = services.filter((s) => s.status === 'degraded').length;
+  const down = services.filter((s) => s.status === 'down' || s.status === 'unknown').length;
+
+  const subtitle =
+    mode === 'integrations'
+      ? 'Third-party API connection health'
+      : mode === 'nabidh'
+        ? 'NABIDH HIE connection status and latency'
+        : 'Platform core services and AI infrastructure health';
+
+  const title =
+    mode === 'integrations' ? 'Integrations' : mode === 'nabidh' ? 'NABIDH' : 'System Health';
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title={title} subtitle={subtitle}>
+        <button
+          type="button"
+          onClick={() => context.refetchAll()}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Refresh
+        </button>
+        <button
+          type="button"
+          disabled={services.length === 0}
+          onClick={() =>
+            exportRowsToCsv(
+              services.map((s) => ({
+                service_name: s.service_name,
+                service_key: s.service_key,
+                category: s.category,
+                status: s.status,
+                latency_ms: s.latency_ms ?? '',
+                region: s.region ?? '',
+                message: s.message ?? '',
+                observed_at: s.observed_at,
+              } satisfies Record<string, unknown>)),
+              `${mode}-health-${new Date().toISOString().slice(0, 10)}.csv`,
+            )
+          }
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Export
+        </button>
+      </PageHeader>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiTile
+          label="Healthy"
+          value={formatNumber(healthy)}
+          caption={`of ${services.length} total`}
+          icon={CheckCircle2}
+          iconTone="bg-emerald-50 text-emerald-600 ring-emerald-100"
+        />
+        <KpiTile
+          label="Degraded"
+          value={formatNumber(degraded)}
+          caption="Elevated latency or partial outage"
+          icon={AlertTriangle}
+          iconTone="bg-amber-50 text-amber-600 ring-amber-100"
+        />
+        <KpiTile
+          label="Down / Unknown"
+          value={formatNumber(down)}
+          caption={down > 0 ? 'Immediate action required' : 'All reachable ✅'}
+          icon={down > 0 ? WifiOff : Activity}
+          iconTone={down > 0 ? 'bg-rose-50 text-rose-600 ring-rose-100' : 'bg-slate-50 text-slate-600 ring-slate-100'}
+        />
+      </div>
+
+      {mode === 'system' ? (
+        <div className="space-y-5">
+          <div>
+            <h2 className="mb-3 font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-700">Platform Services</h2>
+            <ServiceGrid services={platformServices} emptyLabel="No platform service checks returned." />
+          </div>
+          <div>
+            <h2 className="mb-3 font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-700">AI Services</h2>
+            <ServiceGrid services={aiServices} emptyLabel="No AI service checks returned." />
+          </div>
+        </div>
+      ) : (
+        <ServiceGrid services={services} emptyLabel="No service checks returned for this category." />
+      )}
+    </div>
+  );
+};
 
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
