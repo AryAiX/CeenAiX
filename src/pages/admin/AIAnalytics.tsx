@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, Bot, CheckCircle2, CircleDollarSign, Phone, Stethoscope, Zap } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, formatDate, type AdminContext } from './AdminShell';
+import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, formatDate, exportRowsToCsv, type AdminContext } from './AdminShell';
 
 type AiTab = 'performance' | 'conversations' | 'population' | 'safety' | 'models';
 const AiView = ({ context }: { context: AdminContext }) => {
@@ -9,6 +9,13 @@ const AiView = ({ context }: { context: AdminContext }) => {
   const topics = context.aiDashboard?.topics ?? [];
   const portals = context.aiDashboard?.portals ?? [];
   const [tab, setTab] = useState<AiTab>('performance');
+
+  const currentMonthLabel = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const prevMonthName = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+    .toLocaleDateString(undefined, { month: 'long' });
+
+  const arabicLang = langs.find((l) => l.label.toLowerCase().includes('arabic'));
+  const arabicPct = arabicLang ? `${arabicLang.percent.toFixed(0)}% Arabic reflects UAE population` : null;
 
   const tabs: { key: AiTab; label: string }[] = [
     { key: 'performance', label: 'AI Performance' },
@@ -32,7 +39,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
         <button
           type="button"
           disabled
-          aria-disabled
+          aria-disabled="true"
           title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
         >
@@ -41,7 +48,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
         <button
           type="button"
           disabled
-          aria-disabled
+          aria-disabled="true"
           title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
         >
@@ -50,7 +57,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
         <button
           type="button"
           disabled
-          aria-disabled
+          aria-disabled="true"
           title="Date-window filtering ships when the AI analytics RPC supports a window parameter."
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
         >
@@ -59,38 +66,23 @@ const AiView = ({ context }: { context: AdminContext }) => {
         <button
           type="button"
           onClick={() => {
-            const lines = [
-              'CeenAiX AI Analytics export',
-              `Generated ${new Date().toISOString()}`,
-              '',
-              `Sessions today: ${ctx?.ai_sessions_today ?? '—'}`,
-              `Sessions this month: ${ctx?.ai_sessions_month ?? '—'}`,
-              `Sessions all-time: ${ctx?.ai_sessions_alltime ?? '—'}`,
-              `Active now: ${ctx?.ai_active_now ?? '—'}`,
-              `Avg response: ${ctx?.ai_avg_response_sec ?? '—'}s`,
-              `Uptime: ${ctx?.ai_uptime_pct ?? '—'}%`,
-              `Safety flags today: ${ctx?.ai_safety_flags_today ?? '—'}`,
-              '',
-              'Languages:',
-              ...langs.map((l) => `- ${l.label}: ${l.sessions} sessions (${l.percent ?? '—'}%)`),
-              '',
-              'Topics:',
-              ...topics.map((t) => `- ${t.label}: ${t.sessions ?? '—'} sessions`),
-              '',
-              'Portals:',
-              ...portals.map((p) => `- ${p.label}: ${p.sessions ?? '—'} sessions`),
+            const rows: Record<string, unknown>[] = [
+              {
+                metric: 'sessions_today', value: ctx?.ai_sessions_today ?? '',
+                sessions_month: ctx?.ai_sessions_month ?? '',
+                sessions_alltime: ctx?.ai_sessions_alltime ?? '',
+                active_now: ctx?.ai_active_now ?? '',
+                avg_response_sec: ctx?.ai_avg_response_sec ?? '',
+                uptime_pct: ctx?.ai_uptime_pct ?? '',
+                safety_flags_today: ctx?.ai_safety_flags_today ?? '',
+                safety_escalated: ctx?.ai_safety_escalated ?? '',
+                safety_resolved: ctx?.ai_safety_resolved ?? '',
+              },
+              ...langs.map((l) => ({ section: 'language', label: l.label, sessions: l.sessions, percent: l.percent } satisfies Record<string, unknown>)),
+              ...topics.map((t) => ({ section: 'topic', label: t.label, sessions: t.sessions ?? '', percent: t.percent } satisfies Record<string, unknown>)),
+              ...portals.map((p) => ({ section: 'portal', label: p.label, sessions: p.sessions ?? '' } satisfies Record<string, unknown>)),
             ];
-            const blob = new Blob([lines.join('\n')], {
-              type: 'text/plain;charset=utf-8',
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `ai-analytics-${new Date().toISOString().slice(0, 10)}.txt`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            exportRowsToCsv(rows, `ai-analytics-${new Date().toISOString().slice(0, 10)}.csv`);
           }}
           className="rounded-xl bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"
         >
@@ -108,13 +100,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
           <Pill tone="violet">FHIR R4</Pill>
         </div>
         <div className="mt-3 text-xs text-slate-500">Last updated: {formatDate(ctx?.updated_at)}</div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiTile
-            label="Sessions Today"
-            value={formatNumber(ctx?.ai_sessions_today ?? 0)}
-            icon={Bot}
-            iconTone="bg-purple-100 text-purple-700 ring-purple-200"
-          />
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <KpiTile
             label="Active Now"
             value={formatNumber(ctx?.ai_active_now ?? 0)}
@@ -141,7 +127,6 @@ const AiView = ({ context }: { context: AdminContext }) => {
           label="AI Sessions Today"
           value={formatNumber(ctx?.ai_sessions_today ?? 0)}
           caption={`Active: ${ctx?.ai_active_now ?? 0} sessions`}
-          trend="↑ +23.1% vs yesterday"
           icon={Bot}
           iconTone="bg-purple-50 text-purple-600 ring-purple-100"
         />
@@ -149,14 +134,13 @@ const AiView = ({ context }: { context: AdminContext }) => {
           label="This Month"
           value={formatNumber(ctx?.ai_sessions_month ?? 0)}
           caption={`All-time: ${formatNumber(ctx?.ai_sessions_alltime ?? 0)}`}
-          trend="↑ +22.7% vs March"
+          trend={`vs ${prevMonthName}`}
           icon={Activity}
         />
         <KpiTile
           label="Patient Satisfaction"
           value={`${ctx?.ai_satisfaction?.toFixed(1) ?? '—'} ★`}
           caption={`From ${formatNumber(ctx?.ai_satisfaction_count ?? 0)} ratings`}
-          trend="↑ +0.2 vs last month"
           icon={CheckCircle2}
           iconTone="bg-blue-50 text-blue-600 ring-blue-100"
         />
@@ -187,6 +171,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
         {tabs.map((entry) => (
           <button
             key={entry.key}
+            type="button"
             onClick={() => setTab(entry.key)}
             className={`rounded-t-xl px-4 py-2 text-sm font-semibold transition ${
               tab === entry.key
@@ -201,7 +186,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
 
       {tab === 'performance' ? (
         <Card>
-          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold">AI Session Volume — April 2026</h2>
+          <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold">AI Session Volume — {currentMonthLabel}</h2>
           <div className="mt-4 grid gap-5 lg:grid-cols-3">
             {portals.map((portal) => (
               <Card key={portal.id} className="!p-4">
@@ -260,9 +245,11 @@ const AiView = ({ context }: { context: AdminContext }) => {
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-slate-500">
-            62% Arabic reflects UAE population. AI fully bilingual AR/EN throughout all portals.
-          </p>
+          {arabicPct ? (
+            <p className="mt-3 text-xs text-slate-500">
+              {arabicPct}. AI fully bilingual AR/EN throughout all portals.
+            </p>
+          ) : null}
         </Card>
       ) : null}
 
