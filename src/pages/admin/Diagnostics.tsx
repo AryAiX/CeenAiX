@@ -1,18 +1,42 @@
 import { useEffect } from 'react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, type AdminContext, degradedServiceCount } from './AdminShell';
-import { Settings, Terminal, Activity, AlertTriangle } from 'lucide-react';
-import type { ServiceHealthSnapshot } from '../../types/database';
+import { Activity, AlertTriangle, Download, RefreshCw, Settings, ShieldCheck, Terminal } from 'lucide-react';
+import AdminShell, {
+  useAdminContextValue,
+  Card,
+  Pill,
+  PageHeader,
+  KpiTile,
+  formatNumber,
+  formatDate,
+  exportRowsToCsv,
+  degradedServiceCount,
+  type AdminContext,
+} from './AdminShell';
+import type { ServiceHealthCategory, ServiceHealthSnapshot } from '../../types/database';
+
+// ─── ServiceCard ──────────────────────────────────────────────────────────────
 
 const ServiceCard = ({ service }: { service: ServiceHealthSnapshot }) => (
-  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-3 ring-1 ring-slate-100">
-    <div>
+  <div className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 px-3 py-3 ring-1 ring-slate-100">
+    <div className="min-w-0 flex-1">
       <div className="font-semibold text-slate-900">{service.service_name}</div>
-      <div className="text-xs text-slate-500">{service.message ?? service.region ?? service.category}</div>
+      <div className="font-['DM_Mono'] text-[10px] text-slate-400">{service.service_key}</div>
+      {service.message ? (
+        <div className="mt-0.5 text-xs text-slate-500">{service.message}</div>
+      ) : null}
+      <div className="mt-1 text-[10px] text-slate-400">
+        Observed {formatDate(service.observed_at)}
+        {service.region ? ` · ${service.region}` : ''}
+      </div>
     </div>
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <Pill
         tone={
-          service.status === 'healthy' ? 'emerald' : service.status === 'degraded' ? 'amber' : 'rose'
+          service.status === 'healthy'
+            ? 'emerald'
+            : service.status === 'degraded'
+              ? 'amber'
+              : 'rose'
         }
       >
         {service.status}
@@ -24,42 +48,168 @@ const ServiceCard = ({ service }: { service: ServiceHealthSnapshot }) => (
   </div>
 );
 
-const DiagnosticsView = ({ context }: { context: AdminContext }) => {
-  const services = [
-    ...(context.systemHealth?.services ?? []),
-    ...(context.systemHealth?.integrations ?? []),
-    ...(context.systemHealth?.aiServices ?? []),
-  ];
+// ─── ServiceSection ───────────────────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<ServiceHealthCategory, string> = {
+  core: 'Core Services',
+  integration: 'Integrations',
+  ai: 'AI Services',
+};
+
+const ServiceSection = ({
+  category,
+  services,
+}: {
+  category: ServiceHealthCategory;
+  services: ServiceHealthSnapshot[];
+}) => {
+  if (services.length === 0) return null;
   return (
-    <div className="space-y-5">
-      <PageHeader title="Diagnostics" subtitle="Runtime diagnostics, feature flags, service checks" />
-      <div className="grid gap-4 md:grid-cols-4">
-        <KpiTile label="Feature Flags" value={formatNumber(context.diagnostics?.featureFlags.length)} icon={Settings} />
-        <KpiTile
-          label="Platform Settings"
-          value={formatNumber(context.diagnostics?.platformSettings.length)}
-          icon={Terminal}
-        />
-        <KpiTile label="Service Checks" value={formatNumber(services.length)} icon={Activity} />
-        <KpiTile
-          label="Degraded"
-          value={formatNumber(degradedServiceCount(context.systemHealth))}
-          icon={AlertTriangle}
-          iconTone="bg-amber-50 text-amber-600 ring-amber-100"
-        />
+    <div>
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">
+        {CATEGORY_LABELS[category]}
+      </h3>
+      <div className="grid gap-3 md:grid-cols-2">
+        {services.map((service) => (
+          <ServiceCard key={service.id} service={service} />
+        ))}
       </div>
-      <Card>
-        <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Service health</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          {services.map((service) => (
-            <ServiceCard key={service.id} service={service} />
-          ))}
-        </div>
-      </Card>
     </div>
   );
 };
 
+// ─── DiagnosticsView ──────────────────────────────────────────────────────────
+
+const DiagnosticsView = ({ context }: { context: AdminContext }) => {
+  const coreServices = context.systemHealth?.services ?? [];
+  const integrationServices = context.systemHealth?.integrations ?? [];
+  const aiServices = context.systemHealth?.aiServices ?? [];
+  const allServices = [...coreServices, ...integrationServices, ...aiServices];
+
+  const flags = context.diagnostics?.featureFlags ?? [];
+  const settings = context.diagnostics?.platformSettings ?? [];
+  const degraded = degradedServiceCount(context.systemHealth);
+
+  const handleExport = () => {
+    exportRowsToCsv(
+      allServices.map((s) => ({
+        service_key: s.service_key,
+        service_name: s.service_name,
+        category: s.category,
+        status: s.status,
+        latency_ms: s.latency_ms ?? '',
+        region: s.region ?? '',
+        message: s.message ?? '',
+        observed_at: s.observed_at,
+      } satisfies Record<string, unknown>)),
+      `diagnostics-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Diagnostics" subtitle="Runtime diagnostics, feature flags, service checks">
+        <button
+          type="button"
+          onClick={() => context.refetchAll()}
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <RefreshCw className="h-4 w-4" /> Refresh
+        </button>
+        <button
+          type="button"
+          disabled={allServices.length === 0}
+          onClick={handleExport}
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" /> Export
+        </button>
+      </PageHeader>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <KpiTile
+          label="Feature Flags"
+          value={formatNumber(flags.length)}
+          caption={`${flags.filter((f) => f.is_enabled).length} enabled`}
+          icon={Settings}
+          iconTone="bg-teal-50 text-teal-600 ring-teal-100"
+        />
+        <KpiTile
+          label="Platform Settings"
+          value={formatNumber(settings.length)}
+          caption="Key-value runtime config"
+          icon={Terminal}
+          iconTone="bg-blue-50 text-blue-600 ring-blue-100"
+        />
+        <KpiTile
+          label="Service Checks"
+          value={formatNumber(allServices.length)}
+          caption={`${coreServices.length} core · ${aiServices.length} AI`}
+          icon={Activity}
+          iconTone="bg-slate-100 text-slate-600 ring-slate-200"
+        />
+        <KpiTile
+          label="Degraded"
+          value={formatNumber(degraded)}
+          caption={degraded === 0 ? 'All services healthy' : 'Require attention'}
+          icon={degraded === 0 ? ShieldCheck : AlertTriangle}
+          iconTone={
+            degraded === 0
+              ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
+              : 'bg-amber-50 text-amber-600 ring-amber-100'
+          }
+        />
+      </div>
+
+      <Card>
+        <h2 className="mb-5 font-['Plus_Jakarta_Sans'] text-lg font-bold">Service Health</h2>
+        {allServices.length > 0 ? (
+          <div className="space-y-6">
+            <ServiceSection category="core" services={coreServices} />
+            <ServiceSection category="integration" services={integrationServices} />
+            <ServiceSection category="ai" services={aiServices} />
+          </div>
+        ) : (
+          <div className="py-12 text-center text-slate-500">No service health data available.</div>
+        )}
+      </Card>
+
+      {settings.length > 0 ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Platform Settings</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+                <tr className="border-b border-slate-200">
+                  <th className="px-3 py-2">Key</th>
+                  <th className="px-3 py-2">Value</th>
+                  <th className="px-3 py-2">Updated</th>
+                  <th className="px-3 py-2">By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {settings.map((setting) => (
+                  <tr key={setting.id} className="hover:bg-slate-50/60">
+                    <td className="px-3 py-2 font-['DM_Mono'] text-xs font-semibold text-slate-900">
+                      {setting.key}
+                    </td>
+                    <td className="px-3 py-2 font-['DM_Mono'] text-xs text-slate-600">
+                      {JSON.stringify(setting.value)}
+                    </td>
+                    <td className="px-3 py-2 text-slate-500">{formatDate(setting.updated_at)}</td>
+                    <td className="px-3 py-2 text-slate-500">{setting.updated_by ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+};
+
+// ─── Export ───────────────────────────────────────────────────────────────────
 
 export const AdminDiagnostics = () => {
   const context = useAdminContextValue();
