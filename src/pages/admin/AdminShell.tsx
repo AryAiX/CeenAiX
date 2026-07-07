@@ -24,7 +24,7 @@ import type {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type AdminPage =
-  | 'dashboard' | 'patients' | 'doctors' | 'organizations' | 'insurance'
+  | 'dashboard' | 'patients' | 'doctors' | 'organizations' | 'insurance' | 'clinics'
   | 'ai' | 'integrations' | 'revenue' | 'nabidh' | 'compliance' | 'audit'
   | 'security' | 'system' | 'diagnostics' | 'settings' | 'users';
 
@@ -98,8 +98,8 @@ export const exportRowsToCsv = (rows: Record<string, unknown>[], filename: strin
 
 export const titleForPage = (page: AdminPage): string => ({
   dashboard: 'Platform Dashboard', patients: 'Patients', doctors: 'Doctors',
-  organizations: 'Organizations', insurance: 'Insurance Partners', ai: 'AI Analytics',
-  integrations: 'Integrations', revenue: 'Revenue', nabidh: 'NABIDH',
+  organizations: 'Organizations', insurance: 'Insurance Partners', clinics: 'Clinics',
+  ai: 'AI Analytics', integrations: 'Integrations', revenue: 'Revenue', nabidh: 'NABIDH',
   compliance: 'DHA Compliance', audit: 'Audit Logs', security: 'Security',
   system: 'System Health', diagnostics: 'Diagnostics', settings: 'Platform Settings',
   users: 'Users',
@@ -123,6 +123,7 @@ export const buildAdminSections = (context: AdminContext): AdminNavSection[] => 
       { page: 'patients', href: '/admin/patients', label: 'Patients', icon: Users, badge: compactBadge(ctx?.total_patients), badgeTone: 'teal' },
       { page: 'doctors', href: '/admin/doctors', label: 'Doctors', icon: Stethoscope, badge: compactBadge(ctx?.pending_doctors), badgeTone: 'amber' },
       { page: 'organizations', href: '/admin/organizations', label: 'Organizations', icon: Building2, badge: compactBadge(context.dashboard?.orgsSummary.total ?? context.organizations.length), badgeTone: 'blue' },
+      { page: 'clinics', href: '/admin/clinics', label: 'Clinics', icon: Building2, badge: compactBadge(ctx?.orgs_clinics), badgeTone: 'blue' },
       { page: 'insurance', href: '/admin/insurance', label: 'Insurance', icon: ShieldCheck },
     ]},
     { label: 'PLATFORM', items: [
