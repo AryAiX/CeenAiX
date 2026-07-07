@@ -31,11 +31,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
       setVerifyError(updateError.message);
       return;
     }
-    // No central refresh on AdminContext; refresh the organizations slice as
-    // a side-effect — the doctors RPC has no per-call refetch surface here.
-    // The doctor's verification badge updates after the next admin route
-    // navigation in the meantime.
-    context.refreshOrganizations();
+    context.refetchAll();
   };
 
   const filtered = useMemo(() => {
@@ -101,7 +97,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
                 dha_license: d.dha_license ?? '',
                 license_expires_at: d.license_expires_at ?? '',
                 status_label: d.status_label,
-              })) as unknown as Record<string, unknown>[],
+              } satisfies Record<string, unknown>)),
               `doctors-${new Date().toISOString().slice(0, 10)}.csv`,
             )
           }
@@ -136,7 +132,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
             <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
               <span className="font-semibold text-amber-700">
-                {expiring.length} licenses expiring in &lt;30 days — reminders not sent
+                {expiring.length} license{expiring.length > 1 ? 's' : ''} expiring in &lt;30 days
               </span>
             </div>
           ) : null}
@@ -201,6 +197,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setFilter(tab.key)}
                 className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
                   filter === tab.key
@@ -211,14 +208,6 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
                 {tab.label} <span className="opacity-70">({tab.count})</span>
               </button>
             ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>Specialty: All</option>
-            </select>
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm">
-              <option>License: All</option>
-            </select>
           </div>
         </div>
 
@@ -262,8 +251,13 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
                           ) : null}
                         </div>
                         <div className="text-xs text-slate-500">
-                          {row.age ? `${row.age}${row.gender === 'female' ? 'F' : row.gender === 'male' ? 'M' : ''}` : ''}
-                          {row.nationality ? ` · ${row.nationality}` : ''}
+                          {[
+                            row.age ? `${row.age}` : null,
+                            row.gender === 'female' ? 'F' : row.gender === 'male' ? 'M' : null,
+                            row.nationality ?? null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                       </div>
                     </div>
@@ -341,7 +335,13 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
                         </button>
                       </div>
                     ) : (
-                      <span className="text-slate-400">⋯</span>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/doctors/${row.id}`)}
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        View
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -369,7 +369,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
 
 export const AdminDoctors = () => {
   const context = useAdminContextValue();
-  useEffect(() => { document.title = 'AdminDoctors · CeenAiX Admin'; }, []);
+  useEffect(() => { document.title = 'Doctors · CeenAiX Admin'; }, []);
   return (
     <AdminShell page="doctors" context={context}>
       {context.loading && !context.metrics ? (
