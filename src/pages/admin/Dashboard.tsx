@@ -343,7 +343,6 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
           label="AI Consultations Today"
           value={formatNumber(ctx?.ai_sessions_today ?? 0)}
           caption={`${formatNumber(ctx?.ai_sessions_month ?? 0)} this month · ${formatNumber(ctx?.ai_sessions_alltime ?? 0)} all time`}
-          trend="↑ +23.1% vs last month"
           icon={Bot}
           iconTone="bg-purple-50 text-purple-600 ring-purple-100"
         />
