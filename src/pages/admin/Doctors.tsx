@@ -48,7 +48,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
       setVerifyError(updateError.message);
       return;
     }
-    context.refetchAll();
+    context.refetchDoctors();
   };
 
   const filtered = useMemo(() => {
