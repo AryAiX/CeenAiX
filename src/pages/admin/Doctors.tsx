@@ -29,11 +29,13 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
   const [search, setSearch] = useState('');
   const [busyDoctorId, setBusyDoctorId] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [rejectNotice, setRejectNotice] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAddDoctorComingSoon, setShowAddDoctorComingSoon] = useState(false);
 
   const setDoctorVerificationStatus = async (doctorId: string, verified: boolean) => {
     setVerifyError(null);
+    setRejectNotice(null);
     setBusyDoctorId(doctorId);
     const nowIso = new Date().toISOString();
     const update = verified
@@ -48,8 +50,20 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
       setVerifyError(updateError.message);
       return;
     }
+    if (!verified) {
+      const doctorName = doctors.find((d) => d.id === doctorId)?.full_name ?? 'This doctor';
+      setRejectNotice(
+        `${doctorName} marked as not verified. Note: rejections aren't tracked as a formal decision yet — they may reappear as pending if they reapply.`,
+      );
+    }
     context.refetchDoctors();
   };
+
+  useEffect(() => {
+    if (!rejectNotice) return;
+    const id = setTimeout(() => setRejectNotice(null), 8_000);
+    return () => clearTimeout(id);
+  }, [rejectNotice]);
 
   const filtered = useMemo(() => {
     let rows = doctors;
@@ -145,6 +159,22 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
           className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
         >
           {verifyError}
+        </div>
+      ) : null}
+      {rejectNotice ? (
+        <div
+          role="status"
+          className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          <span>{rejectNotice}</span>
+          <button
+            type="button"
+            onClick={() => setRejectNotice(null)}
+            className="shrink-0 text-amber-600 hover:text-amber-800"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ) : null}
       <PageHeader title="Doctors" subtitle="DHA license verification & platform-wide doctor management">
