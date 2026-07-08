@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, AlertTriangle, CheckCircle2, Search, ShieldCheck, Users, X } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Mail, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, exportRowsToCsv, type AdminContext } from './AdminShell';
 
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
@@ -30,6 +30,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
   const [filter, setFilter] = useState<PatientFilter>('all');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showRegisterComingSoon, setShowRegisterComingSoon] = useState(false);
 
   const filtered = useMemo(() => {
     let rows = patients;
@@ -161,7 +162,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=patient')}
+          onClick={() => setShowRegisterComingSoon(true)}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Register Patient
@@ -426,6 +427,45 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
                   <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.insuranceRows.map((r) => r.count), 1)} />
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showRegisterComingSoon ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowRegisterComingSoon(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600 ring-1 ring-teal-100">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRegisterComingSoon(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Coming Soon: Patient Invites</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Instead of registering a patient directly from here, admins will be able to
+              send an invite by email or phone number to someone who doesn't yet have a
+              CeenAiX account. The recipient completes their own registration on their
+              own device, the same way a patient signing up normally would — this admin
+              panel just kicks off the invite.
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+              <Mail className="h-4 w-4 shrink-0" />
+              This needs an email/SMS sending capability to be built first — it's tracked
+              as its own upcoming feature.
             </div>
           </div>
         </div>
