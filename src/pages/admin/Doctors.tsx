@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ClipboardList, Stethoscope, Activity, CircleDollarSign, CheckCircle2, Mail, Search, UserPlus, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
+import type { AdminDoctorRow } from '../../types';
 import { supabase } from '../../lib/supabase';
 
 type DoctorFilter = 'all' | 'pending' | 'expiring' | 'flagged';
@@ -22,7 +22,6 @@ const BreakdownBar = ({ label, count, max }: { label: string; count: number; max
 );
 
 const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
-  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const doctors = context.doctors;
   const [filter, setFilter] = useState<DoctorFilter>('all');
@@ -32,6 +31,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
   const [rejectNotice, setRejectNotice] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAddDoctorComingSoon, setShowAddDoctorComingSoon] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<AdminDoctorRow | null>(null);
 
   const setDoctorVerificationStatus = async (doctorId: string, verified: boolean) => {
     setVerifyError(null);
@@ -433,11 +433,11 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => navigate(`/admin/doctors/${row.id}`)}
-                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                      >
-                        View
-                      </button>
+                      onClick={() => setSelectedDoctor(row)}
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      View
+                    </button>
                     )}
                   </td>
                 </tr>
@@ -554,6 +554,102 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
               <Mail className="h-4 w-4 shrink-0" />
               This needs an email/SMS sending capability to be built first — it's tracked
               as its own upcoming feature.
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedDoctor ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedDoctor(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                  {selectedDoctor.initials}
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">
+                    {selectedDoctor.full_name}
+                    {selectedDoctor.badge_emoji ? <span>{selectedDoctor.badge_emoji}</span> : null}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {selectedDoctor.specialty ?? '—'}
+                    {selectedDoctor.specialty_sub ? ` · ${selectedDoctor.specialty_sub}` : ''}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDoctor(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Pill tone={selectedDoctor.dha_verified ? 'emerald' : 'amber'}>
+                {selectedDoctor.dha_verified ? '✅ DHA Verified' : '⏳ Pending'}
+              </Pill>
+              <Pill
+                tone={
+                  selectedDoctor.status_label === 'verified'
+                    ? 'emerald'
+                    : selectedDoctor.status_label === 'suspended'
+                      ? 'rose'
+                      : 'amber'
+                }
+              >
+                {selectedDoctor.status_label}
+              </Pill>
+              {selectedDoctor.badge_label ? <Pill tone="amber">{selectedDoctor.badge_label}</Pill> : null}
+              {selectedDoctor.status_flag ? <Pill tone="rose">{selectedDoctor.status_flag}</Pill> : null}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">DHA License</div>
+                <div className="mt-1 font-['DM_Mono'] text-xs text-slate-700">{selectedDoctor.dha_license ?? '—'}</div>
+                <div className="text-xs text-slate-500">{selectedDoctor.license_expires_label ?? ''}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Age / Gender / Nationality</div>
+                <div className="mt-1 text-slate-900">
+                  {[
+                    selectedDoctor.age ? `${selectedDoctor.age}` : null,
+                    selectedDoctor.gender ?? null,
+                    selectedDoctor.nationality ?? null,
+                  ].filter(Boolean).join(' · ') || '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Clinic</div>
+                <div className="mt-1 text-slate-900">{selectedDoctor.clinic_name ?? '—'}</div>
+                <div className="text-xs text-slate-500">{selectedDoctor.city ?? ''}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Rating</div>
+                <div className="mt-1 text-slate-900">
+                  {selectedDoctor.rating ? `${selectedDoctor.rating.toFixed(1)} ★ (${selectedDoctor.rating_count})` : 'Not yet rated'}
+                </div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Consultations</div>
+                <div className="mt-1 text-slate-900">
+                  {formatNumber(selectedDoctor.consults_lifetime)} lifetime
+                  {selectedDoctor.consults_recent_label ? ` · ${selectedDoctor.consults_recent_label}` : ''}
+                </div>
+                {selectedDoctor.reminder_status ? (
+                  <div className="mt-1 text-xs text-slate-500">{selectedDoctor.reminder_status}</div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
