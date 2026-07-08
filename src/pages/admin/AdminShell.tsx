@@ -4,7 +4,7 @@ import {
   Activity, BarChart3, Bell, Brain, Building2,
   ChevronRight, CircleDollarSign, ClipboardList, LockKeyhole,
   LogOut, Plug, Search, Settings, Shield, ShieldCheck, Stethoscope,
-  Terminal, Users, type LucideIcon,
+  Terminal, UserCog, Users, Wrench, type LucideIcon,
 } from 'lucide-react';
 import {
   useAdminAiAnalytics, useAdminAiDashboard, useAdminCompliance,
@@ -120,6 +120,7 @@ export const buildAdminSections = (context: AdminContext): AdminNavSection[] => 
         badge: compactBadge(context.dashboard?.issues.length ?? ctx?.open_issues), badgeTone: 'amber' },
     ]},
     { label: 'USERS & ORGANIZATIONS', items: [
+      { page: 'users', href: '/admin/users', label: 'Users', icon: UserCog, badge: compactBadge(context.metrics?.totals.users), badgeTone: 'blue' },
       { page: 'patients', href: '/admin/patients', label: 'Patients', icon: Users, badge: compactBadge(ctx?.total_patients), badgeTone: 'teal' },
       { page: 'doctors', href: '/admin/doctors', label: 'Doctors', icon: Stethoscope, badge: compactBadge(ctx?.pending_doctors), badgeTone: 'amber' },
       { page: 'organizations', href: '/admin/organizations', label: 'Organizations', icon: Building2, badge: compactBadge(context.dashboard?.orgsSummary.total ?? context.organizations.length), badgeTone: 'blue' },
@@ -138,6 +139,7 @@ export const buildAdminSections = (context: AdminContext): AdminNavSection[] => 
       { page: 'security', href: '/admin/security', label: 'Security', icon: LockKeyhole, badge: compactBadge(context.compliance?.openIncidentCount), badgeTone: 'amber' },
     ]},
     { label: 'SYSTEM', items: [
+      { page: 'diagnostics', href: '/admin/diagnostics', label: 'Diagnostics', icon: Wrench },
       { page: 'system', href: '/admin/system-health', label: 'System Health', icon: Terminal },
       { page: 'settings', href: '/admin/platform-settings', label: 'Platform Settings', icon: Settings },
     ]},
