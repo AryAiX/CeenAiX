@@ -262,8 +262,6 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
 
   const [mapView, setMapView] = useState<'map' | 'satellite'>('map');
   const [activityPaused, setActivityPaused] = useState(false);
-  const [revenuePeriod, setRevenuePeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [aiPeriod, setAiPeriod] = useState<'today' | 'week' | 'month'>('today');
 
   const currentMonthLabel = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
@@ -523,18 +521,6 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
                 {currentMonthLabel} · {formatAed(ctx?.revenue_target_aed ?? 0)} target
               </p>
             </div>
-            <div className="flex gap-2">
-              {(['daily', 'weekly', 'monthly'] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setRevenuePeriod(p)}
-                  className={`rounded-lg px-3 py-1 text-xs font-bold capitalize ${revenuePeriod === p ? 'bg-emerald-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
@@ -624,18 +610,6 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
             <div>
               <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold">AI Platform Analytics</h2>
               <p className="text-xs font-bold text-purple-600">Powered by Claude Sonnet · CeenAiX AI</p>
-            </div>
-            <div className="flex gap-1">
-              {(['today', 'week', 'month'] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setAiPeriod(p)}
-                  className={`rounded-lg px-2 py-1 text-[11px] font-bold capitalize ${aiPeriod === p ? 'bg-purple-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
             </div>
           </div>
           <div className="rounded-xl bg-purple-50 p-3 ring-1 ring-purple-100">
