@@ -566,15 +566,27 @@ const DashboardView = ({ context }: { context: AdminContext }) => {
               {ctx?.dha_score?.toFixed(1) ?? '—'}
             </div>
           </div>
-          <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
-            <div className="text-xs font-bold text-emerald-700">DHA License</div>
-            <div className="font-['DM_Mono'] text-sm font-bold text-emerald-900">
-              {ctx?.dha_license || 'DHA-PLAT-2025-XXXXXX'}
+          {ctx?.dha_license ? (
+            <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
+              <div className="text-xs font-bold text-emerald-700">DHA License</div>
+              <div className="font-['DM_Mono'] text-sm font-bold text-emerald-900">
+                {ctx.dha_license}
+              </div>
+              <div className="text-xs text-emerald-700">
+                Valid · Expires {ctx?.dha_license_expires ?? 'Not on file'}
+              </div>
             </div>
-            <div className="text-xs text-emerald-700">
-              Valid · Expires {ctx?.dha_license_expires || 'Dec 2026'}
+          ) : (
+            <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+              <div className="text-xs font-bold text-slate-500">DHA License</div>
+              <div className="text-sm font-semibold text-slate-600">
+                Not on file
+              </div>
+              <div className="text-xs text-slate-500">
+                No license number recorded for this platform account
+              </div>
             </div>
-          </div>
+          )}
           <div className="mt-4 text-[10px] font-bold uppercase tracking-wide text-slate-500">Compliance Checklist</div>
           <ul className="mt-2 space-y-2 text-sm">
             {checklist.map((item) => (
