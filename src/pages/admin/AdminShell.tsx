@@ -44,6 +44,8 @@ export interface AdminContext {
   loading: boolean;
   error: string | null;
   refreshOrganizations: () => void;
+  refetchDashboard: () => void;
+  refetchDoctors: () => void;
   refetchAll: () => void;
 }
 
@@ -177,6 +179,8 @@ export const useAdminContextValue = (
     loading: metrics.loading || users.loading || organizations.loading || compliance.loading || systemHealth.loading || aiAnalytics.loading || diagnostics.loading || dashboard.loading || doctors.loading || patients.loading || insurancePartners.loading || aiDashboard.loading,
     error,
     refreshOrganizations: organizations.refetch,
+    refetchDashboard: dashboard.refetch,
+    refetchDoctors: doctors.refetch,
     refetchAll: () => { void metrics.refetch(); void users.refetch(); void organizations.refetch(); void compliance.refetch(); void systemHealth.refetch(); void aiAnalytics.refetch(); void diagnostics.refetch(); void dashboard.refetch(); void doctors.refetch(); void patients.refetch(); void insurancePartners.refetch(); void aiDashboard.refetch(); },
   };
 };
