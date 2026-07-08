@@ -191,7 +191,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
         <KpiTile
           label="New This Month"
           value={formatNumber(ctx?.patients_new_month ?? 0)}
-          trend={`↑ +${ctx?.patient_change_pct?.toFixed(1) ?? '0.0'}% vs ${prevMonthName}`}
+          caption={`New registrations since ${prevMonthName} 1`}
           icon={CheckCircle2}
           iconTone="bg-blue-50 text-blue-600 ring-blue-100"
         />
