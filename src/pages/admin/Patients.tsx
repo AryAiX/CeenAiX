@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Activity, AlertTriangle, CheckCircle2, Mail, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, exportRowsToCsv, type AdminContext } from './AdminShell';
+import type { AdminPatientRow } from '../../types';
 
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
 
@@ -24,13 +24,13 @@ const BreakdownBar = ({ label, count, max }: { label: string; count: number; max
 );
 
 const AdminPatientsView = ({ context }: { context: AdminContext }) => {
-  const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const patients = context.patients;
   const [filter, setFilter] = useState<PatientFilter>('all');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showRegisterComingSoon, setShowRegisterComingSoon] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<AdminPatientRow | null>(null);
 
   const filtered = useMemo(() => {
     let rows = patients;
@@ -339,7 +339,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
                   <td className="px-3 py-3 text-right">
                     <button
                       type="button"
-                      onClick={() => navigate(`/admin/patients/${row.id}`)}
+                      onClick={() => setSelectedPatient(row)}
                       className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                     >
                       View
@@ -466,6 +466,116 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
               <Mail className="h-4 w-4 shrink-0" />
               This needs an email/SMS sending capability to be built first — it's tracked
               as its own upcoming feature.
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedPatient ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedPatient(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-teal-600 text-sm font-bold text-white">
+                  {selectedPatient.initials}
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">
+                    {selectedPatient.full_name}
+                    {selectedPatient.badge_emoji ? <span>{selectedPatient.badge_emoji}</span> : null}
+                  </div>
+                  <div className="font-['DM_Mono'] text-xs text-slate-500">{selectedPatient.patient_code}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPatient(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Pill
+                tone={
+                  selectedPatient.status_label === 'active'
+                    ? 'emerald'
+                    : selectedPatient.status_label === 'inactive'
+                      ? 'slate'
+                      : selectedPatient.status_label === 'flagged'
+                        ? 'amber'
+                        : 'rose'
+                }
+              >
+                {selectedPatient.status_label}
+              </Pill>
+              <Pill
+                tone={
+                  selectedPatient.risk_level === 'critical'
+                    ? 'rose'
+                    : selectedPatient.risk_level === 'high'
+                      ? 'amber'
+                      : selectedPatient.risk_level === 'medium'
+                        ? 'blue'
+                        : 'emerald'
+                }
+              >
+                {selectedPatient.risk_level} risk
+              </Pill>
+              {selectedPatient.badge_label ? (
+                <Pill tone="amber">{selectedPatient.badge_label}</Pill>
+              ) : null}
+              {selectedPatient.status_flag ? (
+                <Pill tone="rose">{selectedPatient.status_flag}</Pill>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Age / Gender</div>
+                <div className="mt-1 text-slate-900">
+                  {[
+                    selectedPatient.age ? `${selectedPatient.age}` : null,
+                    selectedPatient.gender ?? null,
+                    selectedPatient.blood_type ?? null,
+                  ].filter(Boolean).join(' · ') || '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">City</div>
+                <div className="mt-1 text-slate-900">{selectedPatient.city ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Emirates ID</div>
+                <div className="mt-1 font-['DM_Mono'] text-xs text-slate-700">{selectedPatient.emirates_id_masked ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Insurance</div>
+                <div className="mt-1 text-slate-900">{selectedPatient.insurance_plan ?? '—'}</div>
+                <div className="font-['DM_Mono'] text-xs text-slate-500">{selectedPatient.insurance_member_id_masked ?? ''}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Joined</div>
+                <div className="mt-1 text-slate-900">{selectedPatient.joined_label ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Last Active</div>
+                <div className="mt-1 text-slate-900">{selectedPatient.last_active_label ?? '—'}</div>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+              This shows administrative account information only. Clinical
+              records (appointments, prescriptions, consultation notes) are
+              not accessible from the admin portal.
             </div>
           </div>
         </div>
