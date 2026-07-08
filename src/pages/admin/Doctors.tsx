@@ -1,10 +1,25 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ClipboardList, Stethoscope, Activity, CircleDollarSign, CheckCircle2, Search } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Stethoscope, Activity, CircleDollarSign, CheckCircle2, Search, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
 import { supabase } from '../../lib/supabase';
 
 type DoctorFilter = 'all' | 'pending' | 'expiring' | 'flagged';
+
+const BreakdownBar = ({ label, count, max }: { label: string; count: number; max: number }) => (
+  <div className="mb-2">
+    <div className="mb-1 flex items-center justify-between text-xs">
+      <span className="font-semibold text-slate-700">{label}</span>
+      <span className="text-slate-500">{count}</span>
+    </div>
+    <div className="h-2 w-full rounded-full bg-slate-100">
+      <div
+        className="h-2 rounded-full bg-blue-500"
+        style={{ width: max > 0 ? `${(count / max) * 100}%` : '0%' }}
+      />
+    </div>
+  </div>
+);
 
 const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
   const navigate = useNavigate();
@@ -14,6 +29,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
   const [search, setSearch] = useState('');
   const [busyDoctorId, setBusyDoctorId] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const setDoctorVerificationStatus = async (doctorId: string, verified: boolean) => {
     setVerifyError(null);
@@ -53,6 +69,58 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
     return rows;
   }, [doctors, filter, search]);
 
+  const analytics = useMemo(() => {
+    const specialtyCounts = new Map<string, number>();
+    const cityCounts = new Map<string, number>();
+    const nationalityCounts = new Map<string, number>();
+    const genderCounts = { male: 0, female: 0, unspecified: 0 };
+    const ratingBands = [
+      { label: '4.5 – 5.0', count: 0 },
+      { label: '4.0 – 4.49', count: 0 },
+      { label: '3.0 – 3.99', count: 0 },
+      { label: 'Below 3.0', count: 0 },
+      { label: 'Not yet rated', count: 0 },
+    ];
+
+    doctors.forEach((d) => {
+      const specialty = d.specialty ?? 'Unspecified';
+      specialtyCounts.set(specialty, (specialtyCounts.get(specialty) ?? 0) + 1);
+
+      const city = d.city ?? 'Unknown';
+      cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
+
+      const nationality = d.nationality ?? 'Unspecified';
+      nationalityCounts.set(nationality, (nationalityCounts.get(nationality) ?? 0) + 1);
+
+      if (d.gender === 'male') genderCounts.male += 1;
+      else if (d.gender === 'female') genderCounts.female += 1;
+      else genderCounts.unspecified += 1;
+
+      if (d.rating == null) ratingBands[4].count += 1;
+      else if (d.rating >= 4.5) ratingBands[0].count += 1;
+      else if (d.rating >= 4.0) ratingBands[1].count += 1;
+      else if (d.rating >= 3.0) ratingBands[2].count += 1;
+      else ratingBands[3].count += 1;
+    });
+
+    const toSortedRows = (map: Map<string, number>) =>
+      Array.from(map.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
+
+    return {
+      specialtyRows: toSortedRows(specialtyCounts),
+      cityRows: toSortedRows(cityCounts),
+      nationalityRows: toSortedRows(nationalityCounts),
+      genderRows: [
+        { label: 'Female', count: genderCounts.female },
+        { label: 'Male', count: genderCounts.male },
+        { label: 'Unspecified', count: genderCounts.unspecified },
+      ],
+      ratingBands,
+    };
+  }, [doctors]);
+
   const expiring = doctors.filter((d) => d.status_label === 'expiring');
   const expiredOrSuspended = doctors.filter((d) => d.status_label === 'suspended');
   const pending = doctors.filter((d) => d.status_label === 'pending');
@@ -81,7 +149,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
       <PageHeader title="Doctors" subtitle="DHA license verification & platform-wide doctor management">
         <button
           type="button"
-          onClick={() => navigate('/admin/ai-analytics')}
+          onClick={() => setShowAnalytics(true)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           Analytics
@@ -361,6 +429,68 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
           Showing {filtered.length} of {doctors.length} doctors
         </div>
       </Card>
+
+      {showAnalytics ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowAnalytics(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Doctor Analytics</h2>
+                <p className="text-sm text-slate-500">
+                  Based on all {formatNumber(doctors.length)} doctors on the platform
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Top Specialties</h3>
+                {analytics.specialtyRows.slice(0, 6).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.specialtyRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Rating Distribution</h3>
+                {analytics.ratingBands.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.ratingBands.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Gender</h3>
+                {analytics.genderRows.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.genderRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Top Cities</h3>
+                {analytics.cityRows.slice(0, 6).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.cityRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div className="sm:col-span-2">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Nationality</h3>
+                {analytics.nationalityRows.slice(0, 8).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.nationalityRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
