@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, Search, Stethoscope, Users, ShieldCheck } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatDate, exportRowsToCsv, titleCase, type AdminContext } from './AdminShell';
 import type { UserRole } from '../../types';
@@ -16,28 +16,38 @@ const ROLE_TABS: { key: RoleFilter; label: string }[] = [
   { key: 'insurance', label: 'Insurance' },
 ];
 
-const UsersView = ({ context }: { context: AdminContext }) => {
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+const UsersView = ({
+  context,
+  search,
+  setSearch,
+  roleFilter,
+  setRoleFilter,
+}: {
+  context: AdminContext;
+  search: string;
+  setSearch: (value: string) => void;
+  roleFilter: RoleFilter;
+  setRoleFilter: (value: RoleFilter) => void;
+}) => {
+  const rows = context.users;
 
-  const rows = useMemo(() => {
-    return context.users.filter((user) => {
-      const matchesRole = roleFilter === 'all' ? true : user.role === roleFilter;
-      const haystack = `${user.full_name} ${user.email ?? ''} ${user.phone ?? ''}`.toLowerCase();
-      return matchesRole && haystack.includes(search.toLowerCase());
-    });
-  }, [context.users, roleFilter, search]);
+  const usersByRole = context.metrics?.usersByRole ?? {};
+  const totalUsers = context.metrics?.totals.users ?? 0;
+  const patientTotal = usersByRole.patient ?? 0;
+  const doctorTotal = usersByRole.doctor ?? 0;
 
-  const totalLoaded = context.users.length;
-  const patientCount = context.users.filter((u) => u.role === 'patient').length;
-  const doctorCount = context.users.filter((u) => u.role === 'doctor').length;
   const completedCount = context.users.filter((u) => u.profile_completed).length;
+  const dhaVerifiedCount = context.users.filter((u) => u.is_dha_verified).length;
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="All Platform Users"
-        subtitle={`${formatNumber(rows.length)} of ${formatNumber(totalLoaded)} loaded users`}
+        subtitle={
+          roleFilter === 'all' && !search
+            ? `${formatNumber(totalUsers)} total users`
+            : `${formatNumber(rows.length)} matching users`
+        }
       >
         <button
           type="button"
@@ -65,16 +75,16 @@ const UsersView = ({ context }: { context: AdminContext }) => {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
-          label="Total Loaded"
-          value={formatNumber(totalLoaded)}
-          caption="Up to 120 per session"
+          label="Total Users"
+          value={formatNumber(totalUsers)}
+          caption="Across the whole platform"
           icon={Users}
           iconTone="bg-teal-50 text-teal-600 ring-teal-100"
         />
         <KpiTile
           label="Patients"
-          value={formatNumber(patientCount)}
-          caption={`${formatNumber(doctorCount)} doctors`}
+          value={formatNumber(patientTotal)}
+          caption={`${formatNumber(doctorTotal)} doctors`}
           icon={Stethoscope}
           iconTone="bg-blue-50 text-blue-600 ring-blue-100"
         />
@@ -82,8 +92,8 @@ const UsersView = ({ context }: { context: AdminContext }) => {
           label="Profile Completed"
           value={formatNumber(completedCount)}
           caption={
-            totalLoaded
-              ? `${((completedCount / totalLoaded) * 100).toFixed(1)}% of loaded users`
+            rows.length
+              ? `${((completedCount / rows.length) * 100).toFixed(1)}% of shown results`
               : ''
           }
           icon={CheckCircle2}
@@ -91,8 +101,8 @@ const UsersView = ({ context }: { context: AdminContext }) => {
         />
         <KpiTile
           label="DHA Verified"
-          value={formatNumber(context.users.filter((u) => u.is_dha_verified).length)}
-          caption="Doctors with active DHA license"
+          value={formatNumber(dhaVerifiedCount)}
+          caption="Among shown results"
           icon={ShieldCheck}
           iconTone="bg-purple-50 text-purple-600 ring-purple-100"
         />
@@ -114,7 +124,7 @@ const UsersView = ({ context }: { context: AdminContext }) => {
               {tab.label}
               {tab.key !== 'all' ? (
                 <span className="ml-1 opacity-70">
-                  ({context.users.filter((u) => u.role === tab.key).length})
+                  ({formatNumber(usersByRole[tab.key as UserRole] ?? 0)})
                 </span>
               ) : null}
             </button>
@@ -174,7 +184,7 @@ const UsersView = ({ context }: { context: AdminContext }) => {
         </div>
 
         <div className="mt-4 text-sm text-slate-500">
-          Showing {rows.length} of {formatNumber(totalLoaded)} loaded users
+          Showing {formatNumber(rows.length)} of {formatNumber(totalUsers)} total users
           {roleFilter !== 'all' ? ` · filtered to ${titleCase(roleFilter)}` : ''}
         </div>
       </Card>
@@ -185,13 +195,26 @@ const UsersView = ({ context }: { context: AdminContext }) => {
 // ─── Export ───────────────────────────────────────────────────────────────────
 
 export const AdminUsers = () => {
-  const context = useAdminContextValue();
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const context = useAdminContextValue({
+    userSearch: search,
+    userRole: roleFilter === 'all' ? undefined : roleFilter,
+  });
   useEffect(() => { document.title = 'Users · CeenAiX Admin'; }, []);
   return (
     <AdminShell page="users" context={context}>
       {context.loading && !context.metrics ? (
         <Card><div className="py-12 text-center text-slate-500">Loading...</div></Card>
-      ) : <UsersView context={context} />}
+      ) : (
+        <UsersView
+          context={context}
+          search={search}
+          setSearch={setSearch}
+          roleFilter={roleFilter}
+          setRoleFilter={setRoleFilter}
+        />
+      )}
     </AdminShell>
   );
 };

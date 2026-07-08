@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, BarChart3, Bell, Brain, Building2,
@@ -18,7 +18,7 @@ import type {
   AdminAiAnalyticsPayload, AdminAiDashboardPayload,
   AdminDashboardPayload, AdminDoctorRow, AdminInsurancePartnerRow,
   AdminMetricsPayload, AdminPatientRow, AdminSystemHealthPayload,
-  AdminUserRow, Organization, UserRole,
+  AdminUserRow, Organization,
 } from '../../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -148,10 +148,15 @@ export const buildAdminSections = (context: AdminContext): AdminNavSection[] => 
 
 // ─── Context hook ─────────────────────────────────────────────────────────────
 
-export const useAdminContextValue = (): AdminContext => {
-  const [roleFilter] = useState<UserRole | ''>('');
+export const useAdminContextValue = (
+  options: { userSearch?: string; userRole?: string } = {}
+): AdminContext => {
   const metrics = useAdminMetrics();
-  const users = useAdminUsers({ role: roleFilter || null, limit: 120 });
+  const users = useAdminUsers({
+    search: options.userSearch ?? '',
+    role: options.userRole || null,
+    limit: 120,
+  });
   const organizations = useAdminOrganizations();
   const compliance = useAdminCompliance();
   const systemHealth = useAdminSystemHealth();
