@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ClipboardList, Stethoscope, Activity, CircleDollarSign, CheckCircle2, Search, X } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Stethoscope, Activity, CircleDollarSign, CheckCircle2, Mail, Search, UserPlus, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
 import { supabase } from '../../lib/supabase';
 
@@ -30,6 +30,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
   const [busyDoctorId, setBusyDoctorId] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showAddDoctorComingSoon, setShowAddDoctorComingSoon] = useState(false);
 
   const setDoctorVerificationStatus = async (doctorId: string, verified: boolean) => {
     setVerifyError(null);
@@ -176,10 +177,7 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          // Force the register page to sign-out the admin first (?reset=1)
-          // so the existing session doesn't bounce them back to /auth/onboarding
-          // before the new doctor record can be created.
-          onClick={() => navigate('/auth/register?role=doctor&reset=1')}
+          onClick={() => setShowAddDoctorComingSoon(true)}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Add Doctor
@@ -487,6 +485,45 @@ const AdminDoctorsView = ({ context }: { context: AdminContext }) => {
                   <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.nationalityRows.map((r) => r.count), 1)} />
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAddDoctorComingSoon ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowAddDoctorComingSoon(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600 ring-1 ring-teal-100">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddDoctorComingSoon(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Coming Soon: Doctor Invites</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Instead of registering a doctor directly from here, admins will be able to
+              send an invite by email or phone number to a doctor who doesn't yet have a
+              CeenAiX account. The doctor completes their own registration and license
+              submission on their own device — this admin panel just kicks off the
+              invite and tracks it through to DHA verification.
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+              <Mail className="h-4 w-4 shrink-0" />
+              This needs an email/SMS sending capability to be built first — it's tracked
+              as its own upcoming feature.
             </div>
           </div>
         </div>
