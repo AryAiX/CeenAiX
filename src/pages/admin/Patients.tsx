@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, AlertTriangle, CheckCircle2, Search, ShieldCheck, Users } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Search, ShieldCheck, Users, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, exportRowsToCsv, type AdminContext } from './AdminShell';
 
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
@@ -8,12 +8,28 @@ type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
 const prevMonthName = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
   .toLocaleDateString(undefined, { month: 'long' });
 
+const BreakdownBar = ({ label, count, max }: { label: string; count: number; max: number }) => (
+  <div className="mb-2">
+    <div className="mb-1 flex items-center justify-between text-xs">
+      <span className="font-semibold text-slate-700">{label}</span>
+      <span className="text-slate-500">{count}</span>
+    </div>
+    <div className="h-2 w-full rounded-full bg-slate-100">
+      <div
+        className="h-2 rounded-full bg-teal-500"
+        style={{ width: max > 0 ? `${(count / max) * 100}%` : '0%' }}
+      />
+    </div>
+  </div>
+);
+
 const AdminPatientsView = ({ context }: { context: AdminContext }) => {
   const navigate = useNavigate();
   const ctx = context.dashboard?.context;
   const patients = context.patients;
   const [filter, setFilter] = useState<PatientFilter>('all');
   const [search, setSearch] = useState('');
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const filtered = useMemo(() => {
     let rows = patients;
@@ -32,6 +48,65 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
     }
     return rows;
   }, [patients, filter, search]);
+
+  const analytics = useMemo(() => {
+    const ageBands = [
+      { label: '0–17', count: 0 },
+      { label: '18–34', count: 0 },
+      { label: '35–54', count: 0 },
+      { label: '55–74', count: 0 },
+      { label: '75+', count: 0 },
+      { label: 'Unknown', count: 0 },
+    ];
+    const riskCounts: Record<string, number> = { low: 0, medium: 0, high: 0, critical: 0 };
+    const cityCounts = new Map<string, number>();
+    const insuranceCounts = new Map<string, number>();
+    const genderCounts = { male: 0, female: 0, unspecified: 0 };
+
+    patients.forEach((p) => {
+      const age = p.age;
+      if (age == null) ageBands[5].count += 1;
+      else if (age < 18) ageBands[0].count += 1;
+      else if (age < 35) ageBands[1].count += 1;
+      else if (age < 55) ageBands[2].count += 1;
+      else if (age < 75) ageBands[3].count += 1;
+      else ageBands[4].count += 1;
+
+      if (p.risk_level && p.risk_level in riskCounts) riskCounts[p.risk_level] += 1;
+
+      const city = p.city ?? 'Unknown';
+      cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
+
+      const plan = p.insurance_plan ?? 'No insurance on file';
+      insuranceCounts.set(plan, (insuranceCounts.get(plan) ?? 0) + 1);
+
+      if (p.gender === 'male') genderCounts.male += 1;
+      else if (p.gender === 'female') genderCounts.female += 1;
+      else genderCounts.unspecified += 1;
+    });
+
+    const toSortedRows = (map: Map<string, number>) =>
+      Array.from(map.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
+
+    return {
+      ageBands,
+      riskRows: [
+        { label: 'Low', count: riskCounts.low },
+        { label: 'Medium', count: riskCounts.medium },
+        { label: 'High', count: riskCounts.high },
+        { label: 'Critical', count: riskCounts.critical },
+      ],
+      cityRows: toSortedRows(cityCounts),
+      insuranceRows: toSortedRows(insuranceCounts),
+      genderRows: [
+        { label: 'Female', count: genderCounts.female },
+        { label: 'Male', count: genderCounts.male },
+        { label: 'Unspecified', count: genderCounts.unspecified },
+      ],
+    };
+  }, [patients]);
 
   const tabs: { key: PatientFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: ctx?.total_patients ?? patients.length },
@@ -58,7 +133,7 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
       <PageHeader title="Patients" subtitle="Platform-wide patient management">
         <button
           type="button"
-          onClick={() => navigate('/admin/ai-analytics')}
+          onClick={() => setShowAnalytics(true)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           Analytics
@@ -293,6 +368,68 @@ const AdminPatientsView = ({ context }: { context: AdminContext }) => {
           */}
         </div>
       </Card>
+
+      {showAnalytics ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowAnalytics(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Patient Analytics</h2>
+                <p className="text-sm text-slate-500">
+                  Based on all {formatNumber(patients.length)} patients currently on the platform
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Age Distribution</h3>
+                {analytics.ageBands.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.ageBands.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Risk Level</h3>
+                {analytics.riskRows.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.riskRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Gender</h3>
+                {analytics.genderRows.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.genderRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Top Cities</h3>
+                {analytics.cityRows.slice(0, 6).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.cityRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div className="sm:col-span-2">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Insurance Plans</h3>
+                {analytics.insuranceRows.slice(0, 8).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.insuranceRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
