@@ -18,6 +18,7 @@ import type {
 } from '../types';
 import type {
   AdminClinicDoctorRecord,
+  AdminClinicInvitationRecord,
   AdminClinicRecord,
   AdminOnboardClinicInput,
   AdminOnboardClinicResult,
@@ -387,4 +388,27 @@ export async function linkDoctorToClinic(facilityId: string, doctorUserId: strin
     throw error;
   }
   return data as { success: boolean; staff_id: string };
+}
+
+export async function fetchAdminClinicInvitations(facilityId: string): Promise<AdminClinicInvitationRecord[]> {
+  const { data, error } = await supabase
+    .from('clinic_doctor_invitations')
+    .select('id, full_name, email, status, created_at, email_sent_at')
+    .eq('facility_id', facilityId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+  if (error) {
+    throw error;
+  }
+  return (data as AdminClinicInvitationRecord[]) ?? [];
+}
+
+export async function cancelClinicInvitation(invitationId: string) {
+  const { data, error } = await supabase.rpc('admin_cancel_clinic_invitation', {
+    p_invitation_id: invitationId,
+  });
+  if (error) {
+    throw error;
+  }
+  return data;
 }

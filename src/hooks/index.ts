@@ -129,6 +129,8 @@ export {
   setClinicStatus,
   linkDoctorToClinic,
   fetchAdminClinicDoctors,
+  fetchAdminClinicInvitations,
+  cancelClinicInvitation,
 } from './use-admin-dashboard';
 export type {
   AdminComplianceData,

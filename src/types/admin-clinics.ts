@@ -37,6 +37,15 @@ export interface AdminClinicDoctorRecord {
   is_available: boolean;
 }
 
+export interface AdminClinicInvitationRecord {
+  id: string;
+  full_name: string;
+  email: string;
+  status: string;
+  created_at: string;
+  email_sent_at: string | null;
+}
+
 export interface AdminOnboardClinicInput {
   name_en: string;
   name_ar?: string;

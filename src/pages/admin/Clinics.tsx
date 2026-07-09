@@ -11,14 +11,16 @@ import AdminShell, {
   exportRowsToCsv,
 } from './AdminShell';
 import {
+  cancelClinicInvitation,
   fetchAdminClinicDoctors,
+  fetchAdminClinicInvitations,
   linkDoctorToClinic,
   onboardClinic,
   setClinicStatus,
   useAdminClinics,
   useAdminUnlinkedDoctors,
 } from '../../hooks';
-import type { AdminClinicDoctorRecord, AdminClinicRecord } from '../../types';
+import type { AdminClinicDoctorRecord, AdminClinicInvitationRecord, AdminClinicRecord } from '../../types';
 
 const INVITATION_TONE: Record<string, 'emerald' | 'amber' | 'rose' | 'slate'> = {
   accepted: 'emerald',
@@ -67,6 +69,9 @@ const ClinicsView = () => {
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
   const [clinicDoctors, setClinicDoctors] = useState<AdminClinicDoctorRecord[]>([]);
   const [doctorsLoading, setDoctorsLoading] = useState(false);
+  const [clinicInvitations, setClinicInvitations] = useState<AdminClinicInvitationRecord[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [migrateDoctorId, setMigrateDoctorId] = useState('');
   const [migrateClinicId, setMigrateClinicId] = useState('');
   const [confirmSuspend, setConfirmSuspend] = useState<AdminClinicRecord | null>(null);
@@ -79,16 +84,21 @@ const ClinicsView = () => {
     return () => clearTimeout(timer);
   }, [message]);
 
-  // Load doctors when clinic is selected
+  // Load doctors and pending invitations when clinic is selected
   useEffect(() => {
     if (!selectedClinicId) {
       setClinicDoctors([]);
+      setClinicInvitations([]);
       return;
     }
     setDoctorsLoading(true);
+    setInvitationsLoading(true);
     void fetchAdminClinicDoctors(selectedClinicId)
       .then(setClinicDoctors)
       .finally(() => setDoctorsLoading(false));
+    void fetchAdminClinicInvitations(selectedClinicId)
+      .then(setClinicInvitations)
+      .finally(() => setInvitationsLoading(false));
   }, [selectedClinicId]);
 
   const selectedClinic = clinics.find((c) => c.facility_id === selectedClinicId) ?? null;
@@ -201,6 +211,20 @@ const ClinicsView = () => {
       setMessage(err instanceof Error ? err.message : 'Failed to link doctor.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    setCancellingId(invitationId);
+    try {
+      await cancelClinicInvitation(invitationId);
+      setClinicInvitations((current) => current.filter((inv) => inv.id !== invitationId));
+      setMessage('Invitation cancelled.');
+      await refetch();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Failed to cancel invitation.');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -465,6 +489,45 @@ const ClinicsView = () => {
               ))}
             </ul>
           )}
+
+          {selectedClinic && (invitationsLoading || clinicInvitations.length > 0) ? (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Pending Invitations ({clinicInvitations.length})
+              </h3>
+              {invitationsLoading ? (
+                <div className="mt-3 space-y-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100" />
+                  ))}
+                </div>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {clinicInvitations.map((inv) => (
+                    <li key={inv.id} className="rounded-xl bg-amber-50 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{inv.full_name}</p>
+                          <p className="text-xs text-slate-500">{inv.email}</p>
+                          <p className="mt-0.5 text-[11px] text-slate-400">
+                            {inv.email_sent_at ? 'Email sent' : 'Email not yet confirmed sent'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleCancelInvitation(inv.id)}
+                          disabled={cancellingId === inv.id}
+                          className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-60"
+                        >
+                          {cancellingId === inv.id ? '…' : 'Cancel'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </aside>
       </div>
 
