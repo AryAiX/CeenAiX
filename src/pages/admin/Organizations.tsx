@@ -364,7 +364,8 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
         onClose={() => setOnboardOpen(false)}
         onCreated={(org) => {
           setOnboardOpen(false);
-          context.refetchAll();
+          context.refreshOrganizations();
+          context.refetchDashboard();
           setCreatedToast(`Created ${org.name} (${titleCase(org.kind)}) — status set to pending.`);
           if (createdToastTimeoutRef.current !== null) {
             window.clearTimeout(createdToastTimeoutRef.current);
