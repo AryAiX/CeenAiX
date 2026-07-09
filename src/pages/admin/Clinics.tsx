@@ -53,6 +53,7 @@ const ClinicsView = () => {
   const [doctorsLoading, setDoctorsLoading] = useState(false);
   const [migrateDoctorId, setMigrateDoctorId] = useState('');
   const [migrateClinicId, setMigrateClinicId] = useState('');
+  const [confirmSuspend, setConfirmSuspend] = useState<AdminClinicRecord | null>(null);
 
   // Auto-dismiss message after 6 seconds
   useEffect(() => {
@@ -305,7 +306,7 @@ const ClinicsView = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleToggleStatus(clinic)}
+                    onClick={() => (clinic.is_active ? setConfirmSuspend(clinic) : void handleToggleStatus(clinic))}
                     className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     {clinic.is_active ? 'Suspend' : 'Reactivate'}
@@ -495,6 +496,42 @@ const ClinicsView = () => {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {confirmSuspend ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmSuspend(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <h3 className="text-lg font-bold text-slate-900">Suspend {confirmSuspend.name_en ?? confirmSuspend.name}?</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              This clinic has {confirmSuspend.doctor_count} doctor{confirmSuspend.doctor_count === 1 ? '' : 's'} and{' '}
+              {confirmSuspend.admin_count} admin{confirmSuspend.admin_count === 1 ? '' : 's'} linked to it. Suspending it
+              may affect their access. You can reactivate it again at any time.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmSuspend(null)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const clinic = confirmSuspend;
+                  setConfirmSuspend(null);
+                  void handleToggleStatus(clinic);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              >
+                Suspend Clinic
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
