@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Link2, Plus, RefreshCw, Stethoscope, UserPlus, X } from 'lucide-react';
+import { Building2, Download, Link2, Plus, RefreshCw, Stethoscope, UserPlus, X } from 'lucide-react';
 import AdminShell, {
   useAdminContextValue,
   Card,
@@ -8,6 +8,7 @@ import AdminShell, {
   KpiTile,
   formatNumber,
   titleCase,
+  exportRowsToCsv,
 } from './AdminShell';
 import {
   fetchAdminClinicDoctors,
@@ -164,6 +165,32 @@ const ClinicsView = () => {
           className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           <Plus className="h-4 w-4" /> Onboard Clinic
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            exportRowsToCsv(
+              filtered.map((clinic) => ({
+                name: clinic.name_en ?? clinic.name,
+                name_ar: clinic.name_ar ?? '',
+                city: clinic.city ?? '',
+                address: clinic.address ?? '',
+                phone: clinic.phone ?? '',
+                email: clinic.email ?? '',
+                license_number: clinic.license_number ?? '',
+                status: clinic.is_active ? 'active' : 'suspended',
+                organization: clinic.organization_name ?? '',
+                doctors: clinic.doctor_count,
+                admins: clinic.admin_count,
+                pending_invitations: clinic.pending_invitations,
+                created_at: clinic.created_at,
+              })),
+              'clinics.csv',
+            )
+          }
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <Download className="h-4 w-4" /> Export
         </button>
         <button
           type="button"
