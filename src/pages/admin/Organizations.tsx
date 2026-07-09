@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { CircleDollarSign, Search, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, exportRowsToCsv, titleCase, formatDate, type AdminContext } from './AdminShell';
 import { createOrganization, updateOrganization } from '../../hooks';
 import type { CreateOrganizationInput } from '../../hooks';
@@ -506,6 +506,7 @@ const OrganizationCard = ({
   const navigate = useNavigate();
   const [showDetail, setShowDetail] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showBillingComingSoon, setShowBillingComingSoon] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -627,7 +628,7 @@ const OrganizationCard = ({
         </button>
         <button
           type="button"
-          onClick={() => navigate('/admin/revenue')}
+          onClick={() => setShowBillingComingSoon(true)}
           className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
         >
           Billing
@@ -907,6 +908,42 @@ const OrganizationCard = ({
               >
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showBillingComingSoon ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowBillingComingSoon(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600 ring-1 ring-teal-100">
+                <CircleDollarSign className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBillingComingSoon(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Coming Soon: Per-Organization Billing</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This will show {org.name}'s invoices, seat-based charges, and payment
+              history in one place. It isn't built yet because revenue isn't currently
+              tracked per organization anywhere in the platform — today's Revenue page
+              only shows platform-wide totals with no link back to a specific org.
+            </p>
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+              Currently {org.seats_used} of {org.seats_allocated} allocated seats are in use.
             </div>
           </div>
         </div>
