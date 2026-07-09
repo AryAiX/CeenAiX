@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, exportRowsToCsv, titleCase, type AdminContext } from './AdminShell';
+import { Search, X } from 'lucide-react';
+import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, exportRowsToCsv, titleCase, formatDate, type AdminContext } from './AdminShell';
 import { createOrganization } from '../../hooks';
 import type { CreateOrganizationInput } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
@@ -472,7 +472,7 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((org) => (
-              <OrganizationCard key={org.id} org={org} />
+              <OrganizationCard key={org.id} org={org} doctors={context.doctors} />
             ))}
             {filtered.length === 0 ? (
               <Card className="md:col-span-2 xl:col-span-3">
@@ -486,9 +486,14 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   );
 };
 
-const OrganizationCard = ({ org }: { org: Organization }) => {
+const OrganizationCard = ({ org, doctors }: { org: Organization; doctors: AdminContext['doctors'] }) => {
   const navigate = useNavigate();
+  const [showDetail, setShowDetail] = useState(false);
   const dha = org.dha_license ?? '—';
+  const affiliatedDoctors =
+    org.kind === 'hospital' || org.kind === 'clinic'
+      ? doctors.filter((d) => (d.clinic_name ?? '').trim().toLowerCase() === org.name.trim().toLowerCase())
+      : [];
   const kindTone =
     org.kind === 'hospital'
       ? 'violet'
@@ -545,9 +550,7 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
         <button
           type="button"
-          onClick={() => {
-            navigate(`/admin/users?org=${encodeURIComponent(org.name)}`);
-          }}
+          onClick={() => setShowDetail(true)}
           className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
         >
           View
@@ -575,6 +578,105 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
           Audit
         </button>
       </div>
+
+      {showDetail ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowDetail(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">{org.name}</h2>
+                <p className="font-['DM_Mono'] text-xs text-slate-500">{org.slug}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDetail(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              <Pill tone={kindTone}>{titleCase(org.kind)}</Pill>
+              <Pill tone={org.status === 'active' ? 'emerald' : org.status === 'pending' ? 'amber' : org.status === 'suspended' ? 'rose' : 'slate'}>
+                {titleCase(org.status)}
+              </Pill>
+              <Pill tone={org.nabidh_connected ? 'emerald' : 'slate'}>
+                {org.nabidh_connected ? '✅ NABIDH connected' : '⚪ NABIDH not connected'}
+              </Pill>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">City / Country</div>
+                <div className="mt-1 text-slate-900">{[org.city, org.country].filter(Boolean).join(', ') || '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">DHA License</div>
+                <div className="mt-1 font-['DM_Mono'] text-xs text-slate-700">{org.dha_license ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Primary Contact</div>
+                <div className="mt-1 text-slate-900">{org.primary_contact_name ?? '—'}</div>
+                <div className="text-xs text-slate-500">{org.primary_contact_email ?? ''}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Seats</div>
+                <div className="mt-1 text-slate-900">{org.seats_used} / {org.seats_allocated} used</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">BAA Signed</div>
+                <div className="mt-1 text-slate-900">{org.baa_signed_at ? formatDate(org.baa_signed_at) : 'Not signed'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Contract</div>
+                <div className="mt-1 text-slate-900">
+                  {org.contract_started_at ? formatDate(org.contract_started_at) : '—'}
+                  {org.contract_ends_at ? ` → ${formatDate(org.contract_ends_at)}` : ''}
+                </div>
+              </div>
+            </div>
+
+            {org.notes ? (
+              <div className="mt-4">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Notes</div>
+                <p className="mt-1 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{org.notes}</p>
+              </div>
+            ) : null}
+
+            {org.kind === 'hospital' || org.kind === 'clinic' ? (
+              <div className="mt-4">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  Doctors Here ({affiliatedDoctors.length})
+                </div>
+                {affiliatedDoctors.length === 0 ? (
+                  <p className="mt-1 text-sm text-slate-500">No doctors matched to this organization by name.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1.5">
+                    {affiliatedDoctors.map((d) => (
+                      <li key={d.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm">
+                        <span className="font-semibold text-slate-900">{d.full_name}</span>
+                        <span className="text-xs text-slate-500">{d.specialty ?? '—'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+                Staff affiliation isn't tracked for this organization type yet.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 };
