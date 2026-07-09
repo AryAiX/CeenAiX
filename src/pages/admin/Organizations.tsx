@@ -465,6 +465,9 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
                 <span className="font-bold text-slate-900">Labs:</span> {orgsSummary?.labs ?? 0}
               </span>
               <span>
+                <span className="font-bold text-slate-900">Insurance:</span> {orgsSummary?.insurance ?? 0}
+              </span>
+              <span>
                 <span className="font-bold text-slate-900">Total:</span> {orgsSummary?.total ?? orgs.length}
               </span>
             </div>
