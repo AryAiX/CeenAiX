@@ -28,6 +28,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
   const [filter, setFilter] = useState<InsuranceFilter>('all');
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showOnboardComingSoon, setShowOnboardComingSoon] = useState(false);
+  const [showNotifyComingSoon, setShowNotifyComingSoon] = useState(false);
 
   const filtered = useMemo(() => {
     if (filter === 'premium') return partners.filter((p) => p.partner_tier === 'premium');
@@ -162,16 +163,13 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
               {damanWarning.api_warning_label ||
                 `${damanWarning.insurer_name} API degraded — ${damanWarning.api_latency_ms ?? '—'}ms avg latency`}
             </span>
-            <a
-              href={`mailto:?subject=${encodeURIComponent(
-                `Insurer integration alert — ${damanWarning.insurer_name}`
-              )}&body=${encodeURIComponent(
-                `${damanWarning.insurer_name} API is reporting degraded status (${damanWarning.api_status}, latency ${damanWarning.api_latency_ms ?? '—'}ms).\n\nPlease investigate.`
-              )}`}
+            <button
+              type="button"
+              onClick={() => setShowNotifyComingSoon(true)}
               className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white"
             >
               Notify
-            </a>
+            </button>
           </div>
         </Card>
       ) : null}
@@ -346,6 +344,39 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
               This needs an email sending capability to be built first — it's tracked
               as its own upcoming feature.
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showNotifyComingSoon && damanWarning ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowNotifyComingSoon(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+                <Mail className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNotifyComingSoon(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Coming Soon: Insurer Alerts</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This will send {damanWarning.insurer_name} a real notification about their
+              API status directly from here. It isn't built yet because insurance
+              partners don't have a technical contact email on file anywhere in the
+              platform yet.
+            </p>
           </div>
         </div>
       ) : null}
