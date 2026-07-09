@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Download, Link2, Plus, RefreshCw, Stethoscope, UserPlus, X } from 'lucide-react';
+import { BarChart3, Building2, Download, Link2, Plus, RefreshCw, Stethoscope, UserPlus, X } from 'lucide-react';
 import AdminShell, {
   useAdminContextValue,
   Card,
@@ -25,6 +25,21 @@ const INVITATION_TONE: Record<string, 'emerald' | 'amber' | 'rose' | 'slate'> = 
   pending: 'amber',
   declined: 'rose',
 };
+
+const BreakdownBar = ({ label, count, max }: { label: string; count: number; max: number }) => (
+  <div className="mb-2">
+    <div className="mb-1 flex items-center justify-between text-xs">
+      <span className="font-semibold text-slate-700">{label}</span>
+      <span className="text-slate-500">{count}</span>
+    </div>
+    <div className="h-2 w-full rounded-full bg-slate-100">
+      <div
+        className="h-2 rounded-full bg-teal-500"
+        style={{ width: max > 0 ? `${(count / max) * 100}%` : '0%' }}
+      />
+    </div>
+  </div>
+);
 
 const emptyForm = {
   name_en: '',
@@ -55,6 +70,7 @@ const ClinicsView = () => {
   const [migrateDoctorId, setMigrateDoctorId] = useState('');
   const [migrateClinicId, setMigrateClinicId] = useState('');
   const [confirmSuspend, setConfirmSuspend] = useState<AdminClinicRecord | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   // Auto-dismiss message after 6 seconds
   useEffect(() => {
@@ -91,6 +107,51 @@ const ClinicsView = () => {
 
   const activeCount = clinics.filter((c) => c.is_active).length;
   const totalDoctors = clinics.reduce((sum, c) => sum + c.doctor_count, 0);
+
+  const analytics = useMemo(() => {
+    const cityCounts = new Map<string, number>();
+    const orgCounts = new Map<string, number>();
+    const doctorBands = [
+      { label: '0 doctors', count: 0 },
+      { label: '1–3 doctors', count: 0 },
+      { label: '4–10 doctors', count: 0 },
+      { label: '10+ doctors', count: 0 },
+    ];
+    const noDoctors: typeof clinics = [];
+    const noAdmins: typeof clinics = [];
+    const missingLicense: typeof clinics = [];
+
+    clinics.forEach((c) => {
+      const city = c.city ?? 'Unknown';
+      cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
+
+      const org = c.organization_name ?? 'No parent organization';
+      orgCounts.set(org, (orgCounts.get(org) ?? 0) + 1);
+
+      if (c.doctor_count === 0) doctorBands[0].count += 1;
+      else if (c.doctor_count <= 3) doctorBands[1].count += 1;
+      else if (c.doctor_count <= 10) doctorBands[2].count += 1;
+      else doctorBands[3].count += 1;
+
+      if (c.doctor_count === 0) noDoctors.push(c);
+      if (c.admin_count === 0) noAdmins.push(c);
+      if (!c.license_number) missingLicense.push(c);
+    });
+
+    const toSortedRows = (map: Map<string, number>) =>
+      Array.from(map.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
+
+    return {
+      cityRows: toSortedRows(cityCounts),
+      orgRows: toSortedRows(orgCounts),
+      doctorBands,
+      noDoctors,
+      noAdmins,
+      missingLicense,
+    };
+  }, [clinics]);
 
   const handleOnboard = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -165,6 +226,13 @@ const ClinicsView = () => {
           className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           <Plus className="h-4 w-4" /> Onboard Clinic
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAnalytics(true)}
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <BarChart3 className="h-4 w-4" /> Analytics
         </button>
         <button
           type="button"
@@ -557,6 +625,68 @@ const ClinicsView = () => {
               >
                 Suspend Clinic
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAnalytics ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAnalytics(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="font-bold text-slate-900">Clinics Analytics</h2>
+                <p className="text-sm text-slate-500">Based on all {formatNumber(clinics.length)} clinics</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {(analytics.noDoctors.length > 0 || analytics.noAdmins.length > 0 || analytics.missingLicense.length > 0) ? (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-800">Needs Attention</h3>
+                <ul className="space-y-1 text-sm text-amber-900">
+                  {analytics.noDoctors.length > 0 ? (
+                    <li>{analytics.noDoctors.length} clinic{analytics.noDoctors.length === 1 ? '' : 's'} with zero doctors linked</li>
+                  ) : null}
+                  {analytics.noAdmins.length > 0 ? (
+                    <li>{analytics.noAdmins.length} clinic{analytics.noAdmins.length === 1 ? '' : 's'} with zero admins linked</li>
+                  ) : null}
+                  {analytics.missingLicense.length > 0 ? (
+                    <li>{analytics.missingLicense.length} clinic{analytics.missingLicense.length === 1 ? '' : 's'} missing a license number</li>
+                  ) : null}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Doctor Staffing</h3>
+                {analytics.doctorBands.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.doctorBands.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Top Cities</h3>
+                {analytics.cityRows.slice(0, 6).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.cityRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div className="sm:col-span-2">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">By Parent Organization</h3>
+                {analytics.orgRows.slice(0, 8).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.orgRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
