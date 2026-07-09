@@ -486,21 +486,9 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   );
 };
 
-/**
- * Temporary helpers: the Organization schema does not yet have dedicated
- * dha_license or nabidh_connected fields, so we parse the notes free-text
- * as a stopgap until those columns are added via migration.
- */
-const extractDhaFromNotes = (notes: string | null): string =>
-  notes?.match(/DHA-[A-Z]-\d{4}-\d{3,}/)?.[0] ?? '—';
-
-const extractNabidhFromNotes = (notes: string | null): 'connected' | 'disconnected' =>
-  notes?.toLowerCase().includes('nabidh connected') ? 'connected' : 'disconnected';
-
 const OrganizationCard = ({ org }: { org: Organization }) => {
   const navigate = useNavigate();
-  const dha = extractDhaFromNotes(org.notes);
-  const nabidh = extractNabidhFromNotes(org.notes);
+  const dha = org.dha_license ?? '—';
   const kindTone =
     org.kind === 'hospital'
       ? 'violet'
@@ -549,8 +537,8 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
         </div>
         <div className="col-span-2 rounded-xl bg-slate-50 p-2">
           <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">NABIDH Status</dt>
-          <dd className="font-bold text-emerald-700">
-            {nabidh === 'connected' ? '✅ connected' : '❌ disconnected'}
+          <dd className={`font-bold ${org.nabidh_connected ? 'text-emerald-700' : 'text-slate-500'}`}>
+            {org.nabidh_connected ? '✅ connected' : '⚪ not connected'}
           </dd>
         </div>
       </dl>

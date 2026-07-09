@@ -667,6 +667,8 @@ export interface Organization extends BaseRecord {
   seats_used: number;
   status: OrganizationStatus;
   notes: string | null;
+  dha_license: string | null;
+  nabidh_connected: boolean;
 }
 
 export type AdminIncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
