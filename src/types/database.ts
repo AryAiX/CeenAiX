@@ -984,6 +984,7 @@ export interface AdminInsurancePartnerRow {
   plan_pills: string[];
   partner_since: string | null;
   platform_revenue_label: string | null;
+  platform_revenue_aed: number | null;
   sla_status: string | null;
   breach_label: string | null;
   fraud_alert_count: number;

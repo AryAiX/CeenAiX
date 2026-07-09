@@ -5,15 +5,6 @@ import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, form
 import type { AdminInsurancePartnerRow } from '../../types/database';
 
 type InsuranceFilter = 'all' | 'premium' | 'standard' | 'api_issues' | 'fraud';
-/**
- * platform_revenue_label is a display string (e.g. "AED 12,500/mo").
- * No numeric revenue field exists on AdminInsurancePartnerRow yet —
- * this parse is a stopgap until a platform_revenue_aed column is added.
- */
-const parseRevenueLabel = (label: string | null): number => {
-  const match = label?.match(/AED\s*([\d,]+)/);
-  return match ? parseInt(match[1].replace(/,/g, ''), 10) : 0;
-};
 
 const BreakdownBar = ({ label, count, max }: { label: string; count: number; max: number }) => (
   <div className="mb-2">
@@ -51,7 +42,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
   const totalClaimValueToday = partners.reduce((acc, p) => acc + p.claim_value_today_aed, 0);
   const apisHealthy = partners.filter((p) => p.api_status === 'healthy').length;
   const fraudOpen = partners.reduce((acc, p) => acc + (p.fraud_alert_count || 0), 0);
-  const monthlyRevenue = partners.reduce((acc, p) => acc + parseRevenueLabel(p.platform_revenue_label), 0);
+  const monthlyRevenue = partners.reduce((acc, p) => acc + (p.platform_revenue_aed ?? 0), 0);
 
   const insuredMembersPct =
     ctx?.total_patients && totalMembers
