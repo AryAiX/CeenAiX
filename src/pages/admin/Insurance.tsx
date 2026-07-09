@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CircleDollarSign, ClipboardList, Layers, Plug, Users, X } from 'lucide-react';
+import { AlertTriangle, CircleDollarSign, ClipboardList, Layers, Mail, Plug, UserPlus, Users, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
 import type { AdminInsurancePartnerRow } from '../../types/database';
 
@@ -36,6 +36,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
   const ctx = context.dashboard?.context;
   const [filter, setFilter] = useState<InsuranceFilter>('all');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showOnboardComingSoon, setShowOnboardComingSoon] = useState(false);
 
   const filtered = useMemo(() => {
     if (filter === 'premium') return partners.filter((p) => p.partner_tier === 'premium');
@@ -156,7 +157,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/auth/register?role=insurance&reset=1')}
+          onClick={() => setShowOnboardComingSoon(true)}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
           Onboard Insurer
@@ -314,6 +315,45 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
                   <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.planRows.map((r) => r.count), 1)} />
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showOnboardComingSoon ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowOnboardComingSoon(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600 ring-1 ring-teal-100">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOnboardComingSoon(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Coming Soon: Insurer Onboarding</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Instead of registering an insurance partner directly from here, admins
+              will be able to send an invite by email to the insurer's integration
+              contact. They complete their own onboarding — API credentials, plan
+              setup, CBUAE license details — on their own, with this admin panel
+              tracking the invite through to a live partner.
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+              <Mail className="h-4 w-4 shrink-0" />
+              This needs an email sending capability to be built first — it's tracked
+              as its own upcoming feature.
             </div>
           </div>
         </div>
