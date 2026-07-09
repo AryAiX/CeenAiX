@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, exportRowsToCsv, titleCase, formatDate, type AdminContext } from './AdminShell';
-import { createOrganization } from '../../hooks';
+import { createOrganization, updateOrganization } from '../../hooks';
 import type { CreateOrganizationInput } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { Organization, OrganizationKind } from '../../types/database';
@@ -472,7 +472,15 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((org) => (
-              <OrganizationCard key={org.id} org={org} doctors={context.doctors} />
+              <OrganizationCard
+                key={org.id}
+                org={org}
+                doctors={context.doctors}
+                onUpdated={() => {
+                  context.refreshOrganizations();
+                  context.refetchDashboard();
+                }}
+              />
             ))}
             {filtered.length === 0 ? (
               <Card className="md:col-span-2 xl:col-span-3">
@@ -486,9 +494,64 @@ const OrganizationsView = ({ context }: { context: AdminContext }) => {
   );
 };
 
-const OrganizationCard = ({ org, doctors }: { org: Organization; doctors: AdminContext['doctors'] }) => {
+const OrganizationCard = ({
+  org,
+  doctors,
+  onUpdated,
+}: {
+  org: Organization;
+  doctors: AdminContext['doctors'];
+  onUpdated: () => void;
+}) => {
   const navigate = useNavigate();
   const [showDetail, setShowDetail] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: org.name,
+    city: org.city ?? '',
+    country: org.country,
+    primary_contact_name: org.primary_contact_name ?? '',
+    primary_contact_email: org.primary_contact_email ?? '',
+    status: org.status,
+    seats_allocated: org.seats_allocated,
+    baa_signed_at: org.baa_signed_at ? org.baa_signed_at.slice(0, 10) : '',
+    contract_started_at: org.contract_started_at ? org.contract_started_at.slice(0, 10) : '',
+    contract_ends_at: org.contract_ends_at ? org.contract_ends_at.slice(0, 10) : '',
+    dha_license: org.dha_license ?? '',
+    nabidh_connected: org.nabidh_connected,
+    notes: org.notes ?? '',
+  });
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateOrganization({
+        id: org.id,
+        name: form.name,
+        city: form.city || null,
+        country: form.country,
+        primaryContactName: form.primary_contact_name || null,
+        primaryContactEmail: form.primary_contact_email || null,
+        status: form.status,
+        seatsAllocated: form.seats_allocated,
+        baaSignedAt: form.baa_signed_at ? new Date(form.baa_signed_at).toISOString() : null,
+        contractStartedAt: form.contract_started_at ? new Date(form.contract_started_at).toISOString() : null,
+        contractEndsAt: form.contract_ends_at ? new Date(form.contract_ends_at).toISOString() : null,
+        dhaLicense: form.dha_license || null,
+        nabidhConnected: form.nabidh_connected,
+        notes: form.notes || null,
+      });
+      setShowEdit(false);
+      onUpdated();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
   const dha = org.dha_license ?? '—';
   const affiliatedDoctors =
     org.kind === 'hospital' || org.kind === 'clinic'
@@ -557,9 +620,8 @@ const OrganizationCard = ({ org, doctors }: { org: Organization; doctors: AdminC
         </button>
         <button
           type="button"
-          onClick={() => navigate(`/admin/organizations/${org.id}`)}
+          onClick={() => setShowEdit(true)}
           className="rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-50"
-          title="View organization details"
         >
           Edit
         </button>
@@ -674,6 +736,178 @@ const OrganizationCard = ({ org, doctors }: { org: Organization; doctors: AdminC
                 Staff affiliation isn't tracked for this organization type yet.
               </div>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {showEdit ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => !saving && setShowEdit(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Edit {org.name}</h2>
+              <button
+                type="button"
+                onClick={() => setShowEdit(false)}
+                disabled={saving}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {saveError ? (
+              <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                {saveError}
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-semibold text-slate-600">
+                  Name
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Status
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as typeof form.status }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  >
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  City
+                  <input
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Country
+                  <input
+                    value={form.country}
+                    onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Primary Contact Name
+                  <input
+                    value={form.primary_contact_name}
+                    onChange={(e) => setForm((f) => ({ ...f, primary_contact_name: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Primary Contact Email
+                  <input
+                    type="email"
+                    value={form.primary_contact_email}
+                    onChange={(e) => setForm((f) => ({ ...f, primary_contact_email: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Seats Allocated
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.seats_allocated}
+                    onChange={(e) => setForm((f) => ({ ...f, seats_allocated: Number(e.target.value) }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  DHA License
+                  <input
+                    value={form.dha_license}
+                    onChange={(e) => setForm((f) => ({ ...f, dha_license: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  BAA Signed
+                  <input
+                    type="date"
+                    value={form.baa_signed_at}
+                    onChange={(e) => setForm((f) => ({ ...f, baa_signed_at: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Contract Start
+                  <input
+                    type="date"
+                    value={form.contract_started_at}
+                    onChange={(e) => setForm((f) => ({ ...f, contract_started_at: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Contract End
+                  <input
+                    type="date"
+                    value={form.contract_ends_at}
+                    onChange={(e) => setForm((f) => ({ ...f, contract_ends_at: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={form.nabidh_connected}
+                    onChange={(e) => setForm((f) => ({ ...f, nabidh_connected: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  NABIDH Connected
+                </label>
+              </div>
+              <label className="block text-xs font-semibold text-slate-600">
+                Notes
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEdit(false)}
+                disabled={saving}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
+              >
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

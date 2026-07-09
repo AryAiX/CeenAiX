@@ -124,6 +124,7 @@ export {
   useAdminInsurancePartners,
   useAdminAiDashboard,
   createOrganization,
+  updateOrganization,
   onboardClinic,
   setClinicStatus,
   linkDoctorToClinic,
@@ -133,6 +134,7 @@ export type {
   AdminComplianceData,
   AdminDiagnosticsData,
   CreateOrganizationInput,
+  UpdateOrganizationInput,
 } from './use-admin-dashboard';
 export {
   useDoctorConsultationStub,

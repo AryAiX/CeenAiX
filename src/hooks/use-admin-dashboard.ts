@@ -107,6 +107,46 @@ export async function createOrganization(input: CreateOrganizationInput): Promis
   return data as Organization;
 }
 
+export interface UpdateOrganizationInput {
+  id: string;
+  name: string;
+  city?: string | null;
+  country: string;
+  primaryContactName?: string | null;
+  primaryContactEmail?: string | null;
+  status: 'active' | 'suspended' | 'pending' | 'archived';
+  seatsAllocated: number;
+  baaSignedAt?: string | null;
+  contractStartedAt?: string | null;
+  contractEndsAt?: string | null;
+  dhaLicense?: string | null;
+  nabidhConnected: boolean;
+  notes?: string | null;
+}
+
+export async function updateOrganization(input: UpdateOrganizationInput): Promise<Organization> {
+  const { data, error } = await supabase.rpc('admin_update_organization', {
+    in_id: input.id,
+    in_name: input.name,
+    in_city: input.city ?? null,
+    in_country: input.country,
+    in_primary_contact_name: input.primaryContactName ?? null,
+    in_primary_contact_email: input.primaryContactEmail ?? null,
+    in_status: input.status,
+    in_seats_allocated: input.seatsAllocated,
+    in_baa_signed_at: input.baaSignedAt ?? null,
+    in_contract_started_at: input.contractStartedAt ?? null,
+    in_contract_ends_at: input.contractEndsAt ?? null,
+    in_dha_license: input.dhaLicense ?? null,
+    in_nabidh_connected: input.nabidhConnected,
+    in_notes: input.notes ?? null,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as Organization;
+}
+
 export interface AdminComplianceData {
   incidents: AdminIncident[];
   recentAuditEvents: AdminAuditEventRow[];
