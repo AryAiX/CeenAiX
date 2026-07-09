@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CircleDollarSign, ClipboardList, Layers, Plug, Users } from 'lucide-react';
+import { AlertTriangle, CircleDollarSign, ClipboardList, Layers, Plug, Users, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
 import type { AdminInsurancePartnerRow } from '../../types/database';
 
@@ -15,11 +15,27 @@ const parseRevenueLabel = (label: string | null): number => {
   return match ? parseInt(match[1].replace(/,/g, ''), 10) : 0;
 };
 
+const BreakdownBar = ({ label, count, max }: { label: string; count: number; max: number }) => (
+  <div className="mb-2">
+    <div className="mb-1 flex items-center justify-between text-xs">
+      <span className="font-semibold text-slate-700">{label}</span>
+      <span className="text-slate-500">{count}</span>
+    </div>
+    <div className="h-2 w-full rounded-full bg-slate-100">
+      <div
+        className="h-2 rounded-full bg-blue-500"
+        style={{ width: max > 0 ? `${(count / max) * 100}%` : '0%' }}
+      />
+    </div>
+  </div>
+);
+
 const InsuranceView = ({ context }: { context: AdminContext }) => {
   const navigate = useNavigate();
   const partners = context.insurancePartners;
   const ctx = context.dashboard?.context;
   const [filter, setFilter] = useState<InsuranceFilter>('all');
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const filtered = useMemo(() => {
     if (filter === 'premium') return partners.filter((p) => p.partner_tier === 'premium');
@@ -51,6 +67,54 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
 
   const damanWarning = partners.find((p) => p.api_status !== 'healthy');
 
+  const analytics = useMemo(() => {
+    const memberBands = [
+      { label: 'Under 10K members', count: 0 },
+      { label: '10K – 50K members', count: 0 },
+      { label: '50K – 200K members', count: 0 },
+      { label: '200K+ members', count: 0 },
+    ];
+    let government = 0;
+    let privateCount = 0;
+    let slaCompliant = 0;
+    let slaBreach = 0;
+    const planCounts = new Map<string, number>();
+
+    partners.forEach((p) => {
+      if (p.members < 10_000) memberBands[0].count += 1;
+      else if (p.members < 50_000) memberBands[1].count += 1;
+      else if (p.members < 200_000) memberBands[2].count += 1;
+      else memberBands[3].count += 1;
+
+      if (p.is_government) government += 1;
+      else privateCount += 1;
+
+      if (p.sla_status === 'compliant') slaCompliant += 1;
+      else slaBreach += 1;
+
+      p.plan_pills.forEach((plan) => {
+        planCounts.set(plan, (planCounts.get(plan) ?? 0) + 1);
+      });
+    });
+
+    const planRows = Array.from(planCounts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      memberBands,
+      ownershipRows: [
+        { label: 'Government', count: government },
+        { label: 'Private', count: privateCount },
+      ],
+      slaRows: [
+        { label: 'SLA Compliant', count: slaCompliant },
+        { label: 'SLA Breach', count: slaBreach },
+      ],
+      planRows,
+    };
+  }, [partners]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -62,7 +126,7 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         </span>
         <button
           type="button"
-          onClick={() => navigate('/admin/ai-analytics')}
+          onClick={() => setShowAnalytics(true)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           Analytics
@@ -198,6 +262,62 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
           {formatAed(totalClaimValueToday)}
         </div>
       </Card>
+
+      {showAnalytics ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowAnalytics(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Insurance Analytics</h2>
+                <p className="text-sm text-slate-500">
+                  Based on all {formatNumber(partners.length)} insurance partners
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Member Base Size</h3>
+                {analytics.memberBands.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.memberBands.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">SLA Compliance</h3>
+                {analytics.slaRows.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.slaRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Government vs Private</h3>
+                {analytics.ownershipRows.map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.ownershipRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Plan Types Offered</h3>
+                {analytics.planRows.slice(0, 6).map((row) => (
+                  <BreakdownBar key={row.label} label={row.label} count={row.count} max={Math.max(...analytics.planRows.map((r) => r.count), 1)} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
