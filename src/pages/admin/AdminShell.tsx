@@ -46,6 +46,7 @@ export interface AdminContext {
   refreshOrganizations: () => void;
   refetchDashboard: () => void;
   refetchDoctors: () => void;
+  refetchSystemHealth: () => void;
   refetchAll: () => void;
 }
 
@@ -181,6 +182,7 @@ export const useAdminContextValue = (
     refreshOrganizations: organizations.refetch,
     refetchDashboard: dashboard.refetch,
     refetchDoctors: doctors.refetch,
+    refetchSystemHealth: systemHealth.refetch,
     refetchAll: () => { void metrics.refetch(); void users.refetch(); void organizations.refetch(); void compliance.refetch(); void systemHealth.refetch(); void aiAnalytics.refetch(); void diagnostics.refetch(); void dashboard.refetch(); void doctors.refetch(); void patients.refetch(); void insurancePartners.refetch(); void aiDashboard.refetch(); },
   };
 };
