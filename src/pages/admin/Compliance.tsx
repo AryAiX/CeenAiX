@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, ClipboardList, Download, Search, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, ClipboardList, Download, Info, Search, ShieldCheck, ShieldAlert } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatDate, titleCase, exportRowsToCsv, type AdminContext } from './AdminShell';
 import type { AdminAuditEventRow, AdminIncidentSeverity } from '../../types/database';
 
@@ -30,7 +30,7 @@ const AuditTable = ({ events }: { events: AdminAuditEventRow[] }) => {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Audit Logs" subtitle="Append-only audit trail across the platform (7yr retention)">
+      <PageHeader title="Audit Logs" subtitle="Recent administrative and system actions">
         <button
           type="button"
           disabled={rows.length === 0}
@@ -51,6 +51,15 @@ const AuditTable = ({ events }: { events: AdminAuditEventRow[] }) => {
           <Download className="h-4 w-4" /> Export
         </button>
       </PageHeader>
+
+      <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <Info className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          This currently shows seed/test data only — real platform actions aren't being
+          logged here yet. Treat this as a preview of the feature, not a real audit
+          record, until logging is wired up across the platform.
+        </span>
+      </div>
 
       <Card>
         <div className="mb-3 flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
