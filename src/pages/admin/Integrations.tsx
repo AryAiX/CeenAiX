@@ -81,7 +81,8 @@ const ServicesView = ({
 
   const healthy = services.filter((s) => s.status === 'healthy').length;
   const degraded = services.filter((s) => s.status === 'degraded').length;
-  const down = services.filter((s) => s.status === 'down' || s.status === 'unknown').length;
+  const down = services.filter((s) => s.status === 'down').length;
+  const unknown = services.filter((s) => s.status === 'unknown').length;
 
   const subtitle =
     mode === 'integrations'
@@ -127,7 +128,7 @@ const ServicesView = ({
         </button>
       </PageHeader>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           label="Healthy"
           value={formatNumber(healthy)}
@@ -143,11 +144,18 @@ const ServicesView = ({
           iconTone="bg-amber-50 text-amber-600 ring-amber-100"
         />
         <KpiTile
-          label="Down / Unknown"
+          label="Down"
           value={formatNumber(down)}
-          caption={down > 0 ? 'Immediate action required' : 'All reachable ✅'}
-          icon={down > 0 ? WifiOff : Activity}
+          caption={down > 0 ? 'Immediate action required' : 'None reported ✅'}
+          icon={WifiOff}
           iconTone={down > 0 ? 'bg-rose-50 text-rose-600 ring-rose-100' : 'bg-slate-50 text-slate-600 ring-slate-100'}
+        />
+        <KpiTile
+          label="Unknown"
+          value={formatNumber(unknown)}
+          caption={unknown > 0 ? 'Status could not be determined' : 'All statuses confirmed ✅'}
+          icon={Activity}
+          iconTone={unknown > 0 ? 'bg-slate-100 text-slate-600 ring-slate-200' : 'bg-slate-50 text-slate-600 ring-slate-100'}
         />
       </div>
 
