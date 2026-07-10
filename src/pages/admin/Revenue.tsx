@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Activity, Bot, CircleDollarSign, TrendingUp } from 'lucide-react';
+import { useEffect } from 'react';
+import { Activity, Bot, CircleDollarSign, RefreshCw, TrendingUp } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, PageHeader, KpiTile, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
 import type { AdminRevenueDay } from '../../types/database';
 
-type RevenuePeriod = 'daily' | 'weekly' | 'monthly';
 
 const RevenueBars = ({ revenueDaily }: { revenueDaily: AdminRevenueDay[] }) => {
   if (revenueDaily.length === 0) {
@@ -65,8 +64,6 @@ const RevenueView = ({ context }: { context: AdminContext }) => {
   const ctx = context.dashboard?.context;
   const series = context.dashboard?.revenueDaily ?? [];
 
-  const [period, setPeriod] = useState<RevenuePeriod>('daily');
-
   const currentMonthLabel = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   return (
@@ -75,22 +72,13 @@ const RevenueView = ({ context }: { context: AdminContext }) => {
         title="Platform Revenue"
         subtitle={`${currentMonthLabel} · platform-wide revenue performance`}
       >
-        <div className="flex gap-2">
-          {(['daily', 'weekly', 'monthly'] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={`rounded-xl px-3 py-2 text-sm font-semibold capitalize transition ${
-                period === p
-                  ? 'bg-emerald-600 text-white'
-                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => context.refetchDashboard()}
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <RefreshCw className="h-4 w-4" /> Refresh
+        </button>
         <button
           type="button"
           disabled={series.length === 0}
