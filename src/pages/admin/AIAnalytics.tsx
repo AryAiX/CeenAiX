@@ -137,7 +137,6 @@ const AiView = ({ context }: { context: AdminContext }) => {
           label="This Month"
           value={formatNumber(ctx?.ai_sessions_month ?? 0)}
           caption={`All-time: ${formatNumber(ctx?.ai_sessions_alltime ?? 0)}`}
-          trend={`vs ${prevMonthName}`}
           icon={Activity}
         />
         <KpiTile
