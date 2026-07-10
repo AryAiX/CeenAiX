@@ -11,28 +11,44 @@ const isNabidhService = (s: ServiceHealthSnapshot) =>
 const statusTone = (status: string) =>
   status === 'healthy' ? 'emerald' : status === 'degraded' ? 'amber' : 'rose';
 
-const ServiceCard = ({ service }: { service: ServiceHealthSnapshot }) => (
-  <Card>
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">{service.service_name}</h3>
-        <p className="text-xs text-slate-500">
-          {service.region ?? 'UAE'} · {titleCase(service.category)}
-        </p>
+const formatObservedAgo = (observedAt: string): { label: string; isStale: boolean } => {
+  const minutesAgo = Math.floor((Date.now() - new Date(observedAt).getTime()) / 60_000);
+  if (minutesAgo < 1) return { label: 'just now', isStale: false };
+  if (minutesAgo < 60) return { label: `${minutesAgo}m ago`, isStale: minutesAgo > 15 };
+  const hoursAgo = Math.floor(minutesAgo / 60);
+  if (hoursAgo < 24) return { label: `${hoursAgo}h ago`, isStale: true };
+  const daysAgo = Math.floor(hoursAgo / 24);
+  return { label: `${daysAgo}d ago`, isStale: true };
+};
+
+const ServiceCard = ({ service }: { service: ServiceHealthSnapshot }) => {
+  const observed = formatObservedAgo(service.observed_at);
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">{service.service_name}</h3>
+          <p className="text-xs text-slate-500">
+            {service.region ?? 'UAE'} · {titleCase(service.category)}
+          </p>
+        </div>
+        <Pill tone={statusTone(service.status)}>
+          {service.status}
+        </Pill>
       </div>
-      <Pill tone={statusTone(service.status)}>
-        {service.status}
-      </Pill>
-    </div>
-    <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
-      <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Latency</div>
-      <div className="font-['DM_Mono'] text-2xl font-bold text-slate-900">
-        {service.latency_ms != null ? `${service.latency_ms}ms` : '—'}
+      <p className={`mt-1 text-[11px] ${observed.isStale ? 'font-semibold text-amber-600' : 'text-slate-400'}`}>
+        {observed.isStale ? '⚠ ' : ''}Checked {observed.label}
+      </p>
+      <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
+        <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Latency</div>
+        <div className="font-['DM_Mono'] text-2xl font-bold text-slate-900">
+          {service.latency_ms != null ? `${service.latency_ms}ms` : '—'}
+        </div>
       </div>
-    </div>
-    <p className="mt-3 text-sm text-slate-500">{service.message ?? 'No current incidents reported.'}</p>
-  </Card>
-);
+      <p className="mt-3 text-sm text-slate-500">{service.message ?? 'No current incidents reported.'}</p>
+    </Card>
+  );
+};
 
 const ServiceGrid = ({ services, emptyLabel }: { services: ServiceHealthSnapshot[]; emptyLabel: string }) => (
   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
