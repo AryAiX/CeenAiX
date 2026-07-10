@@ -20,6 +20,8 @@ const AiView = ({ context }: { context: AdminContext }) => {
   const safetyReviewedCount = (ctx?.ai_safety_escalated ?? 0) + (ctx?.ai_safety_resolved ?? 0);
   const safetyPendingCount = Math.max((ctx?.ai_safety_flags_today ?? 0) - safetyReviewedCount, 0);
 
+  const aiServices = context.systemHealth?.aiServices ?? [];
+
   const tabs: { key: AiTab; label: string }[] = [
     { key: 'performance', label: 'AI Performance' },
     { key: 'conversations', label: 'Conversations' },
@@ -317,22 +319,28 @@ const AiView = ({ context }: { context: AdminContext }) => {
         <Card>
           <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Model Management</h2>
           <ul className="space-y-3">
-            <li className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-slate-900">Claude Sonnet (Anthropic)</div>
-                <Pill tone="emerald">Active</Pill>
-              </div>
-              <div className="text-xs text-slate-500">
-                Primary model · {ctx?.platform_version ?? 'version not on file'} · UAE region
-              </div>
-            </li>
-            <li className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-slate-900">Claude Haiku (Fallback)</div>
-                <Pill tone="slate">Standby</Pill>
-              </div>
-              <div className="text-xs text-slate-500">Triggers on Anthropic API timeout &gt; 10s</div>
-            </li>
+            {aiServices.length === 0 ? (
+              <li className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 ring-1 ring-slate-100">
+                No live model health data available yet.
+              </li>
+            ) : (
+              aiServices.map((service) => (
+                <li key={service.id} className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-slate-900">{service.service_name}</div>
+                    <Pill tone={service.status === 'healthy' ? 'emerald' : service.status === 'degraded' ? 'amber' : 'rose'}>
+                      {service.status}
+                    </Pill>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {service.message ?? `${service.region ?? 'UAE region'} · ${ctx?.platform_version ?? 'version not on file'}`}
+                  </div>
+                  {service.latency_ms != null ? (
+                    <div className="mt-1 text-xs text-slate-400">{Math.round(service.latency_ms)}ms latency</div>
+                  ) : null}
+                </li>
+              ))
+            )}
           </ul>
         </Card>
       ) : null}
