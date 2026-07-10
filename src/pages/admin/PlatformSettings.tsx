@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { RefreshCw, Settings2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { RefreshCw, Settings2, ToggleLeft, ToggleRight, X } from 'lucide-react';
+import { updateFeatureFlag } from '../../hooks';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatDate, type AdminContext } from './AdminShell';
 import type { FeatureFlagEnvironment } from '../../types/database';
 
@@ -18,6 +19,10 @@ const ENV_TONE: Record<FeatureFlagEnvironment, 'rose' | 'amber' | 'blue'> = {
 
 const SettingsView = ({ context }: { context: AdminContext }) => {
   const [envFilter, setEnvFilter] = useState<FeatureFlagEnvironment | 'all'>('all');
+  const [savingFlagId, setSavingFlagId] = useState<string | null>(null);
+  const [flagError, setFlagError] = useState<string | null>(null);
+  const [confirmToggle, setConfirmToggle] = useState<typeof rows[number] | null>(null);
+  const [rolloutDrafts, setRolloutDrafts] = useState<Record<string, number>>({});
   const flags = context.diagnostics?.featureFlags ?? [];
   const settings = context.diagnostics?.platformSettings ?? [];
 
@@ -25,6 +30,31 @@ const SettingsView = ({ context }: { context: AdminContext }) => {
     () => (envFilter === 'all' ? flags : flags.filter((f) => f.environment === envFilter)),
     [flags, envFilter],
   );
+
+  const applyFlagUpdate = async (
+    flag: typeof rows[number],
+    isEnabled: boolean,
+    rolloutPercent: number,
+  ) => {
+    setSavingFlagId(flag.id);
+    setFlagError(null);
+    try {
+      await updateFeatureFlag({ id: flag.id, isEnabled, rolloutPercent });
+      context.refetchDiagnostics();
+    } catch (err) {
+      setFlagError(err instanceof Error ? err.message : 'Failed to update flag');
+    } finally {
+      setSavingFlagId(null);
+    }
+  };
+
+  const handleToggle = (flag: typeof rows[number]) => {
+    if (flag.environment === 'production') {
+      setConfirmToggle(flag);
+      return;
+    }
+    void applyFlagUpdate(flag, !flag.is_enabled, flag.rollout_percent);
+  };
 
   const enabledCount = flags.filter((f) => f.is_enabled).length;
   const prodCount = flags.filter((f) => f.environment === 'production').length;
@@ -47,6 +77,12 @@ const SettingsView = ({ context }: { context: AdminContext }) => {
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
       </PageHeader>
+
+      {flagError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {flagError}
+        </div>
+      ) : null}
 
       {ctx ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -122,20 +158,59 @@ const SettingsView = ({ context }: { context: AdminContext }) => {
                       <p className="mt-1 text-sm text-slate-500">{flag.description}</p>
                     ) : null}
                   </div>
-                  <Pill tone={flag.is_enabled ? 'emerald' : 'slate'}>
-                    {flag.is_enabled ? 'On' : 'Off'}
-                  </Pill>
+                  <button
+                    type="button"
+                    onClick={() => handleToggle(flag)}
+                    disabled={savingFlagId === flag.id}
+                    className={`rounded-full px-3 py-1 text-xs font-bold transition disabled:opacity-50 ${
+                      flag.is_enabled
+                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                    }`}
+                  >
+                    {savingFlagId === flag.id ? '…' : flag.is_enabled ? 'On' : 'Off'}
+                  </button>
                 </div>
 
                 <div className="mt-3 space-y-1">
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>Rollout</span>
-                    <span className="font-semibold">{flag.rollout_percent}%</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={rolloutDrafts[flag.id] ?? flag.rollout_percent}
+                        onChange={(e) =>
+                          setRolloutDrafts((d) => ({ ...d, [flag.id]: Number(e.target.value) }))
+                        }
+                        className="w-14 rounded-lg border border-slate-200 px-1.5 py-0.5 text-right font-semibold"
+                      />
+                      <span>%</span>
+                      {rolloutDrafts[flag.id] != null && rolloutDrafts[flag.id] !== flag.rollout_percent ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const value = rolloutDrafts[flag.id];
+                            setRolloutDrafts((d) => {
+                              const next = { ...d };
+                              delete next[flag.id];
+                              return next;
+                            });
+                            void applyFlagUpdate(flag, flag.is_enabled, value);
+                          }}
+                          disabled={savingFlagId === flag.id}
+                          className="rounded-lg bg-teal-600 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-teal-700 disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
                     <div
                       className="h-full rounded-full bg-teal-500 transition-all"
-                      style={{ width: `${flag.rollout_percent}%` }}
+                      style={{ width: `${rolloutDrafts[flag.id] ?? flag.rollout_percent}%` }}
                     />
                   </div>
                 </div>
@@ -188,6 +263,56 @@ const SettingsView = ({ context }: { context: AdminContext }) => {
             </table>
           </div>
         </Card>
+      ) : null}
+
+      {confirmToggle ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setConfirmToggle(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="mb-3 flex items-start justify-between">
+              <h3 className="text-lg font-bold text-slate-900">
+                {confirmToggle.is_enabled ? 'Disable' : 'Enable'} in production?
+              </h3>
+              <button
+                type="button"
+                onClick={() => setConfirmToggle(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500">
+              "{confirmToggle.name}" is a production flag. This change takes effect
+              immediately on the live platform.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmToggle(null)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const flag = confirmToggle;
+                  setConfirmToggle(null);
+                  void applyFlagUpdate(flag, !flag.is_enabled, flag.rollout_percent);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              >
+                {confirmToggle.is_enabled ? 'Disable' : 'Enable'} Flag
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

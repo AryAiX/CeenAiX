@@ -148,6 +148,22 @@ export async function updateOrganization(input: UpdateOrganizationInput): Promis
   return data as Organization;
 }
 
+export async function updateFeatureFlag(input: {
+  id: string;
+  isEnabled: boolean;
+  rolloutPercent: number;
+}): Promise<FeatureFlag> {
+  const { data, error } = await supabase.rpc('admin_update_feature_flag', {
+    in_id: input.id,
+    in_is_enabled: input.isEnabled,
+    in_rollout_percent: input.rolloutPercent,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as FeatureFlag;
+}
+
 export interface AdminComplianceData {
   incidents: AdminIncident[];
   recentAuditEvents: AdminAuditEventRow[];
