@@ -125,6 +125,7 @@ export {
   useAdminAiDashboard,
   createOrganization,
   updateOrganization,
+  updateFeatureFlag,
   onboardClinic,
   setClinicStatus,
   linkDoctorToClinic,
