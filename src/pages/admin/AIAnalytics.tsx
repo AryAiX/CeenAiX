@@ -97,7 +97,9 @@ const AiView = ({ context }: { context: AdminContext }) => {
         <div className="text-xs font-bold uppercase tracking-[0.2em] text-purple-700">CeenAiX Clinical AI</div>
         <div className="mt-1 text-sm text-slate-600">Powered by Claude Sonnet · Anthropic</div>
         <div className="mt-2 flex flex-wrap gap-2">
-          <Pill tone="purple">{ctx?.platform_version || 'v2.4.1'}</Pill>
+          {ctx?.platform_version ? (
+            <Pill tone="purple">{ctx.platform_version}</Pill>
+          ) : null}
           <Pill tone="emerald">Production</Pill>
           <Pill tone="blue">UAE Region</Pill>
           <Pill tone="violet">FHIR R4</Pill>
@@ -321,7 +323,7 @@ const AiView = ({ context }: { context: AdminContext }) => {
                 <Pill tone="emerald">Active</Pill>
               </div>
               <div className="text-xs text-slate-500">
-                Primary model · {ctx?.platform_version || 'v2.4.1'} · UAE region
+                Primary model · {ctx?.platform_version ?? 'version not on file'} · UAE region
               </div>
             </li>
             <li className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
