@@ -17,6 +17,9 @@ const AiView = ({ context }: { context: AdminContext }) => {
   const arabicLang = langs.find((l) => l.label.toLowerCase().includes('arabic'));
   const arabicPct = arabicLang ? `${arabicLang.percent.toFixed(0)}% Arabic reflects UAE population` : null;
 
+  const safetyReviewedCount = (ctx?.ai_safety_escalated ?? 0) + (ctx?.ai_safety_resolved ?? 0);
+  const safetyPendingCount = Math.max((ctx?.ai_safety_flags_today ?? 0) - safetyReviewedCount, 0);
+
   const tabs: { key: AiTab; label: string }[] = [
     { key: 'performance', label: 'AI Performance' },
     { key: 'conversations', label: 'Conversations' },
@@ -279,9 +282,13 @@ const AiView = ({ context }: { context: AdminContext }) => {
             <KpiTile
               label="Flags Today"
               value={ctx?.ai_safety_flags_today ?? 0}
-              caption="All reviewed ✅"
+              caption={safetyPendingCount > 0 ? `${safetyPendingCount} pending review` : 'All reviewed ✅'}
               icon={AlertTriangle}
-              iconTone="bg-amber-50 text-amber-600 ring-amber-100"
+              iconTone={
+                safetyPendingCount > 0
+                  ? 'bg-rose-50 text-rose-600 ring-rose-100'
+                  : 'bg-amber-50 text-amber-600 ring-amber-100'
+              }
             />
             <KpiTile
               label="Escalated"
