@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Activity, AlertTriangle, Download, RefreshCw, Settings, ShieldCheck, Terminal } from 'lucide-react';
+import { Activity, AlertTriangle, Download, RefreshCw, ShieldCheck } from 'lucide-react';
 import AdminShell, {
   useAdminContextValue,
   Card,
@@ -86,8 +86,6 @@ const DiagnosticsView = ({ context }: { context: AdminContext }) => {
   const aiServices = context.systemHealth?.aiServices ?? [];
   const allServices = [...coreServices, ...integrationServices, ...aiServices];
 
-  const flags = context.diagnostics?.featureFlags ?? [];
-  const settings = context.diagnostics?.platformSettings ?? [];
   const degraded = degradedServiceCount(context.systemHealth);
 
   const handleExport = () => {
@@ -129,21 +127,7 @@ const DiagnosticsView = ({ context }: { context: AdminContext }) => {
         </button>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <KpiTile
-          label="Feature Flags"
-          value={formatNumber(flags.length)}
-          caption={`${flags.filter((f) => f.is_enabled).length} enabled`}
-          icon={Settings}
-          iconTone="bg-teal-50 text-teal-600 ring-teal-100"
-        />
-        <KpiTile
-          label="Platform Settings"
-          value={formatNumber(settings.length)}
-          caption="Key-value runtime config"
-          icon={Terminal}
-          iconTone="bg-blue-50 text-blue-600 ring-blue-100"
-        />
+      <div className="grid gap-4 md:grid-cols-2">
         <KpiTile
           label="Service Checks"
           value={formatNumber(allServices.length)}
@@ -177,37 +161,6 @@ const DiagnosticsView = ({ context }: { context: AdminContext }) => {
         )}
       </Card>
 
-      {settings.length > 0 ? (
-        <Card>
-          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">Platform Settings</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-[11px] uppercase tracking-wider text-slate-500">
-                <tr className="border-b border-slate-200">
-                  <th className="px-3 py-2">Key</th>
-                  <th className="px-3 py-2">Value</th>
-                  <th className="px-3 py-2">Updated</th>
-                  <th className="px-3 py-2">By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {settings.map((setting) => (
-                  <tr key={setting.id} className="hover:bg-slate-50/60">
-                    <td className="px-3 py-2 font-['DM_Mono'] text-xs font-semibold text-slate-900">
-                      {setting.key}
-                    </td>
-                    <td className="px-3 py-2 font-['DM_Mono'] text-xs text-slate-600">
-                      {JSON.stringify(setting.value)}
-                    </td>
-                    <td className="px-3 py-2 text-slate-500">{formatDate(setting.updated_at)}</td>
-                    <td className="px-3 py-2 text-slate-500">{setting.updated_by ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : null}
     </div>
   );
 };

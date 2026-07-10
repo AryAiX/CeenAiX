@@ -19,6 +19,7 @@ const ENV_TONE: Record<FeatureFlagEnvironment, 'rose' | 'amber' | 'blue'> = {
 const SettingsView = ({ context }: { context: AdminContext }) => {
   const [envFilter, setEnvFilter] = useState<FeatureFlagEnvironment | 'all'>('all');
   const flags = context.diagnostics?.featureFlags ?? [];
+  const settings = context.diagnostics?.platformSettings ?? [];
 
   const rows = useMemo(
     () => (envFilter === 'all' ? flags : flags.filter((f) => f.environment === envFilter)),
@@ -151,6 +152,40 @@ const SettingsView = ({ context }: { context: AdminContext }) => {
           </div>
         )}
       </Card>
+
+      {settings.length > 0 ? (
+        <Card>
+          <h2 className="mb-4 font-['Plus_Jakarta_Sans'] text-lg font-bold">
+            Runtime Configuration ({settings.length})
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+                <tr className="border-b border-slate-200">
+                  <th className="px-3 py-2">Key</th>
+                  <th className="px-3 py-2">Value</th>
+                  <th className="px-3 py-2">Updated</th>
+                  <th className="px-3 py-2">By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {settings.map((setting) => (
+                  <tr key={setting.id} className="hover:bg-slate-50/60">
+                    <td className="px-3 py-2 font-['DM_Mono'] text-xs font-semibold text-slate-900">
+                      {setting.key}
+                    </td>
+                    <td className="px-3 py-2 font-['DM_Mono'] text-xs text-slate-600">
+                      {JSON.stringify(setting.value)}
+                    </td>
+                    <td className="px-3 py-2 text-slate-500">{formatDate(setting.updated_at)}</td>
+                    <td className="px-3 py-2 text-slate-500">{setting.updated_by ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 };
