@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CircleDollarSign, ClipboardList, Layers, Mail, Plug, UserPlus, Users, X } from 'lucide-react';
 import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
 import type { AdminInsurancePartnerRow } from '../../types/database';
@@ -22,7 +21,6 @@ const BreakdownBar = ({ label, count, max }: { label: string; count: number; max
 );
 
 const InsuranceView = ({ context }: { context: AdminContext }) => {
-  const navigate = useNavigate();
   const partners = context.insurancePartners;
   const ctx = context.dashboard?.context;
   const [filter, setFilter] = useState<InsuranceFilter>('all');

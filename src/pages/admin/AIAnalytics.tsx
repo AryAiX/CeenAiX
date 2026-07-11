@@ -11,8 +11,6 @@ const AiView = ({ context }: { context: AdminContext }) => {
   const [tab, setTab] = useState<AiTab>('performance');
 
   const currentMonthLabel = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  const prevMonthName = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
-    .toLocaleDateString(undefined, { month: 'long' });
 
   const arabicLang = langs.find((l) => l.label.toLowerCase().includes('arabic'));
   const arabicPct = arabicLang ? `${arabicLang.percent.toFixed(0)}% Arabic reflects UAE population` : null;
