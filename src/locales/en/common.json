@@ -843,7 +843,7 @@
       "emailPlaceholder": "you@example.com",
       "mobile": "Mobile number",
       "mobileShort": "Mobile",
-      "mobileShortOptional": "Mobile number",
+      "mobileShortOptional": "Mobile number (optional)",
       "mobilePlaceholder": "+971 50 123 4567",
       "password": "Password",
       "passwordShort": "Password",
@@ -864,7 +864,7 @@
         "emailRequired": "Email is required for email and password registration.",
         "passwordShort": "Choose a password with at least 8 characters.",
         "passwordMismatch": "Password confirmation does not match.",
-        "phoneRequired": "Phone number is required for phone OTP registration.",
+        "phoneRequired": "Phone number is optional for account registration.",
         "termsRequired": "You must accept the terms to continue.",
         "emailAlreadyRegistered": "This email is already registered. If you did not receive the confirmation email yet, resend it below. Otherwise sign in or reset your password.",
         "signupFailed": "Sign-up failed. Please try again."

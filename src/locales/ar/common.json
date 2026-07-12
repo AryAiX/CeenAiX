@@ -843,7 +843,7 @@
       "emailPlaceholder": "you@example.com",
       "mobile": "رقم الجوال",
       "mobileShort": "الجوال",
-      "mobileShortOptional": "رقم الجوال",
+      "mobileShortOptional": "رقم الجوال (اختياري)",
       "mobilePlaceholder": "+971 50 123 4567",
       "password": "كلمة المرور",
       "passwordShort": "كلمة المرور",
@@ -864,7 +864,7 @@
         "emailRequired": "البريد مطلوب للتسجيل بالبريد وكلمة المرور.",
         "passwordShort": "اختر كلمة مرور من 8 أحرف على الأقل.",
         "passwordMismatch": "تأكيد كلمة المرور غير متطابق.",
-        "phoneRequired": "رقم الهاتف مطلوب للتسجيل برمز OTP.",
+        "phoneRequired": "رقم الهاتف اختياري عند إنشاء الحساب.",
         "termsRequired": "يجب قبول الشروط للمتابعة.",
         "emailAlreadyRegistered": "هذا البريد مسجّل مسبقاً. إذا لم تصلك رسالة التأكيد، أعد الإرسال أدناه. وإلا سجّل الدخول أو أعد تعيين كلمة المرور.",
         "signupFailed": "فشل التسجيل. يرجى المحاولة مرة أخرى."

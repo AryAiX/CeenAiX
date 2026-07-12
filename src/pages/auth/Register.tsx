@@ -7,7 +7,6 @@ import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { UserRole } from '../../types';
 
-type RegistrationMode = 'email-password' | 'phone-otp';
 type RegistrationRole = Extract<UserRole, 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance'>;
 
 interface RegistrationRoleOption {
@@ -64,7 +63,6 @@ export const Register = () => {
   const {
     isAuthenticated,
     isLoading,
-    requestOtp,
     resendSignupConfirmation,
     role,
     signOut,
@@ -75,7 +73,6 @@ export const Register = () => {
   const safeRequestedRole = isRegistrationRole(requestedRole) ? requestedRole : null;
 
   const [step, setStep] = useState(0);
-  const [mode, setMode] = useState<RegistrationMode>('email-password');
   const [selectedRole, setSelectedRole] = useState<RegistrationRole>('patient');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -171,23 +168,18 @@ export const Register = () => {
     }
 
     if (step === 2) {
-      if (mode === 'email-password') {
-        if (!email.trim()) {
-          setErrorMessage(t('auth.register.errors.emailRequired'));
-          return;
-        }
+      if (!email.trim()) {
+        setErrorMessage(t('auth.register.errors.emailRequired'));
+        return;
+      }
 
-        if (password.length < 8) {
-          setErrorMessage(t('auth.register.errors.passwordShort'));
-          return;
-        }
+      if (password.length < 8) {
+        setErrorMessage(t('auth.register.errors.passwordShort'));
+        return;
+      }
 
-        if (password !== confirmPassword) {
-          setErrorMessage(t('auth.register.errors.passwordMismatch'));
-          return;
-        }
-      } else if (!phone.trim()) {
-        setErrorMessage(t('auth.register.errors.phoneRequired'));
+      if (password !== confirmPassword) {
+        setErrorMessage(t('auth.register.errors.passwordMismatch'));
         return;
       }
 
@@ -216,61 +208,36 @@ export const Register = () => {
 
     setIsSubmitting(true);
 
-    if (mode === 'email-password') {
-      const { error, session } = await signUpWithPassword({
-        email: normalizedEmail,
-        password,
-        phone: phone.trim() || undefined,
-        role: selectedRole,
-        fullName: fullName.trim(),
-        termsAccepted,
-      });
-
-      if (error) {
-        const errMessage = error.message ?? '';
-        if (errMessage.trim().toLowerCase().includes('already registered')) {
-          setDuplicateEmailConflict(true);
-          setErrorMessage(t('auth.register.errors.emailAlreadyRegistered'));
-        } else {
-          setErrorMessage(errMessage || t('auth.register.errors.signupFailed', { defaultValue: 'Sign up failed. Please try again.' }));
-        }
-        setIsSubmitting(false);
-        return;
-      }
-
-      setIsSubmitting(false);
-      if (session) {
-        navigate('/auth/onboarding', { replace: true });
-        return;
-      }
-
-      navigate(
-        `/auth/login?role=${selectedRole}&created=1&email=${encodeURIComponent(normalizedEmail)}`,
-        { replace: true }
-      );
-      return;
-    }
-
-    const normalizedPhone = phone.trim();
-    const { error } = await requestOtp({
-      phone: normalizedPhone,
-      shouldCreateUser: true,
-      data: {
-        role: selectedRole,
-        full_name: fullName.trim(),
-        phone: normalizedPhone,
-        terms_accepted: termsAccepted,
-      },
+    const { error, session } = await signUpWithPassword({
+      email: normalizedEmail,
+      password,
+      phone: phone.trim() || undefined,
+      role: selectedRole,
+      fullName: fullName.trim(),
+      termsAccepted,
     });
 
     if (error) {
-      setErrorMessage(error.message);
+      const errMessage = error.message ?? '';
+      if (errMessage.trim().toLowerCase().includes('already registered')) {
+        setDuplicateEmailConflict(true);
+        setErrorMessage(t('auth.register.errors.emailAlreadyRegistered'));
+      } else {
+        setErrorMessage(errMessage || t('auth.register.errors.signupFailed', { defaultValue: 'Sign up failed. Please try again.' }));
+      }
       setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(false);
+    if (session) {
+      navigate('/auth/onboarding', { replace: true });
       return;
     }
 
     navigate(
-      `/auth/verify-otp?phone=${encodeURIComponent(normalizedPhone)}&type=sms&signup=1`
+      `/auth/login?role=${selectedRole}&created=1&email=${encodeURIComponent(normalizedEmail)}`,
+      { replace: true }
     );
   };
 
@@ -347,7 +314,7 @@ export const Register = () => {
         </div>
       ) : null}
 
-      {(successMessage || duplicateEmailConflict) && mode === 'email-password' ? (
+      {successMessage || duplicateEmailConflict ? (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
           <span>{t('auth.register.resendPrompt')}</span>
           <button
@@ -375,18 +342,11 @@ export const Register = () => {
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {step === 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4">
             <button
               type="button"
-              onClick={() => {
-                resetFeedback();
-                setMode('email-password');
-              }}
-              className={`rounded-xl border p-4 text-left transition ${
-                mode === 'email-password'
-                  ? 'border-teal-500 bg-teal-50 shadow-sm shadow-teal-500/10'
-                  : 'border-gray-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-              }`}
+              onClick={resetFeedback}
+              className="rounded-xl border border-teal-500 bg-teal-50 p-4 text-left shadow-sm shadow-teal-500/10 transition"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
                 <ShieldCheck className="h-5 w-5 text-teal-700" />
@@ -394,27 +354,6 @@ export const Register = () => {
               <h3 className="mt-3 text-sm font-semibold text-gray-900">{t('auth.register.modeEmailTitle')}</h3>
               <p className="mt-1 text-xs leading-relaxed text-gray-600">
                 {t('auth.register.modeEmailDesc')}
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                resetFeedback();
-                setMode('phone-otp');
-              }}
-              className={`rounded-xl border p-4 text-left transition ${
-                mode === 'phone-otp'
-                  ? 'border-teal-500 bg-teal-50 shadow-sm shadow-teal-500/10'
-                  : 'border-gray-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
-                <UserRound className="h-5 w-5 text-teal-700" />
-              </div>
-              <h3 className="mt-3 text-sm font-semibold text-gray-900">{t('auth.register.modePhoneTitle')}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                {t('auth.register.modePhoneDesc')}
               </p>
             </button>
           </div>
@@ -502,99 +441,72 @@ export const Register = () => {
 
         {step === 2 ? (
           <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50/70 p-5">
-            {mode === 'email-password' ? (
-              <>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-slate-600">{t('auth.register.emailShort')}</label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      maxLength={FORM_FIELD_LIMITS.email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
-                      placeholder={t('auth.register.emailPlaceholder')}
-                      autoComplete="email"
-                      required
-                    />
-                  </div>
-                </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-600">{t('auth.register.emailShort')}</label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="email"
+                  value={email}
+                  maxLength={FORM_FIELD_LIMITS.email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                  placeholder={t('auth.register.emailPlaceholder')}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+            </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-slate-600">{t('auth.register.mobileShortOptional')}</label>
-                  <div className="relative">
-                    <Smartphone className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      maxLength={FORM_FIELD_LIMITS.phone}
-                      onChange={(event) => setPhone(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
-                      placeholder={t('auth.register.mobilePlaceholder')}
-                      autoComplete="tel"
-                    />
-                  </div>
-                </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-600">{t('auth.register.mobileShortOptional')}</label>
+              <div className="relative">
+                <Smartphone className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="tel"
+                  value={phone}
+                  maxLength={FORM_FIELD_LIMITS.phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                  placeholder={t('auth.register.mobilePlaceholder')}
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-slate-600">{t('auth.register.passwordShort')}</label>
-                  <div className="relative">
-                    <KeyRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="password"
-                      value={password}
-                      maxLength={FORM_FIELD_LIMITS.password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
-                      placeholder={t('auth.register.passwordPlaceholder')}
-                      autoComplete="new-password"
-                      required
-                    />
-                  </div>
-                </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-600">{t('auth.register.passwordShort')}</label>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  value={password}
+                  maxLength={FORM_FIELD_LIMITS.password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                  placeholder={t('auth.register.passwordPlaceholder')}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-slate-600">{t('auth.register.confirmPasswordShort')}</label>
-                  <div className="relative">
-                    <KeyRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      maxLength={FORM_FIELD_LIMITS.password}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
-                      placeholder={t('auth.register.confirmPasswordPlaceholder')}
-                      autoComplete="new-password"
-                      required
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-slate-600">{t('auth.register.mobileShort')}</label>
-                  <div className="relative">
-                    <Smartphone className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      maxLength={FORM_FIELD_LIMITS.phone}
-                      onChange={(event) => setPhone(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
-                      placeholder={t('auth.register.mobilePlaceholder')}
-                      autoComplete="tel"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                  {t('auth.register.otpNextHint')}
-                </div>
-              </>
-            )}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-600">{t('auth.register.confirmPasswordShort')}</label>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  maxLength={FORM_FIELD_LIMITS.password}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15"
+                  placeholder={t('auth.register.confirmPasswordPlaceholder')}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
 
             <label className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
               <input
@@ -631,9 +543,7 @@ export const Register = () => {
                 ? t('auth.register.btnContinue')
                 : isSubmitting
                   ? t('auth.register.btnProcessing')
-                  : mode === 'email-password'
-                    ? t('auth.register.btnCreateAccount')
-                    : t('auth.register.btnSendCode')}
+                  : t('auth.register.btnCreateAccount')}
             </span>
             <ArrowRight className="h-4 w-4 rtl:rotate-180" />
           </button>
