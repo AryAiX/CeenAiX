@@ -3,6 +3,10 @@ import { getLocales } from 'expo-localization';
 import i18n from 'i18next';
 import { I18nManager } from 'react-native';
 import { initReactI18next } from 'react-i18next';
+// Reuse the web app's translation resources directly (no copy) via the
+// shared path alias configured in tsconfig + metro.
+import enCommon from '@ceenaix/locales/en/common.json';
+import arCommon from '@ceenaix/locales/ar/common.json';
 
 export const LOCALE_STORAGE_KEY = 'ceenaix.lang';
 
@@ -79,8 +83,8 @@ export const initI18n = async (): Promise<typeof i18n> => {
 
   await i18n.use(initReactI18next).init({
     resources: {
-      en: { common: mobileEn },
-      ar: { common: mobileAr },
+      en: { common: { ...enCommon, ...mobileEn } },
+      ar: { common: { ...arCommon, ...mobileAr } },
     },
     lng,
     fallbackLng: 'en',
