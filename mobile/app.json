@@ -18,8 +18,8 @@
       "bundleIdentifier": "com.ceenaix.mobile",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to securely unlock CeenAiX.",
-        "NSCameraUsageDescription": "Capture documents and your Emirates ID.",
-        "NSPhotoLibraryUsageDescription": "Attach documents from your photo library."
+        "NSCameraUsageDescription": "Take a profile photo when you choose to update your account image.",
+        "NSPhotoLibraryUsageDescription": "Choose a profile photo when you update your account image."
       }
     },
     "android": {
