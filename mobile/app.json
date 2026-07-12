@@ -20,7 +20,8 @@
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to securely unlock CeenAiX.",
         "NSCameraUsageDescription": "Take a profile photo when you choose to update your account image.",
-        "NSPhotoLibraryUsageDescription": "Choose a profile photo when you update your account image."
+        "NSPhotoLibraryUsageDescription": "Choose a profile photo when you update your account image.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
