@@ -15,11 +15,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ceenaix.mobile",
+      "bundleIdentifier": "com.aryaix.aceaix.athlete",
+      "buildNumber": "9",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to securely unlock CeenAiX.",
         "NSCameraUsageDescription": "Take a profile photo when you choose to update your account image.",
-        "NSPhotoLibraryUsageDescription": "Choose a profile photo when you update your account image."
+        "NSPhotoLibraryUsageDescription": "Choose a profile photo when you update your account image.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -46,7 +48,11 @@
       ]
     ],
     "extra": {
-      "supabaseProjectRefDev": "lgfaucsfiyxvmsghnpey"
-    }
+      "supabaseProjectRefDev": "lgfaucsfiyxvmsghnpey",
+      "eas": {
+        "projectId": "0a8dff36-ec85-4cea-aa4b-67398b13db80"
+      }
+    },
+    "owner": "toorajhelmi4"
   }
 }
