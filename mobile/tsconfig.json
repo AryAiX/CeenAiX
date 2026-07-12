@@ -9,8 +9,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@ceenaix/types": ["../src/types"],
-      "@ceenaix/types/*": ["../src/types/*"],
-      "@ceenaix/locales/*": ["../src/locales/*"]
+      "@ceenaix/types/*": ["../src/types/*"]
     }
   },
   "include": [
