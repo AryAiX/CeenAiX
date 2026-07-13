@@ -2113,6 +2113,44 @@ const rpcPayload = (
         status: row.status,
       }));
     }
+    case 'get_conversation_counterparty_profiles': {
+      const selfId = currentUser?.id;
+      const requestedIds = new Set(
+        Array.isArray((payload as JsonRecord | null)?.p_user_ids)
+          ? ((payload as JsonRecord).p_user_ids as unknown[]).filter(
+              (value): value is string => typeof value === 'string'
+            )
+          : []
+      );
+      if (!selfId || requestedIds.size === 0) {
+        return [];
+      }
+
+      const visibleIds = new Set<string>();
+      mutableConversations().forEach((conversation) => {
+        const participantIds = Array.isArray(conversation.participant_ids)
+          ? conversation.participant_ids.filter((value): value is string => typeof value === 'string')
+          : [];
+        const createdBy = typeof conversation.created_by === 'string' ? conversation.created_by : null;
+        if (createdBy === selfId || participantIds.includes(selfId)) {
+          participantIds.forEach((id) => visibleIds.add(id));
+          if (createdBy) visibleIds.add(createdBy);
+        }
+      });
+
+      return userProfiles(true)
+        .filter(
+          (profile) =>
+            typeof profile.user_id === 'string' &&
+            profile.user_id !== selfId &&
+            requestedIds.has(profile.user_id) &&
+            visibleIds.has(profile.user_id)
+        )
+        .map((profile) => ({
+          user_id: profile.user_id,
+          full_name: profile.full_name,
+        }));
+    }
     case 'mark_conversation_messages_read': {
       const conversationIdValue = (payload as JsonRecord | null)?.p_conversation_id;
       mutableMessages().forEach((message) => {

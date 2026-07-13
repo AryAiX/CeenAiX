@@ -25,7 +25,6 @@ const errLoadMessages = () =>
 interface UserProfileRow {
   user_id: string;
   full_name: string | null;
-  email: string | null;
 }
 
 interface MessagePreviewRow {
@@ -109,9 +108,9 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await Promise.all([
           counterpartIds.length > 0
             ? supabase
-                .from('user_profiles')
-                .select('user_id, full_name, email')
-                .in('user_id', counterpartIds)
+                .rpc('get_conversation_counterparty_profiles', {
+                  p_user_ids: counterpartIds,
+                })
             : Promise.resolve({ data: [] as UserProfileRow[], error: null }),
           conversationIds.length > 0
             ? supabase
@@ -130,12 +129,12 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         throw messagePreviewsResult.error;
       }
 
-      const profileById = new Map(
-        (counterpartProfiles ?? []).map((profile) => [
+      const profileById = new Map<string, { name: string; email: string | null }>(
+        ((counterpartProfiles ?? []) as UserProfileRow[]).map((profile) => [
           profile.user_id,
           {
-            name: profile.full_name?.trim() || profile.email?.trim() || careTeamFallback(),
-            email: profile.email ?? null,
+            name: profile.full_name?.trim() || careTeamFallback(),
+            email: null,
           },
         ])
       );
