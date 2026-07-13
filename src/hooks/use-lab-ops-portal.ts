@@ -93,6 +93,7 @@ export interface LabPortalSample {
   technicianName: string | null;
   technicianInitials: string | null;
   sourceLabel: string | null;
+  rejectionReason: string | null;
 }
 
 export interface LabPortalImagingStudy {
@@ -230,6 +231,7 @@ export interface LabPortalData {
   facility: LabFacilityProfile | null;
   facilityMeta: LabFacilityMeta | null;
   samples: LabPortalSample[];
+  rejectedSamples: LabPortalSample[];
   imagingStudies: LabPortalImagingStudy[];
   equipment: LabPortalEquipment[];
   qcRuns: LabPortalQcRun[];
@@ -314,7 +316,9 @@ interface LabOrderRow {
   lab_order_code: string | null;
   nabidh_reference: string | null;
   sample_collection_at: string | null;
+  sample_received_at: string | null;
   results_released_at: string | null;
+  rejection_reason: string | null;
   due_by: string | null;
   urgency: LabOrderUrgency | null;
   total_cost_aed: number | null;
@@ -605,16 +609,28 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       }
     }
 
+    const orderSelect =
+      'id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, sample_received_at, results_released_at, rejection_reason, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender';
+
     const ordersQuery = supabase
       .from('lab_orders')
-      .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender')
+      .select(orderSelect)
       .eq('is_deleted', false)
       .eq('assigned_lab_id', labId)
       .order('ordered_at', { ascending: false })
       .limit(150);
 
+    const rejectedOrdersQuery = supabase
+      .from('lab_orders')
+      .select(orderSelect)
+      .eq('is_deleted', true)
+      .eq('assigned_lab_id', labId)
+      .order('ordered_at', { ascending: false })
+      .limit(50);
+
     const [
       { data: orderData, error: ordersError },
+      { data: rejectedOrderData, error: rejectedOrdersError },
       { data: imagingData, error: imagingError },
       { data: equipmentData, error: equipmentError },
       { data: qcData, error: qcError },
@@ -625,6 +641,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       { data: volumeData, error: volumeError },
     ] = await Promise.all([
       ordersQuery,
+      rejectedOrdersQuery,
       labId
         ? supabase.from('lab_portal_imaging_studies').select('*').eq('lab_id', labId).order('scheduled_at', { ascending: true })
         : supabase.from('lab_portal_imaging_studies').select('*').limit(0),
@@ -652,6 +669,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     ]);
 
     if (ordersError) throw ordersError;
+    if (rejectedOrdersError) throw rejectedOrdersError;
     if (imagingError) throw imagingError;
     if (equipmentError) throw equipmentError;
     if (qcError) throw qcError;
@@ -662,7 +680,8 @@ export function useLabOpsPortal(userId: string | null | undefined) {
     if (volumeError) throw volumeError;
 
     const orders = (orderData ?? []) as LabOrderRow[];
-    const orderIds = orders.map((order) => order.id);
+    const rejectedOrders = (rejectedOrderData ?? []) as LabOrderRow[];
+    const orderIds = Array.from(new Set([...orders, ...rejectedOrders].map((order) => order.id)));
 
     let itemRows: LabItemRow[] = [];
     if (orderIds.length > 0) {
@@ -675,7 +694,9 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       itemRows = (data ?? []) as LabItemRow[];
     }
 
-    const participantIds = Array.from(new Set(orders.flatMap((order) => [order.patient_id, order.doctor_id])));
+    const participantIds = Array.from(
+      new Set([...orders, ...rejectedOrders].flatMap((order) => [order.patient_id, order.doctor_id])),
+    );
     const profilesById = new Map<string, ProfileRow>();
     if (participantIds.length > 0) {
       const { data, error } = await supabase
@@ -693,7 +714,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       itemsByOrder.set(item.lab_order_id, existing);
     });
 
-    const samples: LabPortalSample[] = orders.map((order) => {
+    const mapOrderToSample = (order: LabOrderRow): LabPortalSample => {
       const items = itemsByOrder.get(order.id) ?? [];
       const patient = profilesById.get(order.patient_id);
       const doctor = profilesById.get(order.doctor_id);
@@ -736,7 +757,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         status: order.status,
         orderedAt: order.ordered_at,
         collectedAt: order.sample_collection_at,
-        receivedAt: order.sample_collection_at ?? order.ordered_at,
+        receivedAt: order.sample_received_at ?? order.sample_collection_at ?? order.ordered_at,
         dueBy: order.due_by,
         releasedAt: order.results_released_at,
         tatMinutes: minutesBetween(order.sample_collection_at ?? order.ordered_at, order.results_released_at ?? new Date().toISOString()),
@@ -755,8 +776,12 @@ export function useLabOpsPortal(userId: string | null | undefined) {
         technicianName: order.technician_name,
         technicianInitials: order.technician_initials,
         sourceLabel: order.source_label,
+        rejectionReason: order.rejection_reason,
       };
-    });
+    };
+
+    const samples: LabPortalSample[] = orders.map(mapOrderToSample);
+    const rejectedSamples: LabPortalSample[] = rejectedOrders.map(mapOrderToSample);
 
     const imagingStudies: LabPortalImagingStudy[] = ((imagingData ?? []) as ImagingStudyRow[]).map((study) => ({
       id: study.id,
@@ -912,6 +937,7 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       facility,
       facilityMeta,
       samples,
+      rejectedSamples,
       imagingStudies,
       equipment,
       qcRuns,
@@ -947,6 +973,15 @@ export function useLabOpsActions(onChange: () => void) {
   const claimSample = useCallback(
     async (orderId: string) => {
       const { error } = await supabase.rpc('lab_claim_order', { target_order_id: orderId });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const confirmSpecimen = useCallback(
+    async (orderId: string) => {
+      const { error } = await supabase.rpc('lab_confirm_specimen', { target_order_id: orderId });
       if (error) throw error;
       onChange();
     },
@@ -1039,20 +1074,15 @@ export function useLabOpsActions(onChange: () => void) {
   );
 
   /**
-   * Soft-delete a lab order (the canonical clinical-data convention — we
-   * never hard-delete records that carry patient context). Used when a lab
-   * rejects an incoming order that cannot be processed.
+   * Soft-delete a lab order via lab_reject_order (SECURITY DEFINER with
+   * membership + assignment checks). Never hard-delete clinical records.
    */
   const rejectOrder = useCallback(
     async (orderId: string, reason?: string) => {
-      const { error } = await supabase
-        .from('lab_orders')
-        .update({
-          is_deleted: true,
-          deleted_at: new Date().toISOString(),
-          clinical_notes: reason ? `[REJECTED] ${reason}` : '[REJECTED] No reason provided',
-        })
-        .eq('id', orderId);
+      const { error } = await supabase.rpc('lab_reject_order', {
+        target_order_id: orderId,
+        rejection_reason: reason?.trim() || 'No reason provided',
+      });
       if (error) throw error;
       onChange();
     },
@@ -1086,6 +1116,7 @@ export function useLabOpsActions(onChange: () => void) {
   return useMemo(
     () => ({
       claimSample,
+      confirmSpecimen,
       startProcessing,
       releaseOrder,
       rejectOrder,
@@ -1097,6 +1128,7 @@ export function useLabOpsActions(onChange: () => void) {
     }),
     [
       claimSample,
+      confirmSpecimen,
       startProcessing,
       releaseOrder,
       rejectOrder,

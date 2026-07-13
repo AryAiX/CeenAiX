@@ -401,6 +401,130 @@ test('lab processing actions move an order from ordered to resulted for downstre
   await closePage(patientPage);
 });
 
+test('lab claim + confirm specimen advances an ordered sample without status jump on claim', async ({ browser }) => {
+  const state = createE2EWorkflowState();
+  const { labOrder } = seedLabOrder(state, {
+    id: 'lab-order-claim-confirm',
+    status: 'ordered',
+    assigned_lab_id: null,
+  });
+  const page = await openRolePage(browser, state, 'lab', '/lab/orders');
+
+  await page.evaluate(async ({ orderId }) => {
+    const invokeRpc = (name: string, body: Record<string, unknown>) =>
+      fetch(`https://placeholder.supabase.co/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: {
+          apikey: 'placeholder',
+          authorization: 'Bearer e2e-lab',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+    await invokeRpc('lab_claim_order', { target_order_id: orderId });
+    await invokeRpc('lab_confirm_specimen', { target_order_id: orderId });
+  }, { orderId: labOrder.id });
+
+  expect(state.labActionLog).toEqual(
+    expect.arrayContaining([
+      `claim:${labOrder.id}`,
+      `confirm:${labOrder.id}`,
+    ]),
+  );
+  expect(state.labOrders.find((order) => order.id === labOrder.id)).toEqual(
+    expect.objectContaining({
+      id: labOrder.id,
+      assigned_lab_id: '00000000-0000-4000-8000-000000000501',
+      status: 'collected',
+    }),
+  );
+  await closePage(page);
+});
+
+test('lab claim denies arbitrary foreign-lab order IDs', async ({ browser }) => {
+  const state = createE2EWorkflowState();
+  const foreignLabId = '00000000-0000-4000-8000-00000000ffff';
+  const { labOrder } = seedLabOrder(state, {
+    id: 'lab-order-cross-tenant',
+    status: 'ordered',
+    assigned_lab_id: foreignLabId,
+  });
+  const page = await openRolePage(browser, state, 'lab', '/lab/orders');
+
+  await page.evaluate(async ({ orderId }) => {
+    await fetch('https://placeholder.supabase.co/rest/v1/rpc/lab_claim_order', {
+      method: 'POST',
+      headers: {
+        apikey: 'placeholder',
+        authorization: 'Bearer e2e-lab',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ target_order_id: orderId }),
+    });
+  }, { orderId: labOrder.id });
+
+  expect(state.labActionLog).toContain(`claim_denied:${labOrder.id}`);
+  expect(state.labOrders.find((order) => order.id === labOrder.id)).toEqual(
+    expect.objectContaining({
+      id: labOrder.id,
+      assigned_lab_id: foreignLabId,
+      status: 'ordered',
+    }),
+  );
+  await closePage(page);
+});
+
+test('lab reject soft-deletes only orders assigned to the caller lab', async ({ browser }) => {
+  const state = createE2EWorkflowState();
+  const { labOrder } = seedLabOrder(state, {
+    id: 'lab-order-reject-ok',
+    status: 'ordered',
+    assigned_lab_id: '00000000-0000-4000-8000-000000000501',
+  });
+  const { labOrder: foreignOrder } = seedLabOrder(state, {
+    id: 'lab-order-reject-foreign',
+    status: 'ordered',
+    assigned_lab_id: '00000000-0000-4000-8000-00000000ffff',
+  });
+  const page = await openRolePage(browser, state, 'lab', '/lab/orders');
+
+  await page.evaluate(async ({ ownId, foreignId }) => {
+    const invokeRpc = (orderId: string, reason: string) =>
+      fetch('https://placeholder.supabase.co/rest/v1/rpc/lab_reject_order', {
+        method: 'POST',
+        headers: {
+          apikey: 'placeholder',
+          authorization: 'Bearer e2e-lab',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ target_order_id: orderId, rejection_reason: reason }),
+      });
+    await invokeRpc(ownId, 'Hemolyzed specimen');
+    await invokeRpc(foreignId, 'should not apply');
+  }, { ownId: labOrder.id, foreignId: foreignOrder.id });
+
+  expect(state.labActionLog).toEqual(
+    expect.arrayContaining([
+      `reject:${labOrder.id}`,
+      `reject_denied:${foreignOrder.id}`,
+    ]),
+  );
+  expect(state.labOrders.find((order) => order.id === labOrder.id)).toEqual(
+    expect.objectContaining({
+      is_deleted: true,
+      rejection_reason: 'Hemolyzed specimen',
+    }),
+  );
+  expect(state.labOrders.find((order) => order.id === foreignOrder.id)).toEqual(
+    expect.objectContaining({
+      is_deleted: false,
+      status: 'ordered',
+    }),
+  );
+  await closePage(page);
+});
+
 test('admin cannot onboard an organization without a required name', async ({ browser }) => {
   const state = createE2EWorkflowState();
   const page = await openRolePage(browser, state, 'super_admin', '/admin/organizations');

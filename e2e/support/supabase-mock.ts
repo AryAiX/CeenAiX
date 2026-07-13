@@ -2064,14 +2064,44 @@ const rpcPayload = (
         notes: (payload as JsonRecord | null)?.p_notes,
       });
       return { id: (payload as JsonRecord | null)?.p_appointment_id ?? null };
-    case 'lab_claim_order':
-      state?.labActionLog.push(`claim:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
-      return { ok: true };
+    case 'lab_claim_order': {
+      const targetOrderId = (payload as JsonRecord | null)?.target_order_id;
+      const order = state?.labOrders.find((row) => row.id === targetOrderId);
+      if (
+        !order ||
+        order.is_deleted === true ||
+        (order.assigned_lab_id != null && order.assigned_lab_id !== labId)
+      ) {
+        state?.labActionLog.push(`claim_denied:${targetOrderId ?? ''}`);
+        return { error: 'Order not found or already claimed by another lab.' };
+      }
+      order.assigned_lab_id = labId;
+      state?.labActionLog.push(`claim:${targetOrderId ?? ''}`);
+      return order;
+    }
+    case 'lab_confirm_specimen': {
+      const targetOrderId = (payload as JsonRecord | null)?.target_order_id;
+      const order = state?.labOrders.find((row) => row.id === targetOrderId);
+      if (
+        !order ||
+        order.is_deleted === true ||
+        order.assigned_lab_id !== labId ||
+        order.status !== 'ordered'
+      ) {
+        state?.labActionLog.push(`confirm_denied:${targetOrderId ?? ''}`);
+        return { error: 'Order not found, not claimed by your lab, or already past Received stage.' };
+      }
+      order.status = 'collected';
+      order.sample_collection_at = order.sample_collection_at ?? now.toISOString();
+      state?.labActionLog.push(`confirm:${targetOrderId ?? ''}`);
+      return order;
+    }
     case 'lab_start_processing':
       state?.labActionLog.push(`start:${(payload as JsonRecord | null)?.target_order_id ?? ''}`);
       state?.labOrders.forEach((order) => {
         if (order.id === (payload as JsonRecord | null)?.target_order_id) {
           order.status = 'processing';
+          order.sample_received_at = order.sample_received_at ?? now.toISOString();
         }
       });
       return { ok: true };
@@ -2100,12 +2130,27 @@ const rpcPayload = (
           const allItemsResulted = items.length > 0 && items.every((item) => item.result_value != null);
           if (allItemsResulted) {
             order.status = 'resulted';
+            order.results_released_at = order.results_released_at ?? now.toISOString();
           } else {
             state.labActionLog.push(`release_blocked:${order.id}`);
           }
         }
       });
       return { ok: true };
+    case 'lab_reject_order': {
+      const targetOrderId = (payload as JsonRecord | null)?.target_order_id;
+      const order = state?.labOrders.find((row) => row.id === targetOrderId);
+      if (!order || order.is_deleted === true || order.assigned_lab_id !== labId) {
+        state?.labActionLog.push(`reject_denied:${targetOrderId ?? ''}`);
+        return { error: 'Order not found, already deleted, or not assigned to your lab.' };
+      }
+      order.is_deleted = true;
+      order.deleted_at = now.toISOString();
+      order.rejection_reason =
+        ((payload as JsonRecord | null)?.rejection_reason as string | undefined) ?? 'No reason provided';
+      state?.labActionLog.push(`reject:${targetOrderId ?? ''}`);
+      return { ok: true };
+    }
     case 'doctor_review_lab_order': {
       const targetOrderId = (payload as JsonRecord | null)?.target_order_id as string | undefined;
       state?.labActionLog.push(`doctor_review:${targetOrderId ?? ''}`);
