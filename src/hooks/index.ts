@@ -89,8 +89,11 @@ export type {
   PharmacyStaffMember,
 } from './use-pharmacy-prescription-queue';
 export {
+  INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE,
+  INSURANCE_PORTAL_DECISION_RPC_NAMES,
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  requireSingleActiveInsuranceMembership,
   setInsuranceSettingEnabled,
   useInsurancePortal,
 } from './use-insurance-portal';
