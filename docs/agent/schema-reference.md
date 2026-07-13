@@ -15,6 +15,11 @@ user_profiles
   - full_name, first_name, last_name, date_of_birth, gender, emirates_id (encrypted)
   - phone, email, address, city, avatar_url
   - notification_preferences (JSONB), profile_completed (bool), terms_accepted (bool)
+  - RLS: users read their own row; role-specific counterparty policies are relationship/tenant scoped
+  - Pharmacy contact display uses `get_patient_prescription_pharmacy_contact(p_prescription_id)`
+    and returns only `(user_id, full_name)` when the caller owns the linked prescription
+  - Messaging display uses `get_conversation_counterparty_profiles(user_ids)` and returns only
+    `(user_id, full_name)` for requested users sharing a conversation with the caller
 
 patient_profiles
   - id (PK), user_id (FK → auth.users, unique)
@@ -33,6 +38,10 @@ doctor_specializations
   - id (PK), doctor_user_id (FK → auth.users), specialization_id (FK → specializations)
   - unique (doctor_user_id, specialization_id)
 ```
+
+Operational tenant checks use `is_current_user_ops_org(organization_id, kind)`.
+Access requires active `organization_members` membership (or `super_admin`);
+an application role alone never grants access to another organization.
 
 ### Clinical
 

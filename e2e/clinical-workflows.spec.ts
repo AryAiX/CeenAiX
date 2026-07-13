@@ -457,7 +457,7 @@ test('admin add-doctor action routes into doctor registration', async ({ browser
 
   await page.getByRole('button', { name: /add doctor/i }).click();
 
-  await expect(page).toHaveURL(/\/auth\/register\?role=doctor$/);
+  await expect(page).toHaveURL(/\/auth\/register\?role=doctor&reset=1$/);
   await expect(page.locator('body')).toContainText(/doctor|register|account/i);
   await closePage(page);
 });

@@ -102,11 +102,8 @@ const clinicRoutes: RouteCase[] = [
   { name: 'doctors', path: '/clinic/doctors' },
   { name: 'appointments', path: '/clinic/appointments' },
   { name: 'patients', path: '/clinic/patients' },
-  { name: 'services', path: '/clinic/services' },
   { name: 'pricing', path: '/clinic/pricing' },
-  { name: 'schedule', path: '/clinic/schedule' },
   { name: 'analytics', path: '/clinic/analytics' },
-  { name: 'billing', path: '/clinic/billing' },
   { name: 'settings', path: '/clinic/settings' },
 ];
 
