@@ -1185,11 +1185,13 @@ const tableRows = (
           organization_id: e2eInsuranceOrgId,
           user_id: e2eUsers.insurance.id,
           is_active: true,
+          ends_at: null,
         },
         {
           organization_id: e2ePharmacyOrgId,
           user_id: e2eUsers.pharmacy.id,
           is_active: true,
+          ends_at: null,
         },
       ];
     case 'pharmacy_facility_profiles':

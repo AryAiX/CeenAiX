@@ -187,8 +187,9 @@ interface OrganizationRow {
   city: string | null;
 }
 
-interface OrganizationMemberRow {
+export interface InsuranceOrganizationMembershipRow {
   organization_id: string;
+  ends_at: string | null;
 }
 
 interface PayerProfileRow {
@@ -368,80 +369,72 @@ const toNullableNumber = (value: number | string | null | undefined): number | n
   return null;
 };
 
-const emptyData = (): InsurancePortalData => ({
-  organization: null,
-  profile: null,
-  preAuthorizations: [],
-  claims: [],
-  members: [],
-  fraudAlerts: [],
-  networkProviders: [],
-  riskSegments: [],
-  reportRuns: [],
-  settings: [],
-  aiInsights: [],
-  monthlyClaimsVolume: [],
-});
+export const INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE =
+  'Insurance decision writes require hardened server-side RPCs before they can be enabled.';
+
+export const INSURANCE_PORTAL_DECISION_RPC_NAMES = [] as const;
+
+export const requireSingleActiveInsuranceMembership = (
+  memberships: InsuranceOrganizationMembershipRow[],
+  now: Date = new Date(),
+): string => {
+  const nowMs = now.getTime();
+  const activeOrganizationIds = [
+    ...new Set(
+      memberships
+        .filter((membership) => {
+          if (membership.ends_at === null) return true;
+          const endsAtMs = Date.parse(membership.ends_at);
+          return Number.isFinite(endsAtMs) && endsAtMs > nowMs;
+        })
+        .map((membership) => membership.organization_id),
+    ),
+  ];
+
+  if (activeOrganizationIds.length === 0) {
+    throw new Error('No active insurance organization membership found.');
+  }
+
+  if (activeOrganizationIds.length > 1) {
+    throw new Error('Select an insurance organization before opening the insurance portal.');
+  }
+
+  return activeOrganizationIds[0];
+};
 
 /**
- * Approve the supplied pre-authorization rows in a single UPDATE roundtrip.
- * Used by the dashboard "Bulk Approve AI Recommended" action — sets status
- * and the approved amount equal to the requested amount so the queue
- * immediately reflects the decision.
+ * Insurance decision writes are intentionally disabled until accepted through
+ * hardened, row-scoped RPCs. Read-only portal surfaces remain available.
  */
 export async function bulkApprovePreAuthorizations(
   preAuthIds: ReadonlyArray<{ id: string; requestedAmountAed: number | null }>
 ): Promise<void> {
   if (preAuthIds.length === 0) return;
-  const now = new Date().toISOString();
-  // Run sequentially so each row's approved_amount can mirror its own
-  // requested amount (a single multi-row UPDATE with the SAME value is wrong).
-  for (const row of preAuthIds) {
-    const { error } = await supabase
-      .from('insurance_pre_authorizations')
-      .update({
-        status: 'approved',
-        approved_amount_aed: row.requestedAmountAed ?? 0,
-        decision_at: now,
-      })
-      .eq('id', row.id);
-    if (error) throw error;
-  }
+  throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
 }
 
 /**
- * Toggle an `insurance_settings` row's `enabled` boolean. Used by the
- * Insurance Settings page so officer preferences are persisted to the
- * canonical table.
+ * Settings writes share the same disabled surface as claim/pre-auth decisions.
  */
 export async function setInsuranceSettingEnabled(
   settingId: string,
   enabled: boolean
 ): Promise<void> {
-  const { error } = await supabase
-    .from('insurance_settings')
-    .update({ enabled, updated_at: new Date().toISOString() })
-    .eq('id', settingId);
-  if (error) throw error;
+  void settingId;
+  void enabled;
+  throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
 }
 
 /**
- * Approve a single pre-authorization row. Returns the updated row id so the
- * caller can drop it from any in-flight selection state without refetching.
+ * Single-row pre-authorization approval is disabled with bulk decisions.
  */
 export async function approvePreAuthorization(
   preAuthId: string,
   requestedAmountAed: number | null
 ): Promise<void> {
-  const { error } = await supabase
-    .from('insurance_pre_authorizations')
-    .update({
-      status: 'approved',
-      approved_amount_aed: requestedAmountAed ?? 0,
-      decision_at: new Date().toISOString(),
-    })
-    .eq('id', preAuthId);
-  if (error) throw error;
+  void preAuthId;
+  void requestedAmountAed;
+  throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
 }
 
 export function useInsurancePortal() {
@@ -449,31 +442,32 @@ export function useInsurancePortal() {
     const { data: userResult, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
 
-    let memberOrganizationId: string | null = null;
-    if (userResult.user) {
-      const { data: membershipRows, error: membershipError } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', userResult.user.id)
-        .eq('is_active', true)
-        .limit(1);
-      if (membershipError) throw membershipError;
-      memberOrganizationId = ((membershipRows ?? []) as OrganizationMemberRow[])[0]?.organization_id ?? null;
+    if (!userResult.user) {
+      throw new Error('Sign in with an insurance account to open the insurance portal.');
     }
 
-    const organizationQuery = supabase
+    const { data: membershipRows, error: membershipError } = await supabase
+      .from('organization_members')
+      .select('organization_id, ends_at')
+      .eq('user_id', userResult.user.id);
+    if (membershipError) throw membershipError;
+
+    const memberOrganizationId = requireSingleActiveInsuranceMembership(
+      (membershipRows ?? []) as InsuranceOrganizationMembershipRow[],
+    );
+
+    const { data: organization, error: orgError } = await supabase
       .from('organizations')
       .select('id, name, slug, city')
       .eq('kind', 'insurance')
       .eq('status', 'active')
-      .order('created_at', { ascending: true });
-
-    const { data: organization, error: orgError } = memberOrganizationId
-      ? await organizationQuery.eq('id', memberOrganizationId).maybeSingle()
-      : await organizationQuery.limit(1).maybeSingle();
+      .eq('id', memberOrganizationId)
+      .maybeSingle();
 
     if (orgError) throw orgError;
-    if (!organization) return emptyData();
+    if (!organization) {
+      throw new Error('No active insurance organization membership found.');
+    }
 
     const org = organization as OrganizationRow;
 

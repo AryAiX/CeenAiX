@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE,
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
   setInsuranceSettingEnabled,
@@ -40,6 +41,8 @@ import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 type BadgeTone = 'red' | 'amber' | 'blue';
 type PillTone = 'red' | 'amber' | 'emerald' | 'blue' | 'violet' | 'slate';
+
+const insuranceDecisionActionsEnabled = false;
 
 interface InsuranceNavItem {
   href: string;
@@ -821,7 +824,16 @@ const PreAuthHostedTable = ({
                       <button
                         type="button"
                         onClick={() => void handleRowApprove(row)}
-                        disabled={rowBusyId === row.id || row.status === 'approved'}
+                        disabled={
+                          !insuranceDecisionActionsEnabled ||
+                          rowBusyId === row.id ||
+                          row.status === 'approved'
+                        }
+                        title={
+                          insuranceDecisionActionsEnabled
+                            ? undefined
+                            : INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE
+                        }
                         className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {row.status === 'approved'
@@ -1224,7 +1236,16 @@ export const InsurancePortal = () => {
                   <button
                     type="button"
                     onClick={() => void handleBulkApprove()}
-                    disabled={bulkBusy || aiBulkApproveCount === 0}
+                    disabled={
+                      !insuranceDecisionActionsEnabled ||
+                      bulkBusy ||
+                      aiBulkApproveCount === 0
+                    }
+                    title={
+                      insuranceDecisionActionsEnabled
+                        ? undefined
+                        : INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE
+                    }
                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {bulkBusy
@@ -1468,7 +1489,12 @@ export const InsurancePreAuthorizations = () => {
               <button
                 type="button"
                 onClick={() => void handleBulkApprove()}
-                disabled={bulkBusy || aiBulkApprove === 0}
+                disabled={!insuranceDecisionActionsEnabled || bulkBusy || aiBulkApprove === 0}
+                title={
+                  insuranceDecisionActionsEnabled
+                    ? undefined
+                    : INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE
+                }
                 className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {bulkBusy ? 'Approving…' : `Bulk Approve AI Recommended (${aiBulkApprove})`}
@@ -2058,9 +2084,14 @@ export const InsuranceSettings = () => {
                   <button
                     type="button"
                     onClick={() => void handleToggleSetting(setting.id, !setting.enabled)}
-                    disabled={busyId === setting.id}
+                    disabled={!insuranceDecisionActionsEnabled || busyId === setting.id}
                     aria-pressed={setting.enabled}
                     aria-label={setting.enabled ? 'Disable preference' : 'Enable preference'}
+                    title={
+                      insuranceDecisionActionsEnabled
+                        ? undefined
+                        : INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE
+                    }
                     className={`relative h-6 w-12 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-60 ${setting.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
                   >
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${setting.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
