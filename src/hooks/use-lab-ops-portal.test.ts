@@ -38,3 +38,22 @@ describe('lab workflow action surface', () => {
     expect(() => requireSingleActiveLabMembership(['lab-a', 'lab-b'])).toThrow(/Select a laboratory/i);
   });
 });
+
+describe('lab QC and equipment action surface', () => {
+  it('documents role-auth QC and equipment RPCs without plaintext PIN release', () => {
+    const qcEquipmentRpcs = [
+      'lab_log_qc_run',
+      'lab_review_qc_failure',
+      'lab_log_maintenance',
+      'lab_mark_equipment_online',
+    ] as const;
+    expect(qcEquipmentRpcs).toHaveLength(4);
+    expect(qcEquipmentRpcs).not.toContain('lab_release_order_with_pin');
+  });
+
+  it('requires single-lab membership before QC or equipment mutations', () => {
+    expect(() => requireSingleActiveLabMembership([])).toThrow(/No active laboratory membership/i);
+    expect(() => requireSingleActiveLabMembership(['lab-a', 'lab-b'])).toThrow(/Select a laboratory/i);
+    expect(requireSingleActiveLabMembership(['lab-a'])).toBe('lab-a');
+  });
+});

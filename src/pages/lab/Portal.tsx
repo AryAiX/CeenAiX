@@ -1847,7 +1847,6 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
   const [selectedId, setSelectedId] = useState<string | null>(candidates[0]?.id ?? null);
   const selected = candidates.find((s) => s.id === selectedId) ?? candidates[0];
   const [instrument, setInstrument] = useState('Roche Cobas 6000');
-  const [pin, setPin] = useState('');
   const [resultDrafts, setResultDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<'idle' | 'draft' | 'release' | 'verify'>('idle');
   const [resultsError, setResultsError] = useState<string | null>(null);
@@ -1917,10 +1916,6 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
 
   const handleVerifyAndRelease = async () => {
     if (!selected) return;
-    if (!pin.trim()) {
-      setResultsError('Enter your technician PIN to verify the release.');
-      return;
-    }
     setResultsError(null);
     setResultsNotice(null);
     setSaving('verify');
@@ -1929,7 +1924,6 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
       await context.actions.releaseOrder(selected.id);
       setResultsNotice('Results verified and released to the requesting doctor.');
       setResultDrafts({});
-      setPin('');
     } catch (error) {
       setResultsError(error instanceof Error ? error.message : 'Failed to release results.');
     } finally {
@@ -2105,13 +2099,9 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
                   <div className="text-xs text-slate-500">Technician</div>
                   <div className="font-bold text-slate-900">{meta?.technicianName ?? selected.technicianName ?? 'Unassigned'} · {meta?.technicianCredentials ?? 'Lab Tech'}</div>
                 </div>
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="Technician PIN"
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                  Release uses lab role authentication (no technician PIN required).
+                </div>
               </div>
               {resultsError ? (
                 <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
@@ -2158,12 +2148,65 @@ const LabResultsPage = ({ context }: { context: LabPageContext }) => {
 // QUALITY CONTROL
 // ============================================================================
 
-const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
+const QualityControlView = ({ context }: { context: LabPageContext }) => {
+  const data = context.data;
   const runs = data?.qcRuns ?? [];
   const passed = runs.filter((r) => r.status === 'passed').length;
   const maintenance = runs.filter((r) => r.status === 'warning').length;
   const failures = runs.filter((r) => r.status === 'failed').length;
   const labMaintenance = (data?.equipment ?? []).find((e) => e.department === 'laboratory' && e.status === 'maintenance');
+  const labInstruments = (data?.equipment ?? [])
+    .filter((e) => e.department === 'laboratory')
+    .map((e) => e.name);
+  const [showQcRunModal, setShowQcRunModal] = useState(false);
+  const [qcSaving, setQcSaving] = useState(false);
+  const [qcError, setQcError] = useState<string | null>(null);
+  const [qcForm, setQcForm] = useState({
+    instrumentName: '',
+    lotNumber: '',
+    levelLabel: 'Level 1',
+    status: 'passed' as 'passed' | 'warning' | 'failed',
+  });
+
+  const resultLabelFromStatus = (status: 'passed' | 'warning' | 'failed') => {
+    if (status === 'passed') return 'Within acceptable range';
+    if (status === 'warning') return 'Borderline — monitor closely';
+    return 'Outside acceptable range';
+  };
+
+  const handleLogQcRun = async () => {
+    if (!qcForm.instrumentName) {
+      setQcError('Please select an instrument.');
+      return;
+    }
+    if (!qcForm.lotNumber.trim()) {
+      setQcError('Please enter a QC lot number.');
+      return;
+    }
+    setQcError(null);
+    setQcSaving(true);
+    try {
+      await context.actions.logQcRun({
+        instrumentName: qcForm.instrumentName,
+        department: 'laboratory',
+        lotNumber: qcForm.lotNumber.trim(),
+        levelLabel: qcForm.levelLabel,
+        resultLabel: resultLabelFromStatus(qcForm.status),
+        status: qcForm.status,
+      });
+      setShowQcRunModal(false);
+      setQcForm({
+        instrumentName: '',
+        lotNumber: '',
+        levelLabel: 'Level 1',
+        status: 'passed',
+      });
+    } catch (error) {
+      setQcError(error instanceof Error ? error.message : 'Failed to log QC run.');
+    } finally {
+      setQcSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -2172,12 +2215,22 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
           Last QC: {formatTimeShort(runs[0]?.runAt)} · {runs[0]?.department ?? 'Lab'} ·{' '}
           {runs[0]?.resultLabel ?? 'No runs yet'}
         </div>
-        <a
-          href="/lab/results/entry"
+        <button
+          type="button"
+          onClick={() => {
+            setQcError(null);
+            setQcForm({
+              instrumentName: labInstruments[0] ?? '',
+              lotNumber: '',
+              levelLabel: 'Level 1',
+              status: 'passed',
+            });
+            setShowQcRunModal(true);
+          }}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
         >
           Log New QC Run
-        </a>
+        </button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -2269,6 +2322,88 @@ const QualityControlView = ({ data }: { data: LabPortalData | null }) => {
           </table>
         </div>
       </SectionCard>
+
+      {showQcRunModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">Log New QC Run</h3>
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs font-bold text-slate-600">
+                Instrument
+                <select
+                  value={qcForm.instrumentName}
+                  onChange={(e) => setQcForm((prev) => ({ ...prev, instrumentName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select instrument</option>
+                  {labInstruments.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold text-slate-600">
+                QC Lot
+                <input
+                  value={qcForm.lotNumber}
+                  onChange={(e) => setQcForm((prev) => ({ ...prev, lotNumber: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="Lot number"
+                />
+              </label>
+              <label className="block text-xs font-bold text-slate-600">
+                Level
+                <select
+                  value={qcForm.levelLabel}
+                  onChange={(e) => setQcForm((prev) => ({ ...prev, levelLabel: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="Level 1">Level 1</option>
+                  <option value="Level 2">Level 2</option>
+                  <option value="Level 3">Level 3</option>
+                </select>
+              </label>
+              <label className="block text-xs font-bold text-slate-600">
+                Status
+                <select
+                  value={qcForm.status}
+                  onChange={(e) => setQcForm((prev) => ({
+                    ...prev,
+                    status: e.target.value as 'passed' | 'warning' | 'failed',
+                  }))}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="passed">Passed</option>
+                  <option value="warning">Warning</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </label>
+            </div>
+            {qcError ? (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
+                {qcError}
+              </div>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowQcRunModal(false)}
+                disabled={qcSaving}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleLogQcRun()}
+                disabled={qcSaving}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {qcSaving ? 'Saving…' : 'Log QC Run'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -2923,7 +3058,17 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
 // IMAGING EQUIPMENT
 // ============================================================================
 
-const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; department: LabDepartment }) => {
+const EquipmentCard = ({
+  item,
+  department,
+  onMaintenanceClick,
+  onMarkOnlineClick,
+}: {
+  item: LabPortalEquipment;
+  department: LabDepartment;
+  onMaintenanceClick?: () => void;
+  onMarkOnlineClick?: () => void;
+}) => {
   const statusColor =
     item.status === 'online' ? 'bg-emerald-100 text-emerald-700' :
     item.status === 'maintenance' ? 'bg-amber-100 text-amber-800' :
@@ -3031,27 +3176,88 @@ const EquipmentCard = ({ item, department }: { item: LabPortalEquipment; departm
         <p className="mt-3 text-xs text-slate-500">Maintenance due: {formatDateShort(item.maintenanceDueAt)}</p>
       ) : null}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <a
           href={isLab ? '/lab/analytics' : '/lab/imaging/equipment'}
           className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
         >
           {isLab ? '📊 Stats' : '📋 Schedule'}
         </a>
-        <a
-          href="/lab/equipment"
-          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
-        >
-          {isLab ? '⚙️ Log Maintenance' : '⚙️ Maintenance'}
-        </a>
+        {isLab ? (
+          <button
+            type="button"
+            onClick={onMaintenanceClick}
+            className="flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 text-center"
+          >
+            ⚙️ Log Maintenance
+          </button>
+        ) : (
+          <a
+            href="/lab/equipment"
+            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 text-center"
+          >
+            ⚙️ Maintenance
+          </a>
+        )}
+        {isLab && (item.status === 'maintenance' || item.status === 'warning') ? (
+          <button
+            type="button"
+            onClick={onMarkOnlineClick}
+            className="flex-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 text-center"
+          >
+            ✅ Mark Online
+          </button>
+        ) : null}
       </div>
     </SectionCard>
   );
 };
 
-const EquipmentPage = ({ data, department }: { data: LabPortalData | null; department: LabDepartment }) => {
+const EquipmentPage = ({ context, department }: { context: LabPageContext; department: LabDepartment }) => {
+  const data = context.data;
   const items = (data?.equipment ?? []).filter((e) => e.department === department);
   const lowReagents = items.filter((i) => (i.reagents ?? []).some((r) => r.percent < 50));
+  const [maintenanceTarget, setMaintenanceTarget] = useState<{ id: string; name: string } | null>(null);
+  const [onlineTarget, setOnlineTarget] = useState<{ id: string; name: string } | null>(null);
+  const [maintenanceReason, setMaintenanceReason] = useState('');
+  const [onlineNotes, setOnlineNotes] = useState('');
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [onlineSaving, setOnlineSaving] = useState(false);
+  const [equipmentError, setEquipmentError] = useState<string | null>(null);
+
+  const handleLogMaintenance = async () => {
+    if (!maintenanceTarget || !maintenanceReason.trim()) return;
+    setEquipmentError(null);
+    setMaintenanceSaving(true);
+    try {
+      await context.actions.logMaintenance({
+        equipmentId: maintenanceTarget.id,
+        maintenanceType: 'scheduled',
+        reason: maintenanceReason.trim(),
+      });
+      setMaintenanceTarget(null);
+      setMaintenanceReason('');
+    } catch (error) {
+      setEquipmentError(error instanceof Error ? error.message : 'Failed to log maintenance.');
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
+  const handleMarkOnline = async () => {
+    if (!onlineTarget) return;
+    setEquipmentError(null);
+    setOnlineSaving(true);
+    try {
+      await context.actions.markEquipmentOnline(onlineTarget.id, onlineNotes.trim() || null);
+      setOnlineTarget(null);
+      setOnlineNotes('');
+    } catch (error) {
+      setEquipmentError(error instanceof Error ? error.message : 'Failed to mark equipment online.');
+    } finally {
+      setOnlineSaving(false);
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
@@ -3087,12 +3293,108 @@ const EquipmentPage = ({ data, department }: { data: LabPortalData | null; depar
           </SectionCard>
         ) : null}
 
+        {equipmentError ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
+            {equipmentError}
+          </div>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <EquipmentCard key={item.id} item={item} department={department} />
+            <EquipmentCard
+              key={item.id}
+              item={item}
+              department={department}
+              onMaintenanceClick={() => {
+                setEquipmentError(null);
+                setMaintenanceReason('');
+                setMaintenanceTarget({ id: item.id, name: item.name });
+              }}
+              onMarkOnlineClick={() => {
+                setEquipmentError(null);
+                setOnlineNotes('');
+                setOnlineTarget({ id: item.id, name: item.name });
+              }}
+            />
           ))}
         </div>
       </div>
+
+      {maintenanceTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">
+              Log Maintenance — {maintenanceTarget.name}
+            </h3>
+            <label className="mt-4 block text-xs font-bold text-slate-600">
+              Reason
+              <textarea
+                value={maintenanceReason}
+                onChange={(e) => setMaintenanceReason(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                rows={3}
+                placeholder="Calibration, reagent change, service visit…"
+              />
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setMaintenanceTarget(null)}
+                disabled={maintenanceSaving}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleLogMaintenance()}
+                disabled={maintenanceSaving || !maintenanceReason.trim()}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {maintenanceSaving ? 'Saving…' : 'Log Maintenance'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {onlineTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900">
+              Mark Online — {onlineTarget.name}
+            </h3>
+            <label className="mt-4 block text-xs font-bold text-slate-600">
+              Notes (optional)
+              <textarea
+                value={onlineNotes}
+                onChange={(e) => setOnlineNotes(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                rows={3}
+                placeholder="QC passed after service…"
+              />
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOnlineTarget(null)}
+                disabled={onlineSaving}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMarkOnline()}
+                disabled={onlineSaving}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {onlineSaving ? 'Saving…' : 'Mark Online'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -3748,7 +4050,7 @@ const LabPageBody = ({ page, context }: { page: LabPage; context: LabPageContext
     case 'results':
       return <LabResultsPage context={context} />;
     case 'qc':
-      return <QualityControlView data={context.data} />;
+      return <QualityControlView context={context} />;
     case 'imaging-queue':
       return <ImagingQueueView context={context} />;
     case 'imaging-orders':
@@ -3756,9 +4058,9 @@ const LabPageBody = ({ page, context }: { page: LabPage; context: LabPageContext
     case 'imaging-reports':
       return <RadiologyReportsPage context={context} />;
     case 'imaging-equipment':
-      return <EquipmentPage data={context.data} department="radiology" />;
+      return <EquipmentPage context={context} department="radiology" />;
     case 'equipment':
-      return <EquipmentPage data={context.data} department="laboratory" />;
+      return <EquipmentPage context={context} department="laboratory" />;
     case 'nabidh':
       return <NabidhPage context={context} />;
     case 'analytics':
