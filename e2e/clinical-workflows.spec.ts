@@ -211,6 +211,7 @@ test('admin, patient, doctor, lab, and patient complete a clinical order journey
   await patientBookingPage.locator('textarea').first().fill('Workflow headache consult');
   await patientBookingPage.locator('textarea').nth(1).fill('Light sensitivity and nausea for the past week.');
   await patientBookingPage.getByRole('button', { name: /confirm appointment/i }).click();
+  await patientBookingPage.getByRole('button', { name: /^confirm booking$/i }).click();
   await expect(patientBookingPage).toHaveURL(new RegExp(`/patient/pre-visit/${workflowIds.preVisitAssessment}$`));
   await expect(patientBookingPage.getByRole('heading', { name: /pre-visit intake/i })).toBeVisible();
   await closePage(patientBookingPage);
@@ -484,6 +485,8 @@ test('patient can cancel a future appointment', async ({ browser }) => {
   const page = await openRolePage(browser, state, 'patient', '/patient/appointments');
 
   await page.getByRole('button', { name: /cancel appointment/i }).first().click();
+  await page.getByRole('button', { name: /schedule conflict/i }).click();
+  await page.getByRole('button', { name: /confirm cancellation/i }).click();
 
   await expect(page.getByText(/appointment cancelled successfully/i)).toBeVisible();
   expect(state.appointments[0]).toEqual(expect.objectContaining({ status: 'cancelled' }));
