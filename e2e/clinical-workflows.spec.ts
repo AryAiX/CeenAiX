@@ -705,6 +705,47 @@ test('doctor-created lab order creates a patient notification handoff', async ({
   await closePage(page);
 });
 
+test('doctor-created mixed lab order keeps custom codes out of LOINC metadata', async ({ browser }) => {
+  const state = createE2EWorkflowState({ includeBaselineData: true });
+  const page = await openRolePage(
+    browser,
+    state,
+    'doctor',
+    `/doctor/lab-orders/new?patient=${e2eUsers.patient.id}`
+  );
+
+  await page.getByLabel(/patient/i).selectOption(e2eUsers.patient.id);
+  await page.getByPlaceholder(/search by test name/i).fill('Complete');
+  await page.getByRole('button', { name: /Complete Blood Count/i }).first().click();
+  await page.getByRole('button', { name: /^add test$/i }).click();
+  const secondItem = page
+    .getByRole('heading', { name: /^Test 2$/i })
+    .locator('..')
+    .locator('..');
+  await secondItem.getByPlaceholder(/search by test name/i).fill('Custom');
+  await secondItem.getByRole('button', { name: /Custom Metabolic Panel/i }).click();
+  await page.getByRole('button', { name: /save lab order/i }).click();
+  await expect(page).toHaveURL(/\/doctor\/lab-orders$/);
+
+  expect(
+    state.labOrderItems.filter((item) => item.lab_order_id === workflowIds.labOrder)
+  ).toEqual([
+    expect.objectContaining({
+      test_name: 'Complete Blood Count',
+      test_code: '58410-2',
+      loinc_code: '58410-2',
+      specimen_type: 'Blood',
+    }),
+    expect.objectContaining({
+      test_name: 'Custom Metabolic Panel',
+      test_code: 'CUSTOM-CMP-1',
+      loinc_code: null,
+      specimen_type: 'Serum',
+    }),
+  ]);
+  await closePage(page);
+});
+
 test('patient cannot access lab result-entry workspace', async ({ browser }) => {
   const state = createE2EWorkflowState();
   const page = await browser.newPage();
