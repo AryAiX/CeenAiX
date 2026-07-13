@@ -5,9 +5,14 @@ import type { LabOrderStatus, LabOrderUrgency } from '../types';
 
 export type LabPriority = 'STAT' | 'Urgent' | 'Routine';
 export type LabDepartment = 'laboratory' | 'radiology';
-export type ImagingStatus = 'ordered' | 'scheduled' | 'scanning' | 'report_pending' | 'reported' | 'released';
+export type ImagingStatus = 'ordered' | 'scheduled' | 'scanning' | 'report_pending' | 'reported' | 'released' | 'rejected';
 export type EquipmentStatus = 'online' | 'maintenance' | 'warning' | 'offline';
 export type NabidhStatus = 'pending' | 'submitted' | 'failed';
+
+export const LAB_IMAGING_RPC_NAMES = [
+  'lab_set_imaging_study_status',
+  'lab_reject_imaging_study',
+] as const;
 
 export interface LabFacilityProfile {
   id: string;
@@ -100,6 +105,12 @@ export interface LabPortalImagingStudy {
   id: string;
   labId: string;
   accession: string;
+  isDeleted: boolean;
+  rejectionReason: string | null;
+  findings: string | null;
+  impression: string | null;
+  recommendations: string | null;
+  reportChecklist: Record<string, boolean> | null;
   patientName: string;
   patientAge: number | null;
   patientGender: string | null;
@@ -370,6 +381,12 @@ interface ImagingStudyRow {
   id: string;
   lab_id: string;
   accession: string;
+  is_deleted?: boolean | null;
+  rejection_reason?: string | null;
+  findings?: string | null;
+  impression?: string | null;
+  recommendations?: string | null;
+  report_checklist?: Record<string, boolean> | null;
   patient_name: string;
   patient_age: number | null;
   patient_gender: string | null;
@@ -787,6 +804,12 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       id: study.id,
       labId: study.lab_id,
       accession: study.accession,
+      isDeleted: study.is_deleted ?? false,
+      rejectionReason: study.rejection_reason ?? null,
+      findings: study.findings ?? null,
+      impression: study.impression ?? null,
+      recommendations: study.recommendations ?? null,
+      reportChecklist: study.report_checklist ?? null,
       patientName: study.patient_name,
       patientAge: study.patient_age,
       patientGender: study.patient_gender,
@@ -1058,15 +1081,38 @@ export function useLabOpsActions(onChange: () => void) {
    * Save Draft / Submit Preliminary / Verify & Sign buttons.
    */
   const setImagingStudyStatus = useCallback(
-    async (studyId: string, status: ImagingStatus, reportStatus?: string | null) => {
-      const update: Record<string, unknown> = { status };
-      if (reportStatus !== undefined) {
-        update.report_status = reportStatus;
-      }
-      const { error } = await supabase
-        .from('lab_portal_imaging_studies')
-        .update(update)
-        .eq('id', studyId);
+    async (
+      studyId: string,
+      status: Exclude<ImagingStatus, 'rejected'>,
+      reportStatus?: string | null,
+      reportContent?: {
+        findings?: string | null;
+        impression?: string | null;
+        recommendations?: string | null;
+        reportChecklist?: Record<string, boolean> | null;
+      },
+    ) => {
+      const { error } = await supabase.rpc('lab_set_imaging_study_status', {
+        p_study_id: studyId,
+        p_status: status,
+        p_report_status: reportStatus ?? null,
+        p_findings: reportContent?.findings ?? null,
+        p_impression: reportContent?.impression ?? null,
+        p_recommendations: reportContent?.recommendations ?? null,
+        p_report_checklist: reportContent?.reportChecklist ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const rejectImagingStudy = useCallback(
+    async (studyId: string, reason?: string) => {
+      const { error } = await supabase.rpc('lab_reject_imaging_study', {
+        p_study_id: studyId,
+        p_rejection_reason: reason?.trim() || 'No reason provided',
+      });
       if (error) throw error;
       onChange();
     },
@@ -1212,6 +1258,7 @@ export function useLabOpsActions(onChange: () => void) {
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
       setImagingStudyStatus,
+      rejectImagingStudy,
     }),
     [
       claimSample,
@@ -1228,6 +1275,7 @@ export function useLabOpsActions(onChange: () => void) {
       markNabidhSubmittedBulk,
       markCriticalValueNotified,
       setImagingStudyStatus,
+      rejectImagingStudy,
     ],
   );
 }

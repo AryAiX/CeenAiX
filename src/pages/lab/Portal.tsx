@@ -2416,7 +2416,10 @@ const IMAGING_MODALITIES = ['All ●', 'MRI', 'CT', 'X-Ray', 'USS', 'MAMMO', 'PE
 const IMAGING_STATUS_TABS = ['All', 'Scanning', 'Report Pending', 'Scheduled', 'Complete'] as const;
 
 const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
-  const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
+  const studies = useMemo(
+    () => (context.data?.imagingStudies ?? []).filter((study) => !study.isDeleted && study.status !== 'rejected'),
+    [context.data?.imagingStudies],
+  );
   const [modalityFilter, setModalityFilter] = useState<string>('All ●');
   const [statusFilter, setStatusFilter] = useState<string>('All');
 
@@ -2424,7 +2427,7 @@ const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
     return studies.filter((s) => {
       if (modalityFilter !== 'All ●') {
         const target = modalityFilter.toUpperCase();
-        if (!s.modality.toUpperCase().includes(target)) return false;
+        if (s.modality.toUpperCase() !== target) return false;
       }
       if (statusFilter !== 'All') {
         if (statusFilter === 'Scanning' && s.status !== 'scanning') return false;
@@ -2586,16 +2589,26 @@ const ImagingQueueView = ({ context }: { context: LabPageContext }) => {
 type ImagingOrderTab = 'new' | 'scheduled' | 'active' | 'completed' | 'rejected' | 'all';
 
 const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
-  const studies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
+  const allStudies = useMemo(() => context.data?.imagingStudies ?? [], [context.data?.imagingStudies]);
+  const studies = useMemo(
+    () => allStudies.filter((study) => !study.isDeleted && study.status !== 'rejected'),
+    [allStudies],
+  );
+  const rejectedStudies = useMemo(
+    () => allStudies.filter((study) => study.isDeleted || study.status === 'rejected'),
+    [allStudies],
+  );
   const [tab, setTab] = useState<ImagingOrderTab>('new');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyStudyId, setBusyStudyId] = useState<string | null>(null);
 
   const counts = {
     new: studies.filter((s) => s.status === 'ordered').length,
     scheduled: studies.filter((s) => s.status === 'scheduled').length,
     active: studies.filter((s) => s.status === 'scanning').length,
     completed: studies.filter((s) => s.status === 'released' || s.status === 'reported').length,
-    rejected: 0,
-    all: studies.length,
+    rejected: rejectedStudies.length,
+    all: allStudies.length,
   };
 
   const tabs: Array<{ id: ImagingOrderTab; label: string; emoji: string; count: number }> = [
@@ -2612,9 +2625,9 @@ const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
     if (tab === 'scheduled') return studies.filter((s) => s.status === 'scheduled');
     if (tab === 'active') return studies.filter((s) => s.status === 'scanning');
     if (tab === 'completed') return studies.filter((s) => s.status === 'released' || s.status === 'reported');
-    if (tab === 'rejected') return [];
-    return studies;
-  }, [studies, tab]);
+    if (tab === 'rejected') return rejectedStudies;
+    return allStudies;
+  }, [allStudies, rejectedStudies, studies, tab]);
 
   // For demo, treat scheduled studies that have preauth_status as "new orders" in hosted parlance
   const newOrders = studies.filter((s) => s.status === 'scheduled' && s.preauthStatus);
@@ -2640,6 +2653,11 @@ const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
             </button>
           ))}
         </div>
+        {actionError ? (
+          <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">
+            {actionError}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-5">
@@ -2754,29 +2772,53 @@ const ImagingOrdersPage = ({ context }: { context: LabPageContext }) => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <a
-                  href="/lab/imaging/queue"
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  Accept &amp; Schedule
-                </a>
-                <button type="button"
-                  onClick={async () => {
-                    const reason = window.prompt(
-                      `Reject imaging order ${study.accession}?\n\nProvide a short reason that will be saved to the order notes:`
-                    );
-                    if (reason === null) return;
-                    try {
-                      await context.actions.rejectOrder(study.id, reason.trim());
-                    } catch {
-                      // The shared error surface for lab orders is already
-                      // wired in the orders page; silent here is intentional.
-                    }
-                  }}
-                  className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                >
-                  Reject
-                </button>
+                {study.isDeleted || study.status === 'rejected' ? (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700">
+                    Rejected{study.rejectionReason ? `: ${study.rejectionReason}` : ''}
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setActionError(null);
+                        setBusyStudyId(study.id);
+                        try {
+                          await context.actions.setImagingStudyStatus(study.id, 'scheduled');
+                        } catch (error) {
+                          setActionError(error instanceof Error ? error.message : 'Failed to accept this imaging study.');
+                        } finally {
+                          setBusyStudyId(null);
+                        }
+                      }}
+                      disabled={busyStudyId === study.id || study.status !== 'ordered'}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {busyStudyId === study.id ? 'Accepting...' : 'Accept & Schedule'}
+                    </button>
+                    <button type="button"
+                      onClick={async () => {
+                        const reason = window.prompt(
+                          `Reject imaging order ${study.accession}?\n\nProvide a short reason that will be saved to the order notes:`
+                        );
+                        if (reason === null) return;
+                        setActionError(null);
+                        setBusyStudyId(study.id);
+                        try {
+                          await context.actions.rejectImagingStudy(study.id, reason.trim());
+                        } catch (error) {
+                          setActionError(error instanceof Error ? error.message : 'Failed to reject this imaging study.');
+                        } finally {
+                          setBusyStudyId(null);
+                        }
+                      }}
+                      disabled={busyStudyId === study.id || study.status !== 'ordered'}
+                      className="ml-auto rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           );
@@ -2958,7 +3000,8 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
                 <textarea
                   maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                   className="mt-2 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                  defaultValue={`Solid finding measured per imaging protocol. AI assist will populate measurements once attached.`}
+                  defaultValue={selected.findings ?? ''}
+                  placeholder="Enter report findings."
                 />
               </SectionCard>
             </div>
@@ -2968,7 +3011,8 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
               <textarea
                 maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                 className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                defaultValue="1. Findings consistent with clinical indication. Recommend follow-up per modality guidelines."
+                defaultValue={selected.impression ?? ''}
+                placeholder="Enter the radiology impression."
               />
               <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm">
                 <div>
@@ -2983,7 +3027,7 @@ const RadiologyReportsPage = ({ context }: { context: LabPageContext }) => {
                 </div>
                 <div>
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Recommendations</div>
-                  <div className="mt-1 rounded-lg bg-slate-50 p-2 text-xs">Follow-up per Fleischner Society guidelines.</div>
+                  <div className="mt-1 rounded-lg bg-slate-50 p-2 text-xs">{selected.recommendations ?? 'No recommendations entered.'}</div>
                 </div>
               </div>
             </SectionCard>
