@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requireSingleActiveLabMembership } from './use-lab-ops-portal';
+import { LAB_IMAGING_RPC_NAMES, requireSingleActiveLabMembership } from './use-lab-ops-portal';
 
 describe('requireSingleActiveLabMembership', () => {
   it('returns the only active laboratory membership', () => {
@@ -52,6 +52,23 @@ describe('lab QC and equipment action surface', () => {
   });
 
   it('requires single-lab membership before QC or equipment mutations', () => {
+    expect(() => requireSingleActiveLabMembership([])).toThrow(/No active laboratory membership/i);
+    expect(() => requireSingleActiveLabMembership(['lab-a', 'lab-b'])).toThrow(/Select a laboratory/i);
+    expect(requireSingleActiveLabMembership(['lab-a'])).toBe('lab-a');
+  });
+});
+
+describe('lab imaging action surface', () => {
+  it('uses row-scoped imaging RPCs and excludes unsafe PR #88 remnants', () => {
+    expect(LAB_IMAGING_RPC_NAMES).toEqual([
+      'lab_set_imaging_study_status',
+      'lab_reject_imaging_study',
+    ]);
+    expect(LAB_IMAGING_RPC_NAMES).not.toContain('lab_sign_radiology_report_with_pin');
+    expect(LAB_IMAGING_RPC_NAMES).not.toContain('doctor_create_imaging_order');
+  });
+
+  it('requires single-lab membership before imaging mutations', () => {
     expect(() => requireSingleActiveLabMembership([])).toThrow(/No active laboratory membership/i);
     expect(() => requireSingleActiveLabMembership(['lab-a', 'lab-b'])).toThrow(/Select a laboratory/i);
     expect(requireSingleActiveLabMembership(['lab-a'])).toBe('lab-a');
