@@ -82,6 +82,7 @@ import {
   LabOrders,
   LabProfile,
   LabQualityControl,
+  LabQueue,
   LabRadiology,
   LabRadiologyReports,
   LabReferrals,
@@ -482,7 +483,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/lab/queue',
-    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabReferrals />)}</ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['lab']}>{withLayout(<LabQueue />)}</ProtectedRoute>,
   },
   {
     path: '/lab/orders',

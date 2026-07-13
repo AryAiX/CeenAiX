@@ -263,6 +263,17 @@ interface LabStaffRow {
   lab_id: string;
 }
 
+export const requireSingleActiveLabMembership = (labIds: readonly string[]): string => {
+  const uniqueLabIds = Array.from(new Set(labIds));
+  if (uniqueLabIds.length === 0) {
+    throw new Error('No active laboratory membership is assigned to this account.');
+  }
+  if (uniqueLabIds.length > 1) {
+    throw new Error('Select a laboratory before opening the lab operations portal.');
+  }
+  return uniqueLabIds[0];
+};
+
 interface LabProfileRow {
   id: string;
   slug: string;
@@ -533,25 +544,22 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       .eq('is_active', true);
     if (staffError) throw staffError;
 
-    const staffLabIds = Array.from(new Set(((staffRows ?? []) as LabStaffRow[]).map((row) => row.lab_id)));
+    const labId = requireSingleActiveLabMembership(
+      ((staffRows ?? []) as LabStaffRow[]).map((row) => row.lab_id),
+    );
 
-    const profileResponse = staffLabIds.length > 0
-      ? await supabase
-          .from('lab_profiles')
-          .select('id, slug, name, city, address, phone, email')
-          .in('id', staffLabIds)
-      : await supabase
-          .from('lab_profiles')
-          .select('id, slug, name, city, address, phone, email')
-          .eq('slug', 'dubai-medical-imaging-centre');
+    const profileResponse = await supabase
+      .from('lab_profiles')
+      .select('id, slug, name, city, address, phone, email')
+      .eq('id', labId)
+      .eq('is_active', true)
+      .maybeSingle();
     if (profileResponse.error) throw profileResponse.error;
 
-    const profileRows = (profileResponse.data ?? []) as LabProfileRow[];
-    const profileRow =
-      profileRows.find((row) => row.slug === 'dubai-medical-imaging-centre') ??
-      profileRows[0] ??
-      null;
-    const labId = profileRow?.id ?? null;
+    const profileRow = profileResponse.data as LabProfileRow | null;
+    if (!profileRow) {
+      throw new Error('The assigned laboratory is inactive or unavailable.');
+    }
 
     let facility: LabFacilityProfile | null = null;
     if (profileRow) {
@@ -597,18 +605,13 @@ export function useLabOpsPortal(userId: string | null | undefined) {
       }
     }
 
-    let ordersQuery = supabase
+    const ordersQuery = supabase
       .from('lab_orders')
       .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, lab_order_code, nabidh_reference, sample_collection_at, results_released_at, due_by, urgency, total_cost_aed, insurance_plan, blood_type, doctor_dha_license, doctor_specialty, clinic_name, clinical_notes, specimen_summary, fasting_instructions, preauth_status, technician_name, technician_initials, source_label, patient_display_name, patient_age, patient_gender')
       .eq('is_deleted', false)
+      .eq('assigned_lab_id', labId)
       .order('ordered_at', { ascending: false })
       .limit(150);
-
-    if (staffLabIds.length > 0) {
-      ordersQuery = ordersQuery.or(`assigned_lab_id.in.(${staffLabIds.join(',')}),assigned_lab_id.is.null`);
-    } else if (labId) {
-      ordersQuery = ordersQuery.or(`assigned_lab_id.eq.${labId},assigned_lab_id.is.null`);
-    }
 
     const [
       { data: orderData, error: ordersError },
