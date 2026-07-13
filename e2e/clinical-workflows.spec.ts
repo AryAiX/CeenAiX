@@ -525,6 +525,86 @@ test('lab reject soft-deletes only orders assigned to the caller lab', async ({ 
   await closePage(page);
 });
 
+test('lab QC run + equipment maintenance happy path and cross-lab deny', async ({ browser }) => {
+  const state = createE2EWorkflowState();
+  const foreignEquipmentId = 'equipment-foreign';
+  state.labEquipment.push({
+    id: foreignEquipmentId,
+    lab_id: '00000000-0000-4000-8000-00000000ffff',
+    department: 'laboratory',
+    name: 'Foreign Analyzer',
+    equipment_type: 'Chemistry',
+    status: 'online',
+    is_running: false,
+  });
+  const page = await openRolePage(browser, state, 'lab', '/lab/equipment');
+
+  await page.evaluate(async ({ ownId, foreignId }) => {
+    const invokeRpc = (name: string, body: Record<string, unknown>) =>
+      fetch(`https://placeholder.supabase.co/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: {
+          apikey: 'placeholder',
+          authorization: 'Bearer e2e-lab',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+    await invokeRpc('lab_log_qc_run', {
+      p_instrument_name: 'Analyzer A',
+      p_department: 'laboratory',
+      p_lot_number: 'LOT-100',
+      p_level_label: 'Level 1',
+      p_result_label: 'Within acceptable range',
+      p_status: 'passed',
+    });
+    await invokeRpc('lab_log_maintenance', {
+      p_equipment_id: ownId,
+      p_maintenance_type: 'scheduled',
+      p_reason: 'Daily calibration',
+    });
+    await invokeRpc('lab_mark_equipment_online', {
+      p_equipment_id: ownId,
+      p_notes: 'Back online after calibration',
+    });
+    await invokeRpc('lab_log_maintenance', {
+      p_equipment_id: foreignId,
+      p_maintenance_type: 'unscheduled',
+      p_reason: 'should not apply',
+    });
+    await invokeRpc('lab_mark_equipment_online', {
+      p_equipment_id: foreignId,
+      p_notes: 'should not apply',
+    });
+  }, { ownId: 'equipment-e2e', foreignId: foreignEquipmentId });
+
+  expect(state.labActionLog).toEqual(
+    expect.arrayContaining([
+      'qc_run:Analyzer A:passed',
+      'maintenance:equipment-e2e',
+      'online:equipment-e2e',
+      `maintenance_denied:${foreignEquipmentId}`,
+      `online_denied:${foreignEquipmentId}`,
+    ]),
+  );
+  expect(state.labQcRuns).toHaveLength(1);
+  expect(state.labEquipment.find((row) => row.id === 'equipment-e2e')).toEqual(
+    expect.objectContaining({ status: 'online' }),
+  );
+  expect(state.labEquipment.find((row) => row.id === foreignEquipmentId)).toEqual(
+    expect.objectContaining({ status: 'online' }),
+  );
+  expect(state.labMaintenanceLogs[0]).toEqual(
+    expect.objectContaining({
+      equipment_id: 'equipment-e2e',
+      completed_at: expect.any(String),
+      notes: 'Back online after calibration',
+    }),
+  );
+  await closePage(page);
+});
+
 test('admin cannot onboard an organization without a required name', async ({ browser }) => {
   const state = createE2EWorkflowState();
   const page = await openRolePage(browser, state, 'super_admin', '/admin/organizations');

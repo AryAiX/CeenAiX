@@ -1089,6 +1089,89 @@ export function useLabOpsActions(onChange: () => void) {
     [onChange],
   );
 
+  const logQcRun = useCallback(
+    async (input: {
+      instrumentName: string;
+      department: string;
+      lotNumber: string;
+      levelLabel: string;
+      resultLabel: string;
+      status: 'passed' | 'warning' | 'failed';
+      resultValue?: number | null;
+      targetValue?: number | null;
+      sdValue?: number | null;
+      unit?: string | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_log_qc_run', {
+        p_instrument_name: input.instrumentName,
+        p_department: input.department,
+        p_lot_number: input.lotNumber,
+        p_level_label: input.levelLabel,
+        p_result_label: input.resultLabel,
+        p_status: input.status,
+        p_result_value: input.resultValue ?? null,
+        p_target_value: input.targetValue ?? null,
+        p_sd_value: input.sdValue ?? null,
+        p_unit: input.unit ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const reviewQcFailure = useCallback(
+    async (input: {
+      runId: string;
+      failureNotes: string;
+      action: 'maintenance' | 'replacement';
+    }) => {
+      const { error } = await supabase.rpc('lab_review_qc_failure', {
+        p_run_id: input.runId,
+        p_failure_notes: input.failureNotes,
+        p_action: input.action,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const logMaintenance = useCallback(
+    async (input: {
+      equipmentId: string;
+      maintenanceType: 'scheduled' | 'unscheduled';
+      reason: string;
+      performedBy?: string | null;
+      expectedReturnAt?: string | null;
+      notes?: string | null;
+    }) => {
+      const { error } = await supabase.rpc('lab_log_maintenance', {
+        p_equipment_id: input.equipmentId,
+        p_maintenance_type: input.maintenanceType,
+        p_reason: input.reason,
+        p_performed_by: input.performedBy ?? null,
+        p_expected_return_at: input.expectedReturnAt ?? null,
+        p_notes: input.notes ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
+  const markEquipmentOnline = useCallback(
+    async (equipmentId: string, notes?: string | null) => {
+      const { error } = await supabase.rpc('lab_mark_equipment_online', {
+        p_equipment_id: equipmentId,
+        p_notes: notes ?? null,
+      });
+      if (error) throw error;
+      onChange();
+    },
+    [onChange],
+  );
+
   /**
    * Records that the prescribing doctor has been notified about a critical
    * lab value. DHA tracks this with a 60-minute SLA from `observed_at`, so we
@@ -1120,6 +1203,10 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       rejectOrder,
+      logQcRun,
+      reviewQcFailure,
+      logMaintenance,
+      markEquipmentOnline,
       saveItemResult,
       markNabidhSubmitted,
       markNabidhSubmittedBulk,
@@ -1132,6 +1219,10 @@ export function useLabOpsActions(onChange: () => void) {
       startProcessing,
       releaseOrder,
       rejectOrder,
+      logQcRun,
+      reviewQcFailure,
+      logMaintenance,
+      markEquipmentOnline,
       saveItemResult,
       markNabidhSubmitted,
       markNabidhSubmittedBulk,

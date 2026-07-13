@@ -573,6 +573,9 @@ export interface E2EWorkflowState {
   labOrderItems: JsonRecord[];
   notifications: JsonRecord[];
   labActionLog: string[];
+  labEquipment: JsonRecord[];
+  labQcRuns: JsonRecord[];
+  labMaintenanceLogs: JsonRecord[];
 }
 
 const cloneRows = (rows: JsonRecord[]) => rows.map((row) => ({ ...row }));
@@ -618,6 +621,19 @@ export const createE2EWorkflowState = (
   labOrderItems: options.includeBaselineData ? cloneRows(labOrderItemRows) : [],
   notifications: [],
   labActionLog: [],
+  labEquipment: [
+    {
+      id: 'equipment-e2e',
+      lab_id: labId,
+      department: 'laboratory',
+      name: 'Analyzer A',
+      equipment_type: 'Chemistry',
+      status: 'online',
+      is_running: false,
+    },
+  ],
+  labQcRuns: [],
+  labMaintenanceLogs: [],
 });
 
 const asSupabaseUser = (user: E2EUser): JsonRecord => ({
@@ -1149,8 +1165,13 @@ const tableRows = (
     case 'lab_portal_imaging_studies':
       return [];
     case 'lab_portal_equipment':
-      return [{ id: 'equipment-e2e', lab_id: labId, name: 'Analyzer A', status: 'online' }];
+      return state?.labEquipment?.length
+        ? state.labEquipment
+        : [{ id: 'equipment-e2e', lab_id: labId, name: 'Analyzer A', status: 'online', department: 'laboratory' }];
     case 'lab_portal_qc_runs':
+      return state?.labQcRuns ?? [];
+    case 'lab_equipment_maintenance_logs':
+      return state?.labMaintenanceLogs ?? [];
     case 'lab_portal_nabidh_events':
     case 'lab_portal_settings':
     case 'lab_portal_setting_options':
@@ -2150,6 +2171,101 @@ const rpcPayload = (
         ((payload as JsonRecord | null)?.rejection_reason as string | undefined) ?? 'No reason provided';
       state?.labActionLog.push(`reject:${targetOrderId ?? ''}`);
       return { ok: true };
+    }
+    case 'lab_log_qc_run': {
+      const body = payload as JsonRecord | null;
+      const instrumentName = String(body?.p_instrument_name ?? '');
+      const department = String(body?.p_department ?? 'laboratory');
+      const status = String(body?.p_status ?? 'passed');
+      const run = {
+        id: `qc-run-${state?.labQcRuns.length ?? 0}`,
+        lab_id: labId,
+        department,
+        instrument_name: instrumentName,
+        lot_number: body?.p_lot_number ?? null,
+        level_label: body?.p_level_label ?? null,
+        result_label: body?.p_result_label ?? null,
+        status,
+        run_at: now.toISOString(),
+      };
+      state?.labQcRuns.push(run);
+      const equipmentStatus =
+        status === 'passed' ? 'online' : status === 'warning' ? 'warning' : 'maintenance';
+      state?.labEquipment.forEach((item) => {
+        if (item.lab_id === labId && item.department === department && item.name === instrumentName) {
+          item.status = equipmentStatus;
+        }
+      });
+      state?.labActionLog.push(`qc_run:${instrumentName}:${status}`);
+      return run;
+    }
+    case 'lab_review_qc_failure': {
+      const body = payload as JsonRecord | null;
+      const runId = body?.p_run_id;
+      const run = state?.labQcRuns.find((row) => row.id === runId && row.lab_id === labId && row.status === 'failed');
+      if (!run) {
+        state?.labActionLog.push(`qc_review_denied:${runId ?? ''}`);
+        return { error: 'QC run not found or not a failed run from your lab.' };
+      }
+      run.failure_notes = body?.p_failure_notes ?? null;
+      run.failure_action = body?.p_action ?? null;
+      run.reviewed_at = now.toISOString();
+      if (body?.p_action === 'maintenance') {
+        state?.labEquipment.forEach((item) => {
+          if (
+            item.lab_id === labId &&
+            item.department === run.department &&
+            item.name === run.instrument_name
+          ) {
+            item.status = 'maintenance';
+          }
+        });
+      }
+      state?.labActionLog.push(`qc_review:${runId}`);
+      return run;
+    }
+    case 'lab_log_maintenance': {
+      const body = payload as JsonRecord | null;
+      const equipmentId = body?.p_equipment_id;
+      const equipment = state?.labEquipment.find((row) => row.id === equipmentId && row.lab_id === labId);
+      if (!equipment) {
+        state?.labActionLog.push(`maintenance_denied:${equipmentId ?? ''}`);
+        return { error: 'Equipment not found or not assigned to your lab.' };
+      }
+      equipment.status = 'maintenance';
+      equipment.is_running = false;
+      const log = {
+        id: `maint-${state?.labMaintenanceLogs.length ?? 0}`,
+        lab_id: labId,
+        equipment_id: equipmentId,
+        equipment_name: equipment.name,
+        maintenance_type: body?.p_maintenance_type ?? 'scheduled',
+        reason: body?.p_reason ?? '',
+        completed_at: null,
+        notes: body?.p_notes ?? null,
+        started_at: now.toISOString(),
+      };
+      state?.labMaintenanceLogs.push(log);
+      state?.labActionLog.push(`maintenance:${equipmentId}`);
+      return log;
+    }
+    case 'lab_mark_equipment_online': {
+      const body = payload as JsonRecord | null;
+      const equipmentId = body?.p_equipment_id;
+      const equipment = state?.labEquipment.find((row) => row.id === equipmentId && row.lab_id === labId);
+      if (!equipment) {
+        state?.labActionLog.push(`online_denied:${equipmentId ?? ''}`);
+        return { error: 'Equipment not found or not assigned to your lab.' };
+      }
+      equipment.status = 'online';
+      state?.labMaintenanceLogs.forEach((log) => {
+        if (log.equipment_id === equipmentId && log.lab_id === labId && log.completed_at == null) {
+          log.completed_at = now.toISOString();
+          if (body?.p_notes != null) log.notes = body.p_notes;
+        }
+      });
+      state?.labActionLog.push(`online:${equipmentId}`);
+      return equipment;
     }
     case 'doctor_review_lab_order': {
       const targetOrderId = (payload as JsonRecord | null)?.target_order_id as string | undefined;
