@@ -134,6 +134,12 @@ test.describe('ops portal interactions', () => {
     await expect(page.locator('body')).not.toContainText(/Lab referrals/i);
   });
 
+  test('lab orders workspace exposes accept controls for new samples', async ({ page }) => {
+    await openAuthed(page, 'lab', '/lab/orders');
+    await expect(page.getByRole('button', { name: /Accept All|Accept Order|New/i }).first()).toBeVisible();
+    await expect(page.locator('body')).not.toContainText(/Application error/i);
+  });
+
   test('insurance dashboard renders pre-auth workspace', async ({ page }) => {
     await openAuthed(page, 'insurance', '/insurance/dashboard');
     await expect(page.locator('body')).not.toContainText(/Application error/i);

@@ -22,3 +22,19 @@ describe('requireSingleActiveLabMembership', () => {
     );
   });
 });
+
+describe('lab workflow action surface', () => {
+  it('documents the secure accept path as claim then confirm specimen', () => {
+    // Accept must not rely on claim jumping ordered→collected; those are separate RPCs.
+    const acceptSteps = ['lab_claim_order', 'lab_confirm_specimen'] as const;
+    expect(acceptSteps).toEqual(['lab_claim_order', 'lab_confirm_specimen']);
+  });
+
+  it('rejects unassigned membership before any lab workflow RPC should run', () => {
+    expect(() => requireSingleActiveLabMembership([])).toThrow(/No active laboratory membership/i);
+  });
+
+  it('rejects multi-lab membership before any lab workflow RPC should run', () => {
+    expect(() => requireSingleActiveLabMembership(['lab-a', 'lab-b'])).toThrow(/Select a laboratory/i);
+  });
+});

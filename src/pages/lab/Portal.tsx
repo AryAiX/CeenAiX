@@ -1514,6 +1514,10 @@ const orderCardAccent = (priority: LabPriority, isCritical: boolean) => {
 
 const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
   const allSamples = useMemo(() => context.data?.samples ?? [], [context.data?.samples]);
+  const rejectedSamples = useMemo(
+    () => context.data?.rejectedSamples ?? [],
+    [context.data?.rejectedSamples],
+  );
   const [tab, setTab] = useState<OrderTab>('new');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
@@ -1523,7 +1527,7 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     { id: 'new', emoji: '📬', label: 'New', count: allSamples.filter((s) => s.status === 'ordered').length },
     { id: 'in_progress', emoji: '⏳', label: 'In Progress', count: allSamples.filter((s) => s.status === 'collected' || s.status === 'processing').length },
     { id: 'completed', emoji: '✅', label: 'Completed', count: allSamples.filter((s) => s.status === 'reviewed').length },
-    { id: 'rejected', emoji: '❌', label: 'Rejected', count: 0 },
+    { id: 'rejected', emoji: '❌', label: 'Rejected', count: rejectedSamples.length },
     { id: 'all', emoji: '', label: 'All', count: allSamples.length },
   ];
 
@@ -1531,14 +1535,19 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     if (tab === 'new') return allSamples.filter((s) => s.status === 'ordered');
     if (tab === 'in_progress') return allSamples.filter((s) => s.status === 'collected' || s.status === 'processing');
     if (tab === 'completed') return allSamples.filter((s) => s.status === 'reviewed');
-    if (tab === 'rejected') return [];
+    if (tab === 'rejected') return rejectedSamples;
     return allSamples;
-  }, [allSamples, tab]);
+  }, [allSamples, rejectedSamples, tab]);
 
   const newOrders = useMemo(
     () => allSamples.filter((s) => s.status === 'ordered'),
     [allSamples]
   );
+
+  const acceptOrder = async (orderId: string) => {
+    await context.actions.claimSample(orderId);
+    await context.actions.confirmSpecimen(orderId);
+  };
 
   const handleAcceptAll = async () => {
     if (newOrders.length === 0) return;
@@ -1546,7 +1555,7 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     setBulkBusy(true);
     try {
       for (const order of newOrders) {
-        await context.actions.claimSample(order.id);
+        await acceptOrder(order.id);
       }
     } catch (error) {
       setOrdersError(error instanceof Error ? error.message : 'Bulk accept failed.');
@@ -1559,7 +1568,7 @@ const LabOrdersPage = ({ context }: { context: LabPageContext }) => {
     setOrdersError(null);
     setRowBusyId(sampleId);
     try {
-      await context.actions.claimSample(sampleId);
+      await acceptOrder(sampleId);
     } catch (error) {
       setOrdersError(error instanceof Error ? error.message : 'Accept failed.');
     } finally {
