@@ -82,6 +82,13 @@
 | `/admin/users` | UserManagement | not-started |
 | `/admin/insurance` | InsuranceManagement | not-started |
 
+## Laboratory (auth required, role=lab)
+
+| Route | Component | Code Status | Key Data |
+|---|---|---|---|
+| `/lab/queue` | LabQueue | live | Renders the operational queue for the caller's single active lab membership; accounts without a membership fail closed and multi-lab accounts require a future explicit lab selector |
+| `/lab/referrals` | LabReferrals | live | Legacy alias for the same queue workspace |
+
 ## System
 
 | Route | Component | Code Status |

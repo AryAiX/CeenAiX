@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
 import type { LabOrderStatus } from '../types';
+import { requireSingleActiveLabMembership } from './use-lab-ops-portal';
 
 export interface LabWorklistItem {
   id: string;
@@ -53,14 +54,15 @@ export function useLabDashboard(userId: string | null | undefined) {
       .from('lab_staff')
       .select('id, lab_id, is_active')
       .eq('user_id', memoizedUserId)
-      .eq('is_active', true)
-      .limit(1);
+      .eq('is_active', true);
 
     if (staffError) {
       throw staffError;
     }
 
-    const labId = staffRows?.[0]?.lab_id ?? null;
+    const labId = requireSingleActiveLabMembership(
+      (staffRows ?? []).map((row) => row.lab_id),
+    );
 
     let labName: string | null = null;
     let labSlug: string | null = null;
@@ -69,25 +71,26 @@ export function useLabDashboard(userId: string | null | undefined) {
         .from('lab_profiles')
         .select('name, slug')
         .eq('id', labId)
+        .eq('is_active', true)
         .maybeSingle();
       if (labError) {
         throw labError;
       }
       labName = labRow?.name ?? null;
       labSlug = labRow?.slug ?? null;
+      if (!labRow) {
+        throw new Error('The assigned laboratory is inactive or unavailable.');
+      }
     }
 
-    let ordersQuery = supabase
+    const ordersQuery = supabase
       .from('lab_orders')
       .select('id, patient_id, doctor_id, status, ordered_at, assigned_lab_id, updated_at')
       .eq('is_deleted', false)
+      .eq('assigned_lab_id', labId)
       .in('status', ACTIVE_STATUSES)
       .order('ordered_at', { ascending: false })
       .limit(100);
-
-    if (labId) {
-      ordersQuery = ordersQuery.eq('assigned_lab_id', labId);
-    }
 
     const { data: orderRows, error: ordersError } = await ordersQuery;
     if (ordersError) {

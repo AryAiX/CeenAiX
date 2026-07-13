@@ -127,6 +127,13 @@ test.describe('ops portal interactions', () => {
     await expect(page.locator('body')).not.toContainText(/Application error/i);
   });
 
+  test('lab queue route renders the operational queue workspace', async ({ page }) => {
+    await openAuthed(page, 'lab', '/lab/queue');
+    await expect(page.getByRole('heading', { name: 'Queue' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Sample ID' })).toBeVisible();
+    await expect(page.locator('body')).not.toContainText(/Lab referrals/i);
+  });
+
   test('insurance dashboard renders pre-auth workspace', async ({ page }) => {
     await openAuthed(page, 'insurance', '/insurance/dashboard');
     await expect(page.locator('body')).not.toContainText(/Application error/i);
