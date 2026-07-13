@@ -326,11 +326,12 @@ export const PortalShell = ({
     };
 
     const patientRoleLabel = t('header.patient');
+    const patientMobileNavItems = [...patientNavItems, ...patientBottomItems.filter((item) => item.id !== 'signout')];
 
     return (
       <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-        <div className="z-50 flex-shrink-0 border-b border-cyan-100 bg-white px-6 py-4 shadow-sm shadow-cyan-500/5">
-          <div className={`flex items-center justify-between gap-4 ${isArabic ? 'flex-row-reverse' : ''}`}>
+        <div className="z-50 flex-shrink-0 border-b border-cyan-100 bg-white px-3 py-3 shadow-sm shadow-cyan-500/5 sm:px-6 sm:py-4">
+          <div className={`flex items-center justify-between gap-2 sm:gap-4 ${isArabic ? 'flex-row-reverse' : ''}`}>
             <div className={`flex min-w-0 items-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
               <button
                 type="button"
@@ -362,13 +363,13 @@ export const PortalShell = ({
                   alt="CeenAiX"
                   className="h-10 w-10 object-contain transition-transform duration-300 hover:scale-110"
                 />
-                <h1 className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-xl font-bold text-transparent">
+                <h1 className="hidden bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-xl font-bold text-transparent sm:block">
                   CeenAiX
                 </h1>
               </button>
             </div>
 
-            <div className={`flex items-center gap-4 ${isArabic ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center gap-1.5 sm:gap-4 ${isArabic ? 'flex-row-reverse' : ''}`}>
               <div className="relative">
                 <button
                   type="button"
@@ -376,7 +377,7 @@ export const PortalShell = ({
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all duration-300 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 ${isArabic ? 'flex-row-reverse' : ''}`}
                 >
                   <Menu className="h-5 w-5 text-slate-600 transition-colors duration-300" />
-                  <span className="text-sm font-medium text-slate-700">{t('nav.portals')}</span>
+                  <span className="hidden text-sm font-medium text-slate-700 sm:inline">{t('nav.portals')}</span>
                 </button>
 
                 {portalMenuOpen ? (
@@ -456,9 +457,40 @@ export const PortalShell = ({
           </div>
         </div>
 
+        <nav className={`lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-cyan-100 bg-white px-3 py-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+          {patientMobileNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActivePath(location.pathname, item.href);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (item.href) {
+                    navigate(item.href);
+                  }
+                }}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm'
+                    : 'bg-slate-50 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+                {item.badge ? (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
+
         <div className="flex flex-1 overflow-hidden">
           <div
-            className={`flex flex-shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 ${
+            className={`hidden flex-shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 lg:flex ${
               patientSidebarCollapsed ? 'w-20' : 'w-60'
             }`}
           >
@@ -492,7 +524,7 @@ export const PortalShell = ({
             </div>
           </div>
 
-          <main className="flex-1 overflow-y-auto">
+          <main className="min-w-0 flex-1 overflow-y-auto">
             {showPatientDashboardAlert ? (
               <div
                 className={`flex items-center justify-between border-b border-red-100 bg-red-50 px-6 py-2.5 ${
@@ -530,7 +562,7 @@ export const PortalShell = ({
               <div className="h-full">{children}</div>
             ) : (
               <div
-                className={contentClassName ?? 'max-w-[1320px] mx-auto px-6 py-6 space-y-6'}
+                className={contentClassName ?? 'mx-auto w-full max-w-[1320px] space-y-6 px-4 py-4 sm:px-6 sm:py-6'}
               >
                 {children}
               </div>
@@ -669,6 +701,7 @@ export const PortalShell = ({
       ],
     },
   ];
+  const doctorMobileNavItems = doctorTopNavGroups.flatMap((group) => group.items);
 
   const doctorStatusChips = [
     doctorChromeData?.activeConsultationPatientName
@@ -792,7 +825,7 @@ export const PortalShell = ({
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
-      <aside className={`${doctorSidebarCollapsed ? 'w-[72px]' : 'w-[260px]'} bg-[#0A1628] flex flex-col transition-all duration-300 shadow-2xl`}>
+      <aside className={`${doctorSidebarCollapsed ? 'w-[72px]' : 'w-[260px]'} hidden bg-[#0A1628] flex-col transition-all duration-300 shadow-2xl lg:flex`}>
         <div className="flex h-[72px] items-center justify-between border-b border-white/[0.06] px-6">
           {!doctorSidebarCollapsed ? (
             <>
@@ -939,11 +972,11 @@ export const PortalShell = ({
         )}
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <div>
-              <p className="text-base font-semibold text-slate-900">{doctorPageTitle}</p>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-slate-900">{doctorPageTitle}</p>
               <p className="hidden text-xs text-slate-500 sm:block">{formatDoctorNow}</p>
             </div>
           </div>
@@ -1024,7 +1057,37 @@ export const PortalShell = ({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-6 py-5">{children}</main>
+        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {doctorMobileNavItems.map((item) => {
+            if (!item.href) {
+              return null;
+            }
+            const Icon = item.icon;
+            const active = isActivePath(location.pathname, item.href);
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => navigate(item.href!)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-teal-50 hover:text-teal-700'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+                {item.badge ? (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${active ? 'bg-white/20 text-white' : doctorBadgeToneClass(item.badgeTone)}`}>
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
+
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</main>
       </div>
       {showLogoutConfirm ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

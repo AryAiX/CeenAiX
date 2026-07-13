@@ -130,16 +130,16 @@ export const FindDoctor: React.FC = () => {
               </span>
             </h1>
             <p className="mx-auto max-w-2xl text-xl font-medium text-slate-600">{t('findDoctor.lead')}</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-8">
-              <div className="rounded-2xl border border-slate-200 bg-white/90 px-6 py-4 shadow-sm backdrop-blur-sm">
+            <div className="mt-8 flex flex-wrap justify-center gap-3 sm:gap-8">
+              <div className="min-w-0 rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm backdrop-blur-sm sm:px-6">
                 <p className="text-3xl font-bold text-ceenai-blue">{t('findDoctor.heroDoctorsValue')}</p>
                 <p className="text-sm text-slate-500">{t('findDoctor.heroDoctorsLabel')}</p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 px-6 py-4 shadow-sm backdrop-blur-sm">
+              <div className="min-w-0 rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm backdrop-blur-sm sm:px-6">
                 <p className="text-3xl font-bold text-ceenai-blue">{t('findDoctor.heroRatingValue')}</p>
                 <p className="text-sm text-slate-500">{t('findDoctor.heroRatingLabel')}</p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 px-6 py-4 shadow-sm backdrop-blur-sm">
+              <div className="min-w-0 rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm backdrop-blur-sm sm:px-6">
                 <p className="text-3xl font-bold text-ceenai-blue">{t('findDoctor.heroAvailabilityValue')}</p>
                 <p className="text-sm text-slate-500">{t('findDoctor.heroAvailabilityLabel')}</p>
               </div>
@@ -180,15 +180,15 @@ export const FindDoctor: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
             <p className="text-slate-600">
               {t('findDoctor.doctorsAvailable', {
                 count: formatLocaleDigits(filteredDoctors.length, i18n.language),
               })}
             </p>
-            <div className="flex items-center gap-2 text-slate-600">
+            <div className="flex min-w-0 items-center gap-2 text-slate-600">
               <Award className="h-4 w-4 text-ceenai-cyan" />
-              <span>{t('findDoctor.verifiedProfessionals')}</span>
+              <span className="min-w-0">{t('findDoctor.verifiedProfessionals')}</span>
             </div>
           </div>
         </div>
@@ -264,13 +264,13 @@ export const FindDoctor: React.FC = () => {
                   <p className="mb-3 font-semibold text-ceenai-blue">{specialtyDisplay}</p>
 
                   <div className="mb-4 space-y-2">
-                    <div className="flex items-center text-sm text-slate-600">
-                      <MapPin className="me-2 h-4 w-4 text-slate-400" />
-                      <span>{locationDisplay}</span>
+                    <div className="flex min-w-0 items-center text-sm text-slate-600">
+                      <MapPin className="me-2 h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="min-w-0 break-words">{locationDisplay}</span>
                     </div>
-                    <div className="flex items-center text-sm text-slate-600">
-                      <Clock className="me-2 h-4 w-4 text-slate-400" />
-                      <span className="font-medium text-green-600">
+                    <div className="flex min-w-0 items-center text-sm text-slate-600">
+                      <Clock className="me-2 h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="min-w-0 font-medium text-green-600">
                         {t('findDoctor.slotsAvailable', {
                           slots: formatLocaleDigits(doctor.available_slots, i18n.language),
                         })}

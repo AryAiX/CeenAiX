@@ -501,7 +501,7 @@ const AdminShell = ({
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-['Inter'] text-slate-900">
-      <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col bg-[#0f1f3a] text-white shadow-lg">
+      <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col bg-[#0f1f3a] text-white shadow-lg lg:flex">
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 font-bold">
             C
@@ -579,10 +579,10 @@ const AdminShell = ({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-6">
-          <div className="flex items-center gap-2 text-[13px] text-slate-500">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 text-[13px] text-slate-500">
             Admin Portal <ChevronRight className="h-3.5 w-3.5" />{' '}
-            <span className="font-semibold text-slate-700">{titleForPage(page)}</span>
+            <span className="truncate font-semibold text-slate-700">{titleForPage(page)}</span>
           </div>
           <div className="ml-4 hidden max-w-md flex-1 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500 lg:flex">
             <Search className="mr-2 h-4 w-4" />
@@ -620,7 +620,34 @@ const AdminShell = ({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-6 py-5">
+        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {sections.flatMap((section) => section.items).map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname === item.href || page === item.page;
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => navigate(item.href)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-[#0f1f3a] text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+                {item.badge ? (
+                  <span className="rounded-full bg-teal-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
+
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {context.error ? (
             <div
               role="alert"
@@ -2112,9 +2139,9 @@ const OnboardOrganizationModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 sm:items-center">
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">
               Onboard organization
@@ -2133,7 +2160,7 @@ const OnboardOrganizationModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-5">
           <div>
             <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Organization type

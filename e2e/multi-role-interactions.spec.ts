@@ -70,7 +70,8 @@ test('multi-role interaction: patient booking propagates to doctor, lab, insuran
           // PGRST116 console.error but the UI handles it gracefully — we
           // assert behaviour, not mock fidelity, in this spec.
           text.includes('PGRST116') ||
-          text.includes('Failed to load user profile')
+          text.includes('Failed to load user profile') ||
+          text.includes("wss://placeholder.supabase.co/realtime/v1/websocket")
         ) {
           return;
         }
@@ -115,6 +116,7 @@ test('multi-role interaction: patient booking propagates to doctor, lab, insuran
     .nth(1)
     .fill('Patient wants a routine review and a follow-up lab order.');
   await patientBookingPage.getByRole('button', { name: /confirm appointment/i }).click();
+  await patientBookingPage.getByRole('button', { name: /^confirm booking$/i }).click();
   // The booking flow redirects into the pre-visit assessment route because the
   // mocked doctor has an active pre-visit template attached.
   await expect(patientBookingPage).toHaveURL(

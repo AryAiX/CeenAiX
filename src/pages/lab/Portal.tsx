@@ -344,7 +344,7 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <aside
-        className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden bg-[#0f2d4a] text-white transition-all duration-300 ${
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden bg-[#0f2d4a] text-white transition-all duration-300 lg:flex ${
           collapsed ? 'w-[76px]' : 'w-[260px]'
         }`}
       >
@@ -455,7 +455,34 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PageHeader page={page} context={context} />
 
-        <main className="flex-1 overflow-hidden">
+        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {sections.flatMap((section) => section.items).map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname === item.href || (page === item.page && location.pathname.startsWith('/lab/'));
+            return (
+              <button
+                type="button"
+                key={item.href}
+                onClick={() => navigate(item.href)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-[#0f2d4a] text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge !== 0 ? (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${badgeClass(item.badgeTone)}`}>
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
+
+        <main className="min-w-0 flex-1 overflow-hidden">
           {context.error ? (
             <div className="m-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">
               Failed to load lab operations data: {context.error}
@@ -465,7 +492,7 @@ const LabShell = ({ page, context, children }: { page: LabPage; context: LabPage
             <div className="h-full">{children}</div>
           ) : (
             <div className="h-full overflow-y-auto">
-              <div className="flex min-h-full flex-col gap-4 bg-slate-50 p-5">{children}</div>
+              <div className="flex min-h-full flex-col gap-4 bg-slate-50 p-4 sm:p-5">{children}</div>
             </div>
           )}
         </main>
