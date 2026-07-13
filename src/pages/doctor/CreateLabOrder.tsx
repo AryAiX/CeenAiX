@@ -32,6 +32,8 @@ interface DraftLabOrderItem {
   testName: string;
   testNameAr: string;
   testCode: string;
+  loincCode: string;
+  specimen: string;
 }
 
 interface DraftNewLabTestSuggestion {
@@ -65,6 +67,8 @@ const createDraftLabOrderItem = (): DraftLabOrderItem => ({
   testName: '',
   testNameAr: '',
   testCode: '',
+  loincCode: '',
+  specimen: '',
 });
 
 const createDraftLabTestSuggestion = (displayNameEn = ''): DraftNewLabTestSuggestion => ({
@@ -78,6 +82,21 @@ const createDraftLabTestSuggestion = (displayNameEn = ''): DraftNewLabTestSugges
   isPanel: false,
 });
 
+const buildCatalogSelection = (catalog: LabTestCatalog) => {
+  const sourceCode = catalog.source_code?.trim() || '';
+
+  return {
+    labTestCatalogId: catalog.id,
+    labTestCatalogSuggestionId: null,
+    selectedCatalogDisplayNameEn: catalog.display_name_en,
+    testName: getLabTestCatalogDisplayNameEn(catalog),
+    testNameAr: getLabTestCatalogDisplayNameAr(catalog) || '',
+    testCode: sourceCode,
+    loincCode: catalog.source === 'loinc' ? sourceCode : '',
+    specimen: catalog.specimen?.trim() || '',
+  };
+};
+
 const buildPendingSuggestionSelection = (
   suggestion: Pick<
     LabTestCatalogSuggestion,
@@ -87,20 +106,29 @@ const buildPendingSuggestionSelection = (
     | 'proposed_display_name_ar'
     | 'proposed_short_name_en'
     | 'proposed_source_code'
+    | 'proposed_specimen'
   >,
   fallbackCatalog?: LabTestCatalog | null
-) => ({
-  labTestCatalogId: suggestion.lab_test_catalog_id ?? fallbackCatalog?.id ?? null,
-  labTestCatalogSuggestionId: suggestion.id,
-  selectedCatalogDisplayNameEn:
-    suggestion.proposed_display_name_en?.trim() || fallbackCatalog?.display_name_en || '',
-  testName: getLabTestSuggestionDisplayNameEn(suggestion, fallbackCatalog),
-  testNameAr:
-    suggestion.proposed_display_name_ar?.trim() ||
-    getLabTestCatalogDisplayNameAr(fallbackCatalog ?? { display_name_ar: null }) ||
-    '',
-  testCode: suggestion.proposed_source_code?.trim() || fallbackCatalog?.source_code?.trim() || '',
-});
+) => {
+  const authoritativeLoincCode =
+    fallbackCatalog?.source === 'loinc' ? fallbackCatalog.source_code?.trim() || '' : '';
+
+  return {
+    labTestCatalogId: suggestion.lab_test_catalog_id ?? fallbackCatalog?.id ?? null,
+    labTestCatalogSuggestionId: suggestion.id,
+    selectedCatalogDisplayNameEn:
+      suggestion.proposed_display_name_en?.trim() || fallbackCatalog?.display_name_en || '',
+    testName: getLabTestSuggestionDisplayNameEn(suggestion, fallbackCatalog),
+    testNameAr:
+      suggestion.proposed_display_name_ar?.trim() ||
+      (fallbackCatalog ? getLabTestCatalogDisplayNameAr(fallbackCatalog) : null) ||
+      '',
+    testCode:
+      suggestion.proposed_source_code?.trim() || fallbackCatalog?.source_code?.trim() || '',
+    loincCode: authoritativeLoincCode,
+    specimen: suggestion.proposed_specimen?.trim() || fallbackCatalog?.specimen?.trim() || '',
+  };
+};
 
 const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
   canRemove,
@@ -149,6 +177,8 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       testName: '',
       testNameAr: '',
       testCode: '',
+      loincCode: '',
+      specimen: '',
     });
     setTranslationDraft('');
     setShowTranslationForm(false);
@@ -159,12 +189,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
   const selectCatalogMatch = (catalogMatch: LabTestCatalog) => {
     onChange(item.id, {
       catalogSearch: getLabTestCatalogDisplayNameEn(catalogMatch),
-      labTestCatalogId: catalogMatch.id,
-      labTestCatalogSuggestionId: null,
-      selectedCatalogDisplayNameEn: catalogMatch.display_name_en,
-      testName: getLabTestCatalogDisplayNameEn(catalogMatch),
-      testNameAr: getLabTestCatalogDisplayNameAr(catalogMatch) || '',
-      testCode: catalogMatch.source_code?.trim() || '',
+      ...buildCatalogSelection(catalogMatch),
     });
     setTranslationDraft(getLabTestCatalogDisplayNameAr(catalogMatch) || '');
     setShowTranslationForm(false);
@@ -181,6 +206,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       | 'proposed_display_name_ar'
       | 'proposed_short_name_en'
       | 'proposed_source_code'
+      | 'proposed_specimen'
     >,
     fallbackCatalog?: LabTestCatalog | null
   ) => {
@@ -223,25 +249,16 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
       return;
     }
 
-    selectPendingSuggestion(insertedSuggestion, {
-      id: item.labTestCatalogId,
-      source: 'loinc',
-      source_code: item.testCode.trim() || null,
-      loinc_class: null,
-      category: null,
-      display_name_en: item.selectedCatalogDisplayNameEn || item.testName,
-      display_name_ar: null,
-      short_name_en: null,
-      specimen: null,
-      property: null,
-      is_panel: false,
-      is_active: true,
-      is_custom: false,
-      source_updated_at: null,
-      last_synced_at: null,
-      created_at: '',
-      updated_at: '',
+    onChange(item.id, {
+      catalogSearch: getLabTestSuggestionDisplayNameEn(insertedSuggestion, {
+        display_name_en: item.selectedCatalogDisplayNameEn || item.testName,
+      }),
+      labTestCatalogSuggestionId: insertedSuggestion.id,
+      testNameAr: insertedSuggestion.proposed_display_name_ar?.trim() || item.testNameAr,
     });
+    setTranslationDraft(insertedSuggestion.proposed_display_name_ar?.trim() || '');
+    setShowTranslationForm(false);
+    setSuggestionError(null);
     void refetchSearchResults();
   };
 
@@ -320,6 +337,8 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
                   testName: '',
                   testNameAr: '',
                   testCode: '',
+                  loincCode: '',
+                  specimen: '',
                 })
               }
               placeholder={t('doctor.createLabOrder.searchTestPlaceholder')}
@@ -735,6 +754,8 @@ export const CreateLabOrder: React.FC = () => {
         labTestCatalogSuggestionId: item.labTestCatalogSuggestionId,
         testName: item.testName.trim(),
         testCode: item.testCode.trim(),
+        loincCode: item.loincCode.trim(),
+        specimen: item.specimen.trim(),
       }))
       .filter((item) => item.testName.length > 0);
 
@@ -770,6 +791,8 @@ export const CreateLabOrder: React.FC = () => {
         lab_test_catalog_suggestion_id: item.labTestCatalogSuggestionId,
         test_name: item.testName,
         test_code: item.testCode || null,
+        loinc_code: item.loincCode || null,
+        specimen_type: item.specimen || null,
         status: 'ordered',
       }))
     );
