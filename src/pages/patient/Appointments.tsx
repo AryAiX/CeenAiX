@@ -731,6 +731,17 @@ export const PatientAppointments: React.FC = () => {
                   {upcoming ? t('patient.messages.messageDoctor') : t('patient.messages.followUpDoctor')}
                 </button>
               ) : null}
+
+              {appointment.status === 'completed' ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/patient/records?appointmentId=${appointment.id}`)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  <FileText className="w-4 h-4 inline mr-2" />
+                  View Visit Notes
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
