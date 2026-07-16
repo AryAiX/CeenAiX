@@ -1347,7 +1347,7 @@ export const PatientLabResults: React.FC = () => {
     return (
       <div className="space-y-6">
         {upcomingOrders.map((order) => {
-          const daysRemaining = order.daysUntilDue ?? 0;
+          const daysRemaining = order.daysUntilDue ?? null;
           const totalCost = order.total_cost_aed ?? 0;
           const totalInsurance = order.insurance_coverage_aed ?? 0;
           const totalPatient = order.patient_cost_aed ?? 0;
@@ -1387,25 +1387,29 @@ export const PatientLabResults: React.FC = () => {
                       ))}
                     </div>
                     <div className="mt-4">
-                      <div className="mb-2 text-xs text-amber-700">
-                        {daysRemaining > 0
-                          ? t('patient.labResults.upcomingHeadingDaysLine', {
-                              count: daysRemaining,
-                            })
-                          : daysRemaining === 0
-                          ? t('patient.labResults.alertDueToday')
-                          : t('patient.labResults.upcomingHeadingOverdueLine', {
-                              count: Math.abs(daysRemaining),
-                            })}
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-white">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-700"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, ((30 - Math.max(0, daysRemaining)) / 30) * 100))}%`,
-                          }}
-                        />
-                      </div>
+                      {daysRemaining != null ? (
+                        <>
+                          <div className="mb-2 text-xs text-amber-700">
+                            {daysRemaining > 0
+                              ? t('patient.labResults.upcomingHeadingDaysLine', {
+                                  count: daysRemaining,
+                                })
+                              : daysRemaining === 0
+                              ? t('patient.labResults.alertDueToday')
+                              : t('patient.labResults.upcomingHeadingOverdueLine', {
+                                  count: Math.abs(daysRemaining),
+                                })}
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-white">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-700"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, ((30 - Math.max(0, daysRemaining)) / 30) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                        </>
+                      ) : null}
                       <div className="mt-1 text-xs text-amber-600">
                         {t('patient.labResults.upcomingOrderedDueLine', {
                           doctor: order.doctorName?.replace(/^Dr\.\s*/, '') ?? '',
