@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -157,6 +158,7 @@ export const PatientRecords: React.FC = () => {
         : t('patient.records.categoryVax');
 
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const {
     data,
     loading,
@@ -252,6 +254,18 @@ export const PatientRecords: React.FC = () => {
 
     void loadVisitNotes();
   }, [user?.id]);
+
+  useEffect(() => {
+    const targetAppointmentId = searchParams.get('appointmentId');
+    if (!targetAppointmentId || visitNotes.length === 0) return;
+
+    const match = visitNotes.find((note) => note.appointment_id === targetAppointmentId);
+    if (match) {
+      setExpandedVisitNoteId(match.id);
+      const el = document.getElementById(`visit-note-${match.id}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchParams, visitNotes]);
 
   const conditions = useMemo(() => data?.conditions ?? [], [data?.conditions]);
   const allergies = useMemo(() => data?.allergies ?? [], [data?.allergies]);
@@ -1422,7 +1436,7 @@ export const PatientRecords: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {visitNotes.map((note) => (
-                <div key={note.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={note.id} id={`visit-note-${note.id}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <button
                     type="button"
                     onClick={() => setExpandedVisitNoteId(expandedVisitNoteId === note.id ? null : note.id)}
