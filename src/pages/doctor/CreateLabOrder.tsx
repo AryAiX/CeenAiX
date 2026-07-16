@@ -679,6 +679,7 @@ export const CreateLabOrder: React.FC = () => {
   const patients = useMemo(() => patientsData ?? [], [patientsData]);
   const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
   const [appointmentId, setAppointmentId] = useState(searchParams.get('appointment') ?? '');
+  const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState<DraftLabOrderItem[]>(() => {
     const first = createDraftLabOrderItem();
     const prefillTest = searchParams.get('test')?.trim();
@@ -774,6 +775,7 @@ export const CreateLabOrder: React.FC = () => {
         doctor_id: user.id,
         appointment_id: appointmentId || null,
         status: 'ordered',
+        due_by: dueDate ? new Date(dueDate).toISOString() : null,
       })
       .select('id')
       .maybeSingle();
@@ -905,6 +907,19 @@ export const CreateLabOrder: React.FC = () => {
                   </p>
                 </div>
               ) : null}
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-900">
+                Due Date (optional)
+              </span>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+              />
             </label>
           </div>
         </div>
