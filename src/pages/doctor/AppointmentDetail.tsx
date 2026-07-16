@@ -109,6 +109,13 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveIdleTimer = useRef<number | null>(null);
   const noteSavedTimer = useRef<number | null>(null);
+  const noteIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (data?.consultationNote?.id && !noteIdRef.current) {
+      noteIdRef.current = data.consultationNote.id;
+    }
+  }, [data?.consultationNote?.id]);
   const [updatingAppointment, setUpdatingAppointment] = useState(false);
   const [reviewingAssessment, setReviewingAssessment] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -155,10 +162,14 @@ export const DoctorAppointmentDetail: React.FC = () => {
         doctor_approved: true,
         is_deleted: false,
       };
-      const operation = data.consultationNote
-        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-        : supabase.from('consultation_notes').insert(payload);
-      const { error: noteError } = await operation;
+      const existingNoteId = noteIdRef.current ?? data.consultationNote?.id ?? null;
+      const operation = existingNoteId
+        ? supabase.from('consultation_notes').update(payload).eq('id', existingNoteId)
+        : supabase.from('consultation_notes').insert(payload).select('id').single();
+      const { data: noteResult, error: noteError } = await operation;
+      if (!existingNoteId && !noteError && noteResult) {
+        noteIdRef.current = (noteResult as { id: string }).id;
+      }
       if (noteError) {
         setFeedback({ type: 'error', message: noteError.message });
         return;
@@ -206,10 +217,14 @@ export const DoctorAppointmentDetail: React.FC = () => {
         doctor_approved: draft.doctorApproved,
         is_deleted: false,
       };
-      const operation = data.consultationNote
-        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-        : supabase.from('consultation_notes').insert(payload);
-      const { error: noteError } = await operation;
+      const existingNoteId = noteIdRef.current ?? data.consultationNote?.id ?? null;
+      const operation = existingNoteId
+        ? supabase.from('consultation_notes').update(payload).eq('id', existingNoteId)
+        : supabase.from('consultation_notes').insert(payload).select('id').single();
+      const { data: noteResult, error: noteError } = await operation;
+      if (!existingNoteId && !noteError && noteResult) {
+        noteIdRef.current = (noteResult as { id: string }).id;
+      }
       if (!noteError) {
         setAutoSaveStatus('saved');
         if (autoSaveIdleTimer.current) clearTimeout(autoSaveIdleTimer.current);
@@ -310,10 +325,14 @@ export const DoctorAppointmentDetail: React.FC = () => {
       doctor_approved: noteDraft.doctorApproved,
       is_deleted: false,
     };
-    const operation = data.consultationNote
-      ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-      : supabase.from('consultation_notes').insert(payload);
-    const { error: noteError } = await operation;
+    const existingNoteId = noteIdRef.current ?? data.consultationNote?.id ?? null;
+    const operation = existingNoteId
+      ? supabase.from('consultation_notes').update(payload).eq('id', existingNoteId)
+      : supabase.from('consultation_notes').insert(payload).select('id').single();
+    const { data: noteResult, error: noteError } = await operation;
+    if (!existingNoteId && !noteError && noteResult) {
+      noteIdRef.current = (noteResult as { id: string }).id;
+    }
     setSavingNote(false);
     if (noteError) {
       setFeedback({ type: 'error', message: noteError.message });
