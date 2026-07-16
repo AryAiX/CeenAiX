@@ -553,6 +553,20 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </div>
           </div>
 
+          {data.appointment.status === 'cancelled' ? (
+            <div className="mx-6 mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <p className="font-semibold">
+                Cancelled by {data.appointment.cancelled_by_user_id === data.appointment.doctor_id ? 'you' : 'the patient'}
+                {data.appointment.cancelled_at
+                  ? ` on ${new Date(data.appointment.cancelled_at).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}`
+                  : ''}
+              </p>
+              {data.appointment.cancellation_reason ? (
+                <p className="mt-1 text-red-700">Reason: {data.appointment.cancellation_reason}</p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className={`grid gap-4 p-6 ${['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
             <button
               type="button"
