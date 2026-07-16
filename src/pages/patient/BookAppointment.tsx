@@ -431,6 +431,15 @@ export const BookAppointment: React.FC = () => {
           action_url: '/patient/appointments',
         });
 
+        // Notify the doctor directly
+        await supabase.from('notifications').insert({
+          user_id: selectedDoctor.userId,
+          type: 'appointment',
+          title: '📅 New appointment booked',
+          body: `A new appointment has been booked with you for ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
+          action_url: '/doctor/appointments',
+        });
+
         // Notify clinic staff
         const { data: staffData } = await supabase
           .from('facility_staff')
@@ -458,6 +467,15 @@ export const BookAppointment: React.FC = () => {
           title: '📅 Appointment rescheduled!',
           body: `Your appointment with ${selectedDoctor.fullName} has been rescheduled to ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
           action_url: '/patient/appointments',
+        });
+
+        // Notify the doctor directly
+        await supabase.from('notifications').insert({
+          user_id: selectedDoctor.userId,
+          type: 'appointment',
+          title: '🔄 Appointment rescheduled',
+          body: `Your appointment has been rescheduled to ${new Date(selectedSlot.iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(selectedSlot.iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`,
+          action_url: '/doctor/appointments',
         });
 
         // Notify clinic staff
