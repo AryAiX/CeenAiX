@@ -368,7 +368,18 @@ export const DoctorPatientDetail: React.FC = () => {
                     {data.allergies.length > 0 ? (
                       data.allergies.map((allergy) => (
                         <div key={allergy.id} className="rounded-xl bg-white px-3 py-2">
-                          <p className="font-medium text-slate-900">{allergy.allergen}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-slate-900">{allergy.allergen}</p>
+                            {allergy.confirmed_by_doctor ? (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                Doctor-confirmed
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                Self-reported
+                              </span>
+                            )}
+                          </div>
                           <p className="mt-1 text-xs text-slate-500">{allergy.severity}</p>
                         </div>
                       ))
