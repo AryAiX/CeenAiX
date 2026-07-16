@@ -124,7 +124,7 @@ export const PortalShell = ({
   }, [location.pathname]);
 
   useEffect(() => {
-    if (role !== 'patient' || !user?.id) return;
+    if (!user?.id) return;
 
     // Fetch initial unread count
     void supabase
@@ -996,13 +996,16 @@ export const PortalShell = ({
             <LanguageSwitcher dense variant="light" />
             <button
               type="button"
-              onClick={() => navigate('/doctor/notifications')}
+              onClick={() => {
+                navigate('/doctor/notifications');
+                setUnreadNotificationsCount(0);
+              }}
               className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700"
             >
               <Bell className="h-4 w-4" />
-              {(doctorChromeData?.unreadMessagesCount ?? 0) > 0 ? (
+              {unreadNotificationsCount > 0 ? (
                 <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                  {doctorChromeData?.unreadMessagesCount}
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
                 </span>
               ) : null}
             </button>
