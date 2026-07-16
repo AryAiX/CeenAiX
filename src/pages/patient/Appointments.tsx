@@ -296,7 +296,8 @@ export const PatientAppointments: React.FC = () => {
         (appointment) =>
           !CANCELLED_STATUSES.has(appointment.status) &&
           !isUpcoming(appointment) &&
-          new Date(appointment.scheduled_at).getTime() < nowTick
+          (COMPLETED_STATUSES.has(appointment.status) ||
+            new Date(appointment.scheduled_at).getTime() < nowTick)
       ),
     [filteredAppointments, isUpcoming, nowTick]
   );
