@@ -98,6 +98,33 @@ export const DoctorPatientDetail: React.FC = () => {
     );
   }
 
+  const hasRelationship =
+    data.appointments.length > 0 || data.prescriptions.length > 0 || data.labOrders.length > 0;
+
+  if (!hasRelationship) {
+    return (
+      <>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">{t('doctor.patientDetail.titleFallback')}</h1>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600" role="alert">
+          <p className="font-semibold text-slate-800">You don't have a care relationship with this patient</p>
+          <p className="mt-1">
+            This patient has no appointments, prescriptions, or lab orders on record with you. If you believe this is
+            an error, the patient may need to book an appointment first.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/doctor/patients')}
+            className="mt-3 font-semibold text-slate-900 underline"
+          >
+            Back to Patients
+          </button>
+        </div>
+      </>
+    );
+  }
+
   const patientName = data.patientProfile?.full_name?.trim() || t('shared.patient');
   const patientEmail = data.patientProfile?.email ?? t('doctor.patients.notProvided');
   const patientPhone = data.patientProfile?.phone ?? t('doctor.patients.notProvided');
