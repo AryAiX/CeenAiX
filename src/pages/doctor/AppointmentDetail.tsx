@@ -261,12 +261,10 @@ export const DoctorAppointmentDetail: React.FC = () => {
     setFeedback(null);
     setUpdatingAppointment(true);
 
-    const { error: updateError } = await supabase
-      .from('appointments')
-      .update({ status })
-      .eq('id', data.appointment.id)
-      .eq('doctor_id', user.id)
-      .eq('is_deleted', false);
+    const { error: updateError } = await supabase.rpc('update_doctor_appointment_status', {
+      p_appointment_id: data.appointment.id,
+      p_status: status,
+    });
 
     setUpdatingAppointment(false);
 
@@ -415,6 +413,10 @@ export const DoctorAppointmentDetail: React.FC = () => {
     }
     return 'No answer provided';
   };
+
+  const canMarkInProgress = data ? ['scheduled', 'confirmed'].includes(data.appointment.status) : false;
+  const canMarkCompleted = data ? data.appointment.status === 'in_progress' : false;
+  const canMarkNoShow = data ? ['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) : false;
 
   return (
     <>
@@ -570,7 +572,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
           <div className={`grid gap-4 p-6 ${['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || (!canMarkInProgress && data.appointment.status !== 'in_progress')}
               onClick={() => updateAppointmentStatus('in_progress')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'in_progress'
@@ -594,7 +596,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || (!canMarkCompleted && data.appointment.status !== 'completed')}
               onClick={() => updateAppointmentStatus('completed')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'completed'
@@ -618,7 +620,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || (!canMarkNoShow && data.appointment.status !== 'no_show')}
               onClick={() => updateAppointmentStatus('no_show')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'no_show'
