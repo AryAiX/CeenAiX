@@ -112,6 +112,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const [updatingAppointment, setUpdatingAppointment] = useState(false);
   const [reviewingAssessment, setReviewingAssessment] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [cancellingAppointment, setCancellingAppointment] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -284,6 +285,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
     setCancellingAppointment(true);
     const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment', {
       p_appointment_id: data.appointment.id,
+      p_reason: cancelReason.trim() || null,
     });
     setCancellingAppointment(false);
     if (cancelError) {
@@ -291,6 +293,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       return;
     }
     setShowCancelModal(false);
+    setCancelReason('');
     setFeedback({ type: 'success', message: 'Appointment cancelled successfully.' });
     refetch();
   };
@@ -1054,7 +1057,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       {showCancelModal ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setShowCancelModal(false)}
+          onClick={() => { setShowCancelModal(false); setCancelReason(''); }}
         >
           <div
             className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
@@ -1064,7 +1067,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
               <h2 className="text-lg font-bold text-slate-900">Cancel Appointment</h2>
               <button
                 type="button"
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => { setShowCancelModal(false); setCancelReason(''); }}
                 className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -1079,6 +1082,16 @@ export const DoctorAppointmentDetail: React.FC = () => {
                   {new Date(data.appointment.scheduled_at).toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))}
                 </p>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">Reason for cancellation (optional)</label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="e.g. Doctor unavailable, scheduling conflict..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                />
+              </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 ⚠️ Cancelling this appointment will notify the patient immediately. This action cannot be undone.
               </div>
@@ -1086,7 +1099,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
             <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
               <button
                 type="button"
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => { setShowCancelModal(false); setCancelReason(''); }}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Keep Appointment
