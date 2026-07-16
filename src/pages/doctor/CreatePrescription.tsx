@@ -1156,6 +1156,7 @@ export const CreatePrescription: React.FC = () => {
     setShowValidationErrors(false);
     setSavedPrescriptionId(insertedPrescription.id);
     setFeedback({ type: 'success', message: t('doctor.createPrescription.saveSuccess') });
+    navigate('/doctor/prescriptions');
   };
 
   return (
@@ -1184,48 +1185,6 @@ export const CreatePrescription: React.FC = () => {
           </div>
         ) : null}
 
-        {savedPrescriptionId && feedback?.type === 'success' ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <p className="mb-3 text-sm font-semibold text-emerald-800">
-              What would you like to do next?
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const doctorName = profile?.full_name ?? user?.email ?? 'Your Doctor';
-                  const medicationLines = items
-                    .map((item) => `• ${item.medicationName}${item.dosage ? ` — ${item.dosage}` : ''}${item.frequencyCode ? ` — ${resolveClinicalVocabLabel(vocabRows, 'frequency', item.frequencyCode, null, 'en')}` : ''}`)
-                    .join('\n');
-                  const draft = `Hi ${selectedPatient?.name ?? 'there'},\n\nYour prescription has been issued.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed. If you have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
-                  navigate(`/doctor/messages?patient=${patientId}&draft=${encodeURIComponent(draft)}`);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
-              >
-                💬 Message Patient
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSavedPrescriptionId(null);
-                  setFeedback(null);
-                  setItems([createDraftPrescriptionItem()]);
-                  setAppointmentId('');
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                ➕ New Prescription
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/doctor/prescriptions')}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                📋 Back to Prescriptions
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <div className="grid grid-cols-1 gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="xl:min-h-0">
