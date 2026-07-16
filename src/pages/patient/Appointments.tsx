@@ -396,8 +396,17 @@ export const PatientAppointments: React.FC = () => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
 
+    let combinedReason: string;
+    if (cancelReason === 'Other') {
+      combinedReason = cancelCustomReason.trim();
+    } else {
+      const extra = cancelCustomReason.trim();
+      combinedReason = extra ? `${cancelReason} (${extra})` : cancelReason;
+    }
+
     const { error: updateError } = await supabase.rpc('cancel_patient_appointment', {
       p_appointment_id: appointmentId,
+      p_reason: combinedReason,
     });
 
     setBusyAppointmentId(null);
