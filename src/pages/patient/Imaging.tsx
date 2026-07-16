@@ -98,7 +98,9 @@ export const PatientImaging = () => {
   const pendingCount = studies.filter((study) => study.status === 'pending').length;
   const reviewedCount = studies.filter((study) => study.status === 'reviewed').length;
   const followUpCount = studies.filter((study) => study.findings.some((finding) => finding.severity === 'monitor')).length;
-  const scheduled = (labOrders ?? []).filter((order) => order.isUpcoming);
+  const scheduled = (labOrders ?? []).filter(
+    (order) => order.isUpcoming && order.items.some((item) => isImagingName(item.test_name))
+  );
 
   const tabs: Array<{ key: ImagingTab; label: string; badge?: number }> = [
     { key: 'recent', label: t('patient.imaging.tabRecent'), badge: studies.length },
@@ -380,7 +382,7 @@ export const PatientImaging = () => {
               <div className="space-y-3">
                 {scheduled.map((order) => (
                   <div key={order.id} className="rounded-xl bg-violet-50 p-5">
-                    <div className="font-bold text-slate-900">{order.items[0]?.test_name ?? t('patient.imaging.scheduledStudy')}</div>
+                    <div className="font-bold text-slate-900">{order.items.find((item) => isImagingName(item.test_name))?.test_name ?? t('patient.imaging.scheduledStudy')}</div>
                     <div className="text-sm text-slate-600">{formatDate(order.ordered_at)} · {order.labName ?? t('patient.imaging.ceenaixRadiology')}</div>
                   </div>
                 ))}
