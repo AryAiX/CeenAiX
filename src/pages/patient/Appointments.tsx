@@ -594,6 +594,20 @@ export const PatientAppointments: React.FC = () => {
               </div>
             ) : null}
 
+            {appointment.status === 'cancelled' ? (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm font-semibold text-red-800">
+                  Cancelled by {appointment.cancelled_by_user_id === appointment.patient_id ? 'you' : (doctorProfile?.fullName ?? t('shared.doctor'))}
+                  {appointment.cancelled_at
+                    ? ` on ${new Date(appointment.cancelled_at).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}`
+                    : ''}
+                </p>
+                {appointment.cancellation_reason ? (
+                  <p className="mt-1 text-sm text-red-700">Reason: {appointment.cancellation_reason}</p>
+                ) : null}
+              </div>
+            ) : null}
+
             {preVisitAssessment ? (
               <div className="mb-4 rounded-lg border border-teal-100 bg-teal-50/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
