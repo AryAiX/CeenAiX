@@ -181,6 +181,19 @@ export const PatientRecords: React.FC = () => {
   const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<RecordEntry | null>(null);
   const [showFormSwitchWarning, setShowFormSwitchWarning] = useState(false);
   const [pendingForm, setPendingForm] = useState<RecordCategory | null>(null);
+  const [visitNotes, setVisitNotes] = useState<Array<{
+    id: string;
+    appointment_id: string;
+    subjective: string | null;
+    objective: string | null;
+    assessment: string | null;
+    plan: string | null;
+    created_at: string;
+    doctorName: string;
+    scheduledAt: string;
+  }>>([]);
+  const [visitNotesLoading, setVisitNotesLoading] = useState(true);
+  const [expandedVisitNoteId, setExpandedVisitNoteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!feedback) return;
@@ -188,6 +201,57 @@ export const PatientRecords: React.FC = () => {
     const timer = setTimeout(() => setFeedback(null), 4000);
     return () => clearTimeout(timer);
   }, [feedback]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const loadVisitNotes = async () => {
+      setVisitNotesLoading(true);
+
+      const { data: notes, error: notesError } = await supabase
+        .from('consultation_notes')
+        .select('id, appointment_id, subjective, objective, assessment, plan, created_at, doctor_id')
+        .eq('doctor_approved', true)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
+
+      if (notesError || !notes || notes.length === 0) {
+        setVisitNotes([]);
+        setVisitNotesLoading(false);
+        return;
+      }
+
+      const appointmentIds = notes.map((n) => n.appointment_id);
+      const doctorIds = Array.from(new Set(notes.map((n) => n.doctor_id)));
+
+      const [{ data: appts }, { data: doctors }] = await Promise.all([
+        supabase.from('appointments').select('id, scheduled_at, patient_id').in('id', appointmentIds),
+        supabase.from('user_profiles').select('user_id, full_name').in('user_id', doctorIds),
+      ]);
+
+      const apptById = new Map((appts ?? []).map((a) => [a.id, a]));
+      const doctorNameById = new Map((doctors ?? []).map((d) => [d.user_id, d.full_name]));
+
+      const ownNotes = notes.filter((n) => apptById.get(n.appointment_id)?.patient_id === user.id);
+
+      setVisitNotes(
+        ownNotes.map((n) => ({
+          id: n.id,
+          appointment_id: n.appointment_id,
+          subjective: n.subjective,
+          objective: n.objective,
+          assessment: n.assessment,
+          plan: n.plan,
+          created_at: n.created_at,
+          doctorName: doctorNameById.get(n.doctor_id) ?? 'Doctor',
+          scheduledAt: apptById.get(n.appointment_id)?.scheduled_at ?? n.created_at,
+        }))
+      );
+      setVisitNotesLoading(false);
+    };
+
+    void loadVisitNotes();
+  }, [user?.id]);
 
   const conditions = useMemo(() => data?.conditions ?? [], [data?.conditions]);
   const allergies = useMemo(() => data?.allergies ?? [], [data?.allergies]);
@@ -1348,6 +1412,65 @@ export const PatientRecords: React.FC = () => {
             </div>
           </div>
         ) : null}
+
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Visit Notes</h2>
+          {visitNotesLoading ? (
+            <Skeleton className="h-24 w-full rounded-xl" />
+          ) : visitNotes.length === 0 ? (
+            <p className="text-sm text-slate-500">No visit notes yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {visitNotes.map((note) => (
+                <div key={note.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedVisitNoteId(expandedVisitNoteId === note.id ? null : note.id)}
+                    className="flex w-full items-center justify-between text-left"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-900">{note.doctorName}</p>
+                      <p className="text-sm text-slate-500">
+                        {new Date(note.scheduledAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className="text-sm text-teal-600">
+                      {expandedVisitNoteId === note.id ? 'Hide' : 'View'}
+                    </span>
+                  </button>
+                  {expandedVisitNoteId === note.id ? (
+                    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm">
+                      {note.subjective ? (
+                        <div>
+                          <p className="font-semibold text-slate-700">Subjective</p>
+                          <p className="text-slate-600 whitespace-pre-wrap">{note.subjective}</p>
+                        </div>
+                      ) : null}
+                      {note.objective ? (
+                        <div>
+                          <p className="font-semibold text-slate-700">Objective</p>
+                          <p className="text-slate-600 whitespace-pre-wrap">{note.objective}</p>
+                        </div>
+                      ) : null}
+                      {note.assessment ? (
+                        <div>
+                          <p className="font-semibold text-slate-700">Assessment</p>
+                          <p className="text-slate-600 whitespace-pre-wrap">{note.assessment}</p>
+                        </div>
+                      ) : null}
+                      {note.plan ? (
+                        <div>
+                          <p className="font-semibold text-slate-700">Plan</p>
+                          <p className="text-slate-600 whitespace-pre-wrap">{note.plan}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       {confirmDeleteRecord ? createPortal(
