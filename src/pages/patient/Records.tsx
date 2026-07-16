@@ -193,6 +193,7 @@ export const PatientRecords: React.FC = () => {
     created_at: string;
     doctorName: string;
     scheduledAt: string;
+    reasonForVisit: string | null;
   }>>([]);
   const [visitNotesLoading, setVisitNotesLoading] = useState(true);
   const [expandedVisitNoteId, setExpandedVisitNoteId] = useState<string | null>(null);
@@ -227,7 +228,7 @@ export const PatientRecords: React.FC = () => {
       const doctorIds = Array.from(new Set(notes.map((n) => n.doctor_id)));
 
       const [{ data: appts }, { data: doctors }] = await Promise.all([
-        supabase.from('appointments').select('id, scheduled_at, patient_id').in('id', appointmentIds),
+        supabase.from('appointments').select('id, scheduled_at, patient_id, chief_complaint').in('id', appointmentIds),
         supabase.from('user_profiles').select('user_id, full_name').in('user_id', doctorIds),
       ]);
 
@@ -245,9 +246,10 @@ export const PatientRecords: React.FC = () => {
           assessment: n.assessment,
           plan: n.plan,
           created_at: n.created_at,
-          doctorName: doctorNameById.get(n.doctor_id) ?? 'Doctor',
-          scheduledAt: apptById.get(n.appointment_id)?.scheduled_at ?? n.created_at,
-        }))
+        doctorName: doctorNameById.get(n.doctor_id) ?? 'Doctor',
+        scheduledAt: apptById.get(n.appointment_id)?.scheduled_at ?? n.created_at,
+        reasonForVisit: apptById.get(n.appointment_id)?.chief_complaint ?? null,
+      }))
       );
       setVisitNotesLoading(false);
     };
@@ -1444,6 +1446,7 @@ export const PatientRecords: React.FC = () => {
                   >
                     <div>
                       <p className="font-semibold text-slate-900">{note.doctorName}</p>
+                      <p className="text-sm text-slate-600">{note.reasonForVisit ?? 'Visit'}</p>
                       <p className="text-sm text-slate-500">
                         {new Date(note.scheduledAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
                       </p>
