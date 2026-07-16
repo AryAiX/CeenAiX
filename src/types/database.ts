@@ -121,6 +121,9 @@ export interface Appointment extends BaseRecord, SoftDeletable {
   duration_minutes: number;
   chief_complaint: string | null;
   notes: string | null;
+  cancellation_reason: string | null;
+  cancelled_by_user_id: string | null;
+  cancelled_at: string | null;
 }
 
 export interface ConsultationNote extends BaseRecord, SoftDeletable {
