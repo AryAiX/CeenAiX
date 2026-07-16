@@ -135,6 +135,7 @@ export const Profile: React.FC = () => {
         emirates_id: personalInfo.emiratesId,
         date_of_birth: personalInfo.dateOfBirth || null,
         avatar_url: profileImage || null,
+        email: user.email ?? undefined,
       })
       .eq('user_id', user.id);
     if (profileError) {
@@ -493,6 +494,17 @@ export const Profile: React.FC = () => {
                         onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
                         placeholder={t('patient.profile.phFullName')}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">Email</label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        disabled
+                        value={user?.email ?? ''}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 transition-all duration-200 font-medium text-gray-600"
                       />
                     </div>
                   </div>
