@@ -2183,9 +2183,15 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
       </div>
 
-      {showAddModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+      {showAddModal ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <h3 className="font-bold text-slate-900">Add Medication</h3>
               <button
@@ -2282,7 +2288,8 @@ export const PatientPrescriptions: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );
