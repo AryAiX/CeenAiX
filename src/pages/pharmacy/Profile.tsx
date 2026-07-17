@@ -315,7 +315,9 @@ export const PharmacyProfile = () => {
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                    {t('pharmacy.profile.dhaLicensed', { defaultValue: 'DHA Licensed' })} ✅
+                    {data?.profile?.dhaConnected
+                      ? `${t('pharmacy.profile.dhaLicensed', { defaultValue: 'DHA Licensed' })} ✅`
+                      : t('pharmacy.profile.dhaPending', { defaultValue: 'DHA License Pending' })}
                   </span>
                   <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-bold text-teal-700">
                     {data?.profile?.nabidhConnected
