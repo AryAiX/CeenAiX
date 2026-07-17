@@ -98,6 +98,10 @@ export const PharmacyReports = () => {
       })}
       accent="emerald"
       variant="pharmacy"
+      pharmacyName={pharmacyName}
+      pharmacyCity={data?.organization?.city}
+      pharmacyDhaLicensed={data?.profile?.dhaConnected ?? false}
+      pharmacyLicenseNumber={data?.profile?.licenseNumber}
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">

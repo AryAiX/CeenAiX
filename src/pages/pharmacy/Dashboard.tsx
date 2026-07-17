@@ -269,6 +269,10 @@ export const PharmacyDashboard = () => {
       })}
       accent="emerald"
       variant="pharmacy"
+      pharmacyName={data?.profile?.displayName ?? data?.organization?.name}
+      pharmacyCity={data?.organization?.city}
+      pharmacyDhaLicensed={data?.profile?.dhaConnected ?? false}
+      pharmacyLicenseNumber={data?.profile?.licenseNumber}
     >
       <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
         {error ? (

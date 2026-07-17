@@ -77,6 +77,10 @@ export const PharmacyRevenue = () => {
       })}
       accent="emerald"
       variant="pharmacy"
+      pharmacyName={data?.profile?.displayName ?? data?.organization?.name}
+      pharmacyCity={data?.organization?.city}
+      pharmacyDhaLicensed={data?.profile?.dhaConnected ?? false}
+      pharmacyLicenseNumber={data?.profile?.licenseNumber}
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">

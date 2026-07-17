@@ -48,6 +48,10 @@ export const PharmacySettings = () => {
       })}
       accent="emerald"
       variant="pharmacy"
+      pharmacyName={data?.profile?.displayName ?? data?.organization?.name}
+      pharmacyCity={data?.organization?.city}
+      pharmacyDhaLicensed={data?.profile?.dhaConnected ?? false}
+      pharmacyLicenseNumber={data?.profile?.licenseNumber}
     >
       <div className="min-h-full bg-slate-50 p-6">
         <PortalQueryBanner error={loadError} onRetry={() => void refetch()} />

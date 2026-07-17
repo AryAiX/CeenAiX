@@ -385,6 +385,10 @@ export const PharmacyDispensing = () => {
       })}
       accent="emerald"
       variant="pharmacy"
+      pharmacyName={data?.profile?.displayName ?? data?.organization?.name}
+      pharmacyCity={data?.organization?.city}
+      pharmacyDhaLicensed={data?.profile?.dhaConnected ?? false}
+      pharmacyLicenseNumber={data?.profile?.licenseNumber}
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
         <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">

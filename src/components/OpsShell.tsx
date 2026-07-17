@@ -36,6 +36,10 @@ interface OpsShellProps {
   children: ReactNode;
   accent?: 'slate' | 'emerald' | 'cyan' | 'violet';
   variant?: 'default' | 'pharmacy';
+  pharmacyName?: string | null;
+  pharmacyCity?: string | null;
+  pharmacyDhaLicensed?: boolean;
+  pharmacyLicenseNumber?: string | null;
 }
 
 const ACCENT_BAR: Record<NonNullable<OpsShellProps['accent']>, string> = {
@@ -54,6 +58,10 @@ export const OpsShell = ({
   children,
   accent = 'slate',
   variant = 'default',
+  pharmacyName = null,
+  pharmacyCity = null,
+  pharmacyDhaLicensed = false,
+  pharmacyLicenseNumber = null,
 }: OpsShellProps) => {
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -117,9 +125,10 @@ export const OpsShell = ({
 
           {!pharmacyCollapsed ? (
             <div className="mx-3 my-3 shrink-0 rounded-xl border border-emerald-300/25 bg-emerald-500/15 p-3">
-              <div className="text-[13px] font-bold text-white">Al Shifa Pharmacy</div>
-              <div className="text-[11px] text-emerald-100">الشفاء للصيدلة</div>
-              <div className="mt-0.5 text-[10px] text-emerald-300">Al Barsha · DHA Licensed ✅</div>
+              <div className="text-[13px] font-bold text-white">{pharmacyName ?? 'No pharmacy assigned'}</div>
+              <div className="mt-0.5 text-[10px] text-emerald-300">
+                {[pharmacyCity, pharmacyDhaLicensed ? 'DHA Licensed ✅' : null].filter(Boolean).join(' · ')}
+              </div>
               <div className="mt-2 border-t border-emerald-300/20 pt-2">
                 <div className="text-[10px] text-white/70">{displayName} | Head Pharmacist</div>
                 <div className="mt-1 flex items-center gap-1.5">
@@ -220,8 +229,10 @@ export const OpsShell = ({
             <div className="mx-3 mb-3 flex shrink-0 items-center gap-2 rounded-lg border border-emerald-300/15 bg-emerald-500/10 px-3 py-2">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-300" />
               <div>
-                <div className="text-[10px] font-semibold text-emerald-300">DHA COMPLIANT ✅</div>
-                <div className="text-[9px] text-white/40">DHA-PHARM-2019-003481</div>
+                <div className="text-[10px] font-semibold text-emerald-300">
+                  {pharmacyDhaLicensed ? 'DHA COMPLIANT ✅' : 'DHA COMPLIANCE PENDING'}
+                </div>
+                <div className="text-[9px] text-white/40">{pharmacyLicenseNumber ?? 'No license on file'}</div>
               </div>
             </div>
           ) : null}
