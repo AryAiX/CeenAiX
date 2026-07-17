@@ -239,17 +239,9 @@ export async function markPatientPrescriptionPickedUp(
   prescriptionId: string,
   prescriptionItemIds: string[]
 ): Promise<void> {
-  const itemUpdates = prescriptionItemIds.map((itemId) =>
-    supabase.from('prescription_items').update({ is_dispensed: true }).eq('id', itemId)
-  );
-  const taskUpdate = supabase
-    .from('pharmacy_dispensing_tasks')
-    .update({ workflow_status: 'picked_up', updated_at: new Date().toISOString() })
-    .eq('prescription_id', prescriptionId);
-
-  const results = await Promise.all([...itemUpdates, taskUpdate]);
-  const failed = results.find((result) => result.error);
-  if (failed?.error) {
-    throw failed.error;
-  }
+  void prescriptionItemIds;
+  const { error } = await supabase.rpc('mark_prescription_picked_up', {
+    p_prescription_id: prescriptionId,
+  });
+  if (error) throw error;
 }
