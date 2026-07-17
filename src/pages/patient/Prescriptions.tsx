@@ -1610,9 +1610,13 @@ export const PatientPrescriptions: React.FC = () => {
               <div className="mb-3 space-y-1 text-xs text-slate-500">
                 <p>{t('patient.prescriptions.rxStatus')}</p>
                 <p
-                  className={item.is_dispensed ? 'font-medium text-emerald-600' : 'font-medium text-amber-600'}
+                  className={
+                    item.is_dispensed || rx.pharmacyStatus === 'dispensed' || rx.pharmacyStatus === 'picked_up'
+                      ? 'font-medium text-emerald-600'
+                      : 'font-medium text-amber-600'
+                  }
                 >
-                  {item.is_dispensed
+                  {item.is_dispensed || rx.pharmacyStatus === 'dispensed' || rx.pharmacyStatus === 'picked_up'
                     ? t('patient.prescriptions.dispensed')
                     : t('patient.prescriptions.pendingItem')}
                 </p>
