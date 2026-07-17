@@ -559,8 +559,8 @@ export const PharmacyProfile = () => {
       </div>
       {editModalOpen ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">Edit License Details</h2>
                 <p className="mt-0.5 text-xs text-slate-500">{pharmacyName}</p>
@@ -573,7 +573,7 @@ export const PharmacyProfile = () => {
                 ✕
               </button>
             </div>
-            <div className="space-y-4 px-6 py-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
               {editError ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {editError}
@@ -678,7 +678,7 @@ export const PharmacyProfile = () => {
                 </button>
               </div>
             </div>
-            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+            <div className="flex shrink-0 gap-3 border-t border-slate-100 px-6 py-4">
               <button
                 type="button"
                 onClick={() => setEditModalOpen(false)}
