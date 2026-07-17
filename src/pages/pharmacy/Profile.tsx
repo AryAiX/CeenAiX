@@ -52,6 +52,9 @@ export const PharmacyProfile = () => {
 
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [setupName, setSetupName] = useState('');
+  const [settingUp, setSettingUp] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffSaving, setStaffSaving] = useState(false);
@@ -64,6 +67,24 @@ export const PharmacyProfile = () => {
     credential_number: '',
     shift_status: 'on_shift',
   });
+
+  const handleSelfRegisterPharmacy = async () => {
+    if (!setupName.trim()) return;
+    setSettingUp(true);
+    setSetupError(null);
+    try {
+      const { error } = await supabase.rpc('self_register_pharmacy', {
+        p_name: setupName.trim(),
+      });
+      if (error) throw error;
+      setSetupName('');
+      void refetch();
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : 'Could not set up your pharmacy.');
+    } finally {
+      setSettingUp(false);
+    }
+  };
 
   const handleOpenEditModal = () => {
     setEditForm({
@@ -91,27 +112,34 @@ export const PharmacyProfile = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (!data?.organization?.id) {
+      setEditError('No pharmacy is linked to this account yet.');
+      return;
+    }
     setEditSaving(true);
     setEditError(null);
     try {
       const { error } = await supabase
         .from('pharmacy_facility_profiles')
-        .update({
-          display_name: editForm.display_name,
-          license_number: editForm.license_number,
-          license_valid_until: editForm.license_valid_until || null,
-          address: editForm.address,
-          operating_hours: editForm.operating_hours,
-          pharmacist_in_charge: editForm.pharmacist_in_charge,
-          phone: editForm.phone || null,
-          email: editForm.email || null,
-          website: editForm.website || null,
-          emergency_contact: editForm.emergency_contact || null,
-          dha_connected: editForm.dha_connected,
-          nabidh_connected: editForm.nabidh_connected,
-          working_hours_json: workingHours,
-        })
-        .eq('organization_id', data?.organization?.id);
+        .upsert(
+          {
+            organization_id: data.organization.id,
+            display_name: editForm.display_name,
+            license_number: editForm.license_number,
+            license_valid_until: editForm.license_valid_until || null,
+            address: editForm.address,
+            operating_hours: editForm.operating_hours,
+            pharmacist_in_charge: editForm.pharmacist_in_charge,
+            phone: editForm.phone || null,
+            email: editForm.email || null,
+            website: editForm.website || null,
+            emergency_contact: editForm.emergency_contact || null,
+            dha_connected: editForm.dha_connected,
+            nabidh_connected: editForm.nabidh_connected,
+            working_hours_json: workingHours,
+          },
+          { onConflict: 'organization_id' }
+        );
       if (error) throw error;
       setEditSuccess(true);
       void refetch();
@@ -262,6 +290,38 @@ export const PharmacyProfile = () => {
       pharmacyLicenseNumber={data?.profile?.licenseNumber}
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
+      {!data?.organization ? (
+        <div className="mx-6 mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+          <h2 className="text-lg font-bold text-slate-900">Set Up Your Pharmacy</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Your account isn't linked to a pharmacy yet. Enter your pharmacy's
+            name to create it — you can fill in the rest of the details right
+            after.
+          </p>
+          {setupError ? (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {setupError}
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={setupName}
+              onChange={(e) => setSetupName(e.target.value)}
+              placeholder="e.g. Al Barsha Pharmacy"
+              className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            />
+            <button
+              type="button"
+              onClick={() => void handleSelfRegisterPharmacy()}
+              disabled={settingUp || !setupName.trim()}
+              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {settingUp ? 'Setting up...' : 'Create My Pharmacy'}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="min-h-full bg-slate-50 p-6">
         <div className="w-full">
           <h2 className="mb-5 text-[20px] font-bold text-slate-900">
