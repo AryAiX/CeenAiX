@@ -1616,9 +1616,11 @@ export const PatientPrescriptions: React.FC = () => {
                       : 'font-medium text-amber-600'
                   }
                 >
-                  {item.is_dispensed || rx.pharmacyStatus === 'dispensed' || rx.pharmacyStatus === 'picked_up'
-                    ? t('patient.prescriptions.dispensed')
-                    : t('patient.prescriptions.pendingItem')}
+                  {rx.pharmacyStatus === 'picked_up'
+                    ? t('patient.prescriptions.pickedUpItem', { defaultValue: 'Picked Up' })
+                    : item.is_dispensed || rx.pharmacyStatus === 'dispensed'
+                      ? t('patient.prescriptions.dispensed')
+                      : t('patient.prescriptions.pendingItem')}
                 </p>
               </div>
 
