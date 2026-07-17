@@ -415,13 +415,29 @@ export async function sendPharmacyResponse(
 
 export function usePharmacyPrescriptionQueue() {
   return useQuery<PharmacyPrescriptionQueueData>(async () => {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+    if (!authUser) return emptyData();
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', authUser.id)
+      .order('is_primary', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (membershipError) throw membershipError;
+    if (!membership) return emptyData();
+
     const { data: organization, error: orgError } = await supabase
       .from('organizations')
       .select('id, name, slug, city, notes')
-      .eq('kind', 'pharmacy')
-      .eq('status', 'active')
-      .order('created_at', { ascending: true })
-      .limit(1)
+      .eq('id', membership.organization_id)
       .maybeSingle();
 
     if (orgError) throw orgError;
