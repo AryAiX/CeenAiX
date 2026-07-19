@@ -515,6 +515,11 @@ export const Home = () => {
         .portal-btn { transition: all 0.25s cubic-bezier(.34,1.56,.64,1); }
         .portal-btn:hover { transform: translateY(-4px) scale(1.04); }
         .shimmer-text { background: linear-gradient(90deg, #0891b2, #3b82f6, #06b6d4, #0891b2); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmerMove 3s linear infinite; }
+        .landing-rail { scrollbar-width: thin; scrollbar-color: rgba(14, 165, 233, 0.35) transparent; }
+        .landing-rail::-webkit-scrollbar { height: 8px; }
+        .landing-rail::-webkit-scrollbar-track { background: transparent; }
+        .landing-rail::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.28); border-radius: 999px; }
+        .landing-rail::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.45); }
       `}</style>
 
       {/* Navigation */}
@@ -688,12 +693,12 @@ export const Home = () => {
                     Live
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="landing-rail flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2">
                   {portals.map((p, i) => {
                     const Icon = p.icon;
                     return (
                       <button key={p.label} type="button" onClick={() => navigate(getDefaultRouteForRole(p.role))}
-                        className={`portal-btn flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/25 group ${activePortal === i ? 'ring-1 ring-teal-400/50 bg-white/12' : ''}`}>
+                        className={`portal-btn flex flex-none w-24 snap-start flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/25 group ${activePortal === i ? 'ring-1 ring-teal-400/50 bg-white/12' : ''}`}>
                         <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center shadow-lg`}>
                           <Icon className="w-3.5 h-3.5 text-white" />
                         </div>
@@ -802,7 +807,7 @@ export const Home = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-7">
+          <div className="landing-rail flex gap-5 overflow-x-auto snap-x snap-mandatory pb-5">
             {features.map((f, i) => {
               const Icon = f.icon;
               const title = t(`home.landing.features.items.${f.key}.title`);
@@ -811,7 +816,7 @@ export const Home = () => {
               return (
                 <div
                   key={f.key}
-                  className={`card-hover group bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm opacity-0-init ${
+                  className={`card-hover group flex-none w-[82vw] sm:w-[22rem] lg:w-[24rem] snap-start bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm opacity-0-init ${
                     featuresRef.inView ? 'animate-fade-up' : ''
                   }`}
                   style={{ animationDelay: `${i * 0.1}s` }}
@@ -834,7 +839,7 @@ export const Home = () => {
                   </div>
                   <div className="p-6">
                     <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
-                    <p className="text-slate-500 text-sm leading-relaxed">{description}</p>
+                    <p className="text-slate-500 text-sm leading-relaxed line-clamp-3">{description}</p>
                     <div className="mt-4 flex items-center gap-1 text-cyan-600 text-sm font-semibold group-hover:gap-2 transition-all">
                       {t('home.landing.features.learnMore')} <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                     </div>
@@ -875,7 +880,7 @@ export const Home = () => {
             <p className="text-xl text-cyan-100/60 max-w-2xl mx-auto">{t('home.landing.how.lead')}</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="landing-rail flex gap-5 overflow-x-auto snap-x snap-mandatory pb-5">
             {steps.map((step, i) => {
               const Icon = step.icon;
               const num = t(`home.landing.how.steps.${step.key}.num`);
@@ -884,7 +889,7 @@ export const Home = () => {
               return (
                 <div
                   key={step.key}
-                  className={`group relative opacity-0-init ${howRef.inView ? 'animate-fade-up' : ''}`}
+                  className={`group relative flex-none w-[82vw] sm:w-[22rem] lg:w-[24rem] snap-start opacity-0-init ${howRef.inView ? 'animate-fade-up' : ''}`}
                   style={{ animationDelay: `${i * 0.15}s` }}
                 >
                   {i < steps.length - 1 ? (
@@ -911,7 +916,7 @@ export const Home = () => {
                         </div>
                         <h3 className="text-lg font-bold text-white">{title}</h3>
                       </div>
-                      <p className="text-cyan-100/60 text-sm leading-relaxed">{desc}</p>
+                      <p className="text-cyan-100/60 text-sm leading-relaxed line-clamp-3">{desc}</p>
                     </div>
                   </div>
                 </div>
@@ -945,7 +950,7 @@ export const Home = () => {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="landing-rail flex gap-5 overflow-x-auto snap-x snap-mandatory pb-5">
             {testimonials.map((tItem, i) => {
               const name = t(`home.landing.testimonials.items.${tItem.key}.name`);
               const role = t(`home.landing.testimonials.items.${tItem.key}.role`);
@@ -953,7 +958,7 @@ export const Home = () => {
               return (
                 <div
                   key={tItem.key}
-                  className={`card-hover bg-gradient-to-br from-slate-50 to-cyan-50/30 rounded-3xl p-8 border border-slate-100 opacity-0-init ${
+                  className={`card-hover flex-none w-[82vw] sm:w-[22rem] lg:w-[24rem] snap-start bg-gradient-to-br from-slate-50 to-cyan-50/30 rounded-3xl p-8 border border-slate-100 opacity-0-init ${
                     testimonialsRef.inView ? 'animate-fade-up' : ''
                   }`}
                   style={{ animationDelay: `${i * 0.15}s` }}
@@ -963,7 +968,7 @@ export const Home = () => {
                       <Star key={si} className="w-4 h-4 fill-amber-400 text-amber-400" />
                     ))}
                   </div>
-                  <p className="text-slate-600 leading-relaxed mb-6 text-sm">&ldquo;{quote}&rdquo;</p>
+                  <p className="text-slate-600 leading-relaxed mb-6 text-sm line-clamp-4">&ldquo;{quote}&rdquo;</p>
                   <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
                     <img
                       src={tItem.avatar}
@@ -1001,7 +1006,7 @@ export const Home = () => {
             <p className="text-slate-600 leading-relaxed mb-8">
               {t('home.landing.security.lead')}
             </p>
-            <div className="space-y-4">
+            <div className="landing-rail flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4">
               {securityItems.map((item) => {
                 const Icon = item.icon;
                 const label = t(`home.landing.security.items.${item.key}.label`);
@@ -1009,7 +1014,7 @@ export const Home = () => {
                 return (
                   <div
                     key={item.key}
-                    className="flex items-start gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
+                    className="flex flex-none w-[78vw] sm:w-80 snap-start items-start gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center flex-shrink-0">
                       <Icon className="w-5 h-5 text-white" />
@@ -1092,7 +1097,7 @@ export const Home = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-start">
+          <div className="landing-rail mx-auto flex max-w-5xl gap-5 overflow-x-auto snap-x snap-mandatory pb-6 items-start">
             {plans.map((plan, i) => {
               const name = t(`home.landing.pricing.plans.${plan.key}.name`);
               const price = t(`home.landing.pricing.plans.${plan.key}.price`);
@@ -1102,10 +1107,12 @@ export const Home = () => {
               const featureList = t(`home.landing.pricing.plans.${plan.key}.features`, {
                 returnObjects: true,
               }) as string[];
+              const visibleFeatures = featureList.slice(0, 4);
+              const extraFeatureCount = featureList.length - visibleFeatures.length;
               return (
                 <div
                   key={plan.key}
-                  className={`opacity-0-init ${pricingRef.inView ? 'animate-fade-up' : ''} ${
+                  className={`flex-none w-[82vw] sm:w-[21rem] lg:w-[20rem] snap-start opacity-0-init ${pricingRef.inView ? 'animate-fade-up' : ''} ${
                     plan.highlighted ? 'relative' : ''
                   }`}
                   style={{ animationDelay: `${i * 0.12}s` }}
@@ -1164,7 +1171,7 @@ export const Home = () => {
                       {cta}
                     </button>
                     <ul className="space-y-3">
-                      {featureList.map((feature) => (
+                      {visibleFeatures.map((feature) => (
                         <li key={feature} className="flex items-start gap-3">
                           <div
                             className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
@@ -1186,6 +1193,15 @@ export const Home = () => {
                           </span>
                         </li>
                       ))}
+                      {extraFeatureCount > 0 ? (
+                        <li
+                          className={`pt-1 text-xs font-bold ${
+                            plan.highlighted ? 'text-cyan-300' : 'text-cyan-700'
+                          }`}
+                        >
+                          +{extraFeatureCount} more in the portal
+                        </li>
+                      ) : null}
                     </ul>
                   </div>
                 </div>
