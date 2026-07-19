@@ -16,11 +16,23 @@ import {
   Search,
   Share2,
   ShieldCheck,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { usePatientInsurance, usePatientLabResults, usePatientPrescriptions } from '../../hooks';
+import {
+  getPatientDocumentSignedUrl,
+  recordPatientDocumentShare,
+  setPatientDocumentCareTeamAccess,
+  softDeletePatientDocument,
+  uploadPatientDocument,
+  usePatientDocumentVault,
+  usePatientInsurance,
+  usePatientLabResults,
+  usePatientPrescriptions,
+  type PatientVaultDocumentCategory,
+} from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
@@ -31,6 +43,7 @@ export const PatientDocuments = () => {
   const { data: labOrders, loading: labsLoading, error: labsError, refetch: refetchLabs } = usePatientLabResults(user?.id);
   const { data: prescriptions, loading: prescriptionsLoading, error: rxError, refetch: refetchRx } = usePatientPrescriptions(user?.id);
   const { data: insurance, loading: insuranceLoading, error: insuranceError, refetch: refetchInsurance } = usePatientInsurance(user?.id);
+  const { data: vaultDocuments, loading: vaultLoading, error: vaultError, refetch: refetchVault } = usePatientDocumentVault(user?.id);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'all' | PatientDocument['category']>('all');
@@ -41,6 +54,15 @@ export const PatientDocuments = () => {
   const [shareModalId, setShareModalId] = useState<string | null>(null);
   const [shareMethod, setShareMethod] = useState<'link' | 'email' | 'whatsapp'>('link');
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploadCategory, setUploadCategory] = useState<PatientVaultDocumentCategory>('upload');
+  const [uploadCareTeamAccess, setUploadCareTeamAccess] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [vaultActionBusyId, setVaultActionBusyId] = useState<string | null>(null);
+  const [vaultActionError, setVaultActionError] = useState<string | null>(null);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -58,14 +80,18 @@ export const PatientDocuments = () => {
     id: string;
     name: string;
     fileName: string;
-    category: 'lab-report' | 'prescription' | 'insurance';
+    category: 'lab-report' | 'prescription' | 'insurance' | 'imaging' | 'visit-note' | 'upload' | 'other';
     categoryLabel: string;
     categoryColor: string;
     date: string;
     issuedBy: string;
     contains: string;
     status: 'reviewed' | 'active' | 'pending';
-    source: 'lab_orders' | 'prescriptions' | 'patient_insurance';
+    source: 'lab_orders' | 'prescriptions' | 'patient_insurance' | 'patient_document_files';
+    storagePath?: string;
+    vaultDocumentId?: string;
+    allowCareTeamAccess?: boolean;
+    fileSizeBytes?: number;
   }
 
   const documents = useMemo<PatientDocument[]>(() => {
@@ -120,10 +146,28 @@ export const PatientDocuments = () => {
       source: 'patient_insurance',
     }));
 
-    return [...labDocs, ...prescriptionDocs, ...insuranceDocs].sort(
+    const uploadedDocs: PatientDocument[] = (vaultDocuments ?? []).map((doc) => ({
+      id: `vault-${doc.id}`,
+      name: doc.title,
+      fileName: doc.originalFileName,
+      category: doc.category,
+      categoryLabel: t(`patient.documents.category.${doc.category}`, { defaultValue: doc.category.replace(/-/g, ' ') }),
+      categoryColor: '#0891B2',
+      date: doc.createdAt,
+      issuedBy: t('patient.documents.uploadedByPatient', { defaultValue: 'Uploaded by patient' }),
+      contains: doc.description ?? doc.originalFileName,
+      status: doc.allowCareTeamAccess ? 'active' : 'reviewed',
+      source: 'patient_document_files',
+      storagePath: doc.storagePath,
+      vaultDocumentId: doc.id,
+      allowCareTeamAccess: doc.allowCareTeamAccess,
+      fileSizeBytes: doc.fileSizeBytes,
+    }));
+
+    return [...uploadedDocs, ...labDocs, ...prescriptionDocs, ...insuranceDocs].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-  }, [insurance?.plans, labOrders, prescriptions, t]);
+  }, [insurance?.plans, labOrders, prescriptions, t, vaultDocuments]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -148,12 +192,13 @@ export const PatientDocuments = () => {
   const selectedDocument = filtered.find((doc) => doc.id === selectedId) ?? null;
   const contentModalDocument = documents.find((doc) => doc.id === contentModalId) ?? null;
   const shareModalDocument = documents.find((doc) => doc.id === shareModalId) ?? null;
-  const loading = labsLoading || prescriptionsLoading || insuranceLoading;
-  const loadError = labsError ?? rxError ?? insuranceError;
+  const loading = labsLoading || prescriptionsLoading || insuranceLoading || vaultLoading;
+  const loadError = labsError ?? rxError ?? insuranceError ?? vaultError ?? vaultActionError;
   const handleRetry = () => {
     void refetchLabs();
     void refetchRx();
     void refetchInsurance();
+    void refetchVault();
   };
   const categories: Array<{ id: 'all' | PatientDocument['category']; label: string; count: number }> = [
     { id: 'all', label: t('patient.documents.filterAll'), count: documents.length },
@@ -172,6 +217,11 @@ export const PatientDocuments = () => {
       label: t('patient.documents.categoryInsurance'),
       count: documents.filter((doc) => doc.category === 'insurance').length,
     },
+    {
+      id: 'upload',
+      label: t('patient.documents.categoryUploads', { defaultValue: 'Uploads' }),
+      count: documents.filter((doc) => doc.category === 'upload' || doc.source === 'patient_document_files').length,
+    },
   ];
 
   if (loading) {
@@ -186,19 +236,34 @@ export const PatientDocuments = () => {
 
   const handleShare = async () => {
     if (!shareModalDocument) return;
+    setVaultActionError(null);
+    let vaultUrl: string | null = null;
+    if (shareModalDocument.source === 'patient_document_files' && shareModalDocument.storagePath) {
+      try {
+        vaultUrl = await getPatientDocumentSignedUrl(shareModalDocument.storagePath, 3600);
+        if (shareModalDocument.vaultDocumentId && user?.id) {
+          await recordPatientDocumentShare(shareModalDocument.vaultDocumentId, user.id, shareMethod);
+        }
+      } catch (err) {
+        setVaultActionError(err instanceof Error ? err.message : t('patient.documents.shareError', { defaultValue: 'Unable to create a secure share link.' }));
+        return;
+      }
+    }
     const text = [
       shareModalDocument.name,
       `Issued by: ${shareModalDocument.issuedBy}`,
       `Date: ${formatDate(shareModalDocument.date)}`,
       `Contents: ${shareModalDocument.contains}`,
       '',
-      `View the live source: ${window.location.origin}${
-        shareModalDocument.source === 'lab_orders'
-          ? '/patient/lab-results'
-          : shareModalDocument.source === 'prescriptions'
-            ? '/patient/prescriptions'
-            : '/patient/insurance'
-      }`,
+      vaultUrl
+        ? `Secure link: ${vaultUrl}`
+        : `View the live source: ${window.location.origin}${
+            shareModalDocument.source === 'lab_orders'
+              ? '/patient/lab-results'
+              : shareModalDocument.source === 'prescriptions'
+                ? '/patient/prescriptions'
+                : '/patient/insurance'
+          }`,
     ].join('\n');
 
     if (shareMethod === 'link') {
@@ -213,6 +278,87 @@ export const PatientDocuments = () => {
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
     }
     setShareSuccess(true);
+  };
+
+  const resetUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadFile(null);
+    setUploadTitle('');
+    setUploadDescription('');
+    setUploadCategory('upload');
+    setUploadCareTeamAccess(false);
+    setUploadBusy(false);
+  };
+
+  const handleUploadDocument = async () => {
+    if (!user?.id || !uploadFile) return;
+    setUploadBusy(true);
+    setVaultActionError(null);
+    try {
+      await uploadPatientDocument({
+        patientId: user.id,
+        file: uploadFile,
+        title: uploadTitle || uploadFile.name,
+        description: uploadDescription,
+        category: uploadCategory,
+        allowCareTeamAccess: uploadCareTeamAccess,
+      });
+      resetUploadModal();
+      await refetchVault();
+    } catch (err) {
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.uploadError', { defaultValue: 'Unable to upload document.' }));
+      setUploadBusy(false);
+    }
+  };
+
+  const openVaultDocument = async (doc: PatientDocument) => {
+    if (!doc.storagePath) return;
+    setVaultActionBusyId(doc.id);
+    setVaultActionError(null);
+    try {
+      const signedUrl = await getPatientDocumentSignedUrl(doc.storagePath);
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.openError', { defaultValue: 'Unable to open document.' }));
+    } finally {
+      setVaultActionBusyId(null);
+    }
+  };
+
+  const toggleCareTeamAccess = async (doc: PatientDocument) => {
+    if (!doc.vaultDocumentId) return;
+    setVaultActionBusyId(doc.id);
+    setVaultActionError(null);
+    try {
+      const nextValue = !doc.allowCareTeamAccess;
+      await setPatientDocumentCareTeamAccess(doc.vaultDocumentId, nextValue);
+      if (user?.id && nextValue) {
+        await recordPatientDocumentShare(doc.vaultDocumentId, user.id, 'care_team');
+      }
+      await refetchVault();
+    } catch (err) {
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.accessError', { defaultValue: 'Unable to update care-team access.' }));
+    } finally {
+      setVaultActionBusyId(null);
+    }
+  };
+
+  const deleteVaultDocument = async (doc: PatientDocument) => {
+    if (!doc.vaultDocumentId) return;
+    const confirmed = window.confirm(t('patient.documents.deleteConfirm', { defaultValue: 'Remove this document from your vault?' }));
+    if (!confirmed) return;
+    setVaultActionBusyId(doc.id);
+    setVaultActionError(null);
+    try {
+      await softDeletePatientDocument(doc.vaultDocumentId);
+      setSelectedId(null);
+      setContentModalId(null);
+      await refetchVault();
+    } catch (err) {
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.deleteError', { defaultValue: 'Unable to remove document.' }));
+    } finally {
+      setVaultActionBusyId(null);
+    }
   };
 
   const generateDocumentPdf = (doc: PatientDocument) => {
@@ -361,17 +507,20 @@ export const PatientDocuments = () => {
           <ShieldCheck className="h-4 w-4" />
           {t('patient.documents.security')}
         </Link>
-        <Link
-          to="/patient/ai-chat"
+        <button
+          type="button"
+          onClick={() => {
+            setShowUploadModal(true);
+            setVaultActionError(null);
+          }}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
           title={t('patient.documents.uploadHint', {
-            defaultValue:
-              'Upload a document by attaching it to the AI chat — the assistant will store and summarise it for your record.',
+            defaultValue: 'Upload a private document into your patient vault.',
           })}
         >
           <Upload className="h-4 w-4" />
           {t('patient.documents.uploadDocument')}
-        </Link>
+        </button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -545,7 +694,11 @@ export const PatientDocuments = () => {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setContentModalId(doc.id);
+                    if (doc.source === 'patient_document_files') {
+                      void openVaultDocument(doc);
+                    } else {
+                      setContentModalId(doc.id);
+                    }
                   }}
                   title={t('patient.documents.view')}
                   className="rounded-lg p-1.5 text-cyan-600 transition hover:bg-cyan-50"
@@ -556,7 +709,11 @@ export const PatientDocuments = () => {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    generateDocumentPdf(doc);
+                    if (doc.source === 'patient_document_files') {
+                      void openVaultDocument(doc);
+                    } else {
+                      generateDocumentPdf(doc);
+                    }
                   }}
                   title={t('patient.documents.download')}
                   className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
@@ -631,7 +788,11 @@ export const PatientDocuments = () => {
                 type="button"
                 onClick={() => {
                   setSelectedId(null);
-                  setContentModalId(selectedDocument.id);
+                  if (selectedDocument.source === 'patient_document_files') {
+                    void openVaultDocument(selectedDocument);
+                  } else {
+                    setContentModalId(selectedDocument.id);
+                  }
                 }}
                 className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700"
               >
@@ -639,7 +800,13 @@ export const PatientDocuments = () => {
               </button>
               <button
                 type="button"
-                onClick={() => generateDocumentPdf(selectedDocument)}
+                onClick={() => {
+                  if (selectedDocument.source === 'patient_document_files') {
+                    void openVaultDocument(selectedDocument);
+                  } else {
+                    generateDocumentPdf(selectedDocument);
+                  }
+                }}
                 className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
               >
                 <Download className="h-4 w-4" /> {t('patient.documents.download')}
@@ -656,6 +823,30 @@ export const PatientDocuments = () => {
               >
                 <Share2 className="h-4 w-4" /> {t('patient.documents.share')}
               </button>
+              {selectedDocument.source === 'patient_document_files' ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={vaultActionBusyId === selectedDocument.id}
+                    onClick={() => void toggleCareTeamAccess(selectedDocument)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {selectedDocument.allowCareTeamAccess
+                      ? t('patient.documents.revokeCareTeam', { defaultValue: 'Revoke care team' })
+                      : t('patient.documents.allowCareTeam', { defaultValue: 'Allow care team' })}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={vaultActionBusyId === selectedDocument.id}
+                    onClick={() => void deleteVaultDocument(selectedDocument)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('patient.documents.remove', { defaultValue: 'Remove' })}
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -664,6 +855,130 @@ export const PatientDocuments = () => {
       <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
         {t('patient.documents.dataNote')}
       </div>
+
+      {showUploadModal ? createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={resetUploadModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">{t('patient.documents.uploadDocument', { defaultValue: 'Upload document' })}</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t('patient.documents.uploadVaultBody', { defaultValue: 'Files are stored in your private vault. You control whether your care team can access them.' })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={resetUploadModal}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.file', { defaultValue: 'File' })}</span>
+                <input
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setUploadFile(file);
+                    if (file && !uploadTitle) {
+                      setUploadTitle(file.name.replace(/\.[^.]+$/, ''));
+                    }
+                  }}
+                  className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-cyan-700"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.titleLabel', { defaultValue: 'Title' })}</span>
+                <input
+                  value={uploadTitle}
+                  onChange={(event) => setUploadTitle(event.target.value)}
+                  maxLength={FORM_FIELD_LIMITS.shortText}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+                  placeholder={t('patient.documents.titlePlaceholder', { defaultValue: 'e.g. Emirates ID scan' })}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.categoryLabel', { defaultValue: 'Category' })}</span>
+                <select
+                  value={uploadCategory}
+                  onChange={(event) => setUploadCategory(event.target.value as PatientVaultDocumentCategory)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+                >
+                  <option value="upload">{t('patient.documents.categoryUploads', { defaultValue: 'Uploads' })}</option>
+                  <option value="lab-report">{t('patient.documents.categoryLab')}</option>
+                  <option value="prescription">{t('patient.documents.categoryPrescription')}</option>
+                  <option value="insurance">{t('patient.documents.categoryInsurance')}</option>
+                  <option value="imaging">{t('patient.documents.category.imaging', { defaultValue: 'Imaging' })}</option>
+                  <option value="visit-note">{t('patient.documents.category.visit-note', { defaultValue: 'Visit note' })}</option>
+                  <option value="other">{t('patient.documents.category.other', { defaultValue: 'Other' })}</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.description', { defaultValue: 'Description' })}</span>
+                <textarea
+                  value={uploadDescription}
+                  onChange={(event) => setUploadDescription(event.target.value)}
+                  rows={3}
+                  maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                  className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+                  placeholder={t('patient.documents.descriptionPlaceholder', { defaultValue: 'Optional notes about this document' })}
+                />
+              </label>
+
+              <label className="flex items-start gap-3 rounded-xl border border-cyan-100 bg-cyan-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={uploadCareTeamAccess}
+                  onChange={(event) => setUploadCareTeamAccess(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-cyan-300 text-cyan-600 focus:ring-cyan-500"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-cyan-900">
+                    {t('patient.documents.allowCareTeam', { defaultValue: 'Allow care team' })}
+                  </span>
+                  <span className="mt-1 block text-xs text-cyan-700">
+                    {t('patient.documents.allowCareTeamBody', { defaultValue: 'Doctors who have appointments with you can read this file while consent remains enabled.' })}
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={resetUploadModal}
+                  className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  {t('shared.cancel', { defaultValue: 'Cancel' })}
+                </button>
+                <button
+                  type="button"
+                  disabled={!uploadFile || uploadBusy}
+                  onClick={() => void handleUploadDocument()}
+                  className="flex-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {uploadBusy
+                    ? t('patient.documents.uploading', { defaultValue: 'Uploading...' })
+                    : t('patient.documents.uploadDocument', { defaultValue: 'Upload document' })}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
 
       {shareModalDocument ? createPortal(
         <div

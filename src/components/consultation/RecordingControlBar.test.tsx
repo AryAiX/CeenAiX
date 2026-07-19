@@ -1,10 +1,26 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SPEAKER_CHANNEL_MAP } from '../../lib/consultation-scribe';
 import type { ConsultationScribeController } from '../../hooks/use-consultation-scribe-controller';
 import type { AudioChannelDetectionResult, AudioSetupSampleResult } from '../../hooks/use-audio-recorder';
 import { RecordingControlBar } from './RecordingControlBar';
+
+beforeAll(() => {
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    configurable: true,
+    value: vi.fn(() => ({
+      beginPath: vi.fn(),
+      clearRect: vi.fn(),
+      lineTo: vi.fn(),
+      moveTo: vi.fn(),
+      stroke: vi.fn(),
+      lineCap: 'round',
+      lineWidth: 2,
+      strokeStyle: '#0f172a',
+    })),
+  });
+});
 
 const buildController = (
   overrides: Partial<Pick<ConsultationScribeController, 'stereoInputAvailable'>> & {
@@ -180,7 +196,21 @@ describe('RecordingControlBar setup wizard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Start Recording' }));
 
+    expect(controller.startRecording).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Patient Consent Required')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/informed the patient/i));
+    await user.click(screen.getByLabelText(/given verbal consent/i));
+    await user.click(screen.getByRole('button', { name: 'Confirm & Continue to Setup' }));
+
     expect(controller.startRecording).toHaveBeenCalledTimes(1);
+    expect(controller.startRecording).toHaveBeenCalledWith({
+      informedPatient: true,
+      verbalConsent: true,
+      consentMethod: 'verbal',
+      signatureImageUrl: null,
+    });
   });
 
   it('lets mixed input continue with voice and context labeling', async () => {
@@ -257,6 +287,19 @@ describe('RecordingControlBar setup wizard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Start Recording' }));
 
+    expect(controller.startRecording).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/informed the patient/i));
+    await user.click(screen.getByLabelText(/given verbal consent/i));
+    await user.click(screen.getByRole('button', { name: 'Confirm & Continue to Setup' }));
+
     expect(controller.startRecording).toHaveBeenCalledTimes(1);
+    expect(controller.startRecording).toHaveBeenCalledWith({
+      informedPatient: true,
+      verbalConsent: true,
+      consentMethod: 'verbal',
+      signatureImageUrl: null,
+    });
   });
 });

@@ -180,6 +180,10 @@ export interface InsurancePortalData {
   monthlyClaimsVolume: InsuranceMonthlyClaimsVolumePoint[];
 }
 
+type PreAuthorizationDecision = 'approve' | 'review' | 'deny';
+type ClaimDecision = 'approve' | 'review' | 'deny' | 'appeal';
+type FraudAlertStatus = InsuranceFraudAlert['status'];
+
 interface OrganizationRow {
   id: string;
   name: string;
@@ -370,9 +374,14 @@ const toNullableNumber = (value: number | string | null | undefined): number | n
 };
 
 export const INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE =
-  'Insurance decision writes require hardened server-side RPCs before they can be enabled.';
+  'Insurance decision update failed. Please retry or contact platform support.';
 
-export const INSURANCE_PORTAL_DECISION_RPC_NAMES = [] as const;
+export const INSURANCE_PORTAL_DECISION_RPC_NAMES = [
+  'insurance_decide_pre_authorization',
+  'insurance_adjudicate_claim',
+  'insurance_update_fraud_alert_status',
+  'insurance_set_setting_enabled',
+] as const;
 
 export const requireSingleActiveInsuranceMembership = (
   memberships: InsuranceOrganizationMembershipRow[],
@@ -402,39 +411,90 @@ export const requireSingleActiveInsuranceMembership = (
   return activeOrganizationIds[0];
 };
 
-/**
- * Insurance decision writes are intentionally disabled until accepted through
- * hardened, row-scoped RPCs. Read-only portal surfaces remain available.
- */
+const throwIfRpcError = (error: Error | null, fallbackMessage: string) => {
+  if (!error) return;
+  throw new Error(error.message || fallbackMessage);
+};
+
+export async function decidePreAuthorization(
+  preAuthId: string,
+  decision: PreAuthorizationDecision,
+  approvedAmountAed: number | null = null,
+  decisionNote: string | null = null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_decide_pre_authorization', {
+    p_pre_authorization_id: preAuthId,
+    p_decision: decision,
+    p_approved_amount_aed: approvedAmountAed,
+    p_decision_note: decisionNote,
+  });
+  throwIfRpcError(error, INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+}
+
 export async function bulkApprovePreAuthorizations(
   preAuthIds: ReadonlyArray<{ id: string; requestedAmountAed: number | null }>
 ): Promise<void> {
   if (preAuthIds.length === 0) return;
-  throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+  await Promise.all(
+    preAuthIds.map((row) =>
+      decidePreAuthorization(row.id, 'approve', row.requestedAmountAed, 'AI recommended approval')
+    )
+  );
 }
 
-/**
- * Settings writes share the same disabled surface as claim/pre-auth decisions.
- */
 export async function setInsuranceSettingEnabled(
   settingId: string,
   enabled: boolean
 ): Promise<void> {
-  void settingId;
-  void enabled;
-  throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+  const { error } = await supabase.rpc('insurance_set_setting_enabled', {
+    p_setting_id: settingId,
+    p_enabled: enabled,
+  });
+  throwIfRpcError(error, INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
 }
 
-/**
- * Single-row pre-authorization approval is disabled with bulk decisions.
- */
 export async function approvePreAuthorization(
   preAuthId: string,
   requestedAmountAed: number | null
 ): Promise<void> {
-  void preAuthId;
-  void requestedAmountAed;
-  throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+  await decidePreAuthorization(preAuthId, 'approve', requestedAmountAed, 'Approved by insurance officer');
+}
+
+export async function denyPreAuthorization(preAuthId: string, decisionNote: string | null = null): Promise<void> {
+  await decidePreAuthorization(preAuthId, 'deny', 0, decisionNote ?? 'Denied by insurance officer');
+}
+
+export async function markPreAuthorizationForReview(
+  preAuthId: string,
+  decisionNote: string | null = null
+): Promise<void> {
+  await decidePreAuthorization(preAuthId, 'review', null, decisionNote ?? 'Marked for human review');
+}
+
+export async function adjudicateInsuranceClaim(
+  claimId: string,
+  decision: ClaimDecision,
+  adjudicationNote: string | null = null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_adjudicate_claim', {
+    p_claim_id: claimId,
+    p_decision: decision,
+    p_adjudication_note: adjudicationNote,
+  });
+  throwIfRpcError(error, INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+}
+
+export async function updateInsuranceFraudAlertStatus(
+  alertId: string,
+  status: FraudAlertStatus,
+  resolutionNote: string | null = null
+): Promise<void> {
+  const { error } = await supabase.rpc('insurance_update_fraud_alert_status', {
+    p_alert_id: alertId,
+    p_status: status,
+    p_resolution_note: resolutionNote,
+  });
+  throwIfRpcError(error, INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
 }
 
 export function useInsurancePortal() {

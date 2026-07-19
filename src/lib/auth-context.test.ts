@@ -31,7 +31,7 @@ describe('getDefaultRouteForRole', () => {
     ['insurance', '/insurance/dashboard'],
     ['clinic', '/clinic/dashboard'],
     ['super_admin', '/admin/dashboard'],
-    ['facility_admin', '/admin/dashboard'],
+    ['facility_admin', '/clinic/dashboard'],
   ] as const)('routes %s to %s', (role, expected) => {
     expect(getDefaultRouteForRole(role)).toBe(expected);
   });
@@ -56,12 +56,12 @@ describe('getAuthMetadataRole', () => {
     expect(getAuthMetadataRole(user)).toBe('doctor');
   });
 
-  it('falls back to user metadata role when app metadata is missing', () => {
+  it('ignores user metadata role when app metadata is missing', () => {
     const user = buildUser({
       user_metadata: { role: 'doctor' },
     });
 
-    expect(getAuthMetadataRole(user)).toBe('doctor');
+    expect(getAuthMetadataRole(user)).toBeNull();
   });
 
   it('returns null when metadata does not contain a valid role', () => {

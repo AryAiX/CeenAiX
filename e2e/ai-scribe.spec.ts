@@ -15,6 +15,14 @@ test.use({
   },
 });
 
+const confirmScribeConsent = async (page: Page) => {
+  await expect(page.getByText('Patient Consent Required')).toBeVisible();
+  await page.getByLabel('I have informed the patient that this consultation will be recorded for clinical documentation.').check();
+  await page.getByLabel('The patient has given verbal consent to record.').check();
+  await page.getByRole('button', { name: 'Confirm & Continue to Setup' }).click();
+  await expect(page.getByText('Patient Consent Required')).not.toBeVisible();
+};
+
 const completeScribeSetup = async (page: Page, finalActionName = 'Start Recording') => {
   await expect(page.getByText('Patient Consent Required')).not.toBeVisible();
   await expect(page.getByText('TX / voice source setup')).toBeVisible();
@@ -25,7 +33,7 @@ const completeScribeSetup = async (page: Page, finalActionName = 'Start Recordin
   await page.getByRole('button', { name: 'Patient spoke' }).click();
   await expect(page.getByText('Start the conversation')).toBeVisible();
   await page.getByRole('button', { name: finalActionName }).click();
-  await expect(page.getByText('Patient Consent Required')).not.toBeVisible();
+  await confirmScribeConsent(page);
 };
 
 test.describe('AI Consultation Scribe', () => {
@@ -56,7 +64,7 @@ test.describe('AI Consultation Scribe', () => {
     await page.close();
   });
 
-  test('starts source setup and recording without a consent modal', async ({ browser }) => {
+  test('starts source setup and records after explicit patient consent', async ({ browser }) => {
     const page = await browser.newPage();
     await installSupabaseMocks(page, { role: 'doctor' });
     const state: ScribeState = { recording: null, transcript: null, note: null };
@@ -74,7 +82,7 @@ test.describe('AI Consultation Scribe', () => {
     await expect(page.getByText('Start the conversation')).toBeVisible();
     await expect(page.getByText('Patient Consent Required')).not.toBeVisible();
     await page.getByRole('button', { name: 'Start Recording' }).click();
-    await expect(page.getByText('Patient Consent Required')).not.toBeVisible();
+    await confirmScribeConsent(page);
     await expect(page.getByText('Recording').first()).toBeVisible();
 
     await page.close();
@@ -121,7 +129,7 @@ test.describe('AI Consultation Scribe', () => {
     await expect(page.getByRole('button', { name: 'Advanced diagnostics' })).not.toBeVisible();
     await expect(page.locator('section').filter({ hasText: 'Start the conversation' }).first()).not.toContainText(/\b(review|correct|manual|assign)\b/i);
     await page.getByRole('button', { name: 'Start Recording' }).click();
-    await expect(page.getByText('Patient Consent Required')).not.toBeVisible();
+    await confirmScribeConsent(page);
     await expect(page.getByText('Recording').first()).toBeVisible();
 
     await page.close();

@@ -198,14 +198,9 @@ const buildFullName = (firstName: string | null, lastName: string | null) =>
 
 export const getAuthMetadataRole = (user: User): UserRole | null => {
   const appMetadataRole = safeString(user.app_metadata?.role);
-  const userMetadataRole = safeString(user.user_metadata?.role);
 
   if (isUserRole(appMetadataRole)) {
     return appMetadataRole;
-  }
-
-  if (isUserRole(userMetadataRole)) {
-    return userMetadataRole;
   }
 
   return null;
@@ -235,42 +230,6 @@ const getProfileSeed = (user: User): ProfileSeed => {
   };
 };
 
-const buildProfileFromAuthMetadata = (user: User): UserProfile | null => {
-  const role = getAuthMetadataRole(user);
-
-  if (!role) {
-    return null;
-  }
-
-  const seed = getProfileSeed(user);
-  const createdAt = safeString(user.created_at) ?? new Date(0).toISOString();
-  const updatedAt = safeString(user.updated_at) ?? createdAt;
-  const metadataProfileCompleted = user.user_metadata?.profile_completed;
-
-  return {
-    id: user.id,
-    user_id: user.id,
-    role,
-    full_name: seed.fullName,
-    first_name: seed.firstName,
-    last_name: seed.lastName,
-    date_of_birth: null,
-    gender: null,
-    emirates_id: null,
-    phone: seed.phone,
-    email: seed.email,
-    address: null,
-    city: null,
-    avatar_url: null,
-    notification_preferences: {},
-    profile_completed:
-      typeof metadataProfileCompleted === 'boolean' ? metadataProfileCompleted : true,
-    terms_accepted: seed.termsAccepted,
-    created_at: createdAt,
-    updated_at: updatedAt,
-  };
-};
-
 export const getDefaultRouteForRole = (role: UserRole | null | undefined) => {
   if (role === 'patient') {
     return '/patient/dashboard';
@@ -292,11 +251,11 @@ export const getDefaultRouteForRole = (role: UserRole | null | undefined) => {
     return '/insurance/dashboard';
   }
 
-  if (role === 'clinic') {
+  if (role === 'clinic' || role === 'facility_admin') {
     return '/clinic/dashboard';
   }
 
-  if (role === 'super_admin' || role === 'facility_admin') {
+  if (role === 'super_admin') {
     return '/admin/dashboard';
   }
 
@@ -487,20 +446,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!nextProfile) {
-        const metadataProfile = buildProfileFromAuthMetadata(nextUser);
-
-        if (metadataProfile) {
-          console.warn('Using auth metadata role because user profile could not be loaded');
-          const extensions = await loadExtensionProfiles(metadataProfile.role, nextUser.id);
-
-          return {
-            profile: metadataProfile,
-            patientProfile: extensions.patientProfile,
-            doctorProfile: extensions.doctorProfile,
-            role: metadataProfile.role,
-          };
-        }
-
         return {
           profile: null,
           patientProfile: null,
@@ -611,7 +556,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       password,
       phone,
-      role: nextRole,
       fullName,
       firstName,
       lastName,
@@ -624,7 +568,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           password,
           options: {
             data: {
-              role: nextRole,
+              role: 'patient',
               full_name: fullName.trim(),
               first_name: safeString(firstName) ?? parsedName.firstName,
               last_name: safeString(lastName) ?? parsedName.lastName,
@@ -839,6 +783,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    return <Navigate to="/access-denied" replace />;
+  }
+
+  if (profile?.account_status === 'suspended' && location.pathname !== '/access-denied') {
     return <Navigate to="/access-denied" replace />;
   }
 

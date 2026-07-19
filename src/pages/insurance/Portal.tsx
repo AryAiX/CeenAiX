@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -24,9 +24,13 @@ import {
 } from 'lucide-react';
 import {
   INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE,
+  adjudicateInsuranceClaim,
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  denyPreAuthorization,
+  markPreAuthorizationForReview,
   setInsuranceSettingEnabled,
+  updateInsuranceFraudAlertStatus,
   useInsurancePortal,
   type InsuranceAiInsight,
   type InsuranceClaim,
@@ -42,7 +46,7 @@ import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 type BadgeTone = 'red' | 'amber' | 'blue';
 type PillTone = 'red' | 'amber' | 'emerald' | 'blue' | 'violet' | 'slate';
 
-const insuranceDecisionActionsEnabled = false;
+const insuranceDecisionActionsEnabled = true;
 
 interface InsuranceNavItem {
   href: string;
@@ -725,19 +729,27 @@ const PreAuthHostedTable = ({
   max?: number;
   onApproved?: () => void;
 }) => {
-  const navigate = useNavigate();
   const visible = max ? rows.slice(0, max) : rows;
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
 
-  const handleRowApprove = async (row: InsurancePreAuthorization) => {
+  const handleRowDecision = async (
+    row: InsurancePreAuthorization,
+    decision: 'approve' | 'review' | 'deny'
+  ) => {
     setRowError(null);
-    setRowBusyId(row.id);
+    setRowBusyId(`${row.id}:${decision}`);
     try {
-      await approvePreAuthorization(row.id, row.requestedAmountAed);
+      if (decision === 'approve') {
+        await approvePreAuthorization(row.id, row.requestedAmountAed);
+      } else if (decision === 'deny') {
+        await denyPreAuthorization(row.id, 'Denied after insurance officer review');
+      } else {
+        await markPreAuthorizationForReview(row.id, 'Marked for additional clinical review');
+      }
       onApproved?.();
     } catch (error) {
-      setRowError(error instanceof Error ? error.message : 'Approval failed.');
+      setRowError(error instanceof Error ? error.message : 'Pre-authorization update failed.');
     } finally {
       setRowBusyId(null);
     }
@@ -823,31 +835,43 @@ const PreAuthHostedTable = ({
                     <div className="flex flex-wrap justify-end gap-1.5">
                       <button
                         type="button"
-                        onClick={() => void handleRowApprove(row)}
+                        onClick={() => void handleRowDecision(row, 'approve')}
                         disabled={
-                          !insuranceDecisionActionsEnabled ||
-                          rowBusyId === row.id ||
-                          row.status === 'approved'
-                        }
-                        title={
-                          insuranceDecisionActionsEnabled
-                            ? undefined
-                            : INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE
+                          rowBusyId !== null ||
+                          row.status === 'approved' ||
+                          row.status === 'denied'
                         }
                         className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {row.status === 'approved'
                           ? 'Approved'
-                          : rowBusyId === row.id
+                          : rowBusyId === `${row.id}:approve`
                             ? '…'
                             : 'Approve'}
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate('/insurance/preauth')}
+                        onClick={() => void handleRowDecision(row, 'review')}
+                        disabled={rowBusyId !== null || row.status === 'review'}
                         className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
                       >
-                        Review
+                        {rowBusyId === `${row.id}:review` ? '…' : 'Review'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRowDecision(row, 'deny')}
+                        disabled={
+                          rowBusyId !== null ||
+                          row.status === 'approved' ||
+                          row.status === 'denied'
+                        }
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {row.status === 'denied'
+                          ? 'Denied'
+                          : rowBusyId === `${row.id}:deny`
+                            ? '…'
+                            : 'Deny'}
                       </button>
                     </div>
                   </td>
@@ -931,8 +955,34 @@ const AiInsightCard = ({ insight }: { insight: InsuranceAiInsight }) => {
   );
 };
 
-const FraudAlertCard = ({ alert }: { alert: InsuranceFraudAlert }) => {
+const FraudAlertCard = ({
+  alert,
+  onChanged,
+}: {
+  alert: InsuranceFraudAlert;
+  onChanged?: () => void;
+}) => {
   const isHigh = alert.severity === 'high';
+  const [busyStatus, setBusyStatus] = useState<InsuranceFraudAlert['status'] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleStatusChange = async (status: InsuranceFraudAlert['status']) => {
+    setError(null);
+    setBusyStatus(status);
+    try {
+      await updateInsuranceFraudAlertStatus(
+        alert.id,
+        status,
+        status === 'resolved' ? 'Resolved by insurance fraud review' : 'Investigation status updated'
+      );
+      onChanged?.();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Could not update fraud alert.');
+    } finally {
+      setBusyStatus(null);
+    }
+  };
+
   return (
     <div className={`rounded-xl border p-3 ${isHigh ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
       <div className="flex items-center justify-between">
@@ -946,21 +996,24 @@ const FraudAlertCard = ({ alert }: { alert: InsuranceFraudAlert }) => {
         Amount at risk: {formatCurrency(alert.exposureAmountAed)}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <Link
-          to="/insurance/fraud"
-          className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700"
-        >
-          Investigate
-        </Link>
         <button
           type="button"
-          disabled
-          title="Claims freeze action is wired in the dedicated fraud workspace; bulk row controls are coming in a later release."
+          onClick={() => void handleStatusChange('investigating')}
+          disabled={busyStatus !== null || alert.status === 'investigating' || alert.status === 'resolved'}
+          className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700"
+        >
+          {busyStatus === 'investigating' ? '…' : alert.status === 'investigating' ? 'Investigating' : 'Investigate'}
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleStatusChange('resolved')}
+          disabled={busyStatus !== null || alert.status === 'resolved'}
           className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Freeze Claims
+          {busyStatus === 'resolved' ? '…' : alert.status === 'resolved' ? 'Resolved' : 'Resolve'}
         </button>
       </div>
+      {error ? <p className="mt-2 text-[11px] font-semibold text-rose-700">{error}</p> : null}
     </div>
   );
 };
@@ -1346,7 +1399,7 @@ export const InsurancePortal = () => {
             </div>
             <div className="space-y-3 p-5">
               {openFraud.filter((a) => a.severity === 'high').slice(0, 2).map((alert) => (
-                <FraudAlertCard key={alert.id} alert={alert} />
+                <FraudAlertCard key={alert.id} alert={alert} onChanged={refetch} />
               ))}
               {aiMedium > 0 ? (
                 <button onClick={() => navigate('/insurance/fraud')} className="block w-full rounded-lg bg-amber-50 px-3 py-2 text-left text-xs font-semibold text-amber-700 ring-1 ring-amber-100 hover:bg-amber-100">
@@ -1557,6 +1610,8 @@ export const InsuranceClaims = () => {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | InsuranceClaim['status']>('all');
+  const [claimBusyId, setClaimBusyId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
   const filtered = useMemo(() => {
     let rows = claims;
     if (statusFilter !== 'all') rows = rows.filter((c) => c.status === statusFilter);
@@ -1581,6 +1636,26 @@ export const InsuranceClaims = () => {
     { id: 'appealed', label: 'Appealed', count: appealed, tone: 'bg-violet-100 text-violet-700' },
   ];
 
+  const handleClaimDecision = async (
+    claim: InsuranceClaim,
+    decision: 'approve' | 'review' | 'deny'
+  ) => {
+    setClaimError(null);
+    setClaimBusyId(`${claim.id}:${decision}`);
+    try {
+      await adjudicateInsuranceClaim(
+        claim.id,
+        decision,
+        `${titleCase(decision)} decision from insurance claims worklist`
+      );
+      refetch();
+    } catch (error) {
+      setClaimError(error instanceof Error ? error.message : 'Claim update failed.');
+    } finally {
+      setClaimBusyId(null);
+    }
+  };
+
   return (
     <InsuranceShell data={data} loadError={error ?? null} onRetry={() => void refetch()}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
@@ -1597,6 +1672,11 @@ export const InsuranceClaims = () => {
             <p className="mt-0.5 text-xs text-slate-400">Claims oversight and payment decisions</p>
           </div>
         </div>
+        {claimError ? (
+          <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-xs font-semibold text-rose-700">
+            {claimError}
+          </div>
+        ) : null}
         <div className="border-b border-slate-100 px-5 py-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="relative flex-1">
@@ -1635,6 +1715,7 @@ export const InsuranceClaims = () => {
                     <th className="px-3 py-2.5 text-right">Amount</th>
                     <th className="px-3 py-2.5">Status</th>
                     <th className="px-3 py-2.5">Submitted</th>
+                    <th className="px-3 py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -1655,10 +1736,46 @@ export const InsuranceClaims = () => {
                         <StatusPill tone={statusTone(claim.status)}>{titleCase(claim.status.replace('_', ' '))}</StatusPill>
                       </td>
                       <td className="px-3 py-3 text-xs text-slate-500">{formatDate(claim.submittedAt)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void handleClaimDecision(claim, 'approve')}
+                            disabled={
+                              claimBusyId !== null ||
+                              claim.status === 'approved' ||
+                              claim.status === 'denied'
+                            }
+                            className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {claimBusyId === `${claim.id}:approve` ? '…' : 'Approve'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleClaimDecision(claim, 'review')}
+                            disabled={claimBusyId !== null || claim.status === 'under_review'}
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {claimBusyId === `${claim.id}:review` ? '…' : 'Review'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleClaimDecision(claim, 'deny')}
+                            disabled={
+                              claimBusyId !== null ||
+                              claim.status === 'approved' ||
+                              claim.status === 'denied'
+                            }
+                            className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {claimBusyId === `${claim.id}:deny` ? '…' : 'Deny'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-slate-500">No claims match this filter.</td></tr>
+                    <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-slate-500">No claims match this filter.</td></tr>
                   ) : null}
                 </tbody>
               </table>
@@ -1806,7 +1923,7 @@ export const InsuranceFraudDetection = () => {
         </div>
         <div className="grid grid-cols-1 gap-3 p-5 lg:grid-cols-2">
           {filtered.map((alert) => (
-            <FraudAlertCard key={alert.id} alert={alert} />
+            <FraudAlertCard key={alert.id} alert={alert} onChanged={refetch} />
           ))}
           {filtered.length === 0 ? (
             <div className="col-span-full rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No fraud alerts.</div>

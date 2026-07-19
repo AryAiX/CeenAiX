@@ -808,7 +808,7 @@ export const CreateLabOrder: React.FC = () => {
       type: 'system',
       title: 'New lab order created',
       body: 'Your doctor added a new lab order to your care plan.',
-      action_url: '/patient/appointments',
+      action_url: appointmentId ? `/patient/appointments/${appointmentId}` : '/patient/appointments',
     });
 
     setSaving(false);

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Activity, Calendar, CheckCircle, Clock, Eye, FileText, Scan, Share2 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { usePatientLabResults } from '../../hooks';
+import { useImagingStudies } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 
@@ -21,24 +21,10 @@ interface ImagingStudy {
   accessionNumber: string;
 }
 
-function inferModality(name: string): string {
-  const normalized = name.toLowerCase();
-  if (normalized.includes('mri')) return 'MRI';
-  if (normalized.includes('ct')) return 'CT';
-  if (normalized.includes('x-ray') || normalized.includes('xray')) return 'X-Ray';
-  if (normalized.includes('echo')) return 'Echo';
-  if (normalized.includes('ultrasound') || normalized.includes('sono')) return 'Ultrasound';
-  return 'Radiology';
-}
-
-function isImagingName(name: string): boolean {
-  return /(mri|ct|x-?ray|ultrasound|sonography|echo|radiology|scan|doppler)/i.test(name);
-}
-
 export const PatientImaging = () => {
   const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
-  const { data: labOrders, loading, error, refetch } = usePatientLabResults(user?.id);
+  const { data: imagingStudies, loading, error, refetch } = useImagingStudies(user?.id, 'patient');
   const [activeTab, setActiveTab] = useState<ImagingTab>('recent');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -55,50 +41,45 @@ export const PatientImaging = () => {
     );
 
   const studies = useMemo<ImagingStudy[]>(() => {
-    return (labOrders ?? [])
-      .flatMap((order) =>
-        order.items
-          .filter((item) => isImagingName(item.test_name))
-          .map((item) => ({
-            id: item.id,
-            date: item.resulted_at ?? order.ordered_at,
-            modality: inferModality(item.test_name),
-            studyType: item.test_name,
-            facility: order.labName ?? t('patient.imaging.ceenaixRadiology'),
-            orderedBy: order.doctorName ?? t('patient.imaging.careTeam'),
-            status: order.reviewStatus === 'reviewed' ? 'reviewed' as const : 'pending' as const,
-            findings: [
-              {
-                label: item.test_name,
-                severity:
-                  item.status_category === 'normal'
-                    ? 'normal' as const
-                    : item.status_category === 'pending'
-                      ? 'pending' as const
-                      : 'monitor' as const,
-                value: item.result_value
-                  ? `${item.result_value}${item.result_unit ? ` ${item.result_unit}` : ''}`
-                  : t('patient.imaging.resultPending'),
-              },
-            ],
-            impression:
-              item.result_value || item.reference_range
-                ? t('patient.imaging.impressionFromResult', {
-                    result: item.result_value ?? t('patient.imaging.resultPending'),
-                    range: item.reference_range ?? t('patient.imaging.noReferenceRange'),
-                  })
-                : t('patient.imaging.impressionPending'),
-            accessionNumber: `IMG-${order.id.slice(0, 8).toUpperCase()}`,
-          }))
-      )
+    return (imagingStudies ?? [])
+      .map((study) => ({
+        id: study.id,
+        date: study.releasedAt ?? study.scheduledAt ?? new Date().toISOString(),
+        modality: study.modality,
+        studyType: study.studyName,
+        facility: study.clinicName || t('patient.imaging.ceenaixRadiology'),
+        orderedBy: study.doctorName || t('patient.imaging.careTeam'),
+        status: study.status === 'released' ? 'reviewed' as const : 'pending' as const,
+        findings: [
+          {
+            label: study.studyName,
+            severity:
+              study.status !== 'released'
+                ? 'pending' as const
+                : study.alerts.length > 0 || study.recommendations
+                  ? 'monitor' as const
+                  : 'normal' as const,
+            value:
+              study.status === 'released'
+                ? study.findings ?? study.impression ?? t('patient.imaging.noReferenceRange')
+                : t('patient.imaging.resultPending'),
+          },
+        ],
+        impression:
+          study.status === 'released'
+            ? study.impression ?? study.findings ?? t('patient.imaging.impressionPending')
+            : t('patient.imaging.impressionPending'),
+        accessionNumber: study.accession,
+      }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [labOrders, t]);
+  }, [imagingStudies, t]);
 
   const selectedStudy = studies.find((study) => study.id === selectedId) ?? studies[0] ?? null;
   const pendingCount = studies.filter((study) => study.status === 'pending').length;
   const reviewedCount = studies.filter((study) => study.status === 'reviewed').length;
   const followUpCount = studies.filter((study) => study.findings.some((finding) => finding.severity === 'monitor')).length;
-  const scheduled = (labOrders ?? []).filter((order) => order.isUpcoming);
+  const scheduled = (imagingStudies ?? []).filter((study) => study.status !== 'released');
+  const releasedStudies = studies.filter((study) => study.status === 'reviewed');
 
   const tabs: Array<{ key: ImagingTab; label: string; badge?: number }> = [
     { key: 'recent', label: t('patient.imaging.tabRecent'), badge: studies.length },
@@ -325,22 +306,37 @@ export const PatientImaging = () => {
           ) : null}
 
           {activeTab === 'reports' ? (
-            <div className="space-y-3">
-              {studies.map((study) => (
-                <div key={study.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-slate-50 p-4">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-violet-600" />
-                    <div>
-                      <div className="font-bold text-slate-900">{study.studyType}</div>
-                      <div className="text-sm text-slate-500">{study.accessionNumber}</div>
+            releasedStudies.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center">
+                <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                <h3 className="text-lg font-bold text-slate-900">{t('patient.imaging.noReportsTitle', { defaultValue: 'No released imaging reports yet' })}</h3>
+                <p className="mt-2 text-sm text-slate-500">{t('patient.imaging.noReportsBody', { defaultValue: 'Reports will appear here after radiology releases them.' })}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {releasedStudies.map((study) => (
+                  <div key={study.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-slate-50 p-4">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-violet-600" />
+                      <div>
+                        <div className="font-bold text-slate-900">{study.studyType}</div>
+                        <div className="text-sm text-slate-500">{study.accessionNumber}</div>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(study.id);
+                        setActiveTab('viewer');
+                      }}
+                      className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-violet-700 shadow-sm"
+                    >
+                      {t('patient.imaging.viewReport')}
+                    </button>
                   </div>
-                  <button type="button" onClick={() => setSelectedId(study.id)} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-violet-700 shadow-sm">
-                    {t('patient.imaging.viewReport')}
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
           ) : null}
 
           {activeTab === 'findings' ? (
@@ -378,10 +374,12 @@ export const PatientImaging = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {scheduled.map((order) => (
-                  <div key={order.id} className="rounded-xl bg-violet-50 p-5">
-                    <div className="font-bold text-slate-900">{order.items[0]?.test_name ?? t('patient.imaging.scheduledStudy')}</div>
-                    <div className="text-sm text-slate-600">{formatDate(order.ordered_at)} · {order.labName ?? t('patient.imaging.ceenaixRadiology')}</div>
+                {scheduled.map((study) => (
+                  <div key={study.id} className="rounded-xl bg-violet-50 p-5">
+                    <div className="font-bold text-slate-900">{study.studyName ?? t('patient.imaging.scheduledStudy')}</div>
+                    <div className="text-sm text-slate-600">
+                      {formatDate(study.scheduledAt ?? new Date().toISOString())} · {study.clinicName ?? t('patient.imaging.ceenaixRadiology')}
+                    </div>
                   </div>
                 ))}
               </div>

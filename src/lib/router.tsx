@@ -20,6 +20,7 @@ import { VerifyOTP } from '../pages/auth/VerifyOTP';
 import { Onboarding } from '../pages/auth/Onboarding';
 import { PatientDashboard } from '../pages/patient/Dashboard';
 import { PatientAppointments } from '../pages/patient/Appointments';
+import { PatientAppointmentDetail } from '../pages/patient/AppointmentDetail';
 import { BookAppointment } from '../pages/patient/BookAppointment';
 import { PatientPrescriptions } from '../pages/patient/Prescriptions';
 import { PatientRecords } from '../pages/patient/Records';
@@ -48,6 +49,7 @@ import { DoctorNotifications } from '../pages/doctor/Notifications';
 import { DoctorSchedule } from '../pages/doctor/Schedule';
 import { DoctorProfile } from '../pages/doctor/Profile';
 import { DoctorConsultationWorkspace } from '../pages/doctor/ConsultationWorkspace';
+import { DoctorTelemedicineConsultation } from '../pages/doctor/TelemedicineConsultation';
 import { DoctorSettings } from '../pages/doctor/Settings';
 import { DoctorImaging } from '../pages/doctor/Imaging';
 import { DoctorEarnings } from '../pages/doctor/Earnings';
@@ -212,6 +214,10 @@ export const router = createBrowserRouter([
     element: withPortalProtection(<PatientAppointments />, 'patient'),
   },
   {
+    path: '/patient/appointments/:appointmentId',
+    element: withPortalProtection(<PatientAppointmentDetail />, 'patient'),
+  },
+  {
     path: '/patient/appointments/book',
     element: withPortalProtection(<BookAppointment />, 'patient'),
   },
@@ -292,6 +298,10 @@ export const router = createBrowserRouter([
   {
     path: '/doctor/appointments/:appointmentId',
     element: withPortalProtection(<DoctorAppointmentDetail />, 'doctor'),
+  },
+  {
+    path: '/doctor/telemedicine/:appointmentId',
+    element: withPortalProtection(<DoctorTelemedicineConsultation />, 'doctor'),
   },
   {
     path: '/doctor/patients',
@@ -645,46 +655,46 @@ export const router = createBrowserRouter([
   },
   {
     path: '/clinic',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/dashboard',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/doctors',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/appointments',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/patients',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/pricing',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/messages',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/messages/:conversationId',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/analytics',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/settings',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
   {
     path: '/clinic/notifications',
-    element: <ProtectedRoute allowedRoles={['clinic']}><ClinicPortal /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
   },
 ]);

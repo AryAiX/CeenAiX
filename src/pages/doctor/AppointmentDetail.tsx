@@ -13,6 +13,7 @@ import {
   Sparkles,
   TestTube2,
   User,
+  Video,
   X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
@@ -526,6 +527,16 @@ export const DoctorAppointmentDetail: React.FC = () => {
                   <MessageSquare className="h-4 w-4" />
                   <span>{t('doctor.messages.messagePatient')}</span>
                 </button>
+                {data.appointment.type === 'virtual' ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/doctor/telemedicine/${data.appointment.id}`)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+                  >
+                    <Video className="h-4 w-4" />
+                    <span>Join video visit</span>
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() =>

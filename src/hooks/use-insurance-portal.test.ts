@@ -1,12 +1,28 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { supabase } from '../lib/supabase';
 import {
-  INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE,
   INSURANCE_PORTAL_DECISION_RPC_NAMES,
+  adjudicateInsuranceClaim,
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  denyPreAuthorization,
   requireSingleActiveInsuranceMembership,
   setInsuranceSettingEnabled,
+  updateInsuranceFraudAlertStatus,
 } from './use-insurance-portal';
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    rpc: vi.fn(),
+  },
+}));
+
+const rpcMock = vi.mocked(supabase.rpc);
+
+beforeEach(() => {
+  rpcMock.mockReset();
+  rpcMock.mockResolvedValue({ data: null, error: null, count: null, status: 200, statusText: 'OK' });
+});
 
 describe('requireSingleActiveInsuranceMembership', () => {
   const now = new Date('2026-07-13T00:00:00.000Z');
@@ -64,27 +80,54 @@ describe('requireSingleActiveInsuranceMembership', () => {
 });
 
 describe('insurance portal mutation surface', () => {
-  it('keeps PR #91 decision RPCs disabled until hardened separately', () => {
-    expect(INSURANCE_PORTAL_DECISION_RPC_NAMES).toEqual([]);
-    expect(INSURANCE_PORTAL_DECISION_RPC_NAMES).not.toContain(
-      'insurance_approve_pre_authorization',
-    );
-    expect(INSURANCE_PORTAL_DECISION_RPC_NAMES).not.toContain('insurance_approve_claim');
+  it('uses hardened decision RPCs for insurance writes', () => {
+    expect(INSURANCE_PORTAL_DECISION_RPC_NAMES).toEqual([
+      'insurance_decide_pre_authorization',
+      'insurance_adjudicate_claim',
+      'insurance_update_fraud_alert_status',
+      'insurance_set_setting_enabled',
+    ]);
   });
 
-  it('fails explicitly before direct browser decision writes can run', async () => {
-    await expect(
-      approvePreAuthorization('00000000-0000-0000-0000-000000000001', 1000),
-    ).rejects.toThrow(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+  it('approves pre-authorizations through the decision RPC', async () => {
+    await approvePreAuthorization('00000000-0000-0000-0000-000000000001', 1000);
 
-    await expect(
-      bulkApprovePreAuthorizations([
-        { id: '00000000-0000-0000-0000-000000000001', requestedAmountAed: 1000 },
-      ]),
-    ).rejects.toThrow(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+    expect(rpcMock).toHaveBeenCalledWith('insurance_decide_pre_authorization', {
+      p_pre_authorization_id: '00000000-0000-0000-0000-000000000001',
+      p_decision: 'approve',
+      p_approved_amount_aed: 1000,
+      p_decision_note: 'Approved by insurance officer',
+    });
+  });
 
-    await expect(
-      setInsuranceSettingEnabled('00000000-0000-0000-0000-000000000001', true),
-    ).rejects.toThrow(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
+  it('supports deny, bulk approve, claim, fraud, and settings RPC actions', async () => {
+    await denyPreAuthorization('00000000-0000-0000-0000-000000000001');
+    await bulkApprovePreAuthorizations([
+      { id: '00000000-0000-0000-0000-000000000002', requestedAmountAed: 2000 },
+    ]);
+    await adjudicateInsuranceClaim('00000000-0000-0000-0000-000000000003', 'review');
+    await updateInsuranceFraudAlertStatus('00000000-0000-0000-0000-000000000004', 'resolved');
+    await setInsuranceSettingEnabled('00000000-0000-0000-0000-000000000005', true);
+
+    expect(rpcMock).toHaveBeenCalledWith('insurance_decide_pre_authorization', {
+      p_pre_authorization_id: '00000000-0000-0000-0000-000000000001',
+      p_decision: 'deny',
+      p_approved_amount_aed: 0,
+      p_decision_note: 'Denied by insurance officer',
+    });
+    expect(rpcMock).toHaveBeenCalledWith('insurance_adjudicate_claim', {
+      p_claim_id: '00000000-0000-0000-0000-000000000003',
+      p_decision: 'review',
+      p_adjudication_note: null,
+    });
+    expect(rpcMock).toHaveBeenCalledWith('insurance_update_fraud_alert_status', {
+      p_alert_id: '00000000-0000-0000-0000-000000000004',
+      p_status: 'resolved',
+      p_resolution_note: null,
+    });
+    expect(rpcMock).toHaveBeenCalledWith('insurance_set_setting_enabled', {
+      p_setting_id: '00000000-0000-0000-0000-000000000005',
+      p_enabled: true,
+    });
   });
 });

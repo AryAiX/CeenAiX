@@ -25,13 +25,13 @@ export interface PatientInsuranceActivity {
   provider: string;
   doctor: string | null;
   service: string;
-  serviceType: 'Consultation' | 'Laboratory' | 'Pharmacy';
+  serviceType: 'Consultation' | 'Laboratory' | 'Pharmacy' | 'Insurance Claim' | 'Pre-Authorization';
   referenceCode: string;
   totalEstimate: number;
   patientShareEstimate: number;
   coveredEstimate: number;
   status: 'approved' | 'pending' | 'review' | 'denied';
-  source: 'appointments' | 'lab_orders' | 'prescriptions';
+  source: 'appointments' | 'lab_orders' | 'prescriptions' | 'insurance_claims' | 'insurance_pre_authorizations';
 }
 
 export interface PatientInsuranceData {
@@ -55,6 +55,32 @@ type PlanJoin =
     }
   | null;
 
+interface InsuranceMemberLinkRow {
+  id: string;
+  patient_insurance_id: string | null;
+}
+
+interface LinkedPreAuthorizationRow {
+  id: string;
+  external_ref: string;
+  provider_name: string;
+  procedure_name: string;
+  status: string;
+  requested_amount_aed: number | string | null;
+  approved_amount_aed: number | string | null;
+  requested_at: string;
+}
+
+interface LinkedClaimRow {
+  id: string;
+  external_ref: string;
+  provider_name: string;
+  claim_type: string | null;
+  status: string;
+  amount_aed: number | string | null;
+  submitted_at: string;
+}
+
 function asFirstPlan(value: PlanJoin | PlanJoin[] | null): PlanJoin {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
@@ -74,6 +100,95 @@ function estimateSplit(total: number, coPayPercent: number | null | undefined) {
   return {
     patientShare,
     covered: Math.max(0, total - patientShare),
+  };
+}
+
+function toNumber(value: number | string | null | undefined): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function mapPayerStatus(status: string): PatientInsuranceActivity['status'] {
+  if (status === 'approved') return 'approved';
+  if (status === 'denied') return 'denied';
+  if (status === 'review' || status === 'under_review' || status === 'appealed' || status === 'overdue') {
+    return 'review';
+  }
+  return 'pending';
+}
+
+async function loadLinkedPayerActivity(patientInsuranceIds: string[]) {
+  if (patientInsuranceIds.length === 0) {
+    return {
+      preAuthorizations: [] as LinkedPreAuthorizationRow[],
+      claims: [] as LinkedClaimRow[],
+    };
+  }
+
+  const { data: memberRows, error: memberError } = await supabase
+    .from('insurance_members')
+    .select('id, patient_insurance_id')
+    .in('patient_insurance_id', patientInsuranceIds);
+
+  if (memberError) throw memberError;
+
+  const memberIds = ((memberRows ?? []) as InsuranceMemberLinkRow[]).map((row) => row.id);
+  const preAuthSelect =
+    'id, external_ref, provider_name, procedure_name, status, requested_amount_aed, approved_amount_aed, requested_at';
+  const claimSelect = 'id, external_ref, provider_name, claim_type, status, amount_aed, submitted_at';
+
+  const [
+    directPreAuthResult,
+    directClaimResult,
+    memberPreAuthResult,
+    memberClaimResult,
+  ] = await Promise.all([
+    supabase
+      .from('insurance_pre_authorizations')
+      .select(preAuthSelect)
+      .in('patient_insurance_id', patientInsuranceIds),
+    supabase
+      .from('insurance_claims')
+      .select(claimSelect)
+      .in('patient_insurance_id', patientInsuranceIds),
+    memberIds.length > 0
+      ? supabase
+          .from('insurance_pre_authorizations')
+          .select(preAuthSelect)
+          .in('insurance_member_id', memberIds)
+      : Promise.resolve({ data: [], error: null }),
+    memberIds.length > 0
+      ? supabase
+          .from('insurance_claims')
+          .select(claimSelect)
+          .in('insurance_member_id', memberIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (directPreAuthResult.error) throw directPreAuthResult.error;
+  if (directClaimResult.error) throw directClaimResult.error;
+  if (memberPreAuthResult.error) throw memberPreAuthResult.error;
+  if (memberClaimResult.error) throw memberClaimResult.error;
+
+  const preAuthById = new Map<string, LinkedPreAuthorizationRow>();
+  [
+    ...((directPreAuthResult.data ?? []) as LinkedPreAuthorizationRow[]),
+    ...((memberPreAuthResult.data ?? []) as LinkedPreAuthorizationRow[]),
+  ].forEach((row) => preAuthById.set(row.id, row));
+
+  const claimById = new Map<string, LinkedClaimRow>();
+  [
+    ...((directClaimResult.data ?? []) as LinkedClaimRow[]),
+    ...((memberClaimResult.data ?? []) as LinkedClaimRow[]),
+  ].forEach((row) => claimById.set(row.id, row));
+
+  return {
+    preAuthorizations: [...preAuthById.values()],
+    claims: [...claimById.values()],
   };
 }
 
@@ -167,6 +282,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
 
     const primaryPlan = [...plans].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))[0] ?? null;
     const coPayPercent = primaryPlan?.coPayPercent ?? null;
+    const payerActivity = await loadLinkedPayerActivity(plans.map((plan) => plan.id));
 
     const appointmentRows = ((appointmentsResult.data ?? []) as Array<{
       id: string;
@@ -248,6 +364,52 @@ export function usePatientInsurance(userId: string | null | undefined) {
       };
     });
 
+    const payerPreAuthRows = payerActivity.preAuthorizations.map((row): PatientInsuranceActivity => {
+      const total = toNumber(row.requested_amount_aed);
+      const approved = row.status === 'approved'
+        ? toNumber(row.approved_amount_aed) || total
+        : row.status === 'denied'
+          ? 0
+          : 0;
+      return {
+        id: `preauth-${row.id}`,
+        date: row.requested_at,
+        provider: row.provider_name,
+        doctor: null,
+        service: row.procedure_name,
+        serviceType: 'Pre-Authorization',
+        referenceCode: row.external_ref,
+        totalEstimate: total,
+        patientShareEstimate: Math.max(0, total - approved),
+        coveredEstimate: approved,
+        status: mapPayerStatus(row.status),
+        source: 'insurance_pre_authorizations',
+      };
+    });
+
+    const payerClaimRows = payerActivity.claims.map((row): PatientInsuranceActivity => {
+      const total = toNumber(row.amount_aed);
+      const split = row.status === 'approved'
+        ? { patientShare: 0, covered: total }
+        : row.status === 'denied'
+          ? { patientShare: total, covered: 0 }
+          : estimateSplit(total, coPayPercent);
+      return {
+        id: `claim-${row.id}`,
+        date: row.submitted_at,
+        provider: row.provider_name,
+        doctor: null,
+        service: row.claim_type || 'Insurance claim',
+        serviceType: 'Insurance Claim',
+        referenceCode: row.external_ref,
+        totalEstimate: total,
+        patientShareEstimate: split.patientShare,
+        coveredEstimate: split.covered,
+        status: mapPayerStatus(row.status),
+        source: 'insurance_claims',
+      };
+    });
+
     const profile = profileResult.data as
       | { full_name: string | null; first_name: string | null; last_name: string | null; email: string | null }
       | null;
@@ -261,7 +423,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
       email: profile?.email ?? null,
       plans,
       primaryPlan,
-      activity: [...appointmentRows, ...labRows, ...prescriptionRows]
+      activity: [...payerPreAuthRows, ...payerClaimRows, ...appointmentRows, ...labRows, ...prescriptionRows]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10),
     };
