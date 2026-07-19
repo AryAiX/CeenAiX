@@ -5,6 +5,11 @@ import { resolve } from 'node:path';
 const manifestPath = resolve(process.cwd(), 'scripts/non-migration-deployables.manifest.json');
 const requestedNames = process.argv.slice(2);
 
+const MAX_ATTEMPTS = Number.parseInt(process.env.EDGE_FUNCTION_DEPLOY_RETRIES ?? '3', 10);
+const RETRY_DELAY_MS = Number.parseInt(process.env.EDGE_FUNCTION_DEPLOY_RETRY_DELAY_MS ?? '5000', 10);
+
+const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+
 const runCommand = (command, args) =>
   new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(command, args, {
@@ -24,6 +29,29 @@ const runCommand = (command, args) =>
 
     child.on('error', rejectPromise);
   });
+
+const runCommandWithRetry = async (command, args, label) => {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        console.log(`Retrying ${label} (attempt ${attempt}/${MAX_ATTEMPTS})...`);
+      }
+      await runCommand(command, args);
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt >= MAX_ATTEMPTS) {
+        break;
+      }
+      console.warn(`${label} failed: ${lastError.message}`);
+      await sleep(RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw lastError ?? new Error(`${label} failed.`);
+};
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const deployables = Array.isArray(manifest.deployables) ? manifest.deployables : [];
@@ -47,7 +75,7 @@ for (const deployable of selectedDeployables) {
     projectRef && command === 'supabase' && !args.includes('--project-ref')
       ? [...args, '--project-ref', projectRef]
       : args;
-  await runCommand(command, deployArgs);
+  await runCommandWithRetry(command, deployArgs, deployable.name);
 }
 
 console.log('\nEdge function deployment commands completed.');
