@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, FlaskConical, KeyRound, Mail, Pill, ShieldCheck, Smartphone, Stethoscope, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, KeyRound, Mail, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthShell } from '../../components/AuthShell';
@@ -7,7 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import type { UserRole } from '../../types';
 
-type RegistrationRole = Extract<UserRole, 'patient' | 'doctor' | 'pharmacy' | 'lab' | 'insurance'>;
+type RegistrationRole = Extract<UserRole, 'patient'>;
 
 interface RegistrationRoleOption {
   id: RegistrationRole;
@@ -23,38 +23,10 @@ const registrationRoles: RegistrationRoleOption[] = [
     descriptionKey: 'auth.register.rolePatientDesc',
     icon: UserRound,
   },
-  {
-    id: 'doctor',
-    titleKey: 'auth.register.roleDoctorTitle',
-    descriptionKey: 'auth.register.roleDoctorDesc',
-    icon: Stethoscope,
-  },
-  {
-    id: 'pharmacy',
-    titleKey: 'auth.login.rolePharmacyTitle',
-    descriptionKey: 'auth.roleAccess.roles.pharmacy.description',
-    icon: Pill,
-  },
-  {
-    id: 'lab',
-    titleKey: 'auth.login.roleLabTitle',
-    descriptionKey: 'auth.roleAccess.roles.lab.description',
-    icon: FlaskConical,
-  },
-  {
-    id: 'insurance',
-    titleKey: 'auth.login.roleInsuranceTitle',
-    descriptionKey: 'auth.roleAccess.roles.insurance.description',
-    icon: ShieldCheck,
-  },
 ];
 
 const isRegistrationRole = (value: string | null): value is RegistrationRole =>
-  value === 'patient' ||
-  value === 'doctor' ||
-  value === 'pharmacy' ||
-  value === 'lab' ||
-  value === 'insurance';
+  value === 'patient';
 
 export const Register = () => {
   const { t } = useTranslation('common');
@@ -71,6 +43,7 @@ export const Register = () => {
   const requestedRole = searchParams.get('role');
   const resetRequested = searchParams.get('reset') === '1';
   const safeRequestedRole = isRegistrationRole(requestedRole) ? requestedRole : null;
+  const unsupportedRequestedRole = requestedRole !== null && !safeRequestedRole;
 
   const [step, setStep] = useState(0);
   const [selectedRole, setSelectedRole] = useState<RegistrationRole>('patient');
@@ -249,6 +222,58 @@ export const Register = () => {
     ],
     [safeRequestedRole, t]
   );
+
+  if (unsupportedRequestedRole) {
+    return (
+      <AuthShell
+        badge={t('auth.register.badge')}
+        title={t('auth.register.operationalUnavailableTitle', {
+          defaultValue: 'Invitation required',
+        })}
+        description={t('auth.register.operationalUnavailableDescription', {
+          defaultValue: 'Doctor, lab, pharmacy, insurance, and admin accounts are provisioned by an authorized administrator. Public registration is available for patient accounts only.',
+        })}
+        footer={
+          <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              {t('auth.register.haveAccount')}
+            </span>
+            <Link
+              to={`/auth/login?role=${encodeURIComponent(requestedRole)}`}
+              className="font-semibold text-teal-700 transition-colors hover:text-teal-800"
+            >
+              {t('auth.register.signInInstead')}
+            </Link>
+          </div>
+        }
+        contentWidthClass="max-w-xl"
+      >
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-900" role="alert">
+          {t('auth.register.operationalUnavailableBody', {
+            defaultValue: 'Ask your organization administrator to provision your account, then sign in with the email they assign to you.',
+          })}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/auth/register?role=patient"
+            className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            {t('auth.register.createPatientAccount', {
+              defaultValue: 'Create a patient account',
+            })}
+          </Link>
+          <Link
+            to="/auth/portal-access?intent=login"
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            {t('auth.register.choosePortal', {
+              defaultValue: 'Choose portal',
+            })}
+          </Link>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell

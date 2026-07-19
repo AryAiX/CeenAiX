@@ -10,6 +10,7 @@ import type { ConsultationScribeController } from '../../hooks/use-consultation-
 import type { AudioChannelDetectionReason } from '../../hooks/use-audio-recorder';
 import type { AudioInputChannel } from '../../types';
 import { WaveformVisualizer } from './WaveformVisualizer';
+import { ConsentModal } from './ConsentModal';
 
 interface RecordingControlBarProps {
   controller: ConsultationScribeController;
@@ -47,6 +48,7 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
   const [setupDoctorChannel, setSetupDoctorChannel] = useState<AudioInputChannel | null>(null);
   const [setupSamplingSpeaker, setSetupSamplingSpeaker] = useState<SetupSpeaker | null>(null);
   const [setupInputDiagnostic, setSetupInputDiagnostic] = useState<SetupInputDiagnostic | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   const isLive = recorder.status === 'recording' || recorder.status === 'paused';
   const recordingStatus = controller.data?.recording?.status ?? null;
@@ -224,11 +226,11 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
     }
   };
 
-  const startRecordingFromSetup = () => {
+  const requestRecordingConsent = () => {
     void recorder.refreshDevices();
     stopSetupInput();
     setSetupOpen(false);
-    void controller.startRecording();
+    setConsentOpen(true);
   };
 
   const goBack = () => {
@@ -334,7 +336,7 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={startRecordingFromSetup}
+            onClick={requestRecordingConsent}
             className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
           >
             <Circle className="h-4 w-4 fill-current" />
@@ -585,6 +587,15 @@ export function RecordingControlBar({ controller, patientName }: RecordingContro
           {recorder.error}
         </p>
       ) : null}
+      <ConsentModal
+        open={consentOpen}
+        patientName={patientName}
+        onClose={() => setConsentOpen(false)}
+        onConfirm={(consent) => {
+          setConsentOpen(false);
+          void controller.startRecording(consent);
+        }}
+      />
     </section>
   );
 }

@@ -13,8 +13,10 @@ import type {
   AdminSystemHealthPayload,
   AdminUserRow,
   FeatureFlag,
+  InsurancePlan,
   Organization,
   PlatformSetting,
+  UserRole,
 } from '../types';
 import type {
   AdminClinicDoctorRecord,
@@ -105,6 +107,77 @@ export async function createOrganization(input: CreateOrganizationInput): Promis
     throw error;
   }
   return data as Organization;
+}
+
+export async function updateAdminUserAccountStatus(
+  userId: string,
+  accountStatus: 'active' | 'suspended'
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_update_user_account_status', {
+    p_user_id: userId,
+    p_account_status: accountStatus,
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateAdminUserRole(userId: string, role: UserRole): Promise<void> {
+  const { error } = await supabase.rpc('admin_update_user_role', {
+    p_user_id: userId,
+    p_role: role,
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+export function useAdminInsurancePlans() {
+  return useQuery<InsurancePlan[]>(async () => {
+    const { data, error } = await supabase.rpc('admin_list_insurance_plans');
+    if (error) {
+      throw error;
+    }
+    return (data as InsurancePlan[]) ?? [];
+  }, []);
+}
+
+export interface AdminInsurancePlanInput {
+  planId?: string | null;
+  name: string;
+  providerCompany: string;
+  coverageType?: string | null;
+  annualLimit?: number | null;
+  coPayPercentage?: number | null;
+  networkType?: string | null;
+  isActive: boolean;
+}
+
+export async function upsertAdminInsurancePlan(input: AdminInsurancePlanInput): Promise<InsurancePlan> {
+  const { data, error } = await supabase.rpc('admin_upsert_insurance_plan', {
+    p_plan_id: input.planId ?? null,
+    p_name: input.name,
+    p_provider_company: input.providerCompany,
+    p_coverage_type: input.coverageType ?? null,
+    p_annual_limit: input.annualLimit ?? null,
+    p_co_pay_percentage: input.coPayPercentage ?? null,
+    p_network_type: input.networkType ?? null,
+    p_is_active: input.isActive,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as InsurancePlan;
+}
+
+export async function setAdminInsurancePlanActive(planId: string, isActive: boolean): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_insurance_plan_active', {
+    p_plan_id: planId,
+    p_is_active: isActive,
+  });
+  if (error) {
+    throw error;
+  }
 }
 
 export interface AdminComplianceData {

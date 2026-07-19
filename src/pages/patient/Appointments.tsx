@@ -707,6 +707,13 @@ export const PatientAppointments: React.FC = () => {
                   {upcoming ? t('patient.messages.messageDoctor') : t('patient.messages.followUpDoctor')}
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={() => navigate(`/patient/appointments/${appointment.id}`)}
+                className="px-4 py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg font-medium transition-colors"
+              >
+                {t('patient.appointments.viewDetails', { defaultValue: 'View details' })}
+              </button>
             </div>
           </div>
         </div>

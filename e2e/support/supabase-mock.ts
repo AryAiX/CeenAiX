@@ -3129,6 +3129,26 @@ export async function installSupabaseMocks(
       });
     }
 
+    if (url.pathname.endsWith('/functions/v1/telemedicine-token')) {
+      let appointmentId = workflowIds.appointment;
+      try {
+        const body = route.request().postDataJSON() as { appointment_id?: string; appointmentId?: string };
+        appointmentId = body.appointment_id ?? body.appointmentId ?? appointmentId;
+      } catch {
+        // Use default appointment id for malformed bodies.
+      }
+      return json(route, {
+        success: true,
+        token: 'e2e-livekit-token',
+        serverUrl: 'wss://livekit.e2e.invalid',
+        roomName: `ceenaix-telemedicine-${appointmentId}`,
+        appointmentId,
+        participantName: 'E2E Participant',
+        role: fallbackRole === 'doctor' ? 'doctor' : 'patient',
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      });
+    }
+
     if (url.pathname.endsWith('/functions/v1/ai-chat')) {
       let sessionId = workflowIds.aiChatSession;
       try {

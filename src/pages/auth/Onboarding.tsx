@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Activity, ArrowRight, LogOut, UserCheck } from 'lucide-react';
@@ -9,7 +9,7 @@ import {
   getPrimaryAndSecondarySpecializations,
   syncDoctorSpecializations,
 } from '../../lib/doctor-specializations';
-import { getAuthMetadataRole, getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
+import { getDefaultRouteForRole, useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
@@ -78,10 +78,7 @@ export const Onboarding = () => {
   });
   const [hasInitializedDoctorSpecializations, setHasInitializedDoctorSpecializations] = useState(false);
 
-  const resolvedRole = useMemo(
-    () => role ?? (user ? getAuthMetadataRole(user) : null),
-    [role, user]
-  );
+  const resolvedRole = role;
   const activeRole = resolvedRole ?? 'patient';
   const isPhoneManagedByOtp = Boolean(user?.phone && !user?.email);
   const {

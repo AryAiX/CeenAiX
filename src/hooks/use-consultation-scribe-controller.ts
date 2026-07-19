@@ -58,7 +58,7 @@ export interface ConsultationScribeController {
   isLoadingSuggestions: boolean;
   feedback: ScribeFeedback;
   setFeedback: (feedback: ScribeFeedback) => void;
-  startRecording: () => Promise<void>;
+  startRecording: (consent: ScribeConsentInput) => Promise<void>;
   stopAndProcess: () => Promise<void>;
   retryProcessing: () => Promise<void>;
   discard: () => Promise<void>;
@@ -85,12 +85,6 @@ export interface ConsultationScribeController {
 
 type SpeakerReferenceSamples = Partial<Record<SpeakerChannelRole, AudioSetupSampleResult>>;
 const SPEAKER_REFERENCE_ROLES: readonly SpeakerChannelRole[] = ['doctor', 'patient'];
-const INTERNAL_RECORDING_CONSENT: ScribeConsentInput = {
-  informedPatient: true,
-  verbalConsent: true,
-  consentMethod: 'verbal',
-  signatureImageUrl: null,
-};
 
 export function useConsultationScribeController(input: {
   appointmentId: string | null | undefined;
@@ -181,8 +175,15 @@ export function useConsultationScribeController(input: {
   }, []);
 
   const startRecording = useCallback(
-    async () => {
+    async (consent: ScribeConsentInput) => {
       if (!input.appointmentId || !input.doctorId || !input.patientId) {
+        return;
+      }
+      if (!consent.informedPatient || !consent.verbalConsent) {
+        setFeedback({
+          type: 'error',
+          message: 'Patient consent is required before recording can begin.',
+        });
         return;
       }
       setFeedback(null);
@@ -193,8 +194,6 @@ export function useConsultationScribeController(input: {
         return;
       }
       try {
-        // Keep the persistence contract satisfied without blocking setup on a consent UI.
-        const consent = INTERNAL_RECORDING_CONSENT;
         const recording = await actions.createRecording({
           appointmentId: input.appointmentId,
           doctorId: input.doctorId,

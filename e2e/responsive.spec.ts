@@ -71,6 +71,7 @@ const protectedRoutes: ProtectedRouteCase[] = [
   { role: 'doctor', name: 'doctor profile', path: '/doctor/profile' },
   { role: 'doctor', name: 'doctor notifications', path: '/doctor/notifications' },
   { role: 'doctor', name: 'doctor consultation workspace', path: '/doctor/consultations/00000000-0000-4000-8000-000000000601' },
+  { role: 'doctor', name: 'doctor telemedicine', path: '/doctor/telemedicine/00000000-0000-4000-8000-000000000601' },
   { role: 'doctor', name: 'doctor settings', path: '/doctor/settings' },
   { role: 'doctor', name: 'doctor imaging', path: '/doctor/imaging' },
   { role: 'doctor', name: 'doctor earnings', path: '/doctor/earnings' },

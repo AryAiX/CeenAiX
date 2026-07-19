@@ -71,6 +71,7 @@ export interface UserProfile extends BaseRecord {
   avatar_url: string | null;
   notification_preferences: Record<string, unknown>;
   profile_completed: boolean;
+  account_status: 'active' | 'suspended';
   terms_accepted: boolean;
 }
 
@@ -771,6 +772,7 @@ export interface AdminUserRow {
   phone: string | null;
   city: string | null;
   profile_completed: boolean;
+  account_status: 'active' | 'suspended';
   created_at: string;
   last_sign_in_at: string | null;
   is_dha_verified: boolean;

@@ -30,6 +30,10 @@ import {
 } from 'lucide-react';
 import {
   createOrganization,
+  setAdminInsurancePlanActive,
+  updateAdminUserAccountStatus,
+  updateAdminUserRole,
+  upsertAdminInsurancePlan,
   useAdminAiAnalytics,
   useAdminAiDashboard,
   useAdminCompliance,
@@ -37,6 +41,7 @@ import {
   useAdminDiagnostics,
   useAdminDoctorDirectory,
   useAdminInsurancePartners,
+  useAdminInsurancePlans,
   useAdminMetrics,
   useAdminOrganizations,
   useAdminPatientDirectory,
@@ -62,6 +67,7 @@ import type {
   AdminPatientRow,
   AdminSystemHealthPayload,
   AdminUserRow,
+  InsurancePlan,
   Organization,
   ServiceHealthSnapshot,
   UserRole,
@@ -101,10 +107,13 @@ interface AdminContext {
   doctors: AdminDoctorRow[];
   patients: AdminPatientRow[];
   insurancePartners: AdminInsurancePartnerRow[];
+  insurancePlans: InsurancePlan[];
   aiDashboard: AdminAiDashboardPayload | null;
   loading: boolean;
   error: string | null;
   refreshOrganizations: () => void;
+  refreshInsurancePlans: () => void;
+  refreshUsers: () => void;
   refetchAll: () => void;
 }
 
@@ -317,6 +326,7 @@ const useAdminContextValue = (): AdminContext => {
   const doctors = useAdminDoctorDirectory();
   const patients = useAdminPatientDirectory();
   const insurancePartners = useAdminInsurancePartners();
+  const insurancePlans = useAdminInsurancePlans();
   const aiDashboard = useAdminAiDashboard();
 
   const error =
@@ -332,6 +342,7 @@ const useAdminContextValue = (): AdminContext => {
       doctors.error,
       patients.error,
       insurancePartners.error,
+      insurancePlans.error,
       aiDashboard.error,
     ].find(Boolean) ?? null;
 
@@ -347,6 +358,7 @@ const useAdminContextValue = (): AdminContext => {
     doctors: doctors.data ?? [],
     patients: patients.data ?? [],
     insurancePartners: insurancePartners.data ?? [],
+    insurancePlans: insurancePlans.data ?? [],
     aiDashboard: aiDashboard.data ?? null,
     loading:
       metrics.loading ||
@@ -360,9 +372,12 @@ const useAdminContextValue = (): AdminContext => {
       doctors.loading ||
       patients.loading ||
       insurancePartners.loading ||
+      insurancePlans.loading ||
       aiDashboard.loading,
     error,
     refreshOrganizations: organizations.refetch,
+    refreshInsurancePlans: insurancePlans.refetch,
+    refreshUsers: users.refetch,
     refetchAll: () => {
       void metrics.refetch();
       void users.refetch();
@@ -375,6 +390,7 @@ const useAdminContextValue = (): AdminContext => {
       void doctors.refetch();
       void patients.refetch();
       void insurancePartners.refetch();
+      void insurancePlans.refetch();
       void aiDashboard.refetch();
     },
   };
@@ -2630,10 +2646,25 @@ const OrganizationCard = ({ org }: { org: Organization }) => {
 
 type InsuranceFilter = 'all' | 'premium' | 'standard' | 'api_issues' | 'fraud';
 
+const emptyInsurancePlanForm = {
+  name: '',
+  providerCompany: '',
+  coverageType: '',
+  annualLimit: '',
+  coPayPercentage: '',
+  networkType: '',
+  isActive: true,
+};
+
 const InsuranceView = ({ context }: { context: AdminContext }) => {
   const navigate = useNavigate();
   const partners = context.insurancePartners;
+  const plans = context.insurancePlans;
   const [filter, setFilter] = useState<InsuranceFilter>('all');
+  const [planForm, setPlanForm] = useState(emptyInsurancePlanForm);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [planBusy, setPlanBusy] = useState(false);
+  const [planMessage, setPlanMessage] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     if (filter === 'premium') return partners.filter((p) => p.partner_tier === 'premium');
@@ -2662,6 +2693,65 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
   ];
 
   const damanWarning = partners.find((p) => p.api_status !== 'healthy');
+
+  const resetPlanForm = () => {
+    setEditingPlanId(null);
+    setPlanForm(emptyInsurancePlanForm);
+  };
+
+  const editPlan = (plan: InsurancePlan) => {
+    setEditingPlanId(plan.id);
+    setPlanForm({
+      name: plan.name,
+      providerCompany: plan.provider_company,
+      coverageType: plan.coverage_type ?? '',
+      annualLimit: plan.annual_limit?.toString() ?? '',
+      coPayPercentage: plan.co_pay_percentage?.toString() ?? '',
+      networkType: plan.network_type ?? '',
+      isActive: plan.is_active,
+    });
+  };
+
+  const submitPlan = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPlanBusy(true);
+    setPlanMessage(null);
+    try {
+      await upsertAdminInsurancePlan({
+        planId: editingPlanId,
+        name: planForm.name,
+        providerCompany: planForm.providerCompany,
+        coverageType: planForm.coverageType || null,
+        annualLimit: planForm.annualLimit ? Number(planForm.annualLimit) : null,
+        coPayPercentage: planForm.coPayPercentage ? Number(planForm.coPayPercentage) : null,
+        networkType: planForm.networkType || null,
+        isActive: planForm.isActive,
+      });
+      setPlanMessage(editingPlanId ? 'Insurance plan updated.' : 'Insurance plan created.');
+      resetPlanForm();
+      await context.refreshInsurancePlans();
+      context.refetchAll();
+    } catch (err) {
+      setPlanMessage(err instanceof Error ? err.message : 'Unable to save insurance plan.');
+    } finally {
+      setPlanBusy(false);
+    }
+  };
+
+  const togglePlanActive = async (plan: InsurancePlan) => {
+    setPlanBusy(true);
+    setPlanMessage(null);
+    try {
+      await setAdminInsurancePlanActive(plan.id, !plan.is_active);
+      setPlanMessage(plan.is_active ? 'Insurance plan deactivated.' : 'Insurance plan activated.');
+      await context.refreshInsurancePlans();
+      context.refetchAll();
+    } catch (err) {
+      setPlanMessage(err instanceof Error ? err.message : 'Unable to update insurance plan.');
+    } finally {
+      setPlanBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -2704,12 +2794,10 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
         </button>
         <button
           type="button"
-          // Same admin sign-out-and-register flow as Add Doctor — otherwise
-          // an authenticated super_admin would be bounced to /auth/onboarding.
-          onClick={() => navigate('/auth/register?role=insurance&reset=1')}
+          onClick={() => navigate('/admin/organizations')}
           className="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
         >
-          Onboard Insurer
+          Onboard Insurer Org
         </button>
       </PageHeader>
 
@@ -2782,6 +2870,139 @@ const InsuranceView = ({ context }: { context: AdminContext }) => {
           iconTone="bg-emerald-50 text-emerald-600 ring-emerald-100"
         />
       </div>
+
+      <Card>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">Insurance Plan Catalog</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              These canonical plans are used by patient insurance and public insurance surfaces.
+            </p>
+          </div>
+          <Pill tone="blue">{plans.length} plans</Pill>
+        </div>
+        {planMessage ? (
+          <div className="mb-4 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+            {planMessage}
+          </div>
+        ) : null}
+        <form onSubmit={submitPlan} className="mb-5 grid gap-3 lg:grid-cols-8">
+          <input
+            value={planForm.providerCompany}
+            onChange={(event) => setPlanForm((current) => ({ ...current, providerCompany: event.target.value }))}
+            maxLength={FORM_FIELD_LIMITS.shortText}
+            placeholder="Provider"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm lg:col-span-2"
+            required
+          />
+          <input
+            value={planForm.name}
+            onChange={(event) => setPlanForm((current) => ({ ...current, name: event.target.value }))}
+            maxLength={FORM_FIELD_LIMITS.shortText}
+            placeholder="Plan name"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm lg:col-span-2"
+            required
+          />
+          <input
+            value={planForm.coverageType}
+            onChange={(event) => setPlanForm((current) => ({ ...current, coverageType: event.target.value }))}
+            maxLength={FORM_FIELD_LIMITS.shortText}
+            placeholder="Coverage type"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <input
+            value={planForm.annualLimit}
+            onChange={(event) => setPlanForm((current) => ({ ...current, annualLimit: event.target.value }))}
+            type="number"
+            min={0}
+            placeholder="Limit AED"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <input
+            value={planForm.coPayPercentage}
+            onChange={(event) => setPlanForm((current) => ({ ...current, coPayPercentage: event.target.value }))}
+            type="number"
+            min={0}
+            max={100}
+            step="0.01"
+            placeholder="Co-pay %"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={planBusy}
+              className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
+            >
+              {editingPlanId ? 'Update' : 'Create'}
+            </button>
+            {editingPlanId ? (
+              <button
+                type="button"
+                onClick={resetPlanForm}
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        </form>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Provider</th>
+                <th className="px-3 py-2">Plan</th>
+                <th className="px-3 py-2">Coverage</th>
+                <th className="px-3 py-2">Limit</th>
+                <th className="px-3 py-2">Co-pay</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {plans.map((plan) => (
+                <tr key={plan.id}>
+                  <td className="px-3 py-2 font-semibold text-slate-900">{plan.provider_company}</td>
+                  <td className="px-3 py-2 text-slate-700">{plan.name}</td>
+                  <td className="px-3 py-2 text-slate-500">{plan.coverage_type ?? '—'}</td>
+                  <td className="px-3 py-2 text-slate-500">{formatAed(plan.annual_limit)}</td>
+                  <td className="px-3 py-2 text-slate-500">{plan.co_pay_percentage ?? 0}%</td>
+                  <td className="px-3 py-2">
+                    <Pill tone={plan.is_active ? 'emerald' : 'slate'}>{plan.is_active ? 'Active' : 'Inactive'}</Pill>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => editPlan(plan)}
+                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={planBusy}
+                        onClick={() => void togglePlanActive(plan)}
+                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                      >
+                        {plan.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {plans.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-sm text-slate-500">
+                    No insurance plans found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -3557,15 +3778,50 @@ const DiagnosticsView = ({ context }: { context: AdminContext }) => {
 
 const UsersView = ({ context, role }: { context: AdminContext; role?: UserRole }) => {
   const [search, setSearch] = useState('');
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const rows = context.users.filter((user) => {
     const matchesRole = role ? user.role === role : true;
     const haystack = `${user.full_name} ${user.email ?? ''} ${user.phone ?? ''}`.toLowerCase();
     return matchesRole && haystack.includes(search.toLowerCase());
   });
 
+  const handleStatusChange = async (userId: string, accountStatus: 'active' | 'suspended') => {
+    setBusyUserId(userId);
+    setMessage(null);
+    try {
+      await updateAdminUserAccountStatus(userId, accountStatus);
+      setMessage(accountStatus === 'active' ? 'User reactivated.' : 'User suspended.');
+      await context.refreshUsers();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Unable to update user status.');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, nextRole: UserRole) => {
+    setBusyUserId(userId);
+    setMessage(null);
+    try {
+      await updateAdminUserRole(userId, nextRole);
+      setMessage('User role updated.');
+      await context.refreshUsers();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Unable to update user role.');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader title="All Platform Users" subtitle={`${formatNumber(rows.length)} users match the current view`} />
+      {message ? (
+        <div className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+          {message}
+        </div>
+      ) : null}
       <Card>
         <div className="mb-3 flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
           <Search className="mr-2 h-4 w-4 text-slate-400" />
@@ -3587,6 +3843,7 @@ const UsersView = ({ context, role }: { context: AdminContext; role?: UserRole }
                 <th className="px-3 py-2">Joined</th>
                 <th className="px-3 py-2">Last Login</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -3594,16 +3851,41 @@ const UsersView = ({ context, role }: { context: AdminContext; role?: UserRole }
                 <tr key={row.user_id}>
                   <td className="px-3 py-2 font-semibold text-slate-900">{row.full_name || '—'}</td>
                   <td className="px-3 py-2">
-                    <Pill tone="blue">{row.role}</Pill>
+                    <select
+                      value={row.role}
+                      disabled={busyUserId === row.user_id}
+                      onChange={(event) => void handleRoleChange(row.user_id, event.target.value as UserRole)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                    >
+                      {(['patient', 'doctor', 'pharmacy', 'lab', 'insurance', 'clinic', 'facility_admin', 'super_admin'] as UserRole[]).map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-3 py-2 text-slate-600">{row.email ?? '—'}</td>
                   <td className="px-3 py-2 text-slate-600">{row.city ?? '—'}</td>
                   <td className="px-3 py-2 text-slate-500">{formatDate(row.created_at)}</td>
                   <td className="px-3 py-2 text-slate-500">{formatDate(row.last_sign_in_at)}</td>
                   <td className="px-3 py-2">
-                    <Pill tone={row.profile_completed ? 'emerald' : 'amber'}>
-                      {row.profile_completed ? 'Active' : 'Onboarding'}
+                    <Pill tone={row.account_status === 'suspended' ? 'rose' : row.profile_completed ? 'emerald' : 'amber'}>
+                      {row.account_status === 'suspended' ? 'Suspended' : row.profile_completed ? 'Active' : 'Onboarding'}
                     </Pill>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      disabled={busyUserId === row.user_id}
+                      onClick={() => void handleStatusChange(row.user_id, row.account_status === 'suspended' ? 'active' : 'suspended')}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
+                        row.account_status === 'suspended'
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                      }`}
+                    >
+                      {row.account_status === 'suspended' ? 'Reactivate' : 'Suspend'}
+                    </button>
                   </td>
                 </tr>
               ))}

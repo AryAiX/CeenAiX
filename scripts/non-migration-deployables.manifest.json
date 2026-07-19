@@ -94,6 +94,25 @@
         "OPENAI_API_KEY"
       ],
       "notes": "Doctor AI Scribe: Whisper transcription, GPT-4o SOAP note generation, and smart-suggestion extraction for consultation recordings."
+    },
+    {
+      "id": "supabase-edge-function-telemedicine-token",
+      "type": "supabase-edge-function",
+      "name": "telemedicine-token",
+      "path": "supabase/functions/telemedicine-token",
+      "deployCommand": [
+        "supabase",
+        "functions",
+        "deploy",
+        "telemedicine-token",
+        "--no-verify-jwt"
+      ],
+      "requiredSecrets": [
+        "LIVEKIT_URL",
+        "LIVEKIT_API_KEY",
+        "LIVEKIT_API_SECRET"
+      ],
+      "notes": "Issues short-lived LiveKit room tokens after validating the authenticated doctor/patient appointment relationship."
     }
   ]
 }

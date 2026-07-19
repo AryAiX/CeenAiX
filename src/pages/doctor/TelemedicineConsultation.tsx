@@ -2,14 +2,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { LiveKitConsultationRoom } from '../../components/telemedicine/LiveKitConsultationRoom';
-import { usePatientAppointmentDetail } from '../../hooks';
+import { useDoctorAppointmentDetail } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 
-export const PatientTelemedicineConsultation = () => {
+export const DoctorTelemedicineConsultation = () => {
   const navigate = useNavigate();
   const { appointmentId } = useParams<{ appointmentId?: string }>();
   const { user, profile } = useAuth();
-  const { data, loading, error } = usePatientAppointmentDetail(user?.id, appointmentId);
+  const { data, loading, error } = useDoctorAppointmentDetail(user?.id, appointmentId);
 
   if (loading) {
     return (
@@ -32,7 +32,7 @@ export const PatientTelemedicineConsultation = () => {
         </p>
         <button
           type="button"
-          onClick={() => navigate('/patient/appointments')}
+          onClick={() => navigate('/doctor/appointments')}
           className="mt-4 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800"
         >
           Back to appointments
@@ -43,11 +43,11 @@ export const PatientTelemedicineConsultation = () => {
 
   return (
     <LiveKitConsultationRoom
-      role="patient"
+      role="doctor"
       appointment={data.appointment}
-      participantName={profile?.full_name ?? user?.email ?? 'Patient'}
-      counterpartName={data.doctorProfile?.fullName ?? 'your doctor'}
-      onBack={() => navigate(`/patient/appointments/${data.appointment.id}`)}
+      participantName={profile?.full_name ?? user?.email ?? 'Doctor'}
+      counterpartName={data.patientProfile?.full_name ?? 'the patient'}
+      onBack={() => navigate(`/doctor/appointments/${data.appointment.id}`)}
     />
   );
 };

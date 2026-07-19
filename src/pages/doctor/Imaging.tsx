@@ -3,64 +3,39 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Clock, Layers, ListChecks, Scan, Search, Workflow } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { useDoctorLabOrders } from '../../hooks';
+import { markDoctorImagingStudyReviewed, useImagingStudies } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
-
-function isImagingName(name: string): boolean {
-  return /(mri|ct|x-?ray|ultrasound|sonography|echo|radiology|scan|doppler)/i.test(name);
-}
-
-function modalityFromName(name: string) {
-  const lower = name.toLowerCase();
-  if (lower.includes('mri')) return 'MRI';
-  if (lower.includes('ct')) return 'CT';
-  if (lower.includes('x-ray') || lower.includes('xray')) return 'X-Ray';
-  if (lower.includes('ultrasound') || lower.includes('sono')) return 'Ultrasound';
-  if (lower.includes('echo')) return 'Echo';
-  return 'Radiology';
-}
 
 export const DoctorImaging = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error, refetch } = useDoctorLabOrders(user?.id);
+  const { data, loading, error, refetch } = useImagingStudies(user?.id, 'doctor');
   const uiLang = i18n.language ?? 'en';
   const [activeStatus, setActiveStatus] = useState<'all' | 'pending' | 'reported' | 'abnormal'>('all');
   const [modalityFilter, setModalityFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const studies = useMemo(
-    () =>
-      (data ?? []).flatMap((order) =>
-        order.items
-          .filter((item) => isImagingName(item.test_name))
-          .map((item) => ({
-            id: item.id,
-            orderId: order.id,
-            patientName: order.patientName,
-            status: item.status,
-            modality: modalityFromName(item.test_name),
-            studyType: item.test_name,
-            result: item.result_value,
-            isAbnormal: Boolean(item.is_abnormal),
-          }))
-      ),
+    () => data ?? [],
     [data]
   );
-  const pending = studies.filter((study) => study.status !== 'resulted').length;
-  const abnormal = studies.filter((study) => study.isAbnormal).length;
+  const pending = studies.filter((study) => !['reported', 'released', 'rejected'].includes(study.status)).length;
+  const reported = studies.filter((study) => ['reported', 'released'].includes(study.status)).length;
+  const abnormal = studies.filter((study) => study.alerts.length > 0).length;
   const modalities = useMemo(() => Array.from(new Set(studies.map((study) => study.modality))).sort(), [studies]);
   const filteredStudies = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
     return studies.filter((study) => {
-      if (activeStatus === 'pending' && study.status === 'resulted') return false;
-      if (activeStatus === 'reported' && study.status !== 'resulted') return false;
-      if (activeStatus === 'abnormal' && !study.isAbnormal) return false;
+      if (activeStatus === 'pending' && ['reported', 'released', 'rejected'].includes(study.status)) return false;
+      if (activeStatus === 'reported' && !['reported', 'released'].includes(study.status)) return false;
+      if (activeStatus === 'abnormal' && study.alerts.length === 0) return false;
       if (modalityFilter !== 'all' && study.modality !== modalityFilter) return false;
       if (!search) return true;
-      return [study.patientName, study.studyType, study.modality, study.status].join(' ').toLowerCase().includes(search);
+      return [study.patientName, study.studyName, study.modality, study.status].join(' ').toLowerCase().includes(search);
     });
   }, [activeStatus, modalityFilter, searchQuery, studies]);
   const imagingTabs = [
@@ -69,10 +44,23 @@ export const DoctorImaging = () => {
     {
       id: 'reported' as const,
       label: t('doctor.imaging.tabReported', { defaultValue: 'Reported' }),
-      count: studies.length - pending,
+      count: reported,
     },
     { id: 'abnormal' as const, label: t('doctor.imaging.tabAbnormal', { defaultValue: 'Abnormal' }), count: abnormal },
   ];
+
+  const handleMarkReviewed = async (studyId: string) => {
+    setReviewBusyId(studyId);
+    setReviewError(null);
+    try {
+      await markDoctorImagingStudyReviewed(studyId);
+      await refetch();
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : t('doctor.imaging.reviewError', { defaultValue: 'Unable to mark study reviewed.' }));
+    } finally {
+      setReviewBusyId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -98,6 +86,14 @@ export const DoctorImaging = () => {
           >
             Retry
           </button>
+        </div>
+      ) : null}
+      {reviewError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {reviewError}
         </div>
       ) : null}
 
@@ -139,7 +135,7 @@ export const DoctorImaging = () => {
           },
           {
             label: t('doctor.imaging.tabReported', { defaultValue: 'Reported' }),
-            value: studies.length - pending,
+            value: reported,
             icon: CheckCircle,
             color: 'text-emerald-600',
             bg: 'bg-emerald-100',
@@ -226,23 +222,35 @@ export const DoctorImaging = () => {
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredStudies.map((study) => (
-              <div key={study.id} className={`flex flex-col gap-4 p-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:justify-between ${study.isAbnormal ? 'border-l-4 border-l-red-500 bg-red-50' : ''}`}>
+              <div key={study.id} className={`flex flex-col gap-4 p-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:justify-between ${study.alerts.length > 0 ? 'border-l-4 border-l-red-500 bg-red-50' : ''}`}>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-700">
                       {study.modality}
                     </span>
-                    <span className="font-bold text-slate-900">{study.studyType}</span>
+                    <span className="font-bold text-slate-900">{study.studyName}</span>
                   </div>
                   <div className="mt-1 text-sm text-slate-500">{study.patientName}</div>
                 </div>
                 <div className="text-right text-sm">
-                  <div className={study.isAbnormal ? 'font-bold text-red-600' : 'font-bold text-slate-700'}>
-                    {study.result ?? t('shared.labOrderItemStatus.pending', { defaultValue: 'Pending' })}
+                  <div className={study.alerts.length > 0 ? 'font-bold text-red-600' : 'font-bold text-slate-700'}>
+                    {study.impression ?? study.findings ?? t('shared.labOrderItemStatus.pending', { defaultValue: 'Pending' })}
                   </div>
                   <div className="text-xs text-slate-400">
                     {t(`shared.labOrderItemStatus.${study.status}`, { defaultValue: study.status })}
                   </div>
+                  {study.status === 'released' && !study.reviewedAt ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleMarkReviewed(study.id)}
+                      disabled={reviewBusyId === study.id}
+                      className="mt-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {reviewBusyId === study.id
+                        ? t('doctor.imaging.reviewing', { defaultValue: 'Reviewing...' })
+                        : t('doctor.imaging.markReviewed', { defaultValue: 'Mark reviewed' })}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -253,7 +261,7 @@ export const DoctorImaging = () => {
       <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
         {t('doctor.imaging.footerNote', {
           defaultValue:
-            'Doctor Imaging is backed by lab order items that look like radiology studies. Dedicated imaging/DICOM tables are still needed for full viewer parity.',
+            'Doctor Imaging is backed by canonical radiology studies linked from assigned lab orders. Full DICOM viewer parity remains a future integration.',
         })}
       </div>
     </div>

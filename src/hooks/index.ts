@@ -4,6 +4,26 @@ export { useCounter } from './use-counter';
 export { usePatientAiChat } from './use-patient-ai-chat';
 export { useUserProfile } from './use-user-profile';
 export { useAppointments } from './use-appointments';
+export { usePatientAppointmentDetail } from './use-patient-appointment-detail';
+export type {
+  PatientAppointmentDetailData,
+  PatientAppointmentDoctorProfile,
+  PatientAppointmentLabOrder,
+  PatientAppointmentPrescription,
+} from './use-patient-appointment-detail';
+export {
+  getPatientDocumentSignedUrl,
+  recordPatientDocumentShare,
+  setPatientDocumentCareTeamAccess,
+  softDeletePatientDocument,
+  uploadPatientDocument,
+  usePatientDocumentVault,
+} from './use-patient-document-vault';
+export type {
+  PatientVaultDocument,
+  PatientVaultDocumentCategory,
+  UploadPatientDocumentInput,
+} from './use-patient-document-vault';
 export { useNotifications } from './use-notifications';
 export { usePatientDashboard } from './use-patient-dashboard';
 export { useMedicationLogs } from './use-medication-logs';
@@ -12,6 +32,8 @@ export { usePatientPrimaryInsurance } from './use-patient-primary-insurance';
 export type { PatientPrimaryInsurance } from './use-patient-primary-insurance';
 export { usePatientInsurance } from './use-patient-insurance';
 export type { PatientInsuranceActivity, PatientInsuranceData, PatientInsurancePlan } from './use-patient-insurance';
+export { markDoctorImagingStudyReviewed, useImagingStudies } from './use-imaging-studies';
+export type { ImagingStudyRecord, ImagingStudyStatus } from './use-imaging-studies';
 export { usePatientLabResults } from './use-patient-lab-results';
 export type { PatientLabOrderRecord } from './use-patient-lab-results';
 export { usePatientRecords } from './use-patient-records';
@@ -91,10 +113,14 @@ export type {
 export {
   INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE,
   INSURANCE_PORTAL_DECISION_RPC_NAMES,
+  adjudicateInsuranceClaim,
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  denyPreAuthorization,
+  markPreAuthorizationForReview,
   requireSingleActiveInsuranceMembership,
   setInsuranceSettingEnabled,
+  updateInsuranceFraudAlertStatus,
   useInsurancePortal,
 } from './use-insurance-portal';
 export type {
@@ -125,13 +151,19 @@ export {
   useAdminDoctorDirectory,
   useAdminPatientDirectory,
   useAdminInsurancePartners,
+  useAdminInsurancePlans,
   useAdminAiDashboard,
   createOrganization,
+  setAdminInsurancePlanActive,
+  updateAdminUserAccountStatus,
+  updateAdminUserRole,
+  upsertAdminInsurancePlan,
   onboardClinic,
   setClinicStatus,
   linkDoctorToClinic,
   fetchAdminClinicDoctors,
 } from './use-admin-dashboard';
+export type { AdminInsurancePlanInput } from './use-admin-dashboard';
 export type {
   AdminComplianceData,
   AdminDiagnosticsData,
