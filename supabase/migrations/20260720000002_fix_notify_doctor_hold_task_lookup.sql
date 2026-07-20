@@ -1,3 +1,5 @@
+DROP FUNCTION notify_doctor_of_pharmacy_hold(uuid, text, text);
+
 CREATE OR REPLACE FUNCTION public.notify_doctor_of_pharmacy_hold(
   p_task_id uuid,
   p_medication_names text,
