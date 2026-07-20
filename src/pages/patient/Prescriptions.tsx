@@ -1611,16 +1611,24 @@ export const PatientPrescriptions: React.FC = () => {
                 <p>{t('patient.prescriptions.rxStatus')}</p>
                 <p
                   className={
-                    item.is_dispensed || rx.pharmacyStatus === 'dispensed' || rx.pharmacyStatus === 'picked_up'
-                      ? 'font-medium text-emerald-600'
-                      : 'font-medium text-amber-600'
+                    rx.pharmacyStatus === 'on_hold'
+                      ? 'font-medium text-amber-600'
+                      : rx.pharmacyStatus === 'cancelled'
+                        ? 'font-medium text-red-600'
+                        : item.is_dispensed || rx.pharmacyStatus === 'dispensed' || rx.pharmacyStatus === 'picked_up'
+                          ? 'font-medium text-emerald-600'
+                          : 'font-medium text-amber-600'
                   }
                 >
                   {rx.pharmacyStatus === 'picked_up'
                     ? t('patient.prescriptions.pickedUpItem', { defaultValue: 'Picked Up' })
-                    : item.is_dispensed || rx.pharmacyStatus === 'dispensed'
-                      ? t('patient.prescriptions.dispensed')
-                      : t('patient.prescriptions.pendingItem')}
+                    : rx.pharmacyStatus === 'on_hold'
+                      ? t('patient.prescriptions.onHoldItem', { defaultValue: 'On Hold' })
+                      : rx.pharmacyStatus === 'cancelled'
+                        ? t('patient.prescriptions.cancelledItem', { defaultValue: 'Cancelled' })
+                        : item.is_dispensed || rx.pharmacyStatus === 'dispensed'
+                          ? t('patient.prescriptions.dispensed')
+                          : t('patient.prescriptions.pendingItem')}
                 </p>
               </div>
 
