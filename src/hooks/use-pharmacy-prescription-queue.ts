@@ -387,12 +387,12 @@ export async function sendPharmacyHoldNotificationAndMessage({
 }
 
 export async function sendDoctorHoldNotificationAndMessage({
-  prescriptionId,
+  taskId,
   medications,
   holdNote,
   pharmacyUserId,
 }: {
-  prescriptionId: string;
+  taskId: string;
   medications: string[];
   holdNote: string;
   pharmacyUserId: string | null;
@@ -402,7 +402,7 @@ export async function sendDoctorHoldNotificationAndMessage({
   const medList = medications.slice(0, 2).join(', ');
 
   const { data: doctorId, error: notifyError } = await supabase.rpc('notify_doctor_of_pharmacy_hold', {
-    p_prescription_id: prescriptionId,
+    p_task_id: taskId,
     p_medication_names: medList,
     p_hold_note: holdNote || null,
   });

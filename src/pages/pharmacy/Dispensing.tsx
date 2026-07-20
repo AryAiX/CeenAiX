@@ -293,7 +293,7 @@ export const PharmacyDispensing = () => {
       if (holdReason === 'doctor_clarification') {
         try {
           await sendDoctorHoldNotificationAndMessage({
-            prescriptionId: row.id,
+            taskId: row.taskIds[0],
             medications: row.drugs,
             holdNote,
             pharmacyUserId: user?.id ?? null,
