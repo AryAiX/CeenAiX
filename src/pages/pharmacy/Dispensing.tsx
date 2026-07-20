@@ -6,6 +6,7 @@ import { ChevronDown, MessageSquare, Play, Search, X } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import {
+  sendDoctorHoldNotificationAndMessage,
   sendPharmacyHoldNotificationAndMessage,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
@@ -285,6 +286,23 @@ export const PharmacyDispensing = () => {
             notificationError instanceof Error
               ? `Status updated, but patient notification failed: ${notificationError.message}`
               : 'Status updated, but patient notification failed.'
+          );
+        }
+      }
+
+      if (holdReason === 'doctor_clarification') {
+        try {
+          await sendDoctorHoldNotificationAndMessage({
+            prescriptionId: row.id,
+            medications: row.drugs,
+            holdNote,
+            pharmacyUserId: user?.id ?? null,
+          });
+        } catch (doctorNotificationError) {
+          setActionError(
+            doctorNotificationError instanceof Error
+              ? `Status updated, but doctor notification failed: ${doctorNotificationError.message}`
+              : 'Status updated, but doctor notification failed.'
           );
         }
       }

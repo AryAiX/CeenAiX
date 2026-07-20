@@ -71,6 +71,7 @@ export type {
   NabidhStatus,
 } from './use-lab-ops-portal';
 export {
+  sendDoctorHoldNotificationAndMessage,
   sendPharmacyHoldNotificationAndMessage,
   sendPharmacyResponse,
   setPharmacySettingEnabled,

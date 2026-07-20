@@ -386,6 +386,50 @@ export async function sendPharmacyHoldNotificationAndMessage({
   }
 }
 
+export async function sendDoctorHoldNotificationAndMessage({
+  prescriptionId,
+  medications,
+  holdNote,
+  pharmacyUserId,
+}: {
+  prescriptionId: string;
+  medications: string[];
+  holdNote: string;
+  pharmacyUserId: string | null;
+}): Promise<void> {
+  if (!pharmacyUserId) return;
+
+  const medList = medications.slice(0, 2).join(', ');
+
+  const { data: doctorId, error: notifyError } = await supabase.rpc('notify_doctor_of_pharmacy_hold', {
+    p_prescription_id: prescriptionId,
+    p_medication_names: medList,
+    p_hold_note: holdNote || null,
+  });
+
+  if (notifyError) throw notifyError;
+  if (!doctorId) return;
+
+  const { data: conversationId, error: conversationError } = await supabase.rpc('get_or_create_direct_conversation', {
+    p_other_user_id: doctorId,
+    p_subject: `Prescription Clarification - ${medList}`,
+  });
+
+  if (conversationError) throw conversationError;
+
+  if (typeof conversationId === 'string' && conversationId) {
+    const messageBody = `I have a question about the prescription for ${medList}.${holdNote ? `\n\n${holdNote}` : ''}\n\nCould you confirm or clarify when you have a moment?`;
+    const { error: messageError } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      sender_id: pharmacyUserId,
+      body: messageBody,
+      is_deleted: false,
+    });
+
+    if (messageError) throw messageError;
+  }
+}
+
 /**
  * Persists a pharmacist reply on a `pharmacy_messages` row. The Bolt prototype
  * silently cleared the draft; this writes back to the canonical table so the
