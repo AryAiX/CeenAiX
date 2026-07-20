@@ -629,8 +629,8 @@ export const PharmacyDispensing = () => {
       </div>
       {holdModalRow ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">Put Prescription On Hold</h2>
                 <p className="mt-0.5 text-xs text-slate-500">
@@ -645,7 +645,7 @@ export const PharmacyDispensing = () => {
                 ✕
               </button>
             </div>
-            <div className="space-y-4 px-6 py-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Reason for Hold <span className="text-red-500">*</span>
@@ -680,7 +680,7 @@ export const PharmacyDispensing = () => {
                 />
               </div>
             </div>
-            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+            <div className="flex shrink-0 gap-3 border-t border-slate-100 px-6 py-4">
               <button
                 type="button"
                 onClick={() => setHoldModalRow(null)}
