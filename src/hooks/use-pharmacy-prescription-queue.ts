@@ -367,16 +367,16 @@ export async function sendPharmacyHoldNotificationAndMessage({
 
   if (!pharmacyUserId) return;
 
-  const { data: conversation, error: conversationError } = await supabase.rpc('ensure_direct_conversation', {
+  const { data: conversationId, error: conversationError } = await supabase.rpc('get_or_create_direct_conversation', {
     p_other_user_id: patientUserId,
     p_subject: `Prescription Update - ${medList}`,
   });
 
   if (conversationError) throw conversationError;
 
-  if (conversation?.id) {
+  if (typeof conversationId === 'string' && conversationId) {
     const { error: messageError } = await supabase.from('messages').insert({
-      conversation_id: conversation.id,
+      conversation_id: conversationId,
       sender_id: pharmacyUserId,
       body: messageBody,
       is_deleted: false,
