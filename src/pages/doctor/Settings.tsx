@@ -420,6 +420,16 @@ export const DoctorSettings = () => {
                         Declined
                       </span>
                     )}
+                    {myClinicRecord.invitation_status === 'removed' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium border border-slate-200">
+                        Removed
+                      </span>
+                    )}
+                    {myClinicRecord.invitation_status === 'suspended' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium border border-red-200">
+                        <XCircle size={11} /> Suspended
+                      </span>
+                    )}
                   </div>
 
                   {myClinicRecord.invitation_status === 'pending' && (
@@ -440,6 +450,16 @@ export const DoctorSettings = () => {
                   {myClinicRecord.invitation_status === 'declined' && (
                     <p className="text-xs text-slate-400">
                       You declined this invitation. You can search and request to join another clinic below.
+                    </p>
+                  )}
+                  {myClinicRecord.invitation_status === 'removed' && (
+                    <p className="text-xs text-slate-400">
+                      You are no longer with this clinic. You can search and request to join another clinic below.
+                    </p>
+                  )}
+                  {myClinicRecord.invitation_status === 'suspended' && (
+                    <p className="text-xs text-slate-400">
+                      Your access to this clinic has been suspended. Contact the clinic directly, or search and request to join another clinic below.
                     </p>
                   )}
 
@@ -469,7 +489,7 @@ export const DoctorSettings = () => {
                 </div>
               ) : null}
 
-              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined') && (
+              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined' || myClinicRecord.invitation_status === 'removed' || myClinicRecord.invitation_status === 'suspended') && (
                 <div className="space-y-3">
                   <div className="text-xs font-semibold text-slate-600">Search for a Clinic</div>
                   <div className="relative">
