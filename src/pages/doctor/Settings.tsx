@@ -200,15 +200,9 @@ export const DoctorSettings = () => {
     setJoinLoading(true);
     setJoinError(null);
     try {
-      const { error } = await supabase
-        .from('facility_staff')
-        .insert({
-          facility_id: facilityId,
-          doctor_user_id: user.id,
-          is_active: false,
-          is_available: false,
-          invitation_status: 'pending',
-        });
+      const { error } = await supabase.rpc('request_join_clinic', {
+        p_facility_id: facilityId,
+      });
       if (error) throw error;
 
       await notifyClinicStaff(
