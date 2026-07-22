@@ -715,14 +715,14 @@ export default function ClinicDoctors() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error: deleteError } = await supabase
-        .from('facility_staff')
-        .update({
-          is_active: false,
-          is_available: false,
-          invitation_status: 'removed',
-        })
-        .eq('id', id);
+      const doctor = doctors.find(d => d.id === id);
+      if (!doctor || !facilityId) throw new Error('Missing doctor or facility info.');
+
+      const { error: deleteError } = await supabase.rpc('remove_doctor_and_cancel_appointments', {
+        p_staff_id: id,
+        p_facility_id: facilityId,
+        p_doctor_user_id: doctor.doctorUserId,
+      });
       if (deleteError) throw deleteError;
       setDoctors(prev => prev.filter(d => d.id !== id));
       setMenuOpen(null);
