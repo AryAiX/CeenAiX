@@ -113,10 +113,11 @@ export const DoctorSettings = () => {
       .from('facility_staff')
       .select('id, facility_id, invitation_status, facilities(name, name_en, city)')
       .eq('doctor_user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setMyClinicRecord(data as typeof myClinicRecord);
+      .order('created_at', { ascending: false });
+
+    const rows = data ?? [];
+    const actionable = rows.find(r => r.invitation_status === 'pending' || r.invitation_status === 'invited');
+    setMyClinicRecord((actionable ?? rows[0] ?? null) as typeof myClinicRecord);
   };
 
   useEffect(() => {
