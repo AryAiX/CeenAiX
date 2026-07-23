@@ -676,7 +676,7 @@ export default function ClinicDoctors() {
         })
         .eq('id', id);
       if (updateError) throw updateError;
-      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'inactive' } : d));
+      setDoctors(prev => prev.filter(d => d.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject doctor.');
     }
