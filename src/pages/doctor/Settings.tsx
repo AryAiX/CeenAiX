@@ -116,8 +116,12 @@ export const DoctorSettings = () => {
       .order('created_at', { ascending: false });
 
     const rows = data ?? [];
-    const priority = (status: string) =>
-      status === 'accepted' ? 0 : (status === 'pending' || status === 'invited') ? 1 : 2;
+    const priority = (status: string) => {
+      if (status === 'accepted') return 0;
+      if (status === 'suspended') return 1;
+      if (status === 'pending' || status === 'invited') return 2;
+      return 3;
+    };
     const sorted = [...rows].sort((a, b) => priority(a.invitation_status) - priority(b.invitation_status));
     setMyClinicRecord((sorted[0] ?? null) as typeof myClinicRecord);
   };
