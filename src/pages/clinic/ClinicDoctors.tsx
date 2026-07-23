@@ -56,11 +56,12 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
   const [searching, setSearching] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [elsewhereMap, setElsewhereMap] = useState<Map<string, string>>(new Map());
 
   const searchDoctors = async (query: string) => {
     setSearch(query);
     setInviteError(null);
-    if (query.length < 2) { setResults([]); return; }
+    if (query.length < 2) { setResults([]); setElsewhereMap(new Map()); return; }
     setSearching(true);
     const { data } = await supabase
       .from('user_profiles')
@@ -76,6 +77,19 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
       .in('user_id', userIds);
     const specMap = new Map((specData ?? []).map(s => [s.user_id, s.specialization]));
 
+    const { data: elsewhereData } = await supabase
+      .from('facility_staff')
+      .select('doctor_user_id, facility_id, facilities(name, name_en)')
+      .in('doctor_user_id', userIds)
+      .eq('invitation_status', 'accepted')
+      .eq('is_active', true);
+    const elsewhere = new Map(
+      (elsewhereData ?? [])
+        .filter(e => e.facility_id !== facilityId)
+        .map(e => [e.doctor_user_id, e.facilities?.name_en ?? e.facilities?.name ?? 'another clinic'])
+    );
+    setElsewhereMap(elsewhere);
+
     setResults((data ?? []).map(d => ({
       userId: d.user_id,
       name: d.full_name ?? 'Unknown Doctor',
@@ -89,40 +103,14 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
     setInvitingId(doctorUserId);
     setInviteError(null);
     try {
-      // Check if a facility_staff row already exists for this doctor at this clinic
-      const { data: existing } = await supabase
-        .from('facility_staff')
-        .select('id')
-        .eq('facility_id', facilityId)
-        .eq('doctor_user_id', doctorUserId)
-        .maybeSingle();
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('facility_staff')
-          .update({
-            invitation_status: 'invited',
-            is_active: false,
-            is_available: false,
-          })
-          .eq('id', existing.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('facility_staff')
-          .insert({
-            facility_id: facilityId,
-            doctor_user_id: doctorUserId,
-            invitation_status: 'invited',
-            is_active: false,
-            is_available: false,
-          });
-        if (insertError) throw insertError;
-      }
+      const { error: inviteError } = await supabase.rpc('invite_doctor_to_clinic', {
+        p_facility_id: facilityId,
+        p_doctor_user_id: doctorUserId,
+      });
+      if (inviteError) throw inviteError;
 
       const invitedDoc = results.find(r => r.userId === doctorUserId);
 
-      // Fetch clinic name for the notification
       const { data: facilityData } = await supabase
         .from('facilities')
         .select('name, name_en')
@@ -140,7 +128,8 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
 
       onInvited(invitedDoc?.name ?? 'the doctor');
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'Failed to send invitation.');
+      const message = err instanceof Error ? err.message : (err as { message?: string })?.message;
+      setInviteError(message ?? 'Failed to send invitation.');
     } finally {
       setInvitingId(null);
     }
@@ -175,6 +164,7 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
             <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
               {results.map(d => {
                 const alreadyInClinic = existingDoctorIds.includes(d.userId);
+                const elsewhereClinic = elsewhereMap.get(d.userId);
                 return (
                   <div key={d.userId} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-3">
@@ -189,6 +179,10 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
                     {alreadyInClinic ? (
                       <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold">
                         Already in Clinic
+                      </span>
+                    ) : elsewhereClinic ? (
+                      <span className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold">
+                        Already registered with {elsewhereClinic}
                       </span>
                     ) : (
                       <button
