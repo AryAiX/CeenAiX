@@ -424,6 +424,11 @@ export const DoctorSettings = () => {
                         <XCircle size={11} /> Suspended
                       </span>
                     )}
+                    {myClinicRecord.invitation_status === 'cancelled' && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium border border-slate-200">
+                        Invitation Cancelled
+                      </span>
+                    )}
                   </div>
 
                   {myClinicRecord.invitation_status === 'pending' && (
@@ -456,6 +461,11 @@ export const DoctorSettings = () => {
                       Your access to this clinic has been suspended. Contact the clinic directly, or search and request to join another clinic below.
                     </p>
                   )}
+                  {myClinicRecord.invitation_status === 'cancelled' && (
+                    <p className="text-xs text-slate-400">
+                      This clinic cancelled its invitation. You can search and request to join another clinic below.
+                    </p>
+                  )}
 
                   {myClinicRecord.invitation_status === 'invited' && (
                     <>
@@ -483,7 +493,7 @@ export const DoctorSettings = () => {
                 </div>
               ) : null}
 
-              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined' || myClinicRecord.invitation_status === 'removed' || myClinicRecord.invitation_status === 'suspended') && (
+              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined' || myClinicRecord.invitation_status === 'removed' || myClinicRecord.invitation_status === 'suspended' || myClinicRecord.invitation_status === 'cancelled') && (
                 <div className="space-y-3">
                   <div className="text-xs font-semibold text-slate-600">Search for a Clinic</div>
                   <div className="relative">
