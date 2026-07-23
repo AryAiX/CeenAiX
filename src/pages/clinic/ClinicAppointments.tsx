@@ -109,6 +109,10 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose
         .eq('is_deleted', false)
         .not('status', 'in', '("cancelled","no_show")');
 
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const nowMinutes = dateStr === todayStr ? now.getHours() * 60 + now.getMinutes() : -1;
+
       const slots: string[] = [];
       (availability ?? []).forEach(window => {
         const duration = window.slot_duration_minutes || 30;
@@ -129,7 +133,9 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose
             return cursor < aEnd && slotEnd > aStart;
           });
 
-          if (!isBlocked && !isBooked) {
+          const isPast = cursor <= nowMinutes;
+
+          if (!isBlocked && !isBooked && !isPast) {
             slots.push(minutesToTime(cursor));
           }
           cursor += duration;
