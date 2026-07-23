@@ -24,7 +24,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '../../components/Skeleton';
-import { useDoctorDashboard } from '../../hooks';
+import { useDoctorClinicMembership, useDoctorDashboard } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import {
   appointmentTypeLabel,
@@ -48,11 +48,14 @@ export const DoctorDashboard: React.FC = () => {
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const { doctorProfile, profile, user } = useAuth();
   const { data, loading, error, refetch } = useDoctorDashboard(user?.id);
+  const { data: clinicMembership } = useDoctorClinicMembership(user?.id);
 
   const displayName = getDisplayName(profile?.full_name, profile?.first_name) || t('shared.doctor');
   const doctorName = /^dr\.?/i.test(displayName) ? displayName : uiLang.startsWith('ar') ? `د. ${displayName}` : `Dr. ${displayName}`;
   const doctorLocation = profile?.city?.trim() || (uiLang.startsWith('ar') ? 'دبي، الإمارات' : 'Dubai, UAE');
-  const doctorFacility = profile?.address?.trim() || doctorLocation;
+  const isCurrentClinic = clinicMembership?.invitation_status === 'accepted' || clinicMembership?.invitation_status === 'suspended';
+  const clinicName = isCurrentClinic ? (clinicMembership?.facilities?.name_en ?? clinicMembership?.facilities?.name) : null;
+  const doctorFacility = clinicName || profile?.address?.trim() || doctorLocation;
   const doctorLicense = doctorProfile?.license_number?.trim() || (uiLang.startsWith('ar') ? 'الترخيص قيد الإضافة' : 'License pending');
   const isArabic = uiLang.startsWith('ar');
   const hour = new Date().getHours();
