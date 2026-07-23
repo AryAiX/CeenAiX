@@ -485,6 +485,14 @@ export default function ClinicAppointments() {
         action_url: '/patient/appointments',
       });
 
+      await supabase.from('notifications').insert({
+        user_id: selectedDoctor.userId,
+        type: 'appointment',
+        title: '📅 New Appointment Scheduled',
+        body: `A new appointment with ${data.patientName || 'a patient'} has been scheduled on ${data.date} at ${data.time}.`,
+        action_url: '/doctor/appointments',
+      });
+
       const newAppt: Appointment = {
         id: inserted.id,
         patientName: data.patientName || '',
