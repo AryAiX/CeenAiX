@@ -212,7 +212,7 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
   );
 }
 
-function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void }) {
+function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend, onReactivate }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void; onReactivate?: () => void }) {
   const navigate = useNavigate();
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
@@ -345,6 +345,11 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
           {doctor.status === 'active' && onSuspend && (
             <button onClick={() => { onSuspend(); onClose(); }} className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mt-6">
               Suspend Doctor
+            </button>
+          )}
+          {doctor.status === 'suspended' && onReactivate && (
+            <button onClick={() => { onReactivate(); onClose(); }} className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mt-6">
+              <CheckCircle size={16} /> Reactivate Doctor
             </button>
           )}
         </div>
@@ -562,7 +567,9 @@ export default function ClinicDoctors() {
               ? 'invited'
               : staff.invitation_status === 'declined'
                 ? 'declined'
-                : 'inactive';
+                : staff.invitation_status === 'suspended'
+                  ? 'suspended'
+                  : 'inactive';
 
         const joinedDate = staff.created_at
           ? new Date(staff.created_at).toLocaleDateString('en-AE', { month: 'short', year: 'numeric' })
@@ -704,6 +711,23 @@ export default function ClinicDoctors() {
       setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'suspended' } : d));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to suspend doctor.');
+    }
+  };
+
+  const handleReactivate = async (id: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('facility_staff')
+        .update({
+          is_active: true,
+          is_available: true,
+          invitation_status: 'accepted',
+        })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'active' } : d));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reactivate doctor.');
     }
   };
 
@@ -1021,6 +1045,7 @@ export default function ClinicDoctors() {
           onApprove={selectedDoctor.status === 'pending' ? () => void handleApprove(selectedDoctor.id) : undefined}
           onReject={selectedDoctor.status === 'pending' ? () => void handleReject(selectedDoctor.id) : undefined}
           onSuspend={selectedDoctor.status === 'active' ? () => void handleSuspend(selectedDoctor.id) : undefined}
+          onReactivate={selectedDoctor.status === 'suspended' ? () => void handleReactivate(selectedDoctor.id) : undefined}
         />
       )}
       {confirmDelete && (
