@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Banknote, Calendar, FileSpreadsheet, Receipt, Wallet } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Skeleton } from '../../components/Skeleton';
 import { useDoctorDashboard } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { supabase } from '../../lib/supabase';
 
 export const DoctorEarnings = () => {
   const { t, i18n } = useTranslation('common');
@@ -13,7 +14,23 @@ export const DoctorEarnings = () => {
   const { user, doctorProfile } = useAuth();
   const { data, loading, error, refetch } = useDoctorDashboard(user?.id);
   const uiLang = i18n.language ?? 'en';
-  const fee = doctorProfile?.consultation_fee ?? 0;
+  const [clinicFee, setClinicFee] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('facility_staff')
+      .select('consultation_fee')
+      .eq('doctor_user_id', user.id)
+      .eq('invitation_status', 'accepted')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setClinicFee(data?.consultation_fee ?? null));
+  }, [user?.id]);
+
+  const fee = clinicFee ?? doctorProfile?.consultation_fee ?? 0;
   const completedToday = data?.completedTodayAppointments ?? 0;
   const scheduledToday = data?.todayAppointments ?? 0;
   const estimatedToday = completedToday * fee;
