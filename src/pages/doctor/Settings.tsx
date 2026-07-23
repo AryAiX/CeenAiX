@@ -116,8 +116,10 @@ export const DoctorSettings = () => {
       .order('created_at', { ascending: false });
 
     const rows = data ?? [];
-    const actionable = rows.find(r => r.invitation_status === 'pending' || r.invitation_status === 'invited');
-    setMyClinicRecord((actionable ?? rows[0] ?? null) as typeof myClinicRecord);
+    const priority = (status: string) =>
+      status === 'accepted' ? 0 : (status === 'pending' || status === 'invited') ? 1 : 2;
+    const sorted = [...rows].sort((a, b) => priority(a.invitation_status) - priority(b.invitation_status));
+    setMyClinicRecord((sorted[0] ?? null) as typeof myClinicRecord);
   };
 
   useEffect(() => {
