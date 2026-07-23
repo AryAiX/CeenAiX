@@ -461,7 +461,9 @@ export default function ClinicAppointments() {
       const selectedDoctor = doctorOptions.find(d => d.userId === data.doctor);
       if (!selectedDoctor) throw new Error('Please select a valid doctor.');
 
-      const scheduledAt = `${data.date}T${data.time}:00`;
+      const [year, month, day] = data.date.split('-').map(Number);
+      const [hour, minute] = data.time.split(':').map(Number);
+      const scheduledAt = new Date(year, month - 1, day, hour, minute).toISOString();
 
       const apptType = data.type && TELEMEDICINE_TYPES.has(data.type) ? 'virtual' : 'in_person';
 
