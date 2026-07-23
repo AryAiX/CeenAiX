@@ -21,6 +21,8 @@ interface Doctor {
   totalAppts: number;
   rating: number;
   consultationFee: number;
+  telemedicineFee: number;
+  followUpFee: number;
   weeklyAvailability: { day: string; start: string; end: string }[];
   upcomingBlockedSlots: { date: string; start: string; end: string; reason: string | null }[];
   dhaVerified: boolean;
@@ -407,7 +409,7 @@ export default function ClinicDoctors() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
-  const [editForm, setEditForm] = useState({ consultationFee: 0, status: '' });
+  const [editForm, setEditForm] = useState({ consultationFee: 0, telemedicineFee: 0, followUpFee: 0, status: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -453,7 +455,7 @@ export default function ClinicDoctors() {
       // Fetch facility staff (exclude terminal statuses)
       const { data: staffData, error: staffError } = await supabase
         .from('facility_staff')
-        .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, created_at')
+        .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, telemedicine_fee, follow_up_fee, created_at')
         .eq('facility_id', fId)
         .not('invitation_status', 'in', '("removed","rejected","cancelled")');
 
@@ -591,6 +593,8 @@ export default function ClinicDoctors() {
           totalAppts: totalApptCount.get(staff.doctor_user_id) ?? 0,
           rating: ratings?.average_rating ? Number(Number(ratings.average_rating).toFixed(1)) : 0,
           consultationFee: Number(staff.consultation_fee ?? doctorProfile?.consultation_fee ?? 0),
+          telemedicineFee: Number(staff.telemedicine_fee ?? 0),
+          followUpFee: Number(staff.follow_up_fee ?? 0),
           weeklyAvailability: availabilityMap.get(staff.doctor_user_id) ?? [],
           upcomingBlockedSlots: blockedMap.get(staff.doctor_user_id) ?? [],
           dhaVerified: doctorProfile?.dha_license_verified ?? false,
@@ -754,6 +758,8 @@ export default function ClinicDoctors() {
     setEditingDoctor(doctor);
     setEditForm({
       consultationFee: doctor.consultationFee,
+      telemedicineFee: doctor.telemedicineFee,
+      followUpFee: doctor.followUpFee,
       status: doctor.status,
     });
     setMenuOpen(null);
@@ -767,12 +773,16 @@ export default function ClinicDoctors() {
         .from('facility_staff')
         .update({
           consultation_fee: editForm.consultationFee,
+          telemedicine_fee: editForm.telemedicineFee,
+          follow_up_fee: editForm.followUpFee,
         })
         .eq('id', editingDoctor.id);
       if (updateError) throw updateError;
       setDoctors(prev => prev.map(d => d.id === editingDoctor.id ? {
         ...d,
         consultationFee: editForm.consultationFee,
+        telemedicineFee: editForm.telemedicineFee,
+        followUpFee: editForm.followUpFee,
       } : d));
       setEditingDoctor(null);
     } catch (err) {
@@ -987,6 +997,28 @@ export default function ClinicDoctors() {
                   type="number"
                   value={editForm.consultationFee}
                   onChange={e => setEditForm(prev => ({ ...prev, consultationFee: Number(e.target.value) }))}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              {/* Telemedicine Fee */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Telemedicine Fee (AED)</label>
+                <input
+                  type="number"
+                  value={editForm.telemedicineFee}
+                  onChange={e => setEditForm(prev => ({ ...prev, telemedicineFee: Number(e.target.value) }))}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              {/* Follow-up Fee */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Follow-up Fee (AED)</label>
+                <input
+                  type="number"
+                  value={editForm.followUpFee}
+                  onChange={e => setEditForm(prev => ({ ...prev, followUpFee: Number(e.target.value) }))}
                   className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
