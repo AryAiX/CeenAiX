@@ -743,15 +743,12 @@ export default function ClinicDoctors() {
         .from('facility_staff')
         .update({
           consultation_fee: editForm.consultationFee,
-          is_active: editForm.status === 'active',
-          is_available: editForm.status === 'active',
         })
         .eq('id', editingDoctor.id);
       if (updateError) throw updateError;
       setDoctors(prev => prev.map(d => d.id === editingDoctor.id ? {
         ...d,
         consultationFee: editForm.consultationFee,
-        status: editForm.status as Doctor['status'],
       } : d));
       setEditingDoctor(null);
     } catch (err) {
@@ -968,21 +965,6 @@ export default function ClinicDoctors() {
                   onChange={e => setEditForm(prev => ({ ...prev, consultationFee: Number(e.target.value) }))}
                   className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Status</label>
-                <select
-                  value={editForm.status}
-                  onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                >
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="suspended">Suspended</option>
-                </select>
               </div>
 
               {/* Availability */}
