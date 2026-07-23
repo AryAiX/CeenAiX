@@ -177,10 +177,15 @@ export const useDoctorClinicMembership = (userId: string | null | undefined) => 
         'clinic_managed_pricing, consultation_fee, telemedicine_fee, follow_up_fee, invitation_status, facilities(id, name, name_en, name_ar, city, phone, email)',
       )
       .eq('doctor_user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
     if (error) throw error;
-    return data as DoctorClinicMembership | null;
+    const rows = (data ?? []) as DoctorClinicMembership[];
+    const priority = (status: string) => {
+      if (status === 'accepted' || status === 'suspended') return 0;
+      if (status === 'pending' || status === 'invited') return 1;
+      return 2;
+    };
+    const sorted = [...rows].sort((a, b) => priority(a.invitation_status) - priority(b.invitation_status));
+    return sorted[0] ?? null;
   }, [userId]);
 };
