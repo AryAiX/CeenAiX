@@ -934,7 +934,7 @@ export default function ClinicDoctors() {
         <AddDoctorModal
           onClose={() => setShowAdd(false)}
           facilityId={facilityId}
-          existingDoctorIds={doctors.map(d => d.doctorUserId)}
+          existingDoctorIds={doctors.filter(d => d.status !== 'declined').map(d => d.doctorUserId)}
           onInvited={(doctorName) => {
             setShowAdd(false);
             setInviteBanner(`Invitation sent to ${doctorName}!`);
