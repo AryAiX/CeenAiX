@@ -170,6 +170,15 @@ export const PatientAppointments: React.FC = () => {
     [appointments]
   );
 
+  const facilityIds = useMemo(
+    () => Array.from(new Set(
+      appointments
+        .map((appointment) => appointment.facility_id)
+        .filter((id): id is string => Boolean(id))
+    )),
+    [appointments]
+  );
+
   const {
     data: doctorProfilesData,
     loading: doctorProfilesLoading,
@@ -214,6 +223,27 @@ export const PatientAppointments: React.FC = () => {
     () => new Map(doctorProfiles.map((doctorProfile) => [doctorProfile.userId, doctorProfile])),
     [doctorProfiles]
   );
+
+  const { data: facilitiesData } = useQuery<{ id: string; name: string; address: string | null }[]>(
+    async () => {
+      if (facilityIds.length === 0) {
+        return [];
+      }
+      const { data, error } = await supabase
+        .from('facilities')
+        .select('id, name, address')
+        .in('id', facilityIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    [facilityIds.join(',')]
+  );
+
+  const facilityById = useMemo(
+    () => new Map((facilitiesData ?? []).map((facility) => [facility.id, facility])),
+    [facilitiesData]
+  );
+
   const preVisitAssessmentByAppointmentId = useMemo(
     () => new Map(preVisitAssessments.map((assessment) => [assessment.appointmentId, assessment])),
     [preVisitAssessments]
@@ -481,8 +511,9 @@ export const PatientAppointments: React.FC = () => {
 
   const renderAppointmentCard = (appointment: Appointment) => {
     const doctorProfile = doctorProfileById.get(appointment.doctor_id);
-    const clinicName = doctorProfile?.city ?? t('shared.clinicPending');
-    const clinicAddress = doctorProfile?.address ?? '';
+    const facility = appointment.facility_id ? facilityById.get(appointment.facility_id) : undefined;
+    const clinicName = facility?.name ?? doctorProfile?.city ?? t('shared.clinicPending');
+    const clinicAddress = facility?.address ?? doctorProfile?.address ?? '';
     const upcoming = isUpcoming(appointment);
     const preVisitAssessment = preVisitAssessmentByAppointmentId.get(appointment.id);
     const isTeleconsult = appointment.type === 'virtual';
@@ -1007,6 +1038,7 @@ export const PatientAppointments: React.FC = () => {
                 <tbody className="divide-y divide-gray-200">
                   {pastAppointments.map((appointment) => {
                     const doctorProfile = doctorProfileById.get(appointment.doctor_id);
+                    const facility = appointment.facility_id ? facilityById.get(appointment.facility_id) : undefined;
                     const typeColor =
                       appointment.type === 'virtual' ? 'text-violet-700' : 'text-teal-700';
                     return (
@@ -1034,7 +1066,7 @@ export const PatientAppointments: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-700">
-                            {doctorProfile?.city ?? t('shared.clinicPending')}
+                            {facility?.name ?? doctorProfile?.city ?? t('shared.clinicPending')}
                           </td>
                           <td className="px-6 py-4">
                             <span className={`text-sm font-medium ${typeColor}`}>
@@ -1242,8 +1274,13 @@ export const PatientAppointments: React.FC = () => {
     const directionsDoctor = directionsAppointment
       ? doctorProfileById.get(directionsAppointment.doctor_id)
       : undefined;
-    const address = [directionsDoctor?.address, directionsDoctor?.city].filter(Boolean).join(', ');
-    const clinicLabel = directionsDoctor?.city ?? t('shared.clinicPending');
+    const directionsFacility = directionsAppointment?.facility_id
+      ? facilityById.get(directionsAppointment.facility_id)
+      : undefined;
+    const address = directionsFacility
+      ? [directionsFacility.address, directionsFacility.name].filter(Boolean).join(', ')
+      : [directionsDoctor?.address, directionsDoctor?.city].filter(Boolean).join(', ');
+    const clinicLabel = directionsFacility?.name ?? directionsDoctor?.city ?? t('shared.clinicPending');
     const encodedAddress = encodeURIComponent(address);
 
     const navApps = [
@@ -1375,8 +1412,9 @@ export const PatientAppointments: React.FC = () => {
     if (!appointment) return null;
 
     const doctorProfile = doctorProfileById.get(appointment.doctor_id);
-    const clinicName = doctorProfile?.city ?? t('shared.clinicPending');
-    const clinicAddress = doctorProfile?.address ?? '';
+    const facility = appointment.facility_id ? facilityById.get(appointment.facility_id) : undefined;
+    const clinicName = facility?.name ?? doctorProfile?.city ?? t('shared.clinicPending');
+    const clinicAddress = facility?.address ?? doctorProfile?.address ?? '';
     const location = [clinicName, clinicAddress].filter(Boolean).join(', ');
     const doctorName = doctorProfile?.fullName ?? t('shared.doctor');
 
