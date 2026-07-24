@@ -240,7 +240,7 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
         .eq('is_active', true),
       supabase
         .from('appointments')
-        .select('id, doctor_id, type, status, scheduled_at')
+        .select('id, doctor_id, facility_id, type, status, scheduled_at')
         .eq('patient_id', userId)
         .eq('is_deleted', false)
         .order('scheduled_at', { ascending: true }),
@@ -353,13 +353,23 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
       }
     >();
 
+    const facilityIds = [...new Set(
+      safeAppointments.map((appointment) => appointment.facility_id).filter((id): id is string => Boolean(id))
+    )];
+
+    const facilityById = new Map<string, { name: string; address: string | null }>();
+
     if (doctorIds.length > 0) {
       const [
         { data: doctorUserProfiles, error: doctorUserProfilesError },
         { data: doctorProfiles, error: doctorProfilesError },
+        { data: facilitiesData, error: facilitiesError },
       ] = await Promise.all([
         supabase.from('user_profiles').select('user_id, full_name, city').in('user_id', doctorIds),
         supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', doctorIds),
+        facilityIds.length > 0
+          ? supabase.from('facilities').select('id, name, address').in('id', facilityIds)
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (doctorUserProfilesError) {
@@ -369,6 +379,14 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
       if (doctorProfilesError) {
         throw doctorProfilesError;
       }
+
+      if (facilitiesError) {
+        throw facilitiesError;
+      }
+
+      (facilitiesData ?? []).forEach((facility) => {
+        facilityById.set(facility.id, { name: facility.name, address: facility.address });
+      });
 
       const specialtyByDoctorId = new Map(
         (doctorProfiles ?? []).map((profile) => [profile.user_id, profile.specialization ?? null])
@@ -389,12 +407,13 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
 
     if (nextAppointmentBase) {
       const doctorProfile = doctorProfilesById.get(nextAppointmentBase.doctor_id);
+      const facility = nextAppointmentBase.facility_id ? facilityById.get(nextAppointmentBase.facility_id) : undefined;
 
       nextAppointment = {
         id: nextAppointmentBase.id,
         doctorName: doctorProfile?.fullName ?? careTeamClinicianFallback(),
         specialty: doctorProfile?.specialty ?? null,
-        doctorCity: doctorProfile?.city ?? null,
+        doctorCity: facility?.name ?? doctorProfile?.city ?? null,
         scheduledAt: nextAppointmentBase.scheduled_at,
         type: nextAppointmentBase.type,
       };
@@ -420,12 +439,16 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
                 appointment.status !== 'cancelled' && appointment.status !== 'no_show'
             ) ?? null;
         const doctorProfile = doctorProfilesById.get(doctorId);
+        const representativeAppointment = nextDoctorAppointment ?? lastDoctorAppointment;
+        const facility = representativeAppointment?.facility_id
+          ? facilityById.get(representativeAppointment.facility_id)
+          : undefined;
 
         return {
           doctorId,
           doctorName: doctorProfile?.fullName ?? careTeamClinicianFallback(),
           specialty: doctorProfile?.specialty ?? null,
-          doctorCity: doctorProfile?.city ?? null,
+          doctorCity: facility?.name ?? doctorProfile?.city ?? null,
           nextAppointmentAt: nextDoctorAppointment?.scheduled_at ?? null,
           lastAppointmentAt: lastDoctorAppointment?.scheduled_at ?? null,
         };
