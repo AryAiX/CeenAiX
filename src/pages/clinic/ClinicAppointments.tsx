@@ -532,15 +532,15 @@ export default function ClinicAppointments() {
   };
 
   function getValidNextStatuses(current: Appointment['status']): Appointment['status'][] {
-    if (current === 'completed' || current === 'cancelled' || current === 'no-show') {
+    if (current === 'completed' || current === 'cancelled' || current === 'no_show') {
       return [current];
     }
-    const rank: Record<string, number> = { scheduled: 0, confirmed: 1, 'in-progress': 2, completed: 3 };
+    const rank: Record<string, number> = { scheduled: 0, confirmed: 1, in_progress: 2, completed: 3 };
     const currentRank = rank[current];
     const forward = statusOptions
       .map(s => s.value)
       .filter(v => rank[v] !== undefined && rank[v] > currentRank) as Appointment['status'][];
-    return [current, ...forward, 'cancelled', 'no-show'];
+    return [current, ...forward, 'cancelled', 'no_show'];
   }
 
   if (loading) {
