@@ -351,7 +351,7 @@ export default function ClinicAppointments() {
       // Fetch appointments
       const { data: apptData, error: apptError } = await supabase
         .from('appointments')
-        .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint, notes, duration_minutes, created_at, updated_at')
+        .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint, notes, duration_minutes, created_at, updated_at, rescheduled_at')
         .eq('facility_id', fId)
         .eq('is_deleted', false)
         .order('scheduled_at', { ascending: false });
@@ -393,9 +393,7 @@ export default function ClinicAppointments() {
         const patient = profileMap.get(a.patient_id);
         const doctor = profileMap.get(a.doctor_id);
         const scheduledAt = new Date(a.scheduled_at);
-        const createdAt = new Date(a.created_at).getTime();
-        const updatedAt = new Date(a.updated_at).getTime();
-        const wasRescheduled = updatedAt - createdAt > 60000; // more than 1 minute apart
+        const wasRescheduled = a.rescheduled_at !== null;
         return {
           id: a.id,
           patientName: patient?.full_name ?? 'Unknown Patient',
