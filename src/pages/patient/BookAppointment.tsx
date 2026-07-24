@@ -637,6 +637,9 @@ export const BookAppointment: React.FC = () => {
                           {[selectedDoctor.city, selectedDoctor.address].filter(Boolean).join(' • ') ||
                             t('shared.clinicTbd')}
                         </p>
+                        <p className="mt-1 text-sm font-semibold text-teal-700">
+                          {selectedDoctor.consultationFee != null ? `AED ${selectedDoctor.consultationFee}` : 'Fee available at clinic'}
+                        </p>
                       </div>
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 shadow-sm">
                         {selectedDoctor.activeAvailabilityCount === 1
@@ -723,6 +726,9 @@ export const BookAppointment: React.FC = () => {
                                 <p className="mt-2 text-sm text-gray-600">
                                   {[doctor.city, doctor.address].filter(Boolean).join(' • ') || t('shared.clinicTbd')}
                                 </p>
+                                <p className="mt-1 text-sm font-semibold text-teal-700">
+                                  {doctor.consultationFee != null ? `AED ${doctor.consultationFee}` : 'Fee available at clinic'}
+                                </p>
                               </div>
                               <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 shadow-sm">
                                 {doctor.activeAvailabilityCount === 1
@@ -776,6 +782,9 @@ export const BookAppointment: React.FC = () => {
                             <p className="mt-2 text-sm text-gray-600">
                               {[doctor.city, doctor.address].filter(Boolean).join(' • ') || t('shared.clinicTbd')}
                             </p>
+                            <p className="mt-1 text-sm font-semibold text-teal-700">
+                              {doctor.consultationFee != null ? `AED ${doctor.consultationFee}` : 'Fee available at clinic'}
+                            </p>
                           </div>
                           <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 shadow-sm">
                             {doctor.activeAvailabilityCount === 1
@@ -814,6 +823,9 @@ export const BookAppointment: React.FC = () => {
                       {[selectedDoctor.city, selectedDoctor.address].filter(Boolean).join(' • ') ||
                         t('shared.clinicAfterBooking')}
                     </span>
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-teal-700">
+                    {selectedDoctor.consultationFee != null ? `AED ${selectedDoctor.consultationFee}` : 'Fee available at clinic'}
                   </p>
                 </div>
 
@@ -1144,6 +1156,12 @@ export const BookAppointment: React.FC = () => {
                     {appointmentType === 'virtual'
                       ? t('patient.appointments.filterTeleconsult', { defaultValue: 'Teleconsult' })
                       : t('patient.appointments.filterInPerson', { defaultValue: 'In Person' })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Fee</span>
+                  <span className="font-semibold text-teal-700">
+                    {selectedDoctor.consultationFee != null ? `AED ${selectedDoctor.consultationFee}` : 'Contact clinic'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
