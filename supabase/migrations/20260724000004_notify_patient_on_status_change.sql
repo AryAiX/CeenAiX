@@ -33,15 +33,15 @@ BEGIN
     RETURN;
   END IF;
 
-  IF v_old_status IN ('completed', 'cancelled', 'no-show') THEN
+  IF v_old_status IN ('completed', 'cancelled', 'no_show') THEN
     RAISE EXCEPTION 'This appointment is % and its status can no longer be changed.', v_old_status;
   END IF;
 
-  IF p_new_status IN ('cancelled', 'no-show') THEN
+  IF p_new_status IN ('cancelled', 'no_show') THEN
     UPDATE public.appointments SET status = p_new_status::appointment_status, updated_at = now() WHERE id = p_appointment_id;
   ELSE
-    v_old_rank := CASE v_old_status WHEN 'scheduled' THEN 0 WHEN 'confirmed' THEN 1 WHEN 'in-progress' THEN 2 END;
-    v_new_rank := CASE p_new_status WHEN 'scheduled' THEN 0 WHEN 'confirmed' THEN 1 WHEN 'in-progress' THEN 2 WHEN 'completed' THEN 3 ELSE NULL END;
+    v_old_rank := CASE v_old_status WHEN 'scheduled' THEN 0 WHEN 'confirmed' THEN 1 WHEN 'in_progress' THEN 2 END;
+    v_new_rank := CASE p_new_status WHEN 'scheduled' THEN 0 WHEN 'confirmed' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'completed' THEN 3 ELSE NULL END;
 
     IF v_new_rank IS NULL OR v_new_rank <= v_old_rank THEN
       RAISE EXCEPTION 'Cannot move appointment status backward from % to %.', v_old_status, p_new_status;
@@ -50,7 +50,7 @@ BEGIN
     UPDATE public.appointments SET status = p_new_status::appointment_status, updated_at = now() WHERE id = p_appointment_id;
   END IF;
 
-  IF p_new_status IN ('cancelled', 'no-show') THEN
+  IF p_new_status IN ('cancelled', 'no_show') THEN
     SELECT full_name INTO v_doctor_name FROM public.user_profiles WHERE user_id = v_doctor_id;
 
     INSERT INTO public.notifications (user_id, type, title, body, action_url)
@@ -59,11 +59,11 @@ BEGIN
       'appointment',
       CASE p_new_status
         WHEN 'cancelled' THEN '❌ Appointment Cancelled'
-        WHEN 'no-show' THEN '⚠️ Appointment Marked as No-Show'
+        WHEN 'no_show' THEN '⚠️ Appointment Marked as No-Show'
       END,
       CASE p_new_status
         WHEN 'cancelled' THEN format('Your appointment with %s on %s has been cancelled by the clinic.', coalesce(v_doctor_name, 'your doctor'), to_char(v_scheduled_at, 'FMMonth FMDD, YYYY'))
-        WHEN 'no-show' THEN format('Your appointment with %s on %s has been marked as a no-show.', coalesce(v_doctor_name, 'your doctor'), to_char(v_scheduled_at, 'FMMonth FMDD, YYYY'))
+        WHEN 'no_show' THEN format('Your appointment with %s on %s has been marked as a no-show.', coalesce(v_doctor_name, 'your doctor'), to_char(v_scheduled_at, 'FMMonth FMDD, YYYY'))
       END,
       '/patient/appointments'
     );
