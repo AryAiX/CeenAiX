@@ -94,8 +94,11 @@ export {
   INSURANCE_PORTAL_DECISION_RPC_NAMES,
   approvePreAuthorization,
   bulkApprovePreAuthorizations,
+  flagMemberForReview,
+  logWellnessOutreach,
   requireSingleActiveInsuranceMembership,
   setInsuranceSettingEnabled,
+  useInsuranceNotifications,
   useInsurancePortal,
 } from './use-insurance-portal';
 export type {
@@ -105,12 +108,14 @@ export type {
   InsuranceMember,
   InsuranceMonthlyClaimsVolumePoint,
   InsuranceNetworkProvider,
+  InsuranceNotificationsData,
   InsurancePayerProfile,
   InsurancePortalData,
   InsurancePreAuthorization,
   InsuranceReportRun,
   InsuranceRiskSegment,
   InsuranceSetting,
+  LogWellnessOutreachInput,
 } from './use-insurance-portal';
 export {
   useAdminMetrics,

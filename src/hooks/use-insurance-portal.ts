@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
+import type { Notification } from '../types';
 
 export interface InsuranceOrganization {
   id: string;
@@ -437,6 +438,73 @@ export async function approvePreAuthorization(
   throw new Error(INSURANCE_PORTAL_DECISION_ACTION_UNAVAILABLE_MESSAGE);
 }
 
+async function resolveActiveInsuranceOrganizationId(): Promise<string> {
+  const { data: userResult, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+
+  if (!userResult.user) {
+    throw new Error('Sign in with an insurance account to perform this action.');
+  }
+
+  const { data: membershipRows, error: membershipError } = await supabase
+    .from('organization_members')
+    .select('organization_id, ends_at')
+    .eq('user_id', userResult.user.id);
+  if (membershipError) throw membershipError;
+
+  return requireSingleActiveInsuranceMembership(
+    (membershipRows ?? []) as InsuranceOrganizationMembershipRow[],
+  );
+}
+
+export interface LogWellnessOutreachInput {
+  audience: 'all' | 'high_risk' | 'benefit_alert' | 'custom' | 'single_member';
+  recipientCount: number;
+  channels: string[];
+  messageEn: string;
+  memberId?: string | null;
+  planFilter?: string[] | null;
+  subjectEn?: string | null;
+  subjectAr?: string | null;
+  messageAr?: string | null;
+}
+
+/**
+ * Logs a wellness outreach campaign send against the signed-in user's insurance
+ * organization, via the hardened `log_wellness_outreach` RPC.
+ */
+export async function logWellnessOutreach(input: LogWellnessOutreachInput): Promise<void> {
+  const organizationId = await resolveActiveInsuranceOrganizationId();
+
+  const { error } = await supabase.rpc('log_wellness_outreach', {
+    p_organization_id: organizationId,
+    p_audience: input.audience,
+    p_recipient_count: input.recipientCount,
+    p_channels: input.channels,
+    p_message_en: input.messageEn,
+    p_member_id: input.memberId ?? null,
+    p_plan_filter: input.planFilter ?? null,
+    p_subject_en: input.subjectEn ?? null,
+    p_subject_ar: input.subjectAr ?? null,
+    p_message_ar: input.messageAr ?? null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Flags an insurance member for care review, via the hardened
+ * `flag_insurance_member_for_review` RPC.
+ */
+export async function flagMemberForReview(memberId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('flag_insurance_member_for_review', {
+    p_member_id: memberId,
+    p_reason: reason,
+  });
+
+  if (error) throw error;
+}
+
 export function useInsurancePortal() {
   return useQuery<InsurancePortalData>(async () => {
     const { data: userResult, error: userError } = await supabase.auth.getUser();
@@ -719,4 +787,30 @@ export function useInsurancePortal() {
       })),
     };
   }, []);
+}
+
+export interface InsuranceNotificationsData {
+  notifications: Notification[];
+}
+
+/**
+ * Fetches saved notification log entries for the signed-in insurance user.
+ */
+export function useInsuranceNotifications(userId: string | null | undefined) {
+  return useQuery<InsuranceNotificationsData>(async () => {
+    if (!userId) {
+      return { notifications: [] };
+    }
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    return { notifications: (data ?? []) as Notification[] };
+  }, [userId ?? '']);
 }
