@@ -522,9 +522,7 @@ export default function ClinicAppointments() {
   const changeStatus = async (id: string, status: Appointment['status']) => {
     try {
       const { error: updateError } = await supabase
-        .from('appointments')
-        .update({ status })
-        .eq('id', id);
+        .rpc('update_appointment_status', { p_appointment_id: id, p_new_status: status });
       if (updateError) throw updateError;
 
       setAppts(prev => prev.map(a => a.id === id ? { ...a, status } : a));
@@ -532,6 +530,18 @@ export default function ClinicAppointments() {
       setError(err instanceof Error ? err.message : 'Failed to update status.');
     }
   };
+
+  function getValidNextStatuses(current: Appointment['status']): Appointment['status'][] {
+    if (current === 'completed' || current === 'cancelled' || current === 'no-show') {
+      return [current];
+    }
+    const rank: Record<string, number> = { scheduled: 0, confirmed: 1, 'in-progress': 2, completed: 3 };
+    const currentRank = rank[current];
+    const forward = statusOptions
+      .map(s => s.value)
+      .filter(v => rank[v] !== undefined && rank[v] > currentRank) as Appointment['status'][];
+    return [current, ...forward, 'cancelled', 'no-show'];
+  }
 
   if (loading) {
     return (
@@ -651,9 +661,12 @@ export default function ClinicAppointments() {
                     <select
                       value={a.status}
                       onChange={e => changeStatus(a.id, e.target.value as Appointment['status'])}
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                      disabled={a.status === 'completed' || a.status === 'cancelled' || a.status === 'no-show'}
+                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      {statusOptions
+                        .filter(s => getValidNextStatuses(a.status).includes(s.value))
+                        .map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                   </td>
                 </tr>
