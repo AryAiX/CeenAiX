@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Search, Stethoscope, Users, ShieldCheck } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatDate, exportRowsToCsv, titleCase, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, formatDate, exportRowsToCsv, titleCase, type AdminContext } from './adminHelpers';
 import type { UserRole } from '../../types';
 
 type RoleFilter = UserRole | 'all';
