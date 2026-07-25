@@ -1,17 +1,14 @@
 import { useEffect } from 'react';
 import { Activity, AlertTriangle, Download, RefreshCw, ShieldCheck } from 'lucide-react';
-import AdminShell, {
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import {
   useAdminContextValue,
-  Card,
-  Pill,
-  PageHeader,
-  KpiTile,
   formatNumber,
   formatDate,
   exportRowsToCsv,
   degradedServiceCount,
   type AdminContext,
-} from './AdminShell';
+} from './adminHelpers';
 import type { ServiceHealthCategory, ServiceHealthSnapshot } from '../../types/database';
 
 // ─── ServiceCard ──────────────────────────────────────────────────────────────
