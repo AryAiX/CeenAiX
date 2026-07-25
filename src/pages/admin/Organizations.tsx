@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CircleDollarSign, ScrollText, Search, X } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, exportRowsToCsv, titleCase, formatDate, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader } from './AdminShell';
+import { useAdminContextValue, exportRowsToCsv, titleCase, formatDate, type AdminContext } from './adminHelpers';
 import { createOrganization, updateOrganization } from '../../hooks';
 import type { CreateOrganizationInput } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
@@ -506,7 +506,6 @@ const OrganizationCard = ({
   doctors: AdminContext['doctors'];
   onUpdated: () => void;
 }) => {
-  const navigate = useNavigate();
   const [showDetail, setShowDetail] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showBillingComingSoon, setShowBillingComingSoon] = useState(false);
