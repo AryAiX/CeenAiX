@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { RefreshCw, Settings2, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import { updateFeatureFlag } from '../../hooks';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatDate, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, formatDate, type AdminContext } from './adminHelpers';
 import type { FeatureFlagEnvironment } from '../../types/database';
 
 const ENV_TABS: { key: FeatureFlagEnvironment | 'all'; label: string }[] = [
@@ -23,7 +24,7 @@ const SettingsView = ({ context }: { context: AdminContext }) => {
   const [flagError, setFlagError] = useState<string | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<typeof rows[number] | null>(null);
   const [rolloutDrafts, setRolloutDrafts] = useState<Record<string, number>>({});
-  const flags = context.diagnostics?.featureFlags ?? [];
+  const flags = useMemo(() => context.diagnostics?.featureFlags ?? [], [context.diagnostics?.featureFlags]);
   const settings = context.diagnostics?.platformSettings ?? [];
 
   const rows = useMemo(
