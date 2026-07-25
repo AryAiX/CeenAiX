@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, exportRowsToCsv, titleCase, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, exportRowsToCsv, titleCase, type AdminContext } from './adminHelpers';
 import { Activity, CheckCircle2, AlertTriangle, WifiOff } from 'lucide-react';
 import type { ServiceHealthSnapshot } from '../../types/database';
 
