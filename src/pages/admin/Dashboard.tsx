@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, Bot, Building2, CheckCircle2, CircleDollarSign, FileText, ShieldCheck, Stethoscope, Terminal, Users, type LucideIcon } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, degradedServiceCount, todayStamp, todayTime, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, formatAed, degradedServiceCount, todayStamp, todayTime, type AdminContext } from './adminHelpers';
 const issueTone = (severity: string) => {
   if (severity === 'critical' || severity === 'high') return 'border-rose-200 bg-rose-50';
   if (severity === 'medium') return 'border-amber-200 bg-amber-50';
