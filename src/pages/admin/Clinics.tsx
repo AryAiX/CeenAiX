@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Building2, Download, Link2, Plus, RefreshCw, Stethoscope, UserPlus, X } from 'lucide-react';
-import AdminShell, {
-  useAdminContextValue,
-  Card,
-  Pill,
-  PageHeader,
-  KpiTile,
-  formatNumber,
-  titleCase,
-  exportRowsToCsv,
-} from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, titleCase, exportRowsToCsv } from './adminHelpers';
 import {
   cancelClinicInvitation,
   fetchAdminClinicDoctors,

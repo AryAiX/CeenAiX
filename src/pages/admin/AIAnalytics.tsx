@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, Bot, CheckCircle2, CircleDollarSign, Phone, Stethoscope, Zap } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, formatDate, exportRowsToCsv, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, formatAed, formatDate, exportRowsToCsv, type AdminContext } from './adminHelpers';
 
 type AiTab = 'performance' | 'conversations' | 'population' | 'safety' | 'models';
 const AiView = ({ context }: { context: AdminContext }) => {
