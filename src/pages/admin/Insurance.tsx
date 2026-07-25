@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AlertTriangle, CircleDollarSign, ClipboardList, Layers, Mail, Plug, UserPlus, Users, X } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './adminHelpers';
 import type { AdminInsurancePartnerRow } from '../../types/database';
 
 type InsuranceFilter = 'all' | 'premium' | 'standard' | 'api_issues' | 'fraud';
