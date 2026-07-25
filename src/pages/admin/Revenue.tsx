@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Activity, Bot, CircleDollarSign, RefreshCw, TrendingUp } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, PageHeader, KpiTile, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
+import AdminShell, { Card, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatAed, exportRowsToCsv, type AdminContext } from './adminHelpers';
 import type { AdminRevenueDay } from '../../types/database';
 
 
