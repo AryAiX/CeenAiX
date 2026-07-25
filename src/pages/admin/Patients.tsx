@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Mail, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, exportRowsToCsv, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, exportRowsToCsv, type AdminContext } from './adminHelpers';
 import type { AdminPatientRow } from '../../types';
 
 type PatientFilter = 'all' | 'active' | 'inactive' | 'flagged' | 'suspended';
