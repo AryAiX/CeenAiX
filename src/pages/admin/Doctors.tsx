@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { AlertTriangle, ClipboardList, Stethoscope, Activity, CircleDollarSign, CheckCircle2, Mail, Search, UserPlus, X } from 'lucide-react';
-import AdminShell, { useAdminContextValue, Card, Pill, PageHeader, KpiTile, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './AdminShell';
+import AdminShell, { Card, Pill, PageHeader, KpiTile } from './AdminShell';
+import { useAdminContextValue, formatNumber, formatAed, exportRowsToCsv, type AdminContext } from './adminHelpers';
 import type { AdminDoctorRow } from '../../types';
 import { supabase } from '../../lib/supabase';
 
