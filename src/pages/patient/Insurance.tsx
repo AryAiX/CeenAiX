@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -897,7 +898,7 @@ export const PatientInsurance = () => {
         {t('patient.insurance.dataNote')}
       </div>
 
-      {showRequestFlow ? (
+      {showRequestFlow ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={closeRequestFlow}
@@ -1074,7 +1075,8 @@ export const PatientInsurance = () => {
               </div>
             ) : null}
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );
