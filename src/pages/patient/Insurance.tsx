@@ -198,6 +198,14 @@ export const PatientInsurance = () => {
 
   const handleSubmitRequest = async () => {
     if (!user?.id || !selectedPlan) return;
+    if (!policyNumber.trim() && !memberIdInput.trim()) {
+      setRequestFlowError(
+        t('patient.insurance.policyOrMemberIdRequired', {
+          defaultValue: 'Please enter a Policy Number or Member ID before submitting.',
+        })
+      );
+      return;
+    }
     setSubmittingRequest(true);
     setRequestFlowError(null);
     const { error: insertError } = await supabase.from('insurance_membership_requests').insert({
@@ -1010,6 +1018,11 @@ export const PatientInsurance = () => {
                         onChange={(event) => setMemberIdInput(event.target.value)}
                         className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                       />
+                      <p className="mt-1.5 text-xs text-slate-400">
+                        {t('patient.insurance.oneRequiredHint', {
+                          defaultValue: 'Enter at least one: Policy Number or Member ID',
+                        })}
+                      </p>
                     </div>
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-slate-700">
