@@ -1097,7 +1097,7 @@ export const Home = () => {
             </p>
           </div>
 
-          <div className="landing-rail mx-auto flex max-w-5xl gap-5 overflow-x-auto snap-x snap-mandatory pb-6 items-start">
+          <div className="landing-rail mx-auto flex max-w-5xl gap-5 overflow-x-auto snap-x snap-mandatory pt-6 pb-6 items-start">
             {plans.map((plan, i) => {
               const name = t(`home.landing.pricing.plans.${plan.key}.name`);
               const price = t(`home.landing.pricing.plans.${plan.key}.price`);
