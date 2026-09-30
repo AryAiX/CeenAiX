@@ -199,7 +199,11 @@ export const Login = () => {
     );
 
     if (error) {
-      setErrorMessage(error.message);
+      if (error.message.trim().toLowerCase().includes('invalid login credentials')) {
+        setErrorMessage(t('auth.login.errors.invalidCredentials'));
+      } else {
+        setErrorMessage(error.message);
+      }
     }
 
     setIsSubmitting(false);
