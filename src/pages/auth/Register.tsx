@@ -548,20 +548,22 @@ export const Register = () => {
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-          <button
-            type="button"
-            onClick={previousStep}
-            disabled={step === 0 || isSubmitting || isResettingSession}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:border-teal-500 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-            <span>{t('auth.register.btnBack')}</span>
-          </button>
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={previousStep}
+              disabled={step === 0 || isSubmitting || isResettingSession}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:border-teal-500 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              <span>{t('auth.register.btnBack')}</span>
+            </button>
+          ) : null}
 
           <button
             type="submit"
             disabled={isSubmitting || isResettingSession}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white shadow-lg shadow-teal-500/10 transition hover:bg-teal-700 hover:shadow-xl hover:shadow-teal-500/20 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+            className="sm:ms-auto inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white shadow-lg shadow-teal-500/10 transition hover:bg-teal-700 hover:shadow-xl hover:shadow-teal-500/20 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
           >
             <span>
               {step < 2
