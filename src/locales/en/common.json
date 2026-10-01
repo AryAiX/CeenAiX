@@ -808,7 +808,8 @@
         "passwordShort": "Use at least 8 characters for your new password.",
         "passwordMismatch": "The new password and confirmation do not match.",
         "signInTimeout": "Sign-in is taking too long. Check your connection and try again.",
-        "invalidCredentials": "The email or password is incorrect. Please try again."
+        "invalidCredentials": "The email or password is incorrect. Please try again.",
+        "networkError": "We couldn't reach the server. Check your internet connection and try again."
       }
     },
     "register": {

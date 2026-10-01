@@ -201,6 +201,12 @@ export const Login = () => {
     if (error) {
       if (error.message.trim().toLowerCase().includes('invalid login credentials')) {
         setErrorMessage(t('auth.login.errors.invalidCredentials'));
+      } else if (
+        error.message.trim().toLowerCase().includes('failed to fetch') ||
+        error.message.trim().toLowerCase().includes('networkerror') ||
+        error.message.trim().toLowerCase().includes('load failed')
+      ) {
+        setErrorMessage(t('auth.login.errors.networkError'));
       } else {
         setErrorMessage(error.message);
       }
