@@ -123,7 +123,15 @@ export const Register = () => {
     const { error } = await resendSignupConfirmation(normalizedEmail);
 
     if (error) {
-      setErrorMessage(error.message);
+      if (
+        error.message.trim().toLowerCase().includes('failed to fetch') ||
+        error.message.trim().toLowerCase().includes('networkerror') ||
+        error.message.trim().toLowerCase().includes('load failed')
+      ) {
+        setErrorMessage(t('auth.login.errors.networkError'));
+      } else {
+        setErrorMessage(error.message);
+      }
       setIsResendingConfirmation(false);
       return;
     }
@@ -203,6 +211,12 @@ export const Register = () => {
       if (errMessage.trim().toLowerCase().includes('already registered')) {
         setDuplicateEmailConflict(true);
         setErrorMessage(t('auth.register.errors.emailAlreadyRegistered'));
+      } else if (
+        errMessage.trim().toLowerCase().includes('failed to fetch') ||
+        errMessage.trim().toLowerCase().includes('networkerror') ||
+        errMessage.trim().toLowerCase().includes('load failed')
+      ) {
+        setErrorMessage(t('auth.login.errors.networkError'));
       } else {
         setErrorMessage(errMessage || t('auth.register.errors.signupFailed', { defaultValue: 'Sign up failed. Please try again.' }));
       }
