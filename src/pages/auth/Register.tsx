@@ -132,35 +132,41 @@ export const Register = () => {
     setIsResendingConfirmation(false);
   };
 
-  const nextStep = () => {
-    resetFeedback();
-
-    if (step === 1 && fullName.trim().length < 3) {
+  const validateStep = (currentStep: number): boolean => {
+    if (currentStep === 1 && fullName.trim().length < 3) {
       setErrorMessage(t('auth.register.errors.fullNameShort'));
-      return;
+      return false;
     }
 
-    if (step === 2) {
+    if (currentStep === 2) {
       if (!email.trim()) {
         setErrorMessage(t('auth.register.errors.emailRequired'));
-        return;
+        return false;
       }
 
       if (password.length < 8) {
         setErrorMessage(t('auth.register.errors.passwordShort'));
-        return;
+        return false;
       }
 
       if (password !== confirmPassword) {
         setErrorMessage(t('auth.register.errors.passwordMismatch'));
-        return;
+        return false;
       }
 
       if (!termsAccepted) {
         setErrorMessage(t('auth.register.errors.termsRequired'));
-        return;
+        return false;
       }
     }
+
+    return true;
+  };
+
+  const nextStep = () => {
+    resetFeedback();
+
+    if (!validateStep(step)) return;
 
     setStep((current) => Math.min(current + 1, 2));
   };
@@ -178,6 +184,8 @@ export const Register = () => {
       nextStep();
       return;
     }
+
+    if (!validateStep(step)) return;
 
     setIsSubmitting(true);
 
