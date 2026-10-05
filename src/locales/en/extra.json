@@ -8,7 +8,8 @@
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
     "errors": {
-      "unknown": "An unknown error occurred"
+      "unknown": "An unknown error occurred",
+      "network": "We couldn't reach the server. Check your internet connection and try again."
     },
     "time": {
       "minutesAgo": "{{count}}m ago",
@@ -77,7 +78,15 @@
     "moreSuffix": "+ {{count}} more",
     "minutesUnit": "{{count}} minutes",
     "windowOne": "{{count}} window",
-    "windowMany": "{{count}} windows"
+    "windowMany": "{{count}} windows",
+    "retry": "Retry",
+    "offline": {
+      "title": "You're offline",
+      "genericBody": "We can't load this page right now. Check your internet connection and try again.",
+      "autoRetry": "We'll reload automatically when you're back online.",
+      "staleNotice": "You're offline. Showing the last information we loaded.",
+      "noDataNotice": "You're offline. We can't load this information right now."
+    }
   },
   "system": {
     "accessDenied": {

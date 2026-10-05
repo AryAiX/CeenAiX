@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
+import { OfflineNotice } from '../../components/OfflineState';
 import { Skeleton } from '../../components/Skeleton';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
@@ -86,6 +87,7 @@ export const PatientDashboard: React.FC = () => {
     loading: dashboardLoading,
     error: dashboardError,
     refetch: refetchDashboard,
+    isOffline: dashboardOffline,
   } = usePatientDashboard(user?.id, i18n.language);
 
   const {
@@ -568,17 +570,21 @@ export const PatientDashboard: React.FC = () => {
   return (
     <>
       {dashboardError ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
-          <p>{t('patient.dashboard.loadError')}</p>
-          <p className="mt-1 text-xs text-amber-900/80">{dashboardError}</p>
-          <button
-            type="button"
-            onClick={() => void refetchDashboard()}
-            className="mt-2 font-semibold text-amber-900 underline"
-          >
-            {t('shared.retry', { defaultValue: 'Retry' })}
-          </button>
-        </div>
+        dashboardOffline ? (
+          <OfflineNotice hasData={dashboardData !== null} onRetry={() => void refetchDashboard()} />
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+            <p>{t('patient.dashboard.loadError')}</p>
+            <p className="mt-1 text-xs text-amber-900/80">{dashboardError}</p>
+            <button
+              type="button"
+              onClick={() => void refetchDashboard()}
+              className="mt-2 font-semibold text-amber-900 underline"
+            >
+              {t('shared.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
+        )
       ) : null}
 
       {medicationLogError ? (

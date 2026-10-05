@@ -6,7 +6,28 @@ interface UseQueryResult<T> {
   error: string | null;
   loading: boolean;
   refetch: () => void;
+  isOffline?: boolean;
 }
+
+const isNetworkError = (err: unknown): boolean => {
+  const message =
+    err instanceof Error
+      ? err.message
+      : err !== null &&
+          typeof err === 'object' &&
+          'message' in err &&
+          typeof err.message === 'string'
+        ? err.message
+        : '';
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed') ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false)
+  );
+};
 
 /**
  * Generic hook for Supabase queries.
@@ -22,8 +43,15 @@ export function useQuery<T>(
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOfflineState] = useState(false);
+  const isOfflineRef = useRef(false);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
+
+  const setIsOffline = (value: boolean) => {
+    isOfflineRef.current = value;
+    setIsOfflineState(value);
+  };
 
   useEffect(() => {
     mountedRef.current = true;
@@ -40,14 +68,26 @@ export function useQuery<T>(
       const result = await fetcher();
       if (mountedRef.current && currentRequestId === requestIdRef.current) {
         setData(result);
+        setIsOffline(false);
       }
     } catch (err) {
       if (mountedRef.current && currentRequestId === requestIdRef.current) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : i18n.t('shared.errors.unknown', { defaultValue: 'An unknown error occurred' })
-        );
+        if (isNetworkError(err)) {
+          setError(
+            i18n.t('shared.errors.network', {
+              defaultValue:
+                "We couldn't reach the server. Check your internet connection and try again.",
+            })
+          );
+          setIsOffline(true);
+        } else {
+          setError(
+            err instanceof Error
+              ? err.message
+              : i18n.t('shared.errors.unknown', { defaultValue: 'An unknown error occurred' })
+          );
+          setIsOffline(false);
+        }
       }
     } finally {
       if (mountedRef.current && currentRequestId === requestIdRef.current) {
@@ -61,5 +101,18 @@ export function useQuery<T>(
     execute();
   }, [execute]);
 
-  return { data, error, loading, refetch: execute };
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isOfflineRef.current) {
+        void execute();
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [execute]);
+
+  return { data, error, loading, refetch: execute, isOffline };
 }
