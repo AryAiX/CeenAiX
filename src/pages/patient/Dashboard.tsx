@@ -162,6 +162,10 @@ export const PatientDashboard: React.FC = () => {
             improving: 'يتحسن',
             controlled: 'مسيطر عليه',
             stable: 'مستقر',
+            fair: 'مقبول',
+            needsAttention: 'يحتاج إلى اهتمام',
+            rising: 'في ارتفاع',
+            notEnoughData: 'لا تتوفر بيانات كافية',
             normal: 'طبيعي',
             testsCount: '6 فحوصات',
             todayBadge: 'اليوم',
@@ -214,6 +218,10 @@ export const PatientDashboard: React.FC = () => {
             improving: 'Improving',
             controlled: 'Controlled',
             stable: 'Stable',
+            fair: 'Fair',
+            needsAttention: 'Needs attention',
+            rising: 'Rising',
+            notEnoughData: 'Not enough data',
             normal: 'Normal',
             testsCount: '6 tests',
             todayBadge: 'Today',
@@ -263,6 +271,37 @@ export const PatientDashboard: React.FC = () => {
   );
   const healthScoreValue = dashboardData?.healthScore ?? (profile?.profile_completed ? 78 : 64);
   const adherenceValue = dashboardData?.adherencePercentage ?? (medications.length > 0 ? 87 : 72);
+  const healthScoreWord =
+    healthScoreValue >= 80
+      ? localCopy.scoreState
+      : healthScoreValue >= 60
+        ? localCopy.fair
+        : localCopy.needsAttention;
+  const healthScoreWordClass =
+    healthScoreValue >= 80
+      ? 'text-emerald-600'
+      : healthScoreValue >= 60
+        ? 'text-amber-600'
+        : 'text-rose-600';
+  const bloodPressureChartReadings = [...bloodPressureHistory.slice(-7)].sort(
+    (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime()
+  );
+  const previousBloodPressureReading =
+    bloodPressureChartReadings.length >= 2
+      ? bloodPressureChartReadings[bloodPressureChartReadings.length - 2]
+      : null;
+  const latestBloodPressureReading =
+    bloodPressureChartReadings.length >= 2
+      ? bloodPressureChartReadings[bloodPressureChartReadings.length - 1]
+      : null;
+  const bloodPressureTrendLabel =
+    !latestBloodPressureReading || !previousBloodPressureReading
+      ? localCopy.notEnoughData
+      : latestBloodPressureReading.systolic <= previousBloodPressureReading.systolic - 5
+        ? localCopy.improving
+        : latestBloodPressureReading.systolic >= previousBloodPressureReading.systolic + 5
+          ? localCopy.rising
+          : localCopy.stable;
   const takenCount = medications.filter((medication) => medication.isDispensed || takenItemIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
@@ -348,7 +387,7 @@ export const PatientDashboard: React.FC = () => {
             : localCopy.attention,
         badgeColor: 'bg-emerald-50 text-emerald-700',
         trend: 'stable' as const,
-        trendLabel: localCopy.stable,
+        trendLabel: bloodPressureTrendLabel,
       },
       {
         icon: FlaskConical,
@@ -401,6 +440,7 @@ export const PatientDashboard: React.FC = () => {
       labsSummary.latestRecordedAt,
       labsSummary.latestResultCount,
       labsSummary.latestStatus,
+      bloodPressureTrendLabel,
       latestBloodPressure,
       latestHba1c,
       latestHba1cDelta,
@@ -472,7 +512,7 @@ export const PatientDashboard: React.FC = () => {
               <span className="text-3xl font-bold text-teal-600">{formatLocaleDigits(healthScoreValue, i18n.language)}</span>
               <span className="text-sm text-slate-400">/100</span>
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-emerald-600">{localCopy.scoreState}</p>
+            <p className={`mt-0.5 text-xs font-semibold ${healthScoreWordClass}`}>{healthScoreWord}</p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.adherence}</p>
@@ -618,8 +658,22 @@ export const PatientDashboard: React.FC = () => {
                   {isArabic ? 'آخر 6 أشهر · الهدف: أقل من 6.5%' : 'Last 6 months · Target: <6.5%'}
                 </p>
               </div>
-              <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                {latestHba1cDelta !== null && latestHba1cDelta <= 0 ? `${localCopy.improving} ↓` : localCopy.stable}
+              <span
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
+                  latestHba1cDelta === null
+                    ? 'bg-slate-100 text-slate-600'
+                    : latestHba1cDelta > 0
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
+                {latestHba1cDelta === null
+                  ? localCopy.notEnoughData
+                  : latestHba1cDelta < 0
+                    ? `${localCopy.improving} ↓`
+                    : latestHba1cDelta === 0
+                      ? localCopy.stable
+                      : `${localCopy.rising} ↑`}
               </span>
             </div>
             <div className="h-44 rounded-xl bg-gradient-to-b from-teal-50 to-white p-4">
