@@ -215,6 +215,9 @@ export const PatientDashboard: React.FC = () => {
             healthScore: 'مؤشر الصحة',
             adherence: 'الالتزام',
             adherenceSub: 'هذا الشهر',
+            noActiveMedications: 'لا توجد أدوية نشطة',
+            dispensedShare: 'من الوصفات النشطة المصروفة',
+            noInsurance: 'لا يوجد تأمين مسجّل',
             scoreState: 'جيد',
             hba1c: 'HbA1c',
             bloodPressure: 'ضغط الدم',
@@ -277,6 +280,9 @@ export const PatientDashboard: React.FC = () => {
             healthScore: 'Health Score',
             adherence: 'Adherence',
             adherenceSub: 'This month',
+            noActiveMedications: 'No active medications',
+            dispensedShare: 'Of active prescriptions dispensed',
+            noInsurance: 'No insurance on file',
             scoreState: 'Good',
             hba1c: 'HbA1c Trend',
             bloodPressure: 'Blood Pressure Log',
@@ -344,20 +350,27 @@ export const PatientDashboard: React.FC = () => {
       year: 'numeric',
     })
   );
-  const healthScoreValue = dashboardData?.healthScore ?? (profile?.profile_completed ? 78 : 64);
-  const adherenceValue = dashboardData?.adherencePercentage ?? (medications.length > 0 ? 87 : 72);
-  const healthScoreWord =
-    healthScoreValue >= 80
-      ? localCopy.scoreState
-      : healthScoreValue >= 60
-        ? localCopy.fair
-        : localCopy.needsAttention;
-  const healthScoreWordClass =
-    healthScoreValue >= 80
+  const hasEnoughHealthData =
+    [latestHba1c !== null, latestBloodPressure !== null, medications.length > 0].filter(Boolean).length >= 2;
+  const healthScoreValue = dashboardData?.healthScore;
+  const showHealthScoreNumber = dashboardData !== null && hasEnoughHealthData && healthScoreValue !== undefined;
+  const healthScoreWord = !dashboardData
+    ? null
+    : !hasEnoughHealthData
+      ? localCopy.notEnoughData
+      : healthScoreValue >= 80
+        ? localCopy.scoreState
+        : healthScoreValue >= 60
+          ? localCopy.fair
+          : localCopy.needsAttention;
+  const healthScoreWordClass = !hasEnoughHealthData
+    ? 'text-slate-500'
+    : healthScoreValue !== undefined && healthScoreValue >= 80
       ? 'text-emerald-600'
-      : healthScoreValue >= 60
+      : healthScoreValue !== undefined && healthScoreValue >= 60
         ? 'text-amber-600'
         : 'text-rose-600';
+  const adherencePercentage = dashboardData?.adherencePercentage ?? null;
   const bloodPressureChartReadings = [...bloodPressureHistory.slice(-7)].sort(
     (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime()
   );
@@ -482,7 +495,7 @@ export const PatientDashboard: React.FC = () => {
             ? isArabic
               ? `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} فحوصات`
               : `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} tests`
-            : localCopy.testsCount,
+            : null,
         badgeColor: 'bg-blue-50 text-blue-700',
         trend: 'stable' as const,
         trendLabel: labsSummary.latestRecordedAt
@@ -586,18 +599,26 @@ export const PatientDashboard: React.FC = () => {
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-teal-600">{formatLocaleDigits(healthScoreValue, i18n.language)}</span>
-              <span className="text-sm text-slate-400">/100</span>
+              <span className="text-3xl font-bold text-teal-600">
+                {showHealthScoreNumber ? formatLocaleDigits(healthScoreValue, i18n.language) : '—'}
+              </span>
+              {showHealthScoreNumber ? <span className="text-sm text-slate-400">/100</span> : null}
             </div>
-            <p className={`mt-0.5 text-xs font-semibold ${healthScoreWordClass}`}>{healthScoreWord}</p>
+            {healthScoreWord ? (
+              <p className={`mt-0.5 text-xs font-semibold ${healthScoreWordClass}`}>{healthScoreWord}</p>
+            ) : null}
           </div>
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.adherence}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-slate-800">{formatLocaleDigits(adherenceValue, i18n.language)}</span>
-              <span className="text-sm text-slate-400">%</span>
+              <span className="text-3xl font-bold text-slate-800">
+                {adherencePercentage !== null ? formatLocaleDigits(adherencePercentage, i18n.language) : '—'}
+              </span>
+              {adherencePercentage !== null ? <span className="text-sm text-slate-400">%</span> : null}
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-emerald-600">{localCopy.adherenceSub}</p>
+            <p className="mt-0.5 text-xs font-semibold text-emerald-600">
+              {adherencePercentage !== null ? localCopy.dispensedShare : localCopy.noActiveMedications}
+            </p>
           </div>
         </div>
       </div>
@@ -938,9 +959,11 @@ export const PatientDashboard: React.FC = () => {
                 </div>
                 <h2 className="text-sm font-semibold text-slate-900">{t('patient.dashboard.nextAppointment')}</h2>
               </div>
-              <span className="rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">
-                {localCopy.nextDays.replace('{{count}}', formatLocaleDigits(nextAppointmentCountdown, i18n.language))}
-              </span>
+              {nextAppointment ? (
+                <span className="rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">
+                  {localCopy.nextDays.replace('{{count}}', formatLocaleDigits(nextAppointmentCountdown, i18n.language))}
+                </span>
+              ) : null}
             </div>
 
             {dashboardLoading ? (
@@ -1102,9 +1125,15 @@ export const PatientDashboard: React.FC = () => {
                 </div>
                 <h2 className="text-sm font-semibold text-slate-900">{localCopy.insuranceTitle}</h2>
               </div>
-              <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                {insurance?.isActive ? localCopy.insuranceActive : (isArabic ? 'منتهي' : 'Expired')}
-              </span>
+              {insurance ? (
+                <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                  {insurance.isActive ? localCopy.insuranceActive : (isArabic ? 'منتهي' : 'Expired')}
+                </span>
+              ) : (
+                <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                  {localCopy.noInsurance}
+                </span>
+              )}
             </div>
 
             <div className="mb-4 rounded-xl bg-gradient-to-br from-slate-800 to-teal-700 p-4">
@@ -1500,7 +1529,7 @@ function StatCard({
   iconBg: string;
   label: string;
   value: string;
-  badge: string;
+  badge: string | null;
   badgeColor: string;
   trend: 'up' | 'down' | 'stable';
   trendLabel: string;
@@ -1513,7 +1542,9 @@ function StatCard({
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg}`}>{icon}</div>
-        <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${badgeColor}`}>{badge}</span>
+        {badge ? (
+          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${badgeColor}`}>{badge}</span>
+        ) : null}
       </div>
       <p className="mb-0.5 text-xl font-bold text-slate-900">{value}</p>
       <p className="mb-2 text-xs font-medium text-slate-400">{label}</p>
