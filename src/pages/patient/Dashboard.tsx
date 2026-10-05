@@ -93,11 +93,16 @@ export const PatientDashboard: React.FC = () => {
   const {
     takenItemIds,
     error: medicationLogError,
+    errorKind: medicationLogErrorKind,
     markTaken: markMedicationTaken,
   } = useMedicationLogs(user?.id);
 
   const handleMarkTaken = async (medicationId: string) => {
-    await markMedicationTaken(medicationId);
+    try {
+      await markMedicationTaken(medicationId);
+    } catch {
+      // The hook has already set a user-facing error.
+    }
   };
 
   const [showDirectionsModal, setShowDirectionsModal] = useState(false);
@@ -587,12 +592,9 @@ export const PatientDashboard: React.FC = () => {
         )
       ) : null}
 
-      {medicationLogError ? (
+      {medicationLogError && !(medicationLogErrorKind === 'load' && dashboardOffline) ? (
         <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
-          {t('patient.prescriptions.medicationLogError', {
-            defaultValue: 'We could not save that medication update: {{message}}',
-            message: medicationLogError,
-          })}
+          {medicationLogError}
         </div>
       ) : null}
 

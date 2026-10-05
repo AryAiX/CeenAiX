@@ -1,13 +1,35 @@
 import { useEffect, useState } from 'react';
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 
 export interface UseMedicationLogsResult {
   takenItemIds: Set<string>;
   loading: boolean;
   error: string | null;
+  errorKind?: 'load' | 'save' | null;
   markTaken: (prescriptionItemId: string) => Promise<void>;
   clearError: () => void;
 }
+
+const isNetworkError = (err: unknown): boolean => {
+  const message =
+    err instanceof Error
+      ? err.message
+      : err !== null &&
+          typeof err === 'object' &&
+          'message' in err &&
+          typeof err.message === 'string'
+        ? err.message
+        : '';
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed') ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false)
+  );
+};
 
 const todayIsoDate = () => new Date().toISOString().split('T')[0];
 
@@ -15,6 +37,7 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
   const [takenItemIds, setTakenItemIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<'load' | 'save' | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -25,6 +48,7 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
     let mounted = true;
     setLoading(true);
     setError(null);
+    setErrorKind(null);
 
     const loadLogs = async () => {
       const { data, error: fetchError } = await supabase
@@ -35,7 +59,12 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
 
       if (!mounted) return;
       if (fetchError) {
-        setError(fetchError.message);
+        setError(
+          isNetworkError(fetchError)
+            ? i18n.t('shared.errors.network')
+            : i18n.t('patient.prescriptions.medicationLogLoadError')
+        );
+        setErrorKind('load');
         setLoading(false);
         return;
       }
@@ -45,7 +74,12 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
 
     void loadLogs().catch((err: unknown) => {
       if (mounted) {
-        setError(err instanceof Error ? err.message : 'Could not load medication logs.');
+        setError(
+          isNetworkError(err)
+            ? i18n.t('shared.errors.network')
+            : i18n.t('patient.prescriptions.medicationLogLoadError')
+        );
+        setErrorKind('load');
         setLoading(false);
       }
     });
@@ -58,6 +92,7 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
   const markTaken = async (prescriptionItemId: string) => {
     if (!userId) return;
     setError(null);
+    setErrorKind(null);
 
     const { error: upsertError } = await supabase.from('medication_logs').upsert(
       {
@@ -70,7 +105,12 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
     );
 
     if (upsertError) {
-      setError(upsertError.message);
+      setError(
+        isNetworkError(upsertError)
+          ? i18n.t('shared.errors.network')
+          : i18n.t('patient.prescriptions.medicationLogSaveError')
+      );
+      setErrorKind('save');
       throw upsertError;
     }
 
@@ -81,7 +121,11 @@ export function useMedicationLogs(userId: string | null | undefined): UseMedicat
     takenItemIds,
     loading,
     error,
+    errorKind,
     markTaken,
-    clearError: () => setError(null),
+    clearError: () => {
+      setError(null);
+      setErrorKind(null);
+    },
   };
 }

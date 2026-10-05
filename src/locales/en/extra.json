@@ -392,6 +392,8 @@
       "footerNoteData": "Data from your prescriptions and prescription items in CeenAiX. Dose-level adherence and pricing will deepen as those modules connect.",
       "frequencyDosing": "Dosing",
       "loadError": "We could not load your prescription history right now. Please try again shortly.",
+      "medicationLogLoadError": "We couldn't load today's medication log. Please try again.",
+      "medicationLogSaveError": "We couldn't save that medication update. Please try again.",
       "activePlans": "Active Plans",
       "activeMeds": "Active Medications",
       "pendingPickup": "Pending Pickup",
