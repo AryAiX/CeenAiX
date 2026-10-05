@@ -400,6 +400,7 @@ export const Onboarding = () => {
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-600">
                   {t('auth.onboarding.fields.fullName')}
+                  {t('auth.onboarding.fields.emailRequired')}
                 </label>
                 <input
                   type="text"
@@ -565,6 +566,7 @@ export const Onboarding = () => {
                 />
                 <span className="text-sm leading-relaxed text-slate-600">
                   {t('auth.onboarding.fields.termsConfirm')}
+                  {t('auth.onboarding.fields.emailRequired')}
                 </span>
               </label>
 

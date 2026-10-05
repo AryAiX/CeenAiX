@@ -978,6 +978,7 @@
         "fullNamePlaceholder": "أدخل اسمك الكامل",
         "email": "البريد الإلكتروني",
         "emailRequired": " *",
+        "requiredNote": "* مطلوب",
         "emailPlaceholder": "you@example.com",
         "phone": "رقم الهاتف",
         "city": "المدينة",

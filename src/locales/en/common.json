@@ -978,6 +978,7 @@
         "fullNamePlaceholder": "Enter your full name",
         "email": "Email address",
         "emailRequired": " *",
+        "requiredNote": "* Required",
         "emailPlaceholder": "you@example.com",
         "phone": "Phone number",
         "city": "City",
