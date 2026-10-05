@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -106,8 +106,23 @@ export const PatientDashboard: React.FC = () => {
   const [bpDiastolic, setBpDiastolic] = useState('');
   const [bpSaving, setBpSaving] = useState(false);
   const [bpError, setBpError] = useState<string | null>(null);
+  const [bpSavedNotice, setBpSavedNotice] = useState(false);
 
   const [aiTipIndex, setAiTipIndex] = useState(0);
+
+  useEffect(() => {
+    if (!bpSavedNotice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setBpSavedNotice(false);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [bpSavedNotice]);
 
   const handleRefreshTip = () => {
     setAiTipIndex((prev) => {
@@ -157,6 +172,7 @@ export const PatientDashboard: React.FC = () => {
       }
 
       setBpModalOpen(false);
+      setBpSavedNotice(true);
       setBpSystolic('');
       setBpDiastolic('');
       setBpError(null);
@@ -218,6 +234,7 @@ export const PatientDashboard: React.FC = () => {
             bpInvalid: 'أدخل قراءة صحيحة: الرقم العلوي بين 60 و250، والرقم السفلي بين 40 و150، ويجب أن يكون الرقم العلوي أكبر من السفلي.',
             bpSaveFailed: 'تعذّر حفظ القراءة. تحقق من اتصالك وحاول مرة أخرى.',
             bpSaving: 'جارٍ الحفظ…',
+            bpSaved: 'تم حفظ القراءة',
             normal: 'طبيعي',
             testsCount: '6 فحوصات',
             todayBadge: 'اليوم',
@@ -279,6 +296,7 @@ export const PatientDashboard: React.FC = () => {
             bpInvalid: 'Enter a valid reading: top number 60-250, bottom number 40-150, and the top number higher than the bottom.',
             bpSaveFailed: "We couldn't save your reading. Check your connection and try again.",
             bpSaving: 'Saving…',
+            bpSaved: 'Reading saved',
             normal: 'Normal',
             testsCount: '6 tests',
             todayBadge: 'Today',
@@ -788,8 +806,8 @@ export const PatientDashboard: React.FC = () => {
             </div>
             <div className="h-40 rounded-xl bg-slate-50 p-4">
               <svg viewBox="0 0 600 150" className="h-full w-full">
-                {systolicChartPath ? <path d={systolicChartPath} fill="none" stroke="#f43f5e" strokeWidth="3" /> : null}
-                {diastolicChartPath ? <path d={diastolicChartPath} fill="none" stroke="#3b82f6" strokeWidth="3" /> : null}
+                {systolicChartPath ? <path d={systolicChartPath} fill="none" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" /> : null}
+                {diastolicChartPath ? <path d={diastolicChartPath} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" /> : null}
                 <line x1="20" y1="70" x2="580" y2="70" stroke="#f59e0b" strokeDasharray="4 4" />
               </svg>
             </div>
@@ -803,6 +821,9 @@ export const PatientDashboard: React.FC = () => {
                     ? 'آخر قراءة تحتاج متابعة'
                     : 'Latest reading needs follow-up'}
               </span>
+              {bpSavedNotice ? (
+                <span role="status" className="text-xs font-semibold text-emerald-600">{localCopy.bpSaved}</span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -1531,6 +1552,9 @@ function buildLinePath(
           : leftPad + (index / (values.length - 1)) * drawableWidth;
       const normalized = (value - minDomain) / safeRange;
       const y = height - bottomPad - normalized * drawableHeight;
+      if (values.length === 1) {
+        return `M ${x.toFixed(2)} ${y.toFixed(2)} L ${x.toFixed(2)} ${y.toFixed(2)}`;
+      }
       return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(' ');
