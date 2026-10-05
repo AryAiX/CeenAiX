@@ -88,6 +88,13 @@
       "otherAccount": "Use another account",
       "dashboard": "Open my dashboard"
     },
+    "notFound": {
+      "badge": "Error 404",
+      "title": "Page not found",
+      "body": "The page you're looking for doesn't exist or has moved. Check the address or go back to the home page.",
+      "home": "Go to home",
+      "dashboard": "Open my dashboard"
+    },
     "phaseStub": {
       "phasePlanned": "Planned",
       "phaseBeta": "Beta",

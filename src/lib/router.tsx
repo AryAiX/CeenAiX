@@ -115,6 +115,7 @@ import {
 import ClinicPortal from '../pages/clinic/ClinicPortal';
 import { AppointmentDesignShowcase } from '../pages/AppointmentDesignShowcase';
 import { AccessDenied } from '../pages/system/AccessDenied';
+import { NotFound } from '../pages/system/NotFound';
 
 const withLayout = (page: ReactNode) => <Layout>{page}</Layout>;
 
@@ -696,5 +697,9 @@ export const router = createBrowserRouter([
   {
     path: '/clinic/notifications',
     element: <ProtectedRoute allowedRoles={['clinic', 'facility_admin']}><ClinicPortal /></ProtectedRoute>,
+  },
+  {
+    path: '*',
+    element: <NotFound />,
   },
 ]);
