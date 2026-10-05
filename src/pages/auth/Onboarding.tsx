@@ -54,6 +54,18 @@ const splitFullName = (fullName: string) => {
   };
 };
 
+const toFriendlyError = (message: string, fallbackText: string) => {
+  const normalized = message.trim().toLowerCase();
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed')
+  ) {
+    return fallbackText;
+  }
+  return message;
+};
+
 export const Onboarding = () => {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
@@ -215,7 +227,7 @@ export const Onboarding = () => {
     );
 
     if (profileError) {
-      setErrorMessage(profileError.message);
+      setErrorMessage(toFriendlyError(profileError.message, t('auth.login.errors.networkError')));
       setIsSubmitting(false);
       return;
     }
@@ -232,7 +244,7 @@ export const Onboarding = () => {
       );
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(toFriendlyError(error.message, t('auth.login.errors.networkError')));
         setIsSubmitting(false);
         return;
       }
@@ -261,7 +273,7 @@ export const Onboarding = () => {
       );
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(toFriendlyError(error.message, t('auth.login.errors.networkError')));
         setIsSubmitting(false);
         return;
       }
@@ -270,7 +282,9 @@ export const Onboarding = () => {
         await syncDoctorSpecializations(user.id, form.selectedSpecializationIds);
       } catch (error) {
         setErrorMessage(
-          error instanceof Error ? error.message : t('auth.onboarding.errors.specializationsSaveFailed')
+          error instanceof Error
+            ? toFriendlyError(error.message, t('auth.login.errors.networkError'))
+            : t('auth.onboarding.errors.specializationsSaveFailed')
         );
         setIsSubmitting(false);
         return;
