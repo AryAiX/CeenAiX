@@ -218,6 +218,7 @@ export const PatientDashboard: React.FC = () => {
             noActiveMedications: 'لا توجد أدوية نشطة',
             dispensedShare: 'من الوصفات النشطة المصروفة',
             noInsurance: 'لا يوجد تأمين مسجّل',
+            noLabResults: 'لا توجد نتائج بعد',
             scoreState: 'جيد',
             hba1c: 'HbA1c',
             bloodPressure: 'ضغط الدم',
@@ -283,6 +284,7 @@ export const PatientDashboard: React.FC = () => {
             noActiveMedications: 'No active medications',
             dispensedShare: 'Of active prescriptions dispensed',
             noInsurance: 'No insurance on file',
+            noLabResults: 'No results yet',
             scoreState: 'Good',
             hba1c: 'HbA1c Trend',
             bloodPressure: 'Blood Pressure Log',
@@ -495,8 +497,9 @@ export const PatientDashboard: React.FC = () => {
             ? isArabic
               ? `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} فحوصات`
               : `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} tests`
-            : null,
-        badgeColor: 'bg-blue-50 text-blue-700',
+            : localCopy.noLabResults,
+        badgeColor:
+          labsSummary.latestResultCount > 0 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600',
         trend: 'stable' as const,
         trendLabel: labsSummary.latestRecordedAt
           ? new Date(labsSummary.latestRecordedAt).toLocaleDateString(
