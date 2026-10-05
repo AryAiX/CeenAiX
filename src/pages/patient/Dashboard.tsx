@@ -26,6 +26,7 @@ import {
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
 import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase';
 import { useMedicationLogs, usePatientDashboard } from '../../hooks';
 import {
   dateTimeFormatWithNumerals,
@@ -103,6 +104,8 @@ export const PatientDashboard: React.FC = () => {
   const [bpModalOpen, setBpModalOpen] = useState(false);
   const [bpSystolic, setBpSystolic] = useState('');
   const [bpDiastolic, setBpDiastolic] = useState('');
+  const [bpSaving, setBpSaving] = useState(false);
+  const [bpError, setBpError] = useState<string | null>(null);
 
   const [aiTipIndex, setAiTipIndex] = useState(0);
 
@@ -115,10 +118,54 @@ export const PatientDashboard: React.FC = () => {
     });
   };
 
-  const handleBpSave = () => {
-    setBpModalOpen(false);
-    setBpSystolic('');
-    setBpDiastolic('');
+  const handleBpSave = async () => {
+    const systolic = Number(bpSystolic);
+    const diastolic = Number(bpDiastolic);
+
+    if (
+      !Number.isInteger(systolic) ||
+      !Number.isInteger(diastolic) ||
+      systolic < 60 ||
+      systolic > 250 ||
+      diastolic < 40 ||
+      diastolic > 150 ||
+      systolic <= diastolic
+    ) {
+      setBpError(localCopy.bpInvalid);
+      return;
+    }
+
+    if (!user) {
+      return;
+    }
+
+    setBpError(null);
+    setBpSaving(true);
+
+    try {
+      const { error } = await supabase.from('patient_vitals').insert({
+        patient_id: user.id,
+        recorded_by: user.id,
+        systolic_bp: systolic,
+        diastolic_bp: diastolic,
+        source: 'manual',
+      });
+
+      if (error) {
+        setBpError(localCopy.bpSaveFailed);
+        return;
+      }
+
+      setBpModalOpen(false);
+      setBpSystolic('');
+      setBpDiastolic('');
+      setBpError(null);
+      void refetchDashboard();
+    } catch {
+      setBpError(localCopy.bpSaveFailed);
+    } finally {
+      setBpSaving(false);
+    }
   };
 
   const displayName =
@@ -168,6 +215,9 @@ export const PatientDashboard: React.FC = () => {
             needsAttention: 'يحتاج إلى اهتمام',
             rising: 'في ارتفاع',
             notEnoughData: 'لا تتوفر بيانات كافية',
+            bpInvalid: 'أدخل قراءة صحيحة: الرقم العلوي بين 60 و250، والرقم السفلي بين 40 و150، ويجب أن يكون الرقم العلوي أكبر من السفلي.',
+            bpSaveFailed: 'تعذّر حفظ القراءة. تحقق من اتصالك وحاول مرة أخرى.',
+            bpSaving: 'جارٍ الحفظ…',
             normal: 'طبيعي',
             testsCount: '6 فحوصات',
             todayBadge: 'اليوم',
@@ -226,6 +276,9 @@ export const PatientDashboard: React.FC = () => {
             needsAttention: 'Needs attention',
             rising: 'Rising',
             notEnoughData: 'Not enough data',
+            bpInvalid: 'Enter a valid reading: top number 60-250, bottom number 40-150, and the top number higher than the bottom.',
+            bpSaveFailed: "We couldn't save your reading. Check your connection and try again.",
+            bpSaving: 'Saving…',
             normal: 'Normal',
             testsCount: '6 tests',
             todayBadge: 'Today',
@@ -752,7 +805,10 @@ export const PatientDashboard: React.FC = () => {
               </span>
               <button
                 type="button"
-                onClick={() => setBpModalOpen(true)}
+                onClick={() => {
+                  setBpError(null);
+                  setBpModalOpen(true);
+                }}
                 className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-600 transition-colors hover:bg-teal-50"
               >
                 {isArabic ? '+ إضافة قراءة' : '+ Add Reading'}
@@ -1381,6 +1437,8 @@ export const PatientDashboard: React.FC = () => {
               </div>
             </div>
 
+            {bpError ? <p role="alert" className="text-xs text-rose-600">{bpError}</p> : null}
+
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
@@ -1391,11 +1449,13 @@ export const PatientDashboard: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={handleBpSave}
-                disabled={!bpSystolic || !bpDiastolic}
+                onClick={() => {
+                  void handleBpSave();
+                }}
+                disabled={!bpSystolic || !bpDiastolic || bpSaving}
                 className="flex-1 rounded-lg bg-teal-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isArabic ? 'حفظ' : 'Save'}
+                {bpSaving ? localCopy.bpSaving : isArabic ? 'حفظ' : 'Save'}
               </button>
             </div>
           </div>
