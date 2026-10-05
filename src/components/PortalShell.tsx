@@ -496,18 +496,16 @@ export const PortalShell = ({
           >
             <div className="flex-1 overflow-y-auto py-6">
               <nav className="space-y-1 px-3">{patientNavItems.map((item) => renderPatientNavItem(item))}</nav>
-            </div>
-
-            <div className="border-t border-gray-200">
-              <nav className="space-y-1 px-3 py-3">
-                {patientBottomItems.map((item) => renderPatientNavItem(item, true))}
+              <div className="mx-3 my-3 border-t border-gray-200" />
+              <nav className="space-y-1 px-3">
+                {patientBottomItems.map((item) => renderPatientNavItem(item))}
               </nav>
-
-              <div className="border-t border-gray-200 p-3">
+              <div className="mx-3 my-3 border-t border-gray-200" />
+              <div className="px-3">
                 <button
                   type="button"
                   onClick={() => setPatientSidebarCollapsed((current) => !current)}
-                  className={`flex w-full items-center justify-center rounded-lg px-4 py-3 text-gray-600 transition-colors hover:bg-gray-100 ${isArabic ? 'flex-row-reverse' : ''}`}
+                  className={`flex w-full items-center justify-center rounded-lg px-4 py-3 text-gray-700 transition-colors hover:bg-gray-100 ${isArabic ? 'flex-row-reverse' : ''}`}
                 >
                   {patientSidebarCollapsed ? (
                     <ChevronRight className={`h-5 w-5 ${isArabic ? 'rotate-180' : ''}`} />
