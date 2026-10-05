@@ -22,6 +22,7 @@ import {
   Copy,
   CheckCircle,
 } from 'lucide-react';
+import { OfflineState, OfflineNotice } from '../../components/OfflineState';
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, usePatientPreVisitAssessments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -131,6 +132,7 @@ export const PatientAppointments: React.FC = () => {
     loading,
     error,
     refetch,
+    isOffline: appointmentsOffline,
   } = useAppointments({ role: 'patient', userId: user?.id ?? '' });
   const appointments = useMemo(() => appointmentsData ?? [], [appointmentsData]);
   const [busyAppointmentId, setBusyAppointmentId] = useState<string | null>(null);
@@ -174,6 +176,8 @@ export const PatientAppointments: React.FC = () => {
     data: doctorProfilesData,
     loading: doctorProfilesLoading,
     error: doctorProfilesError,
+    isOffline: doctorProfilesOffline,
+    refetch: refetchDoctorProfiles,
   } = useQuery<DoctorAppointmentProfile[]>(
     async () => {
       if (doctorIds.length === 0) {
@@ -1651,6 +1655,12 @@ export const PatientAppointments: React.FC = () => {
     cancelledAppointments.length === 0 &&
     pastAppointments.length === 0;
   const hasAnyAppointments = appointments.length > 0;
+  const isOfflineNow = Boolean(appointmentsOffline || doctorProfilesOffline);
+  const hasLoadedAppointments = appointmentsData !== null;
+  const retryAll = () => {
+    void refetch();
+    void refetchDoctorProfiles();
+  };
 
   return (
     <>
@@ -1736,7 +1746,9 @@ export const PatientAppointments: React.FC = () => {
           </div>
         ) : null}
 
-        {error || doctorProfilesError ? (
+        {isOfflineNow && hasLoadedAppointments ? (
+          <OfflineNotice hasData onRetry={retryAll} />
+        ) : isOfflineNow ? null : error || doctorProfilesError ? (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
             <p>{t('patient.appointments.loadError')}</p>
             {error ? <p className="mt-1 text-xs text-amber-900/80">{error}</p> : null}
@@ -1753,6 +1765,9 @@ export const PatientAppointments: React.FC = () => {
           </div>
         ) : null}
 
+        {isOfflineNow && !hasLoadedAppointments ? (
+          <OfflineState description={t('patient.appointments.offlineBody')} onRetry={retryAll} />
+        ) : (
         <div className="flex flex-col lg:flex-row gap-6">
           {renderFilterPanel()}
 
@@ -1878,6 +1893,7 @@ export const PatientAppointments: React.FC = () => {
             )}
           </div>
         </div>
+        )}
       </div>
 
       <style>{`

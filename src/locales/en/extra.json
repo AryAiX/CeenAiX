@@ -192,6 +192,7 @@
       "bannerRescheduled": "Your appointment has been rescheduled successfully.",
       "bannerPreVisit": "Your pre-visit intake has been completed and shared with your doctor.",
       "loadError": "Patient appointments could not be loaded yet.",
+      "offlineBody": "We can't load your appointments right now. Check your internet connection and try again.",
       "emptyTitle": "No appointments yet",
       "emptyBody": "Book your first appointment against a doctor's published schedule.",
       "upcomingTitle": "Upcoming Appointments",
