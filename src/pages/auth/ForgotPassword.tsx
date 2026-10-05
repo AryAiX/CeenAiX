@@ -63,7 +63,15 @@ export const ForgotPassword = () => {
     }
 
     if (error) {
-      setErrorMessage(error.message);
+      if (
+        error.message.trim().toLowerCase().includes('failed to fetch') ||
+        error.message.trim().toLowerCase().includes('networkerror') ||
+        error.message.trim().toLowerCase().includes('load failed')
+      ) {
+        setErrorMessage(t('auth.login.errors.networkError'));
+      } else {
+        setErrorMessage(error.message);
+      }
       setIsSubmitting(false);
       return;
     }
@@ -101,7 +109,15 @@ export const ForgotPassword = () => {
     }
 
     if (error) {
-      setErrorMessage(error.message);
+      if (
+        error.message.trim().toLowerCase().includes('failed to fetch') ||
+        error.message.trim().toLowerCase().includes('networkerror') ||
+        error.message.trim().toLowerCase().includes('load failed')
+      ) {
+        setErrorMessage(t('auth.login.errors.networkError'));
+      } else {
+        setErrorMessage(error.message);
+      }
       setIsSubmitting(false);
       return;
     }
