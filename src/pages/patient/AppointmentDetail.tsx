@@ -27,6 +27,7 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
+import { getTelemedicineJoinWindowStatus } from '../../lib/telemedicine';
 import type { AppointmentStatus } from '../../types';
 
 const ACTIVE_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 'in_progress']);
@@ -68,11 +69,8 @@ export const PatientAppointmentDetail = () => {
   const isCancellable = appointment
     ? CANCELLABLE_STATUSES.has(appointment.status) && new Date(appointment.scheduled_at).getTime() > Date.now()
     : false;
-  const canJoinTelemedicine = appointment
-    ? appointment.type === 'virtual' &&
-      new Date(appointment.scheduled_at).getTime() - Date.now() <= 10 * 60 * 1000 &&
-      Date.now() < new Date(appointment.scheduled_at).getTime() + appointment.duration_minutes * 60_000
-    : false;
+  const joinStatus = appointment ? getTelemedicineJoinWindowStatus(appointment) : 'inactive';
+  const canJoinTelemedicine = joinStatus === 'open';
 
   const summaryPoints = textList(data?.preVisitSummary?.key_points);
   const riskFlags = textList(data?.preVisitSummary?.risk_flags);
@@ -226,7 +224,7 @@ export const PatientAppointmentDetail = () => {
           <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
             <h2 className="mb-4 font-bold text-slate-900">{t('patient.appointmentDetail.actions', { defaultValue: 'Actions' })}</h2>
             <div className="space-y-2">
-              {appointment.type === 'virtual' ? (
+              {joinStatus === 'open' || joinStatus === 'too_early' ? (
                 <ActionButton
                   onClick={() => navigate(`/patient/telemedicine/${appointment.id}`)}
                   disabled={!canJoinTelemedicine}

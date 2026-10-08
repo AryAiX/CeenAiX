@@ -36,6 +36,7 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
+import { getTelemedicineJoinWindowStatus } from '../../lib/telemedicine';
 import type { Appointment, AppointmentStatus } from '../../types';
 
 interface DoctorAppointmentProfile {
@@ -232,11 +233,17 @@ export const PatientAppointments: React.FC = () => {
     return () => window.clearInterval(id);
   }, []);
 
+  const isJoinWindowOpen = useCallback(
+    (appointment: Appointment) =>
+      getTelemedicineJoinWindowStatus(appointment, nowTick) === 'open',
+    [nowTick]
+  );
+
   const isUpcoming = useCallback(
     (appointment: Appointment) =>
       UPCOMING_STATUSES.has(appointment.status) &&
-      new Date(appointment.scheduled_at).getTime() >= nowTick,
-    [nowTick]
+      (new Date(appointment.scheduled_at).getTime() >= nowTick || isJoinWindowOpen(appointment)),
+    [nowTick, isJoinWindowOpen]
   );
 
   const filteredAppointments = useMemo(() => {
@@ -345,12 +352,12 @@ export const PatientAppointments: React.FC = () => {
       .filter((appointment) => appointment.type === 'virtual')
       .filter((appointment) => {
         const ts = new Date(appointment.scheduled_at).getTime();
-        return ts >= now && ts <= horizon;
+        return (ts >= now || isJoinWindowOpen(appointment)) && ts <= horizon;
       })
       .sort(
         (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
       )[0] ?? null;
-  }, [upcomingAppointments]);
+  }, [upcomingAppointments, isJoinWindowOpen]);
 
   const [teleconsultCountdown, setTeleconsultCountdown] = useState('');
   useEffect(() => {
@@ -460,11 +467,6 @@ export const PatientAppointments: React.FC = () => {
     setCalendarAppointmentId(null);
   };
 
-  const isWithin10Min = (appointment: Appointment) => {
-    const diff = new Date(appointment.scheduled_at).getTime() - Date.now();
-    return diff <= 10 * 60 * 1000 && diff > -appointment.duration_minutes * 60 * 1000;
-  };
-
   const getDoctorInitials = (name: string) =>
     name
       .split(/\s+/)
@@ -480,7 +482,8 @@ export const PatientAppointments: React.FC = () => {
     const upcoming = isUpcoming(appointment);
     const preVisitAssessment = preVisitAssessmentByAppointmentId.get(appointment.id);
     const isTeleconsult = appointment.type === 'virtual';
-    const canJoin = isTeleconsult && isWithin10Min(appointment);
+    const canJoin = isTeleconsult && isJoinWindowOpen(appointment);
+    const startsInFuture = new Date(appointment.scheduled_at).getTime() >= nowTick;
     const typeBadge = isTeleconsult
       ? 'bg-violet-100 text-violet-700 border-violet-300'
       : 'bg-teal-100 text-teal-700 border-teal-300';
@@ -636,7 +639,7 @@ export const PatientAppointments: React.FC = () => {
                 </button>
               ) : null}
 
-              {upcoming ? (
+              {upcoming && startsInFuture ? (
                 <>
                   <button
                     type="button"
@@ -1705,10 +1708,13 @@ export const PatientAppointments: React.FC = () => {
             </div>
             <button
               type="button"
+              disabled={!isJoinWindowOpen(nextTeleconsult)}
               onClick={() => navigate(`/patient/telemedicine/${nextTeleconsult.id}`)}
-              className="px-6 py-3 bg-white text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors"
+              className="px-6 py-3 bg-white text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {t('patient.appointments.joinWaitingRoom')}
+              {isJoinWindowOpen(nextTeleconsult)
+                ? t('patient.appointments.joinWaitingRoom')
+                : t('patient.appointments.joinCallDisabled')}
             </button>
           </div>
         </div>
