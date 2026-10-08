@@ -403,12 +403,13 @@ export const PatientAppointments: React.FC = () => {
     }
   }, [isDateRangeInPast]);
 
-  const handleCancelAppointment = async (appointmentId: string) => {
+  const handleCancelAppointment = async (appointmentId: string, reason?: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
 
     const { error: updateError } = await supabase.rpc('cancel_patient_appointment', {
       p_appointment_id: appointmentId,
+      p_reason: reason && reason.trim() ? reason.trim().slice(0, 500) : null,
     });
 
     setBusyAppointmentId(null);
@@ -1193,7 +1194,12 @@ export const PatientAppointments: React.FC = () => {
               type="button"
               disabled={!canConfirm || isBusy}
               onClick={async () => {
-                await handleCancelAppointment(cancellingAppointmentId);
+                const reason = cancelReason === 'Other'
+                  ? cancelCustomReason.trim()
+                  : cancelCustomReason.trim()
+                    ? `${cancelReason}: ${cancelCustomReason.trim()}`
+                    : cancelReason;
+                await handleCancelAppointment(cancellingAppointmentId, reason);
                 resetCancelModal();
               }}
               className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
