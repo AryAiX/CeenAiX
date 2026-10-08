@@ -242,6 +242,10 @@
       "noResultsFilters": "لا توجد مواعيد تطابق عوامل التصفية.",
       "noResultsFiltersSub": "جرّب تعديل الحالة أو النوع أو نطاق التاريخ."
     },
+    "appointmentDetail": {
+      "notFoundTitle": "لم يتم العثور على الموعد",
+      "notFoundBody": "ربما تمت إزالة هذا الموعد أو ليس لديك صلاحية للوصول إليه."
+    },
     "book": {
       "title": "حجز موعد",
       "titleReschedule": "إعادة جدولة الموعد",

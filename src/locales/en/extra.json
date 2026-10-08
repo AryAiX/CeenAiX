@@ -242,6 +242,10 @@
       "noResultsFilters": "No appointments match your filters.",
       "noResultsFiltersSub": "Try adjusting the status, type, or date range."
     },
+    "appointmentDetail": {
+      "notFoundTitle": "Appointment not found",
+      "notFoundBody": "This appointment may have been removed or you may not have access to it."
+    },
     "book": {
       "title": "Book Appointment",
       "titleReschedule": "Reschedule Appointment",
