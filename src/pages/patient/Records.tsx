@@ -14,6 +14,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { OfflineState, OfflineNotice } from '../../components/OfflineState';
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientRecords } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -152,6 +153,11 @@ const getCategoryIcon = (category: RecordCategory) => {
   return <Syringe className="h-5 w-5 text-violet-600" />;
 };
 
+const isNetworkFailure = (message: string | undefined | null) => {
+  const m = (message ?? '').toLowerCase();
+  return m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed');
+};
+
 export const PatientRecords: React.FC = () => {
   const { t, i18n } = useTranslation();
   const recordCategoryLabel = (c: RecordCategory) =>
@@ -167,6 +173,7 @@ export const PatientRecords: React.FC = () => {
     loading,
     error,
     refetch,
+    isOffline: recordsOffline,
   } = usePatientRecords(user?.id);
   const [filterType, setFilterType] = useState<RecordCategoryFilter>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'alphabetical'>('newest');
@@ -422,7 +429,7 @@ export const PatientRecords: React.FC = () => {
     setSubmittingForm(null);
 
     if (insertError) {
-      setFeedback({ type: 'error', message: insertError.message });
+      setFeedback({ type: 'error', message: isNetworkFailure(insertError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
       return;
     }
 
@@ -452,7 +459,7 @@ export const PatientRecords: React.FC = () => {
     setSubmittingForm(null);
 
     if (insertError) {
-      setFeedback({ type: 'error', message: insertError.message });
+      setFeedback({ type: 'error', message: isNetworkFailure(insertError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
       return;
     }
 
@@ -496,7 +503,7 @@ export const PatientRecords: React.FC = () => {
     setSubmittingForm(null);
 
     if (insertError) {
-      setFeedback({ type: 'error', message: insertError.message });
+      setFeedback({ type: 'error', message: isNetworkFailure(insertError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
       return;
     }
 
@@ -532,7 +539,7 @@ export const PatientRecords: React.FC = () => {
     setBusyDeleteId(null);
 
     if (deleteError) {
-      setFeedback({ type: 'error', message: deleteError.message });
+      setFeedback({ type: 'error', message: isNetworkFailure(deleteError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
       return;
     }
 
@@ -598,7 +605,7 @@ export const PatientRecords: React.FC = () => {
         .eq('id', record.id)
         .eq('patient_id', user.id);
       if (updateError) {
-        setFeedback({ type: 'error', message: updateError.message });
+        setFeedback({ type: 'error', message: isNetworkFailure(updateError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
         setSubmittingEdit(false);
         return;
       }
@@ -614,7 +621,7 @@ export const PatientRecords: React.FC = () => {
         .eq('id', record.id)
         .eq('patient_id', user.id);
       if (updateError) {
-        setFeedback({ type: 'error', message: updateError.message });
+        setFeedback({ type: 'error', message: isNetworkFailure(updateError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
         setSubmittingEdit(false);
         return;
       }
@@ -634,7 +641,7 @@ export const PatientRecords: React.FC = () => {
         .eq('id', record.id)
         .eq('patient_id', user.id);
       if (updateError) {
-        setFeedback({ type: 'error', message: updateError.message });
+        setFeedback({ type: 'error', message: isNetworkFailure(updateError.message) ? t('shared.errors.network') : t('patient.records.saveError') });
         setSubmittingEdit(false);
         return;
       }
@@ -642,9 +649,13 @@ export const PatientRecords: React.FC = () => {
 
     setSubmittingEdit(false);
     setEditingRecordId(null);
-    setFeedback({ type: 'success', message: 'Record updated successfully.' });
+    setFeedback({ type: 'success', message: t('patient.records.successUpdate') });
     refetch();
   };
+
+  if (recordsOffline && !data) {
+    return <OfflineState description={t('patient.records.offlineBody')} onRetry={() => void refetch()} />;
+  }
 
   return (
     <>
@@ -796,7 +807,9 @@ export const PatientRecords: React.FC = () => {
           </div>
         ) : null}
 
-        {error ? (
+        {recordsOffline ? (
+          <OfflineNotice hasData onRetry={() => void refetch()} />
+        ) : error ? (
           <div
             role="alert"
             className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
@@ -807,7 +820,7 @@ export const PatientRecords: React.FC = () => {
               onClick={() => void refetch()}
               className="ml-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
