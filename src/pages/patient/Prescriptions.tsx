@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
+import { OfflineState, OfflineNotice } from '../../components/OfflineState';
 import { Skeleton } from '../../components/Skeleton';
 import { useMedicationLogs } from '../../hooks/use-medication-logs';
 import {
@@ -174,7 +175,7 @@ export const PatientPrescriptions: React.FC = () => {
       })
     );
   const { user } = useAuth();
-  const { data, loading, error, refetch } = usePatientPrescriptions(user?.id);
+  const { data, loading, error, refetch, isOffline: prescriptionsOffline } = usePatientPrescriptions(user?.id);
   const { data: primaryInsurance, loading: insuranceLoading } = usePatientPrimaryInsurance(user?.id);
   const { data: allergyRows } = usePatientDashboardAlert(user?.id);
   const [expandedLineIds, setExpandedLineIds] = useState<Set<string>>(new Set());
@@ -219,6 +220,7 @@ export const PatientPrescriptions: React.FC = () => {
   const {
     takenItemIds,
     error: medicationLogError,
+    errorKind: medicationLogErrorKind,
     markTaken: markMedicationTaken,
   } = useMedicationLogs(user?.id);
 
@@ -560,8 +562,8 @@ export const PatientPrescriptions: React.FC = () => {
     try {
       await markMedicationTaken(itemId);
       void doseIndex;
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not save that medication update.');
+    } catch {
+      // useMedicationLogs already records a friendly message.
     }
   };
 
@@ -662,6 +664,12 @@ export const PatientPrescriptions: React.FC = () => {
           <Skeleton className="h-40 w-full rounded-2xl" />
         </div>
       </div>
+    );
+  }
+
+  if (prescriptionsOffline && !data) {
+    return (
+      <OfflineState description={t('patient.prescriptions.offlineBody')} onRetry={() => void refetch()} />
     );
   }
 
@@ -1775,7 +1783,9 @@ export const PatientPrescriptions: React.FC = () => {
 
   return (
     <div className="animate-fadeIn">
-      {error ? (
+      {prescriptionsOffline ? (
+        <OfflineNotice hasData onRetry={() => void refetch()} />
+      ) : error ? (
         <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
           <p>{t('patient.prescriptions.loadError')}</p>
           <p className="mt-1 text-xs text-red-800/80">{error}</p>
@@ -1789,12 +1799,16 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
       ) : null}
 
-      {actionError || medicationLogError ? (
+      {actionError ? (
         <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
           {t('patient.prescriptions.actionError', {
             defaultValue: 'We could not save that update: {{message}}',
-            message: actionError ?? medicationLogError,
+            message: actionError,
           })}
+        </div>
+      ) : medicationLogError && !(medicationLogErrorKind === 'load' && prescriptionsOffline) ? (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+          {medicationLogError}
         </div>
       ) : null}
 
