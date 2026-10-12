@@ -741,7 +741,7 @@ export const PatientPrescriptions: React.FC = () => {
       <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
         {icon}
       </div>
-      <h3 className="font-playfair text-xl font-bold text-slate-900">{t(titleKey)}</h3>
+      <h3 className="text-xl font-bold text-slate-900">{t(titleKey)}</h3>
       <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">{t(bodyKey)}</p>
     </div>
   );
@@ -801,7 +801,7 @@ export const PatientPrescriptions: React.FC = () => {
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`rounded-lg px-3 py-1.5 font-mono text-sm font-bold ${
+                    className={`rounded-lg px-3 py-1.5 tabular-nums text-sm font-bold ${
                       block.status === 'pending'
                         ? 'bg-amber-500 text-white'
                         : 'bg-slate-300 text-slate-700'
@@ -936,7 +936,7 @@ export const PatientPrescriptions: React.FC = () => {
         <div className="rounded-2xl bg-gradient-to-r from-teal-600 to-teal-700 p-8 text-white">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="mb-2 font-playfair text-3xl font-bold">
+              <div className="mb-2 text-3xl font-bold">
                 {t('patient.prescriptions.reminderAdherenceTitle', {
                   percent: formatLocaleDigits(monthlyAdherencePercent, uiLang),
                 })}
@@ -1174,7 +1174,7 @@ export const PatientPrescriptions: React.FC = () => {
               <div className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">
                 {t('patient.prescriptions.costMonthlyTitle')}
               </div>
-              <div className="mb-4 font-mono text-5xl font-bold text-teal-600">
+              <div className="mb-4 tabular-nums text-5xl font-bold text-teal-600">
                 {hasCoverage && insuranceCoPayPercent != null
                   ? `${formatLocaleDigits(Math.round(insuranceCoPayPercent), uiLang)}%`
                   : t('patient.prescriptions.kpiCostPlaceholder')}
@@ -1202,7 +1202,7 @@ export const PatientPrescriptions: React.FC = () => {
                           {item.dosage ?? ''}
                         </span>
                       </div>
-                      <div className="font-mono font-bold text-slate-900">
+                      <div className="tabular-nums font-bold text-slate-900">
                         {t('patient.prescriptions.costNotPriced')}
                         <span className="ml-2 text-xs text-slate-400">
                           {hasCoverage
@@ -1218,13 +1218,13 @@ export const PatientPrescriptions: React.FC = () => {
               <div className="border-t border-slate-200 pt-4">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm text-slate-400">{t('patient.prescriptions.costWithoutInsurance')}</div>
-                  <div className="font-mono text-sm text-slate-400 line-through">
+                  <div className="tabular-nums text-sm text-slate-400 line-through">
                     {t('patient.prescriptions.costNotPriced')}
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="text-base font-bold text-emerald-600">{t('patient.prescriptions.costCoverage')}</div>
-                  <div className="font-mono text-xl font-bold text-emerald-600">
+                  <div className="tabular-nums text-xl font-bold text-emerald-600">
                     {hasCoverage
                       ? t('patient.prescriptions.costCoveragePercent', {
                           percent: formatLocaleDigits(Math.round(coveredPercent), uiLang),
@@ -1271,7 +1271,7 @@ export const PatientPrescriptions: React.FC = () => {
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="font-mono text-2xl font-bold text-teal-600">
+                      <div className="tabular-nums text-2xl font-bold text-teal-600">
                         {hasCoverage
                           ? `${formatLocaleDigits(Math.round(patientPercent), uiLang)}%`
                           : t('patient.prescriptions.kpiCostPlaceholder')}
@@ -1349,17 +1349,17 @@ export const PatientPrescriptions: React.FC = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm text-slate-600">
+                        <td className="px-4 py-4 text-right tabular-nums text-sm text-slate-600">
                           {t('patient.prescriptions.costNotPriced')}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm font-bold text-emerald-600">
+                        <td className="px-4 py-4 text-right tabular-nums text-sm font-bold text-emerald-600">
                           {hasCoverage
                             ? t('patient.prescriptions.costCoveragePercent', {
                                 percent: formatLocaleDigits(Math.round(coveredPercent), uiLang),
                               })
                             : t('patient.prescriptions.costNotPriced')}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm font-bold text-slate-900">
+                        <td className="px-4 py-4 text-right tabular-nums text-sm font-bold text-slate-900">
                           {hasCoverage
                             ? t('patient.prescriptions.costCoveragePercent', {
                                 percent: formatLocaleDigits(Math.round(patientPercent), uiLang),
@@ -1397,7 +1397,7 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="grid gap-6 md:grid-cols-3">
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="mb-2 text-sm text-slate-400">{t('patient.prescriptions.withoutInsurance')}</div>
-              <div className="font-mono text-3xl font-bold text-slate-400 line-through">
+              <div className="tabular-nums text-3xl font-bold text-slate-400 line-through">
                 {t('patient.prescriptions.costNotPriced')}
               </div>
               <div className="mt-1 text-xs text-slate-400">{t('patient.prescriptions.perYear')}</div>
@@ -1405,7 +1405,7 @@ export const PatientPrescriptions: React.FC = () => {
 
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="mb-2 text-sm text-teal-600">{t('patient.prescriptions.withPlan', { name: planName })}</div>
-              <div className="font-mono text-3xl font-bold text-teal-600">
+              <div className="tabular-nums text-3xl font-bold text-teal-600">
                 {hasCoverage
                   ? `${formatLocaleDigits(Math.round(patientPercent), uiLang)}%`
                   : t('patient.prescriptions.costNotPriced')}
@@ -1415,7 +1415,7 @@ export const PatientPrescriptions: React.FC = () => {
 
             <div className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-6 text-white shadow-lg">
               <div className="mb-2 text-sm text-emerald-100">{t('patient.prescriptions.planBenefit')}</div>
-              <div className="font-mono text-3xl font-bold">
+              <div className="tabular-nums text-3xl font-bold">
                 {primaryInsurance?.annualLimit
                   ? `AED ${formatLocaleDigits(Math.round(primaryInsurance.annualLimit), uiLang)}`
                   : t('patient.prescriptions.costNotPriced')}
@@ -1470,7 +1470,7 @@ export const PatientPrescriptions: React.FC = () => {
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-playfair text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-slate-900">
                     <MedicationNameDisplay
                       canonicalName={item.medication_name}
                       localizedName={item.medication_name_ar}
@@ -1479,7 +1479,7 @@ export const PatientPrescriptions: React.FC = () => {
                       secondaryClassName="mt-0.5 block truncate text-sm font-normal text-slate-500"
                     />
                   </h3>
-                  <div className="mt-0.5 font-mono text-base font-bold" style={{ color: accent.hex }}>
+                  <div className="mt-0.5 tabular-nums text-base font-bold" style={{ color: accent.hex }}>
                     {item.dosage || '—'}
                   </div>
                   <div className="text-xs text-slate-400">
@@ -1540,7 +1540,7 @@ export const PatientPrescriptions: React.FC = () => {
                       >
                         {item.is_dispensed || takenItemIds.has(item.id) ? <div className="h-2 w-2 rounded-full bg-white" /> : null}
                       </div>
-                      <div className="mt-1 text-[11px] font-mono text-slate-500">
+                      <div className="mt-1 text-[11px] tabular-nums text-slate-500">
                         {t('patient.prescriptions.slotN', { n: idx + 1 })}
                       </div>
                       <div
@@ -1585,7 +1585,7 @@ export const PatientPrescriptions: React.FC = () => {
                 </div>
                 {q != null ? (
                   <>
-                    <div className={`mt-2 font-mono text-sm font-bold ${refillText}`}>
+                    <div className={`mt-2 tabular-nums text-sm font-bold ${refillText}`}>
                       {daysRem != null
                         ? t('patient.prescriptions.daysEst', { days: formatLocaleDigits(daysRem, uiLang) })
                         : `${formatLocaleDigits(q, uiLang)} ${t('patient.prescriptions.qtyUnit')}`}
@@ -1841,7 +1841,7 @@ export const PatientPrescriptions: React.FC = () => {
               <Pill className="h-7 w-7 text-blue-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-slate-900">
+              <div className="tabular-nums text-3xl font-bold text-slate-900">
                 {formatLocaleDigits(activeMedicationCount, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiActiveMeds')}</div>
@@ -1864,7 +1864,7 @@ export const PatientPrescriptions: React.FC = () => {
               <CheckCircle className="h-7 w-7 text-emerald-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-emerald-600">
+              <div className="tabular-nums text-3xl font-bold text-emerald-600">
                 {formatLocaleDigits(takenToday, uiLang)}/{formatLocaleDigits(totalDosesToday, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiTakenToday')}</div>
@@ -1897,7 +1897,7 @@ export const PatientPrescriptions: React.FC = () => {
               <TrendingUp className="h-7 w-7 text-teal-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-teal-600">
+              <div className="tabular-nums text-3xl font-bold text-teal-600">
                 {formatLocaleDigits(monthlyAdherencePercent, uiLang)}%
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiAdherenceMonth')}</div>
@@ -1920,7 +1920,7 @@ export const PatientPrescriptions: React.FC = () => {
               <RefreshCw className="h-7 w-7 text-amber-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-amber-600">
+              <div className="tabular-nums text-3xl font-bold text-amber-600">
                 {formatLocaleDigits(refillsDueCount, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiRefillSoon')}</div>
@@ -1967,14 +1967,14 @@ export const PatientPrescriptions: React.FC = () => {
                 </>
               ) : primaryInsurance && primaryInsurance.coPayPercent != null ? (
                 <>
-                  <div className="font-mono text-3xl font-bold text-slate-900">
+                  <div className="tabular-nums text-3xl font-bold text-slate-900">
                     {formatLocaleDigits(Math.round(primaryInsurance.coPayPercent), uiLang)}%
                   </div>
                   <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiCoPay')}</div>
                 </>
               ) : (
                 <>
-                  <div className="font-mono text-3xl font-bold text-slate-900">
+                  <div className="tabular-nums text-3xl font-bold text-slate-900">
                     {t('patient.prescriptions.kpiCostPlaceholder')}
                   </div>
                   <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiMonthlyCost')}</div>
