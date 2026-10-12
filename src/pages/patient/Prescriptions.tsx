@@ -483,7 +483,7 @@ export const PatientPrescriptions: React.FC = () => {
   };
 
   const activePlanCount = activePrescriptions.length;
-  const pastPlanCount = pastPrescriptions.length;
+  const pastPlanCount = pastLineItems.length;
   const todayLabel = new Date().toLocaleDateString(
     locale,
     dateTimeFormatWithNumerals(uiLang, {
