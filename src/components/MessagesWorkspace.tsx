@@ -1071,7 +1071,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="border-t border-gray-100 bg-white p-4">
+            <form onSubmit={handleSubmit} className="relative border-t border-gray-100 bg-white p-4">
               {doctorQuickActions.length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-2">
                   {doctorQuickActions.map((action) => {
