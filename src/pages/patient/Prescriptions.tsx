@@ -2136,8 +2136,8 @@ export const PatientPrescriptions: React.FC = () => {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">My Reported Medications</h2>
-            <p className="mt-0.5 text-sm text-slate-500">Medications you are currently taking — shared with your doctor.</p>
+            <h2 className="text-lg font-bold text-slate-900">{t('patient.prescriptions.reported.title')}</h2>
+            <p className="mt-0.5 text-sm text-slate-500">{t('patient.prescriptions.reported.subtitle')}</p>
           </div>
           <button
             type="button"
@@ -2145,17 +2145,17 @@ export const PatientPrescriptions: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700"
           >
             <Plus className="h-4 w-4" />
-            Add Medication
+            {t('patient.prescriptions.reported.addButton')}
           </button>
         </div>
 
         <div className="divide-y divide-slate-100">
           {loadingReportedMeds ? (
-            <div className="p-6 text-sm text-slate-400">Loading...</div>
+            <div className="p-6 text-sm text-slate-400">{t('patient.prescriptions.reported.loading')}</div>
           ) : reportedMeds.length === 0 ? (
             <div className="px-6 py-10 text-center">
-              <p className="font-semibold text-slate-700">No medications reported yet</p>
-              <p className="mt-1 text-sm text-slate-500">Add medications you are currently taking so your doctor can review them.</p>
+              <p className="font-semibold text-slate-700">{t('patient.prescriptions.reported.emptyTitle')}</p>
+              <p className="mt-1 text-sm text-slate-500">{t('patient.prescriptions.reported.emptyBody')}</p>
             </div>
           ) : (
             reportedMeds.map((med) => (
@@ -2168,16 +2168,16 @@ export const PatientPrescriptions: React.FC = () => {
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-amber-100 text-amber-700'
                     }`}>
-                      {med.review_status === 'reviewed' ? '✅ Reviewed by doctor' : '⏳ Pending review'}
+                      {med.review_status === 'reviewed' ? t('patient.prescriptions.reported.reviewed') : t('patient.prescriptions.reported.pending')}
                     </span>
                     {med.is_current ? (
                       <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
-                        Currently taking
+                        {t('patient.prescriptions.reported.currentlyTaking')}
                       </span>
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm text-slate-500">
-                    {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'No details provided'}
+                    {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || t('patient.prescriptions.reported.noDetails')}
                   </p>
                   {med.instructions ? (
                     <p className="mt-1 text-xs text-slate-400">{med.instructions}</p>
@@ -2201,7 +2201,7 @@ export const PatientPrescriptions: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h3 className="font-bold text-slate-900">Add Medication</h3>
+              <h3 className="font-bold text-slate-900">{t('patient.prescriptions.reported.modalTitle')}</h3>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
@@ -2213,54 +2213,54 @@ export const PatientPrescriptions: React.FC = () => {
             <div className="space-y-4 p-5">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
-                  Medication Name <span className="text-red-500">*</span>
+                  {t('patient.prescriptions.reported.nameLabel')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={newMed.medication_name}
                   onChange={(e) => setNewMed((prev) => ({ ...prev, medication_name: e.target.value }))}
-                  placeholder="e.g. Paracetamol"
+                  placeholder={t('patient.prescriptions.reported.namePlaceholder')}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Dosage</label>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reported.dosageLabel')}</label>
                   <input
                     type="text"
                     value={newMed.dosage}
                     onChange={(e) => setNewMed((prev) => ({ ...prev, dosage: e.target.value }))}
-                    placeholder="e.g. 500mg"
+                    placeholder={t('patient.prescriptions.reported.dosagePlaceholder')}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Frequency</label>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reported.frequencyLabel')}</label>
                   <input
                     type="text"
                     value={newMed.frequency}
                     onChange={(e) => setNewMed((prev) => ({ ...prev, frequency: e.target.value }))}
-                    placeholder="e.g. Twice daily"
+                    placeholder={t('patient.prescriptions.reported.frequencyPlaceholder')}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Duration</label>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reported.durationLabel')}</label>
                 <input
                   type="text"
                   value={newMed.duration}
                   onChange={(e) => setNewMed((prev) => ({ ...prev, duration: e.target.value }))}
-                  placeholder="e.g. 7 days"
+                  placeholder={t('patient.prescriptions.reported.durationPlaceholder')}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Instructions</label>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reported.instructionsLabel')}</label>
                 <textarea
                   value={newMed.instructions}
                   onChange={(e) => setNewMed((prev) => ({ ...prev, instructions: e.target.value }))}
-                  placeholder="e.g. Take after meals"
+                  placeholder={t('patient.prescriptions.reported.instructionsPlaceholder')}
                   rows={2}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                 />
@@ -2274,7 +2274,7 @@ export const PatientPrescriptions: React.FC = () => {
                   className="h-4 w-4 rounded border-slate-300 text-cyan-600"
                 />
                 <label htmlFor="is_current" className="text-sm font-medium text-slate-700">
-                  I am currently taking this medication
+                  {t('patient.prescriptions.reported.currentCheckbox')}
                 </label>
               </div>
             </div>
@@ -2292,7 +2292,7 @@ export const PatientPrescriptions: React.FC = () => {
                 disabled={savingMed || !newMed.medication_name.trim()}
                 className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-60"
               >
-                {savingMed ? 'Saving...' : 'Add Medication'}
+                {savingMed ? t('patient.prescriptions.reported.saving') : t('patient.prescriptions.reported.submit')}
               </button>
             </div>
           </div>
