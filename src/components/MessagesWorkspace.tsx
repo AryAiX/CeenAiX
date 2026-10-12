@@ -29,6 +29,10 @@ import {
 } from '../lib/messaging';
 import { Skeleton } from './Skeleton';
 
+// QA-037: attachments are not uploaded yet, so the Attach option is
+// hidden until real upload/storage is built. Set to true to re-enable.
+const ATTACHMENTS_ENABLED = false;
+
 interface MessagesWorkspaceProps {
   role: 'patient' | 'doctor' | 'pharmacy' | 'clinic';
 }
@@ -1104,7 +1108,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               ) : null}
 
               {/* Attachment Preview */}
-              {attachment ? (
+              {ATTACHMENTS_ENABLED && attachment ? (
                 <div className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
                   {attachment.type === 'image' ? (
                     <img
@@ -1200,16 +1204,20 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
               <div className="mt-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
-                    title="Attach file"
-                  >
-                    <Paperclip className="h-4 w-4" />
-                    <span>Attach</span>
-                  </button>
-                  <p className="text-xs text-gray-400">Images, PDF, Word, TXT</p>
+                  {ATTACHMENTS_ENABLED ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
+                        title="Attach file"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        <span>Attach</span>
+                      </button>
+                      <p className="text-xs text-gray-400">Images, PDF, Word, TXT</p>
+                    </>
+                  ) : null}
                 </div>
                 <button
                   type="submit"
