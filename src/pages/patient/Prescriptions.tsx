@@ -2284,7 +2284,7 @@ export const PatientPrescriptions: React.FC = () => {
                 onClick={() => setShowAddModal(false)}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Cancel
+                {t('patient.prescriptions.reported.cancel')}
               </button>
               <button
                 type="button"
