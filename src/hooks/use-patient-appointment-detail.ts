@@ -39,12 +39,14 @@ export interface PatientAppointmentDetailData {
   labOrders: PatientAppointmentLabOrder[];
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function usePatientAppointmentDetail(
   patientUserId: string | null | undefined,
   appointmentId: string | null | undefined
 ) {
   return useQuery<PatientAppointmentDetailData | null>(async () => {
-    if (!patientUserId || !appointmentId) {
+    if (!patientUserId || !appointmentId || !UUID_PATTERN.test(appointmentId)) {
       return null;
     }
 
