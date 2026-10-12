@@ -1239,6 +1239,8 @@
   "ai": {
     "errors": {
       "invalidChatResponse": "AI chat returned an invalid response.",
+      "network": "We could not reach the AI chat service. Check your connection and try again.",
+      "attachmentTooLarge": "Attachments must be 10 MB or smaller.",
       "invalidDocResponse": "AI document analysis returned an invalid response.",
       "invalidMedEnrichment": "Medication enrichment returned an invalid response."
     }

@@ -22,6 +22,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
+import { OfflineNotice } from '../../components/OfflineState';
 import { usePatientPreVisitAssessments, usePatientDashboard } from '../../hooks';
 import { usePatientAiChat } from '../../hooks/use-patient-ai-chat';
 import { useQuery } from '../../hooks/use-query';
@@ -158,7 +159,7 @@ export const PatientAIChat: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const { data, loading, error, refetch } = usePatientAiChat(user?.id, selectedSessionId);
+  const { data, loading, error, refetch, isOffline: chatOffline } = usePatientAiChat(user?.id, selectedSessionId);
   const { data: preVisitAssessmentsData } = usePatientPreVisitAssessments(user?.id);
   const { data: dashboardData } = usePatientDashboard(user?.id, lang);
   const preVisitAssessments = preVisitAssessmentsData ?? [];
@@ -589,9 +590,14 @@ export const PatientAIChat: React.FC = () => {
                   </div>
                 ) : null}
 
-                {!loading && error ? (
+                {!loading && error && chatOffline ? (
+                  <div className="mb-8">
+                    <OfflineNotice hasData={data !== null} onRetry={() => void refetch()} />
+                  </div>
+                ) : !loading && error ? (
                   <div className="mb-8 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
                     {t('patient.aiChat.loadHistoryError')}
+                    <button type="button" onClick={() => void refetch()} className="ms-2 font-semibold underline">{t('shared.retry')}</button>
                   </div>
                 ) : null}
 

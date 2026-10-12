@@ -243,6 +243,18 @@ export async function uploadAiChatAttachment(userId: string, file: File): Promis
   });
 
   if (error) {
+    const message = (error.message ?? '').toLowerCase();
+    if (
+      message.includes('failed to fetch') ||
+      message.includes('networkerror') ||
+      message.includes('load failed')
+    ) {
+      throw new Error(
+        i18n.t('ai.errors.network', {
+          defaultValue: 'We could not reach the AI chat service. Check your connection and try again.',
+        })
+      );
+    }
     throw error;
   }
 
