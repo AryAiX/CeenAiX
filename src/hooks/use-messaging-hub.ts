@@ -81,7 +81,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
       return selectedConversationId;
     }
 
-    return conversations[0]?.id ?? null;
+    return null;
   }, [conversations, selectedConversationId]);
 
   const activeConversation = useMemo(
