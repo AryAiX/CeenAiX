@@ -86,6 +86,11 @@ const initialVaccinationForm: VaccinationFormState = {
   nextDoseDue: '',
 };
 
+const formatConditionName = (name: string) =>
+  name.includes('_')
+    ? name.replace(/_+/g, ' ').trim().replace(/^./, (c) => c.toUpperCase())
+    : name;
+
 const formatDate = (value: string | null | undefined, language: string) => {
   if (!value) {
     return null;
@@ -227,7 +232,7 @@ export const PatientRecords: React.FC = () => {
     const conditionEntries = conditions.map((condition) => ({
       id: condition.id,
       category: 'condition' as const,
-      title: condition.condition_name,
+      title: formatConditionName(condition.condition_name),
       subtitle: condition.icd_code ? t('patient.records.icdPrefix', { code: condition.icd_code }) : null,
       description: condition.notes ?? null,
       statusLabel: condition.status,
@@ -237,6 +242,7 @@ export const PatientRecords: React.FC = () => {
       metadata: [cat('condition'), conditionStatusDisplay(condition.status)],
       searchText: [
         condition.condition_name,
+        formatConditionName(condition.condition_name),
         condition.icd_code,
         condition.notes,
         condition.status,
