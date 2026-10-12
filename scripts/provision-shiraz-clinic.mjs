@@ -113,32 +113,36 @@ async function must(promise, what) {
   return data;
 }
 
-async function loadAuthUsersByEmail() {
-  const map = new Map();
-  for (let page = 1; ; page += 1) {
-    const data = await must(db.auth.admin.listUsers({ page, perPage: 1000 }), 'listing logins');
-    for (const u of data.users) if (u.email) map.set(u.email.toLowerCase(), u);
-    if (data.users.length < 1000) break;
-  }
-  return map;
+// Existing accounts are found through user_profiles by email. Supabase's
+// "list users" admin call is not used: on dev it fails with
+// "Database error finding users" because of older seeded logins.
+async function findUserIdByEmail(email) {
+  const rows = await must(
+    db.from('user_profiles').select('user_id').ilike('email', email).limit(2),
+    `looking up ${email}`,
+  );
+  if (rows.length > 1) throw new Error(`${email} matches more than one profile. Left unchanged.`);
+  return rows[0]?.user_id ?? null;
 }
 
-async function ensureLogin(authUsers, { email, role, fullName, firstName, lastName }) {
-  const existing = authUsers.get(email);
-  if (existing) { summary.reusedLogins += 1; return existing.id; }
+async function ensureLogin({ email, role, fullName, firstName, lastName }) {
+  const existingId = await findUserIdByEmail(email);
+  if (existingId) { summary.reusedLogins += 1; return existingId; }
   if (!apply) { summary.createdLogins += 1; return null; }
-  const data = await must(
-    db.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      app_metadata: { role },
-      user_metadata: { role, full_name: fullName, first_name: firstName, last_name: lastName },
-    }),
-    `creating login ${email}`,
-  );
+  const { data, error } = await db.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    app_metadata: { role },
+    user_metadata: { role, full_name: fullName, first_name: firstName, last_name: lastName },
+  });
+  if (error) {
+    if (/already|registered|exists/i.test(error.message)) {
+      throw new Error(`a login for ${email} already exists but has no profile. Left unchanged.`);
+    }
+    throw new Error(`creating login ${email}: ${error.message}`);
+  }
   summary.createdLogins += 1;
-  authUsers.set(email, data.user);
   return data.user.id;
 }
 
@@ -187,10 +191,8 @@ async function main() {
   const { error: expiryColumnError } = await db.from('doctor_profiles').select('dha_license_expiry').limit(1);
   if (expiryColumnError) fail('doctor_profiles.dha_license_expiry is missing. Apply the migration on dev first.');
 
-  const authUsers = await loadAuthUsersByEmail();
-
   // ----- Clinic login, facility, membership -----
-  const clinicUserId = await ensureLogin(authUsers, {
+  const clinicUserId = await ensureLogin({
     email: CLINIC.email, role: 'clinic', fullName: CLINIC.fullName, firstName: CLINIC.firstName, lastName: CLINIC.lastName,
   });
   let facilityId = null;
@@ -238,7 +240,7 @@ async function main() {
     const fullName = `${titleFor(d.position)}${d.full_name}`;
     const verified = d.dha_license_expiry >= today;
     try {
-      const userId = await ensureLogin(authUsers, { email, role: 'doctor', fullName, firstName, lastName });
+      const userId = await ensureLogin({ email, role: 'doctor', fullName, firstName, lastName });
       if (!apply) { console.log(`  would set up  ${email}  (${d.specialization})`); continue; }
 
       await ensureUserProfile(userId, { email, role: 'doctor', fullName, firstName, lastName });
