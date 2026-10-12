@@ -159,27 +159,6 @@ export const BookAppointment: React.FC = () => {
   );
 
   useEffect(() => {
-    if (isRescheduling) {
-      return;
-    }
-
-    if (selectedDoctorId || doctors.length === 0) {
-      return;
-    }
-
-    if (requestedDoctorId && doctors.some((doctor) => doctor.userId === requestedDoctorId)) {
-      setSelectedDoctorId(requestedDoctorId);
-      return;
-    }
-
-    if (searchTerm.trim().length > 0 || selectedSpecializationIds.length > 0) {
-      return;
-    }
-
-    setSelectedDoctorId(doctors[0]?.userId ?? null);
-  }, [doctors, isRescheduling, requestedDoctorId, searchTerm, selectedDoctorId, selectedSpecializationIds]);
-
-  useEffect(() => {
     if (isRescheduling || didInitializeAiPrefill) {
       return;
     }
@@ -286,6 +265,25 @@ export const BookAppointment: React.FC = () => {
   );
 
   useEffect(() => {
+    if (isRescheduling) {
+      return;
+    }
+
+    if (selectedDoctorId || doctors.length === 0) {
+      return;
+    }
+
+    if (
+      requestedDoctorId &&
+      doctors.some((doctor) => doctor.userId === requestedDoctorId) &&
+      filteredDoctors.some((doctor) => doctor.userId === requestedDoctorId)
+    ) {
+      setSelectedDoctorId(requestedDoctorId);
+      return;
+    }
+  }, [doctors, filteredDoctors, isRescheduling, requestedDoctorId, selectedDoctorId]);
+
+  useEffect(() => {
     if (!selectedDoctorId) {
       return;
     }
@@ -294,7 +292,7 @@ export const BookAppointment: React.FC = () => {
       return;
     }
 
-    setSelectedDoctorId(filteredDoctors[0]?.userId ?? null);
+    setSelectedDoctorId(null);
     setSelectedDate(null);
     setSelectedSlotIso(null);
   }, [filteredDoctors, selectedDoctorId]);
