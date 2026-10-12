@@ -363,7 +363,7 @@ export const PatientDashboard: React.FC = () => {
     [latestHba1c !== null, latestBloodPressure !== null, medications.length > 0].filter(Boolean).length >= 2;
   const healthScoreValue = dashboardData?.healthScore;
   const showHealthScoreNumber = dashboardData !== null && hasEnoughHealthData && healthScoreValue !== undefined;
-  const healthScoreWord = !dashboardData
+  const healthScoreWord = healthScoreValue === undefined
     ? null
     : !hasEnoughHealthData
       ? localCopy.notEnoughData
