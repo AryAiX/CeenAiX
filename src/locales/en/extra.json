@@ -255,6 +255,7 @@
       "specError": "Specialties could not be loaded yet.",
       "rescheduleLoadError": "The appointment to reschedule could not be loaded.",
       "availabilityError": "Doctor availability could not be loaded yet.",
+      "offlineBody": "We can't load doctors and available times right now. Check your internet connection and try again.",
       "chooseDoctor": "Choose a Doctor",
       "currentDoctor": "Current Doctor",
       "chooseDoctorSub": "Only doctors with active schedule availability are shown here.",

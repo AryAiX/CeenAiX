@@ -13,6 +13,7 @@ import {
   Stethoscope,
   X,
 } from 'lucide-react';
+import { OfflineState, OfflineNotice } from '../../components/OfflineState';
 import { Skeleton } from '../../components/Skeleton';
 import { SpecializationMultiSelect } from '../../components/SpecializationMultiSelect';
 import { useBookableDoctors, useDoctorBookingAvailability, useQuery, useSpecializations } from '../../hooks';
@@ -94,12 +95,16 @@ export const BookAppointment: React.FC = () => {
     data: doctorsData,
     loading: doctorsLoading,
     error: doctorsError,
+    isOffline: doctorsOffline,
+    refetch: refetchDoctors,
   } = useBookableDoctors();
   const doctors = useMemo(() => doctorsData ?? [], [doctorsData]);
   const {
     data: specializationOptionsData,
     loading: specializationsLoading,
     error: specializationsError,
+    isOffline: specializationsOffline,
+    refetch: refetchSpecializations,
   } = useSpecializations();
   const specializationOptions = useMemo(
     () => specializationOptionsData ?? [],
@@ -135,6 +140,8 @@ export const BookAppointment: React.FC = () => {
     data: rescheduleAppointment,
     loading: rescheduleLoading,
     error: rescheduleError,
+    isOffline: rescheduleOffline,
+    refetch: refetchReschedule,
   } = useQuery<RescheduleAppointment | null>(
     async () => {
       if (!rescheduleAppointmentId || !user) {
@@ -221,7 +228,20 @@ export const BookAppointment: React.FC = () => {
     data: availabilityData,
     loading: availabilityLoading,
     error: availabilityError,
+    isOffline: availabilityOffline,
+    refetch: refetchAvailability,
   } = useDoctorBookingAvailability(selectedDoctorId);
+
+  const isOfflineNow = Boolean(
+    doctorsOffline || specializationsOffline || rescheduleOffline || availabilityOffline
+  );
+  const hasLoadedDoctors = doctorsData !== null;
+  const retryBookingData = () => {
+    void refetchDoctors();
+    void refetchSpecializations();
+    void refetchReschedule();
+    void refetchAvailability();
+  };
 
   const filteredDoctors = useMemo(
     () =>
@@ -549,30 +569,39 @@ export const BookAppointment: React.FC = () => {
           </div>
         ) : null}
 
-        {doctorsError ? (
-          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('patient.book.doctorsError')}
-          </div>
-        ) : null}
+        {isOfflineNow && hasLoadedDoctors ? (
+          <OfflineNotice hasData onRetry={retryBookingData} />
+        ) : isOfflineNow ? null : (
+          <>
+            {doctorsError ? (
+              <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {t('patient.book.doctorsError')}
+              </div>
+            ) : null}
 
-        {specializationsError ? (
-          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('patient.book.specError')}
-          </div>
-        ) : null}
+            {specializationsError ? (
+              <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {t('patient.book.specError')}
+              </div>
+            ) : null}
 
-        {rescheduleError ? (
-          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('patient.book.rescheduleLoadError')}
-          </div>
-        ) : null}
+            {rescheduleError ? (
+              <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {t('patient.book.rescheduleLoadError')}
+              </div>
+            ) : null}
 
-        {availabilityError ? (
-          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {t('patient.book.availabilityError')}
-          </div>
-        ) : null}
+            {availabilityError ? (
+              <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {t('patient.book.availabilityError')}
+              </div>
+            ) : null}
+          </>
+        )}
 
+        {isOfflineNow && !hasLoadedDoctors ? (
+          <OfflineState description={t('patient.book.offlineBody')} onRetry={retryBookingData} />
+        ) : (
         <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <section className="rounded-2xl bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-gray-900">
@@ -1033,6 +1062,7 @@ export const BookAppointment: React.FC = () => {
             )}
           </section>
         </div>
+        )}
       </div>
       {showCancelWarning ? createPortal(
         <div
