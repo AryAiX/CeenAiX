@@ -14,6 +14,7 @@ import {
   UserCircle2,
   X,
 } from 'lucide-react';
+import { OfflineState, OfflineNotice } from './OfflineState';
 import { useMessagingHub } from '../hooks';
 import { useAuth } from '../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatRelativeTime, resolveLocale } from '../lib/i18n-ui';
@@ -123,6 +124,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     conversationError,
     threadError,
     actionError,
+    isOffline,
+    retryLoad,
     ensureDirectConversation,
     sendMessage,
     deleteMessage,
@@ -779,6 +782,9 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
   return (
     <>
+    {isOffline && conversations.length === 0 ? (
+      <OfflineState onRetry={retryLoad} />
+    ) : (
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
         <div className="border-b border-gray-100 px-5 py-4">
@@ -881,14 +887,18 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       </div>
 
       <div className="flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
-        {conversationError ? (
+        {isOffline ? (
+          <OfflineNotice hasData onRetry={retryLoad} />
+        ) : conversationError ? (
           <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
             {t(`${namespace}.loadError`)}
+            <button type="button" onClick={retryLoad} className="ms-2 font-semibold underline">{t('shared.retry')}</button>
           </div>
         ) : null}
-        {threadError ? (
+        {!isOffline && threadError ? (
           <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
             {t(`${namespace}.threadError`)}
+            <button type="button" onClick={retryLoad} className="ms-2 font-semibold underline">{t('shared.retry')}</button>
           </div>
         ) : null}
         {actionError ? (
@@ -1223,6 +1233,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         )}
       </div>
     </div>
+    )}
 
     {showProfileModal && activeConversation
       ? createPortal(

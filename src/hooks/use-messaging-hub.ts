@@ -22,6 +22,26 @@ const errLoadConversations = () =>
 const errLoadMessages = () =>
   i18n.t('messaging.errLoadMessages', { defaultValue: 'Unable to load messages.' });
 
+function isNetworkError(err: unknown): boolean {
+  const message =
+    err instanceof Error
+      ? err.message
+      : err !== null &&
+          typeof err === 'object' &&
+          'message' in err &&
+          typeof err.message === 'string'
+        ? err.message
+        : '';
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed') ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false)
+  );
+}
+
 interface UserProfileRow {
   user_id: string;
   full_name: string | null;
@@ -51,6 +71,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
   const [conversationError, setConversationError] = useState<string | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
 
   const activeConversationId = useMemo(() => {
     if (
@@ -185,10 +206,12 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
 
       if (requestId === conversationRequestIdRef.current) {
         setConversations(nextConversations);
+        setIsOffline(false);
       }
     } catch (error) {
       if (requestId === conversationRequestIdRef.current) {
         setConversationError(error instanceof Error ? error.message : errLoadConversations());
+        setIsOffline(isNetworkError(error));
       }
     } finally {
       if (requestId === conversationRequestIdRef.current) {
@@ -248,10 +271,12 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         }
 
         setMessages((data ?? []) as Message[]);
+        setIsOffline(false);
         void markConversationRead(conversationId);
       } catch (error) {
         if (loadMessagesRequestRef.current === requestId) {
           setThreadError(error instanceof Error ? error.message : errLoadMessages());
+          setIsOffline(isNetworkError(error));
         }
       } finally {
         if (loadMessagesRequestRef.current === requestId) {
@@ -269,6 +294,24 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
   useEffect(() => {
     void loadMessages(activeConversationId);
   }, [activeConversationId, loadMessages]);
+
+  const retryLoad = useCallback(() => {
+    void loadConversations();
+    if (activeConversationId) {
+      void loadMessages(activeConversationId);
+    }
+  }, [activeConversationId, loadConversations, loadMessages]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isOffline) {
+        retryLoad();
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [isOffline, retryLoad]);
 
   const ensureDirectConversation = useCallback(
     async (otherUserId: string, subject?: string | null): Promise<EnsureConversationResult> => {
@@ -401,13 +444,12 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           console.warn(
             `[messaging] message sent but conversation timestamp update failed: ${updateConversationError.message}`
           );
-          setActionError(updateConversationError.message);
         }
 
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : errSendMessage());
+        setActionError(isNetworkError(error) ? i18n.t('shared.errors.network') : errSendMessage());
         return false;
       } finally {
         setWorking(false);
@@ -477,6 +519,8 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     conversationError,
     threadError,
     actionError,
+    isOffline,
+    retryLoad,
     ensureDirectConversation,
     sendMessage,
     deleteMessage,
