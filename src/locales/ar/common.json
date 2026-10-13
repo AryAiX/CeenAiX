@@ -13,7 +13,10 @@
     "actionRecordsLink": "تذكير السجلات",
     "actionCareDefault": "إجراء رعاية",
     "defaultCareSubject": "محادثة رعاية",
-    "sendMessage": "إرسال رسالة"
+    "sendMessage": "إرسال رسالة",
+    "notFoundTitle": "لم يتم العثور على المحادثة",
+    "notFoundBody": "ربما تمت إزالة هذه المحادثة أو ليس لديك صلاحية للوصول إليها.",
+    "backToConversations": "العودة إلى المحادثات"
   },
   "errorBoundary": {
     "title": "حدث خطأ",

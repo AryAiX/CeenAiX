@@ -13,7 +13,10 @@
     "actionRecordsLink": "Records reminder",
     "actionCareDefault": "Care action",
     "defaultCareSubject": "Care conversation",
-    "sendMessage": "Send message"
+    "sendMessage": "Send message",
+    "notFoundTitle": "Conversation not found",
+    "notFoundBody": "This conversation may have been removed or you may not have access to it.",
+    "backToConversations": "Back to conversations"
   },
   "errorBoundary": {
     "title": "Something went wrong",

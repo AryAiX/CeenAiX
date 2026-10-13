@@ -89,6 +89,15 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     [activeConversationId, conversations]
   );
 
+  const conversationNotFound = useMemo(
+    () =>
+      Boolean(selectedConversationId) &&
+      !loadingConversations &&
+      conversationError === null &&
+      !conversations.some((conversation) => conversation.id === selectedConversationId),
+    [selectedConversationId, loadingConversations, conversationError, conversations]
+  );
+
   const conversationRequestIdRef = useRef(0);
 
   const loadConversations = useCallback(async () => {
@@ -512,6 +521,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     conversations,
     activeConversationId,
     activeConversation,
+    conversationNotFound,
     messages,
     loadingConversations,
     loadingMessages,

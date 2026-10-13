@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileText,
   MessageSquare,
+  MessageSquareOff,
   Paperclip,
   Search,
   Send,
@@ -120,6 +121,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const {
     conversations,
     activeConversation,
+    conversationNotFound,
     activeConversationId,
     messages,
     loadingConversations,
@@ -1230,6 +1232,27 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               </div>
             </form>
           </>
+        ) : conversationNotFound ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+            <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-r text-white ${theme.button}`}>
+              <MessageSquareOff className="h-10 w-10" />
+            </div>
+            <h3 className="mt-6 text-2xl font-bold text-gray-900">
+              {t('messaging.notFoundTitle', { defaultValue: 'Conversation not found' })}
+            </h3>
+            <p className="mt-3 max-w-md text-sm text-gray-600">
+              {t('messaging.notFoundBody', {
+                defaultValue: 'This conversation may have been removed or you may not have access to it.',
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(`/${role}/messages`)}
+              className={`mt-6 rounded-xl px-4 py-2 text-sm font-semibold text-white ${theme.composerButton}`}
+            >
+              {t('messaging.backToConversations', { defaultValue: 'Back to conversations' })}
+            </button>
+          </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-r text-white ${theme.button}`}>
