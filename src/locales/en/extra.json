@@ -776,6 +776,8 @@
       "memberId": "Member ID",
       "phMember": "Member ID",
       "groupNumber": "Group number",
+      "networkType": "Network type",
+      "phNetworkType": "Network type",
       "phGroup": "Group number",
       "coverageType": "Coverage type",
       "phCoverage": "e.g., premium, basic, gold",

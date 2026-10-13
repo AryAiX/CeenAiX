@@ -789,10 +789,9 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.insuranceProvider')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
+                      disabled
                       maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.provider}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, provider: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
                       placeholder={t('patient.profile.phProvider')}
                     />
@@ -822,25 +821,23 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.groupNumber')}</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.networkType')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
+                      disabled
                       maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.groupNumber}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, groupNumber: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phGroup')}
+                      placeholder={t('patient.profile.phNetworkType')}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.coverageType')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
+                      disabled
                       maxLength={FORM_FIELD_LIMITS.shortText}
                       value={insuranceInfo.coverageType}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, coverageType: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
                       placeholder={t('patient.profile.phCoverage')}
                     />

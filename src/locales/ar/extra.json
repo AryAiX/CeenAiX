@@ -776,6 +776,8 @@
       "memberId": "رقم العضو",
       "phMember": "رقم العضو",
       "groupNumber": "رقم المجموعة",
+      "networkType": "نوع الشبكة",
+      "phNetworkType": "نوع الشبكة",
       "phGroup": "رقم المجموعة",
       "coverageType": "نوع التغطية",
       "phCoverage": "مثل شامل، أساسي، ذهبي",
