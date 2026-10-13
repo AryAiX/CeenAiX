@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
+import { OfflineState, OfflineNotice } from '../../components/OfflineState';
+import { Skeleton } from '../../components/Skeleton';
 import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save } from 'lucide-react';
 import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -20,7 +22,13 @@ interface FamilyMember {
 export const Profile: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { data: profile, refetch: refetchProfile } = useUserProfile();
+  const {
+    data: profile,
+    loading: profileLoading,
+    error: profileError,
+    refetch: refetchProfile,
+    isOffline: profileOffline,
+  } = useUserProfile();
   const { data: records } = usePatientRecords(user?.id);
   const { data: insurance } = usePatientInsurance(user?.id);
   const [patientProfile, setPatientProfile] = useState<{
@@ -302,6 +310,10 @@ export const Profile: React.FC = () => {
     setFamilyMembers((prev) => prev.filter((member) => member.id !== id));
   };
 
+  if (profileOffline && !profile) {
+    return <OfflineState onRetry={() => void refetchProfile()} />;
+  }
+
   return (
     <>
       <div className="animate-fadeIn">
@@ -332,6 +344,40 @@ export const Profile: React.FC = () => {
         </div>
       ) : null}
 
+      {profileOffline ? (
+        <div className="mt-4">
+          <OfflineNotice hasData onRetry={() => void refetchProfile()} />
+        </div>
+      ) : profileError ? (
+        <div
+          role="alert"
+          className="mt-4 mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {profileError}
+          <button
+            type="button"
+            onClick={() => void refetchProfile()}
+            className="ml-2 font-semibold underline"
+          >
+            {t('shared.retry')}
+          </button>
+        </div>
+      ) : null}
+
+      {profileLoading && profile === null ? (
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+          </div>
+          <div className="lg:col-span-2 space-y-4">
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+          </div>
+        </div>
+      ) : (
       <div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 space-y-6">
@@ -982,6 +1028,7 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
       {confirmDeleteFamilyId ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
