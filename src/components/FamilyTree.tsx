@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, Heart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface FamilyMember {
   id: string;
@@ -19,6 +20,7 @@ interface FamilyTreeProps {
 }
 
 export const FamilyTree: React.FC<FamilyTreeProps> = ({ members, primaryUser }) => {
+  const { t } = useTranslation('common');
   const spouse = members.find(m => m.relationship === 'Spouse');
   const parents = members.filter(m => m.relationship === 'Parent');
   const children = members.filter(m => m.relationship === 'Child');
@@ -62,8 +64,8 @@ export const FamilyTree: React.FC<FamilyTreeProps> = ({ members, primaryUser }) 
           <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-amber-100 rounded-3xl flex items-center justify-center">
             <User className="w-10 h-10 text-orange-500" />
           </div>
-          <p className="text-lg font-semibold text-gray-700">No family members added yet</p>
-          <p className="text-sm text-gray-500 mt-2">Add your family members to see the family tree</p>
+          <p className="text-lg font-semibold text-gray-700">{t('patient.profile.familyEmptyTitle', { defaultValue: 'No family members added yet' })}</p>
+          <p className="text-sm text-gray-500 mt-2">{t('patient.profile.familyEmptyBody', { defaultValue: 'Add your family members to see the family tree' })}</p>
         </div>
       ) : (
         <div className="flex flex-col items-center space-y-12">

@@ -789,6 +789,8 @@
       "altInsuranceCard": "بطاقة التأمين",
       "familyTitle": "مخطط العائلة",
       "familySub": "أدر ملفات أفراد العائلة",
+      "familyEmptyTitle": "لم يُضف أفراد العائلة بعد",
+      "familyEmptyBody": "أضف أفراد عائلتك لعرض شجرة العائلة",
       "addMember": "إضافة فرد",
       "you": "أنت",
       "familyListTitle": "قائمة أفراد العائلة",

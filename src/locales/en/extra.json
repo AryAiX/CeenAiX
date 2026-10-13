@@ -789,6 +789,8 @@
       "altInsuranceCard": "Insurance card",
       "familyTitle": "Family chart",
       "familySub": "Manage your family members' profiles",
+      "familyEmptyTitle": "No family members added yet",
+      "familyEmptyBody": "Add your family members to see the family tree",
       "addMember": "Add member",
       "you": "You",
       "familyListTitle": "Family members list",
