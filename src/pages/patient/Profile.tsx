@@ -19,6 +19,11 @@ interface FamilyMember {
   profileImage?: string;
 }
 
+const isNetworkFailure = (message: string | undefined | null) => {
+  const m = (message ?? '').toLowerCase();
+  return m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed');
+};
+
 export const Profile: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -42,6 +47,7 @@ export const Profile: React.FC = () => {
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingInsurance, setIsEditingInsurance] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [patientProfileError, setPatientProfileError] = useState<string | null>(null);
   const [savingPersonal, setSavingPersonal] = useState(false);
   const [savingInsurance, setSavingInsurance] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -84,9 +90,10 @@ export const Profile: React.FC = () => {
       .then(({ data, error: fetchError }) => {
         if (!mounted) return;
         if (fetchError) {
-          setSaveError(fetchError.message);
+          setPatientProfileError(fetchError.message);
           return;
         }
+        setPatientProfileError(null);
         setPatientProfile(data);
       });
     return () => {
@@ -146,7 +153,11 @@ export const Profile: React.FC = () => {
       })
       .eq('user_id', user.id);
     if (profileError) {
-      setSaveError(profileError.message);
+      setSaveError(
+        isNetworkFailure(profileError.message)
+          ? t('shared.errors.network')
+          : t('patient.profile.saveErrorGeneric', { defaultValue: "We couldn't save your changes. Please try again." })
+      );
       setSavingPersonal(false);
       return;
     }
@@ -160,7 +171,11 @@ export const Profile: React.FC = () => {
       { onConflict: 'user_id' }
     );
     if (patientError) {
-      setSaveError(patientError.message);
+      setSaveError(
+        isNetworkFailure(patientError.message)
+          ? t('shared.errors.network')
+          : t('patient.profile.saveErrorGeneric', { defaultValue: "We couldn't save your changes. Please try again." })
+      );
       setSavingPersonal(false);
       return;
     }
@@ -193,7 +208,11 @@ export const Profile: React.FC = () => {
       })
       .eq('id', insurance.primaryPlan.id);
     if (insuranceError) {
-      setSaveError(insuranceError.message);
+      setSaveError(
+        isNetworkFailure(insuranceError.message)
+          ? t('shared.errors.network')
+          : t('patient.profile.saveErrorGeneric', { defaultValue: "We couldn't save your changes. Please try again." })
+      );
       setSavingInsurance(false);
       return;
     }
@@ -328,10 +347,7 @@ export const Profile: React.FC = () => {
           role="alert"
           className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
         >
-          {t('patient.profile.saveError', {
-            defaultValue: 'We could not save your changes: {{message}}',
-            message: saveError,
-          })}
+          {saveError}
         </div>
       ) : null}
 
@@ -348,12 +364,16 @@ export const Profile: React.FC = () => {
         <div className="mt-4">
           <OfflineNotice hasData onRetry={() => void refetchProfile()} />
         </div>
-      ) : profileError ? (
+      ) : profileError || patientProfileError ? (
         <div
           role="alert"
           className="mt-4 mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
         >
-          {profileError}
+          {patientProfileError
+            ? isNetworkFailure(patientProfileError)
+              ? t('shared.errors.network')
+              : t('patient.profile.loadError', { defaultValue: "We couldn't load your profile details. Please try again." })
+            : profileError}
           <button
             type="button"
             onClick={() => void refetchProfile()}

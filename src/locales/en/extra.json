@@ -729,6 +729,8 @@
     "profile": {
       "title": "My Profile",
       "subtitle": "Manage your personal information and health records",
+      "saveErrorGeneric": "We couldn't save your changes. Please try again.",
+      "loadError": "We couldn't load your profile details. Please try again.",
       "scanAlert": "Emirates ID scanning will be integrated with the device camera. This feature extracts information automatically from the ID card.",
       "altProfile": "Profile",
       "addYourName": "Add your name",
