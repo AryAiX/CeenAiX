@@ -51,7 +51,7 @@ Stack screens are kept mounted underneath the screen on top, so a hidden `screen
 
 | Screen | Status | Commit SHA | How to reach it | Notes |
 |---|---|---|---|---|
-| Sign in | ready-for-test | edfc1f5 | `/sign-in` (any route while signed out redirects here) | Email/password and phone OTP (`segment-login-mode-otp`) |
+| Sign in | fixed-ready-for-retest | c46a74a | `/sign-in` (any route while signed out redirects here) | Email/password and phone OTP (`segment-login-mode-otp`) |
 | Sign up | ready-for-test | edfc1f5 | `/sign-up` or `link-sign-up` | 3 steps: `option-signup-email` / `option-signup-phone`, then details, then password and terms |
 | Phone OTP | ready-for-test | edfc1f5 | Sign in, then OTP mode, then `btn-send-code` | Needs a real SMS; the cells are `input-otp-cells`, the hidden input is `input-otp-code` |
 | Forgot password | ready-for-test | edfc1f5 | `/forgot-password` or `link-forgot-password` | |
@@ -94,6 +94,7 @@ Stack screens are kept mounted underneath the screen on top, so a hidden `screen
 | MB-002 `useLastNotificationResponse` crashes on web | fixed-ready-for-retest | fixed MB-002 in f5bf5b0 (hook replaced by a no-op on web; push registration skipped on web) |
 | MB-003 root error boundary needs `ThemeProvider` | fixed-ready-for-retest | fixed MB-003 in edfc1f5 (`useTheme` falls back to the system palette outside the provider; the boundary strings have defaults) |
 | MB-004 invalid `direction` style on OTP cells | fixed-ready-for-retest | fixed MB-004 in f5bf5b0 (native keeps `direction: 'ltr'`; web uses `row`/`row-reverse` from the document direction) |
+| MB-005 patient-only screen flashes (or sticks) while the profile loads | fixed-ready-for-retest | fixed MB-005 in 0218ca2 + c46a74a (session and role are published together; the profile query retries and a failure shows `state-profile-error` with Retry instead of "not a patient"; `ensureProfile` runs only when the select succeeds with no row; the sign-in button stays busy until the navigator moves on). Local run of `tests/auth.spec.ts` at c46a74a: 38 passed, 2 skipped |
 
 ## Native-only (not covered on web)
 
