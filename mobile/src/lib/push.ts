@@ -47,3 +47,11 @@ export function getNotificationUrl(response: Notifications.NotificationResponse)
   const url = data?.url ?? data?.action_url;
   return typeof url === 'string' ? url : null;
 }
+
+/** Asks for (or confirms) OS notification permission without fetching a token. */
+export async function ensureNotificationPermission(): Promise<boolean> {
+  const existing = await Notifications.getPermissionsAsync();
+  if (existing.granted) return true;
+  if (!existing.canAskAgain) return false;
+  return (await Notifications.requestPermissionsAsync()).granted;
+}
