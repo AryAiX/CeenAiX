@@ -37,6 +37,7 @@ export const mobileAr: MobileStrings = {
   },
   auth: {
     tagline: 'صحتك، متصلة.',
+    profileLoadError: 'تعذّر تحميل تفاصيل حسابك. تحقّق من اتصالك وحاول مرة أخرى.',
     patientOnly: 'هذا التطبيق مخصص للمرضى. استخدم بوابة CeenAiX على الويب لوصول الأطباء والموظفين.',
     otpSentTo: 'أدخل الرمز المكون من 6 أرقام المرسل إلى {{phone}}.',
     otpPhoneHint: 'استخدم الصيغة الدولية، مثل ‎+971 50 123 4567.',

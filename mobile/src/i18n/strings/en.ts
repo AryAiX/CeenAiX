@@ -39,6 +39,7 @@ export const mobileEn = {
   },
   auth: {
     tagline: 'Your health, connected.',
+    profileLoadError: 'We could not load your account details. Check your connection and try again.',
     patientOnly: 'This app is for patients. Use the CeenAiX web portal for clinician and staff access.',
     otpSentTo: 'Enter the 6-digit code sent to {{phone}}.',
     otpPhoneHint: 'Use international format, e.g. +971 50 123 4567.',
