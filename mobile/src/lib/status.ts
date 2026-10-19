@@ -1,4 +1,4 @@
-import type { AppointmentStatus, PreVisitAssessmentStatus } from '@ceenaix/types';
+import type { AppointmentStatus, LabItemStatusCategory, PreVisitAssessmentStatus } from '@ceenaix/types';
 import type { Tone } from '@/theme/tokens';
 
 export const appointmentStatusTone: Record<AppointmentStatus, Tone> = {
@@ -22,3 +22,12 @@ export const labStatusTone = (status: string): Tone =>
 
 export const prescriptionStatusTone = (status: string): Tone =>
   status === 'active' ? 'brand' : status === 'completed' ? 'success' : 'neutral';
+
+export const labItemTone: Record<LabItemStatusCategory, Tone> = {
+  normal: 'success',
+  borderline: 'warning',
+  high: 'warning',
+  low: 'warning',
+  critical: 'danger',
+  pending: 'neutral',
+};
