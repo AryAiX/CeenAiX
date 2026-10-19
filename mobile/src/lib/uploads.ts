@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 
@@ -22,11 +23,7 @@ export const extensionFor = (mimeType: string, fallback = 'jpg'): string => {
   return ext === 'jpeg' ? 'jpg' : ext;
 };
 
-export const randomId = (): string => {
-  const cryptoApi = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-};
+export const randomId = (): string => Crypto.randomUUID();
 
 export async function readAssetBytes(uri: string): Promise<ArrayBuffer> {
   return new File(uri).arrayBuffer();
