@@ -1,3 +1,4 @@
+import '@/lib/livekit-globals';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
