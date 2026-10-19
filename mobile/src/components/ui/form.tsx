@@ -301,7 +301,7 @@ export function DateField({
   maximumDate,
   minimumDate,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   maximumDate?: Date;
@@ -316,12 +316,14 @@ export function DateField({
   };
   return (
     <View style={{ gap: 6 }}>
-      <Text variant="captionStrong" color="muted">
-        {label}
-      </Text>
+      {label ? (
+        <Text variant="captionStrong" color="muted">
+          {label}
+        </Text>
+      ) : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={label ?? t('m.common.selectDate')}
         onPress={() => setOpen((current) => !current)}
         style={[styles.inputWrap, { backgroundColor: colors.surface, borderColor: open ? colors.primary : colors.border, minHeight: 50 }]}
       >
