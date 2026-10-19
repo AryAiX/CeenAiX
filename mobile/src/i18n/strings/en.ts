@@ -343,6 +343,28 @@ export const mobileEn = {
     removeAttachment: 'Remove {{name}}',
     messageActions: 'Message',
   },
+  book: {
+    stepDoctor: 'Choose a doctor',
+    stepWhen: 'Pick a time',
+    stepDetails: 'Reason for visit',
+    stepReview: 'Review and confirm',
+    allSpecialties: 'All',
+    visitType: 'Visit type',
+    date: 'Date',
+    noDates: 'No open dates in the next 8 weeks',
+    noDatesSub: 'This doctor has no published availability yet. Try another doctor.',
+    slotsCount_one: '{{count}} slot',
+    slotsCount_other: '{{count}} slots',
+    fee: 'Consultation fee',
+    doctor: 'Doctor',
+    when: 'When',
+    discardTitle: 'Discard this booking?',
+    discardBody: 'Your selections will be lost.',
+    discard: 'Discard',
+    keepEditing: 'Keep editing',
+    duration: 'Duration',
+    rescheduleFrom: 'Currently {{when}}',
+  },
 } as const;
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };

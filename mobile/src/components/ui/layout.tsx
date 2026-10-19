@@ -1,5 +1,5 @@
 import type { ErrorBoundaryProps } from 'expo-router';
-import type { ReactNode } from 'react';
+import { use, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,6 +10,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/theme/theme-provider';
@@ -46,6 +47,8 @@ export function Screen({
 }: ScreenProps): React.ReactElement {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  // Undefined outside a stack navigator (e.g. tab roots).
+  const headerHeight = use(HeaderHeightContext) ?? 0;
   const body = scroll ? (
     <ScrollView
       style={{ flex: 1 }}
@@ -84,7 +87,7 @@ export function Screen({
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {keyboard ? (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}>
           {inner}
         </KeyboardAvoidingView>
       ) : (

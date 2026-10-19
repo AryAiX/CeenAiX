@@ -131,3 +131,135 @@ export async function cancelPatientAppointment(appointment: Pick<Appointment, 'i
 }
 
 export { getDoctorFacilityId, staffDate, staffTime };
+
+export interface RescheduleSource {
+  id: string;
+  doctor_id: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  chief_complaint: string | null;
+  notes: string | null;
+  status: string;
+}
+
+export function useRescheduleSource(appointmentId: string | null | undefined, userId: string | null | undefined) {
+  return useQuery<RescheduleSource | null>(
+    async () => {
+      if (!appointmentId || !userId) return null;
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, doctor_id, scheduled_at, duration_minutes, chief_complaint, notes, status')
+        .eq('id', appointmentId)
+        .eq('patient_id', userId)
+        .eq('is_deleted', false)
+        .maybeSingle();
+      if (error) throw error;
+      return data as RescheduleSource | null;
+    },
+    [appointmentId ?? '', userId ?? '']
+  );
+}
+
+export interface BookingSlot {
+  iso: string;
+  durationMinutes: number;
+}
+
+const patientWhen = (iso: string, locale: string) =>
+  `${new Date(iso).toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${new Date(iso).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}`;
+
+async function notifyStaffBestEffort(doctorId: string, title: string, body: string) {
+  try {
+    const facilityId = await getDoctorFacilityId(doctorId);
+    if (facilityId) await notifyClinicStaff(facilityId, title, body);
+  } catch {
+    // Staff notifications are best-effort, as on the web.
+  }
+}
+
+/**
+ * Same insert, notifications and pre-visit lookup as web `BookAppointment`
+ * `handleBooking` (new booking branch). Returns the appointment id and the
+ * pre-visit assessment id when the doctor's template created one.
+ */
+export async function bookPatientAppointment(args: {
+  patientId: string;
+  doctor: { userId: string; fullName: string };
+  type: 'in_person' | 'virtual';
+  slot: BookingSlot;
+  chiefComplaint: string;
+  notes: string;
+  locale: string;
+}): Promise<{ appointmentId: string; preVisitAssessmentId: string | null }> {
+  const facilityId = await getDoctorFacilityId(args.doctor.userId);
+  const { data, error } = await supabase
+    .from('appointments')
+    .insert({
+      patient_id: args.patientId,
+      doctor_id: args.doctor.userId,
+      facility_id: facilityId,
+      type: args.type,
+      status: 'scheduled',
+      scheduled_at: args.slot.iso,
+      duration_minutes: args.slot.durationMinutes,
+      chief_complaint: args.chiefComplaint.trim(),
+      notes: args.notes.trim() || null,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  const appointmentId = data.id as string;
+
+  await supabase.from('notifications').insert({
+    user_id: args.patientId,
+    type: 'appointment',
+    title: '📅 Appointment confirmed!',
+    body: `Your appointment with ${args.doctor.fullName} has been confirmed for ${patientWhen(args.slot.iso, args.locale)}.`,
+    action_url: `/patient/appointments/${appointmentId}`,
+  });
+  await notifyStaffBestEffort(
+    args.doctor.userId,
+    '📅 New Appointment Booked',
+    `A patient has booked an appointment with ${args.doctor.fullName} on ${staffDate(args.slot.iso)} at ${staffTime(args.slot.iso)}.`
+  );
+
+  const { data: assessment, error: assessmentError } = await supabase
+    .from('appointment_pre_visit_assessments')
+    .select('id')
+    .eq('appointment_id', appointmentId)
+    .maybeSingle();
+  if (assessmentError) throw assessmentError;
+  return { appointmentId, preVisitAssessmentId: (assessment?.id as string | undefined) ?? null };
+}
+
+/** `reschedule_patient_appointment` RPC plus the same notifications as the web. */
+export async function reschedulePatientAppointment(args: {
+  patientId: string;
+  appointmentId: string;
+  doctor: { userId: string; fullName: string };
+  slot: BookingSlot;
+  chiefComplaint: string;
+  notes: string;
+  locale: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc('reschedule_patient_appointment', {
+    p_appointment_id: args.appointmentId,
+    p_scheduled_at: args.slot.iso,
+    p_duration_minutes: args.slot.durationMinutes,
+    p_chief_complaint: args.chiefComplaint.trim(),
+    p_notes: args.notes.trim(),
+  });
+  if (error) throw error;
+  await supabase.from('notifications').insert({
+    user_id: args.patientId,
+    type: 'appointment',
+    title: '📅 Appointment rescheduled!',
+    body: `Your appointment with ${args.doctor.fullName} has been rescheduled to ${patientWhen(args.slot.iso, args.locale)}.`,
+    action_url: `/patient/appointments/${args.appointmentId}`,
+  });
+  await notifyStaffBestEffort(
+    args.doctor.userId,
+    '🔄 Appointment Rescheduled',
+    `A patient rescheduled their appointment with ${args.doctor.fullName} to ${staffDate(args.slot.iso)} at ${staffTime(args.slot.iso)}.`
+  );
+}
