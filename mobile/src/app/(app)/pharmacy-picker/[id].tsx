@@ -8,6 +8,8 @@ import { useQuery } from '@/hooks/use-query';
 import { haptics } from '@/lib/haptics';
 import { spacing } from '@/theme/tokens';
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 export default function PharmacyPickerSheet(): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();

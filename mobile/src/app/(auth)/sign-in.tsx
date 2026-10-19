@@ -12,6 +12,8 @@ import { spacing } from '@/theme/tokens';
 
 type Mode = 'password' | 'otp';
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 export default function SignInScreen(): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();

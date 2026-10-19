@@ -16,6 +16,8 @@ import { radius, spacing } from '@/theme/tokens';
 const REASONS = ['schedule', 'better', 'another', 'personal', 'other'] as const;
 type Reason = (typeof REASONS)[number];
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 // Native sheet replacing the web cancel modal (same reason list; the reason
 // is a UX confirmation step only — `cancel_patient_appointment` takes the id).
 export default function CancelAppointmentSheet(): React.ReactElement {

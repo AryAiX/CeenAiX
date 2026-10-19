@@ -14,6 +14,8 @@ type Method = 'email' | 'phone';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 export default function SignUpScreen(): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();

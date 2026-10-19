@@ -8,6 +8,8 @@ import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing } from '@/theme/tokens';
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 export default function ForgotPasswordScreen(): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();

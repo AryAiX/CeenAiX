@@ -13,6 +13,8 @@ const splitFullName = (fullName: string) => {
   return { firstName: parts[0] ?? null, lastName: parts.length > 1 ? parts.slice(1).join(' ') : null };
 };
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 // Patient branch of the web `/auth/onboarding` page: same `user_profiles` /
 // `patient_profiles` upserts, completing `profile_completed`.
 export default function OnboardingScreen(): React.ReactElement {

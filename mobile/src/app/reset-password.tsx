@@ -8,6 +8,8 @@ import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing } from '@/theme/tokens';
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 // Target of the `ceenaix://reset-password?code=…` link sent by
 // `resetPasswordForEmail`. The PKCE code is exchanged for a recovery session,
 // then the patient picks a new password.

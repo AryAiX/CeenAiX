@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
@@ -19,6 +19,7 @@ import {
 import type { RecordCategory } from '@/data/records';
 import { usePatientRecords } from '@/data/web/hooks/use-patient-records';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
+import { showActionSheet } from '@/lib/action-sheet';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing, type Tone } from '@/theme/tokens';
@@ -126,27 +127,12 @@ export default function RecordsScreen(): React.ReactElement {
   const openForm = (category: RecordCategory, id?: string) =>
     router.push({ pathname: '/record-form', params: id ? { category, id } : { category } });
 
-  const promptAdd = () => {
-    const options: Array<{ label: string; category: RecordCategory }> = [
-      { label: t('patient.records.addCondition'), category: 'condition' },
-      { label: t('patient.records.addAllergy'), category: 'allergy' },
-      { label: t('patient.records.addVax'), category: 'vaccination' },
-    ];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: [...options.map((option) => option.label), t('patient.records.cancel')], cancelButtonIndex: options.length },
-        (index) => {
-          const choice = options[index];
-          if (choice) openForm(choice.category);
-        }
-      );
-      return;
-    }
-    Alert.alert(t('patient.records.emptyStateCta'), undefined, [
-      ...options.map((option) => ({ text: option.label, onPress: () => openForm(option.category) })),
-      { text: t('patient.records.cancel'), style: 'cancel' as const },
+  const promptAdd = () =>
+    showActionSheet(t('patient.records.emptyStateCta'), [
+      { label: t('patient.records.addCondition'), onPress: () => openForm('condition') },
+      { label: t('patient.records.addAllergy'), onPress: () => openForm('allergy') },
+      { label: t('patient.records.addVax'), onPress: () => openForm('vaccination') },
     ]);
-  };
 
   return (
     <Screen onRefresh={records.refetch} refreshing={records.refreshing} staleSince={records.staleSince}>

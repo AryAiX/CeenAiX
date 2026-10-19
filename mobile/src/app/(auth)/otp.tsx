@@ -12,6 +12,8 @@ import { radius, spacing } from '@/theme/tokens';
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 export default function OtpScreen(): React.ReactElement {
   const { t } = useTranslation();
   const { colors } = useTheme();

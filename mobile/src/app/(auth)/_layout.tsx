@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router';
 import { useTheme } from '@/theme/theme-provider';
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 export default function AuthLayout(): React.ReactElement {
   const { colors } = useTheme();
   return (

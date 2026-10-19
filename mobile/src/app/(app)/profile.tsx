@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   Avatar,
@@ -30,6 +30,7 @@ import { usePatientRecords } from '@/data/web/hooks/use-patient-records';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
 import { formatDate } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
+import { showActionSheet } from '@/lib/action-sheet';
 import { PermissionDeniedError, pickAsset, type AssetSource } from '@/lib/pick-asset';
 import type { LocalAsset } from '@/lib/uploads';
 import { useAuth } from '@/providers/auth-provider';
@@ -99,26 +100,10 @@ export default function ProfileScreen(): React.ReactElement {
         const asset = await pickAsset(source, { allowsEditing: source !== 'files' });
         if (asset) await onPick(asset);
       });
-    const options = [
+    showActionSheet(title, [
       { label: t('m.docs.camera'), onPress: () => pick('camera') },
       { label: t('m.docs.library'), onPress: () => pick('library') },
-      ...(extra ? [extra] : []),
-    ];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title,
-          options: [...options.map((option) => option.label), t('m.common.cancel')],
-          cancelButtonIndex: options.length,
-          destructiveButtonIndex: extra ? options.length - 1 : undefined,
-        },
-        (index) => options[index]?.onPress()
-      );
-      return;
-    }
-    Alert.alert(title, undefined, [
-      ...options.map((option) => ({ text: option.label, onPress: option.onPress })),
-      { text: t('m.common.cancel'), style: 'cancel' as const },
+      ...(extra ? [{ ...extra, destructive: true }] : []),
     ]);
   };
 

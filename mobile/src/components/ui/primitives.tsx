@@ -50,9 +50,10 @@ export function Text({ variant = 'body', color = 'default', align = 'auto', styl
   );
 }
 
-export function Icon({ name, size = 20, color }: { name: IconName; size?: number; color?: string }): React.ReactElement {
+export function Icon({ name, size = 20, color, flipRtl }: { name: IconName; size?: number; color?: string; flipRtl?: boolean }): React.ReactElement {
   const { colors } = useTheme();
-  return <Ionicons name={name} size={size} color={color ?? colors.textMuted} />;
+  const icon = <Ionicons name={name} size={size} color={color ?? colors.textMuted} />;
+  return flipRtl && I18nManager.isRTL ? <View style={styles.flip}>{icon}</View> : icon;
 }
 
 /** Forward chevron that points the right way in RTL. */

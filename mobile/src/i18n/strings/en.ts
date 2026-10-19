@@ -327,6 +327,22 @@ export const mobileEn = {
     messageCareTeam: 'Message my care team',
     version: 'Version {{version}}',
   },
+  assistant: {
+    consentTitle: 'Personalise answers with your records?',
+    consentBody: 'With your permission, the assistant reads your conditions, allergies, medications, visits and lab results to tailor its answers. Nothing is shared with anyone else.',
+    allow: 'Allow',
+    notNow: 'Not now',
+    contextOn: 'Using your health records',
+    contextOff: 'Not using your health records',
+    change: 'Change',
+    copy: 'Copy',
+    copied: 'Copied',
+    share: 'Share',
+    history: 'Chat history',
+    attachmentLimit: 'You can attach up to 4 files.',
+    removeAttachment: 'Remove {{name}}',
+    messageActions: 'Message',
+  },
 } as const;
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };

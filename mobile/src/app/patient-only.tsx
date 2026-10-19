@@ -7,6 +7,8 @@ import { WEB_PORTAL_URL } from '@/lib/env';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing } from '@/theme/tokens';
 
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
+
 // Signed in with a non-patient role (doctor, pharmacy, admin…). The native app
 // only serves the patient portal, mirroring the web `/access-denied` guard.
 export default function PatientOnlyScreen(): React.ReactElement {

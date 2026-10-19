@@ -50,6 +50,7 @@ export default function AppLayout(): React.ReactElement {
         <Stack.Screen name="notifications" options={{ title: t('nav.notifications') }} />
         <Stack.Screen name="profile" options={{ title: t('nav.profile') }} />
         <Stack.Screen name="settings" options={{ title: t('nav.settings') }} />
+        <Stack.Screen name="assistant-history" options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
       </Stack>
     </BadgeProvider>
   );
