@@ -31,13 +31,14 @@ export default function SignInScreen(): React.ReactElement {
     if (!email.trim() || !password) return;
     setBusy(true);
     const { error: signInError } = await signInWithPassword(email.trim(), password);
-    setBusy(false);
     if (signInError) {
+      setBusy(false);
       haptics.error();
       setError(signInError.message);
-    } else {
-      haptics.success();
+      return;
     }
+    // Stay busy: the navigator leaves this screen once the profile and role have loaded.
+    haptics.success();
   };
 
   const submitOtp = async () => {
