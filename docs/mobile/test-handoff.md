@@ -40,7 +40,7 @@ React Native `testID` renders as `data-testid` on web, so use `page.getByTestId(
 | `state-route-error` | Route / root error boundary | |
 | `message-<tone>` | Inline messages (`danger`, `success`, `info`, `warning`) | `message-danger` for form errors |
 | `banner-offline` | Stale-cache banner | |
-| `dialog`, `action-sheet`, `dialog-title`, `dialog-message`, `dialog-btn-<index>`, `dialog-btn-cancel` | Web replacement for native alerts and action sheets | |
+| `dialog`, `action-sheet`, `dialog-title`, `dialog-message`, `dialog-btn-<index>`, `dialog-btn-cancel` | Web replacement for native alerts and action sheets. `<index>` counts only the non-cancel buttons, from 0 | Sign-out confirm: `dialog-btn-0` |
 | `chat-message-user` / `chat-message-assistant` / `chat-message-own` / `chat-message-other` | Chat bubbles (assistant and conversation) | |
 
 Interactive controls also carry an `accessibilityLabel`, rendered as `aria-label`, so `getByRole('button', { name })` works too.
