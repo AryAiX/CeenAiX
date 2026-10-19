@@ -37,8 +37,13 @@ export default function MessagesScreen(): React.ReactElement {
   }, [list.data, search]);
 
   return (
-    <Screen edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
-      <ScreenTitle title={t('patient.messages.title')} subtitle={t('patient.messages.conversationCount', { count: list.data?.length ?? 0 })} />
+    <Screen testID="screen-messages" edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
+      <ScreenTitle
+        title={t('patient.messages.title')}
+        subtitle={t('patient.messages.conversationCount', {
+          count: list.data?.length ?? 0,
+        })}
+      />
       {(list.data?.length ?? 0) > 3 ? (
         <View style={{ marginBottom: spacing.md }}>
           <TextField
@@ -67,12 +72,29 @@ export default function MessagesScreen(): React.ReactElement {
               <Card
                 key={conversation.id}
                 accessibilityLabel={`${conversation.counterpart.name}. ${conversation.lastMessagePreview ?? ''}`}
-                onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: conversation.id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/conversation/[id]',
+                    params: { id: conversation.id },
+                  })
+                }
               >
-                <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: spacing.md,
+                    alignItems: 'center',
+                  }}
+                >
                   <Avatar name={conversation.counterpart.name} size={48} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        gap: spacing.sm,
+                      }}
+                    >
                       <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
                         {conversation.counterpart.name}
                       </Text>
@@ -85,11 +107,24 @@ export default function MessagesScreen(): React.ReactElement {
                         {conversation.subject}
                       </Text>
                     ) : null}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                      }}
+                    >
                       <Text variant="caption" color={unread ? 'default' : 'muted'} numberOfLines={1} style={{ flex: 1 }}>
                         {conversation.lastMessagePreview ?? t('patient.messages.emptyPreview')}
                       </Text>
-                      {unread ? <Pill label={t('patient.messages.unreadCount', { count: conversation.unreadCount })} tone="brand" /> : null}
+                      {unread ? (
+                        <Pill
+                          label={t('patient.messages.unreadCount', {
+                            count: conversation.unreadCount,
+                          })}
+                          tone="brand"
+                        />
+                      ) : null}
                     </View>
                   </View>
                 </View>

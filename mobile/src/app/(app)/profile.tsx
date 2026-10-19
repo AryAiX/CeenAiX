@@ -85,7 +85,9 @@ export default function ProfileScreen(): React.ReactElement {
   const chooseSource = (title: string, onPick: (asset: LocalAsset) => Promise<void>, extra?: { label: string; onPress: () => void }) => {
     const pick = (source: AssetSource) =>
       void run(title, async () => {
-        const asset = await pickAsset(source, { allowsEditing: source !== 'files' });
+        const asset = await pickAsset(source, {
+          allowsEditing: source !== 'files',
+        });
         if (asset) await onPick(asset);
       });
     showActionSheet(title, [
@@ -130,7 +132,7 @@ export default function ProfileScreen(): React.ReactElement {
   const allergies = records.data?.allergies.map((row) => (row.reaction ? `${row.allergen} (${row.reaction})` : row.allergen)).join(', ');
 
   return (
-    <Screen keyboard onRefresh={() => Promise.all([refreshProfile(), records.refetch(), insurance.refetch()]).then(() => undefined)}>
+    <Screen testID="screen-profile" keyboard onRefresh={() => Promise.all([refreshProfile(), records.refetch(), insurance.refetch()]).then(() => undefined)}>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('m.profile.changePhoto')} onPress={changeAvatar}>
           <Avatar name={profile?.full_name} uri={profile?.avatar_url} size={96} />
@@ -199,9 +201,17 @@ export default function ProfileScreen(): React.ReactElement {
                   {t('patient.profile.bloodType')}
                 </Text>
                 <ChoiceChips
-                  options={BLOOD_TYPES.map((value) => ({ value, label: value }))}
+                  options={BLOOD_TYPES.map((value) => ({
+                    value,
+                    label: value,
+                  }))}
                   selected={personal.bloodType ? [personal.bloodType as (typeof BLOOD_TYPES)[number]] : []}
-                  onToggle={(bloodType) => setPersonal((v) => ({ ...v, bloodType: v.bloodType === bloodType ? '' : bloodType }))}
+                  onToggle={(bloodType) =>
+                    setPersonal((v) => ({
+                      ...v,
+                      bloodType: v.bloodType === bloodType ? '' : bloodType,
+                    }))
+                  }
                 />
               </View>
               <TextField
@@ -257,7 +267,13 @@ export default function ProfileScreen(): React.ReactElement {
         </Card>
       </Section>
 
-      <Section title={t('m.profile.healthSummary')} action={{ label: t('m.profile.manageRecords'), onPress: () => router.push('/records') }}>
+      <Section
+        title={t('m.profile.healthSummary')}
+        action={{
+          label: t('m.profile.manageRecords'),
+          onPress: () => router.push('/records'),
+        }}
+      >
         <Card>
           <KeyValue label={t('patient.profile.allergies')} value={allergies || t('m.profile.none')} />
           <KeyValue label={t('patient.profile.chronicConditions')} value={conditions || t('m.profile.none')} />

@@ -23,7 +23,7 @@ export default function AssistantHistorySheet(): React.ReactElement {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}>
+    <ScrollView testID="screen-assistant-history" contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}>
       <Text variant="title" style={{ marginBottom: 2 }}>
         {t('patient.aiChat.chats')}
       </Text>
@@ -31,7 +31,13 @@ export default function AssistantHistorySheet(): React.ReactElement {
         {t('patient.aiChat.chatsSub')}
       </Text>
       <Card onPress={() => open('new')} tone="ai" accessibilityLabel={t('patient.aiChat.newChat')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+          }}
+        >
           <IconBadge name="create-outline" tone="ai" />
           <View style={{ flex: 1 }}>
             <Text variant="bodyStrong">{t('patient.aiChat.newChat')}</Text>

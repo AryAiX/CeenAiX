@@ -10,7 +10,10 @@ import { spacing } from '@/theme/tokens';
 
 const splitFullName = (fullName: string) => {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  return { firstName: parts[0] ?? null, lastName: parts.length > 1 ? parts.slice(1).join(' ') : null };
+  return {
+    firstName: parts[0] ?? null,
+    lastName: parts.length > 1 ? parts.slice(1).join(' ') : null,
+  };
 };
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
@@ -92,24 +95,33 @@ export default function OnboardingScreen(): React.ReactElement {
 
   return (
     <Screen
+      testID="screen-onboarding"
       edgeTop
       keyboard
       footer={
         <>
           <Button
+            testID="btn-onboarding-save"
             label={busy ? t('auth.onboarding.buttons.saving') : t('auth.onboarding.buttons.save')}
             size="lg"
             fullWidth
             loading={busy}
             onPress={() => void submit()}
           />
-          <Button label={t('auth.onboarding.buttons.useAnotherAccount')} variant="ghost" fullWidth onPress={() => void signOut()} />
+          <Button
+            testID="btn-onboarding-switch-account"
+            label={t('auth.onboarding.buttons.useAnotherAccount')}
+            variant="ghost"
+            fullWidth
+            onPress={() => void signOut()}
+          />
         </>
       }
     >
       <BrandHeader title={t('auth.onboarding.title')} subtitle={t('auth.onboarding.description')} />
       <View style={{ gap: spacing.lg }}>
         <TextField
+          testID="input-onboarding-name"
           label={t('auth.onboarding.fields.fullName')}
           placeholder={t('auth.onboarding.fields.fullNamePlaceholder')}
           value={form.fullName}
@@ -117,6 +129,7 @@ export default function OnboardingScreen(): React.ReactElement {
           autoComplete="name"
         />
         <TextField
+          testID="input-onboarding-email"
           label={`${t('auth.onboarding.fields.email')}${user?.email ? '' : t('auth.onboarding.fields.emailRequired')}`}
           placeholder={t('auth.onboarding.fields.emailPlaceholder')}
           value={form.email}
@@ -126,6 +139,7 @@ export default function OnboardingScreen(): React.ReactElement {
           autoCapitalize="none"
         />
         <TextField
+          testID="input-onboarding-phone"
           label={t('auth.onboarding.fields.phone')}
           value={form.phone}
           onChangeText={(value) => update('phone', value)}
@@ -133,31 +147,40 @@ export default function OnboardingScreen(): React.ReactElement {
           keyboardType="phone-pad"
         />
         <TextField
+          testID="input-onboarding-city"
           label={t('auth.onboarding.fields.city')}
           placeholder={t('auth.onboarding.fields.cityPlaceholder')}
           value={form.city}
           onChangeText={(value) => update('city', value)}
         />
         <TextField
+          testID="input-onboarding-address"
           label={t('auth.onboarding.fields.address')}
           placeholder={t('auth.onboarding.fields.addressPlaceholder')}
           value={form.address}
           onChangeText={(value) => update('address', value)}
         />
         <TextField
+          testID="input-onboarding-emergency-name"
           label={t('auth.onboarding.fields.emergencyName')}
           placeholder={t('auth.onboarding.fields.emergencyNamePlaceholder')}
           value={form.emergencyContactName}
           onChangeText={(value) => update('emergencyContactName', value)}
         />
         <TextField
+          testID="input-onboarding-emergency-phone"
           label={t('auth.onboarding.fields.emergencyPhone')}
           placeholder={t('auth.onboarding.fields.emergencyPhonePlaceholder')}
           value={form.emergencyContactPhone}
           onChangeText={(value) => update('emergencyContactPhone', value)}
           keyboardType="phone-pad"
         />
-        <ToggleRow label={t('auth.onboarding.fields.termsConfirm')} value={form.termsAccepted} onChange={(value) => update('termsAccepted', value)} />
+        <ToggleRow
+          testID="toggle-onboarding-terms"
+          label={t('auth.onboarding.fields.termsConfirm')}
+          value={form.termsAccepted}
+          onChange={(value) => update('termsAccepted', value)}
+        />
         {error ? <InlineMessage tone="danger" message={error} /> : null}
       </View>
     </Screen>

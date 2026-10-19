@@ -8,14 +8,32 @@
     "noImplicitOverride": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@ceenaix/types": ["../src/types"],
-      "@ceenaix/types/*": ["../src/types/*"],
-      "@ceenaix/locales/*": ["../src/locales/*"],
-      "@ceenaix/shared/*": ["../src/lib/*"],
-      "i18next": ["./node_modules/i18next"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@ceenaix/types": [
+        "../src/types"
+      ],
+      "@ceenaix/types/*": [
+        "../src/types/*"
+      ],
+      "@ceenaix/locales/*": [
+        "../src/locales/*"
+      ],
+      "@ceenaix/shared/*": [
+        "../src/lib/*"
+      ],
+      "i18next": [
+        "./node_modules/i18next"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

@@ -55,15 +55,19 @@ export default function SignInScreen(): React.ReactElement {
       setError(otpError.message);
       return;
     }
-    router.push({ pathname: '/otp', params: { phone: normalized, flow: 'signin' } });
+    router.push({
+      pathname: '/otp',
+      params: { phone: normalized, flow: 'signin' },
+    });
   };
 
   return (
-    <Screen edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
+    <Screen testID="screen-sign-in" edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
       <BrandHeader title={t('auth.login.title')} subtitle={t('m.auth.tagline')} />
       {!hasSupabaseConfig ? <InlineMessage tone="danger" message={t('m.common.missingConfig')} /> : null}
       <View style={{ gap: spacing.lg, marginTop: spacing.lg }}>
         <SegmentedControl
+          testID="segment-login-mode"
           value={mode}
           onChange={(next) => {
             setMode(next);
@@ -77,6 +81,7 @@ export default function SignInScreen(): React.ReactElement {
         {mode === 'password' ? (
           <>
             <TextField
+              testID="input-login-email"
               label={t('auth.login.email')}
               placeholder={t('auth.login.emailPlaceholder')}
               value={email}
@@ -89,6 +94,7 @@ export default function SignInScreen(): React.ReactElement {
               onSubmitEditing={() => passwordRef.current?.focus()}
             />
             <TextField
+              testID="input-login-password"
               ref={passwordRef}
               label={t('auth.login.password')}
               placeholder={t('auth.login.passwordPlaceholder')}
@@ -102,7 +108,7 @@ export default function SignInScreen(): React.ReactElement {
               onSubmitEditing={() => void submitPassword()}
             />
             <Link href="/forgot-password" asChild>
-              <Pressable accessibilityRole="link" hitSlop={8} style={{ alignSelf: 'flex-end' }}>
+              <Pressable testID="link-forgot-password" accessibilityRole="link" hitSlop={8} style={{ alignSelf: 'flex-end' }}>
                 <Text variant="captionStrong" color="primary">
                   {t('auth.login.forgotPassword')}
                 </Text>
@@ -110,6 +116,7 @@ export default function SignInScreen(): React.ReactElement {
             </Link>
             {error ? <InlineMessage tone="danger" message={error} /> : null}
             <Button
+              testID="btn-sign-in"
               label={busy ? t('auth.login.signingIn') : t('auth.login.signIn')}
               size="lg"
               fullWidth
@@ -121,6 +128,7 @@ export default function SignInScreen(): React.ReactElement {
         ) : (
           <>
             <TextField
+              testID="input-login-phone"
               label={t('auth.login.mobile')}
               placeholder={t('auth.register.mobilePlaceholder')}
               helper={t('auth.login.otpHint')}
@@ -134,6 +142,7 @@ export default function SignInScreen(): React.ReactElement {
             />
             {error ? <InlineMessage tone="danger" message={error} /> : null}
             <Button
+              testID="btn-send-code"
               label={busy ? t('auth.login.sendingCode') : t('auth.login.sendCode')}
               size="lg"
               fullWidth
@@ -144,12 +153,19 @@ export default function SignInScreen(): React.ReactElement {
           </>
         )}
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.xxl }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: 6,
+          marginTop: spacing.xxl,
+        }}
+      >
         <Text variant="caption" color="muted">
           {t('auth.login.needAccount')}
         </Text>
         <Link href="/sign-up" asChild>
-          <Pressable accessibilityRole="link" hitSlop={8}>
+          <Pressable testID="link-sign-up" accessibilityRole="link" hitSlop={8}>
             <Text variant="captionStrong" color="primary">
               {t('auth.login.createAccount')}
             </Text>

@@ -1,7 +1,7 @@
 import { estimateDaysOfSupplyRemaining } from '@ceenaix/shared/medication-schedule';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
@@ -19,6 +19,7 @@ import {
   TextField,
   ToggleRow,
 } from '@/components/ui';
+import { alertDialog } from '@/lib/dialog';
 import { addReportedMedication, removeReportedMedication, useReportedMedications } from '@/data/reported-medications';
 import { useMedicationLogs } from '@/data/web/hooks/use-medication-logs';
 import { usePatientPrescriptions, type PatientPrescriptionRecord } from '@/data/web/hooks/use-patient-prescriptions';
@@ -60,12 +61,23 @@ export default function PrescriptionsScreen(): React.ReactElement {
   };
 
   return (
-    <Screen keyboard onRefresh={prescriptions.refetch} refreshing={prescriptions.refreshing} staleSince={prescriptions.staleSince}>
+    <Screen
+      testID="screen-prescriptions"
+      keyboard
+      onRefresh={prescriptions.refetch}
+      refreshing={prescriptions.refreshing}
+      staleSince={prescriptions.staleSince}
+    >
       {activeItems.length > 0 ? (
         <Card tone="success" style={{ marginBottom: spacing.lg }}>
           <Text variant="heading">{t('m.rx.todayTitle')}</Text>
           <Text variant="caption" color="muted" style={{ marginVertical: spacing.xs }}>
-            {takenCount === activeItems.length ? t('m.rx.allTaken') : t('m.rx.todayProgress', { taken: takenCount, total: activeItems.length })}
+            {takenCount === activeItems.length
+              ? t('m.rx.allTaken')
+              : t('m.rx.todayProgress', {
+                  taken: takenCount,
+                  total: activeItems.length,
+                })}
           </Text>
           <ProgressBar value={activeItems.length ? takenCount / activeItems.length : 0} tone="success" />
         </Card>
@@ -104,7 +116,12 @@ export default function PrescriptionsScreen(): React.ReactElement {
               prescription={prescription}
               takenIds={logs.takenItemIds}
               onMarkTaken={segment === 'active' ? markTaken : undefined}
-              onPress={() => router.push({ pathname: '/prescriptions/[id]', params: { id: prescription.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/prescriptions/[id]',
+                  params: { id: prescription.id },
+                })
+              }
             />
           ))
         )}
@@ -127,7 +144,14 @@ function PrescriptionCard({
   const { t, i18n } = useTranslation();
   return (
     <Card onPress={onPress}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: spacing.sm,
+        }}
+      >
         <View style={{ flex: 1 }}>
           <Text variant="caption" color="muted" numberOfLines={1}>
             {prescription.doctorName} · {formatDate(prescription.prescribed_at)}
@@ -140,7 +164,15 @@ function PrescriptionCard({
         const taken = takenIds.has(item.id);
         const name = i18n.language.startsWith('ar') && item.medication_name_ar ? item.medication_name_ar : item.medication_name;
         return (
-          <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
+          <View
+            key={item.id}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              marginTop: spacing.md,
+            }}
+          >
             <IconBadge name="medical-outline" tone={taken ? 'success' : 'brand'} size={36} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="bodyStrong" numberOfLines={2}>
@@ -167,7 +199,9 @@ function PrescriptionCard({
       })}
       {prescription.pharmacyName ? (
         <Text variant="micro" color="subtle" style={{ marginTop: spacing.md }}>
-          {t('patient.prescriptions.pharmacyAtName', { name: prescription.pharmacyName })}
+          {t('patient.prescriptions.pharmacyAtName', {
+            name: prescription.pharmacyName,
+          })}
         </Text>
       ) : null}
     </Card>
@@ -177,7 +211,12 @@ function PrescriptionCard({
 function ReportedMedications({ patientId }: { patientId: string | null }): React.ReactElement {
   const { t } = useTranslation();
   const meds = useReportedMedications(patientId);
-  const [form, setForm] = useState({ medicationName: '', dosage: '', frequency: '', isCurrent: true });
+  const [form, setForm] = useState({
+    medicationName: '',
+    dosage: '',
+    frequency: '',
+    isCurrent: true,
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,7 +227,12 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
     try {
       await addReportedMedication(patientId, form);
       haptics.success();
-      setForm({ medicationName: '', dosage: '', frequency: '', isCurrent: true });
+      setForm({
+        medicationName: '',
+        dosage: '',
+        frequency: '',
+        isCurrent: true,
+      });
       await meds.refetch();
     } catch (saveError) {
       haptics.error();
@@ -200,7 +244,7 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
 
   const remove = (id: string, name: string) => {
     if (!patientId) return;
-    Alert.alert(t('m.rx.remove'), t('m.rx.confirmRemove', { name }), [
+    alertDialog(t('m.rx.remove'), t('m.rx.confirmRemove', { name }), [
       { text: t('m.messages.cancel'), style: 'cancel' },
       {
         text: t('m.rx.remove'),
@@ -252,7 +296,13 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
       ) : (
         meds.data?.map((med) => (
           <Card key={med.id}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.md,
+              }}
+            >
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="bodyStrong">{med.medication_name}</Text>
                 <Text variant="caption" color="muted">

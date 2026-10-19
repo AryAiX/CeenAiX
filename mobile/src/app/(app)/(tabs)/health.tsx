@@ -29,17 +29,53 @@ export default function HealthHubScreen(): React.ReactElement {
     {
       title: t('m.health.clinical'),
       items: [
-        { href: '/records', title: t('nav.records'), hint: t('m.health.recordsHint'), icon: 'document-text-outline', tone: 'brand' },
-        { href: '/lab-results', title: t('nav.labResults'), hint: t('m.health.labsHint'), icon: 'flask-outline', tone: 'info' },
-        { href: '/prescriptions', title: t('nav.prescriptions'), hint: t('m.health.prescriptionsHint'), icon: 'medkit-outline', tone: 'success' },
-        { href: '/imaging', title: t('nav.imagingScans'), hint: t('m.health.imagingHint'), icon: 'scan-outline', tone: 'ai' },
+        {
+          href: '/records',
+          title: t('nav.records'),
+          hint: t('m.health.recordsHint'),
+          icon: 'document-text-outline',
+          tone: 'brand',
+        },
+        {
+          href: '/lab-results',
+          title: t('nav.labResults'),
+          hint: t('m.health.labsHint'),
+          icon: 'flask-outline',
+          tone: 'info',
+        },
+        {
+          href: '/prescriptions',
+          title: t('nav.prescriptions'),
+          hint: t('m.health.prescriptionsHint'),
+          icon: 'medkit-outline',
+          tone: 'success',
+        },
+        {
+          href: '/imaging',
+          title: t('nav.imagingScans'),
+          hint: t('m.health.imagingHint'),
+          icon: 'scan-outline',
+          tone: 'ai',
+        },
       ],
     },
     {
       title: t('m.health.files'),
       items: [
-        { href: '/documents', title: t('nav.documents'), hint: t('m.health.documentsHint'), icon: 'folder-open-outline', tone: 'warning' },
-        { href: '/insurance', title: t('nav.insurance'), hint: t('m.health.insuranceHint'), icon: 'shield-checkmark-outline', tone: 'brand' },
+        {
+          href: '/documents',
+          title: t('nav.documents'),
+          hint: t('m.health.documentsHint'),
+          icon: 'folder-open-outline',
+          tone: 'warning',
+        },
+        {
+          href: '/insurance',
+          title: t('nav.insurance'),
+          hint: t('m.health.insuranceHint'),
+          icon: 'shield-checkmark-outline',
+          tone: 'brand',
+        },
       ],
     },
     {
@@ -53,14 +89,26 @@ export default function HealthHubScreen(): React.ReactElement {
           tone: 'danger',
           badge: unreadNotifications,
         },
-        { href: '/profile', title: t('nav.profile'), hint: profile?.full_name ?? t('m.health.profileHint'), icon: 'person-circle-outline', tone: 'neutral' },
-        { href: '/settings', title: t('nav.settings'), hint: t('m.health.settingsHint'), icon: 'settings-outline', tone: 'neutral' },
+        {
+          href: '/profile',
+          title: t('nav.profile'),
+          hint: profile?.full_name ?? t('m.health.profileHint'),
+          icon: 'person-circle-outline',
+          tone: 'neutral',
+        },
+        {
+          href: '/settings',
+          title: t('nav.settings'),
+          hint: t('m.health.settingsHint'),
+          icon: 'settings-outline',
+          tone: 'neutral',
+        },
       ],
     },
   ];
 
   return (
-    <Screen edgeTop>
+    <Screen testID="screen-health" edgeTop>
       <ScreenTitle title={t('nav.myHealth')} subtitle={t('m.health.subtitle')} />
       {groups.map((group) => (
         <Section key={group.title} title={group.title}>

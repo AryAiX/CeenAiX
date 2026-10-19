@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 import { extensionFor, type LocalAsset } from './uploads';
 
 export type AssetSource = 'camera' | 'library' | 'files';
@@ -22,7 +23,7 @@ const fromImage = (asset: ImagePicker.ImagePickerAsset, prefix: string): LocalAs
 };
 
 const withSize = (asset: LocalAsset): LocalAsset => {
-  if (asset.size > 0) return asset;
+  if (asset.size > 0 || Platform.OS === 'web') return asset;
   try {
     return { ...asset, size: new File(asset.uri).size ?? 0 };
   } catch {
@@ -36,7 +37,11 @@ const withSize = (asset: LocalAsset): LocalAsset => {
  */
 export async function pickAsset(
   source: AssetSource,
-  options: { documentTypes?: string[]; aspect?: [number, number]; allowsEditing?: boolean } = {}
+  options: {
+    documentTypes?: string[];
+    aspect?: [number, number];
+    allowsEditing?: boolean;
+  } = {}
 ): Promise<LocalAsset | null> {
   if (source === 'files') {
     const result = await DocumentPicker.getDocumentAsync({
@@ -46,7 +51,12 @@ export async function pickAsset(
     });
     const asset = result.canceled ? null : result.assets[0];
     if (!asset) return null;
-    return withSize({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? 'application/octet-stream', size: asset.size ?? 0 });
+    return withSize({
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType ?? 'application/octet-stream',
+      size: asset.size ?? 0,
+    });
   }
 
   const imageOptions: ImagePicker.ImagePickerOptions = {
@@ -56,7 +66,7 @@ export async function pickAsset(
     aspect: options.aspect,
   };
 
-  if (source === 'camera') {
+  if (source === 'camera' && Platform.OS !== 'web') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) throw new PermissionDeniedError('camera');
     const result = await ImagePicker.launchCameraAsync(imageOptions);

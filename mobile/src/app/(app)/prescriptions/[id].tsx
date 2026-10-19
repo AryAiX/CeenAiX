@@ -25,17 +25,41 @@ function usePharmacyCopy(status: PatientPrescriptionRecord['pharmacyStatus']): {
   const { t } = useTranslation();
   switch (status) {
     case 'dispensed':
-      return { title: t('patient.prescriptions.pharmacyStatusDispensedTitle'), body: t('patient.prescriptions.pharmacyStatusDispensedBody'), tone: 'success' };
+      return {
+        title: t('patient.prescriptions.pharmacyStatusDispensedTitle'),
+        body: t('patient.prescriptions.pharmacyStatusDispensedBody'),
+        tone: 'success',
+      };
     case 'in_progress':
-      return { title: t('patient.prescriptions.pharmacyStatusInProgressTitle'), body: t('patient.prescriptions.pharmacyStatusInProgressBody'), tone: 'info' };
+      return {
+        title: t('patient.prescriptions.pharmacyStatusInProgressTitle'),
+        body: t('patient.prescriptions.pharmacyStatusInProgressBody'),
+        tone: 'info',
+      };
     case 'on_hold':
-      return { title: t('patient.prescriptions.pharmacyStatusOnHoldTitle'), body: t('patient.prescriptions.pharmacyStatusOnHoldBody'), tone: 'warning' };
+      return {
+        title: t('patient.prescriptions.pharmacyStatusOnHoldTitle'),
+        body: t('patient.prescriptions.pharmacyStatusOnHoldBody'),
+        tone: 'warning',
+      };
     case 'cancelled':
-      return { title: t('patient.prescriptions.pharmacyStatusCancelledTitle'), body: t('patient.prescriptions.pharmacyStatusCancelledBody'), tone: 'danger' };
+      return {
+        title: t('patient.prescriptions.pharmacyStatusCancelledTitle'),
+        body: t('patient.prescriptions.pharmacyStatusCancelledBody'),
+        tone: 'danger',
+      };
     case 'picked_up':
-      return { title: t('m.rx.pickedUpTitle'), body: t('m.rx.pickedUpBody'), tone: 'success' };
+      return {
+        title: t('m.rx.pickedUpTitle'),
+        body: t('m.rx.pickedUpBody'),
+        tone: 'success',
+      };
     case 'new':
-      return { title: t('patient.prescriptions.pharmacyStatusNewTitle'), body: t('patient.prescriptions.pharmacyStatusNewBody'), tone: 'info' };
+      return {
+        title: t('patient.prescriptions.pharmacyStatusNewTitle'),
+        body: t('patient.prescriptions.pharmacyStatusNewBody'),
+        tone: 'info',
+      };
     default:
       return null;
   }
@@ -54,7 +78,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
 
   if (prescriptions.loading) {
     return (
-      <Screen>
+      <Screen testID="screen-prescription-detail">
         <View style={{ gap: spacing.md }}>
           <Skeleton height={110} rounded={radius.xl} />
           <Skeleton height={160} />
@@ -64,14 +88,14 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
   }
   if (!prescriptions.data && prescriptions.error) {
     return (
-      <Screen>
+      <Screen testID="screen-prescription-detail">
         <ErrorState message={t('patient.prescriptions.loadError')} onRetry={() => void prescriptions.refetch()} />
       </Screen>
     );
   }
   if (!prescription) {
     return (
-      <Screen>
+      <Screen testID="screen-prescription-detail">
         <EmptyState icon="medkit-outline" title={t('patient.prescriptions.emptyActiveTitle')} />
       </Screen>
     );
@@ -93,7 +117,10 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
   const openThread = async (otherUserId: string) => {
     if (!user) return;
     const conversationId = await ensureDirectConversation(user.id, otherUserId, t('patient.messages.defaultSubject'));
-    router.push({ pathname: '/conversation/[id]', params: { id: conversationId } });
+    router.push({
+      pathname: '/conversation/[id]',
+      params: { id: conversationId },
+    });
   };
 
   const isActive = prescription.status === 'active';
@@ -101,10 +128,17 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
   const canPickUp = isActive && prescription.pharmacyStatus === 'dispensed';
 
   return (
-    <Screen onRefresh={prescriptions.refetch} refreshing={prescriptions.refreshing} staleSince={prescriptions.staleSince}>
+    <Screen testID="screen-prescription-detail" onRefresh={prescriptions.refetch} refreshing={prescriptions.refreshing} staleSince={prescriptions.staleSince}>
       <Stack.Screen options={{ title: formatDate(prescription.prescribed_at) }} />
       <Card tone="brand">
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: spacing.sm,
+          }}
+        >
           <View style={{ flex: 1 }}>
             <Text variant="title">{prescription.doctorName}</Text>
             {prescription.doctorSpecialty ? (
@@ -119,7 +153,12 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
 
       {sent ? (
         <View style={{ marginTop: spacing.md }}>
-          <InlineMessage tone="success" message={t('m.rx.sentToPharmacy', { name: prescription.pharmacyName ?? '' })} />
+          <InlineMessage
+            tone="success"
+            message={t('m.rx.sentToPharmacy', {
+              name: prescription.pharmacyName ?? '',
+            })}
+          />
         </View>
       ) : null}
       {copy && isActive ? (
@@ -130,7 +169,9 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
           </Text>
           {prescription.pharmacyName ? (
             <Text variant="captionStrong" style={{ marginTop: spacing.sm }}>
-              {t('patient.prescriptions.pharmacyAtName', { name: prescription.pharmacyName })}
+              {t('patient.prescriptions.pharmacyAtName', {
+                name: prescription.pharmacyName,
+              })}
             </Text>
           ) : null}
         </Card>
@@ -142,7 +183,13 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
             const days = estimateDaysOfSupplyRemaining(item.quantity, item.frequency);
             return (
               <Card key={item.id}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    gap: spacing.sm,
+                  }}
+                >
                   <Text variant="bodyStrong" style={{ flex: 1 }}>
                     {i18n.language.startsWith('ar') && item.medication_name_ar ? item.medication_name_ar : item.medication_name}
                   </Text>
@@ -184,7 +231,12 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
             icon="storefront-outline"
             size="lg"
             fullWidth
-            onPress={() => router.push({ pathname: '/pharmacy-picker/[id]', params: { id: prescription.id } })}
+            onPress={() =>
+              router.push({
+                pathname: '/pharmacy-picker/[id]',
+                params: { id: prescription.id },
+              })
+            }
           />
         ) : null}
         {canPickUp ? (
@@ -236,7 +288,12 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
             icon="calendar-outline"
             variant="ghost"
             fullWidth
-            onPress={() => router.push({ pathname: '/appointment/[id]', params: { id: prescription.appointment_id ?? '' } })}
+            onPress={() =>
+              router.push({
+                pathname: '/appointment/[id]',
+                params: { id: prescription.appointment_id ?? '' },
+              })
+            }
           />
         ) : null}
       </View>

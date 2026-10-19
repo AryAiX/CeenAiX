@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { useAuth } from './auth-provider';
 
 // Biometric re-unlock: when enabled, the app locks after being in the
@@ -31,6 +31,11 @@ export function AppLockProvider({ children }: { children: ReactNode }): React.Re
   const hydrated = useRef(false);
 
   useEffect(() => {
+    // Biometric lock is native-only; on web the app never locks.
+    if (Platform.OS === 'web') {
+      hydrated.current = true;
+      return;
+    }
     void (async () => {
       const [hasHardware, enrolled, types, stored] = await Promise.all([
         LocalAuthentication.hasHardwareAsync(),
@@ -76,7 +81,9 @@ export function AppLockProvider({ children }: { children: ReactNode }): React.Re
     async (enabled: boolean) => {
       if (enabled) {
         if (!isAvailable) return false;
-        const result = await LocalAuthentication.authenticateAsync({ promptMessage: 'Confirm to enable app lock' });
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Confirm to enable app lock',
+        });
         if (!result.success) return false;
       }
       await AsyncStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
@@ -87,7 +94,14 @@ export function AppLockProvider({ children }: { children: ReactNode }): React.Re
   );
 
   const value = useMemo<AppLockContextValue>(
-    () => ({ isLocked: isLocked && isEnabled && isPatient, isEnabled, isAvailable, biometryLabel, unlock, setEnabled }),
+    () => ({
+      isLocked: isLocked && isEnabled && isPatient,
+      isEnabled,
+      isAvailable,
+      biometryLabel,
+      unlock,
+      setEnabled,
+    }),
     [biometryLabel, isAvailable, isEnabled, isLocked, isPatient, setEnabled, unlock]
   );
 

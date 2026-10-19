@@ -1,5 +1,5 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { forwardRef, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, TextInput, type TextInputInstance, View, type TextInputProps } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/format';
@@ -20,6 +20,7 @@ interface ButtonProps {
   disabled?: boolean;
   fullWidth?: boolean;
   accessibilityHint?: string;
+  testID?: string;
 }
 
 export function Button({
@@ -32,21 +33,40 @@ export function Button({
   disabled = false,
   fullWidth = false,
   accessibilityHint,
+  testID,
 }: ButtonProps): React.ReactElement {
   const { colors } = useTheme();
   const isDisabled = disabled || loading;
   const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }> = {
-    primary: { bg: colors.primary, fg: colors.primaryText, border: colors.primary },
-    secondary: { bg: colors.surface, fg: colors.text, border: colors.borderStrong },
+    primary: {
+      bg: colors.primary,
+      fg: colors.primaryText,
+      border: colors.primary,
+    },
+    secondary: {
+      bg: colors.surface,
+      fg: colors.text,
+      border: colors.borderStrong,
+    },
     ghost: { bg: 'transparent', fg: colors.primary, border: 'transparent' },
-    danger: { bg: colors.tones.danger.bg, fg: colors.tones.danger.fg, border: colors.tones.danger.border },
-    ai: { bg: colors.tones.ai.fg, fg: colors.surface, border: colors.tones.ai.fg },
+    danger: {
+      bg: colors.tones.danger.bg,
+      fg: colors.tones.danger.fg,
+      border: colors.tones.danger.border,
+    },
+    ai: {
+      bg: colors.tones.ai.fg,
+      fg: colors.surface,
+      border: colors.tones.ai.fg,
+    },
   };
   const tone = palette[variant];
   const height = size === 'sm' ? 36 : size === 'lg' ? 54 : 46;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       accessibilityHint={accessibilityHint}
       disabled={isDisabled}
@@ -131,7 +151,11 @@ export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function 
           style={[
             typography.body,
             styles.input,
-            { color: colors.text, textAlignVertical: multiline ? 'top' : 'center', paddingTop: multiline ? spacing.md : 0 },
+            {
+              color: colors.text,
+              textAlignVertical: multiline ? 'top' : 'center',
+              paddingTop: multiline ? spacing.md : 0,
+            },
           ]}
         />
         {secureToggle ? (
@@ -163,26 +187,37 @@ export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  testID = 'segment',
 }: {
   options: ReadonlyArray<{ value: T; label: string; count?: number }>;
   value: T;
   onChange: (value: T) => void;
+  /** Prefix: the control gets `testID`, each option `${testID}-${value}`. */
+  testID?: string;
 }): React.ReactElement {
   const { colors } = useTheme();
   return (
-    <View accessibilityRole="tablist" style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}>
+    <View testID={testID} accessibilityRole="tablist" style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
           <Pressable
             key={option.value}
+            testID={`${testID}-${option.value}`}
             accessibilityRole="tab"
+            accessibilityLabel={option.label}
             accessibilityState={{ selected }}
             onPress={() => {
               if (!selected) haptics.tap();
               onChange(option.value);
             }}
-            style={[styles.segment, selected && { backgroundColor: colors.surface, ...styles.segmentShadow }]}
+            style={[
+              styles.segment,
+              selected && {
+                backgroundColor: colors.surface,
+                ...styles.segmentShadow,
+              },
+            ]}
           >
             <Text variant="captionStrong" color={selected ? 'default' : 'muted'} numberOfLines={1}>
               {option.label}
@@ -199,10 +234,13 @@ export function ChoiceChips<T extends string>({
   options,
   selected,
   onToggle,
+  testID = 'chip',
 }: {
   options: ReadonlyArray<{ value: T; label: string }>;
   selected: ReadonlyArray<T>;
   onToggle: (value: T) => void;
+  /** Prefix: each chip gets `${testID}-${value}`. */
+  testID?: string;
 }): React.ReactElement {
   const { colors } = useTheme();
   return (
@@ -212,7 +250,9 @@ export function ChoiceChips<T extends string>({
         return (
           <Pressable
             key={option.value}
+            testID={`${testID}-${option.value}`}
             accessibilityRole="button"
+            accessibilityLabel={option.label}
             accessibilityState={{ selected: isSelected }}
             onPress={() => {
               haptics.tap();
@@ -243,12 +283,14 @@ export function ToggleRow({
   value,
   onChange,
   disabled,
+  testID,
 }: {
   label: string;
   description?: string;
   value: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
+  testID?: string;
 }): React.ReactElement {
   const { colors } = useTheme();
   return (
@@ -262,6 +304,7 @@ export function ToggleRow({
         ) : null}
       </View>
       <Switch
+        testID={testID}
         accessibilityLabel={label}
         value={value}
         disabled={disabled}
@@ -289,16 +332,38 @@ export function DateField({
   onChange,
   maximumDate,
   minimumDate,
+  testID,
 }: {
   label?: string;
   value: string;
   onChange: (value: string) => void;
   maximumDate?: Date;
   minimumDate?: Date;
+  testID?: string;
 }): React.ReactElement {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  if (Platform.OS === 'web') {
+    // The community picker has no web implementation: accept typed YYYY-MM-DD.
+    return (
+      <TextField
+        label={label}
+        testID={testID}
+        accessibilityLabel={label ?? t('m.common.selectDate')}
+        placeholder="YYYY-MM-DD"
+        value={draft}
+        maxLength={10}
+        onChangeText={(text) => {
+          setDraft(text);
+          if (text === '') onChange('');
+          else if (/^\d{4}-\d{2}-\d{2}$/.test(text) && !Number.isNaN(fromIsoDate(text).getTime())) onChange(text);
+        }}
+      />
+    );
+  }
   const onPicked = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') setOpen(false);
     if (event.type === 'set' && date) onChange(toIsoDate(date));
@@ -311,10 +376,18 @@ export function DateField({
         </Text>
       ) : null}
       <Pressable
+        testID={testID}
         accessibilityRole="button"
         accessibilityLabel={label ?? t('m.common.selectDate')}
         onPress={() => setOpen((current) => !current)}
-        style={[styles.inputWrap, { backgroundColor: colors.surface, borderColor: open ? colors.primary : colors.border, minHeight: 50 }]}
+        style={[
+          styles.inputWrap,
+          {
+            backgroundColor: colors.surface,
+            borderColor: open ? colors.primary : colors.border,
+            minHeight: 50,
+          },
+        ]}
       >
         <Text variant="body" color={value ? 'default' : 'subtle'} style={{ flex: 1, paddingHorizontal: spacing.md }}>
           {value ? formatDate(fromIsoDate(value)) : t('m.common.selectDate')}
@@ -366,8 +439,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   input: { flex: 1, paddingHorizontal: spacing.md, minHeight: 48 },
-  segmented: { flexDirection: 'row', padding: 3, borderRadius: radius.md, gap: 3 },
-  segment: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: radius.sm + 2 },
+  segmented: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: radius.md,
+    gap: 3,
+  },
+  segment: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: radius.sm + 2,
+  },
   segmentShadow: {
     shadowColor: '#0f172a',
     shadowOpacity: 0.08,
@@ -385,5 +469,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
   },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
 });

@@ -25,7 +25,7 @@ export default function LabOrderScreen(): React.ReactElement {
 
   if (labs.loading) {
     return (
-      <Screen>
+      <Screen testID="screen-lab-result-detail">
         <View style={{ gap: spacing.md }}>
           <Skeleton height={120} rounded={radius.xl} />
           <Skeleton height={90} />
@@ -36,24 +36,28 @@ export default function LabOrderScreen(): React.ReactElement {
   }
   if (!labs.data && labs.error) {
     return (
-      <Screen>
+      <Screen testID="screen-lab-result-detail">
         <ErrorState message={t('patient.labResults.loadError')} onRetry={() => void labs.refetch()} />
       </Screen>
     );
   }
   if (!order) {
     return (
-      <Screen>
+      <Screen testID="screen-lab-result-detail">
         <EmptyState icon="flask-outline" title={t('patient.labResults.emptyTitle')} />
       </Screen>
     );
   }
 
   const releasedAt = order.results_released_at ?? order.ordered_at;
-  const share = () => void Share.share({ title: t('m.labs.share'), message: buildLabReportText(order, formatDate(releasedAt)) });
+  const share = () =>
+    void Share.share({
+      title: t('m.labs.share'),
+      message: buildLabReportText(order, formatDate(releasedAt)),
+    });
 
   return (
-    <Screen onRefresh={labs.refetch} refreshing={labs.refreshing} staleSince={labs.staleSince}>
+    <Screen testID="screen-lab-result-detail" onRefresh={labs.refetch} refreshing={labs.refreshing} staleSince={labs.staleSince}>
       <Stack.Screen
         options={{
           title: order.lab_order_code ?? t('m.appointment.labOrder'),
@@ -67,11 +71,37 @@ export default function LabOrderScreen(): React.ReactElement {
             {[order.labCity, order.labAddress].filter(Boolean).join(' · ')}
           </Text>
         ) : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md }}>
-          <Pill label={t(`shared.labOrderStatus.${order.status}`, { defaultValue: order.status })} tone={labStatusTone(order.status)} />
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: spacing.xs,
+            marginTop: spacing.md,
+          }}
+        >
+          <Pill
+            label={t(`shared.labOrderStatus.${order.status}`, {
+              defaultValue: order.status,
+            })}
+            tone={labStatusTone(order.status)}
+          />
           {order.reviewStatus === 'reviewed' ? <Pill icon="checkmark-done" label={t('m.labs.reviewed')} tone="success" /> : null}
-          {order.normalCount > 0 ? <Pill label={t('patient.labResults.normalCountBadge', { count: order.normalCount })} tone="success" /> : null}
-          {order.monitorCount > 0 ? <Pill label={t('patient.labResults.monitorCountBadge', { count: order.monitorCount })} tone="warning" /> : null}
+          {order.normalCount > 0 ? (
+            <Pill
+              label={t('patient.labResults.normalCountBadge', {
+                count: order.normalCount,
+              })}
+              tone="success"
+            />
+          ) : null}
+          {order.monitorCount > 0 ? (
+            <Pill
+              label={t('patient.labResults.monitorCountBadge', {
+                count: order.monitorCount,
+              })}
+              tone="warning"
+            />
+          ) : null}
         </View>
       </Card>
 
@@ -105,7 +135,16 @@ export default function LabOrderScreen(): React.ReactElement {
             icon="sparkles"
             variant="secondary"
             fullWidth
-            onPress={() => router.navigate({ pathname: '/assistant', params: { prompt: t('m.labs.explainPrompt', { date: formatDate(releasedAt) }) } })}
+            onPress={() =>
+              router.navigate({
+                pathname: '/assistant',
+                params: {
+                  prompt: t('m.labs.explainPrompt', {
+                    date: formatDate(releasedAt),
+                  }),
+                },
+              })
+            }
           />
         ) : null}
         {order.appointment_id ? (
@@ -114,7 +153,12 @@ export default function LabOrderScreen(): React.ReactElement {
             icon="calendar-outline"
             variant="ghost"
             fullWidth
-            onPress={() => router.push({ pathname: '/appointment/[id]', params: { id: order.appointment_id ?? '' } })}
+            onPress={() =>
+              router.push({
+                pathname: '/appointment/[id]',
+                params: { id: order.appointment_id ?? '' },
+              })
+            }
           />
         ) : null}
         <Button label={t('m.labs.share')} icon="share-outline" variant="ghost" fullWidth onPress={share} />
@@ -141,7 +185,13 @@ function LabItemCard({ item, subItems }: { item: LabOrderItem; subItems: LabOrde
         accessibilityState={hasDetails ? { expanded } : undefined}
         onPress={() => setExpanded((current) => !current)}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            gap: spacing.md,
+          }}
+        >
           <View style={{ flex: 1 }}>
             <Text variant="bodyStrong">{item.display_name_long ?? item.test_name}</Text>
             {reference ? (
@@ -158,7 +208,14 @@ function LabItemCard({ item, subItems }: { item: LabOrderItem; subItems: LabOrde
           </View>
         </View>
         {marker != null ? (
-          <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surfaceMuted, marginTop: spacing.md }}>
+          <View
+            style={{
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: colors.surfaceMuted,
+              marginTop: spacing.md,
+            }}
+          >
             <View
               style={{
                 position: 'absolute',
@@ -174,7 +231,14 @@ function LabItemCard({ item, subItems }: { item: LabOrderItem; subItems: LabOrde
           </View>
         ) : null}
         {hasDetails ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              marginTop: spacing.sm,
+            }}
+          >
             <Text variant="captionStrong" color="primary">
               {expanded ? t('m.labs.lessDetails') : t('m.labs.moreDetails')}
             </Text>
@@ -205,7 +269,14 @@ function LabItemCard({ item, subItems }: { item: LabOrderItem; subItems: LabOrde
             </View>
           ) : null}
           {subItems.map((sub) => (
-            <View key={sub.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md }}>
+            <View
+              key={sub.id}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                gap: spacing.md,
+              }}
+            >
               <Text variant="caption" style={{ flex: 1 }}>
                 {sub.test_name}
               </Text>

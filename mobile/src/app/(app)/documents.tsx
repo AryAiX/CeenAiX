@@ -1,7 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import { Stack, useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Share, View } from 'react-native';
+import { Share, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
@@ -27,6 +27,7 @@ import {
   usePatientDocumentVault,
   type PatientVaultDocument,
 } from '@/data/web/hooks/use-patient-document-vault';
+import { alertDialog } from '@/lib/dialog';
 import { usePatientInsurance } from '@/data/web/hooks/use-patient-insurance';
 import { usePatientLabResults } from '@/data/web/hooks/use-patient-lab-results';
 import { usePatientPrescriptions } from '@/data/web/hooks/use-patient-prescriptions';
@@ -80,7 +81,10 @@ export default function DocumentsScreen(): React.ReactElement {
         date: order.ordered_at,
         icon: 'flask-outline' as const,
         tone: 'ai' as const,
-        href: { pathname: '/lab-results/[id]', params: { id: order.id } } as const,
+        href: {
+          pathname: '/lab-results/[id]',
+          params: { id: order.id },
+        } as const,
       })),
       ...(prescriptions.data ?? []).map((rx) => ({
         id: `rx-${rx.id}`,
@@ -89,7 +93,10 @@ export default function DocumentsScreen(): React.ReactElement {
         date: rx.prescribed_at,
         icon: 'medkit-outline' as const,
         tone: 'brand' as const,
-        href: { pathname: '/prescriptions/[id]', params: { id: rx.id } } as const,
+        href: {
+          pathname: '/prescriptions/[id]',
+          params: { id: rx.id },
+        } as const,
       })),
       ...(insurance.data?.plans ?? []).map((plan) => ({
         id: `ins-${plan.id}`,
@@ -120,13 +127,18 @@ export default function DocumentsScreen(): React.ReactElement {
   const open = (doc: PatientVaultDocument) =>
     act(doc, async () => {
       const url = await getPatientDocumentSignedUrl(doc.storagePath);
-      await WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+      await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      });
     });
 
   const share = (doc: PatientVaultDocument) =>
     act(doc, async () => {
       const url = await getPatientDocumentSignedUrl(doc.storagePath, 3600);
-      const result = await Share.share({ title: doc.title, message: `${doc.title}\n${url}\n\n${t('m.docs.linkExpires')}` });
+      const result = await Share.share({
+        title: doc.title,
+        message: `${doc.title}\n${url}\n\n${t('m.docs.linkExpires')}`,
+      });
       if (result.action === Share.sharedAction && user) await recordPatientDocumentShare(doc.id, user.id, 'link');
     });
 
@@ -139,7 +151,7 @@ export default function DocumentsScreen(): React.ReactElement {
     });
 
   const remove = (doc: PatientVaultDocument) =>
-    Alert.alert(t('m.docs.remove'), t('m.docs.confirmRemove'), [
+    alertDialog(t('m.docs.remove'), t('m.docs.confirmRemove'), [
       { text: t('m.common.cancel'), style: 'cancel' },
       {
         text: t('m.docs.remove'),
@@ -154,7 +166,7 @@ export default function DocumentsScreen(): React.ReactElement {
     ]);
 
   return (
-    <Screen onRefresh={vault.refetch} refreshing={vault.refreshing} staleSince={vault.staleSince}>
+    <Screen testID="screen-documents" onRefresh={vault.refetch} refreshing={vault.refreshing} staleSince={vault.staleSince}>
       <Stack.Screen
         options={{
           headerRight: () => (
@@ -167,7 +179,11 @@ export default function DocumentsScreen(): React.ReactElement {
         onChange={setSegment}
         options={[
           { value: 'mine', label: t('m.docs.mine'), count: vault.data?.length },
-          { value: 'care', label: t('m.docs.fromCare'), count: careDocs.length },
+          {
+            value: 'care',
+            label: t('m.docs.fromCare'),
+            count: careDocs.length,
+          },
         ]}
       />
       {error ? (
@@ -186,7 +202,10 @@ export default function DocumentsScreen(): React.ReactElement {
               icon="folder-open-outline"
               title={t('m.docs.noUploadsTitle')}
               body={t('m.docs.noUploadsBody')}
-              action={{ label: t('m.docs.uploadTitle'), onPress: () => router.push('/document-upload') }}
+              action={{
+                label: t('m.docs.uploadTitle'),
+                onPress: () => router.push('/document-upload'),
+              }}
             />
           ) : (
             vault.data?.map((doc) => (
@@ -198,9 +217,18 @@ export default function DocumentsScreen(): React.ReactElement {
                       {doc.title}
                     </Text>
                     <Text variant="caption" color="muted" numberOfLines={1}>
-                      {t('m.docs.uploadedOn', { date: formatDate(doc.createdAt) })} · {formatBytes(doc.fileSizeBytes)}
+                      {t('m.docs.uploadedOn', {
+                        date: formatDate(doc.createdAt),
+                      })}{' '}
+                      · {formatBytes(doc.fileSizeBytes)}
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: 4 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        gap: spacing.xs,
+                        marginTop: 4,
+                      }}
+                    >
                       <Pill label={t(`m.docs.categories.${doc.category}`)} tone="neutral" />
                     </View>
                   </View>
@@ -252,7 +280,13 @@ export default function DocumentsScreen(): React.ReactElement {
         ) : (
           careDocs.map((doc) => (
             <Card key={doc.id} onPress={() => router.push(doc.href)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.md,
+                }}
+              >
                 <IconBadge name={doc.icon} tone={doc.tone} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text variant="bodyStrong" numberOfLines={2}>

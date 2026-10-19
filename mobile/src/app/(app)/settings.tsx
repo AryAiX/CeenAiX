@@ -1,9 +1,10 @@
 import * as Application from 'expo-application';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button, Card, Divider, InlineMessage, KeyValue, ListRow, Screen, Section, SegmentedControl, Text, ToggleRow } from '@/components/ui';
+import { alertDialog } from '@/lib/dialog';
 import { normalizePreferences, savePreferences, type PatientPreferences } from '@/data/preferences';
 import { changeLanguage, reloadApp, type AppLanguage } from '@/i18n';
 import { getAiContextConsent, setAiContextConsent } from '@/lib/ai';
@@ -16,7 +17,10 @@ import { spacing } from '@/theme/tokens';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
-type Feedback = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
+type Feedback = {
+  tone: 'success' | 'danger' | 'warning';
+  message: string;
+} | null;
 
 export default function SettingsScreen(): React.ReactElement {
   const { t, i18n } = useTranslation();
@@ -51,7 +55,10 @@ export default function SettingsScreen(): React.ReactElement {
     } catch (error) {
       setPrefs(previous);
       haptics.error();
-      setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : t('m.common.unexpected') });
+      setFeedback({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : t('m.common.unexpected'),
+      });
     } finally {
       setSaving(false);
     }
@@ -71,7 +78,7 @@ export default function SettingsScreen(): React.ReactElement {
     const needsReload = await changeLanguage(lng);
     await update('language', lng);
     if (needsReload) {
-      Alert.alert(t('m.settings.reloadTitle'), t('m.settings.reloadBody'), [
+      alertDialog(t('m.settings.reloadTitle'), t('m.settings.reloadBody'), [
         { text: t('m.settings.later'), style: 'cancel' },
         { text: t('m.settings.restart'), onPress: () => void reloadApp() },
       ]);
@@ -100,13 +107,17 @@ export default function SettingsScreen(): React.ReactElement {
   };
 
   const confirmSignOut = () =>
-    Alert.alert(t('m.settings.signOut'), t('m.settings.confirmSignOut'), [
+    alertDialog(t('m.settings.signOut'), t('m.settings.confirmSignOut'), [
       { text: t('m.common.cancel'), style: 'cancel' },
-      { text: t('m.settings.signOut'), style: 'destructive', onPress: () => void signOut() },
+      {
+        text: t('m.settings.signOut'),
+        style: 'destructive',
+        onPress: () => void signOut(),
+      },
     ]);
 
   return (
-    <Screen>
+    <Screen testID="screen-settings">
       {feedback ? (
         <View style={{ marginBottom: spacing.md }}>
           <InlineMessage tone={feedback.tone} message={feedback.message} />
@@ -116,7 +127,10 @@ export default function SettingsScreen(): React.ReactElement {
       <Section
         title={t('patient.settings.accountSummary')}
         style={{ marginTop: 0 }}
-        action={{ label: t('patient.settings.actionManageProfile'), onPress: () => router.push('/profile') }}
+        action={{
+          label: t('patient.settings.actionManageProfile'),
+          onPress: () => router.push('/profile'),
+        }}
       >
         <Card>
           <KeyValue label={t('patient.settings.fullName')} value={profile?.full_name} />
@@ -217,7 +231,9 @@ export default function SettingsScreen(): React.ReactElement {
           {lock.isAvailable ? (
             <ToggleRow
               label={t('m.settings.biometric', { method: lock.biometryLabel })}
-              description={t('m.settings.biometricBody', { method: lock.biometryLabel })}
+              description={t('m.settings.biometricBody', {
+                method: lock.biometryLabel,
+              })}
               value={lock.isEnabled}
               onChange={(value) => void toggleLock(value)}
             />
@@ -247,7 +263,9 @@ export default function SettingsScreen(): React.ReactElement {
       <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
         <Button label={t('m.settings.signOut')} icon="log-out-outline" variant="danger" fullWidth onPress={confirmSignOut} />
         <Text variant="micro" color="subtle" align="center">
-          {t('m.settings.version', { version: `${Application.nativeApplicationVersion ?? '1.0.0'} (${Application.nativeBuildVersion ?? 'dev'})` })}
+          {t('m.settings.version', {
+            version: `${Application.nativeApplicationVersion ?? '1.0.0'} (${Application.nativeBuildVersion ?? 'dev'})`,
+          })}
         </Text>
       </View>
     </Screen>

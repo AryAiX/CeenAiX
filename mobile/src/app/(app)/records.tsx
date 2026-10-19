@@ -99,7 +99,9 @@ export default function RecordsScreen(): React.ReactElement {
         category: 'vaccination',
         title: vaccination.vaccine_name,
         subtitle: vaccination.next_dose_due
-          ? t('patient.records.nextDoseLine', { date: formatDate(vaccination.next_dose_due) })
+          ? t('patient.records.nextDoseLine', {
+              date: formatDate(vaccination.next_dose_due),
+            })
           : t('patient.records.noNextDose'),
         status: vaccination.dose_number ? t('patient.records.doseN', { n: vaccination.dose_number }) : t('patient.records.recorded'),
         statusTone: vaccination.next_dose_due ? 'warning' : 'success',
@@ -124,21 +126,42 @@ export default function RecordsScreen(): React.ReactElement {
     vaccination: records.data?.vaccinations.length ?? 0,
   };
 
-  const openForm = (category: RecordCategory, id?: string) => router.push({ pathname: '/record-form', params: id ? { category, id } : { category } });
+  const openForm = (category: RecordCategory, id?: string) =>
+    router.push({
+      pathname: '/record-form',
+      params: id ? { category, id } : { category },
+    });
 
   const promptAdd = () =>
     showActionSheet(t('patient.records.emptyStateCta'), [
-      { label: t('patient.records.addCondition'), onPress: () => openForm('condition') },
-      { label: t('patient.records.addAllergy'), onPress: () => openForm('allergy') },
-      { label: t('patient.records.addVax'), onPress: () => openForm('vaccination') },
+      {
+        label: t('patient.records.addCondition'),
+        onPress: () => openForm('condition'),
+      },
+      {
+        label: t('patient.records.addAllergy'),
+        onPress: () => openForm('allergy'),
+      },
+      {
+        label: t('patient.records.addVax'),
+        onPress: () => openForm('vaccination'),
+      },
     ]);
 
   return (
-    <Screen onRefresh={records.refetch} refreshing={records.refreshing} staleSince={records.staleSince}>
+    <Screen testID="screen-records" onRefresh={records.refetch} refreshing={records.refreshing} staleSince={records.staleSince}>
       <Stack.Screen
-        options={{ headerRight: () => <IconButton name="add" variant="plain" onPress={promptAdd} accessibilityLabel={t('patient.records.emptyStateCta')} /> }}
+        options={{
+          headerRight: () => <IconButton name="add" variant="plain" onPress={promptAdd} accessibilityLabel={t('patient.records.emptyStateCta')} />,
+        }}
       />
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: spacing.sm,
+          marginBottom: spacing.lg,
+        }}
+      >
         {(Object.keys(counts) as RecordCategory[]).map((category) => (
           <Card key={category} style={{ flex: 1 }} padded>
             <IconBadge name={CATEGORY_ICON[category].icon} tone={CATEGORY_ICON[category].tone} size={32} />
@@ -186,17 +209,32 @@ export default function RecordsScreen(): React.ReactElement {
             icon="document-text-outline"
             title={t('patient.records.emptyStateTitle')}
             body={t('patient.records.emptyStateBody')}
-            action={{ label: t('patient.records.emptyStateCta'), onPress: promptAdd }}
+            action={{
+              label: t('patient.records.emptyStateCta'),
+              onPress: promptAdd,
+            }}
           />
         ) : visible.length === 0 ? (
           <EmptyState icon="search" title={t('patient.records.noMatchTitle')} />
         ) : (
           visible.map((entry) => (
             <Card key={`${entry.category}-${entry.id}`} onPress={() => openForm(entry.category, entry.id)}>
-              <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: spacing.md,
+                  alignItems: 'flex-start',
+                }}
+              >
                 <IconBadge name={CATEGORY_ICON[entry.category].icon} tone={CATEGORY_ICON[entry.category].tone} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                    }}
+                  >
                     <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={2}>
                       {entry.title}
                     </Text>

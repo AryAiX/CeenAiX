@@ -16,26 +16,38 @@ export default function TabsLayout(): React.ReactElement {
 
   return (
     <NativeTabs tintColor={colors.primary} backgroundColor={colors.tabBar} badgeBackgroundColor={colors.tones.danger.fg} minimizeBehavior="onScrollDown">
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="index" testID="tab-home">
         <NativeTabs.Trigger.Label>{t('m.tabs.home')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="appointments">
+      <NativeTabs.Trigger name="appointments" testID="tab-appointments">
         <NativeTabs.Trigger.Label>{t('m.tabs.visits')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'calendar', selected: 'calendar' }} md="calendar_month" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="assistant">
+      <NativeTabs.Trigger name="assistant" testID="tab-assistant">
         <NativeTabs.Trigger.Label>{t('m.tabs.assistant')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="sparkles" md="auto_awesome" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="messages">
+      <NativeTabs.Trigger name="messages" testID="tab-messages">
         <NativeTabs.Trigger.Label>{t('m.tabs.messages')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} md="chat" />
+        <NativeTabs.Trigger.Icon
+          sf={{
+            default: 'bubble.left.and.bubble.right',
+            selected: 'bubble.left.and.bubble.right.fill',
+          }}
+          md="chat"
+        />
         <NativeTabs.Trigger.Badge hidden={unreadMessages === 0}>{badgeText(unreadMessages)}</NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="health">
+      <NativeTabs.Trigger name="health" testID="tab-health">
         <NativeTabs.Trigger.Label>{t('m.tabs.health')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'heart.text.square', selected: 'heart.text.square.fill' }} md="favorite" />
+        <NativeTabs.Trigger.Icon
+          sf={{
+            default: 'heart.text.square',
+            selected: 'heart.text.square.fill',
+          }}
+          md="favorite"
+        />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

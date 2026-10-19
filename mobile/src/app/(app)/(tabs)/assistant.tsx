@@ -1,21 +1,10 @@
 import { FORM_FIELD_LIMITS } from '@ceenaix/shared/form-field-limits';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  type TextInputInstance,
-  View,
-} from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, type TextInputInstance, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { alertDialog } from '@/lib/dialog';
 import { AssistantMessage, AssistantThinking, type AssistantChatMessage } from '@/components/assistant-message';
 import { AssistantStarter } from '@/components/assistant-starter';
 import { Button, Card, ErrorState, Icon, IconButton, InlineMessage, Pill, SkeletonList, Text } from '@/components/ui';
@@ -137,7 +126,14 @@ export default function AssistantScreen(): React.ReactElement {
   }, [chat.data, chat.loading, isSending, selectedSessionId]);
 
   const updates = useQuery(
-    async () => (user ? fetchCanonicalUpdateRequests({ patientId: user.id, sourceKind: 'ai_chat_message', status: 'pending' }) : []),
+    async () =>
+      user
+        ? fetchCanonicalUpdateRequests({
+            patientId: user.id,
+            sourceKind: 'ai_chat_message',
+            status: 'pending',
+          })
+        : [],
     [user?.id ?? '', selectedSessionId ?? '']
   );
   const pendingUpdates = useMemo(() => {
@@ -157,8 +153,12 @@ export default function AssistantScreen(): React.ReactElement {
   };
 
   const promptConsent = () =>
-    Alert.alert(t('m.assistant.consentTitle'), t('m.assistant.consentBody'), [
-      { text: t('m.assistant.notNow'), style: 'cancel', onPress: () => void chooseConsent(false) },
+    alertDialog(t('m.assistant.consentTitle'), t('m.assistant.consentBody'), [
+      {
+        text: t('m.assistant.notNow'),
+        style: 'cancel',
+        onPress: () => void chooseConsent(false),
+      },
       { text: t('m.assistant.allow'), onPress: () => void chooseConsent(true) },
     ]);
 
@@ -175,7 +175,7 @@ export default function AssistantScreen(): React.ReactElement {
       reset();
       return;
     }
-    Alert.alert(t('patient.aiChat.clearChat'), t('patient.aiChat.clearChatConfirm'), [
+    alertDialog(t('patient.aiChat.clearChat'), t('patient.aiChat.clearChatConfirm'), [
       { text: t('m.common.cancel'), style: 'cancel' },
       { text: t('patient.aiChat.newChat'), onPress: reset },
     ]);
@@ -192,7 +192,11 @@ export default function AssistantScreen(): React.ReactElement {
           const asset = await pickAsset(source);
           if (!asset) return;
           if (asset.size > 10 * 1024 * 1024) {
-            setSendError(t('ai.errors.attachmentTooLarge', { defaultValue: 'Attachments must be 10 MB or smaller.' }));
+            setSendError(
+              t('ai.errors.attachmentTooLarge', {
+                defaultValue: 'Attachments must be 10 MB or smaller.',
+              })
+            );
             return;
           }
           setSendError(null);
@@ -234,7 +238,13 @@ export default function AssistantScreen(): React.ReactElement {
       uploaded = filesBeforeSend.length > 0 ? await Promise.all(filesBeforeSend.map((file) => uploadAiChatAttachment(user.id, file))) : [];
       setMessages((current) => [
         ...current,
-        { id: `temp-user-${Date.now()}`, role: 'user', content: next, createdAt: new Date().toISOString(), attachments: uploaded },
+        {
+          id: `temp-user-${Date.now()}`,
+          role: 'user',
+          content: next,
+          createdAt: new Date().toISOString(),
+          attachments: uploaded,
+        },
       ]);
       setInput('');
       setPendingFiles([]);
@@ -309,7 +319,13 @@ export default function AssistantScreen(): React.ReactElement {
             </Text>
             {pendingUpdates.map((update) => (
               <View key={update.id} style={{ gap: 2 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                  }}
+                >
                   <Text variant="captionStrong" style={{ flex: 1 }}>
                     {update.displayLabel}
                   </Text>
@@ -338,7 +354,11 @@ export default function AssistantScreen(): React.ReactElement {
   );
 
   return (
-    <KeyboardAvoidingView style={[styles.flex, { backgroundColor: colors.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      testID="screen-assistant"
+      style={[styles.flex, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <View style={{ flex: 1 }}>
           <Text variant="title" accessibilityRole="header">
@@ -355,7 +375,10 @@ export default function AssistantScreen(): React.ReactElement {
       {showStarter ? (
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}
+          contentContainerStyle={{
+            padding: spacing.lg,
+            paddingBottom: spacing.xxl,
+          }}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
         >
@@ -393,7 +416,11 @@ export default function AssistantScreen(): React.ReactElement {
       <View
         style={[
           styles.composer,
-          { borderTopColor: colors.border, backgroundColor: colors.surface, paddingBottom: keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.sm) },
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingBottom: keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.sm),
+          },
         ]}
       >
         {sendError ? <InlineMessage tone="danger" message={sendError} /> : null}
@@ -416,7 +443,9 @@ export default function AssistantScreen(): React.ReactElement {
               <Pressable
                 key={`${file.uri}-${index}`}
                 accessibilityRole="button"
-                accessibilityLabel={t('m.assistant.removeAttachment', { name: file.name })}
+                accessibilityLabel={t('m.assistant.removeAttachment', {
+                  name: file.name,
+                })}
                 onPress={() => setPendingFiles((current) => current.filter((_, position) => position !== index))}
                 style={[styles.fileChip, { backgroundColor: colors.surfaceMuted }]}
               >
@@ -455,7 +484,13 @@ export default function AssistantScreen(): React.ReactElement {
             accessibilityLabel={t('patient.aiChat.send')}
             disabled={!canSend}
             onPress={() => void send()}
-            style={[styles.roundButton, { backgroundColor: colors.tones.ai.fg, opacity: canSend ? 1 : 0.4 }]}
+            style={[
+              styles.roundButton,
+              {
+                backgroundColor: colors.tones.ai.fg,
+                opacity: canSend ? 1 : 0.4,
+              },
+            ]}
           >
             <Icon name="arrow-up" size={22} color={colors.primaryText} />
           </Pressable>
@@ -467,11 +502,48 @@ export default function AssistantScreen(): React.ReactElement {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  composer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
-  contextRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.xs },
-  fileChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  composer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  contextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.xs,
+  },
+  fileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
-  input: { flex: 1, maxHeight: 140, minHeight: 44, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingTop: 11, paddingBottom: 11 },
-  roundButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  input: {
+    flex: 1,
+    maxHeight: 140,
+    minHeight: 44,
+    borderRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 11,
+    paddingBottom: 11,
+  },
+  roundButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

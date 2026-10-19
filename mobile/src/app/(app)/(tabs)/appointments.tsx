@@ -68,7 +68,7 @@ export default function AppointmentsScreen(): React.ReactElement {
   const bannerKey = banner ? BANNERS[banner] : undefined;
 
   return (
-    <Screen edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
+    <Screen testID="screen-appointments" edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
       <ScreenTitle
         title={t('patient.appointments.title')}
         right={<IconButton name="add" accessibilityLabel={t('patient.appointments.book')} onPress={() => router.push('/book')} />}
@@ -76,7 +76,13 @@ export default function AppointmentsScreen(): React.ReactElement {
       {bannerKey ? <InlineMessage tone="success" message={t(bannerKey)} /> : null}
       {nextTeleconsult ? (
         <Card tone="brand" style={{ marginTop: spacing.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+            }}
+          >
             <IconBadge name="videocam" />
             <View style={{ flex: 1 }}>
               <Text variant="bodyStrong">
@@ -94,19 +100,42 @@ export default function AppointmentsScreen(): React.ReactElement {
               label={t('patient.appointments.joinWaitingRoom')}
               icon="videocam"
               fullWidth
-              onPress={() => router.push({ pathname: '/visit/[id]', params: { id: nextTeleconsult.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/visit/[id]',
+                  params: { id: nextTeleconsult.id },
+                })
+              }
             />
           </View>
         </Card>
       ) : null}
-      <View style={{ gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.lg }}>
+      <View
+        style={{
+          gap: spacing.sm,
+          marginTop: spacing.lg,
+          marginBottom: spacing.lg,
+        }}
+      >
         <SegmentedControl
           value={segment}
           onChange={setSegment}
           options={[
-            { value: 'upcoming', label: t('patient.appointments.filterUpcoming'), count: groups.upcoming.length },
-            { value: 'past', label: t('patient.appointments.filterCompleted'), count: groups.past.length },
-            { value: 'cancelled', label: t('patient.appointments.filterCancelled'), count: groups.cancelled.length },
+            {
+              value: 'upcoming',
+              label: t('patient.appointments.filterUpcoming'),
+              count: groups.upcoming.length,
+            },
+            {
+              value: 'past',
+              label: t('patient.appointments.filterCompleted'),
+              count: groups.past.length,
+            },
+            {
+              value: 'cancelled',
+              label: t('patient.appointments.filterCancelled'),
+              count: groups.cancelled.length,
+            },
           ]}
         />
         <SegmentedControl
@@ -114,8 +143,14 @@ export default function AppointmentsScreen(): React.ReactElement {
           onChange={setTypeFilter}
           options={[
             { value: 'all', label: t('patient.appointments.filterAll') },
-            { value: 'in_person', label: t('patient.appointments.filterInPerson') },
-            { value: 'virtual', label: t('patient.appointments.filterTeleconsult') },
+            {
+              value: 'in_person',
+              label: t('patient.appointments.filterInPerson'),
+            },
+            {
+              value: 'virtual',
+              label: t('patient.appointments.filterTeleconsult'),
+            },
           ]}
         />
       </View>
@@ -128,7 +163,10 @@ export default function AppointmentsScreen(): React.ReactElement {
           icon="calendar-outline"
           title={t('patient.appointments.emptyTitle')}
           body={t('patient.appointments.emptyBody')}
-          action={{ label: t('patient.appointments.book'), onPress: () => router.push('/book') }}
+          action={{
+            label: t('patient.appointments.book'),
+            onPress: () => router.push('/book'),
+          }}
         />
       ) : visible.length === 0 ? (
         <EmptyState

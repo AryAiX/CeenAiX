@@ -34,10 +34,11 @@ export default function ForgotPasswordScreen(): React.ReactElement {
   };
 
   return (
-    <Screen edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
+    <Screen testID="screen-forgot-password" edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
       <BrandHeader title={t('auth.forgot.titleRequest')} subtitle={t('auth.forgot.descriptionRequest')} />
       <View style={{ gap: spacing.lg }}>
         <TextField
+          testID="input-forgot-email"
           label={t('auth.login.email')}
           placeholder={t('auth.login.emailPlaceholder')}
           helper={t('auth.forgot.resetInfo')}
@@ -52,6 +53,7 @@ export default function ForgotPasswordScreen(): React.ReactElement {
         {sent ? <InlineMessage tone="success" message={t('auth.forgot.resetSent')} /> : null}
         {error ? <InlineMessage tone="danger" message={error} /> : null}
         <Button
+          testID="btn-send-reset"
           label={busy ? t('auth.forgot.sending') : t('auth.forgot.sendReset')}
           size="lg"
           fullWidth
@@ -59,7 +61,7 @@ export default function ForgotPasswordScreen(): React.ReactElement {
           disabled={!email.includes('@')}
           onPress={() => void submit()}
         />
-        <Button label={t('auth.forgot.returnSignIn')} variant="ghost" fullWidth onPress={() => router.back()} />
+        <Button testID="btn-return-sign-in" label={t('auth.forgot.returnSignIn')} variant="ghost" fullWidth onPress={() => router.back()} />
       </View>
     </Screen>
   );

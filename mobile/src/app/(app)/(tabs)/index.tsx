@@ -53,7 +53,7 @@ export default function HomeScreen(): React.ReactElement {
   const name = firstName(profile?.full_name, profile?.first_name) || t('patient.dashboard.greetingFallback');
 
   return (
-    <Screen edgeTop onRefresh={dashboard.refetch} refreshing={dashboard.refreshing} staleSince={dashboard.staleSince}>
+    <Screen testID="screen-dashboard" edgeTop onRefresh={dashboard.refetch} refreshing={dashboard.refreshing} staleSince={dashboard.staleSince}>
       <View style={styles.header}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('nav.profile')} onPress={() => router.push('/profile')}>
           <Avatar name={profile?.full_name} uri={profile?.avatar_url} size={46} />
@@ -102,7 +102,13 @@ export default function HomeScreen(): React.ReactElement {
               <View style={{ gap: spacing.sm }}>
                 {data.allergyAlerts.map((allergy) => (
                   <Card key={allergy.id} tone="danger">
-                    <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        gap: spacing.md,
+                        alignItems: 'center',
+                      }}
+                    >
                       <Icon name="warning" color={colors.tones.danger.fg} />
                       <View style={{ flex: 1 }}>
                         <Text variant="bodyStrong" color="danger">
@@ -152,12 +158,22 @@ function NextAppointment({ data, now }: { data: PatientDashboardData; now: numbe
   return (
     <Section
       title={t('patient.dashboard.nextAppointment')}
-      action={{ label: t('patient.dashboard.viewAll'), onPress: () => router.push('/appointments') }}
+      action={{
+        label: t('patient.dashboard.viewAll'),
+        onPress: () => router.push('/appointments'),
+      }}
       style={{ marginTop: spacing.lg }}
     >
       {next ? (
         <AppointmentCard
-          appointment={{ id: next.id, type: next.type, status: 'scheduled', scheduled_at: next.scheduledAt, duration_minutes: 30, chief_complaint: null }}
+          appointment={{
+            id: next.id,
+            type: next.type,
+            status: 'scheduled',
+            scheduled_at: next.scheduledAt,
+            duration_minutes: 30,
+            chief_complaint: null,
+          }}
           doctorName={next.doctorName}
           specialty={next.specialty}
           now={now}
@@ -167,7 +183,10 @@ function NextAppointment({ data, now }: { data: PatientDashboardData; now: numbe
           icon="calendar-outline"
           title={t('patient.dashboard.noUpcomingTitle')}
           body={t('patient.dashboard.noUpcomingBody')}
-          action={{ label: t('patient.appointments.book'), onPress: () => router.push('/book') }}
+          action={{
+            label: t('patient.appointments.book'),
+            onPress: () => router.push('/book'),
+          }}
         />
       )}
     </Section>
@@ -178,11 +197,36 @@ function QuickActions(): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useTheme();
-  const actions: Array<{ icon: IconName; label: string; tone: Tone; onPress: () => void }> = [
-    { icon: 'calendar', label: t('m.home.quickBook'), tone: 'brand', onPress: () => router.push('/book') },
-    { icon: 'chatbubbles', label: t('m.home.quickMessage'), tone: 'info', onPress: () => router.push('/messages') },
-    { icon: 'flask', label: t('m.home.quickLabs'), tone: 'ai', onPress: () => router.push('/lab-results') },
-    { icon: 'sparkles', label: t('m.home.quickAi'), tone: 'neutral', onPress: () => router.push('/assistant') },
+  const actions: Array<{
+    icon: IconName;
+    label: string;
+    tone: Tone;
+    onPress: () => void;
+  }> = [
+    {
+      icon: 'calendar',
+      label: t('m.home.quickBook'),
+      tone: 'brand',
+      onPress: () => router.push('/book'),
+    },
+    {
+      icon: 'chatbubbles',
+      label: t('m.home.quickMessage'),
+      tone: 'info',
+      onPress: () => router.push('/messages'),
+    },
+    {
+      icon: 'flask',
+      label: t('m.home.quickLabs'),
+      tone: 'ai',
+      onPress: () => router.push('/lab-results'),
+    },
+    {
+      icon: 'sparkles',
+      label: t('m.home.quickAi'),
+      tone: 'neutral',
+      onPress: () => router.push('/assistant'),
+    },
   ];
   return (
     <View style={styles.quickRow}>
@@ -288,13 +332,22 @@ function Medications({
   const medications = data.medications.slice(0, 4);
   const taken = data.medications.filter((medication) => medication.isDispensed || takenIds.has(medication.id)).length;
   return (
-    <Section title={t('m.home.todaysMedications')} action={{ label: t('patient.dashboard.viewAll'), onPress: () => router.push('/prescriptions') }}>
+    <Section
+      title={t('m.home.todaysMedications')}
+      action={{
+        label: t('patient.dashboard.viewAll'),
+        onPress: () => router.push('/prescriptions'),
+      }}
+    >
       {medications.length === 0 ? (
         <EmptyState icon="medkit-outline" title={t('patient.dashboard.noMedTitle')} body={t('patient.dashboard.noMedBody')} />
       ) : (
         <Card>
           <Text variant="caption" color="muted">
-            {t('m.home.takenOf', { taken: formatNumber(taken), total: formatNumber(data.medications.length) })}
+            {t('m.home.takenOf', {
+              taken: formatNumber(taken),
+              total: formatNumber(data.medications.length),
+            })}
           </Text>
           <View style={{ marginVertical: spacing.sm }}>
             <ProgressBar value={data.medications.length ? taken / data.medications.length : 0} tone="success" />
@@ -326,7 +379,14 @@ function Medications({
               </View>
             );
           })}
-          {error ? <InlineMessage tone="danger" message={t('patient.prescriptions.medicationLogError', { defaultValue: error })} /> : null}
+          {error ? (
+            <InlineMessage
+              tone="danger"
+              message={t('patient.prescriptions.medicationLogError', {
+                defaultValue: error,
+              })}
+            />
+          ) : null}
         </Card>
       )}
     </Section>
@@ -337,7 +397,13 @@ function Messages({ data }: { data: PatientDashboardData }): React.ReactElement 
   const { t } = useTranslation();
   const router = useRouter();
   return (
-    <Section title={t('m.home.messagesTitle')} action={{ label: t('patient.dashboard.viewAll'), onPress: () => router.push('/messages') }}>
+    <Section
+      title={t('m.home.messagesTitle')}
+      action={{
+        label: t('patient.dashboard.viewAll'),
+        onPress: () => router.push('/messages'),
+      }}
+    >
       {data.recentMessages.length === 0 ? (
         <Card>
           <Text variant="caption" color="muted">
@@ -347,11 +413,31 @@ function Messages({ data }: { data: PatientDashboardData }): React.ReactElement 
       ) : (
         <View style={{ gap: spacing.sm }}>
           {data.recentMessages.map((message) => (
-            <Card key={message.id} onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: message.conversationId } })}>
-              <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+            <Card
+              key={message.id}
+              onPress={() =>
+                router.push({
+                  pathname: '/conversation/[id]',
+                  params: { id: message.conversationId },
+                })
+              }
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: spacing.md,
+                  alignItems: 'center',
+                }}
+              >
                 <Avatar name={message.senderName} size={38} />
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                    }}
+                  >
                     <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
                       {message.senderName}
                     </Text>
@@ -391,7 +477,13 @@ function Activity({ data }: { data: PatientDashboardData }): React.ReactElement 
                 const href = webPathToHref(item.actionUrl);
                 if (href) router.push(href);
               }}
-              style={[styles.activityRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+              style={[
+                styles.activityRow,
+                index > 0 && {
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border,
+                },
+              ]}
             >
               <IconBadge name={activityIcon(item.type)} size={34} />
               <View style={{ flex: 1 }}>
@@ -437,7 +529,16 @@ function CareTeam({ data }: { data: PatientDashboardData }): React.ReactElement 
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
           {data.careTeam.map((member) => (
-            <Card key={member.doctorId} style={{ width: 200 }} onPress={() => router.push({ pathname: '/book', params: { doctor: member.doctorId } })}>
+            <Card
+              key={member.doctorId}
+              style={{ width: 200 }}
+              onPress={() =>
+                router.push({
+                  pathname: '/book',
+                  params: { doctor: member.doctorId },
+                })
+              }
+            >
               <Avatar name={member.doctorName} size={40} />
               <Text variant="bodyStrong" numberOfLines={1} style={{ marginTop: spacing.sm }}>
                 {member.doctorName}
@@ -447,9 +548,13 @@ function CareTeam({ data }: { data: PatientDashboardData }): React.ReactElement 
               </Text>
               <Text variant="micro" color="subtle" style={{ marginTop: spacing.xs }}>
                 {member.nextAppointmentAt
-                  ? t('m.home.nextVisit', { date: formatDate(member.nextAppointmentAt) })
+                  ? t('m.home.nextVisit', {
+                      date: formatDate(member.nextAppointmentAt),
+                    })
                   : member.lastAppointmentAt
-                    ? t('m.home.lastVisit', { date: formatDate(member.lastAppointmentAt) })
+                    ? t('m.home.lastVisit', {
+                        date: formatDate(member.lastAppointmentAt),
+                      })
                     : ' '}
               </Text>
             </Card>
@@ -467,7 +572,13 @@ function Insurance({ insurance }: { insurance: NonNullable<PatientDashboardData[
   return (
     <Section title={t('m.home.insuranceTitle')}>
       <Card onPress={() => router.push('/insurance')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+          }}
+        >
           <IconBadge name="shield-checkmark" tone="info" />
           <View style={{ flex: 1 }}>
             <Text variant="bodyStrong" numberOfLines={1}>
@@ -489,7 +600,9 @@ function Insurance({ insurance }: { insurance: NonNullable<PatientDashboardData[
             </View>
             <ProgressBar value={used} tone="info" />
             <Text variant="micro" color="subtle">
-              {t('m.home.remaining', { amount: formatAed(insurance.remainingAmount) })}
+              {t('m.home.remaining', {
+                amount: formatAed(insurance.remainingAmount),
+              })}
             </Text>
           </View>
         ) : null}
@@ -499,7 +612,12 @@ function Insurance({ insurance }: { insurance: NonNullable<PatientDashboardData[
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
   quickRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   quick: {
     flex: 1,
@@ -516,6 +634,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  medRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
-  activityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  medRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
 });

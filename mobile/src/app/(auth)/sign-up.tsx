@@ -70,10 +70,19 @@ export default function SignUpScreen(): React.ReactElement {
       }
       setBusy(true);
       const normalized = normalizePhone(phone);
-      const { error: otpError } = await requestPhoneOtp(normalized, { fullName });
+      const { error: otpError } = await requestPhoneOtp(normalized, {
+        fullName,
+      });
       setBusy(false);
       if (otpError) return fail(otpError.message);
-      router.push({ pathname: '/otp', params: { phone: normalized, flow: 'signup', fullName: fullName.trim() } });
+      router.push({
+        pathname: '/otp',
+        params: {
+          phone: normalized,
+          flow: 'signup',
+          fullName: fullName.trim(),
+        },
+      });
       return;
     }
     const issue = validateCredentials();
@@ -101,7 +110,10 @@ export default function SignUpScreen(): React.ReactElement {
   const resendConfirmation = async () => {
     if (!createdEmail) return;
     setBusy(true);
-    const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: createdEmail });
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: createdEmail,
+    });
     setBusy(false);
     if (resendError) setError(resendError.message);
     else setNotice(t('auth.register.resendSuccess'));
@@ -109,7 +121,7 @@ export default function SignUpScreen(): React.ReactElement {
 
   if (createdEmail) {
     return (
-      <Screen edgeTop contentStyle={{ paddingTop: spacing.xxxl * 2, gap: spacing.lg }}>
+      <Screen testID="screen-sign-up" edgeTop contentStyle={{ paddingTop: spacing.xxxl * 2, gap: spacing.lg }}>
         <View style={{ alignItems: 'center', gap: spacing.md }}>
           <IconBadge name="mail-unread-outline" tone="success" size={72} />
           <Text variant="title" align="center">
@@ -121,8 +133,9 @@ export default function SignUpScreen(): React.ReactElement {
         </View>
         {notice ? <InlineMessage tone="success" message={notice} /> : null}
         {error ? <InlineMessage tone="danger" message={error} /> : null}
-        <Button label={t('auth.register.signInInstead')} size="lg" fullWidth onPress={() => router.replace('/sign-in')} />
+        <Button testID="btn-sign-in-instead" label={t('auth.register.signInInstead')} size="lg" fullWidth onPress={() => router.replace('/sign-in')} />
         <Button
+          testID="btn-resend-confirmation"
           label={busy ? t('auth.register.resending') : t('auth.register.resendButton')}
           variant="secondary"
           fullWidth
@@ -135,14 +148,16 @@ export default function SignUpScreen(): React.ReactElement {
 
   return (
     <Screen
+      testID="screen-sign-up"
       edgeTop
       keyboard
       contentStyle={{ paddingTop: spacing.xxxl * 2 }}
       footer={
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {step > 0 ? <Button label={t('auth.register.btnBack')} variant="secondary" onPress={() => setStep(step - 1)} /> : null}
+          {step > 0 ? <Button testID="btn-sign-up-back" label={t('auth.register.btnBack')} variant="secondary" onPress={() => setStep(step - 1)} /> : null}
           <View style={{ flex: 1 }}>
             <Button
+              testID="btn-sign-up-continue"
               fullWidth
               size="lg"
               loading={busy}
@@ -165,12 +180,19 @@ export default function SignUpScreen(): React.ReactElement {
           <>
             {(['email', 'phone'] as const).map((option) => (
               <Card
+                testID={`option-signup-${option}`}
                 key={option}
                 onPress={() => setMethod(option)}
                 tone={method === option ? 'brand' : undefined}
                 accessibilityLabel={option === 'email' ? t('auth.register.modeEmailTitle') : t('auth.register.modePhoneTitle')}
               >
-                <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: spacing.md,
+                    alignItems: 'center',
+                  }}
+                >
                   <IconBadge name={option === 'email' ? 'mail-outline' : 'phone-portrait-outline'} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text variant="bodyStrong">{option === 'email' ? t('auth.register.modeEmailTitle') : t('auth.register.modePhoneTitle')}</Text>
@@ -186,6 +208,7 @@ export default function SignUpScreen(): React.ReactElement {
         {step === 1 ? (
           <>
             <TextField
+              testID="input-signup-name"
               label={t('auth.register.fullName')}
               placeholder={t('auth.register.fullNamePlaceholder')}
               value={fullName}
@@ -197,6 +220,7 @@ export default function SignUpScreen(): React.ReactElement {
             {method === 'email' ? (
               <>
                 <TextField
+                  testID="input-signup-email"
                   label={t('auth.register.email')}
                   placeholder={t('auth.register.emailPlaceholder')}
                   value={email}
@@ -207,6 +231,7 @@ export default function SignUpScreen(): React.ReactElement {
                   textContentType="emailAddress"
                 />
                 <TextField
+                  testID="input-signup-phone-optional"
                   label={t('auth.register.mobileShortOptional')}
                   placeholder={t('auth.register.mobilePlaceholder')}
                   value={phone}
@@ -217,6 +242,7 @@ export default function SignUpScreen(): React.ReactElement {
               </>
             ) : (
               <TextField
+                testID="input-signup-phone"
                 label={t('auth.register.mobile')}
                 placeholder={t('auth.register.mobilePlaceholder')}
                 helper={t('auth.register.otpNextHint')}
@@ -231,6 +257,7 @@ export default function SignUpScreen(): React.ReactElement {
         {step === 2 ? (
           <>
             <TextField
+              testID="input-signup-password"
               label={t('auth.register.password')}
               placeholder={t('auth.register.passwordPlaceholder')}
               value={password}
@@ -241,6 +268,7 @@ export default function SignUpScreen(): React.ReactElement {
               textContentType="newPassword"
             />
             <TextField
+              testID="input-signup-confirm-password"
               label={t('auth.register.confirmPassword')}
               placeholder={t('auth.register.confirmPasswordPlaceholder')}
               value={confirmPassword}
@@ -250,7 +278,7 @@ export default function SignUpScreen(): React.ReactElement {
               autoComplete="new-password"
               textContentType="newPassword"
             />
-            <ToggleRow label={t('auth.register.termsLabel')} value={termsAccepted} onChange={setTermsAccepted} />
+            <ToggleRow testID="toggle-signup-terms" label={t('auth.register.termsLabel')} value={termsAccepted} onChange={setTermsAccepted} />
           </>
         ) : null}
         {error ? <InlineMessage tone="danger" message={error} /> : null}
