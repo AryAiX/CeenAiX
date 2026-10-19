@@ -1,10 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { PATIENT_STATE } from './support/env';
 
 const port = Number(process.env.PORT ?? 4173);
 const externalBaseUrl = process.env.MOBILE_E2E_BASE_URL;
 const baseURL = externalBaseUrl ?? `http://localhost:${port}`;
-
-export const PATIENT_STATE = '.auth/patient.json';
 
 const iphone14 = {
   ...devices['iPhone 14'],
