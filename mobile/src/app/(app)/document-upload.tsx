@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button, Card, ChoiceChips, IconBadge, InlineMessage, ListRow, Screen, StickyFooter, Text, TextField, ToggleRow } from '@/components/ui';
 import { DOCUMENT_MAX_BYTES, UPLOAD_CATEGORIES, uploadVaultDocument } from '@/data/documents';
@@ -92,6 +92,7 @@ export default function DocumentUploadSheet(): React.ReactElement {
       footer={
         <StickyFooter>
           <Button
+            testID="btn-save-document"
             label={busy ? t('m.docs.uploading') : t('m.docs.save')}
             icon="cloud-upload-outline"
             size="lg"
@@ -106,7 +107,7 @@ export default function DocumentUploadSheet(): React.ReactElement {
       <Text variant="title">{t('m.docs.uploadTitle')}</Text>
       <View style={{ gap: spacing.lg, marginTop: spacing.lg }}>
         {asset ? (
-          <Card>
+          <Card testID="card-selected-file">
             <View
               style={{
                 flexDirection: 'row',
@@ -128,14 +129,16 @@ export default function DocumentUploadSheet(): React.ReactElement {
                 </Text>
               </View>
             </View>
-            <Button label={t('m.docs.replace')} variant="ghost" size="sm" onPress={() => setAsset(null)} />
+            <Button testID="btn-replace-file" label={t('m.docs.replace')} variant="ghost" size="sm" onPress={() => setAsset(null)} />
           </Card>
         ) : (
           <Card padded={false}>
             <View style={{ paddingHorizontal: spacing.lg }}>
-              <ListRow title={t('m.docs.camera')} icon="camera-outline" onPress={() => void choose('camera')} />
-              <ListRow title={t('m.docs.library')} icon="images-outline" iconTone="ai" onPress={() => void choose('library')} />
-              <ListRow title={t('m.docs.files')} icon="document-attach-outline" iconTone="info" onPress={() => void choose('files')} />
+              {Platform.OS === 'web' ? null : (
+                <ListRow testID="btn-pick-camera" title={t('m.docs.camera')} icon="camera-outline" onPress={() => void choose('camera')} />
+              )}
+              <ListRow testID="btn-pick-library" title={t('m.docs.library')} icon="images-outline" iconTone="ai" onPress={() => void choose('library')} />
+              <ListRow testID="btn-pick-files" title={t('m.docs.files')} icon="document-attach-outline" iconTone="info" onPress={() => void choose('files')} />
             </View>
           </Card>
         )}
@@ -143,17 +146,27 @@ export default function DocumentUploadSheet(): React.ReactElement {
         {error ? (
           <View style={{ gap: spacing.sm }}>
             <InlineMessage tone="danger" message={error.message} />
-            {error.settings ? <Button label={t('nav.settings')} variant="ghost" size="sm" onPress={() => void Linking.openSettings()} /> : null}
+            {error.settings && Platform.OS !== 'web' ? (
+              <Button label={t('nav.settings')} variant="ghost" size="sm" onPress={() => void Linking.openSettings()} />
+            ) : null}
           </View>
         ) : null}
 
-        <TextField label={t('m.docs.titleLabel')} value={title} onChangeText={setTitle} maxLength={160} />
-        <TextField label={t('m.docs.descriptionLabel')} value={description} onChangeText={setDescription} multiline maxLength={1000} />
+        <TextField testID="input-document-title" label={t('m.docs.titleLabel')} value={title} onChangeText={setTitle} maxLength={160} />
+        <TextField
+          testID="input-document-description"
+          label={t('m.docs.descriptionLabel')}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          maxLength={1000}
+        />
         <View style={{ gap: 6 }}>
           <Text variant="captionStrong" color="muted">
             {t('m.docs.category')}
           </Text>
           <ChoiceChips<PatientVaultDocumentCategory>
+            testID="chip-document-category"
             options={UPLOAD_CATEGORIES.map((value) => ({
               value,
               label: t(`m.docs.categories.${value}`),
@@ -162,7 +175,13 @@ export default function DocumentUploadSheet(): React.ReactElement {
             onToggle={setCategory}
           />
         </View>
-        <ToggleRow label={t('m.docs.careTeam')} description={t('m.docs.careTeamHint')} value={careTeam} onChange={setCareTeam} />
+        <ToggleRow
+          testID="toggle-document-care-team"
+          label={t('m.docs.careTeam')}
+          description={t('m.docs.careTeamHint')}
+          value={careTeam}
+          onChange={setCareTeam}
+        />
       </View>
     </Screen>
   );

@@ -44,7 +44,7 @@ export default function LabOrderScreen(): React.ReactElement {
   if (!order) {
     return (
       <Screen testID="screen-lab-result-detail">
-        <EmptyState icon="flask-outline" title={t('patient.labResults.emptyTitle')} />
+        <EmptyState testID="state-empty-lab-result" icon="flask-outline" title={t('patient.labResults.emptyTitle')} />
       </Screen>
     );
   }
@@ -61,7 +61,9 @@ export default function LabOrderScreen(): React.ReactElement {
       <Stack.Screen
         options={{
           title: order.lab_order_code ?? t('m.appointment.labOrder'),
-          headerRight: () => <IconButton name="share-outline" variant="plain" onPress={share} accessibilityLabel={t('m.labs.share')} />,
+          headerRight: () => (
+            <IconButton testID="btn-share-lab-header" name="share-outline" variant="plain" onPress={share} accessibilityLabel={t('m.labs.share')} />
+          ),
         }}
       />
       <Card tone="info">
@@ -131,6 +133,7 @@ export default function LabOrderScreen(): React.ReactElement {
       <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>
         {order.resultedCount > 0 ? (
           <Button
+            testID="btn-explain-with-ai"
             label={t('patient.labResults.explainWithAi')}
             icon="sparkles"
             variant="secondary"
@@ -149,6 +152,7 @@ export default function LabOrderScreen(): React.ReactElement {
         ) : null}
         {order.appointment_id ? (
           <Button
+            testID="btn-open-appointment"
             label={t('patient.labResults.openAppointment')}
             icon="calendar-outline"
             variant="ghost"
@@ -161,7 +165,7 @@ export default function LabOrderScreen(): React.ReactElement {
             }
           />
         ) : null}
-        <Button label={t('m.labs.share')} icon="share-outline" variant="ghost" fullWidth onPress={share} />
+        <Button testID="btn-share-lab" label={t('m.labs.share')} icon="share-outline" variant="ghost" fullWidth onPress={share} />
       </View>
     </Screen>
   );
@@ -180,6 +184,7 @@ function LabItemCard({ item, subItems }: { item: LabOrderItem; subItems: LabOrde
   return (
     <Card>
       <Pressable
+        testID={`lab-item-${item.id}`}
         disabled={!hasDetails}
         accessibilityRole={hasDetails ? 'button' : undefined}
         accessibilityState={hasDetails ? { expanded } : undefined}

@@ -69,7 +69,7 @@ export default function PrescriptionsScreen(): React.ReactElement {
       staleSince={prescriptions.staleSince}
     >
       {activeItems.length > 0 ? (
-        <Card tone="success" style={{ marginBottom: spacing.lg }}>
+        <Card testID="card-today-medications" tone="success" style={{ marginBottom: spacing.lg }}>
           <Text variant="heading">{t('m.rx.todayTitle')}</Text>
           <Text variant="caption" color="muted" style={{ marginVertical: spacing.xs }}>
             {takenCount === activeItems.length
@@ -88,6 +88,7 @@ export default function PrescriptionsScreen(): React.ReactElement {
         </View>
       ) : null}
       <SegmentedControl<Segment>
+        testID="segment-prescriptions"
         value={segment}
         onChange={setSegment}
         options={[
@@ -105,6 +106,7 @@ export default function PrescriptionsScreen(): React.ReactElement {
           <ErrorState message={t('patient.prescriptions.loadError')} onRetry={() => void prescriptions.refetch()} />
         ) : (segment === 'active' ? active : past).length === 0 ? (
           <EmptyState
+            testID="state-empty-prescriptions"
             icon="medkit-outline"
             title={segment === 'active' ? t('patient.prescriptions.emptyActiveTitle') : t('m.rx.pastEmptyTitle')}
             body={segment === 'active' ? t('patient.prescriptions.emptyActiveBody') : t('patient.prescriptions.historyEmpty')}
@@ -143,7 +145,7 @@ function PrescriptionCard({
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   return (
-    <Card onPress={onPress}>
+    <Card testID={`prescription-card-${prescription.id}`} onPress={onPress}>
       <View
         style={{
           flexDirection: 'row',
@@ -191,7 +193,13 @@ function PrescriptionCard({
               taken ? (
                 <Pill icon="checkmark" label={t('m.rx.taken')} tone="success" />
               ) : (
-                <Button label={t('m.rx.markTaken')} size="sm" variant="secondary" onPress={() => void onMarkTaken(item.id)} />
+                <Button
+                  testID={`btn-mark-taken-${item.id}`}
+                  label={t('m.rx.markTaken')}
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => void onMarkTaken(item.id)}
+                />
               )
             ) : null}
           </View>
@@ -263,28 +271,52 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
 
   return (
     <>
-      <Card>
+      <Card testID="card-add-reported-med">
         <Text variant="heading">{t('m.rx.addReported')}</Text>
         <Text variant="caption" color="muted" style={{ marginTop: 2, marginBottom: spacing.md }}>
           {t('m.rx.reportedHint')}
         </Text>
         <View style={{ gap: spacing.md }}>
           <TextField
+            testID="input-reported-med-name"
             label={t('m.rx.name')}
             value={form.medicationName}
             onChangeText={(medicationName) => setForm((current) => ({ ...current, medicationName }))}
           />
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
-              <TextField label={t('m.rx.dosage')} value={form.dosage} onChangeText={(dosage) => setForm((current) => ({ ...current, dosage }))} />
+              <TextField
+                testID="input-reported-med-dosage"
+                label={t('m.rx.dosage')}
+                value={form.dosage}
+                onChangeText={(dosage) => setForm((current) => ({ ...current, dosage }))}
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <TextField label={t('m.rx.frequency')} value={form.frequency} onChangeText={(frequency) => setForm((current) => ({ ...current, frequency }))} />
+              <TextField
+                testID="input-reported-med-frequency"
+                label={t('m.rx.frequency')}
+                value={form.frequency}
+                onChangeText={(frequency) => setForm((current) => ({ ...current, frequency }))}
+              />
             </View>
           </View>
-          <ToggleRow label={t('m.rx.current')} value={form.isCurrent} onChange={(isCurrent) => setForm((current) => ({ ...current, isCurrent }))} />
+          <ToggleRow
+            testID="toggle-reported-med-current"
+            label={t('m.rx.current')}
+            value={form.isCurrent}
+            onChange={(isCurrent) => setForm((current) => ({ ...current, isCurrent }))}
+          />
           {error ? <InlineMessage tone="danger" message={error} /> : null}
-          <Button label={t('m.rx.save')} icon="add" fullWidth loading={saving} disabled={!form.medicationName.trim()} onPress={() => void save()} />
+          <Button
+            testID="btn-save-reported-med"
+            label={t('m.rx.save')}
+            icon="add"
+            fullWidth
+            loading={saving}
+            disabled={!form.medicationName.trim()}
+            onPress={() => void save()}
+          />
         </View>
       </Card>
       {meds.loading ? (
@@ -292,10 +324,10 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
       ) : meds.error && !meds.data ? (
         <ErrorState message={meds.error} onRetry={() => void meds.refetch()} />
       ) : (meds.data?.length ?? 0) === 0 ? (
-        <EmptyState icon="list-outline" title={t('m.rx.noReportedTitle')} body={t('m.rx.noReportedBody')} />
+        <EmptyState testID="state-empty-reported-meds" icon="list-outline" title={t('m.rx.noReportedTitle')} body={t('m.rx.noReportedBody')} />
       ) : (
         meds.data?.map((med) => (
-          <Card key={med.id}>
+          <Card testID={`reported-med-${med.id}`} key={med.id}>
             <View
               style={{
                 flexDirection: 'row',
@@ -315,7 +347,13 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
                   />
                 </View>
               </View>
-              <Button label={t('m.rx.remove')} size="sm" variant="ghost" onPress={() => remove(med.id, med.medication_name)} />
+              <Button
+                testID={`btn-remove-reported-med-${med.id}`}
+                label={t('m.rx.remove')}
+                size="sm"
+                variant="ghost"
+                onPress={() => remove(med.id, med.medication_name)}
+              />
             </View>
           </Card>
         ))

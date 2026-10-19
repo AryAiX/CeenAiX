@@ -96,7 +96,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
   if (!prescription) {
     return (
       <Screen testID="screen-prescription-detail">
-        <EmptyState icon="medkit-outline" title={t('patient.prescriptions.emptyActiveTitle')} />
+        <EmptyState testID="state-empty-prescription" icon="medkit-outline" title={t('patient.prescriptions.emptyActiveTitle')} />
       </Screen>
     );
   }
@@ -182,7 +182,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
           {prescription.items.map((item) => {
             const days = estimateDaysOfSupplyRemaining(item.quantity, item.frequency);
             return (
-              <Card key={item.id}>
+              <Card testID={`prescription-item-${item.id}`} key={item.id}>
                 <View
                   style={{
                     flexDirection: 'row',
@@ -227,6 +227,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
       <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>
         {canSend ? (
           <Button
+            testID="btn-send-to-pharmacy"
             label={t('patient.prescriptions.sendToPharmacy')}
             icon="storefront-outline"
             size="lg"
@@ -241,6 +242,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
         ) : null}
         {canPickUp ? (
           <Button
+            testID="btn-mark-picked-up"
             label={t('m.rx.markPickedUp')}
             icon="bag-check-outline"
             size="lg"
@@ -260,6 +262,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
         ) : null}
         {prescription.pharmacyOrganizationId ? (
           <Button
+            testID="btn-message-pharmacy"
             label={t('m.rx.messagePharmacy')}
             icon="chatbubble-outline"
             variant="secondary"
@@ -275,6 +278,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
           />
         ) : null}
         <Button
+          testID="btn-message-prescriber"
           label={t('patient.messages.messagePrescriber')}
           icon="chatbubble-ellipses-outline"
           variant="secondary"
@@ -284,6 +288,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
         />
         {prescription.appointment_id ? (
           <Button
+            testID="btn-open-appointment"
             label={t('patient.labResults.openAppointment')}
             icon="calendar-outline"
             variant="ghost"

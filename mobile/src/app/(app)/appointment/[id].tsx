@@ -45,7 +45,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
   if (!data && detail.error) {
     return (
       <Screen testID="screen-appointment-detail">
-        <ErrorState message={detail.error} onRetry={() => void detail.refetch()} />
+        <ErrorState testID="state-error" message={detail.error} onRetry={() => void detail.refetch()} />
       </Screen>
     );
   }
@@ -53,6 +53,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
     return (
       <Screen testID="screen-appointment-detail">
         <EmptyState
+          testID="state-empty-appointment"
           icon="calendar-outline"
           title={t('m.appointment.notFoundTitle')}
           body={t('m.appointment.notFoundBody')}
@@ -105,7 +106,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
   return (
     <Screen testID="screen-appointment-detail" onRefresh={detail.refetch} refreshing={detail.refreshing} staleSince={detail.staleSince}>
       <Stack.Screen options={{ title: formatDate(appointment.scheduled_at) }} />
-      <Card tone="brand">
+      <Card testID="card-appointment-summary" tone="brand">
         <View
           style={{
             flexDirection: 'row',
@@ -171,6 +172,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         {appointment.type === 'virtual' && joinStatus !== 'not_virtual' && joinStatus !== 'inactive' ? (
           <>
             <Button
+              testID="btn-join-call"
               label={t('patient.appointments.joinCall')}
               icon="videocam"
               size="lg"
@@ -198,6 +200,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         ) : null}
         {preVisitAssessment ? (
           <Button
+            testID="btn-pre-visit"
             label={
               preVisitAssessment.status === 'completed' || preVisitAssessment.status === 'reviewed'
                 ? t('patient.appointments.reviewIntake')
@@ -215,10 +218,18 @@ export default function AppointmentDetailScreen(): React.ReactElement {
           />
         ) : null}
         {appointment.type === 'in_person' && facility && isUpcoming ? (
-          <Button label={t('m.appointment.directions')} icon="navigate-outline" variant="secondary" fullWidth onPress={openDirections} />
+          <Button
+            testID="btn-directions"
+            label={t('m.appointment.directions')}
+            icon="navigate-outline"
+            variant="secondary"
+            fullWidth
+            onPress={openDirections}
+          />
         ) : null}
         {isUpcoming ? (
           <Button
+            testID="btn-reschedule"
             label={t('patient.appointments.reschedule')}
             icon="calendar-outline"
             variant="secondary"
@@ -233,6 +244,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         ) : null}
         {appointment.status !== 'cancelled' && appointment.status !== 'no_show' ? (
           <Button
+            testID="btn-message-doctor"
             label={isUpcoming ? t('patient.messages.messageDoctor') : t('patient.messages.followUpDoctor')}
             icon="chatbubble-outline"
             variant="secondary"
@@ -243,6 +255,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         ) : null}
         {isCancellable ? (
           <Button
+            testID="btn-cancel-appointment"
             label={t('patient.appointments.cancel')}
             icon="close-circle-outline"
             variant="danger"
@@ -257,7 +270,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         ) : null}
       </View>
 
-      <Section title={t('m.appointment.preVisit')}>
+      <Section testID="section-pre-visit" title={t('m.appointment.preVisit')}>
         <Card>
           {preVisitAssessment ? (
             <View style={{ gap: spacing.sm }}>
@@ -292,7 +305,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         </Card>
       </Section>
 
-      <Section title={t('m.appointment.visitNote')}>
+      <Section testID="section-visit-note" title={t('m.appointment.visitNote')}>
         <Card>
           {consultationNote && (consultationNote.assessment || consultationNote.plan) ? (
             <View style={{ gap: spacing.md }}>
@@ -320,7 +333,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         </Card>
       </Section>
 
-      <Section title={t('m.appointment.prescriptions')}>
+      <Section testID="section-prescriptions" title={t('m.appointment.prescriptions')}>
         {data.prescriptions.length === 0 ? (
           <Card>
             <Text variant="caption" color="muted">
@@ -332,6 +345,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
             {data.prescriptions.map((prescription) => (
               <Card
                 key={prescription.id}
+                testID={`prescription-card-${prescription.id}`}
                 onPress={() =>
                   router.push({
                     pathname: '/prescriptions/[id]',
@@ -365,7 +379,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         )}
       </Section>
 
-      <Section title={t('m.appointment.labOrders')}>
+      <Section testID="section-lab-orders" title={t('m.appointment.labOrders')}>
         {data.labOrders.length === 0 ? (
           <Card>
             <Text variant="caption" color="muted">
@@ -377,6 +391,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
             {data.labOrders.map((order) => (
               <Card
                 key={order.id}
+                testID={`lab-order-card-${order.id}`}
                 onPress={() =>
                   router.push({
                     pathname: '/lab-results/[id]',

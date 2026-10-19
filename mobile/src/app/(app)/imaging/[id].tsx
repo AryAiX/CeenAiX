@@ -37,7 +37,7 @@ export default function ImagingStudyScreen(): React.ReactElement {
   if (!study) {
     return (
       <Screen testID="screen-imaging-detail">
-        <EmptyState icon="scan-outline" title={t('patient.imaging.emptyTitle')} />
+        <EmptyState testID="state-empty-imaging-study" icon="scan-outline" title={t('patient.imaging.emptyTitle')} />
       </Screen>
     );
   }
@@ -65,7 +65,7 @@ export default function ImagingStudyScreen(): React.ReactElement {
         </View>
       </Card>
 
-      <Section title={t('patient.imaging.studyDetails')}>
+      <Section testID="section-study-details" title={t('patient.imaging.studyDetails')}>
         <Card>
           <KeyValue label={t('patient.imaging.date')} value={formatDate(study.releasedAt ?? study.scheduledAt)} />
           <KeyValue label={t('patient.imaging.facility')} value={study.clinicName || t('patient.imaging.ceenaixRadiology')} />
@@ -92,7 +92,7 @@ export default function ImagingStudyScreen(): React.ReactElement {
           </Section>
         ))
       ) : (
-        <Section title={t('patient.imaging.impression')}>
+        <Section testID="section-impression" title={t('patient.imaging.impression')}>
           <Card>
             <Text variant="body" color="muted">
               {t('patient.imaging.impressionPending')}

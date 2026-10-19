@@ -49,18 +49,20 @@ export default function PharmacyPickerSheet(): React.ReactElement {
       <Text variant="caption" color="muted">
         {t('patient.prescriptions.pharmacyAssignSubtitle')}
       </Text>
-      {(pharmacies.data?.length ?? 0) > 6 ? <TextField placeholder={t('m.common.search')} value={search} onChangeText={setSearch} /> : null}
+      {(pharmacies.data?.length ?? 0) > 6 ? (
+        <TextField testID="input-pharmacy-search" placeholder={t('m.common.search')} value={search} onChangeText={setSearch} />
+      ) : null}
       {error ? <InlineMessage tone="danger" message={error} /> : null}
       {pharmacies.loading ? (
         <SkeletonList count={4} height={64} />
       ) : pharmacies.error ? (
         <ErrorState message={pharmacies.error} onRetry={() => void pharmacies.refetch()} />
       ) : visible.length === 0 ? (
-        <EmptyState icon="storefront-outline" title={t('patient.prescriptions.pharmacyAssignEmpty')} />
+        <EmptyState testID="state-empty-pharmacies" icon="storefront-outline" title={t('patient.prescriptions.pharmacyAssignEmpty')} />
       ) : (
         <View style={{ gap: spacing.sm }}>
           {visible.map((pharmacy) => (
-            <Card key={pharmacy.id} onPress={() => void select(pharmacy.id)} accessibilityLabel={pharmacy.name}>
+            <Card testID={`pharmacy-card-${pharmacy.id}`} key={pharmacy.id} onPress={() => void select(pharmacy.id)} accessibilityLabel={pharmacy.name}>
               <View
                 style={{
                   flexDirection: 'row',

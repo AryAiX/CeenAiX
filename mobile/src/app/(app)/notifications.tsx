@@ -97,7 +97,7 @@ export default function NotificationsScreen(): React.ReactElement {
         options={{
           headerRight: () =>
             unread > 0 ? (
-              <Pressable accessibilityRole="button" onPress={() => void markAll()} disabled={busy} hitSlop={8}>
+              <Pressable testID="btn-mark-all-read" accessibilityRole="button" onPress={() => void markAll()} disabled={busy} hitSlop={8}>
                 <Text variant="captionStrong" color="primary">
                   {t('patient.notifications.markAllRead')}
                 </Text>
@@ -117,12 +117,17 @@ export default function NotificationsScreen(): React.ReactElement {
       ) : (
         <>
           {derived.length > 0 ? (
-            <Section title={t('patient.notifications.liveAttention')} style={{ marginTop: 0 }}>
+            <Section testID="section-live-attention" title={t('patient.notifications.liveAttention')} style={{ marginTop: 0 }}>
               <View style={{ gap: spacing.sm }}>
                 {derived.map((item) => {
                   const href = webPathToHref(item.actionUrl);
                   return (
-                    <Card key={item.id} tone={DERIVED_ICON[item.kind].tone} onPress={href ? () => router.push(href) : undefined}>
+                    <Card
+                      testID={`attention-card-${item.id}`}
+                      key={item.id}
+                      tone={DERIVED_ICON[item.kind].tone}
+                      onPress={href ? () => router.push(href) : undefined}
+                    >
                       <View style={{ flexDirection: 'row', gap: spacing.md }}>
                         <IconBadge name={DERIVED_ICON[item.kind].icon} tone={DERIVED_ICON[item.kind].tone} size={36} />
                         <View style={{ flex: 1, gap: 2 }}>
@@ -139,8 +144,9 @@ export default function NotificationsScreen(): React.ReactElement {
             </Section>
           ) : null}
 
-          <Section title={t('patient.notifications.logTitle')} style={derived.length === 0 ? { marginTop: 0 } : undefined}>
+          <Section testID="section-notification-log" title={t('patient.notifications.logTitle')} style={derived.length === 0 ? { marginTop: 0 } : undefined}>
             <SegmentedControl<Filter>
+              testID="segment-notifications"
               value={filter}
               onChange={setFilter}
               options={[
@@ -154,12 +160,12 @@ export default function NotificationsScreen(): React.ReactElement {
             />
             <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
               {visible.length === 0 ? (
-                <EmptyState icon="notifications-off-outline" title={t('patient.notifications.emptyLog')} />
+                <EmptyState testID="state-empty-notifications" icon="notifications-off-outline" title={t('patient.notifications.emptyLog')} />
               ) : (
                 visible.map((row) => {
                   const style = TYPE_ICON[row.type] ?? TYPE_ICON.system;
                   return (
-                    <Card key={row.id} onPress={() => void openNotification(row)} accessibilityLabel={row.title}>
+                    <Card testID={`notification-card-${row.id}`} key={row.id} onPress={() => void openNotification(row)} accessibilityLabel={row.title}>
                       <View style={{ flexDirection: 'row', gap: spacing.md }}>
                         <IconBadge name={style.icon} tone={style.tone} size={36} />
                         <View style={{ flex: 1, gap: 2 }}>

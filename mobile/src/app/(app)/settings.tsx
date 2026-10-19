@@ -125,6 +125,7 @@ export default function SettingsScreen(): React.ReactElement {
       ) : null}
 
       <Section
+        testID="section-account"
         title={t('patient.settings.accountSummary')}
         style={{ marginTop: 0 }}
         action={{
@@ -142,6 +143,7 @@ export default function SettingsScreen(): React.ReactElement {
 
       <Section title={t('patient.settings.language')}>
         <SegmentedControl<AppLanguage>
+          testID="segment-language"
           value={i18n.language.startsWith('ar') ? 'ar' : 'en'}
           onChange={(lng) => void switchLanguage(lng)}
           options={[
@@ -153,6 +155,7 @@ export default function SettingsScreen(): React.ReactElement {
 
       <Section title={t('m.settings.appearance')}>
         <SegmentedControl<ThemePreference>
+          testID="segment-theme"
           value={preference}
           onChange={setPreference}
           options={[
@@ -166,6 +169,7 @@ export default function SettingsScreen(): React.ReactElement {
       <Section title={t('patient.settings.sectionNotifications')}>
         <Card>
           <ToggleRow
+            testID="toggle-push"
             label={t('patient.settings.pushNotifications')}
             description={t('patient.settings.pushNotificationsBody')}
             value={prefs.push}
@@ -174,6 +178,7 @@ export default function SettingsScreen(): React.ReactElement {
           />
           <Divider />
           <ToggleRow
+            testID="toggle-email"
             label={t('patient.settings.emailNotifications')}
             description={t('patient.settings.emailNotificationsBody')}
             value={prefs.email}
@@ -182,6 +187,7 @@ export default function SettingsScreen(): React.ReactElement {
           />
           <Divider />
           <ToggleRow
+            testID="toggle-sms"
             label={t('patient.settings.smsNotifications')}
             description={t('patient.settings.smsNotificationsBody')}
             value={prefs.sms}
@@ -194,6 +200,7 @@ export default function SettingsScreen(): React.ReactElement {
       <Section title={t('patient.settings.sectionPrivacy')}>
         <Card>
           <ToggleRow
+            testID="toggle-ai-consent"
             label={t('m.settings.aiConsent')}
             description={t('m.settings.aiConsentBody')}
             value={aiConsent}
@@ -201,6 +208,7 @@ export default function SettingsScreen(): React.ReactElement {
           />
           <Divider />
           <ToggleRow
+            testID="toggle-share-doctors"
             label={t('patient.settings.shareDoctors')}
             description={t('patient.settings.shareDoctorsBody')}
             value={prefs.shareWithDoctors}
@@ -209,6 +217,7 @@ export default function SettingsScreen(): React.ReactElement {
           />
           <Divider />
           <ToggleRow
+            testID="toggle-share-pharmacy"
             label={t('patient.settings.sharePharmacy')}
             description={t('patient.settings.sharePharmacyBody')}
             value={prefs.shareWithPharmacy}
@@ -217,6 +226,7 @@ export default function SettingsScreen(): React.ReactElement {
           />
           <Divider />
           <ToggleRow
+            testID="toggle-share-insurance"
             label={t('patient.settings.shareInsurance')}
             description={t('patient.settings.shareInsuranceBody')}
             value={prefs.shareWithInsurance}
@@ -230,6 +240,7 @@ export default function SettingsScreen(): React.ReactElement {
         <Card>
           {lock.isAvailable ? (
             <ToggleRow
+              testID="toggle-biometric"
               label={t('m.settings.biometric', { method: lock.biometryLabel })}
               description={t('m.settings.biometricBody', {
                 method: lock.biometryLabel,
@@ -243,15 +254,27 @@ export default function SettingsScreen(): React.ReactElement {
             </Text>
           )}
           <Divider />
-          <ListRow title={t('m.settings.resetPassword')} icon="key-outline" iconTone="neutral" onPress={() => void resetPassword()} />
+          <ListRow
+            testID="btn-reset-password"
+            title={t('m.settings.resetPassword')}
+            icon="key-outline"
+            iconTone="neutral"
+            onPress={() => void resetPassword()}
+          />
         </Card>
       </Section>
 
       <Section title={t('patient.settings.sectionSupport')}>
         <Card>
-          <ListRow title={t('m.settings.messageCareTeam')} icon="chatbubbles-outline" onPress={() => router.navigate('/messages')} />
+          <ListRow
+            testID="btn-message-care-team"
+            title={t('m.settings.messageCareTeam')}
+            icon="chatbubbles-outline"
+            onPress={() => router.navigate('/messages')}
+          />
           <Divider />
           <ListRow
+            testID="btn-contact-support"
             title={t('m.settings.contactSupport')}
             icon="mail-outline"
             iconTone="info"
@@ -261,7 +284,7 @@ export default function SettingsScreen(): React.ReactElement {
       </Section>
 
       <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
-        <Button label={t('m.settings.signOut')} icon="log-out-outline" variant="danger" fullWidth onPress={confirmSignOut} />
+        <Button testID="btn-sign-out" label={t('m.settings.signOut')} icon="log-out-outline" variant="danger" fullWidth onPress={confirmSignOut} />
         <Text variant="micro" color="subtle" align="center">
           {t('m.settings.version', {
             version: `${Application.nativeApplicationVersion ?? '1.0.0'} (${Application.nativeBuildVersion ?? 'dev'})`,
