@@ -149,4 +149,23 @@ export const mobileAr: MobileStrings = {
     yesterday: 'أمس',
     sendFailed: 'لم يتم إرسال الرسالة. اضغط إرسال لإعادة المحاولة.',
   },
+  health: {
+    subtitle: 'سجلاتك ونتائجك ومستنداتك في مكان واحد',
+    clinical: 'السريري',
+    files: 'الملفات والتغطية',
+    account: 'الحساب',
+    recordsHint: 'الحالات والحساسية والتاريخ الطبي',
+    labsHint: 'النتائج والاتجاهات',
+    prescriptionsHint: 'الأدوية النشطة وإعادة الصرف',
+    imagingHint: 'الأشعة والتقارير',
+    documentsHint: 'رفع الملفات ومشاركتها',
+    insuranceHint: 'الخطة والتغطية والمطالبات',
+    profileHint: 'البيانات الشخصية وجهات الطوارئ',
+    settingsHint: 'اللغة والأمان والإشعارات',
+    notificationsHint: 'تحديثات من فريق الرعاية',
+  },
+  records: {
+    required: '{{field}} مطلوب.',
+    confirmRemove: 'هل تريد إزالة {{category}} من سجلك؟ لن يراه فريق الرعاية بعد الآن.',
+  },
 };

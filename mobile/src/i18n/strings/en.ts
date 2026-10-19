@@ -151,6 +151,25 @@ export const mobileEn = {
     yesterday: 'Yesterday',
     sendFailed: 'Message not sent. Tap send to retry.',
   },
+  health: {
+    subtitle: 'Your records, results and documents in one place',
+    clinical: 'Clinical',
+    files: 'Files & coverage',
+    account: 'Account',
+    recordsHint: 'Conditions, allergies and history',
+    labsHint: 'Results and trends',
+    prescriptionsHint: 'Active medicines and refills',
+    imagingHint: 'Scans and radiology reports',
+    documentsHint: 'Upload and share files',
+    insuranceHint: 'Plan, coverage and claims',
+    profileHint: 'Personal and emergency details',
+    settingsHint: 'Language, security and notifications',
+    notificationsHint: 'Updates from your care team',
+  },
+  records: {
+    required: '{{field}} is required.',
+    confirmRemove: 'Remove this {{category}} from your record? Your care team will no longer see it.',
+  },
 } as const;
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
