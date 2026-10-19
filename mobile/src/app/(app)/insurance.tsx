@@ -204,6 +204,7 @@ export default function InsuranceScreen(): React.ReactElement {
         </View>
       ) : (
         <EmptyState
+          testID="state-empty-insurance"
           icon="shield-outline"
           title={t('patient.insurance.noInsuranceProvider')}
           body={t('patient.insurance.noPlan')}
@@ -226,6 +227,7 @@ export default function InsuranceScreen(): React.ReactElement {
             {plan.cardPhotoUrl ? (
               <View style={{ flex: 1 }}>
                 <Button
+                  testID="btn-view-insurance-document"
                   label={t('patient.insurance.viewDocument')}
                   icon="card-outline"
                   size="sm"
@@ -236,14 +238,30 @@ export default function InsuranceScreen(): React.ReactElement {
               </View>
             ) : null}
             <View style={{ flex: 1 }}>
-              <Button label={t('m.common.share')} icon="share-outline" size="sm" variant="secondary" fullWidth onPress={shareCard} />
+              <Button
+                testID="btn-share-insurance-card"
+                label={t('m.common.share')}
+                icon="share-outline"
+                size="sm"
+                variant="secondary"
+                fullWidth
+                onPress={shareCard}
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <Button label={t('patient.insurance.contactInsurer')} icon="mail-outline" size="sm" variant="secondary" fullWidth onPress={contactInsurer} />
+              <Button
+                testID="btn-contact-insurer"
+                label={t('patient.insurance.contactInsurer')}
+                icon="mail-outline"
+                size="sm"
+                variant="secondary"
+                fullWidth
+                onPress={contactInsurer}
+              />
             </View>
           </View>
 
-          <Card style={{ marginTop: spacing.lg }}>
+          <Card testID="card-insurance-coverage" style={{ marginTop: spacing.lg }}>
             <KeyValue label={t('patient.insurance.coverage')} value={plan.coverageType ?? t('patient.insurance.coverageNotRecorded')} />
             <KeyValue label={t('patient.insurance.copay')} value={coPay == null ? '—' : t('patient.insurance.coPayPct', { percent: coPay })} />
             {limit ? (
@@ -270,6 +288,7 @@ export default function InsuranceScreen(): React.ReactElement {
 
       <Section>
         <SegmentedControl<Segment>
+          testID="segment-insurance"
           value={segment}
           onChange={setSegment}
           options={[
@@ -286,7 +305,7 @@ export default function InsuranceScreen(): React.ReactElement {
       <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
         {segment === 'benefits' ? (
           benefits.map((benefit) => (
-            <Card key={benefit.name}>
+            <Card testID={`benefit-card-${benefit.name}`} key={benefit.name}>
               <View style={{ flexDirection: 'row', gap: spacing.md }}>
                 <IconBadge name={benefit.icon} tone="brand" size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
@@ -314,12 +333,13 @@ export default function InsuranceScreen(): React.ReactElement {
         ) : (
           <>
             {activity.length > 0 ? (
-              <Card>
+              <Card testID="card-insurance-totals">
                 <KeyValue label={t('patient.insurance.planCovered')} value={formatAed(totals.covered)} />
                 <KeyValue label={t('patient.insurance.youPaid')} value={formatAed(totals.patient)} />
               </Card>
             ) : null}
             <ChoiceChips<StatusFilter>
+              testID="chip-insurance-status"
               options={[
                 { value: 'all', label: t('patient.insurance.filterAll') },
                 {
@@ -343,10 +363,10 @@ export default function InsuranceScreen(): React.ReactElement {
               onToggle={setStatus}
             />
             {visible.length === 0 ? (
-              <EmptyState icon="receipt-outline" title={t('patient.insurance.noActivity')} />
+              <EmptyState testID="state-empty-insurance-activity" icon="receipt-outline" title={t('patient.insurance.noActivity')} />
             ) : (
               visible.map((row) => (
-                <Card key={row.id}>
+                <Card testID={`insurance-activity-${row.id}`} key={row.id}>
                   <View
                     style={{
                       flexDirection: 'row',

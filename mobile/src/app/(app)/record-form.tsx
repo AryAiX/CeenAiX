@@ -176,6 +176,7 @@ function RecordForm({
       footer={
         <StickyFooter>
           <Button
+            testID="btn-save-record"
             label={busy === 'save' ? t('patient.records.saving') : saveLabel}
             size="lg"
             fullWidth
@@ -185,6 +186,7 @@ function RecordForm({
           />
           {editing ? (
             <Button
+              testID="btn-remove-record"
               label={busy === 'delete' ? t('patient.records.removing') : t('patient.records.remove')}
               variant="ghost"
               fullWidth
@@ -210,6 +212,7 @@ function RecordForm({
         {category === 'condition' ? (
           <>
             <TextField
+              testID="input-condition-name"
               label={`${t('patient.records.conditionName')} *`}
               value={condition.conditionName}
               maxLength={PATIENT_RECORD_FIELD_LIMITS.conditionName}
@@ -217,6 +220,7 @@ function RecordForm({
               autoFocus={!editing}
             />
             <TextField
+              testID="input-condition-icd"
               label={t('patient.records.icdCode')}
               value={condition.icdCode}
               maxLength={PATIENT_RECORD_FIELD_LIMITS.icdCode}
@@ -224,6 +228,7 @@ function RecordForm({
               onChangeText={(icdCode) => setCondition((current) => ({ ...current, icdCode }))}
             />
             <DateField
+              testID="input-condition-date"
               label={t('patient.records.diagnosedDate')}
               value={condition.diagnosedDate}
               maximumDate={new Date()}
@@ -234,6 +239,7 @@ function RecordForm({
                 {t('patient.records.status')}
               </Text>
               <SegmentedControl<ConditionStatus>
+                testID="segment-condition-status"
                 value={condition.status}
                 onChange={(status) => setCondition((current) => ({ ...current, status }))}
                 options={[
@@ -250,6 +256,7 @@ function RecordForm({
               />
             </View>
             <TextField
+              testID="input-condition-notes"
               label={t('patient.records.notes')}
               value={condition.notes}
               multiline
@@ -260,6 +267,7 @@ function RecordForm({
         ) : category === 'allergy' ? (
           <>
             <TextField
+              testID="input-allergen"
               label={`${t('patient.records.allergen')} *`}
               value={allergy.allergen}
               maxLength={PATIENT_RECORD_FIELD_LIMITS.allergen}
@@ -271,6 +279,7 @@ function RecordForm({
                 {t('patient.records.severity')}
               </Text>
               <SegmentedControl<AllergySeverity>
+                testID="segment-allergy-severity"
                 value={allergy.severity}
                 onChange={(severity) => setAllergy((current) => ({ ...current, severity }))}
                 options={[
@@ -287,6 +296,7 @@ function RecordForm({
               />
             </View>
             <TextField
+              testID="input-allergy-reaction"
               label={t('patient.records.reaction')}
               value={allergy.reaction}
               multiline
@@ -294,6 +304,7 @@ function RecordForm({
               onChangeText={(reaction) => setAllergy((current) => ({ ...current, reaction }))}
             />
             <ToggleRow
+              testID="toggle-allergy-confirmed"
               label={t('patient.records.confirmAllergyDoctor')}
               value={allergy.confirmedByDoctor}
               onChange={(confirmedByDoctor) => setAllergy((current) => ({ ...current, confirmedByDoctor }))}
@@ -302,6 +313,7 @@ function RecordForm({
         ) : (
           <>
             <TextField
+              testID="input-vaccine-name"
               label={`${t('patient.records.vaccineName')} *`}
               value={vaccination.vaccineName}
               maxLength={PATIENT_RECORD_FIELD_LIMITS.vaccineName}
@@ -309,6 +321,7 @@ function RecordForm({
               autoFocus={!editing}
             />
             <TextField
+              testID="input-vaccine-dose"
               label={t('patient.records.doseNumber')}
               value={vaccination.doseNumber}
               keyboardType="number-pad"
@@ -321,18 +334,21 @@ function RecordForm({
               }
             />
             <DateField
+              testID="input-vaccine-date"
               label={t('patient.records.administeredDate')}
               value={vaccination.administeredDate}
               maximumDate={new Date()}
               onChange={(administeredDate) => setVaccination((current) => ({ ...current, administeredDate }))}
             />
             <TextField
+              testID="input-vaccine-administered-by"
               label={t('patient.records.administeredBy')}
               value={vaccination.administeredBy}
               maxLength={PATIENT_RECORD_FIELD_LIMITS.administeredBy}
               onChangeText={(administeredBy) => setVaccination((current) => ({ ...current, administeredBy }))}
             />
             <DateField
+              testID="input-vaccine-next-dose"
               label={t('patient.records.nextDose')}
               value={vaccination.nextDoseDue}
               onChange={(nextDoseDue) => setVaccination((current) => ({ ...current, nextDoseDue }))}

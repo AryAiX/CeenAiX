@@ -134,7 +134,7 @@ export default function ProfileScreen(): React.ReactElement {
   return (
     <Screen testID="screen-profile" keyboard onRefresh={() => Promise.all([refreshProfile(), records.refetch(), insurance.refetch()]).then(() => undefined)}>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('m.profile.changePhoto')} onPress={changeAvatar}>
+        <Pressable testID="btn-avatar" accessibilityRole="button" accessibilityLabel={t('m.profile.changePhoto')} onPress={changeAvatar}>
           <Avatar name={profile?.full_name} uri={profile?.avatar_url} size={96} />
         </Pressable>
         <Text variant="title" align="center">
@@ -146,6 +146,7 @@ export default function ProfileScreen(): React.ReactElement {
           </Text>
         ) : null}
         <Button
+          testID="btn-change-photo"
           label={t('m.profile.changePhoto')}
           variant="ghost"
           size="sm"
@@ -161,6 +162,7 @@ export default function ProfileScreen(): React.ReactElement {
       ) : null}
 
       <Section
+        testID="section-personal"
         title={t('patient.profile.personalTitle')}
         action={
           editingPersonal
@@ -178,12 +180,14 @@ export default function ProfileScreen(): React.ReactElement {
           {editingPersonal ? (
             <View style={{ gap: spacing.md }}>
               <TextField
+                testID="input-profile-name"
                 label={t('patient.profile.fullName')}
                 value={personal.fullName}
                 onChangeText={(fullName) => setPersonal((v) => ({ ...v, fullName }))}
                 textContentType="name"
               />
               <TextField
+                testID="input-profile-emirates-id"
                 label={t('patient.profile.emiratesId')}
                 value={personal.emiratesId}
                 placeholder={t('patient.profile.phEmiratesId')}
@@ -191,6 +195,7 @@ export default function ProfileScreen(): React.ReactElement {
                 onChangeText={(emiratesId) => setPersonal((v) => ({ ...v, emiratesId }))}
               />
               <DateField
+                testID="input-profile-dob"
                 label={t('patient.profile.dob')}
                 value={personal.dateOfBirth}
                 maximumDate={new Date()}
@@ -201,6 +206,7 @@ export default function ProfileScreen(): React.ReactElement {
                   {t('patient.profile.bloodType')}
                 </Text>
                 <ChoiceChips
+                  testID="chip-blood-type"
                   options={BLOOD_TYPES.map((value) => ({
                     value,
                     label: value,
@@ -215,12 +221,14 @@ export default function ProfileScreen(): React.ReactElement {
                 />
               </View>
               <TextField
+                testID="input-profile-emergency-name"
                 label={t('patient.profile.emergencyName')}
                 value={personal.emergencyContactName}
                 placeholder={t('patient.profile.phEmergencyName')}
                 onChangeText={(emergencyContactName) => setPersonal((v) => ({ ...v, emergencyContactName }))}
               />
               <TextField
+                testID="input-profile-emergency-phone"
                 label={t('patient.profile.emergencyPhone')}
                 value={personal.emergencyContactPhone}
                 placeholder={t('patient.profile.phEmergencyPhone')}
@@ -230,10 +238,11 @@ export default function ProfileScreen(): React.ReactElement {
               />
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 <View style={{ flex: 1 }}>
-                  <Button label={t('m.common.cancel')} variant="secondary" fullWidth onPress={() => setEditingPersonal(false)} />
+                  <Button testID="btn-cancel-personal" label={t('m.common.cancel')} variant="secondary" fullWidth onPress={() => setEditingPersonal(false)} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Button
+                    testID="btn-save-personal"
                     label={t('patient.profile.saveChanges')}
                     fullWidth
                     loading={busy === 'personal'}
@@ -268,6 +277,7 @@ export default function ProfileScreen(): React.ReactElement {
       </Section>
 
       <Section
+        testID="section-health-summary"
         title={t('m.profile.healthSummary')}
         action={{
           label: t('m.profile.manageRecords'),
@@ -280,7 +290,7 @@ export default function ProfileScreen(): React.ReactElement {
         </Card>
       </Section>
 
-      <Section title={t('patient.profile.emiratesTitle')}>
+      <Section testID="section-emirates-id" title={t('patient.profile.emiratesTitle')}>
         <Card>
           <Text variant="caption" color="muted" style={{ marginBottom: spacing.md }}>
             {t('m.profile.emiratesHint')}
@@ -288,6 +298,7 @@ export default function ProfileScreen(): React.ReactElement {
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
               <Button
+                testID="btn-scan-emirates-front"
                 label={t('m.profile.scanFront')}
                 icon="id-card-outline"
                 variant="secondary"
@@ -299,6 +310,7 @@ export default function ProfileScreen(): React.ReactElement {
             </View>
             <View style={{ flex: 1 }}>
               <Button
+                testID="btn-scan-emirates-back"
                 label={t('m.profile.scanBack')}
                 icon="id-card-outline"
                 variant="secondary"
@@ -313,6 +325,7 @@ export default function ProfileScreen(): React.ReactElement {
       </Section>
 
       <Section
+        testID="section-insurance"
         title={t('patient.profile.insuranceTitle')}
         action={
           plan && !editingInsurance
@@ -335,26 +348,31 @@ export default function ProfileScreen(): React.ReactElement {
             <View style={{ gap: spacing.md }}>
               <KeyValue label={t('patient.profile.insuranceProvider')} value={`${plan.providerCompany} · ${plan.planName}`} />
               <TextField
+                testID="input-insurance-policy"
                 label={t('patient.profile.policyNumber')}
                 value={insuranceForm.policyNumber}
                 onChangeText={(policyNumber) => setInsuranceForm((v) => ({ ...v, policyNumber }))}
               />
               <TextField
+                testID="input-insurance-member-id"
                 label={t('patient.profile.memberId')}
                 value={insuranceForm.memberId}
                 onChangeText={(memberId) => setInsuranceForm((v) => ({ ...v, memberId }))}
               />
               <DateField
+                testID="input-insurance-valid-from"
                 label={t('m.profile.validFrom')}
                 value={insuranceForm.validFrom}
                 onChange={(validFrom) => setInsuranceForm((v) => ({ ...v, validFrom }))}
               />
               <DateField
+                testID="input-insurance-valid-until"
                 label={t('patient.profile.validUntil')}
                 value={insuranceForm.validUntil}
                 onChange={(validUntil) => setInsuranceForm((v) => ({ ...v, validUntil }))}
               />
               <Button
+                testID="btn-capture-insurance-card"
                 label={insuranceForm.cardPhotoUrl ? t('m.profile.cardAttached') : t('m.profile.captureCard')}
                 icon={insuranceForm.cardPhotoUrl ? 'checkmark-circle' : 'camera-outline'}
                 variant="secondary"
@@ -370,10 +388,11 @@ export default function ProfileScreen(): React.ReactElement {
               />
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 <View style={{ flex: 1 }}>
-                  <Button label={t('m.common.cancel')} variant="secondary" fullWidth onPress={() => setEditingInsurance(false)} />
+                  <Button testID="btn-cancel-insurance" label={t('m.common.cancel')} variant="secondary" fullWidth onPress={() => setEditingInsurance(false)} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Button
+                    testID="btn-save-insurance"
                     label={t('patient.profile.saveChanges')}
                     fullWidth
                     loading={busy === 'insurance'}

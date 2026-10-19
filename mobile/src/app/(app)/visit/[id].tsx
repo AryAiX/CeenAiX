@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Avatar, Button, Card, EmptyState, ErrorState, Icon, IconButton, InlineMessage, KeyValue, Screen, SkeletonList, Text } from '@/components/ui';
 import { usePatientAppointmentDetail } from '@/data/web/hooks/use-patient-appointment-detail';
@@ -78,21 +78,12 @@ export default function VisitScreen(): React.ReactElement {
         marginBottom: spacing.lg,
       }}
     >
-      <IconButton name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={() => router.back()} />
+      <IconButton testID="btn-visit-close" name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={() => router.back()} />
       <Text variant="heading" style={{ flex: 1 }} accessibilityRole="header">
         {t('m.visit.title')}
       </Text>
     </View>
   );
-
-  if (!webRtc) {
-    return (
-      <Screen testID="screen-visit" edgeTop>
-        {header}
-        <EmptyState icon="videocam-off-outline" title={t('m.visit.unavailableTitle')} body={t('m.visit.unavailableBody')} />
-      </Screen>
-    );
-  }
 
   if (detail.loading && !detail.data) {
     return (
@@ -110,7 +101,7 @@ export default function VisitScreen(): React.ReactElement {
         {detail.error ? (
           <ErrorState message={detail.error} onRetry={() => void detail.refetch()} />
         ) : (
-          <EmptyState icon="videocam-outline" title={t('m.visit.notFoundTitle')} body={t('m.visit.notFoundBody')} />
+          <EmptyState testID="state-empty-visit" icon="videocam-outline" title={t('m.visit.notFoundTitle')} body={t('m.visit.notFoundBody')} />
         )}
       </Screen>
     );
@@ -123,15 +114,18 @@ export default function VisitScreen(): React.ReactElement {
       testID="screen-visit"
       edgeTop
       footer={
-        <Button
-          label={joining ? t('m.visit.joining') : canJoin ? t('m.visit.join') : t('m.visit.unavailable')}
-          icon="videocam"
-          size="lg"
-          fullWidth
-          loading={joining}
-          disabled={!canJoin || joining}
-          onPress={() => void join()}
-        />
+        webRtc ? (
+          <Button
+            testID="btn-join-visit"
+            label={joining ? t('m.visit.joining') : canJoin ? t('m.visit.join') : t('m.visit.unavailable')}
+            icon="videocam"
+            size="lg"
+            fullWidth
+            loading={joining}
+            disabled={!canJoin || joining}
+            onPress={() => void join()}
+          />
+        ) : undefined
       }
     >
       {header}
@@ -163,7 +157,16 @@ export default function VisitScreen(): React.ReactElement {
         />
       </Card>
       <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-        <InlineMessage tone={canJoin ? 'success' : 'info'} message={t(`m.visit.status_${joinStatus}`)} />
+        {webRtc ? (
+          <InlineMessage testID="message-join-status" tone={canJoin ? 'success' : 'info'} message={t(`m.visit.status_${joinStatus}`)} />
+        ) : (
+          <EmptyState
+            testID="state-video-unavailable"
+            icon="videocam-off-outline"
+            title={Platform.OS === 'web' ? t('m.visit.webTitle') : t('m.visit.unavailableTitle')}
+            body={Platform.OS === 'web' ? t('m.visit.webBody') : t('m.visit.unavailableBody')}
+          />
+        )}
         {error ? <InlineMessage tone="danger" message={error} /> : null}
         <View
           style={{

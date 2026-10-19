@@ -45,10 +45,24 @@ export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 type Phase = { kind: 'intro' } | { kind: 'question'; index: number } | { kind: 'review' } | { kind: 'updates' };
 type Feedback = { tone: 'success' | 'danger'; message: string } | null;
 
-function OptionRow({ label, selected, multi, onPress }: { label: string; selected: boolean; multi?: boolean; onPress: () => void }): React.ReactElement {
+function OptionRow({
+  label,
+  selected,
+  multi,
+  onPress,
+  testID,
+}: {
+  label: string;
+  selected: boolean;
+  multi?: boolean;
+  onPress: () => void;
+  testID: string;
+}): React.ReactElement {
   const { colors } = useTheme();
   return (
     <Pressable
+      testID={testID}
+      accessibilityLabel={label}
       accessibilityRole={multi ? 'checkbox' : 'radio'}
       accessibilityState={multi ? { checked: selected } : { selected }}
       onPress={() => {
@@ -93,6 +107,7 @@ function QuestionInput({
     case 'long_text':
       return (
         <TextField
+          testID="input-previsit-answer"
           value={text}
           onChangeText={onChange}
           multiline
@@ -102,15 +117,25 @@ function QuestionInput({
         />
       );
     case 'number':
-      return <TextField value={text} onChangeText={onChange} keyboardType="decimal-pad" placeholder={placeholder} accessibilityLabel={question.label} />;
+      return (
+        <TextField
+          testID="input-previsit-answer"
+          value={text}
+          onChangeText={onChange}
+          keyboardType="decimal-pad"
+          placeholder={placeholder}
+          accessibilityLabel={question.label}
+        />
+      );
     case 'date':
-      return <DateField value={text} onChange={onChange} />;
+      return <DateField testID="input-previsit-answer" value={text} onChange={onChange} />;
     case 'boolean':
       return (
         <View style={{ gap: spacing.sm }}>
           {(['Yes', 'No'] as const).map((value) => (
             <OptionRow
               key={value}
+              testID={`option-${value.toLowerCase()}`}
               label={value === 'Yes' ? t('m.preVisit.yes') : t('m.preVisit.no')}
               selected={text === value}
               onPress={() => onChange(value)}
@@ -121,19 +146,26 @@ function QuestionInput({
     case 'single_select':
       return (
         <View style={{ gap: spacing.sm }}>
-          {question.options.map((option) => (
-            <OptionRow key={option.value} label={option.label} selected={text === option.value} onPress={() => onChange(option.value)} />
+          {question.options.map((option, index) => (
+            <OptionRow
+              key={option.value}
+              testID={`option-${index}`}
+              label={option.label}
+              selected={text === option.value}
+              onPress={() => onChange(option.value)}
+            />
           ))}
         </View>
       );
     case 'multi_select':
       return (
         <View style={{ gap: spacing.sm }}>
-          {question.options.map((option) => {
+          {question.options.map((option, index) => {
             const checked = multi.includes(option.value);
             return (
               <OptionRow
                 key={option.value}
+                testID={`option-${index}`}
                 multi
                 label={option.label}
                 selected={checked}
@@ -145,7 +177,14 @@ function QuestionInput({
       );
     default:
       return (
-        <TextField value={text} onChangeText={onChange} placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.shortText} accessibilityLabel={question.label} />
+        <TextField
+          testID="input-previsit-answer"
+          value={text}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          maxLength={FORM_FIELD_LIMITS.shortText}
+          accessibilityLabel={question.label}
+        />
       );
   }
 }
@@ -263,7 +302,7 @@ export default function PreVisitScreen(): React.ReactElement {
   const topBar = (subtitle: string, progress?: number) => (
     <>
       <View style={styles.topBar}>
-        <IconButton name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={close} />
+        <IconButton testID="btn-previsit-close" name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={close} />
         <View style={{ flex: 1 }}>
           <Text variant="micro" color="subtle" numberOfLines={1}>
             {t('patient.preVisit.title')}
@@ -306,7 +345,7 @@ export default function PreVisitScreen(): React.ReactElement {
     return (
       <Screen testID="screen-pre-visit" edgeTop>
         {topBar('')}
-        <EmptyState icon="clipboard-outline" title={t('m.preVisit.notFoundTitle')} body={t('m.preVisit.notFoundBody')} />
+        <EmptyState testID="state-empty-previsit" icon="clipboard-outline" title={t('m.preVisit.notFoundTitle')} body={t('m.preVisit.notFoundBody')} />
       </Screen>
     );
   }
@@ -323,6 +362,7 @@ export default function PreVisitScreen(): React.ReactElement {
         edgeTop
         footer={
           <Button
+            testID="btn-previsit-start"
             label={started ? t('m.preVisit.resume') : t('m.preVisit.start')}
             fullWidth
             size="lg"
@@ -397,6 +437,7 @@ export default function PreVisitScreen(): React.ReactElement {
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
               <Button
+                testID="btn-previsit-back"
                 label={t('m.common.back')}
                 variant="secondary"
                 fullWidth
@@ -404,7 +445,7 @@ export default function PreVisitScreen(): React.ReactElement {
               />
             </View>
             <View style={{ flex: 2 }}>
-              <Button label={nextLabel} fullWidth disabled={question.required && !answered} onPress={goNext} />
+              <Button testID="btn-previsit-next" label={nextLabel} fullWidth disabled={question.required && !answered} onPress={goNext} />
             </View>
           </View>
         }
@@ -447,13 +488,21 @@ export default function PreVisitScreen(): React.ReactElement {
         footer={
           <View style={{ gap: spacing.sm }}>
             <Button
+              testID="btn-previsit-apply-finish"
               label={t('m.preVisit.applyFinish')}
               fullWidth
               loading={busy === 'complete'}
               disabled={busy !== null}
               onPress={() => void finishWithUpdates('apply')}
             />
-            <Button label={t('m.preVisit.finishWithout')} variant="ghost" fullWidth disabled={busy !== null} onPress={() => void finishWithUpdates('skip')} />
+            <Button
+              testID="btn-previsit-finish-without"
+              label={t('m.preVisit.finishWithout')}
+              variant="ghost"
+              fullWidth
+              disabled={busy !== null}
+              onPress={() => void finishWithUpdates('skip')}
+            />
           </View>
         }
       >
@@ -464,7 +513,7 @@ export default function PreVisitScreen(): React.ReactElement {
             {t('m.preVisit.updatesBody')}
           </Text>
           {data.pendingCanonicalUpdates.map((item) => (
-            <Card key={item.id}>
+            <Card testID={`previsit-update-${item.id}`} key={item.id}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -502,6 +551,7 @@ export default function PreVisitScreen(): React.ReactElement {
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <View style={{ flex: 1 }}>
             <Button
+              testID="btn-previsit-save"
               label={t('patient.preVisit.saveProgress')}
               variant="secondary"
               fullWidth
@@ -512,6 +562,7 @@ export default function PreVisitScreen(): React.ReactElement {
           </View>
           <View style={{ flex: 1 }}>
             <Button
+              testID="btn-previsit-complete"
               label={busy === 'complete' ? t('patient.preVisit.completing') : t('patient.preVisit.complete')}
               variant="ai"
               icon="sparkles"
@@ -534,7 +585,12 @@ export default function PreVisitScreen(): React.ReactElement {
           const answer = answerFor(question.key);
           const missing = question.required && (!hasAnswerValue(answer) || needsAutofillConfirmation(answer));
           return (
-            <Card key={question.key} onPress={() => setPhase({ kind: 'question', index })} accessibilityLabel={question.label}>
+            <Card
+              testID={`previsit-review-${question.key}`}
+              key={question.key}
+              onPress={() => setPhase({ kind: 'question', index })}
+              accessibilityLabel={question.label}
+            >
               <View
                 style={{
                   flexDirection: 'row',

@@ -170,11 +170,18 @@ export default function DocumentsScreen(): React.ReactElement {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <IconButton name="cloud-upload-outline" variant="plain" onPress={() => router.push('/document-upload')} accessibilityLabel={t('m.docs.upload')} />
+            <IconButton
+              testID="btn-upload-document"
+              name="cloud-upload-outline"
+              variant="plain"
+              onPress={() => router.push('/document-upload')}
+              accessibilityLabel={t('m.docs.upload')}
+            />
           ),
         }}
       />
       <SegmentedControl<Segment>
+        testID="segment-documents"
         value={segment}
         onChange={setSegment}
         options={[
@@ -199,6 +206,7 @@ export default function DocumentsScreen(): React.ReactElement {
             <ErrorState message={vault.error} onRetry={() => void vault.refetch()} />
           ) : (vault.data?.length ?? 0) === 0 ? (
             <EmptyState
+              testID="state-empty-documents"
               icon="folder-open-outline"
               title={t('m.docs.noUploadsTitle')}
               body={t('m.docs.noUploadsBody')}
@@ -209,7 +217,7 @@ export default function DocumentsScreen(): React.ReactElement {
             />
           ) : (
             vault.data?.map((doc) => (
-              <Card key={doc.id}>
+              <Card testID={`document-card-${doc.id}`} key={doc.id}>
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                   <IconBadge name={doc.mimeType === 'application/pdf' ? 'document-text-outline' : 'image-outline'} tone="warning" />
                   <View style={{ flex: 1, gap: 2 }}>
@@ -239,6 +247,7 @@ export default function DocumentsScreen(): React.ReactElement {
                   </Text>
                 ) : null}
                 <ToggleRow
+                  testID={`toggle-share-care-team-${doc.id}`}
                   label={t('m.docs.careTeam')}
                   description={doc.allowCareTeamAccess ? t('m.docs.shared') : t('m.docs.private')}
                   value={doc.allowCareTeamAccess}
@@ -248,6 +257,7 @@ export default function DocumentsScreen(): React.ReactElement {
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                   <View style={{ flex: 1 }}>
                     <Button
+                      testID={`btn-open-document-${doc.id}`}
                       label={t('m.docs.open')}
                       icon="eye-outline"
                       size="sm"
@@ -259,6 +269,7 @@ export default function DocumentsScreen(): React.ReactElement {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Button
+                      testID={`btn-share-document-${doc.id}`}
                       label={t('m.docs.share')}
                       icon="share-outline"
                       size="sm"
@@ -268,7 +279,13 @@ export default function DocumentsScreen(): React.ReactElement {
                       onPress={() => void share(doc)}
                     />
                   </View>
-                  <IconButton name="trash-outline" variant="plain" onPress={() => remove(doc)} accessibilityLabel={t('m.docs.remove')} />
+                  <IconButton
+                    testID={`btn-remove-document-${doc.id}`}
+                    name="trash-outline"
+                    variant="plain"
+                    onPress={() => remove(doc)}
+                    accessibilityLabel={t('m.docs.remove')}
+                  />
                 </View>
               </Card>
             ))
@@ -276,10 +293,15 @@ export default function DocumentsScreen(): React.ReactElement {
         ) : labs.loading && prescriptions.loading ? (
           <SkeletonList count={4} height={72} />
         ) : careDocs.length === 0 ? (
-          <EmptyState icon="documents-outline" title={t('patient.documents.noDocsTitle')} body={t('patient.documents.noDocsBody')} />
+          <EmptyState
+            testID="state-empty-care-documents"
+            icon="documents-outline"
+            title={t('patient.documents.noDocsTitle')}
+            body={t('patient.documents.noDocsBody')}
+          />
         ) : (
           careDocs.map((doc) => (
-            <Card key={doc.id} onPress={() => router.push(doc.href)}>
+            <Card testID={`care-document-card-${doc.id}`} key={doc.id} onPress={() => router.push(doc.href)}>
               <View
                 style={{
                   flexDirection: 'row',

@@ -26,6 +26,8 @@ interface AuthContextValue {
   isLoading: boolean;
   isPatient: boolean;
   isRecovering: boolean;
+  /** The profile/role lookup failed after retries; the session is valid but the role is unknown. */
+  profileError: boolean;
   signInWithPassword: (email: string, password: string) => Promise<AuthResult>;
   signUp: (input: SignUpInput) => Promise<AuthResult & { needsConfirmation: boolean }>;
   requestPhoneOtp: (phone: string, createAccount: { fullName: string } | null) => Promise<AuthResult>;
@@ -85,8 +87,11 @@ const ensureProfile = async (user: User): Promise<UserProfile | null> => {
   return (data as UserProfile | null) ?? null;
 };
 
-const loadProfiles = async (user: User) => {
-  const { data } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle();
+type ProfileState = { profile: UserProfile | null; patientProfile: PatientProfile | null; role: UserRole | null };
+
+const loadProfiles = async (user: User): Promise<ProfileState> => {
+  const { data, error } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle();
+  if (error) throw error;
   const profile = ((data as UserProfile | null) ?? null) || (await ensureProfile(user));
   if (!profile) return { profile: null, patientProfile: null, role: null };
   let patientProfile: PatientProfile | null = null;
@@ -97,6 +102,24 @@ const loadProfiles = async (user: User) => {
   return { profile, patientProfile, role: profile.role };
 };
 
+const RETRY_DELAYS_MS = [500, 1500];
+
+// A transient failure must not be mistaken for "not a patient", so retry before giving up.
+const loadProfilesWithRetry = async (user: User): Promise<ProfileState | null> => {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await loadProfiles(user);
+    } catch (error) {
+      const delay = RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) {
+        console.warn('[auth] Failed to load profile', toError(error).message);
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }): React.ReactElement {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -104,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
   const [role, setRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [profileError, setProfileError] = useState(false);
   const generation = useRef(0);
 
   const sync = useCallback(async (next: Session | null) => {
@@ -113,15 +137,18 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       setProfile(null);
       setPatientProfile(null);
       setRole(null);
+      setProfileError(false);
       setIsLoading(false);
       return;
     }
-    setSession(next);
-    const state = await loadProfiles(next.user);
+    // Publish the session together with its role so route guards never see a signed-in user without one.
+    const state = await loadProfilesWithRetry(next.user);
     if (current !== generation.current) return;
-    setProfile(state.profile);
-    setPatientProfile(state.patientProfile);
-    setRole(state.role);
+    setSession(next);
+    setProfile(state?.profile ?? null);
+    setPatientProfile(state?.patientProfile ?? null);
+    setRole(state?.role ?? null);
+    setProfileError(state === null);
     setIsLoading(false);
   }, []);
 
@@ -137,7 +164,10 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
         setSession(next);
         return;
       }
-      void sync(next);
+      // supabase-js holds its auth lock while notifying; querying from inside the callback can deadlock.
+      setTimeout(() => {
+        if (active) void sync(next);
+      }, 0);
     });
     return () => {
       active = false;
@@ -252,8 +282,10 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
   const refreshProfile = useCallback(async () => {
     if (!session?.user) return;
     const current = ++generation.current;
-    const state = await loadProfiles(session.user);
+    const state = await loadProfilesWithRetry(session.user);
     if (current !== generation.current) return;
+    setProfileError(state === null);
+    if (!state) return;
     setProfile(state.profile);
     setPatientProfile(state.patientProfile);
     setRole(state.role);
@@ -269,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       isLoading,
       isPatient: Boolean(session?.user) && role === 'patient',
       isRecovering,
+      profileError,
       signInWithPassword,
       signUp,
       requestPhoneOtp,
@@ -287,6 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       role,
       isLoading,
       isRecovering,
+      profileError,
       signInWithPassword,
       signUp,
       requestPhoneOtp,

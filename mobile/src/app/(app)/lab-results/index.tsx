@@ -48,6 +48,7 @@ export default function LabResultsScreen(): React.ReactElement {
   return (
     <Screen testID="screen-lab-results" onRefresh={labs.refetch} refreshing={labs.refreshing} staleSince={labs.staleSince}>
       <SegmentedControl<Segment>
+        testID="segment-labs"
         value={segment}
         onChange={setSegment}
         options={[
@@ -70,15 +71,16 @@ export default function LabResultsScreen(): React.ReactElement {
         ) : !labs.data && labs.error ? (
           <ErrorState message={t('patient.labResults.loadError')} onRetry={() => void labs.refetch()} />
         ) : orders.length === 0 ? (
-          <EmptyState icon="flask-outline" title={t('patient.labResults.emptyTitle')} body={t('patient.labResults.emptyBody')} />
+          <EmptyState testID="state-empty-labs" icon="flask-outline" title={t('patient.labResults.emptyTitle')} body={t('patient.labResults.emptyBody')} />
         ) : segment === 'trends' ? (
           trends.length === 0 ? (
-            <EmptyState icon="trending-up-outline" title={t('m.labs.noTrendsTitle')} body={t('m.labs.noTrendsBody')} />
+            <EmptyState testID="state-empty-trends" icon="trending-up-outline" title={t('m.labs.noTrendsTitle')} body={t('m.labs.noTrendsBody')} />
           ) : (
             trends.map((series) => <TrendCard key={series.testCode} series={series} />)
           )
         ) : list.length === 0 ? (
           <EmptyState
+            testID="state-empty-labs-segment"
             icon={segment === 'upcoming' ? 'time-outline' : 'flask-outline'}
             title={segment === 'upcoming' ? t('patient.labResults.upcomingEmptyTitle') : t('patient.labResults.emptyTitle')}
             body={segment === 'upcoming' ? t('patient.labResults.upcomingEmptyBody') : t('patient.labResults.emptyBody')}
@@ -119,7 +121,7 @@ function OrderCard({ order, onPress }: { order: PatientLabOrderRecord; onPress: 
             }
       : null;
   return (
-    <Card onPress={onPress}>
+    <Card testID={`lab-order-card-${order.id}`} onPress={onPress}>
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <IconBadge name="flask-outline" tone={order.abnormalCount > 0 ? 'warning' : 'info'} />
         <View style={{ flex: 1, gap: 2 }}>

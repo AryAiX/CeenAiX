@@ -274,6 +274,7 @@ export default function BookScreen(): React.ReactElement {
     return (
       <View style={{ gap: spacing.md }}>
         <TextField
+          testID="input-doctor-search"
           accessibilityLabel={t('patient.book.search')}
           placeholder={t('patient.book.searchPh')}
           value={search}
@@ -295,6 +296,7 @@ export default function BookScreen(): React.ReactElement {
               return (
                 <Pressable
                   key={option.id ?? 'all'}
+                  testID={`chip-specialty-${option.id ?? 'all'}`}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   onPress={() => {
@@ -318,11 +320,12 @@ export default function BookScreen(): React.ReactElement {
           </ScrollView>
         ) : null}
         {filteredDoctors.length === 0 ? (
-          <EmptyState icon="search" title={t('patient.book.noDoctors')} body={t('patient.book.noDoctorsSub')} />
+          <EmptyState testID="state-empty-doctors" icon="search" title={t('patient.book.noDoctors')} body={t('patient.book.noDoctorsSub')} />
         ) : (
           filteredDoctors.map((doctor) => (
             <Card
               key={doctor.userId}
+              testID={`doctor-card-${doctor.userId}`}
               onPress={() => pickDoctor(doctor)}
               tone={doctor.userId === doctorId ? 'brand' : undefined}
               accessibilityLabel={doctor.fullName}
@@ -394,6 +397,7 @@ export default function BookScreen(): React.ReactElement {
               {t('m.book.visitType')}
             </Text>
             <SegmentedControl<VisitType>
+              testID="segment-visit-type"
               value={visitType}
               onChange={setVisitType}
               options={[
@@ -419,7 +423,7 @@ export default function BookScreen(): React.ReactElement {
         ) : availability.error ? (
           <ErrorState message={t('patient.book.availabilityError')} onRetry={() => void availability.refetch()} />
         ) : days.length === 0 ? (
-          <EmptyState icon="calendar-outline" title={t('m.book.noDates')} body={t('m.book.noDatesSub')} />
+          <EmptyState testID="state-empty-dates" icon="calendar-outline" title={t('m.book.noDates')} body={t('m.book.noDatesSub')} />
         ) : (
           <>
             <View style={{ gap: spacing.sm }}>
@@ -433,6 +437,7 @@ export default function BookScreen(): React.ReactElement {
                   return (
                     <Pressable
                       key={day.key}
+                      testID={`date-${day.key}`}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
                       accessibilityLabel={dayLabel(day.date, {
@@ -485,6 +490,7 @@ export default function BookScreen(): React.ReactElement {
                   return (
                     <Pressable
                       key={slot.iso}
+                      testID={`slot-${slot.iso}`}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
                       onPress={() => {
@@ -521,6 +527,7 @@ export default function BookScreen(): React.ReactElement {
   const renderDetailsStep = () => (
     <View style={{ gap: spacing.lg }}>
       <TextField
+        testID="input-booking-reason"
         label={t('patient.book.reasonLabel')}
         placeholder={t('patient.book.reasonPh')}
         value={chiefComplaint}
@@ -530,6 +537,7 @@ export default function BookScreen(): React.ReactElement {
         autoFocus={!chiefComplaint}
       />
       <TextField
+        testID="input-booking-notes"
         label={t('patient.book.notesLabel')}
         placeholder={t('patient.book.notesPh')}
         value={notes}
@@ -541,7 +549,7 @@ export default function BookScreen(): React.ReactElement {
   );
 
   const renderReviewStep = () => (
-    <Card>
+    <Card testID="card-booking-summary">
       <Text variant="captionStrong" color="muted" style={{ marginBottom: spacing.sm }}>
         {isRescheduling ? t('patient.book.summaryReschedule') : t('patient.book.summaryBook')}
       </Text>
@@ -593,12 +601,13 @@ export default function BookScreen(): React.ReactElement {
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             {stepIndex > 0 ? (
               <View style={{ flex: 1 }}>
-                <Button label={t('m.common.back')} variant="secondary" fullWidth onPress={goBack} disabled={submitting} />
+                <Button testID="btn-booking-back" label={t('m.common.back')} variant="secondary" fullWidth onPress={goBack} disabled={submitting} />
               </View>
             ) : null}
             {step !== 'doctor' ? (
               <View style={{ flex: 2 }}>
                 <Button
+                  testID="btn-booking-next"
                   label={
                     isLastStep
                       ? submitting
@@ -622,7 +631,7 @@ export default function BookScreen(): React.ReactElement {
       }
     >
       <View style={styles.topBar}>
-        <IconButton name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={close} />
+        <IconButton testID="btn-booking-close" name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={close} />
         <View style={{ flex: 1 }}>
           <Text variant="micro" color="subtle">
             {(isRescheduling ? t('patient.book.titleReschedule') : t('patient.book.title')) +

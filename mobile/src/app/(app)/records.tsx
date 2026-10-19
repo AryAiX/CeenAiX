@@ -152,7 +152,9 @@ export default function RecordsScreen(): React.ReactElement {
     <Screen testID="screen-records" onRefresh={records.refetch} refreshing={records.refreshing} staleSince={records.staleSince}>
       <Stack.Screen
         options={{
-          headerRight: () => <IconButton name="add" variant="plain" onPress={promptAdd} accessibilityLabel={t('patient.records.emptyStateCta')} />,
+          headerRight: () => (
+            <IconButton testID="btn-add-record" name="add" variant="plain" onPress={promptAdd} accessibilityLabel={t('patient.records.emptyStateCta')} />
+          ),
         }}
       />
       <View
@@ -163,7 +165,7 @@ export default function RecordsScreen(): React.ReactElement {
         }}
       >
         {(Object.keys(counts) as RecordCategory[]).map((category) => (
-          <Card key={category} style={{ flex: 1 }} padded>
+          <Card testID={`record-count-${category}`} key={category} style={{ flex: 1 }} padded>
             <IconBadge name={CATEGORY_ICON[category].icon} tone={CATEGORY_ICON[category].tone} size={32} />
             <Text variant="title" style={{ marginTop: spacing.sm }}>
               {counts[category]}
@@ -179,6 +181,7 @@ export default function RecordsScreen(): React.ReactElement {
         ))}
       </View>
       <SegmentedControl<Filter>
+        testID="segment-records-filter"
         value={filter}
         onChange={setFilter}
         options={[
@@ -191,6 +194,7 @@ export default function RecordsScreen(): React.ReactElement {
       {entries.length > 5 ? (
         <View style={{ marginTop: spacing.md }}>
           <TextField
+            testID="input-records-search"
             placeholder={t('patient.records.searchPh')}
             value={search}
             onChangeText={setSearch}
@@ -206,6 +210,7 @@ export default function RecordsScreen(): React.ReactElement {
           <ErrorState message={t('patient.records.loadError')} onRetry={() => void records.refetch()} />
         ) : entries.length === 0 ? (
           <EmptyState
+            testID="state-empty-records"
             icon="document-text-outline"
             title={t('patient.records.emptyStateTitle')}
             body={t('patient.records.emptyStateBody')}
@@ -215,10 +220,10 @@ export default function RecordsScreen(): React.ReactElement {
             }}
           />
         ) : visible.length === 0 ? (
-          <EmptyState icon="search" title={t('patient.records.noMatchTitle')} />
+          <EmptyState testID="state-empty-records-search" icon="search" title={t('patient.records.noMatchTitle')} />
         ) : (
           visible.map((entry) => (
-            <Card key={`${entry.category}-${entry.id}`} onPress={() => openForm(entry.category, entry.id)}>
+            <Card testID={`record-card-${entry.category}-${entry.id}`} key={`${entry.category}-${entry.id}`} onPress={() => openForm(entry.category, entry.id)}>
               <View
                 style={{
                   flexDirection: 'row',

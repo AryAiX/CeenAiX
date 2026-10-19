@@ -55,11 +55,18 @@ export default function ImagingScreen(): React.ReactElement {
         options={{
           headerRight: () =>
             studies.length > 0 ? (
-              <IconButton name="share-outline" variant="plain" onPress={shareAll} accessibilityLabel={t('patient.imaging.shareStudies')} />
+              <IconButton
+                testID="btn-share-imaging"
+                name="share-outline"
+                variant="plain"
+                onPress={shareAll}
+                accessibilityLabel={t('patient.imaging.shareStudies')}
+              />
             ) : null,
         }}
       />
       <SegmentedControl<Segment>
+        testID="segment-imaging"
         value={segment}
         onChange={setSegment}
         options={[
@@ -81,9 +88,10 @@ export default function ImagingScreen(): React.ReactElement {
         ) : !imaging.data && imaging.error ? (
           <ErrorState message={t('patient.imaging.loadError')} onRetry={() => void imaging.refetch()} />
         ) : studies.length === 0 ? (
-          <EmptyState icon="scan-outline" title={t('patient.imaging.emptyTitle')} body={t('patient.imaging.emptyBody')} />
+          <EmptyState testID="state-empty-imaging" icon="scan-outline" title={t('patient.imaging.emptyTitle')} body={t('patient.imaging.emptyBody')} />
         ) : list.length === 0 ? (
           <EmptyState
+            testID="state-empty-imaging-segment"
             icon="calendar-outline"
             title={segment === 'scheduled' ? t('patient.imaging.noScheduledTitle') : t('patient.imaging.emptyTitle')}
             body={segment === 'scheduled' ? t('patient.imaging.noScheduledBody') : undefined}
@@ -93,6 +101,7 @@ export default function ImagingScreen(): React.ReactElement {
             const followUp = study.status === 'released' && (study.alerts.length > 0 || Boolean(study.recommendations));
             return (
               <Card
+                testID={`imaging-card-${study.id}`}
                 key={study.id}
                 onPress={() =>
                   router.push({

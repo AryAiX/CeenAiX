@@ -39,6 +39,7 @@ export const mobileEn = {
   },
   auth: {
     tagline: 'Your health, connected.',
+    profileLoadError: 'We could not load your account details. Check your connection and try again.',
     patientOnly: 'This app is for patients. Use the CeenAiX web portal for clinician and staff access.',
     otpSentTo: 'Enter the 6-digit code sent to {{phone}}.',
     otpPhoneHint: 'Use international format, e.g. +971 50 123 4567.',
@@ -414,6 +415,8 @@ export const mobileEn = {
     yourDoctor: 'Your doctor',
     unavailableTitle: 'Video visits need the full CeenAiX app',
     unavailableBody: 'Secure video is not available in Expo Go. Install a CeenAiX development or store build to join this visit.',
+    webTitle: 'Video visits require the mobile app',
+    webBody: 'Open this appointment in the CeenAiX app on your phone to join the video call. You can still review the visit details here.',
     notFoundTitle: 'Video visit unavailable',
     notFoundBody: 'We could not find a video appointment linked to your account.',
     date: 'Date',

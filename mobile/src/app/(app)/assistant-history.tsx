@@ -30,7 +30,7 @@ export default function AssistantHistorySheet(): React.ReactElement {
       <Text variant="caption" color="muted" style={{ marginBottom: spacing.md }}>
         {t('patient.aiChat.chatsSub')}
       </Text>
-      <Card onPress={() => open('new')} tone="ai" accessibilityLabel={t('patient.aiChat.newChat')}>
+      <Card testID="btn-history-new-chat" onPress={() => open('new')} tone="ai" accessibilityLabel={t('patient.aiChat.newChat')}>
         <View
           style={{
             flexDirection: 'row',
@@ -52,10 +52,10 @@ export default function AssistantHistorySheet(): React.ReactElement {
       ) : chat.error ? (
         <ErrorState message={t('patient.aiChat.loadHistoryError')} onRetry={() => void chat.refetch()} />
       ) : sessions.length === 0 ? (
-        <EmptyState icon="chatbubbles-outline" title={t('patient.aiChat.noChats')} />
+        <EmptyState testID="state-empty-history" icon="chatbubbles-outline" title={t('patient.aiChat.noChats')} />
       ) : (
         sessions.map((session) => (
-          <Card key={session.id} onPress={() => open(session.id)} accessibilityLabel={session.preview}>
+          <Card testID={`history-session-${session.id}`} key={session.id} onPress={() => open(session.id)} accessibilityLabel={session.preview}>
             <Text variant="micro" color="subtle">
               {formatRelative(session.lastMessageAt)}
             </Text>

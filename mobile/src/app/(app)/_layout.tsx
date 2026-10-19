@@ -5,6 +5,9 @@ import { useTheme } from '@/theme/theme-provider';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
+// Deep links into a pushed screen still get the tabs underneath, so back always has somewhere to go.
+export const unstable_settings = { anchor: '(tabs)' };
+
 export default function AppLayout(): React.ReactElement {
   const { t } = useTranslation();
   const { colors } = useTheme();

@@ -229,7 +229,12 @@ export default function ConversationScreen(): React.ReactElement {
               justifyContent: 'center',
             }}
           >
-            <EmptyState icon="chatbubble-ellipses-outline" title={t('patient.messages.threadEmptyTitle')} body={t('patient.messages.threadEmptyBody')} />
+            <EmptyState
+              testID="state-empty-thread"
+              icon="chatbubble-ellipses-outline"
+              title={t('patient.messages.threadEmptyTitle')}
+              body={t('patient.messages.threadEmptyBody')}
+            />
           </View>
         }
         renderItem={({ item }) => {
@@ -244,6 +249,7 @@ export default function ConversationScreen(): React.ReactElement {
           const own = message.sender_id === user?.id;
           return (
             <Pressable
+              testID={own ? 'chat-message-own' : 'chat-message-other'}
               onLongPress={() => openActions(message)}
               delayLongPress={300}
               accessibilityHint={own ? t('m.messages.edit') : undefined}
@@ -286,7 +292,7 @@ export default function ConversationScreen(): React.ReactElement {
           <Text variant="caption" style={{ color: colors.background, flex: 1 }}>
             {t('m.messages.deleted')}
           </Text>
-          <Pressable accessibilityRole="button" onPress={undoDelete} hitSlop={8}>
+          <Pressable testID="btn-undo-delete" accessibilityRole="button" onPress={undoDelete} hitSlop={8}>
             <Text variant="captionStrong" style={{ color: colors.accent }}>
               {t('m.messages.undo')}
             </Text>
@@ -317,6 +323,7 @@ export default function ConversationScreen(): React.ReactElement {
               {t('m.messages.editing')}
             </Text>
             <Pressable
+              testID="btn-cancel-edit"
               accessibilityRole="button"
               accessibilityLabel={t('m.messages.cancel')}
               hitSlop={10}
@@ -337,6 +344,7 @@ export default function ConversationScreen(): React.ReactElement {
           }}
         >
           <TextInput
+            testID="input-message"
             ref={inputRef}
             value={draft}
             onChangeText={setDraft}
@@ -348,6 +356,7 @@ export default function ConversationScreen(): React.ReactElement {
             style={[typography.body, styles.input, { color: colors.text, backgroundColor: colors.surfaceMuted }]}
           />
           <Pressable
+            testID="btn-send-message"
             accessibilityRole="button"
             accessibilityLabel={editing ? t('m.messages.save') : t('patient.messages.send')}
             disabled={!draft.trim() || thread.working}
