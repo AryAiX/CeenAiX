@@ -225,7 +225,11 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
           {t('m.rx.reportedHint')}
         </Text>
         <View style={{ gap: spacing.md }}>
-          <TextField label={t('m.rx.name')} value={form.medicationName} onChangeText={(medicationName) => setForm((current) => ({ ...current, medicationName }))} />
+          <TextField
+            label={t('m.rx.name')}
+            value={form.medicationName}
+            onChangeText={(medicationName) => setForm((current) => ({ ...current, medicationName }))}
+          />
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
               <TextField label={t('m.rx.dosage')} value={form.dosage} onChangeText={(dosage) => setForm((current) => ({ ...current, dosage }))} />

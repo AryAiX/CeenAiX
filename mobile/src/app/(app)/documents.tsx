@@ -219,10 +219,26 @@ export default function DocumentsScreen(): React.ReactElement {
                 />
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                   <View style={{ flex: 1 }}>
-                    <Button label={t('m.docs.open')} icon="eye-outline" size="sm" variant="secondary" fullWidth disabled={busyId === doc.id} onPress={() => void open(doc)} />
+                    <Button
+                      label={t('m.docs.open')}
+                      icon="eye-outline"
+                      size="sm"
+                      variant="secondary"
+                      fullWidth
+                      disabled={busyId === doc.id}
+                      onPress={() => void open(doc)}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Button label={t('m.docs.share')} icon="share-outline" size="sm" variant="secondary" fullWidth disabled={busyId === doc.id} onPress={() => void share(doc)} />
+                    <Button
+                      label={t('m.docs.share')}
+                      icon="share-outline"
+                      size="sm"
+                      variant="secondary"
+                      fullWidth
+                      disabled={busyId === doc.id}
+                      onPress={() => void share(doc)}
+                    />
                   </View>
                   <IconButton name="trash-outline" variant="plain" onPress={() => remove(doc)} accessibilityLabel={t('m.docs.remove')} />
                 </View>

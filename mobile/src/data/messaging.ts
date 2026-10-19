@@ -40,11 +40,7 @@ export async function fetchConversationList(userId: string): Promise<Conversatio
   const conversations = (conversationRows ?? []) as Conversation[];
   const conversationIds = conversations.map((conversation) => conversation.id);
   const counterpartIds = Array.from(
-    new Set(
-      conversations
-        .map((conversation) => getConversationCounterpartyId(conversation, userId))
-        .filter((value): value is string => Boolean(value))
-    )
+    new Set(conversations.map((conversation) => getConversationCounterpartyId(conversation, userId)).filter((value): value is string => Boolean(value)))
   );
   const [profiles, previews] = await Promise.all([
     counterpartIds.length > 0
@@ -94,10 +90,7 @@ export async function fetchConversationList(userId: string): Promise<Conversatio
         },
       };
     })
-    .sort(
-      (left, right) =>
-        new Date(right.lastMessageAt ?? right.createdAt).getTime() - new Date(left.lastMessageAt ?? left.createdAt).getTime()
-    );
+    .sort((left, right) => new Date(right.lastMessageAt ?? right.createdAt).getTime() - new Date(left.lastMessageAt ?? left.createdAt).getTime());
 }
 
 export function useConversationList(userId: string | null | undefined) {
@@ -146,11 +139,7 @@ export function useConversationThread(userId: string | null | undefined, convers
     if (!userId || !conversationId) return;
     const channel = supabase
       .channel(`thread:${conversationId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        () => void load()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, () => void load())
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);

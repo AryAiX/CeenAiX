@@ -155,10 +155,10 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
                   <KeyValue label={t('m.rx.dosage')} value={item.dosage} />
                   <KeyValue label={t('m.rx.frequency')} value={item.frequency} />
                   <KeyValue label={t('m.appointment.duration')} value={item.duration} />
-                  {item.quantity != null ? (
-                    <KeyValue label={t('m.rx.quantity')} value={String(item.quantity)} />
+                  {item.quantity != null ? <KeyValue label={t('m.rx.quantity')} value={String(item.quantity)} /> : null}
+                  {days != null && isActive ? (
+                    <KeyValue label={t('patient.prescriptions.refillStatusHeading')} value={t('m.rx.daysLeft', { count: days })} />
                   ) : null}
-                  {days != null && isActive ? <KeyValue label={t('patient.prescriptions.refillStatusHeading')} value={t('m.rx.daysLeft', { count: days })} /> : null}
                 </View>
                 {item.instructions ? (
                   <Text variant="caption" color="muted" style={{ marginTop: spacing.sm }}>

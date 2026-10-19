@@ -3,20 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  Icon,
-  IconButton,
-  KeyValue,
-  Pill,
-  Screen,
-  Section,
-  Skeleton,
-  Text,
-} from '@/components/ui';
+import { Button, Card, EmptyState, ErrorState, Icon, IconButton, KeyValue, Pill, Screen, Section, Skeleton, Text } from '@/components/ui';
 import { usePatientLabResults } from '@/data/web/hooks/use-patient-lab-results';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
 import { formatDate, formatDateTime } from '@/lib/format';

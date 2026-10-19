@@ -22,8 +22,7 @@ import { spacing } from '@/theme/tokens';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
-const isCategory = (value: string | undefined): value is RecordCategory =>
-  value === 'condition' || value === 'allergy' || value === 'vaccination';
+const isCategory = (value: string | undefined): value is RecordCategory => value === 'condition' || value === 'allergy' || value === 'vaccination';
 
 export default function RecordFormSheet(): React.ReactElement {
   const params = useLocalSearchParams<{ category?: string; id?: string }>();
@@ -44,7 +43,14 @@ export default function RecordFormSheet(): React.ReactElement {
       </Screen>
     );
   }
-  return <RecordForm data={records.data} onSaved={() => void records.refetch()} category={isCategory(params.category) ? params.category : 'condition'} recordId={params.id} />;
+  return (
+    <RecordForm
+      data={records.data}
+      onSaved={() => void records.refetch()}
+      category={isCategory(params.category) ? params.category : 'condition'}
+      recordId={params.id}
+    />
+  );
 }
 
 function RecordForm({
@@ -92,11 +98,7 @@ function RecordForm({
   const [error, setError] = useState<string | null>(null);
 
   const title =
-    category === 'condition'
-      ? t('patient.records.addCondition')
-      : category === 'allergy'
-        ? t('patient.records.addAllergy')
-        : t('patient.records.addVax');
+    category === 'condition' ? t('patient.records.addCondition') : category === 'allergy' ? t('patient.records.addAllergy') : t('patient.records.addVax');
   const categoryLabel =
     category === 'condition'
       ? t('patient.records.categoryCondition')
@@ -171,7 +173,14 @@ function RecordForm({
       keyboard
       footer={
         <StickyFooter>
-          <Button label={busy === 'save' ? t('patient.records.saving') : saveLabel} size="lg" fullWidth loading={busy === 'save'} disabled={busy !== null} onPress={() => void submit()} />
+          <Button
+            label={busy === 'save' ? t('patient.records.saving') : saveLabel}
+            size="lg"
+            fullWidth
+            loading={busy === 'save'}
+            disabled={busy !== null}
+            onPress={() => void submit()}
+          />
           {editing ? (
             <Button
               label={busy === 'delete' ? t('patient.records.removing') : t('patient.records.remove')}

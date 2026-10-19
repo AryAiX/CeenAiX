@@ -89,7 +89,15 @@ export default function CancelAppointmentSheet(): React.ReactElement {
       </View>
       {reason === 'other' ? <TextField label={t('m.appointment.cancelReasonOther')} value={other} onChangeText={setOther} multiline /> : null}
       {error ? <InlineMessage tone="danger" message={error} /> : null}
-      <Button label={t('m.appointment.confirmCancel')} variant="danger" size="lg" fullWidth loading={busy} disabled={!canSubmit} onPress={() => void submit()} />
+      <Button
+        label={t('m.appointment.confirmCancel')}
+        variant="danger"
+        size="lg"
+        fullWidth
+        loading={busy}
+        disabled={!canSubmit}
+        onPress={() => void submit()}
+      />
       <Button label={t('m.appointment.keep')} variant="ghost" fullWidth onPress={() => router.back()} />
     </ScrollView>
   );

@@ -3,19 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  ChoiceChips,
-  IconBadge,
-  InlineMessage,
-  ListRow,
-  Screen,
-  StickyFooter,
-  Text,
-  TextField,
-  ToggleRow,
-} from '@/components/ui';
+import { Button, Card, ChoiceChips, IconBadge, InlineMessage, ListRow, Screen, StickyFooter, Text, TextField, ToggleRow } from '@/components/ui';
 import { DOCUMENT_MAX_BYTES, UPLOAD_CATEGORIES, uploadVaultDocument } from '@/data/documents';
 import type { PatientVaultDocumentCategory } from '@/data/web/hooks/use-patient-document-vault';
 import { formatBytes } from '@/lib/format';

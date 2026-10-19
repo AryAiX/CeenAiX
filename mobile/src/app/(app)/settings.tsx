@@ -3,19 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  Divider,
-  InlineMessage,
-  KeyValue,
-  ListRow,
-  Screen,
-  Section,
-  SegmentedControl,
-  Text,
-  ToggleRow,
-} from '@/components/ui';
+import { Button, Card, Divider, InlineMessage, KeyValue, ListRow, Screen, Section, SegmentedControl, Text, ToggleRow } from '@/components/ui';
 import { normalizePreferences, savePreferences, type PatientPreferences } from '@/data/preferences';
 import { changeLanguage, reloadApp, type AppLanguage } from '@/i18n';
 import { getAiContextConsent, setAiContextConsent } from '@/lib/ai';
@@ -108,11 +96,7 @@ export default function SettingsScreen(): React.ReactElement {
       return;
     }
     const result = await requestPasswordReset(email);
-    setFeedback(
-      result.error
-        ? { tone: 'danger', message: result.error.message }
-        : { tone: 'success', message: t('m.settings.resetSent', { email }) }
-    );
+    setFeedback(result.error ? { tone: 'danger', message: result.error.message } : { tone: 'success', message: t('m.settings.resetSent', { email }) });
   };
 
   const confirmSignOut = () =>
@@ -129,7 +113,11 @@ export default function SettingsScreen(): React.ReactElement {
         </View>
       ) : null}
 
-      <Section title={t('patient.settings.accountSummary')} style={{ marginTop: 0 }} action={{ label: t('patient.settings.actionManageProfile'), onPress: () => router.push('/profile') }}>
+      <Section
+        title={t('patient.settings.accountSummary')}
+        style={{ marginTop: 0 }}
+        action={{ label: t('patient.settings.actionManageProfile'), onPress: () => router.push('/profile') }}
+      >
         <Card>
           <KeyValue label={t('patient.settings.fullName')} value={profile?.full_name} />
           <KeyValue label={t('patient.settings.email')} value={profile?.email ?? user?.email} />
@@ -163,23 +151,64 @@ export default function SettingsScreen(): React.ReactElement {
 
       <Section title={t('patient.settings.sectionNotifications')}>
         <Card>
-          <ToggleRow label={t('patient.settings.pushNotifications')} description={t('patient.settings.pushNotificationsBody')} value={prefs.push} disabled={saving} onChange={(value) => void togglePush(value)} />
+          <ToggleRow
+            label={t('patient.settings.pushNotifications')}
+            description={t('patient.settings.pushNotificationsBody')}
+            value={prefs.push}
+            disabled={saving}
+            onChange={(value) => void togglePush(value)}
+          />
           <Divider />
-          <ToggleRow label={t('patient.settings.emailNotifications')} description={t('patient.settings.emailNotificationsBody')} value={prefs.email} disabled={saving} onChange={(value) => void update('email', value)} />
+          <ToggleRow
+            label={t('patient.settings.emailNotifications')}
+            description={t('patient.settings.emailNotificationsBody')}
+            value={prefs.email}
+            disabled={saving}
+            onChange={(value) => void update('email', value)}
+          />
           <Divider />
-          <ToggleRow label={t('patient.settings.smsNotifications')} description={t('patient.settings.smsNotificationsBody')} value={prefs.sms} disabled={saving} onChange={(value) => void update('sms', value)} />
+          <ToggleRow
+            label={t('patient.settings.smsNotifications')}
+            description={t('patient.settings.smsNotificationsBody')}
+            value={prefs.sms}
+            disabled={saving}
+            onChange={(value) => void update('sms', value)}
+          />
         </Card>
       </Section>
 
       <Section title={t('patient.settings.sectionPrivacy')}>
         <Card>
-          <ToggleRow label={t('m.settings.aiConsent')} description={t('m.settings.aiConsentBody')} value={aiConsent} onChange={(value) => void toggleAiConsent(value)} />
+          <ToggleRow
+            label={t('m.settings.aiConsent')}
+            description={t('m.settings.aiConsentBody')}
+            value={aiConsent}
+            onChange={(value) => void toggleAiConsent(value)}
+          />
           <Divider />
-          <ToggleRow label={t('patient.settings.shareDoctors')} description={t('patient.settings.shareDoctorsBody')} value={prefs.shareWithDoctors} disabled={saving} onChange={(value) => void update('shareWithDoctors', value)} />
+          <ToggleRow
+            label={t('patient.settings.shareDoctors')}
+            description={t('patient.settings.shareDoctorsBody')}
+            value={prefs.shareWithDoctors}
+            disabled={saving}
+            onChange={(value) => void update('shareWithDoctors', value)}
+          />
           <Divider />
-          <ToggleRow label={t('patient.settings.sharePharmacy')} description={t('patient.settings.sharePharmacyBody')} value={prefs.shareWithPharmacy} disabled={saving} onChange={(value) => void update('shareWithPharmacy', value)} />
+          <ToggleRow
+            label={t('patient.settings.sharePharmacy')}
+            description={t('patient.settings.sharePharmacyBody')}
+            value={prefs.shareWithPharmacy}
+            disabled={saving}
+            onChange={(value) => void update('shareWithPharmacy', value)}
+          />
           <Divider />
-          <ToggleRow label={t('patient.settings.shareInsurance')} description={t('patient.settings.shareInsuranceBody')} value={prefs.shareWithInsurance} disabled={saving} onChange={(value) => void update('shareWithInsurance', value)} />
+          <ToggleRow
+            label={t('patient.settings.shareInsurance')}
+            description={t('patient.settings.shareInsuranceBody')}
+            value={prefs.shareWithInsurance}
+            disabled={saving}
+            onChange={(value) => void update('shareWithInsurance', value)}
+          />
         </Card>
       </Section>
 
@@ -206,7 +235,12 @@ export default function SettingsScreen(): React.ReactElement {
         <Card>
           <ListRow title={t('m.settings.messageCareTeam')} icon="chatbubbles-outline" onPress={() => router.navigate('/messages')} />
           <Divider />
-          <ListRow title={t('m.settings.contactSupport')} icon="mail-outline" iconTone="info" onPress={() => void Linking.openURL('mailto:support@ceenaix.com')} />
+          <ListRow
+            title={t('m.settings.contactSupport')}
+            icon="mail-outline"
+            iconTone="info"
+            onPress={() => void Linking.openURL('mailto:support@ceenaix.com')}
+          />
         </Card>
       </Section>
 

@@ -51,15 +51,11 @@ export default function AppointmentsScreen(): React.ReactElement {
     const now = minute;
     const filtered = list.appointments.filter((appointment) => typeFilter === 'all' || appointment.type === typeFilter);
     const upcoming = filtered.filter((appointment) => isUpcomingAppointment(appointment, now));
-    const cancelled = filtered
-      .filter((appointment) => CANCELLED_STATUSES.has(appointment.status))
-      .sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
+    const cancelled = filtered.filter((appointment) => CANCELLED_STATUSES.has(appointment.status)).sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
     const past = filtered
       .filter(
         (appointment) =>
-          !CANCELLED_STATUSES.has(appointment.status) &&
-          !isUpcomingAppointment(appointment, now) &&
-          new Date(appointment.scheduled_at).getTime() < now
+          !CANCELLED_STATUSES.has(appointment.status) && !isUpcomingAppointment(appointment, now) && new Date(appointment.scheduled_at).getTime() < now
       )
       .sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
     return { upcoming, past, cancelled };

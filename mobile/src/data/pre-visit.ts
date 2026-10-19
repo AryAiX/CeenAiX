@@ -18,10 +18,7 @@ import { supabase } from '@/lib/supabase';
 
 export type PreVisitAssessmentData = NonNullable<ReturnType<typeof usePreVisitAssessment>['data']>;
 
-export const formatPreVisitAppointmentLabel = (
-  appointment: PreVisitAssessmentData['assessment']['appointment'],
-  language: string
-) => {
+export const formatPreVisitAppointmentLabel = (appointment: PreVisitAssessmentData['assessment']['appointment'], language: string) => {
   const dateLabel = new Date(appointment.scheduledAt).toLocaleString(
     resolveLocale(language),
     dateTimeFormatWithNumerals(language, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -34,8 +31,7 @@ export const formatPreVisitAppointmentLabel = (
 export const hasAnswerValue = (answer: PreVisitAnswerDraft | undefined) =>
   Boolean(answer?.answerText?.trim()) || (Array.isArray(answer?.answerJson) && answer.answerJson.length > 0);
 
-export const needsAutofillConfirmation = (answer: PreVisitAnswerDraft | undefined) =>
-  Boolean(answer?.autofilled && !answer.confirmedByPatient);
+export const needsAutofillConfirmation = (answer: PreVisitAnswerDraft | undefined) => Boolean(answer?.autofilled && !answer.confirmedByPatient);
 
 export const getRequiredQuestionIssues = (questions: PreVisitTemplateQuestionDraft[], answers: PreVisitAnswerDraft[]) =>
   questions
@@ -46,11 +42,7 @@ export const getRequiredQuestionIssues = (questions: PreVisitTemplateQuestionDra
     })
     .map((question) => ({ key: question.key, label: question.label }));
 
-export function applyAnswer(
-  answers: PreVisitAnswerDraft[],
-  question: PreVisitTemplateQuestionDraft,
-  value: string | string[]
-): PreVisitAnswerDraft[] {
+export function applyAnswer(answers: PreVisitAnswerDraft[], question: PreVisitTemplateQuestionDraft, value: string | string[]): PreVisitAnswerDraft[] {
   const next = [...answers];
   const index = next.findIndex((answer) => answer.questionKey === question.key);
   const current = index >= 0 ? next[index] : undefined;
@@ -74,9 +66,7 @@ export function applyAnswer(
 }
 
 export const confirmAutofill = (answers: PreVisitAnswerDraft[], questionKey: string): PreVisitAnswerDraft[] =>
-  answers.map((answer) =>
-    answer.questionKey === questionKey ? { ...answer, confirmedByPatient: true, answeredAt: new Date().toISOString() } : answer
-  );
+  answers.map((answer) => (answer.questionKey === questionKey ? { ...answer, confirmedByPatient: true, answeredAt: new Date().toISOString() } : answer));
 
 export async function persistPreVisitAssessment(
   data: PreVisitAssessmentData,

@@ -2,21 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  AiGeneratedTag,
-  Avatar,
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  InlineMessage,
-  KeyValue,
-  Pill,
-  Screen,
-  Section,
-  Skeleton,
-  Text,
-} from '@/components/ui';
+import { AiGeneratedTag, Avatar, Button, Card, EmptyState, ErrorState, InlineMessage, KeyValue, Pill, Screen, Section, Skeleton, Text } from '@/components/ui';
 import { UPCOMING_STATUSES } from '@/data/appointments';
 import { ensureDirectConversation } from '@/data/messaging';
 import { usePatientAppointmentDetail } from '@/data/web/hooks/use-patient-appointment-detail';
@@ -137,7 +123,10 @@ export default function AppointmentDetailScreen(): React.ReactElement {
 
       <Card style={{ marginTop: spacing.lg }}>
         <KeyValue label={t('m.appointment.date')} value={formatDateLong(appointment.scheduled_at)} />
-        <KeyValue label={t('m.appointment.time')} value={`${formatTime(appointment.scheduled_at)} · ${t('shared.minutesUnit', { count: appointment.duration_minutes })}`} />
+        <KeyValue
+          label={t('m.appointment.time')}
+          value={`${formatTime(appointment.scheduled_at)} · ${t('shared.minutesUnit', { count: appointment.duration_minutes })}`}
+        />
         <KeyValue
           label={t('m.appointment.location')}
           value={appointment.type === 'virtual' ? t('patient.appointments.filterTeleconsult') : facility || t('shared.clinicPending')}

@@ -23,10 +23,7 @@ export default function ImagingScreen(): React.ReactElement {
   const [segment, setSegment] = useState<Segment>('reports');
 
   const studies = useMemo(
-    () =>
-      [...(imaging.data ?? [])].sort(
-        (left, right) => new Date(imagingDate(right) ?? 0).getTime() - new Date(imagingDate(left) ?? 0).getTime()
-      ),
+    () => [...(imaging.data ?? [])].sort((left, right) => new Date(imagingDate(right) ?? 0).getTime() - new Date(imagingDate(left) ?? 0).getTime()),
     [imaging.data]
   );
   const released = studies.filter((study) => study.status === 'released');

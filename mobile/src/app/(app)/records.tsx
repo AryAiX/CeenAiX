@@ -124,8 +124,7 @@ export default function RecordsScreen(): React.ReactElement {
     vaccination: records.data?.vaccinations.length ?? 0,
   };
 
-  const openForm = (category: RecordCategory, id?: string) =>
-    router.push({ pathname: '/record-form', params: id ? { category, id } : { category } });
+  const openForm = (category: RecordCategory, id?: string) => router.push({ pathname: '/record-form', params: id ? { category, id } : { category } });
 
   const promptAdd = () =>
     showActionSheet(t('patient.records.emptyStateCta'), [
@@ -136,7 +135,9 @@ export default function RecordsScreen(): React.ReactElement {
 
   return (
     <Screen onRefresh={records.refetch} refreshing={records.refreshing} staleSince={records.staleSince}>
-      <Stack.Screen options={{ headerRight: () => <IconButton name="add" variant="plain" onPress={promptAdd} accessibilityLabel={t('patient.records.emptyStateCta')} /> }} />
+      <Stack.Screen
+        options={{ headerRight: () => <IconButton name="add" variant="plain" onPress={promptAdd} accessibilityLabel={t('patient.records.emptyStateCta')} /> }}
+      />
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
         {(Object.keys(counts) as RecordCategory[]).map((category) => (
           <Card key={category} style={{ flex: 1 }} padded>
@@ -166,7 +167,13 @@ export default function RecordsScreen(): React.ReactElement {
       />
       {entries.length > 5 ? (
         <View style={{ marginTop: spacing.md }}>
-          <TextField placeholder={t('patient.records.searchPh')} value={search} onChangeText={setSearch} returnKeyType="search" clearButtonMode="while-editing" />
+          <TextField
+            placeholder={t('patient.records.searchPh')}
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
         </View>
       ) : null}
       <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
@@ -217,4 +224,3 @@ export default function RecordsScreen(): React.ReactElement {
     </Screen>
   );
 }
-

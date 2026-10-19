@@ -40,8 +40,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const toError = (value: unknown): Error =>
-  value instanceof Error ? value : new Error(typeof value === 'string' && value ? value : 'Something went wrong.');
+const toError = (value: unknown): Error => (value instanceof Error ? value : new Error(typeof value === 'string' && value ? value : 'Something went wrong.'));
 
 const str = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
@@ -188,9 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
         phone,
         options: {
           shouldCreateUser: Boolean(createAccount),
-          data: createAccount
-            ? { role: 'patient', full_name: createAccount.fullName.trim(), phone, ...splitName(createAccount.fullName) }
-            : undefined,
+          data: createAccount ? { role: 'patient', full_name: createAccount.fullName.trim(), phone, ...splitName(createAccount.fullName) } : undefined,
         },
       });
       return { error };

@@ -306,12 +306,7 @@ export function ProgressBar({ value, tone = 'brand' }: { value: number; tone?: T
   const clamped = Math.max(0, Math.min(1, value));
   return (
     <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
-      <View
-        style={[
-          styles.progressFill,
-          { width: `${clamped * 100}%`, backgroundColor: tone === 'brand' ? colors.primary : colors.tones[tone].fg },
-        ]}
-      />
+      <View style={[styles.progressFill, { width: `${clamped * 100}%`, backgroundColor: tone === 'brand' ? colors.primary : colors.tones[tone].fg }]} />
     </View>
   );
 }

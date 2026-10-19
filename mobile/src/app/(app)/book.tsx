@@ -232,8 +232,7 @@ export default function BookScreen(): React.ReactElement {
     review: t('m.book.stepReview'),
   }[step];
 
-  const dayLabel = (date: Date, options: Intl.DateTimeFormatOptions) =>
-    date.toLocaleDateString(resolveLocale(lang), dateTimeFormatWithNumerals(lang, options));
+  const dayLabel = (date: Date, options: Intl.DateTimeFormatOptions) => date.toLocaleDateString(resolveLocale(lang), dateTimeFormatWithNumerals(lang, options));
 
   const renderDoctorStep = () => {
     if (doctorsQuery.loading) return <SkeletonList count={4} height={88} />;
@@ -251,34 +250,40 @@ export default function BookScreen(): React.ReactElement {
         />
         {(specializations.data?.length ?? 0) > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.xs }}>
-            {[{ id: null, name: t('m.book.allSpecialties') }, ...(specializations.data ?? []).map((item) => ({ id: item.id as string | null, name: item.name }))].map(
-              (option) => {
-                const active = option.id === specializationId;
-                return (
-                  <Pressable
-                    key={option.id ?? 'all'}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      haptics.tap();
-                      setSpecializationId(option.id);
-                    }}
-                    style={[styles.chip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface }]}
-                  >
-                    <Text variant="captionStrong" style={{ color: active ? colors.primaryText : colors.text }}>
-                      {option.name}
-                    </Text>
-                  </Pressable>
-                );
-              }
-            )}
+            {[
+              { id: null, name: t('m.book.allSpecialties') },
+              ...(specializations.data ?? []).map((item) => ({ id: item.id as string | null, name: item.name })),
+            ].map((option) => {
+              const active = option.id === specializationId;
+              return (
+                <Pressable
+                  key={option.id ?? 'all'}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => {
+                    haptics.tap();
+                    setSpecializationId(option.id);
+                  }}
+                  style={[styles.chip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface }]}
+                >
+                  <Text variant="captionStrong" style={{ color: active ? colors.primaryText : colors.text }}>
+                    {option.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         ) : null}
         {filteredDoctors.length === 0 ? (
           <EmptyState icon="search" title={t('patient.book.noDoctors')} body={t('patient.book.noDoctorsSub')} />
         ) : (
           filteredDoctors.map((doctor) => (
-            <Card key={doctor.userId} onPress={() => pickDoctor(doctor)} tone={doctor.userId === doctorId ? 'brand' : undefined} accessibilityLabel={doctor.fullName}>
+            <Card
+              key={doctor.userId}
+              onPress={() => pickDoctor(doctor)}
+              tone={doctor.userId === doctorId ? 'brand' : undefined}
+              accessibilityLabel={doctor.fullName}
+            >
               <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
                 <Avatar name={doctor.fullName} />
                 <View style={{ flex: 1, gap: 2 }}>

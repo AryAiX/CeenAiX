@@ -70,11 +70,7 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
   }
 
   return (
-    <Pressable
-      onLongPress={openActions}
-      delayLongPress={300}
-      style={[styles.assistantBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}
-    >
+    <Pressable onLongPress={openActions} delayLongPress={300} style={[styles.assistantBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.header}>
         <AiGeneratedTag />
         {metadata?.usedPatientContext ? (
@@ -132,7 +128,15 @@ export function AssistantThinking(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  userBubble: { alignSelf: 'flex-end', maxWidth: '85%', borderRadius: radius.lg, borderBottomEndRadius: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 4 },
+  userBubble: {
+    alignSelf: 'flex-end',
+    maxWidth: '85%',
+    borderRadius: radius.lg,
+    borderBottomEndRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 4,
+  },
   assistantBubble: { alignSelf: 'stretch', borderWidth: 1, borderRadius: radius.lg, borderBottomStartRadius: 4, padding: spacing.md, gap: spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   fileRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

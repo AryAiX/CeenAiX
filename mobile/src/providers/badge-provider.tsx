@@ -16,17 +16,13 @@ const BadgeContext = createContext<BadgeContextValue | null>(null);
 
 export function BadgeProvider({ children }: { children: ReactNode }): React.ReactElement {
   const { user, isPatient } = useAuth();
-  const userId = isPatient ? user?.id ?? null : null;
+  const userId = isPatient ? (user?.id ?? null) : null;
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
-    const { count } = await supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_read', false);
+    const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_read', false);
     setUnreadNotifications(count ?? 0);
   }, [userId]);
 
@@ -61,21 +57,17 @@ export function BadgeProvider({ children }: { children: ReactNode }): React.Reac
 
     const notificationsChannel = supabase
       .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          void fetchNotifications();
-          if (payload.eventType !== 'INSERT') return;
-          const row = payload.new as { title?: string; body?: string | null; action_url?: string | null; type?: string };
-          if (row.type === 'message' || AppState.currentState !== 'active') return;
-          // Foreground banner for realtime inserts until remote push (APNs/FCM) is configured.
-          void Notifications.scheduleNotificationAsync({
-            content: { title: row.title ?? 'CeenAiX', body: row.body ?? undefined, data: { url: row.action_url ?? null } },
-            trigger: null,
-          });
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (payload) => {
+        void fetchNotifications();
+        if (payload.eventType !== 'INSERT') return;
+        const row = payload.new as { title?: string; body?: string | null; action_url?: string | null; type?: string };
+        if (row.type === 'message' || AppState.currentState !== 'active') return;
+        // Foreground banner for realtime inserts until remote push (APNs/FCM) is configured.
+        void Notifications.scheduleNotificationAsync({
+          content: { title: row.title ?? 'CeenAiX', body: row.body ?? undefined, data: { url: row.action_url ?? null } },
+          trigger: null,
+        });
+      })
       .subscribe();
 
     const messagesChannel = supabase
@@ -100,10 +92,7 @@ export function BadgeProvider({ children }: { children: ReactNode }): React.Reac
     void Notifications.setBadgeCountAsync(unreadNotifications + unreadMessages).catch(() => undefined);
   }, [unreadMessages, unreadNotifications]);
 
-  const value = useMemo(
-    () => ({ unreadNotifications, unreadMessages, refresh }),
-    [refresh, unreadMessages, unreadNotifications]
-  );
+  const value = useMemo(() => ({ unreadNotifications, unreadMessages, refresh }), [refresh, unreadMessages, unreadNotifications]);
 
   return <BadgeContext.Provider value={value}>{children}</BadgeContext.Provider>;
 }

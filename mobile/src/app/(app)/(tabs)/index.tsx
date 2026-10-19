@@ -35,8 +35,7 @@ import { radius, spacing, type Tone } from '@/theme/tokens';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
-const firstName = (fullName: string | null | undefined, first: string | null | undefined) =>
-  first?.trim() || fullName?.trim().split(/\s+/)[0] || '';
+const firstName = (fullName: string | null | undefined, first: string | null | undefined) => first?.trim() || fullName?.trim().split(/\s+/)[0] || '';
 
 export default function HomeScreen(): React.ReactElement {
   const { t, i18n } = useTranslation();
@@ -151,7 +150,11 @@ function NextAppointment({ data, now }: { data: PatientDashboardData; now: numbe
   const router = useRouter();
   const next = data.nextAppointment;
   return (
-    <Section title={t('patient.dashboard.nextAppointment')} action={{ label: t('patient.dashboard.viewAll'), onPress: () => router.push('/appointments') }} style={{ marginTop: spacing.lg }}>
+    <Section
+      title={t('patient.dashboard.nextAppointment')}
+      action={{ label: t('patient.dashboard.viewAll'), onPress: () => router.push('/appointments') }}
+      style={{ marginTop: spacing.lg }}
+    >
       {next ? (
         <AppointmentCard
           appointment={{ id: next.id, type: next.type, status: 'scheduled', scheduled_at: next.scheduledAt, duration_minutes: 30, chief_complaint: null }}
@@ -228,7 +231,13 @@ function Vitals({ data, takenIds }: { data: PatientDashboardData; takenIds: Set<
   return (
     <Section title={t('m.home.healthScore')}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
-        <StatTile icon="pulse" tone="brand" label={t('m.home.healthScore')} value={formatNumber(data.healthScore)} badge={data.adherencePercentage !== null ? `${t('m.home.adherence')} ${formatNumber(data.adherencePercentage)}%` : undefined} />
+        <StatTile
+          icon="pulse"
+          tone="brand"
+          label={t('m.home.healthScore')}
+          value={formatNumber(data.healthScore)}
+          badge={data.adherencePercentage !== null ? `${t('m.home.adherence')} ${formatNumber(data.adherencePercentage)}%` : undefined}
+        />
         <StatTile
           icon="water"
           tone="warning"
@@ -306,7 +315,11 @@ function Medications({
                   </Text>
                 </View>
                 {isTaken ? (
-                  <Pill label={medication.isDispensed && !takenIds.has(medication.id) ? t('m.home.dispensed') : t('m.home.taken')} tone="success" icon="checkmark" />
+                  <Pill
+                    label={medication.isDispensed && !takenIds.has(medication.id) ? t('m.home.dispensed') : t('m.home.taken')}
+                    tone="success"
+                    icon="checkmark"
+                  />
                 ) : (
                   <Button size="sm" variant="secondary" label={t('m.home.markTaken')} onPress={() => void onMarkTaken(medication.id)} />
                 )}

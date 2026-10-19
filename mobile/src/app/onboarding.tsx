@@ -35,8 +35,7 @@ export default function OnboardingScreen(): React.ReactElement {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
-    setForm((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
 
   const submit = async () => {
     setError(null);
@@ -53,7 +52,7 @@ export default function OnboardingScreen(): React.ReactElement {
         full_name: form.fullName.trim(),
         first_name: parsed.firstName,
         last_name: parsed.lastName,
-        phone: isPhoneManagedByOtp ? user.phone ?? profile?.phone ?? null : form.phone.trim() || null,
+        phone: isPhoneManagedByOtp ? (user.phone ?? profile?.phone ?? null) : form.phone.trim() || null,
         email: user.email ?? (form.email.trim() || null),
         city: form.city.trim() || null,
         address: form.address.trim() || null,

@@ -2,18 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Avatar,
-  Card,
-  EmptyState,
-  ErrorState,
-  Pill,
-  Screen,
-  ScreenTitle,
-  SkeletonList,
-  Text,
-  TextField,
-} from '@/components/ui';
+import { Avatar, Card, EmptyState, ErrorState, Pill, Screen, ScreenTitle, SkeletonList, Text, TextField } from '@/components/ui';
 import { useConversationList } from '@/data/messaging';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
 import { formatRelative } from '@/lib/format';
@@ -44,9 +33,7 @@ export default function MessagesScreen(): React.ReactElement {
     const query = search.trim().toLowerCase();
     const rows = list.data ?? [];
     if (!query) return rows;
-    return rows.filter((row) =>
-      [row.counterpart.name, row.subject, row.lastMessagePreview].some((value) => value?.toLowerCase().includes(query))
-    );
+    return rows.filter((row) => [row.counterpart.name, row.subject, row.lastMessagePreview].some((value) => value?.toLowerCase().includes(query)));
   }, [list.data, search]);
 
   return (

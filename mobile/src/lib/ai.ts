@@ -55,8 +55,7 @@ export async function setAiContextConsent(userId: string, value: Exclude<AiConte
 }
 
 export const getAssistantMetadata = (attachments: AiChatStoredAttachment[]): AiChatAssistantMetadata | null =>
-  (attachments.find((attachment) => attachment.type === 'response_metadata') as AiChatAssistantMetadata | undefined) ??
-  null;
+  (attachments.find((attachment) => attachment.type === 'response_metadata') as AiChatAssistantMetadata | undefined) ?? null;
 
 export const getFileAttachments = (attachments: AiChatStoredAttachment[]): AiChatFileAttachment[] =>
   attachments.filter((attachment): attachment is AiChatFileAttachment => attachment.type === 'uploaded_file');

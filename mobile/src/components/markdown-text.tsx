@@ -6,10 +6,7 @@ import { spacing } from '@/theme/tokens';
 // Minimal Markdown for assistant replies: headings, paragraphs, bullet and
 // numbered lists, **bold**, *italic* and `code`. Anything else renders as text.
 
-type Block =
-  | { kind: 'heading'; text: string }
-  | { kind: 'paragraph'; text: string }
-  | { kind: 'list'; ordered: boolean; items: string[] };
+type Block = { kind: 'heading'; text: string } | { kind: 'paragraph'; text: string } | { kind: 'list'; ordered: boolean; items: string[] };
 
 const MONO = Platform.select({ ios: 'Menlo', default: 'monospace' });
 const BULLET = /^\s*[-*•]\s+(.*)$/;

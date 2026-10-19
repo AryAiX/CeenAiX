@@ -1,15 +1,6 @@
 import type { ErrorBoundaryProps } from 'expo-router';
 import { use, type ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -87,7 +78,11 @@ export function Screen({
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {keyboard ? (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+        >
           {inner}
         </KeyboardAvoidingView>
       ) : (
@@ -101,12 +96,7 @@ export function StickyFooter({ children }: { children: ReactNode }): React.React
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View
-      style={[
-        styles.footer,
-        { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, spacing.md) },
-      ]}
-    >
+    <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
       {children}
     </View>
   );

@@ -8,15 +8,7 @@ import { randomId, safeFileName, uploadToBucket, type LocalAsset } from '@/lib/u
 
 export const DOCUMENT_MAX_BYTES = 20 * 1024 * 1024;
 
-export const UPLOAD_CATEGORIES: PatientVaultDocumentCategory[] = [
-  'upload',
-  'lab-report',
-  'prescription',
-  'imaging',
-  'insurance',
-  'visit-note',
-  'other',
-];
+export const UPLOAD_CATEGORIES: PatientVaultDocumentCategory[] = ['upload', 'lab-report', 'prescription', 'imaging', 'insurance', 'visit-note', 'other'];
 
 export interface NativeDocumentUpload {
   patientId: string;

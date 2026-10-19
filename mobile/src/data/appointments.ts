@@ -25,11 +25,10 @@ export interface DoctorAppointmentProfile {
 
 export async function fetchDoctorProfiles(doctorIds: string[], fallbackName: string): Promise<DoctorAppointmentProfile[]> {
   if (doctorIds.length === 0) return [];
-  const [{ data: userProfiles, error: userProfilesError }, { data: doctorProfiles, error: doctorProfilesError }] =
-    await Promise.all([
-      supabase.from('user_profiles').select('user_id, full_name, city, address, avatar_url').in('user_id', doctorIds),
-      supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', doctorIds),
-    ]);
+  const [{ data: userProfiles, error: userProfilesError }, { data: doctorProfiles, error: doctorProfilesError }] = await Promise.all([
+    supabase.from('user_profiles').select('user_id, full_name, city, address, avatar_url').in('user_id', doctorIds),
+    supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', doctorIds),
+  ]);
   if (userProfilesError) throw userProfilesError;
   if (doctorProfilesError) throw doctorProfilesError;
   const specialtyById = new Map((doctorProfiles ?? []).map((row) => [row.user_id as string, (row.specialization as string | null) ?? null]));
@@ -51,16 +50,10 @@ export function useDoctorProfiles(doctorIds: string[], fallbackName: string) {
 export function usePatientAppointmentsList(userId: string | null | undefined, fallbackDoctorName: string) {
   const appointments = useOfflineCache(useAppointments({ role: 'patient', userId: userId ?? '' }), userId ? `appointments:${userId}` : null);
   const preVisit = usePatientPreVisitAssessments(userId);
-  const doctorIds = useMemo(
-    () => Array.from(new Set((appointments.data ?? []).map((appointment) => appointment.doctor_id))),
-    [appointments.data]
-  );
+  const doctorIds = useMemo(() => Array.from(new Set((appointments.data ?? []).map((appointment) => appointment.doctor_id))), [appointments.data]);
   const doctors = useOfflineCache(useDoctorProfiles(doctorIds, fallbackDoctorName), userId ? `appointment-doctors:${userId}` : null);
   const doctorById = useMemo(() => new Map((doctors.data ?? []).map((doctor) => [doctor.userId, doctor])), [doctors.data]);
-  const preVisitByAppointmentId = useMemo(
-    () => new Map((preVisit.data ?? []).map((assessment) => [assessment.appointmentId, assessment])),
-    [preVisit.data]
-  );
+  const preVisitByAppointmentId = useMemo(() => new Map((preVisit.data ?? []).map((assessment) => [assessment.appointmentId, assessment])), [preVisit.data]);
   return {
     appointments: appointments.data ?? [],
     loading: appointments.loading,
@@ -90,11 +83,7 @@ async function getDoctorFacilityId(doctorId: string): Promise<string | null> {
 }
 
 export async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/appointments') {
-  const { data: members } = await supabase
-    .from('clinic_portal_members')
-    .select('user_id')
-    .eq('facility_id', facilityId)
-    .eq('is_active', true);
+  const { data: members } = await supabase.from('clinic_portal_members').select('user_id').eq('facility_id', facilityId).eq('is_active', true);
   if (!members || members.length === 0) return;
   await supabase.from('notifications').insert(
     members.map((member) => ({
@@ -107,10 +96,8 @@ export async function notifyClinicStaff(facilityId: string, title: string, body:
   );
 }
 
-const staffDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric' });
-const staffTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false });
+const staffDate = (iso: string) => new Date(iso).toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric' });
+const staffTime = (iso: string) => new Date(iso).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 /** `cancel_patient_appointment` RPC + best-effort clinic staff notification (same as web). */
 export async function cancelPatientAppointment(appointment: Pick<Appointment, 'id' | 'doctor_id' | 'scheduled_at'>, doctorName: string | null) {
@@ -143,21 +130,18 @@ export interface RescheduleSource {
 }
 
 export function useRescheduleSource(appointmentId: string | null | undefined, userId: string | null | undefined) {
-  return useQuery<RescheduleSource | null>(
-    async () => {
-      if (!appointmentId || !userId) return null;
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('id, doctor_id, scheduled_at, duration_minutes, chief_complaint, notes, status')
-        .eq('id', appointmentId)
-        .eq('patient_id', userId)
-        .eq('is_deleted', false)
-        .maybeSingle();
-      if (error) throw error;
-      return data as RescheduleSource | null;
-    },
-    [appointmentId ?? '', userId ?? '']
-  );
+  return useQuery<RescheduleSource | null>(async () => {
+    if (!appointmentId || !userId) return null;
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('id, doctor_id, scheduled_at, duration_minutes, chief_complaint, notes, status')
+      .eq('id', appointmentId)
+      .eq('patient_id', userId)
+      .eq('is_deleted', false)
+      .maybeSingle();
+    if (error) throw error;
+    return data as RescheduleSource | null;
+  }, [appointmentId ?? '', userId ?? '']);
 }
 
 export interface BookingSlot {

@@ -143,13 +143,10 @@ export default function AssistantScreen(): React.ReactElement {
   const pendingUpdates = useMemo(() => {
     if (!selectedSessionId) return [];
     const userMessageIds = new Set(messages.filter((message) => message.role === 'user').map((message) => message.id));
-    return (updates.data ?? []).filter(
-      (update) => userMessageIds.has(update.sourceRecordId) || update.metadata.sessionId === selectedSessionId
-    );
+    return (updates.data ?? []).filter((update) => userMessageIds.has(update.sourceRecordId) || update.metadata.sessionId === selectedSessionId);
   }, [messages, selectedSessionId, updates.data]);
 
-  const outstandingPreVisit =
-    (assessments.data ?? []).find((assessment) => assessment.status === 'not_started' || assessment.status === 'in_progress') ?? null;
+  const outstandingPreVisit = (assessments.data ?? []).find((assessment) => assessment.status === 'not_started' || assessment.status === 'in_progress') ?? null;
 
   const chooseConsent = async (granted: boolean) => {
     if (!user) return;
@@ -401,7 +398,11 @@ export default function AssistantScreen(): React.ReactElement {
       >
         {sendError ? <InlineMessage tone="danger" message={sendError} /> : null}
         <Pressable accessibilityRole="button" onPress={promptConsent} style={styles.contextRow} hitSlop={6}>
-          <Icon name={consent === 'granted' ? 'shield-checkmark' : 'shield-outline'} size={14} color={consent === 'granted' ? colors.tones.ai.fg : colors.textSubtle} />
+          <Icon
+            name={consent === 'granted' ? 'shield-checkmark' : 'shield-outline'}
+            size={14}
+            color={consent === 'granted' ? colors.tones.ai.fg : colors.textSubtle}
+          />
           <Text variant="micro" color={consent === 'granted' ? 'ai' : 'subtle'} style={{ flex: 1 }}>
             {consent === 'granted' ? t('m.assistant.contextOn') : t('m.assistant.contextOff')}
           </Text>

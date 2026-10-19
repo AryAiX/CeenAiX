@@ -54,10 +54,10 @@ export default function InsuranceScreen(): React.ReactElement {
   const visible = useMemo(() => activity.filter((row) => status === 'all' || row.status === status), [activity, status]);
   const totals = useMemo(
     () =>
-      activity.reduce(
-        (sum, row) => ({ covered: sum.covered + row.coveredEstimate, patient: sum.patient + row.patientShareEstimate }),
-        { covered: 0, patient: 0 }
-      ),
+      activity.reduce((sum, row) => ({ covered: sum.covered + row.coveredEstimate, patient: sum.patient + row.patientShareEstimate }), {
+        covered: 0,
+        patient: 0,
+      }),
     [activity]
   );
 
@@ -104,11 +104,36 @@ export default function InsuranceScreen(): React.ReactElement {
   };
 
   const benefits: Array<{ icon: IconName; name: string; value: string; note: string }> = [
-    { icon: 'medkit-outline', name: t('patient.insurance.benefitSpecialists'), value: covered == null ? '—' : `${covered}%`, note: t('patient.insurance.benefitSpecialistsNote') },
-    { icon: 'flask-outline', name: t('patient.insurance.benefitLabs'), value: covered == null ? '—' : `${covered}%`, note: t('patient.insurance.benefitLabsNote') },
-    { icon: 'bandage-outline', name: t('patient.insurance.benefitPharmacy'), value: t('patient.insurance.pharmacyCoPayNote'), note: t('patient.insurance.benefitPharmacyNote') },
-    { icon: 'videocam-outline', name: t('patient.insurance.benefitTelehealth'), value: covered == null ? '—' : `${covered}%`, note: t('patient.insurance.benefitTelehealthNote') },
-    { icon: 'heart-outline', name: t('patient.insurance.benefitPreventive'), value: t('patient.insurance.noCopay'), note: t('patient.insurance.benefitPreventiveNote') },
+    {
+      icon: 'medkit-outline',
+      name: t('patient.insurance.benefitSpecialists'),
+      value: covered == null ? '—' : `${covered}%`,
+      note: t('patient.insurance.benefitSpecialistsNote'),
+    },
+    {
+      icon: 'flask-outline',
+      name: t('patient.insurance.benefitLabs'),
+      value: covered == null ? '—' : `${covered}%`,
+      note: t('patient.insurance.benefitLabsNote'),
+    },
+    {
+      icon: 'bandage-outline',
+      name: t('patient.insurance.benefitPharmacy'),
+      value: t('patient.insurance.pharmacyCoPayNote'),
+      note: t('patient.insurance.benefitPharmacyNote'),
+    },
+    {
+      icon: 'videocam-outline',
+      name: t('patient.insurance.benefitTelehealth'),
+      value: covered == null ? '—' : `${covered}%`,
+      note: t('patient.insurance.benefitTelehealthNote'),
+    },
+    {
+      icon: 'heart-outline',
+      name: t('patient.insurance.benefitPreventive'),
+      value: t('patient.insurance.noCopay'),
+      note: t('patient.insurance.benefitPreventiveNote'),
+    },
   ];
 
   return (
@@ -124,7 +149,10 @@ export default function InsuranceScreen(): React.ReactElement {
                 {plan.planName}
               </Text>
             </View>
-            <Pill label={plan.isActive ? t('patient.insurance.activeBadge') : t('patient.insurance.notLinkedBadge')} tone={plan.isActive ? 'success' : 'neutral'} />
+            <Pill
+              label={plan.isActive ? t('patient.insurance.activeBadge') : t('patient.insurance.notLinkedBadge')}
+              tone={plan.isActive ? 'success' : 'neutral'}
+            />
           </View>
           <View>
             <Text variant="micro" style={{ color: colors.primaryText, opacity: 0.8 }}>
@@ -167,7 +195,14 @@ export default function InsuranceScreen(): React.ReactElement {
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
             {plan.cardPhotoUrl ? (
               <View style={{ flex: 1 }}>
-                <Button label={t('patient.insurance.viewDocument')} icon="card-outline" size="sm" variant="secondary" fullWidth onPress={() => void WebBrowser.openBrowserAsync(plan.cardPhotoUrl ?? '')} />
+                <Button
+                  label={t('patient.insurance.viewDocument')}
+                  icon="card-outline"
+                  size="sm"
+                  variant="secondary"
+                  fullWidth
+                  onPress={() => void WebBrowser.openBrowserAsync(plan.cardPhotoUrl ?? '')}
+                />
               </View>
             ) : null}
             <View style={{ flex: 1 }}>

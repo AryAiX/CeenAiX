@@ -43,7 +43,10 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
   const bpClass = bloodPressureClass(bp?.systolic ?? null, bp?.diastolic ?? null);
   const medications = dashboard?.medications.length ?? 0;
   const next = dashboard?.nextAppointment ?? null;
-  const allergies = (dashboard?.allergyAlerts ?? []).map((allergy) => allergy.allergen).filter(Boolean).slice(0, 3);
+  const allergies = (dashboard?.allergyAlerts ?? [])
+    .map((allergy) => allergy.allergen)
+    .filter(Boolean)
+    .slice(0, 3);
 
   const trendLabel =
     trend === 'improving'
@@ -150,7 +153,13 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
       ) : null}
 
       {preVisitId ? (
-        <Button label={t('patient.aiChat.continuePreVisit')} icon="clipboard-outline" variant="secondary" fullWidth onPress={() => router.push(`/pre-visit/${preVisitId}`)} />
+        <Button
+          label={t('patient.aiChat.continuePreVisit')}
+          icon="clipboard-outline"
+          variant="secondary"
+          fullWidth
+          onPress={() => router.push(`/pre-visit/${preVisitId}`)}
+        />
       ) : null}
 
       <View style={{ gap: spacing.sm }}>

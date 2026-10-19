@@ -20,8 +20,7 @@ export const preVisitStatusTone: Record<PreVisitAssessmentStatus, Tone> = {
 export const labStatusTone = (status: string): Tone =>
   status === 'reviewed' || status === 'resulted' ? 'success' : status === 'processing' || status === 'collected' ? 'info' : 'warning';
 
-export const prescriptionStatusTone = (status: string): Tone =>
-  status === 'active' ? 'brand' : status === 'completed' ? 'success' : 'neutral';
+export const prescriptionStatusTone = (status: string): Tone => (status === 'active' ? 'brand' : status === 'completed' ? 'success' : 'neutral');
 
 export const labItemTone: Record<LabItemStatusCategory, Tone> = {
   normal: 'success',

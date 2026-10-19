@@ -76,13 +76,7 @@ export default function OtpScreen(): React.ReactElement {
         {Array.from({ length: CODE_LENGTH }, (_, index) => {
           const active = index === code.length;
           return (
-            <View
-              key={index}
-              style={[
-                styles.cell,
-                { backgroundColor: colors.surface, borderColor: active ? colors.primary : colors.border },
-              ]}
-            >
+            <View key={index} style={[styles.cell, { backgroundColor: colors.surface, borderColor: active ? colors.primary : colors.border }]}>
               <Text variant="title">{code[index] ?? ''}</Text>
             </View>
           );

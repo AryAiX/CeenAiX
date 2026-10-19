@@ -3,19 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '@ceenaix/types';
-import {
-  Card,
-  EmptyState,
-  ErrorState,
-  IconBadge,
-  InlineMessage,
-  Screen,
-  Section,
-  SegmentedControl,
-  SkeletonList,
-  Text,
-  type IconName,
-} from '@/components/ui';
+import { Card, EmptyState, ErrorState, IconBadge, InlineMessage, Screen, Section, SegmentedControl, SkeletonList, Text, type IconName } from '@/components/ui';
 import { markAllNotificationsRead, markNotificationRead } from '@/data/notifications';
 import { usePatientNotifications, type PatientDerivedNotification } from '@/data/web/hooks/use-patient-notifications';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
@@ -175,9 +163,7 @@ export default function NotificationsScreen(): React.ReactElement {
                             <Text variant={row.is_read ? 'body' : 'bodyStrong'} style={{ flex: 1 }} numberOfLines={2}>
                               {row.title}
                             </Text>
-                            {!row.is_read ? (
-                              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 }} />
-                            ) : null}
+                            {!row.is_read ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 }} /> : null}
                           </View>
                           {row.body ? (
                             <Text variant="caption" color="muted" numberOfLines={3}>

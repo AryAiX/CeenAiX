@@ -19,8 +19,7 @@ export const LOCALE_STORAGE_KEY = 'ceenaix.lang';
 
 export type AppLanguage = 'en' | 'ar';
 
-const deviceLanguage = (): AppLanguage =>
-  (getLocales()[0]?.languageCode ?? 'en').startsWith('ar') ? 'ar' : 'en';
+const deviceLanguage = (): AppLanguage => ((getLocales()[0]?.languageCode ?? 'en').startsWith('ar') ? 'ar' : 'en');
 
 export const isRtlLanguage = (lng: string): boolean => lng.startsWith('ar');
 

@@ -140,9 +140,7 @@ export default function SignUpScreen(): React.ReactElement {
       contentStyle={{ paddingTop: spacing.xxxl * 2 }}
       footer={
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {step > 0 ? (
-            <Button label={t('auth.register.btnBack')} variant="secondary" onPress={() => setStep(step - 1)} />
-          ) : null}
+          {step > 0 ? <Button label={t('auth.register.btnBack')} variant="secondary" onPress={() => setStep(step - 1)} /> : null}
           <View style={{ flex: 1 }}>
             <Button
               fullWidth
@@ -175,9 +173,7 @@ export default function SignUpScreen(): React.ReactElement {
                 <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
                   <IconBadge name={option === 'email' ? 'mail-outline' : 'phone-portrait-outline'} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text variant="bodyStrong">
-                      {option === 'email' ? t('auth.register.modeEmailTitle') : t('auth.register.modePhoneTitle')}
-                    </Text>
+                    <Text variant="bodyStrong">{option === 'email' ? t('auth.register.modeEmailTitle') : t('auth.register.modePhoneTitle')}</Text>
                     <Text variant="caption" color="muted">
                       {option === 'email' ? t('auth.register.modeEmailDesc') : t('auth.register.modePhoneDesc')}
                     </Text>

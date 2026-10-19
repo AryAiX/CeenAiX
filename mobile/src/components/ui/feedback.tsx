@@ -54,10 +54,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   const { t } = useTranslation();
   const { colors } = useTheme();
   return (
-    <View
-      accessibilityRole="alert"
-      style={[styles.errorBox, { backgroundColor: colors.tones.danger.bg, borderColor: colors.tones.danger.border }]}
-    >
+    <View accessibilityRole="alert" style={[styles.errorBox, { backgroundColor: colors.tones.danger.bg, borderColor: colors.tones.danger.border }]}>
       <Icon name="alert-circle" color={colors.tones.danger.fg} />
       <View style={{ flex: 1, gap: 4 }}>
         <Text variant="bodyStrong" color="danger">
@@ -114,15 +111,7 @@ export function StaleBanner({ since }: { since: string }): React.ReactElement {
   return <InlineMessage tone="warning" icon="cloud-offline-outline" message={t('m.common.offline', { time: formatDateTime(since) })} />;
 }
 
-export function InlineMessage({
-  tone,
-  message,
-  icon,
-}: {
-  tone: Tone;
-  message: string;
-  icon?: IconName;
-}): React.ReactElement {
+export function InlineMessage({ tone, message, icon }: { tone: Tone; message: string; icon?: IconName }): React.ReactElement {
   const { colors } = useTheme();
   const toneColors = colors.tones[tone];
   const fallbackIcon: IconName =

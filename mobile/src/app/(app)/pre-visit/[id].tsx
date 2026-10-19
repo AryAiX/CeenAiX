@@ -56,7 +56,11 @@ function OptionRow({ label, selected, multi, onPress }: { label: string; selecte
       }}
       style={({ pressed }) => [
         styles.option,
-        { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.tones.brand.bg : colors.surface, opacity: pressed ? 0.7 : 1 },
+        {
+          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? colors.tones.brand.bg : colors.surface,
+          opacity: pressed ? 0.7 : 1,
+        },
       ]}
     >
       <Icon
@@ -86,7 +90,16 @@ function QuestionInput({
 
   switch (question.type) {
     case 'long_text':
-      return <TextField value={text} onChangeText={onChange} multiline placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.clinicalNotes} accessibilityLabel={question.label} />;
+      return (
+        <TextField
+          value={text}
+          onChangeText={onChange}
+          multiline
+          placeholder={placeholder}
+          maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+          accessibilityLabel={question.label}
+        />
+      );
     case 'number':
       return <TextField value={text} onChangeText={onChange} keyboardType="decimal-pad" placeholder={placeholder} accessibilityLabel={question.label} />;
     case 'date':
@@ -95,7 +108,12 @@ function QuestionInput({
       return (
         <View style={{ gap: spacing.sm }}>
           {(['Yes', 'No'] as const).map((value) => (
-            <OptionRow key={value} label={value === 'Yes' ? t('m.preVisit.yes') : t('m.preVisit.no')} selected={text === value} onPress={() => onChange(value)} />
+            <OptionRow
+              key={value}
+              label={value === 'Yes' ? t('m.preVisit.yes') : t('m.preVisit.no')}
+              selected={text === value}
+              onPress={() => onChange(value)}
+            />
           ))}
         </View>
       );
@@ -125,7 +143,9 @@ function QuestionInput({
         </View>
       );
     default:
-      return <TextField value={text} onChangeText={onChange} placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.shortText} accessibilityLabel={question.label} />;
+      return (
+        <TextField value={text} onChangeText={onChange} placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.shortText} accessibilityLabel={question.label} />
+      );
   }
 }
 
@@ -400,7 +420,13 @@ export default function PreVisitScreen(): React.ReactElement {
         edgeTop
         footer={
           <View style={{ gap: spacing.sm }}>
-            <Button label={t('m.preVisit.applyFinish')} fullWidth loading={busy === 'complete'} disabled={busy !== null} onPress={() => void finishWithUpdates('apply')} />
+            <Button
+              label={t('m.preVisit.applyFinish')}
+              fullWidth
+              loading={busy === 'complete'}
+              disabled={busy !== null}
+              onPress={() => void finishWithUpdates('apply')}
+            />
             <Button label={t('m.preVisit.finishWithout')} variant="ghost" fullWidth disabled={busy !== null} onPress={() => void finishWithUpdates('skip')} />
           </View>
         }

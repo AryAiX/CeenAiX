@@ -1,16 +1,6 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { forwardRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Switch,
-  TextInput,
-  type TextInputInstance,
-  View,
-  type TextInputProps,
-} from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, TextInput, type TextInputInstance, View, type TextInputProps } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
@@ -285,8 +275,7 @@ export function ToggleRow({
   );
 }
 
-const toIsoDate = (date: Date): string =>
-  `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+const toIsoDate = (date: Date): string => `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 
 const fromIsoDate = (value: string): Date => {
   const [y, m, d] = value.slice(0, 10).split('-').map(Number);
@@ -331,7 +320,13 @@ export function DateField({
           {value ? formatDate(fromIsoDate(value)) : t('m.common.selectDate')}
         </Text>
         {value ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={t('m.common.clear')} onPress={() => onChange('')} hitSlop={10} style={{ paddingHorizontal: spacing.md }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('m.common.clear')}
+            onPress={() => onChange('')}
+            hitSlop={10}
+            style={{ paddingHorizontal: spacing.md }}
+          >
             <Icon name="close-circle" size={18} />
           </Pressable>
         ) : (

@@ -49,10 +49,7 @@ function ControlButton({
         haptics.tap();
         onPress();
       }}
-      style={({ pressed }) => [
-        styles.control,
-        { backgroundColor: danger ? DANGER : active ? CONTROL_BG : WHITE, opacity: pressed ? 0.7 : 1 },
-      ]}
+      style={({ pressed }) => [styles.control, { backgroundColor: danger ? DANGER : active ? CONTROL_BG : WHITE, opacity: pressed ? 0.7 : 1 }]}
     >
       <Icon name={icon} size={26} color={danger || active ? WHITE : CALL_BG} />
     </Pressable>
