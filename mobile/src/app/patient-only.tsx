@@ -15,11 +15,17 @@ export default function PatientOnlyScreen(): React.ReactElement {
   const { t } = useTranslation();
   const { signOut } = useAuth();
   return (
-    <Screen edgeTop contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
+    <Screen testID="screen-patient-only" edgeTop contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
       <BrandHeader title={t('nav.patientPortal')} subtitle={t('m.auth.patientOnly')} />
       <View style={{ gap: spacing.md }}>
-        <Button label={t('m.common.comingFromWeb')} icon="open-outline" fullWidth onPress={() => void WebBrowser.openBrowserAsync(WEB_PORTAL_URL)} />
-        <Button label={t('m.auth.signOut')} variant="secondary" fullWidth onPress={() => void signOut()} />
+        <Button
+          testID="btn-open-web-portal"
+          label={t('m.common.comingFromWeb')}
+          icon="open-outline"
+          fullWidth
+          onPress={() => void WebBrowser.openBrowserAsync(WEB_PORTAL_URL)}
+        />
+        <Button testID="btn-sign-out" label={t('m.auth.signOut')} variant="secondary" fullWidth onPress={() => void signOut()} />
       </View>
     </Screen>
   );

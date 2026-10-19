@@ -23,10 +23,7 @@ export default function ImagingScreen(): React.ReactElement {
   const [segment, setSegment] = useState<Segment>('reports');
 
   const studies = useMemo(
-    () =>
-      [...(imaging.data ?? [])].sort(
-        (left, right) => new Date(imagingDate(right) ?? 0).getTime() - new Date(imagingDate(left) ?? 0).getTime()
-      ),
+    () => [...(imaging.data ?? [])].sort((left, right) => new Date(imagingDate(right) ?? 0).getTime() - new Date(imagingDate(left) ?? 0).getTime()),
     [imaging.data]
   );
   const released = studies.filter((study) => study.status === 'released');
@@ -46,11 +43,14 @@ export default function ImagingScreen(): React.ReactElement {
         ].join('\n')
       ),
     ];
-    void Share.share({ title: t('patient.imaging.title'), message: lines.join('\n') });
+    void Share.share({
+      title: t('patient.imaging.title'),
+      message: lines.join('\n'),
+    });
   };
 
   return (
-    <Screen onRefresh={imaging.refetch} refreshing={imaging.refreshing} staleSince={imaging.staleSince}>
+    <Screen testID="screen-imaging" onRefresh={imaging.refetch} refreshing={imaging.refreshing} staleSince={imaging.staleSince}>
       <Stack.Screen
         options={{
           headerRight: () =>
@@ -63,8 +63,16 @@ export default function ImagingScreen(): React.ReactElement {
         value={segment}
         onChange={setSegment}
         options={[
-          { value: 'reports', label: t('patient.imaging.tabReports'), count: released.length },
-          { value: 'scheduled', label: t('patient.imaging.tabScheduled'), count: scheduled.length },
+          {
+            value: 'reports',
+            label: t('patient.imaging.tabReports'),
+            count: released.length,
+          },
+          {
+            value: 'scheduled',
+            label: t('patient.imaging.tabScheduled'),
+            count: scheduled.length,
+          },
         ]}
       />
       <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
@@ -84,7 +92,15 @@ export default function ImagingScreen(): React.ReactElement {
           list.map((study) => {
             const followUp = study.status === 'released' && (study.alerts.length > 0 || Boolean(study.recommendations));
             return (
-              <Card key={study.id} onPress={() => router.push({ pathname: '/imaging/[id]', params: { id: study.id } })}>
+              <Card
+                key={study.id}
+                onPress={() =>
+                  router.push({
+                    pathname: '/imaging/[id]',
+                    params: { id: study.id },
+                  })
+                }
+              >
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                   <IconBadge name="scan-outline" tone="ai" />
                   <View style={{ flex: 1, gap: 2 }}>
@@ -94,7 +110,14 @@ export default function ImagingScreen(): React.ReactElement {
                     <Text variant="caption" color="muted" numberOfLines={1}>
                       {formatDate(imagingDate(study))} · {study.clinicName || t('patient.imaging.ceenaixRadiology')}
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        gap: spacing.xs,
+                        marginTop: spacing.sm,
+                        flexWrap: 'wrap',
+                      }}
+                    >
                       <Pill
                         label={study.status === 'released' ? t('patient.imaging.reviewed') : t('patient.imaging.awaitingReview')}
                         tone={study.status === 'released' ? 'success' : 'warning'}

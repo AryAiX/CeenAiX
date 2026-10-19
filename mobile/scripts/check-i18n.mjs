@@ -31,12 +31,10 @@ async function resources(lang, file, exportName) {
   };
 }
 
-const lookup = (tree, key) =>
-  key.split('.').reduce((node, part) => (node && typeof node === 'object' ? node[part] : undefined), tree);
+const lookup = (tree, key) => key.split('.').reduce((node, part) => (node && typeof node === 'object' ? node[part] : undefined), tree);
 
 const has = (tree, key) =>
-  typeof lookup(tree, key) === 'string' ||
-  ['_one', '_other', '_zero'].some((suffix) => typeof lookup(tree, `${key}${suffix}`) === 'string');
+  typeof lookup(tree, key) === 'string' || ['_one', '_other', '_zero'].some((suffix) => typeof lookup(tree, `${key}${suffix}`) === 'string');
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {
@@ -57,7 +55,10 @@ for (const file of walk(join(root, 'src'))) {
   for (const match of source.matchAll(KEY)) {
     const key = match[1];
     // Calls that pass `defaultValue` (mostly generated web hooks) render fine without a locale entry.
-    const hasDefault = source.slice(match.index, match.index + 200).split(')')[0].includes('defaultValue');
+    const hasDefault = source
+      .slice(match.index, match.index + 200)
+      .split(')')[0]
+      .includes('defaultValue');
     const missing = [!has(en, key) && 'en', !has(ar, key) && 'ar'].filter(Boolean);
     if (missing.length > 0 && !hasDefault) {
       problems.push(`${relative(root, file)}: ${key} (missing: ${missing.join(', ')})`);

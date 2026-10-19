@@ -40,7 +40,7 @@ export function useOfflineCache<T, R extends QueryLike<T>>(result: R, key: strin
   const live = result.data !== null && !result.error;
   return {
     ...result,
-    data: (live ? result.data : result.data ?? usable?.value ?? null) as R['data'],
+    data: (live ? result.data : (result.data ?? usable?.value ?? null)) as R['data'],
     loading: result.loading && !usable && result.data === null,
     staleSince: !live && usable && result.error ? usable.savedAt : null,
   };

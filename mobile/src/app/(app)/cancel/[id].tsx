@@ -43,7 +43,10 @@ export default function CancelAppointmentSheet(): React.ReactElement {
       await cancelPatientAppointment(appointment, detail.data?.doctorProfile?.fullName ?? null);
       haptics.success();
       void refresh();
-      router.dismissTo({ pathname: '/appointments', params: { banner: 'cancelled' } });
+      router.dismissTo({
+        pathname: '/appointments',
+        params: { banner: 'cancelled' },
+      });
     } catch (cancelError) {
       haptics.error();
       setError(cancelError instanceof Error ? cancelError.message : t('m.common.unexpected'));
@@ -52,7 +55,7 @@ export default function CancelAppointmentSheet(): React.ReactElement {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
+    <ScrollView testID="screen-cancel-appointment" contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
       <Text variant="title">{t('m.appointment.cancelTitle')}</Text>
       {appointment ? (
         <Text variant="body" color="muted">
@@ -78,7 +81,10 @@ export default function CancelAppointmentSheet(): React.ReactElement {
               }}
               style={[
                 styles.option,
-                { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.surface },
+                {
+                  borderColor: selected ? colors.primary : colors.border,
+                  backgroundColor: selected ? colors.primarySoft : colors.surface,
+                },
               ]}
             >
               <Icon name={selected ? 'radio-button-on' : 'radio-button-off'} color={selected ? colors.primary : colors.textSubtle} />
@@ -89,7 +95,15 @@ export default function CancelAppointmentSheet(): React.ReactElement {
       </View>
       {reason === 'other' ? <TextField label={t('m.appointment.cancelReasonOther')} value={other} onChangeText={setOther} multiline /> : null}
       {error ? <InlineMessage tone="danger" message={error} /> : null}
-      <Button label={t('m.appointment.confirmCancel')} variant="danger" size="lg" fullWidth loading={busy} disabled={!canSubmit} onPress={() => void submit()} />
+      <Button
+        label={t('m.appointment.confirmCancel')}
+        variant="danger"
+        size="lg"
+        fullWidth
+        loading={busy}
+        disabled={!canSubmit}
+        onPress={() => void submit()}
+      />
       <Button label={t('m.appointment.keep')} variant="ghost" fullWidth onPress={() => router.back()} />
     </ScrollView>
   );
@@ -97,5 +111,12 @@ export default function CancelAppointmentSheet(): React.ReactElement {
 
 const styles = StyleSheet.create({
   root: { padding: spacing.xl, gap: spacing.md },
-  option: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, borderWidth: 1 },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
 });

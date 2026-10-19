@@ -70,7 +70,14 @@ export default function VisitScreen(): React.ReactElement {
   }
 
   const header = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        marginBottom: spacing.lg,
+      }}
+    >
       <IconButton name="close" variant="plain" accessibilityLabel={t('m.common.close')} onPress={() => router.back()} />
       <Text variant="heading" style={{ flex: 1 }} accessibilityRole="header">
         {t('m.visit.title')}
@@ -80,7 +87,7 @@ export default function VisitScreen(): React.ReactElement {
 
   if (!webRtc) {
     return (
-      <Screen edgeTop>
+      <Screen testID="screen-visit" edgeTop>
         {header}
         <EmptyState icon="videocam-off-outline" title={t('m.visit.unavailableTitle')} body={t('m.visit.unavailableBody')} />
       </Screen>
@@ -89,7 +96,7 @@ export default function VisitScreen(): React.ReactElement {
 
   if (detail.loading && !detail.data) {
     return (
-      <Screen edgeTop>
+      <Screen testID="screen-visit" edgeTop>
         {header}
         <SkeletonList count={2} height={140} />
       </Screen>
@@ -98,7 +105,7 @@ export default function VisitScreen(): React.ReactElement {
 
   if (!appointment) {
     return (
-      <Screen edgeTop>
+      <Screen testID="screen-visit" edgeTop>
         {header}
         {detail.error ? (
           <ErrorState message={detail.error} onRetry={() => void detail.refetch()} />
@@ -113,6 +120,7 @@ export default function VisitScreen(): React.ReactElement {
 
   return (
     <Screen
+      testID="screen-visit"
       edgeTop
       footer={
         <Button
@@ -127,7 +135,13 @@ export default function VisitScreen(): React.ReactElement {
       }
     >
       {header}
-      <View style={{ alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl }}>
+      <View
+        style={{
+          alignItems: 'center',
+          gap: spacing.sm,
+          marginBottom: spacing.xl,
+        }}
+      >
         <Avatar name={doctorName} size={88} />
         <Text variant="title" align="center">
           {doctorName}
@@ -141,12 +155,23 @@ export default function VisitScreen(): React.ReactElement {
       <Card>
         <KeyValue label={t('m.visit.date')} value={formatDateLong(appointment.scheduled_at)} />
         <KeyValue label={t('m.visit.time')} value={formatTime(appointment.scheduled_at)} />
-        <KeyValue label={t('m.visit.duration')} value={t('shared.minutesUnit', { count: appointment.duration_minutes })} />
+        <KeyValue
+          label={t('m.visit.duration')}
+          value={t('shared.minutesUnit', {
+            count: appointment.duration_minutes,
+          })}
+        />
       </Card>
       <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
         <InlineMessage tone={canJoin ? 'success' : 'info'} message={t(`m.visit.status_${joinStatus}`)} />
         {error ? <InlineMessage tone="danger" message={error} /> : null}
-        <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: spacing.sm,
+            alignItems: 'center',
+          }}
+        >
           <Icon name="shield-checkmark-outline" size={16} />
           <Text variant="caption" color="muted" style={{ flex: 1 }}>
             {t('m.visit.privacy')}

@@ -5,7 +5,11 @@ import type { Href } from 'expo-router';
 // native route tree so every stored link opens the matching screen.
 export function webPathToHref(path: string | null | undefined): Href | null {
   if (!path) return null;
-  const clean = path.trim().replace(/^https?:\/\/[^/]+/, '').split('#')[0] ?? '';
+  const clean =
+    path
+      .trim()
+      .replace(/^https?:\/\/[^/]+/, '')
+      .split('#')[0] ?? '';
   const [pathname = '', query = ''] = clean.split('?');
   const segments = pathname.replace(/^\/+|\/+$/g, '').split('/');
   if (segments[0] === 'patient') segments.shift();

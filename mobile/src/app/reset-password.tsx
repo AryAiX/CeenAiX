@@ -16,7 +16,10 @@ export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 export default function ResetPasswordScreen(): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();
-  const { code, error_description: linkError } = useLocalSearchParams<{ code?: string; error_description?: string }>();
+  const { code, error_description: linkError } = useLocalSearchParams<{
+    code?: string;
+    error_description?: string;
+  }>();
   const { session, completeRecovery, updatePassword, finishRecovery } = useAuth();
   const [exchanging, setExchanging] = useState(Boolean(code));
   const [password, setPassword] = useState('');
@@ -58,7 +61,7 @@ export default function ResetPasswordScreen(): React.ReactElement {
   const canEdit = Boolean(session) && !exchanging;
 
   return (
-    <Screen edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
+    <Screen testID="screen-reset-password" edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
       <BrandHeader title={t('auth.forgot.titleRecovery')} subtitle={t('auth.forgot.descriptionRecovery')} />
       {exchanging ? (
         <View style={{ gap: spacing.md }}>
@@ -69,6 +72,7 @@ export default function ResetPasswordScreen(): React.ReactElement {
       {canEdit ? (
         <View style={{ gap: spacing.lg }}>
           <TextField
+            testID="input-new-password"
             label={t('auth.login.newPassword')}
             placeholder={t('auth.login.newPasswordPlaceholder')}
             value={password}
@@ -79,6 +83,7 @@ export default function ResetPasswordScreen(): React.ReactElement {
             textContentType="newPassword"
           />
           <TextField
+            testID="input-confirm-password"
             label={t('auth.login.confirmNewPassword')}
             placeholder={t('auth.login.repeatPasswordPlaceholder')}
             value={confirm}
@@ -91,6 +96,7 @@ export default function ResetPasswordScreen(): React.ReactElement {
           {done ? <InlineMessage tone="success" message={t('auth.login.passwordUpdatedRedirecting')} /> : null}
           {error ? <InlineMessage tone="danger" message={error} /> : null}
           <Button
+            testID="btn-save-password"
             label={busy ? t('auth.login.updatingPassword') : t('auth.login.savePassword')}
             size="lg"
             fullWidth
@@ -103,8 +109,8 @@ export default function ResetPasswordScreen(): React.ReactElement {
       {!exchanging && !session ? (
         <View style={{ gap: spacing.lg }}>
           <InlineMessage tone="danger" message={error ?? t('m.auth.recoveryLinkInvalid')} />
-          <Button label={t('auth.forgot.sendReset')} fullWidth onPress={() => router.replace('/forgot-password')} />
-          <Button label={t('auth.forgot.returnSignIn')} variant="ghost" fullWidth onPress={() => router.replace('/sign-in')} />
+          <Button testID="btn-request-new-link" label={t('auth.forgot.sendReset')} fullWidth onPress={() => router.replace('/forgot-password')} />
+          <Button testID="btn-return-sign-in" label={t('auth.forgot.returnSignIn')} variant="ghost" fullWidth onPress={() => router.replace('/sign-in')} />
         </View>
       ) : null}
     </Screen>

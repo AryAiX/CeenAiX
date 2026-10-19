@@ -3,19 +3,10 @@ import type { Message } from '@ceenaix/types';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  type TextInputInstance,
-  View,
-} from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, type TextInputInstance, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { alertDialog } from '@/lib/dialog';
 import { EmptyState, ErrorState, Icon, InlineMessage, Skeleton, Text } from '@/components/ui';
 import { useConversationList, useConversationThread } from '@/data/messaging';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
@@ -45,7 +36,10 @@ export default function ConversationScreen(): React.ReactElement {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { id, draft: draftParam } = useLocalSearchParams<{ id: string; draft?: string }>();
+  const { id, draft: draftParam } = useLocalSearchParams<{
+    id: string;
+    draft?: string;
+  }>();
   const { user } = useAuth();
   const { refresh: refreshBadges } = useBadges();
   const thread = useConversationThread(user?.id, id);
@@ -124,7 +118,7 @@ export default function ConversationScreen(): React.ReactElement {
   const openActions = (message: Message) => {
     if (message.sender_id !== user?.id) return;
     haptics.tap();
-    Alert.alert(formatTime(message.sent_at), undefined, [
+    alertDialog(formatTime(message.sent_at), undefined, [
       {
         text: t('m.messages.edit'),
         onPress: () => {
@@ -133,7 +127,11 @@ export default function ConversationScreen(): React.ReactElement {
           inputRef.current?.focus();
         },
       },
-      { text: t('m.messages.delete'), style: 'destructive', onPress: () => scheduleDelete(message) },
+      {
+        text: t('m.messages.delete'),
+        style: 'destructive',
+        onPress: () => scheduleDelete(message),
+      },
       { text: t('m.messages.cancel'), style: 'cancel' },
     ]);
   };
@@ -166,11 +164,27 @@ export default function ConversationScreen(): React.ReactElement {
     });
   };
 
-  const header = <Stack.Screen options={{ title: conversation?.counterpart.name ?? t('patient.messages.title') }} />;
+  const header = (
+    <Stack.Screen
+      options={{
+        title: conversation?.counterpart.name ?? t('patient.messages.title'),
+      }}
+    />
+  );
 
   if (thread.loading) {
     return (
-      <View style={[styles.flex, { backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }]}>
+      <View
+        testID="screen-conversation"
+        style={[
+          styles.flex,
+          {
+            backgroundColor: colors.background,
+            padding: spacing.lg,
+            gap: spacing.md,
+          },
+        ]}
+      >
         {header}
         <Skeleton height={56} width="70%" rounded={radius.lg} />
         <Skeleton height={56} width="60%" rounded={radius.lg} style={{ alignSelf: 'flex-end' }} />
@@ -181,7 +195,7 @@ export default function ConversationScreen(): React.ReactElement {
 
   if (thread.error && messages.length === 0) {
     return (
-      <View style={[styles.flex, { backgroundColor: colors.background, padding: spacing.lg }]}>
+      <View testID="screen-conversation" style={[styles.flex, { backgroundColor: colors.background, padding: spacing.lg }]}>
         {header}
         <ErrorState message={t('patient.messages.threadError')} onRetry={() => void thread.refetch()} />
       </View>
@@ -190,6 +204,7 @@ export default function ConversationScreen(): React.ReactElement {
 
   return (
     <KeyboardAvoidingView
+      testID="screen-conversation"
       style={[styles.flex, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
@@ -199,11 +214,21 @@ export default function ConversationScreen(): React.ReactElement {
         inverted
         data={rows}
         keyExtractor={(row) => (row.kind === 'day' ? row.key : row.message.id)}
-        contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, flexGrow: 1 }}
+        contentContainerStyle={{
+          padding: spacing.lg,
+          gap: spacing.sm,
+          flexGrow: 1,
+        }}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <View style={{ transform: [{ scaleY: -1 }], flex: 1, justifyContent: 'center' }}>
+          <View
+            style={{
+              transform: [{ scaleY: -1 }],
+              flex: 1,
+              justifyContent: 'center',
+            }}
+          >
             <EmptyState icon="chatbubble-ellipses-outline" title={t('patient.messages.threadEmptyTitle')} body={t('patient.messages.threadEmptyBody')} />
           </View>
         }
@@ -225,12 +250,29 @@ export default function ConversationScreen(): React.ReactElement {
               style={[
                 styles.bubble,
                 own
-                  ? { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomEndRadius: 4 }
-                  : { alignSelf: 'flex-start', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderBottomStartRadius: 4 },
+                  ? {
+                      alignSelf: 'flex-end',
+                      backgroundColor: colors.primary,
+                      borderBottomEndRadius: 4,
+                    }
+                  : {
+                      alignSelf: 'flex-start',
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderWidth: 1,
+                      borderBottomStartRadius: 4,
+                    },
               ]}
             >
               {renderBody(message, own)}
-              <Text variant="micro" style={{ color: own ? colors.primaryText : colors.textSubtle, opacity: 0.8, alignSelf: 'flex-end' }}>
+              <Text
+                variant="micro"
+                style={{
+                  color: own ? colors.primaryText : colors.textSubtle,
+                  opacity: 0.8,
+                  alignSelf: 'flex-end',
+                }}
+              >
                 {formatTime(message.sent_at)}
                 {own && message.read_at ? '  ✓✓' : ''}
               </Text>
@@ -258,7 +300,16 @@ export default function ConversationScreen(): React.ReactElement {
         </View>
       ) : null}
 
-      <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+      <View
+        style={[
+          styles.composer,
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingBottom: Math.max(insets.bottom, spacing.md),
+          },
+        ]}
+      >
         {editing ? (
           <View style={styles.editBar}>
             <Icon name="create-outline" size={16} color={colors.primary} />
@@ -278,7 +329,13 @@ export default function ConversationScreen(): React.ReactElement {
             </Pressable>
           </View>
         ) : null}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            gap: spacing.sm,
+          }}
+        >
           <TextInput
             ref={inputRef}
             value={draft}
@@ -295,7 +352,13 @@ export default function ConversationScreen(): React.ReactElement {
             accessibilityLabel={editing ? t('m.messages.save') : t('patient.messages.send')}
             disabled={!draft.trim() || thread.working}
             onPress={() => void submit()}
-            style={[styles.send, { backgroundColor: colors.primary, opacity: !draft.trim() || thread.working ? 0.4 : 1 }]}
+            style={[
+              styles.send,
+              {
+                backgroundColor: colors.primary,
+                opacity: !draft.trim() || thread.working ? 0.4 : 1,
+              },
+            ]}
           >
             <Icon name={editing ? 'checkmark' : 'arrow-up'} size={22} color={colors.primaryText} />
           </Pressable>
@@ -307,7 +370,13 @@ export default function ConversationScreen(): React.ReactElement {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  bubble: { maxWidth: '82%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, gap: 4 },
+  bubble: {
+    maxWidth: '82%',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    gap: 4,
+  },
   actionChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -327,8 +396,32 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: radius.md,
   },
-  composer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
-  editBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xs },
-  input: { flex: 1, maxHeight: 140, minHeight: 44, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingTop: 11, paddingBottom: 11 },
-  send: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  composer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  editBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  input: {
+    flex: 1,
+    maxHeight: 140,
+    minHeight: 44,
+    borderRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 11,
+    paddingBottom: 11,
+  },
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

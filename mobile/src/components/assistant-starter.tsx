@@ -43,7 +43,10 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
   const bpClass = bloodPressureClass(bp?.systolic ?? null, bp?.diastolic ?? null);
   const medications = dashboard?.medications.length ?? 0;
   const next = dashboard?.nextAppointment ?? null;
-  const allergies = (dashboard?.allergyAlerts ?? []).map((allergy) => allergy.allergen).filter(Boolean).slice(0, 3);
+  const allergies = (dashboard?.allergyAlerts ?? [])
+    .map((allergy) => allergy.allergen)
+    .filter(Boolean)
+    .slice(0, 3);
 
   const trendLabel =
     trend === 'improving'
@@ -112,8 +115,8 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
               {t('m.assistant.consentBody')}
             </Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button label={t('m.assistant.allow')} variant="ai" size="sm" onPress={() => onConsent(true)} />
-              <Button label={t('m.assistant.notNow')} variant="ghost" size="sm" onPress={() => onConsent(false)} />
+              <Button testID="btn-ai-consent-allow" label={t('m.assistant.allow')} variant="ai" size="sm" onPress={() => onConsent(true)} />
+              <Button testID="btn-ai-consent-deny" label={t('m.assistant.notNow')} variant="ghost" size="sm" onPress={() => onConsent(false)} />
             </View>
           </View>
         </Card>
@@ -150,7 +153,14 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
       ) : null}
 
       {preVisitId ? (
-        <Button label={t('patient.aiChat.continuePreVisit')} icon="clipboard-outline" variant="secondary" fullWidth onPress={() => router.push(`/pre-visit/${preVisitId}`)} />
+        <Button
+          testID="btn-continue-previsit"
+          label={t('patient.aiChat.continuePreVisit')}
+          icon="clipboard-outline"
+          variant="secondary"
+          fullWidth
+          onPress={() => router.push(`/pre-visit/${preVisitId}`)}
+        />
       ) : null}
 
       <View style={{ gap: spacing.sm }}>
@@ -158,10 +168,12 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
           {t('patient.aiChat.tryAsking')}
         </Text>
         <View style={styles.prompts}>
-          {prompts.map((prompt) => (
+          {prompts.map((prompt, index) => (
             <Pressable
               key={prompt}
+              testID={`prompt-chip-${index}`}
               accessibilityRole="button"
+              accessibilityLabel={prompt}
               onPress={() => {
                 haptics.tap();
                 onPrompt(prompt);

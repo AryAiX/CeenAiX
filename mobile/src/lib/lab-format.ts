@@ -14,7 +14,9 @@ export function labItemReference(item: LabOrderItem): string | null {
 /** Position (0–100) of the value on a simple reference bar, matching the web zone heuristics. */
 export function labItemMarker(item: LabOrderItem): number | null {
   if (item.numeric_value == null) return null;
-  const zoneMaxes = (item.reference_zones ?? []).map((zone) => (typeof zone.max === 'number' ? zone.max : null)).filter((value): value is number => value != null);
+  const zoneMaxes = (item.reference_zones ?? [])
+    .map((zone) => (typeof zone.max === 'number' ? zone.max : null))
+    .filter((value): value is number => value != null);
   if (zoneMaxes.length > 0) {
     const axis = Math.max(...zoneMaxes) * 1.15;
     if (axis > 0) return Math.min(98, Math.max(2, (item.numeric_value / axis) * 100));

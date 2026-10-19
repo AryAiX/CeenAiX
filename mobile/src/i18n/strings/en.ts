@@ -329,7 +329,8 @@ export const mobileEn = {
   },
   assistant: {
     consentTitle: 'Personalise answers with your records?',
-    consentBody: 'With your permission, the assistant reads your conditions, allergies, medications, visits and lab results to tailor its answers. Nothing is shared with anyone else.',
+    consentBody:
+      'With your permission, the assistant reads your conditions, allergies, medications, visits and lab results to tailor its answers. Nothing is shared with anyone else.',
     allow: 'Allow',
     notNow: 'Not now',
     contextOn: 'Using your health records',
@@ -389,7 +390,8 @@ export const mobileEn = {
     allReady: 'All required questions are ready to submit.',
     saved: 'Progress saved. You can come back from your appointment or the assistant.',
     updatesTitle: 'Review record updates before you finish',
-    updatesBody: 'Confirm which answers should update your record for future autofill. Medication changes stay patient-reported so your doctor can review them first.',
+    updatesBody:
+      'Confirm which answers should update your record for future autofill. Medication changes stay patient-reported so your doctor can review them first.',
     applyFinish: 'Apply updates and finish',
     finishWithout: 'Finish without record updates',
     newAnswer: 'New answer',

@@ -2,21 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  AiGeneratedTag,
-  Avatar,
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  InlineMessage,
-  KeyValue,
-  Pill,
-  Screen,
-  Section,
-  Skeleton,
-  Text,
-} from '@/components/ui';
+import { AiGeneratedTag, Avatar, Button, Card, EmptyState, ErrorState, InlineMessage, KeyValue, Pill, Screen, Section, Skeleton, Text } from '@/components/ui';
 import { UPCOMING_STATUSES } from '@/data/appointments';
 import { ensureDirectConversation } from '@/data/messaging';
 import { usePatientAppointmentDetail } from '@/data/web/hooks/use-patient-appointment-detail';
@@ -47,7 +33,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
 
   if (detail.loading) {
     return (
-      <Screen>
+      <Screen testID="screen-appointment-detail">
         <View style={{ gap: spacing.lg }}>
           <Skeleton height={140} rounded={radius.xl} />
           <Skeleton height={200} rounded={radius.xl} />
@@ -58,19 +44,22 @@ export default function AppointmentDetailScreen(): React.ReactElement {
   }
   if (!data && detail.error) {
     return (
-      <Screen>
+      <Screen testID="screen-appointment-detail">
         <ErrorState message={detail.error} onRetry={() => void detail.refetch()} />
       </Screen>
     );
   }
   if (!data) {
     return (
-      <Screen>
+      <Screen testID="screen-appointment-detail">
         <EmptyState
           icon="calendar-outline"
           title={t('m.appointment.notFoundTitle')}
           body={t('m.appointment.notFoundBody')}
-          action={{ label: t('patient.appointments.title'), onPress: () => router.replace('/appointments') }}
+          action={{
+            label: t('patient.appointments.title'),
+            onPress: () => router.replace('/appointments'),
+          }}
         />
       </Screen>
     );
@@ -96,7 +85,10 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         date: formatShortDay(appointment.scheduled_at),
         time: formatTime(appointment.scheduled_at),
       });
-      router.push({ pathname: '/conversation/[id]', params: { id: conversationId, draft } });
+      router.push({
+        pathname: '/conversation/[id]',
+        params: { id: conversationId, draft },
+      });
     } catch (error) {
       haptics.error();
       setActionError(error instanceof Error ? error.message : t('messaging.errStartConversation'));
@@ -111,10 +103,16 @@ export default function AppointmentDetailScreen(): React.ReactElement {
   };
 
   return (
-    <Screen onRefresh={detail.refetch} refreshing={detail.refreshing} staleSince={detail.staleSince}>
+    <Screen testID="screen-appointment-detail" onRefresh={detail.refetch} refreshing={detail.refreshing} staleSince={detail.staleSince}>
       <Stack.Screen options={{ title: formatDate(appointment.scheduled_at) }} />
       <Card tone="brand">
-        <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: spacing.md,
+            alignItems: 'center',
+          }}
+        >
           <Avatar name={doctorName} size={56} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="title" numberOfLines={2}>
@@ -125,7 +123,14 @@ export default function AppointmentDetailScreen(): React.ReactElement {
             </Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, flexWrap: 'wrap' }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: spacing.sm,
+            marginTop: spacing.md,
+            flexWrap: 'wrap',
+          }}
+        >
           <Pill label={t(`shared.appointmentStatus.${appointment.status}`)} tone={appointmentStatusTone[appointment.status]} />
           <Pill
             icon={appointment.type === 'virtual' ? 'videocam' : 'business'}
@@ -137,7 +142,10 @@ export default function AppointmentDetailScreen(): React.ReactElement {
 
       <Card style={{ marginTop: spacing.lg }}>
         <KeyValue label={t('m.appointment.date')} value={formatDateLong(appointment.scheduled_at)} />
-        <KeyValue label={t('m.appointment.time')} value={`${formatTime(appointment.scheduled_at)} · ${t('shared.minutesUnit', { count: appointment.duration_minutes })}`} />
+        <KeyValue
+          label={t('m.appointment.time')}
+          value={`${formatTime(appointment.scheduled_at)} · ${t('shared.minutesUnit', { count: appointment.duration_minutes })}`}
+        />
         <KeyValue
           label={t('m.appointment.location')}
           value={appointment.type === 'virtual' ? t('patient.appointments.filterTeleconsult') : facility || t('shared.clinicPending')}
@@ -168,11 +176,18 @@ export default function AppointmentDetailScreen(): React.ReactElement {
               size="lg"
               fullWidth
               disabled={joinStatus !== 'open'}
-              onPress={() => router.push({ pathname: '/visit/[id]', params: { id: appointment.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/visit/[id]',
+                  params: { id: appointment.id },
+                })
+              }
             />
             {joinStatus === 'too_early' ? (
               <Text variant="caption" color="muted" align="center">
-                {t('m.appointment.joinOpensAt', { time: formatTime(new Date(scheduledMs - 10 * 60_000)) })}
+                {t('m.appointment.joinOpensAt', {
+                  time: formatTime(new Date(scheduledMs - 10 * 60_000)),
+                })}
               </Text>
             ) : joinStatus === 'ended' ? (
               <Text variant="caption" color="muted" align="center">
@@ -191,7 +206,12 @@ export default function AppointmentDetailScreen(): React.ReactElement {
             icon="clipboard-outline"
             variant="secondary"
             fullWidth
-            onPress={() => router.push({ pathname: '/pre-visit/[id]', params: { id: preVisitAssessment.id } })}
+            onPress={() =>
+              router.push({
+                pathname: '/pre-visit/[id]',
+                params: { id: preVisitAssessment.id },
+              })
+            }
           />
         ) : null}
         {appointment.type === 'in_person' && facility && isUpcoming ? (
@@ -203,7 +223,12 @@ export default function AppointmentDetailScreen(): React.ReactElement {
             icon="calendar-outline"
             variant="secondary"
             fullWidth
-            onPress={() => router.push({ pathname: '/book', params: { reschedule: appointment.id } })}
+            onPress={() =>
+              router.push({
+                pathname: '/book',
+                params: { reschedule: appointment.id },
+              })
+            }
           />
         ) : null}
         {appointment.status !== 'cancelled' && appointment.status !== 'no_show' ? (
@@ -222,7 +247,12 @@ export default function AppointmentDetailScreen(): React.ReactElement {
             icon="close-circle-outline"
             variant="danger"
             fullWidth
-            onPress={() => router.push({ pathname: '/cancel/[id]', params: { id: appointment.id } })}
+            onPress={() =>
+              router.push({
+                pathname: '/cancel/[id]',
+                params: { id: appointment.id },
+              })
+            }
           />
         ) : null}
       </View>
@@ -231,7 +261,13 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         <Card>
           {preVisitAssessment ? (
             <View style={{ gap: spacing.sm }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                }}
+              >
                 <Text variant="captionStrong">{t('patient.appointments.preVisitPrefix')}</Text>
                 <Pill label={t(`shared.preVisitStatus.${preVisitAssessment.status}`)} tone={preVisitStatusTone[preVisitAssessment.status]} />
               </View>
@@ -294,8 +330,22 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         ) : (
           <View style={{ gap: spacing.sm }}>
             {data.prescriptions.map((prescription) => (
-              <Card key={prescription.id} onPress={() => router.push({ pathname: '/prescriptions/[id]', params: { id: prescription.id } })}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Card
+                key={prescription.id}
+                onPress={() =>
+                  router.push({
+                    pathname: '/prescriptions/[id]',
+                    params: { id: prescription.id },
+                  })
+                }
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <Pill label={t(`shared.prescriptionStatus.${prescription.status}`)} tone={prescriptionStatusTone(prescription.status)} />
                   <Text variant="micro" color="subtle">
                     {formatDate(prescription.prescribed_at)}
@@ -325,13 +375,40 @@ export default function AppointmentDetailScreen(): React.ReactElement {
         ) : (
           <View style={{ gap: spacing.sm }}>
             {data.labOrders.map((order) => (
-              <Card key={order.id} onPress={() => router.push({ pathname: '/lab-results/[id]', params: { id: order.id } })}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Card
+                key={order.id}
+                onPress={() =>
+                  router.push({
+                    pathname: '/lab-results/[id]',
+                    params: { id: order.id },
+                  })
+                }
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <Text variant="bodyStrong">{order.lab_order_code ?? t('m.appointment.labOrder')}</Text>
-                  <Pill label={t(`shared.labOrderStatus.${order.status}`, { defaultValue: order.status })} tone={labStatusTone(order.status)} />
+                  <Pill
+                    label={t(`shared.labOrderStatus.${order.status}`, {
+                      defaultValue: order.status,
+                    })}
+                    tone={labStatusTone(order.status)}
+                  />
                 </View>
                 {order.items.map((item) => (
-                  <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm, gap: spacing.md }}>
+                  <View
+                    key={item.id}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginTop: spacing.sm,
+                      gap: spacing.md,
+                    }}
+                  >
                     <Text variant="caption" style={{ flex: 1 }}>
                       {item.test_name}
                     </Text>

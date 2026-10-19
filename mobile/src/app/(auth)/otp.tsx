@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View, type TextInputInstance, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '@/components/brand-header';
 import { Button, InlineMessage, Screen, Text } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
+import { isAppRtl } from '@/lib/rtl';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { radius, spacing } from '@/theme/tokens';
@@ -18,7 +19,15 @@ export default function OtpScreen(): React.ReactElement {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
-  const { phone = '', flow = 'signin', fullName = '' } = useLocalSearchParams<{ phone?: string; flow?: string; fullName?: string }>();
+  const {
+    phone = '',
+    flow = 'signin',
+    fullName = '',
+  } = useLocalSearchParams<{
+    phone?: string;
+    flow?: string;
+    fullName?: string;
+  }>();
   const { verifyPhoneOtp, requestPhoneOtp } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -70,9 +79,14 @@ export default function OtpScreen(): React.ReactElement {
   };
 
   return (
-    <Screen edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
+    <Screen testID="screen-otp" edgeTop keyboard contentStyle={{ paddingTop: spacing.xxxl * 2 }}>
       <BrandHeader title={t('auth.otp.title')} subtitle={t('m.auth.otpSentTo', { phone })} />
-      <Pressable accessibilityLabel={t('auth.otp.codeLabel')} onPress={() => inputRef.current?.focus()} style={styles.cells}>
+      <Pressable
+        testID="input-otp-cells"
+        accessibilityLabel={t('auth.otp.codeLabel')}
+        onPress={() => inputRef.current?.focus()}
+        style={[styles.cells, codeDirection()]}
+      >
         {Array.from({ length: CODE_LENGTH }, (_, index) => {
           const active = index === code.length;
           return (
@@ -80,7 +94,10 @@ export default function OtpScreen(): React.ReactElement {
               key={index}
               style={[
                 styles.cell,
-                { backgroundColor: colors.surface, borderColor: active ? colors.primary : colors.border },
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: active ? colors.primary : colors.border,
+                },
               ]}
             >
               <Text variant="title">{code[index] ?? ''}</Text>
@@ -89,6 +106,7 @@ export default function OtpScreen(): React.ReactElement {
         })}
       </Pressable>
       <TextInput
+        testID="input-otp-code"
         ref={inputRef}
         value={code}
         onChangeText={onChange}
@@ -107,6 +125,7 @@ export default function OtpScreen(): React.ReactElement {
         {notice ? <InlineMessage tone="success" message={notice} /> : null}
         {error ? <InlineMessage tone="danger" message={error} /> : null}
         <Button
+          testID="btn-verify-otp"
           label={busy ? t('auth.otp.verifying') : t('auth.otp.verify')}
           size="lg"
           fullWidth
@@ -115,20 +134,27 @@ export default function OtpScreen(): React.ReactElement {
           onPress={() => void verify(code)}
         />
         <Button
+          testID="btn-resend-otp"
           label={cooldown > 0 ? t('m.auth.resendIn', { seconds: cooldown }) : t('auth.otp.resend')}
           variant="ghost"
           fullWidth
           disabled={cooldown > 0}
           onPress={() => void resend()}
         />
-        <Button label={t('auth.otp.goBack')} variant="ghost" fullWidth onPress={() => router.back()} />
+        <Button testID="btn-otp-back" label={t('auth.otp.goBack')} variant="ghost" fullWidth onPress={() => router.back()} />
       </View>
     </Screen>
   );
 }
 
+// Digits always read left-to-right, even in Arabic.
+function codeDirection(): ViewStyle {
+  if (Platform.OS === 'web') return { flexDirection: isAppRtl() ? 'row-reverse' : 'row' };
+  return { flexDirection: 'row', direction: 'ltr' };
+}
+
 const styles = StyleSheet.create({
-  cells: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, direction: 'ltr' },
+  cells: { justifyContent: 'center', gap: spacing.sm },
   cell: {
     width: 48,
     height: 58,

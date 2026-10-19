@@ -25,7 +25,11 @@ export function AppointmentCard({ appointment, doctorName, specialty, avatarUrl,
   const needsIntake = preVisit && (preVisit.status === 'not_started' || preVisit.status === 'in_progress');
 
   return (
-    <Card onPress={() => router.push({ pathname: '/appointment/[id]', params: { id: appointment.id } })} accessibilityLabel={doctorName}>
+    <Card
+      testID={`appointment-card-${appointment.id}`}
+      onPress={() => router.push({ pathname: '/appointment/[id]', params: { id: appointment.id } })}
+      accessibilityLabel={doctorName}
+    >
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <Avatar name={doctorName} uri={avatarUrl} />
         <View style={{ flex: 1, gap: 2 }}>

@@ -50,7 +50,7 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
 
   if (own) {
     return (
-      <Pressable onLongPress={openActions} delayLongPress={300} style={[styles.userBubble, { backgroundColor: colors.primary }]}>
+      <Pressable testID="chat-message-user" onLongPress={openActions} delayLongPress={300} style={[styles.userBubble, { backgroundColor: colors.primary }]}>
         {files.map((file) => (
           <View key={file.path} style={styles.fileRow}>
             <Icon name="attach" size={14} color={colors.primaryText} />
@@ -71,6 +71,7 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
 
   return (
     <Pressable
+      testID="chat-message-assistant"
       onLongPress={openActions}
       delayLongPress={300}
       style={[styles.assistantBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -93,10 +94,12 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
       ) : null}
       {actions.length > 0 ? (
         <View style={styles.wrap}>
-          {actions.map((action) => (
+          {actions.map((action, index) => (
             <Pressable
               key={action.label}
+              testID={`chat-action-${index}`}
               accessibilityRole="button"
+              accessibilityLabel={action.label}
               onPress={() => {
                 haptics.tap();
                 if (action.href) router.push(action.href);
@@ -132,7 +135,15 @@ export function AssistantThinking(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  userBubble: { alignSelf: 'flex-end', maxWidth: '85%', borderRadius: radius.lg, borderBottomEndRadius: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 4 },
+  userBubble: {
+    alignSelf: 'flex-end',
+    maxWidth: '85%',
+    borderRadius: radius.lg,
+    borderBottomEndRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 4,
+  },
   assistantBubble: { alignSelf: 'stretch', borderWidth: 1, borderRadius: radius.lg, borderBottomStartRadius: 4, padding: spacing.md, gap: spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   fileRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

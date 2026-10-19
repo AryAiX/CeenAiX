@@ -1,15 +1,6 @@
 import type { ErrorBoundaryProps } from 'expo-router';
 import { use, type ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +23,8 @@ interface ScreenProps {
   footer?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
+  /** Screen root id, e.g. `screen-dashboard`. */
+  testID?: string;
 }
 
 export function Screen({
@@ -44,6 +37,7 @@ export function Screen({
   footer,
   contentStyle,
   scroll = true,
+  testID,
 }: ScreenProps): React.ReactElement {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -57,7 +51,10 @@ export function Screen({
       keyboardDismissMode="interactive"
       contentContainerStyle={[
         styles.content,
-        { paddingTop: (edgeTop ? insets.top : 0) + spacing.lg, paddingBottom: (footer ? spacing.lg : insets.bottom) + spacing.xxxl },
+        {
+          paddingTop: (edgeTop ? insets.top : 0) + spacing.lg,
+          paddingBottom: (footer ? spacing.lg : insets.bottom) + spacing.xxxl,
+        },
         contentStyle,
       ]}
       refreshControl={
@@ -85,9 +82,13 @@ export function Screen({
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View testID={testID} style={{ flex: 1, backgroundColor: colors.background }}>
       {keyboard ? (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+        >
           {inner}
         </KeyboardAvoidingView>
       ) : (
@@ -104,7 +105,11 @@ export function StickyFooter({ children }: { children: ReactNode }): React.React
     <View
       style={[
         styles.footer,
-        { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, spacing.md) },
+        {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          paddingBottom: Math.max(insets.bottom, spacing.md),
+        },
       ]}
     >
       {children}
@@ -135,7 +140,15 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps): React.
   const { t } = useTranslation();
   const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.xl, justifyContent: 'center' }}>
+    <View
+      testID="state-route-error"
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        padding: spacing.xl,
+        justifyContent: 'center',
+      }}
+    >
       <ErrorState message={error.message || t('m.common.unexpected')} onRetry={() => void retry()} />
     </View>
   );
@@ -149,5 +162,10 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: spacing.sm,
   },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
 });

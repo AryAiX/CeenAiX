@@ -3,19 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '@ceenaix/types';
-import {
-  Card,
-  EmptyState,
-  ErrorState,
-  IconBadge,
-  InlineMessage,
-  Screen,
-  Section,
-  SegmentedControl,
-  SkeletonList,
-  Text,
-  type IconName,
-} from '@/components/ui';
+import { Card, EmptyState, ErrorState, IconBadge, InlineMessage, Screen, Section, SegmentedControl, SkeletonList, Text, type IconName } from '@/components/ui';
 import { markAllNotificationsRead, markNotificationRead } from '@/data/notifications';
 import { usePatientNotifications, type PatientDerivedNotification } from '@/data/web/hooks/use-patient-notifications';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
@@ -104,7 +92,7 @@ export default function NotificationsScreen(): React.ReactElement {
   };
 
   return (
-    <Screen onRefresh={sync} refreshing={notifications.refreshing} staleSince={notifications.staleSince}>
+    <Screen testID="screen-notifications" onRefresh={sync} refreshing={notifications.refreshing} staleSince={notifications.staleSince}>
       <Stack.Screen
         options={{
           headerRight: () =>
@@ -157,7 +145,11 @@ export default function NotificationsScreen(): React.ReactElement {
               onChange={setFilter}
               options={[
                 { value: 'all', label: t('patient.documents.filterAll') },
-                { value: 'unread', label: t('patient.notifications.unreadBadge'), count: unread },
+                {
+                  value: 'unread',
+                  label: t('patient.notifications.unreadBadge'),
+                  count: unread,
+                },
               ]}
             />
             <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
@@ -171,12 +163,26 @@ export default function NotificationsScreen(): React.ReactElement {
                       <View style={{ flexDirection: 'row', gap: spacing.md }}>
                         <IconBadge name={style.icon} tone={style.tone} size={36} />
                         <View style={{ flex: 1, gap: 2 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              gap: spacing.sm,
+                            }}
+                          >
                             <Text variant={row.is_read ? 'body' : 'bodyStrong'} style={{ flex: 1 }} numberOfLines={2}>
                               {row.title}
                             </Text>
                             {!row.is_read ? (
-                              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 }} />
+                              <View
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 4,
+                                  backgroundColor: colors.primary,
+                                  marginTop: 6,
+                                }}
+                              />
                             ) : null}
                           </View>
                           {row.body ? (

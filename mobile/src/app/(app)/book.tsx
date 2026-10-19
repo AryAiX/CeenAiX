@@ -3,7 +3,7 @@ import { FORM_FIELD_LIMITS } from '@ceenaix/shared/form-field-limits';
 import { dateTimeFormatWithNumerals, resolveLocale } from '@ceenaix/shared/i18n-ui';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   Avatar,
@@ -21,6 +21,7 @@ import {
   Text,
   TextField,
 } from '@/components/ui';
+import { alertDialog } from '@/lib/dialog';
 import { bookPatientAppointment, reschedulePatientAppointment, useRescheduleSource } from '@/data/appointments';
 import { useBookableDoctors, type BookableDoctor } from '@/data/web/hooks/use-bookable-doctors';
 import { useDoctorBookingAvailability } from '@/data/web/hooks/use-doctor-booking-availability';
@@ -126,7 +127,11 @@ export default function BookScreen(): React.ReactElement {
     const data = availability.data;
     if (!data) return [];
     const today = startOfToday();
-    const result: Array<{ date: Date; key: string; slots: AvailableTimeSlot[] }> = [];
+    const result: Array<{
+      date: Date;
+      key: string;
+      slots: AvailableTimeSlot[];
+    }> = [];
     for (let offset = 0; offset < BOOKING_HORIZON_DAYS; offset += 1) {
       const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
       const slots = generateAvailableTimeSlots({
@@ -161,9 +166,13 @@ export default function BookScreen(): React.ReactElement {
       router.back();
       return;
     }
-    Alert.alert(t('m.book.discardTitle'), t('m.book.discardBody'), [
+    alertDialog(t('m.book.discardTitle'), t('m.book.discardBody'), [
       { text: t('m.book.keepEditing'), style: 'cancel' },
-      { text: t('m.book.discard'), style: 'destructive', onPress: () => router.back() },
+      {
+        text: t('m.book.discard'),
+        style: 'destructive',
+        onPress: () => router.back(),
+      },
     ]);
   };
 
@@ -195,17 +204,42 @@ export default function BookScreen(): React.ReactElement {
     }
     setSubmitting(true);
     setError(null);
-    const doctor = { userId: selectedDoctor.userId, fullName: selectedDoctor.fullName };
-    const slot = { iso: selectedSlot.iso, durationMinutes: selectedSlot.durationMinutes };
+    const doctor = {
+      userId: selectedDoctor.userId,
+      fullName: selectedDoctor.fullName,
+    };
+    const slot = {
+      iso: selectedSlot.iso,
+      durationMinutes: selectedSlot.durationMinutes,
+    };
     const locale = resolveLocale(lang);
     try {
       if (isRescheduling && reschedule.data) {
-        await reschedulePatientAppointment({ patientId: user.id, appointmentId: reschedule.data.id, doctor, slot, chiefComplaint, notes, locale });
+        await reschedulePatientAppointment({
+          patientId: user.id,
+          appointmentId: reschedule.data.id,
+          doctor,
+          slot,
+          chiefComplaint,
+          notes,
+          locale,
+        });
         haptics.success();
-        router.dismissTo({ pathname: '/appointments', params: { banner: 'rescheduled' } });
+        router.dismissTo({
+          pathname: '/appointments',
+          params: { banner: 'rescheduled' },
+        });
         return;
       }
-      const result = await bookPatientAppointment({ patientId: user.id, doctor, type: visitType, slot, chiefComplaint, notes, locale });
+      const result = await bookPatientAppointment({
+        patientId: user.id,
+        doctor,
+        type: visitType,
+        slot,
+        chiefComplaint,
+        notes,
+        locale,
+      });
       haptics.success();
       if (result.preVisitAssessmentId) router.replace(`/pre-visit/${result.preVisitAssessmentId}`);
       else router.replace(`/appointment/${result.appointmentId}`);
@@ -232,8 +266,7 @@ export default function BookScreen(): React.ReactElement {
     review: t('m.book.stepReview'),
   }[step];
 
-  const dayLabel = (date: Date, options: Intl.DateTimeFormatOptions) =>
-    date.toLocaleDateString(resolveLocale(lang), dateTimeFormatWithNumerals(lang, options));
+  const dayLabel = (date: Date, options: Intl.DateTimeFormatOptions) => date.toLocaleDateString(resolveLocale(lang), dateTimeFormatWithNumerals(lang, options));
 
   const renderDoctorStep = () => {
     if (doctorsQuery.loading) return <SkeletonList count={4} height={88} />;
@@ -251,35 +284,56 @@ export default function BookScreen(): React.ReactElement {
         />
         {(specializations.data?.length ?? 0) > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.xs }}>
-            {[{ id: null, name: t('m.book.allSpecialties') }, ...(specializations.data ?? []).map((item) => ({ id: item.id as string | null, name: item.name }))].map(
-              (option) => {
-                const active = option.id === specializationId;
-                return (
-                  <Pressable
-                    key={option.id ?? 'all'}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      haptics.tap();
-                      setSpecializationId(option.id);
-                    }}
-                    style={[styles.chip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface }]}
-                  >
-                    <Text variant="captionStrong" style={{ color: active ? colors.primaryText : colors.text }}>
-                      {option.name}
-                    </Text>
-                  </Pressable>
-                );
-              }
-            )}
+            {[
+              { id: null, name: t('m.book.allSpecialties') },
+              ...(specializations.data ?? []).map((item) => ({
+                id: item.id as string | null,
+                name: item.name,
+              })),
+            ].map((option) => {
+              const active = option.id === specializationId;
+              return (
+                <Pressable
+                  key={option.id ?? 'all'}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => {
+                    haptics.tap();
+                    setSpecializationId(option.id);
+                  }}
+                  style={[
+                    styles.chip,
+                    {
+                      borderColor: active ? colors.primary : colors.border,
+                      backgroundColor: active ? colors.primary : colors.surface,
+                    },
+                  ]}
+                >
+                  <Text variant="captionStrong" style={{ color: active ? colors.primaryText : colors.text }}>
+                    {option.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         ) : null}
         {filteredDoctors.length === 0 ? (
           <EmptyState icon="search" title={t('patient.book.noDoctors')} body={t('patient.book.noDoctorsSub')} />
         ) : (
           filteredDoctors.map((doctor) => (
-            <Card key={doctor.userId} onPress={() => pickDoctor(doctor)} tone={doctor.userId === doctorId ? 'brand' : undefined} accessibilityLabel={doctor.fullName}>
-              <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+            <Card
+              key={doctor.userId}
+              onPress={() => pickDoctor(doctor)}
+              tone={doctor.userId === doctorId ? 'brand' : undefined}
+              accessibilityLabel={doctor.fullName}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: spacing.md,
+                  alignItems: 'center',
+                }}
+              >
                 <Avatar name={doctor.fullName} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text variant="bodyStrong">{doctor.fullName}</Text>
@@ -309,7 +363,13 @@ export default function BookScreen(): React.ReactElement {
       <View style={{ gap: spacing.lg }}>
         {selectedDoctor ? (
           <Card>
-            <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: spacing.md,
+                alignItems: 'center',
+              }}
+            >
               <Avatar name={selectedDoctor.fullName} size={36} />
               <View style={{ flex: 1 }}>
                 <Text variant="bodyStrong">{selectedDoctor.fullName}</Text>
@@ -320,7 +380,9 @@ export default function BookScreen(): React.ReactElement {
             </View>
             {isRescheduling && reschedule.data ? (
               <Text variant="caption" color="muted" style={{ marginTop: spacing.sm }}>
-                {t('m.book.rescheduleFrom', { when: formatDateTime(reschedule.data.scheduled_at) })}
+                {t('m.book.rescheduleFrom', {
+                  when: formatDateTime(reschedule.data.scheduled_at),
+                })}
               </Text>
             ) : null}
           </Card>
@@ -335,8 +397,18 @@ export default function BookScreen(): React.ReactElement {
               value={visitType}
               onChange={setVisitType}
               options={[
-                { value: 'in_person', label: t('patient.appointments.filterInPerson', { defaultValue: 'In Person' }) },
-                { value: 'virtual', label: t('patient.appointments.filterTeleconsult', { defaultValue: 'Teleconsult' }) },
+                {
+                  value: 'in_person',
+                  label: t('patient.appointments.filterInPerson', {
+                    defaultValue: 'In Person',
+                  }),
+                },
+                {
+                  value: 'virtual',
+                  label: t('patient.appointments.filterTeleconsult', {
+                    defaultValue: 'Teleconsult',
+                  }),
+                },
               ]}
             />
           </View>
@@ -363,13 +435,23 @@ export default function BookScreen(): React.ReactElement {
                       key={day.key}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      accessibilityLabel={dayLabel(day.date, { weekday: 'long', month: 'long', day: 'numeric' })}
+                      accessibilityLabel={dayLabel(day.date, {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
                       onPress={() => {
                         haptics.tap();
                         setDateKey(day.key);
                         setSlotIso(null);
                       }}
-                      style={[styles.day, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface }]}
+                      style={[
+                        styles.day,
+                        {
+                          borderColor: active ? colors.primary : colors.border,
+                          backgroundColor: active ? colors.primary : colors.surface,
+                        },
+                      ]}
                     >
                       <Text variant="micro" style={{ color: fg, opacity: 0.8 }}>
                         {dayLabel(day.date, { weekday: 'short' })}
@@ -380,7 +462,12 @@ export default function BookScreen(): React.ReactElement {
                       <Text variant="micro" style={{ color: fg, opacity: 0.8 }}>
                         {dayLabel(day.date, { month: 'short' })}
                       </Text>
-                      <Text variant="micro" style={{ color: active ? colors.primaryText : colors.primary }}>
+                      <Text
+                        variant="micro"
+                        style={{
+                          color: active ? colors.primaryText : colors.primary,
+                        }}
+                      >
                         {t('m.book.slotsCount', { count: day.slots.length })}
                       </Text>
                     </Pressable>
@@ -404,9 +491,20 @@ export default function BookScreen(): React.ReactElement {
                         haptics.tap();
                         setSlotIso(slot.iso);
                       }}
-                      style={[styles.slot, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface }]}
+                      style={[
+                        styles.slot,
+                        {
+                          borderColor: active ? colors.primary : colors.border,
+                          backgroundColor: active ? colors.primary : colors.surface,
+                        },
+                      ]}
                     >
-                      <Text variant="captionStrong" style={{ color: active ? colors.primaryText : colors.text }}>
+                      <Text
+                        variant="captionStrong"
+                        style={{
+                          color: active ? colors.primaryText : colors.text,
+                        }}
+                      >
                         {slot.label}
                       </Text>
                     </Pressable>
@@ -454,13 +552,24 @@ export default function BookScreen(): React.ReactElement {
           label={t('m.book.visitType')}
           value={
             visitType === 'virtual'
-              ? t('patient.appointments.filterTeleconsult', { defaultValue: 'Teleconsult' })
-              : t('patient.appointments.filterInPerson', { defaultValue: 'In Person' })
+              ? t('patient.appointments.filterTeleconsult', {
+                  defaultValue: 'Teleconsult',
+                })
+              : t('patient.appointments.filterInPerson', {
+                  defaultValue: 'In Person',
+                })
           }
         />
       ) : null}
       <KeyValue label={t('m.book.when')} value={selectedSlot ? formatDateTime(selectedSlot.iso) : t('patient.book.selectDateTime')} />
-      {selectedSlot ? <KeyValue label={t('m.book.duration')} value={t('shared.minutesUnit', { count: selectedSlot.durationMinutes })} /> : null}
+      {selectedSlot ? (
+        <KeyValue
+          label={t('m.book.duration')}
+          value={t('shared.minutesUnit', {
+            count: selectedSlot.durationMinutes,
+          })}
+        />
+      ) : null}
       {selectedDoctor?.consultationFee !== null && selectedDoctor?.consultationFee !== undefined ? (
         <KeyValue label={t('m.book.fee')} value={formatAed(selectedDoctor.consultationFee)} />
       ) : null}
@@ -476,6 +585,7 @@ export default function BookScreen(): React.ReactElement {
 
   return (
     <Screen
+      testID="screen-book"
       edgeTop
       keyboard
       footer={
@@ -517,7 +627,10 @@ export default function BookScreen(): React.ReactElement {
           <Text variant="micro" color="subtle">
             {(isRescheduling ? t('patient.book.titleReschedule') : t('patient.book.title')) +
               ' · ' +
-              t('m.common.stepOf', { current: stepIndex + 1, total: steps.length })}
+              t('m.common.stepOf', {
+                current: stepIndex + 1,
+                total: steps.length,
+              })}
           </Text>
           <Text variant="title" accessibilityRole="header">
             {stepTitle}
@@ -538,9 +651,33 @@ export default function BookScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  chip: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  day: { width: 76, borderWidth: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, alignItems: 'center', gap: 2 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  day: {
+    width: 76,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    gap: 2,
+  },
   slots: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  slot: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minWidth: 88, alignItems: 'center' },
+  slot: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minWidth: 88,
+    alignItems: 'center',
+  },
 });

@@ -2,7 +2,7 @@ import { FORM_FIELD_LIMITS } from '@ceenaix/shared/form-field-limits';
 import type { PreVisitAnswerDraft, PreVisitTemplateQuestionDraft } from '@ceenaix/shared/pre-visit';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   AiGeneratedTag,
@@ -32,6 +32,7 @@ import {
   needsAutofillConfirmation,
   persistPreVisitAssessment,
 } from '@/data/pre-visit';
+import { alertDialog } from '@/lib/dialog';
 import { usePreVisitAssessment } from '@/data/web/hooks/use-pre-visit';
 import { formatCanonicalValueForReview } from '@/data/web/lib/canonical-record-updates';
 import { formatDateTime } from '@/lib/format';
@@ -56,7 +57,11 @@ function OptionRow({ label, selected, multi, onPress }: { label: string; selecte
       }}
       style={({ pressed }) => [
         styles.option,
-        { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.tones.brand.bg : colors.surface, opacity: pressed ? 0.7 : 1 },
+        {
+          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? colors.tones.brand.bg : colors.surface,
+          opacity: pressed ? 0.7 : 1,
+        },
       ]}
     >
       <Icon
@@ -86,7 +91,16 @@ function QuestionInput({
 
   switch (question.type) {
     case 'long_text':
-      return <TextField value={text} onChangeText={onChange} multiline placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.clinicalNotes} accessibilityLabel={question.label} />;
+      return (
+        <TextField
+          value={text}
+          onChangeText={onChange}
+          multiline
+          placeholder={placeholder}
+          maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+          accessibilityLabel={question.label}
+        />
+      );
     case 'number':
       return <TextField value={text} onChangeText={onChange} keyboardType="decimal-pad" placeholder={placeholder} accessibilityLabel={question.label} />;
     case 'date':
@@ -95,7 +109,12 @@ function QuestionInput({
       return (
         <View style={{ gap: spacing.sm }}>
           {(['Yes', 'No'] as const).map((value) => (
-            <OptionRow key={value} label={value === 'Yes' ? t('m.preVisit.yes') : t('m.preVisit.no')} selected={text === value} onPress={() => onChange(value)} />
+            <OptionRow
+              key={value}
+              label={value === 'Yes' ? t('m.preVisit.yes') : t('m.preVisit.no')}
+              selected={text === value}
+              onPress={() => onChange(value)}
+            />
           ))}
         </View>
       );
@@ -125,7 +144,9 @@ function QuestionInput({
         </View>
       );
     default:
-      return <TextField value={text} onChangeText={onChange} placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.shortText} accessibilityLabel={question.label} />;
+      return (
+        <TextField value={text} onChangeText={onChange} placeholder={placeholder} maxLength={FORM_FIELD_LIMITS.shortText} accessibilityLabel={question.label} />
+      );
   }
 }
 
@@ -156,7 +177,11 @@ export default function PreVisitScreen(): React.ReactElement {
   const issues = useMemo(() => getRequiredQuestionIssues(questions, answers), [answers, questions]);
   const answerFor = (key: string) => answers.find((answer) => answer.questionKey === key);
 
-  const done = () => router.dismissTo({ pathname: '/appointments', params: { banner: 'previsit' } });
+  const done = () =>
+    router.dismissTo({
+      pathname: '/appointments',
+      params: { banner: 'previsit' },
+    });
 
   const run = async (kind: 'save' | 'complete', task: () => Promise<void>) => {
     setBusy(kind);
@@ -165,7 +190,10 @@ export default function PreVisitScreen(): React.ReactElement {
       await task();
     } catch (taskError) {
       haptics.error();
-      setFeedback({ tone: 'danger', message: taskError instanceof Error ? taskError.message : t('m.common.unexpected') });
+      setFeedback({
+        tone: 'danger',
+        message: taskError instanceof Error ? taskError.message : t('m.common.unexpected'),
+      });
     } finally {
       setBusy(null);
     }
@@ -215,9 +243,13 @@ export default function PreVisitScreen(): React.ReactElement {
       router.back();
       return;
     }
-    Alert.alert(t('m.preVisit.exitTitle'), t('m.preVisit.exitBody'), [
+    alertDialog(t('m.preVisit.exitTitle'), t('m.preVisit.exitBody'), [
       { text: t('m.preVisit.saveExit'), onPress: () => void save(true) },
-      { text: t('m.preVisit.exitWithout'), style: 'destructive', onPress: () => router.back() },
+      {
+        text: t('m.preVisit.exitWithout'),
+        style: 'destructive',
+        onPress: () => router.back(),
+      },
       { text: t('m.preVisit.keepGoing'), style: 'cancel' },
     ]);
   };
@@ -256,7 +288,7 @@ export default function PreVisitScreen(): React.ReactElement {
 
   if (loading && !data) {
     return (
-      <Screen edgeTop>
+      <Screen testID="screen-pre-visit" edgeTop>
         {topBar('')}
         <SkeletonList count={3} height={120} />
       </Screen>
@@ -264,7 +296,7 @@ export default function PreVisitScreen(): React.ReactElement {
   }
   if (error && !data) {
     return (
-      <Screen edgeTop>
+      <Screen testID="screen-pre-visit" edgeTop>
         {topBar('')}
         <ErrorState message={t('patient.preVisit.loadError')} onRetry={() => void refetch()} />
       </Screen>
@@ -272,7 +304,7 @@ export default function PreVisitScreen(): React.ReactElement {
   }
   if (!data) {
     return (
-      <Screen edgeTop>
+      <Screen testID="screen-pre-visit" edgeTop>
         {topBar('')}
         <EmptyState icon="clipboard-outline" title={t('m.preVisit.notFoundTitle')} body={t('m.preVisit.notFoundBody')} />
       </Screen>
@@ -287,6 +319,7 @@ export default function PreVisitScreen(): React.ReactElement {
     const started = answers.some((answer) => hasAnswerValue(answer));
     return (
       <Screen
+        testID="screen-pre-visit"
         edgeTop
         footer={
           <Button
@@ -329,7 +362,12 @@ export default function PreVisitScreen(): React.ReactElement {
 
   if (phase.kind === 'question') {
     const question = questions[Math.min(phase.index, questions.length - 1)];
-    if (!question) return <Screen edgeTop>{topBar('')}</Screen>;
+    if (!question)
+      return (
+        <Screen testID="screen-pre-visit" edgeTop>
+          {topBar('')}
+        </Screen>
+      );
     const answer = answerFor(question.key);
     const pendingAutofill = needsAutofillConfirmation(answer);
     const answered = hasAnswerValue(answer);
@@ -352,6 +390,7 @@ export default function PreVisitScreen(): React.ReactElement {
 
     return (
       <Screen
+        testID="screen-pre-visit"
         edgeTop
         keyboard
         footer={
@@ -370,7 +409,13 @@ export default function PreVisitScreen(): React.ReactElement {
           </View>
         }
       >
-        {topBar(t('m.preVisit.questionOf', { current: phase.index + 1, total: questions.length }), (phase.index + 1) / (questions.length + 1))}
+        {topBar(
+          t('m.preVisit.questionOf', {
+            current: phase.index + 1,
+            total: questions.length,
+          }),
+          (phase.index + 1) / (questions.length + 1)
+        )}
         <View style={{ gap: spacing.lg }}>
           <View style={{ gap: spacing.xs }}>
             <Text variant="micro" color={question.required ? 'danger' : 'subtle'}>
@@ -397,10 +442,17 @@ export default function PreVisitScreen(): React.ReactElement {
   if (phase.kind === 'updates') {
     return (
       <Screen
+        testID="screen-pre-visit"
         edgeTop
         footer={
           <View style={{ gap: spacing.sm }}>
-            <Button label={t('m.preVisit.applyFinish')} fullWidth loading={busy === 'complete'} disabled={busy !== null} onPress={() => void finishWithUpdates('apply')} />
+            <Button
+              label={t('m.preVisit.applyFinish')}
+              fullWidth
+              loading={busy === 'complete'}
+              disabled={busy !== null}
+              onPress={() => void finishWithUpdates('apply')}
+            />
             <Button label={t('m.preVisit.finishWithout')} variant="ghost" fullWidth disabled={busy !== null} onPress={() => void finishWithUpdates('skip')} />
           </View>
         }
@@ -413,7 +465,14 @@ export default function PreVisitScreen(): React.ReactElement {
           </Text>
           {data.pendingCanonicalUpdates.map((item) => (
             <Card key={item.id}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  marginBottom: spacing.sm,
+                }}
+              >
                 <Text variant="bodyStrong" style={{ flex: 1 }}>
                   {item.displayLabel}
                 </Text>
@@ -437,6 +496,7 @@ export default function PreVisitScreen(): React.ReactElement {
 
   return (
     <Screen
+      testID="screen-pre-visit"
       edgeTop
       footer={
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -475,7 +535,13 @@ export default function PreVisitScreen(): React.ReactElement {
           const missing = question.required && (!hasAnswerValue(answer) || needsAutofillConfirmation(answer));
           return (
             <Card key={question.key} onPress={() => setPhase({ kind: 'question', index })} accessibilityLabel={question.label}>
-              <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: spacing.sm,
+                  alignItems: 'flex-start',
+                }}
+              >
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text variant="captionStrong" color="muted">
                     {question.label}
@@ -491,14 +557,23 @@ export default function PreVisitScreen(): React.ReactElement {
         })}
         {assessment.summary ? (
           <Card tone="ai">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.sm,
+                marginBottom: spacing.sm,
+              }}
+            >
               <Text variant="bodyStrong" style={{ flex: 1 }}>
                 {t('m.preVisit.latestSummary')}
               </Text>
               <AiGeneratedTag />
             </View>
             <Text variant="micro" color="subtle" style={{ marginBottom: spacing.sm }}>
-              {t('m.preVisit.generated', { when: formatDateTime(assessment.summary.generatedAt) })}
+              {t('m.preVisit.generated', {
+                when: formatDateTime(assessment.summary.generatedAt),
+              })}
             </Text>
             <Text variant="body">{assessment.summary.summaryText}</Text>
           </Card>
@@ -509,6 +584,18 @@ export default function PreVisitScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  option: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1.5, borderRadius: radius.lg, padding: spacing.lg },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
 });

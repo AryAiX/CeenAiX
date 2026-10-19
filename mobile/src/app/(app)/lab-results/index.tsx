@@ -46,13 +46,21 @@ export default function LabResultsScreen(): React.ReactElement {
   const list = segment === 'results' ? resulted : upcoming;
 
   return (
-    <Screen onRefresh={labs.refetch} refreshing={labs.refreshing} staleSince={labs.staleSince}>
+    <Screen testID="screen-lab-results" onRefresh={labs.refetch} refreshing={labs.refreshing} staleSince={labs.staleSince}>
       <SegmentedControl<Segment>
         value={segment}
         onChange={setSegment}
         options={[
-          { value: 'results', label: t('m.labs.results'), count: resulted.length },
-          { value: 'upcoming', label: t('m.labs.upcoming'), count: upcoming.length },
+          {
+            value: 'results',
+            label: t('m.labs.results'),
+            count: resulted.length,
+          },
+          {
+            value: 'upcoming',
+            label: t('m.labs.upcoming'),
+            count: upcoming.length,
+          },
           { value: 'trends', label: t('m.labs.trends') },
         ]}
       />
@@ -77,7 +85,16 @@ export default function LabResultsScreen(): React.ReactElement {
           />
         ) : (
           list.map((order) => (
-            <OrderCard key={order.id} order={order} onPress={() => router.push({ pathname: '/lab-results/[id]', params: { id: order.id } })} />
+            <OrderCard
+              key={order.id}
+              order={order}
+              onPress={() =>
+                router.push({
+                  pathname: '/lab-results/[id]',
+                  params: { id: order.id },
+                })
+              }
+            />
           ))
         )}
       </View>
@@ -90,10 +107,16 @@ function OrderCard({ order, onPress }: { order: PatientLabOrderRecord; onPress: 
   const due =
     order.isUpcoming && order.daysUntilDue != null
       ? order.daysUntilDue < 0
-        ? { label: t('m.labs.overdue', { count: Math.abs(order.daysUntilDue) }), tone: 'danger' as const }
+        ? {
+            label: t('m.labs.overdue', { count: Math.abs(order.daysUntilDue) }),
+            tone: 'danger' as const,
+          }
         : order.daysUntilDue === 0
           ? { label: t('m.labs.dueToday'), tone: 'warning' as const }
-          : { label: t('m.labs.dueIn', { count: order.daysUntilDue }), tone: 'info' as const }
+          : {
+              label: t('m.labs.dueIn', { count: order.daysUntilDue }),
+              tone: 'info' as const,
+            }
       : null;
   return (
     <Card onPress={onPress}>
@@ -104,10 +127,25 @@ function OrderCard({ order, onPress }: { order: PatientLabOrderRecord; onPress: 
             {order.labName ?? order.lab_order_code ?? t('m.appointment.labOrder')}
           </Text>
           <Text variant="caption" color="muted" numberOfLines={1}>
-            {t('patient.labResults.orderedOn', { date: formatDate(order.ordered_at) })} · {order.doctorName ?? t('patient.labResults.orderedByFallback')}
+            {t('patient.labResults.orderedOn', {
+              date: formatDate(order.ordered_at),
+            })}{' '}
+            · {order.doctorName ?? t('patient.labResults.orderedByFallback')}
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm }}>
-            <Pill label={t(`shared.labOrderStatus.${order.status}`, { defaultValue: order.status })} tone={labStatusTone(order.status)} />
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: spacing.xs,
+              marginTop: spacing.sm,
+            }}
+          >
+            <Pill
+              label={t(`shared.labOrderStatus.${order.status}`, {
+                defaultValue: order.status,
+              })}
+              tone={labStatusTone(order.status)}
+            />
             <Pill label={t('m.labs.tests', { count: order.parentItems.length })} tone="neutral" />
             {order.abnormalCount > 0 ? <Pill icon="alert-circle" label={t('patient.labResults.abnormalBadge')} tone="warning" /> : null}
             {!order.isUpcoming && order.abnormalCount === 0 && order.resultedCount > 0 ? (
@@ -137,7 +175,14 @@ function TrendCard({ series }: { series: PatientLabTrendSeries }): React.ReactEl
           : null;
   return (
     <Card>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: spacing.sm,
+        }}
+      >
         <View style={{ flex: 1 }}>
           <Text variant="bodyStrong">{series.testName}</Text>
           <Text variant="caption" color="muted">
@@ -151,7 +196,15 @@ function TrendCard({ series }: { series: PatientLabTrendSeries }): React.ReactEl
           />
         ) : null}
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 96, marginTop: spacing.md }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          gap: spacing.sm,
+          height: 96,
+          marginTop: spacing.md,
+        }}
+      >
         {series.points.map((point) => (
           <View key={`${point.orderId}-${point.visitDate}`} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
             <Text variant="micro" color="muted">

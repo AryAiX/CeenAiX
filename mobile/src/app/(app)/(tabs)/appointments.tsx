@@ -51,15 +51,11 @@ export default function AppointmentsScreen(): React.ReactElement {
     const now = minute;
     const filtered = list.appointments.filter((appointment) => typeFilter === 'all' || appointment.type === typeFilter);
     const upcoming = filtered.filter((appointment) => isUpcomingAppointment(appointment, now));
-    const cancelled = filtered
-      .filter((appointment) => CANCELLED_STATUSES.has(appointment.status))
-      .sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
+    const cancelled = filtered.filter((appointment) => CANCELLED_STATUSES.has(appointment.status)).sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
     const past = filtered
       .filter(
         (appointment) =>
-          !CANCELLED_STATUSES.has(appointment.status) &&
-          !isUpcomingAppointment(appointment, now) &&
-          new Date(appointment.scheduled_at).getTime() < now
+          !CANCELLED_STATUSES.has(appointment.status) && !isUpcomingAppointment(appointment, now) && new Date(appointment.scheduled_at).getTime() < now
       )
       .sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
     return { upcoming, past, cancelled };
@@ -72,15 +68,21 @@ export default function AppointmentsScreen(): React.ReactElement {
   const bannerKey = banner ? BANNERS[banner] : undefined;
 
   return (
-    <Screen edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
+    <Screen testID="screen-appointments" edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
       <ScreenTitle
         title={t('patient.appointments.title')}
-        right={<IconButton name="add" accessibilityLabel={t('patient.appointments.book')} onPress={() => router.push('/book')} />}
+        right={<IconButton testID="btn-book-appointment" name="add" accessibilityLabel={t('patient.appointments.book')} onPress={() => router.push('/book')} />}
       />
-      {bannerKey ? <InlineMessage tone="success" message={t(bannerKey)} /> : null}
+      {bannerKey ? <InlineMessage testID="banner-appointments" tone="success" message={t(bannerKey)} /> : null}
       {nextTeleconsult ? (
-        <Card tone="brand" style={{ marginTop: spacing.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <Card testID="card-next-teleconsult" tone="brand" style={{ marginTop: spacing.md }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+            }}
+          >
             <IconBadge name="videocam" />
             <View style={{ flex: 1 }}>
               <Text variant="bodyStrong">
@@ -95,31 +97,63 @@ export default function AppointmentsScreen(): React.ReactElement {
           </View>
           <View style={{ marginTop: spacing.md }}>
             <Button
+              testID="btn-join-waiting-room"
               label={t('patient.appointments.joinWaitingRoom')}
               icon="videocam"
               fullWidth
-              onPress={() => router.push({ pathname: '/visit/[id]', params: { id: nextTeleconsult.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/visit/[id]',
+                  params: { id: nextTeleconsult.id },
+                })
+              }
             />
           </View>
         </Card>
       ) : null}
-      <View style={{ gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.lg }}>
+      <View
+        style={{
+          gap: spacing.sm,
+          marginTop: spacing.lg,
+          marginBottom: spacing.lg,
+        }}
+      >
         <SegmentedControl
+          testID="segment-appointments-status"
           value={segment}
           onChange={setSegment}
           options={[
-            { value: 'upcoming', label: t('patient.appointments.filterUpcoming'), count: groups.upcoming.length },
-            { value: 'past', label: t('patient.appointments.filterCompleted'), count: groups.past.length },
-            { value: 'cancelled', label: t('patient.appointments.filterCancelled'), count: groups.cancelled.length },
+            {
+              value: 'upcoming',
+              label: t('patient.appointments.filterUpcoming'),
+              count: groups.upcoming.length,
+            },
+            {
+              value: 'past',
+              label: t('patient.appointments.filterCompleted'),
+              count: groups.past.length,
+            },
+            {
+              value: 'cancelled',
+              label: t('patient.appointments.filterCancelled'),
+              count: groups.cancelled.length,
+            },
           ]}
         />
         <SegmentedControl
+          testID="segment-appointments-type"
           value={typeFilter}
           onChange={setTypeFilter}
           options={[
             { value: 'all', label: t('patient.appointments.filterAll') },
-            { value: 'in_person', label: t('patient.appointments.filterInPerson') },
-            { value: 'virtual', label: t('patient.appointments.filterTeleconsult') },
+            {
+              value: 'in_person',
+              label: t('patient.appointments.filterInPerson'),
+            },
+            {
+              value: 'virtual',
+              label: t('patient.appointments.filterTeleconsult'),
+            },
           ]}
         />
       </View>
@@ -129,13 +163,18 @@ export default function AppointmentsScreen(): React.ReactElement {
         <ErrorState message={t('patient.appointments.loadError')} onRetry={() => void list.refetch()} />
       ) : list.appointments.length === 0 ? (
         <EmptyState
+          testID="state-empty-appointments"
           icon="calendar-outline"
           title={t('patient.appointments.emptyTitle')}
           body={t('patient.appointments.emptyBody')}
-          action={{ label: t('patient.appointments.book'), onPress: () => router.push('/book') }}
+          action={{
+            label: t('patient.appointments.book'),
+            onPress: () => router.push('/book'),
+          }}
         />
       ) : visible.length === 0 ? (
         <EmptyState
+          testID="state-empty-appointments-filtered"
           icon="search-outline"
           title={segment === 'upcoming' ? t('patient.appointments.noUpcomingTitle') : t('patient.appointments.noResultsFilters')}
           body={segment === 'upcoming' ? t('patient.appointments.noUpcomingBody') : t('patient.appointments.noResultsFiltersSub')}

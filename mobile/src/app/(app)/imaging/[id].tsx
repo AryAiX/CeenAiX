@@ -19,7 +19,7 @@ export default function ImagingStudyScreen(): React.ReactElement {
 
   if (imaging.loading) {
     return (
-      <Screen>
+      <Screen testID="screen-imaging-detail">
         <View style={{ gap: spacing.md }}>
           <Skeleton height={110} rounded={radius.xl} />
           <Skeleton height={140} />
@@ -29,14 +29,14 @@ export default function ImagingStudyScreen(): React.ReactElement {
   }
   if (!imaging.data && imaging.error) {
     return (
-      <Screen>
+      <Screen testID="screen-imaging-detail">
         <ErrorState message={t('patient.imaging.loadError')} onRetry={() => void imaging.refetch()} />
       </Screen>
     );
   }
   if (!study) {
     return (
-      <Screen>
+      <Screen testID="screen-imaging-detail">
         <EmptyState icon="scan-outline" title={t('patient.imaging.emptyTitle')} />
       </Screen>
     );
@@ -50,11 +50,17 @@ export default function ImagingStudyScreen(): React.ReactElement {
   ].filter((section): section is { title: string; body: string } => Boolean(section.body?.trim()));
 
   return (
-    <Screen onRefresh={imaging.refetch} refreshing={imaging.refreshing} staleSince={imaging.staleSince}>
+    <Screen testID="screen-imaging-detail" onRefresh={imaging.refetch} refreshing={imaging.refreshing} staleSince={imaging.staleSince}>
       <Stack.Screen options={{ title: study.modality }} />
       <Card tone="ai">
         <Text variant="title">{study.studyName}</Text>
-        <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: spacing.xs,
+            marginTop: spacing.sm,
+          }}
+        >
           <Pill label={released ? t('patient.imaging.reviewed') : t('patient.imaging.awaitingReview')} tone={released ? 'success' : 'warning'} />
         </View>
       </Card>

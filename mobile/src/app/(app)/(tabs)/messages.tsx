@@ -2,18 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Avatar,
-  Card,
-  EmptyState,
-  ErrorState,
-  Pill,
-  Screen,
-  ScreenTitle,
-  SkeletonList,
-  Text,
-  TextField,
-} from '@/components/ui';
+import { Avatar, Card, EmptyState, ErrorState, Pill, Screen, ScreenTitle, SkeletonList, Text, TextField } from '@/components/ui';
 import { useConversationList } from '@/data/messaging';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
 import { formatRelative } from '@/lib/format';
@@ -44,17 +33,21 @@ export default function MessagesScreen(): React.ReactElement {
     const query = search.trim().toLowerCase();
     const rows = list.data ?? [];
     if (!query) return rows;
-    return rows.filter((row) =>
-      [row.counterpart.name, row.subject, row.lastMessagePreview].some((value) => value?.toLowerCase().includes(query))
-    );
+    return rows.filter((row) => [row.counterpart.name, row.subject, row.lastMessagePreview].some((value) => value?.toLowerCase().includes(query)));
   }, [list.data, search]);
 
   return (
-    <Screen edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
-      <ScreenTitle title={t('patient.messages.title')} subtitle={t('patient.messages.conversationCount', { count: list.data?.length ?? 0 })} />
+    <Screen testID="screen-messages" edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
+      <ScreenTitle
+        title={t('patient.messages.title')}
+        subtitle={t('patient.messages.conversationCount', {
+          count: list.data?.length ?? 0,
+        })}
+      />
       {(list.data?.length ?? 0) > 3 ? (
         <View style={{ marginBottom: spacing.md }}>
           <TextField
+            testID="input-messages-search"
             accessibilityLabel={t('patient.messages.searchPlaceholder')}
             placeholder={t('patient.messages.searchPlaceholder')}
             value={search}
@@ -69,9 +62,14 @@ export default function MessagesScreen(): React.ReactElement {
       ) : !list.data && list.error ? (
         <ErrorState message={t('patient.messages.loadError')} onRetry={() => void list.refetch()} />
       ) : (list.data?.length ?? 0) === 0 ? (
-        <EmptyState icon="chatbubbles-outline" title={t('patient.messages.noneTitle')} body={t('patient.messages.noneBody')} />
+        <EmptyState testID="state-empty-messages" icon="chatbubbles-outline" title={t('patient.messages.noneTitle')} body={t('patient.messages.noneBody')} />
       ) : conversations.length === 0 ? (
-        <EmptyState icon="search" title={t('patient.messages.noResultsTitle')} body={t('patient.messages.noResultsBody')} />
+        <EmptyState
+          testID="state-empty-messages-search"
+          icon="search"
+          title={t('patient.messages.noResultsTitle')}
+          body={t('patient.messages.noResultsBody')}
+        />
       ) : (
         <View style={{ gap: spacing.sm }}>
           {conversations.map((conversation) => {
@@ -79,13 +77,31 @@ export default function MessagesScreen(): React.ReactElement {
             return (
               <Card
                 key={conversation.id}
+                testID={`conversation-card-${conversation.id}`}
                 accessibilityLabel={`${conversation.counterpart.name}. ${conversation.lastMessagePreview ?? ''}`}
-                onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: conversation.id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/conversation/[id]',
+                    params: { id: conversation.id },
+                  })
+                }
               >
-                <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: spacing.md,
+                    alignItems: 'center',
+                  }}
+                >
                   <Avatar name={conversation.counterpart.name} size={48} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        gap: spacing.sm,
+                      }}
+                    >
                       <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
                         {conversation.counterpart.name}
                       </Text>
@@ -98,11 +114,24 @@ export default function MessagesScreen(): React.ReactElement {
                         {conversation.subject}
                       </Text>
                     ) : null}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                      }}
+                    >
                       <Text variant="caption" color={unread ? 'default' : 'muted'} numberOfLines={1} style={{ flex: 1 }}>
                         {conversation.lastMessagePreview ?? t('patient.messages.emptyPreview')}
                       </Text>
-                      {unread ? <Pill label={t('patient.messages.unreadCount', { count: conversation.unreadCount })} tone="brand" /> : null}
+                      {unread ? (
+                        <Pill
+                          label={t('patient.messages.unreadCount', {
+                            count: conversation.unreadCount,
+                          })}
+                          tone="brand"
+                        />
+                      ) : null}
                     </View>
                   </View>
                 </View>

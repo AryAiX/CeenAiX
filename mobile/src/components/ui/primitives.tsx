@@ -1,21 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
-import {
-  I18nManager,
-  Pressable,
-  StyleSheet,
-  Text as RNText,
-  View,
-  type StyleProp,
-  type TextProps as RNTextProps,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, Text as RNText, View, type StyleProp, type TextProps as RNTextProps, type TextStyle, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { initialsOf } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import { useTheme } from '@/theme/theme-provider';
+import { isAppRtl } from '@/lib/rtl';
 import { radius, spacing, typography, type Tone, type TypographyVariant } from '@/theme/tokens';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
@@ -45,7 +36,15 @@ export function Text({ variant = 'body', color = 'default', align = 'auto', styl
   return (
     <RNText
       {...rest}
-      style={[typography[variant] as TextStyle, { color: colorValue, textAlign: align, writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr' }, style]}
+      style={[
+        typography[variant] as TextStyle,
+        {
+          color: colorValue,
+          textAlign: align,
+          writingDirection: isAppRtl() ? 'rtl' : 'ltr',
+        },
+        style,
+      ]}
     />
   );
 }
@@ -53,14 +52,14 @@ export function Text({ variant = 'body', color = 'default', align = 'auto', styl
 export function Icon({ name, size = 20, color, flipRtl }: { name: IconName; size?: number; color?: string; flipRtl?: boolean }): React.ReactElement {
   const { colors } = useTheme();
   const icon = <Ionicons name={name} size={size} color={color ?? colors.textMuted} />;
-  return flipRtl && I18nManager.isRTL ? <View style={styles.flip}>{icon}</View> : icon;
+  return flipRtl && isAppRtl() ? <View style={styles.flip}>{icon}</View> : icon;
 }
 
 /** Forward chevron that points the right way in RTL. */
 export function Chevron({ color }: { color?: string }): React.ReactElement {
   const { colors } = useTheme();
   return (
-    <View style={I18nManager.isRTL ? styles.flip : undefined}>
+    <View style={isAppRtl() ? styles.flip : undefined}>
       <Ionicons name="chevron-forward" size={18} color={color ?? colors.textSubtle} />
     </View>
   );
@@ -73,9 +72,10 @@ interface CardProps {
   tone?: Tone;
   padded?: boolean;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
-export function Card({ children, style, onPress, tone, padded = true, accessibilityLabel }: CardProps): React.ReactElement {
+export function Card({ children, style, onPress, tone, padded = true, accessibilityLabel, testID }: CardProps): React.ReactElement {
   const { colors, isDark } = useTheme();
   const base: ViewStyle = {
     backgroundColor: tone ? colors.tones[tone].bg : colors.surface,
@@ -85,9 +85,15 @@ export function Card({ children, style, onPress, tone, padded = true, accessibil
     padding: padded ? spacing.lg : 0,
     ...(isDark ? {} : styles.shadow),
   };
-  if (!onPress) return <View style={[base, style]}>{children}</View>;
+  if (!onPress)
+    return (
+      <View testID={testID} style={[base, style]}>
+        {children}
+      </View>
+    );
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={() => {
@@ -169,12 +175,14 @@ interface IconButtonProps {
   accessibilityLabel: string;
   badge?: number;
   variant?: 'plain' | 'filled';
+  testID?: string;
 }
 
-export function IconButton({ name, onPress, accessibilityLabel, badge, variant = 'filled' }: IconButtonProps): React.ReactElement {
+export function IconButton({ name, onPress, accessibilityLabel, badge, variant = 'filled', testID }: IconButtonProps): React.ReactElement {
   const { colors } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
@@ -184,7 +192,11 @@ export function IconButton({ name, onPress, accessibilityLabel, badge, variant =
       }}
       style={({ pressed }) => [
         styles.iconButton,
-        variant === 'filled' && { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth },
+        variant === 'filled' && {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          borderWidth: StyleSheet.hairlineWidth,
+        },
         pressed && { opacity: 0.7 },
       ]}
     >
@@ -208,6 +220,7 @@ interface ListRowProps {
   onPress?: () => void;
   showChevron?: boolean;
   destructive?: boolean;
+  testID?: string;
 }
 
 export function ListRow({
@@ -220,9 +233,10 @@ export function ListRow({
   onPress,
   showChevron = Boolean(onPress),
   destructive,
+  testID,
 }: ListRowProps): React.ReactElement {
   const content = (
-    <View style={styles.row}>
+    <View testID={onPress ? undefined : testID} style={styles.row}>
       {leading ?? (icon ? <IconBadge name={icon} tone={destructive ? 'danger' : iconTone} size={36} /> : null)}
       <View style={styles.rowBody}>
         <Text variant="bodyStrong" color={destructive ? 'danger' : 'default'} numberOfLines={2}>
@@ -241,7 +255,9 @@ export function ListRow({
   if (!onPress) return content;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={title}
       onPress={() => {
         haptics.tap();
         onPress();
@@ -255,7 +271,15 @@ export function ListRow({
 
 export function Divider(): React.ReactElement {
   const { colors } = useTheme();
-  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: spacing.xs }} />;
+  return (
+    <View
+      style={{
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: colors.border,
+        marginVertical: spacing.xs,
+      }}
+    />
+  );
 }
 
 export function Section({
@@ -263,19 +287,28 @@ export function Section({
   action,
   children,
   style,
+  testID,
 }: {
   title?: string;
   action?: { label: string; onPress: () => void };
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Section id, e.g. `section-medications`; the header action becomes `${testID}-action`. */
+  testID?: string;
 }): React.ReactElement {
   return (
-    <View style={[{ marginTop: spacing.xxl }, style]}>
+    <View testID={testID} style={[{ marginTop: spacing.xxl }, style]}>
       {title ? (
         <View style={styles.sectionHeader}>
           <Text variant="heading">{title}</Text>
           {action ? (
-            <Pressable accessibilityRole="button" onPress={action.onPress} hitSlop={8}>
+            <Pressable
+              testID={testID ? `${testID}-action` : undefined}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              onPress={action.onPress}
+              hitSlop={8}
+            >
               <Text variant="captionStrong" color="primary">
                 {action.label}
               </Text>
@@ -309,7 +342,10 @@ export function ProgressBar({ value, tone = 'brand' }: { value: number; tone?: T
       <View
         style={[
           styles.progressFill,
-          { width: `${clamped * 100}%`, backgroundColor: tone === 'brand' ? colors.primary : colors.tones[tone].fg },
+          {
+            width: `${clamped * 100}%`,
+            backgroundColor: tone === 'brand' ? colors.primary : colors.tones[tone].fg,
+          },
         ]}
       />
     </View>
@@ -354,7 +390,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
   rowBody: { flex: 1, gap: 2 },
   sectionHeader: {
     flexDirection: 'row',
@@ -362,7 +403,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
-  keyValue: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.sm },
+  keyValue: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: 8, borderRadius: 4 },
 });

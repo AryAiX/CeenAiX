@@ -55,7 +55,10 @@ export default function InsuranceScreen(): React.ReactElement {
   const totals = useMemo(
     () =>
       activity.reduce(
-        (sum, row) => ({ covered: sum.covered + row.coveredEstimate, patient: sum.patient + row.patientShareEstimate }),
+        (sum, row) => ({
+          covered: sum.covered + row.coveredEstimate,
+          patient: sum.patient + row.patientShareEstimate,
+        }),
         { covered: 0, patient: 0 }
       ),
     [activity]
@@ -63,7 +66,7 @@ export default function InsuranceScreen(): React.ReactElement {
 
   if (insurance.loading) {
     return (
-      <Screen>
+      <Screen testID="screen-insurance">
         <View style={{ gap: spacing.md }}>
           <Skeleton height={190} rounded={radius.xl} />
           <Skeleton height={100} />
@@ -74,7 +77,7 @@ export default function InsuranceScreen(): React.ReactElement {
   }
   if (!insurance.data && insurance.error) {
     return (
-      <Screen>
+      <Screen testID="screen-insurance">
         <ErrorState message={t('patient.insurance.loadError')} onRetry={() => void insurance.refetch()} />
       </Screen>
     );
@@ -103,19 +106,62 @@ export default function InsuranceScreen(): React.ReactElement {
     void Linking.openURL(`mailto:?subject=${subject}&body=${body}`);
   };
 
-  const benefits: Array<{ icon: IconName; name: string; value: string; note: string }> = [
-    { icon: 'medkit-outline', name: t('patient.insurance.benefitSpecialists'), value: covered == null ? '—' : `${covered}%`, note: t('patient.insurance.benefitSpecialistsNote') },
-    { icon: 'flask-outline', name: t('patient.insurance.benefitLabs'), value: covered == null ? '—' : `${covered}%`, note: t('patient.insurance.benefitLabsNote') },
-    { icon: 'bandage-outline', name: t('patient.insurance.benefitPharmacy'), value: t('patient.insurance.pharmacyCoPayNote'), note: t('patient.insurance.benefitPharmacyNote') },
-    { icon: 'videocam-outline', name: t('patient.insurance.benefitTelehealth'), value: covered == null ? '—' : `${covered}%`, note: t('patient.insurance.benefitTelehealthNote') },
-    { icon: 'heart-outline', name: t('patient.insurance.benefitPreventive'), value: t('patient.insurance.noCopay'), note: t('patient.insurance.benefitPreventiveNote') },
+  const benefits: Array<{
+    icon: IconName;
+    name: string;
+    value: string;
+    note: string;
+  }> = [
+    {
+      icon: 'medkit-outline',
+      name: t('patient.insurance.benefitSpecialists'),
+      value: covered == null ? '—' : `${covered}%`,
+      note: t('patient.insurance.benefitSpecialistsNote'),
+    },
+    {
+      icon: 'flask-outline',
+      name: t('patient.insurance.benefitLabs'),
+      value: covered == null ? '—' : `${covered}%`,
+      note: t('patient.insurance.benefitLabsNote'),
+    },
+    {
+      icon: 'bandage-outline',
+      name: t('patient.insurance.benefitPharmacy'),
+      value: t('patient.insurance.pharmacyCoPayNote'),
+      note: t('patient.insurance.benefitPharmacyNote'),
+    },
+    {
+      icon: 'videocam-outline',
+      name: t('patient.insurance.benefitTelehealth'),
+      value: covered == null ? '—' : `${covered}%`,
+      note: t('patient.insurance.benefitTelehealthNote'),
+    },
+    {
+      icon: 'heart-outline',
+      name: t('patient.insurance.benefitPreventive'),
+      value: t('patient.insurance.noCopay'),
+      note: t('patient.insurance.benefitPreventiveNote'),
+    },
   ];
 
   return (
-    <Screen onRefresh={insurance.refetch} refreshing={insurance.refreshing} staleSince={insurance.staleSince}>
+    <Screen testID="screen-insurance" onRefresh={insurance.refetch} refreshing={insurance.refreshing} staleSince={insurance.staleSince}>
       {plan ? (
-        <View style={{ borderRadius: radius.xl, padding: spacing.xl, backgroundColor: colors.primary, gap: spacing.md }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <View
+          style={{
+            borderRadius: radius.xl,
+            padding: spacing.xl,
+            backgroundColor: colors.primary,
+            gap: spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}
+          >
             <View style={{ flex: 1 }}>
               <Text variant="micro" style={{ color: colors.primaryText, opacity: 0.8 }}>
                 {plan.providerCompany}
@@ -124,7 +170,10 @@ export default function InsuranceScreen(): React.ReactElement {
                 {plan.planName}
               </Text>
             </View>
-            <Pill label={plan.isActive ? t('patient.insurance.activeBadge') : t('patient.insurance.notLinkedBadge')} tone={plan.isActive ? 'success' : 'neutral'} />
+            <Pill
+              label={plan.isActive ? t('patient.insurance.activeBadge') : t('patient.insurance.notLinkedBadge')}
+              tone={plan.isActive ? 'success' : 'neutral'}
+            />
           </View>
           <View>
             <Text variant="micro" style={{ color: colors.primaryText, opacity: 0.8 }}>
@@ -158,16 +207,32 @@ export default function InsuranceScreen(): React.ReactElement {
           icon="shield-outline"
           title={t('patient.insurance.noInsuranceProvider')}
           body={t('patient.insurance.noPlan')}
-          action={{ label: t('nav.profile'), onPress: () => router.push('/profile') }}
+          action={{
+            label: t('nav.profile'),
+            onPress: () => router.push('/profile'),
+          }}
         />
       )}
 
       {plan ? (
         <>
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: spacing.sm,
+              marginTop: spacing.md,
+            }}
+          >
             {plan.cardPhotoUrl ? (
               <View style={{ flex: 1 }}>
-                <Button label={t('patient.insurance.viewDocument')} icon="card-outline" size="sm" variant="secondary" fullWidth onPress={() => void WebBrowser.openBrowserAsync(plan.cardPhotoUrl ?? '')} />
+                <Button
+                  label={t('patient.insurance.viewDocument')}
+                  icon="card-outline"
+                  size="sm"
+                  variant="secondary"
+                  fullWidth
+                  onPress={() => void WebBrowser.openBrowserAsync(plan.cardPhotoUrl ?? '')}
+                />
               </View>
             ) : null}
             <View style={{ flex: 1 }}>
@@ -183,7 +248,12 @@ export default function InsuranceScreen(): React.ReactElement {
             <KeyValue label={t('patient.insurance.copay')} value={coPay == null ? '—' : t('patient.insurance.coPayPct', { percent: coPay })} />
             {limit ? (
               <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}
+                >
                   <Text variant="caption" color="muted">
                     {t('patient.insurance.usedThisYear')}
                   </Text>
@@ -203,7 +273,11 @@ export default function InsuranceScreen(): React.ReactElement {
           value={segment}
           onChange={setSegment}
           options={[
-            { value: 'activity', label: t('patient.insurance.tabClaims'), count: activity.length },
+            {
+              value: 'activity',
+              label: t('patient.insurance.tabClaims'),
+              count: activity.length,
+            },
             { value: 'benefits', label: t('patient.insurance.tabBenefits') },
           ]}
         />
@@ -216,7 +290,13 @@ export default function InsuranceScreen(): React.ReactElement {
               <View style={{ flexDirection: 'row', gap: spacing.md }}>
                 <IconBadge name={benefit.icon} tone="brand" size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                    }}
+                  >
                     <Text variant="bodyStrong" style={{ flex: 1 }}>
                       {benefit.name}
                     </Text>
@@ -242,10 +322,22 @@ export default function InsuranceScreen(): React.ReactElement {
             <ChoiceChips<StatusFilter>
               options={[
                 { value: 'all', label: t('patient.insurance.filterAll') },
-                { value: 'approved', label: t('patient.insurance.status.approved') },
-                { value: 'pending', label: t('patient.insurance.status.pending') },
-                { value: 'review', label: t('patient.insurance.status.review') },
-                { value: 'denied', label: t('patient.insurance.status.denied') },
+                {
+                  value: 'approved',
+                  label: t('patient.insurance.status.approved'),
+                },
+                {
+                  value: 'pending',
+                  label: t('patient.insurance.status.pending'),
+                },
+                {
+                  value: 'review',
+                  label: t('patient.insurance.status.review'),
+                },
+                {
+                  value: 'denied',
+                  label: t('patient.insurance.status.denied'),
+                },
               ]}
               selected={[status]}
               onToggle={setStatus}
@@ -255,7 +347,13 @@ export default function InsuranceScreen(): React.ReactElement {
             ) : (
               visible.map((row) => (
                 <Card key={row.id}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                    }}
+                  >
                     <View style={{ flex: 1 }}>
                       <Text variant="bodyStrong" numberOfLines={2}>
                         {row.service}
@@ -266,7 +364,13 @@ export default function InsuranceScreen(): React.ReactElement {
                     </View>
                     <Pill label={t(`patient.insurance.status.${row.status}`)} tone={STATUS_TONE[row.status]} />
                   </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginTop: spacing.md,
+                    }}
+                  >
                     <Text variant="micro" color="subtle">
                       {row.referenceCode}
                     </Text>

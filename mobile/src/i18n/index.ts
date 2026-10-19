@@ -8,7 +8,8 @@ import enInsurancePage from '@ceenaix/locales/en/insurancePage.json';
 import { getLocales } from 'expo-localization';
 import * as Updates from 'expo-updates';
 import i18n from 'i18next';
-import { I18nManager } from 'react-native';
+import { I18nManager, Platform } from 'react-native';
+import { isAppRtl } from '@/lib/rtl';
 import { initReactI18next } from 'react-i18next';
 import { mobileAr } from './strings/ar';
 import { mobileEn } from './strings/en';
@@ -19,8 +20,7 @@ export const LOCALE_STORAGE_KEY = 'ceenaix.lang';
 
 export type AppLanguage = 'en' | 'ar';
 
-const deviceLanguage = (): AppLanguage =>
-  (getLocales()[0]?.languageCode ?? 'en').startsWith('ar') ? 'ar' : 'en';
+const deviceLanguage = (): AppLanguage => ((getLocales()[0]?.languageCode ?? 'en').startsWith('ar') ? 'ar' : 'en');
 
 export const isRtlLanguage = (lng: string): boolean => lng.startsWith('ar');
 
@@ -36,8 +36,12 @@ export async function initI18n(): Promise<void> {
 
   await i18n.use(initReactI18next).init({
     resources: {
-      en: { common: { ...enCommon, ...enExtra, ...enInsurancePage, m: mobileEn } },
-      ar: { common: { ...arCommon, ...arExtra, ...arInsurancePage, m: mobileAr } },
+      en: {
+        common: { ...enCommon, ...enExtra, ...enInsurancePage, m: mobileEn },
+      },
+      ar: {
+        common: { ...arCommon, ...arExtra, ...arInsurancePage, m: mobileAr },
+      },
     },
     lng,
     fallbackLng: 'en',
@@ -51,6 +55,13 @@ export async function initI18n(): Promise<void> {
   if (I18nManager.isRTL !== isRtlLanguage(lng)) {
     I18nManager.forceRTL(isRtlLanguage(lng));
   }
+  setDocumentDirection(lng);
+}
+
+function setDocumentDirection(lng: string): void {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+  document.documentElement.dir = isRtlLanguage(lng) ? 'rtl' : 'ltr';
+  document.documentElement.lang = lng;
 }
 
 /** Switches language; returns true when a reload is needed to flip layout direction. */
@@ -58,12 +69,19 @@ export async function changeLanguage(lng: AppLanguage): Promise<boolean> {
   await i18n.changeLanguage(lng);
   await AsyncStorage.setItem(LOCALE_STORAGE_KEY, lng).catch(() => undefined);
   const wantsRtl = isRtlLanguage(lng);
+  const wasRtl = isAppRtl();
+  setDocumentDirection(lng);
+  if (Platform.OS === 'web') return wasRtl !== wantsRtl;
   if (I18nManager.isRTL === wantsRtl) return false;
   I18nManager.forceRTL(wantsRtl);
   return true;
 }
 
 export async function reloadApp(): Promise<void> {
+  if (Platform.OS === 'web') {
+    window.location.reload();
+    return;
+  }
   try {
     await Updates.reloadAsync();
   } catch {

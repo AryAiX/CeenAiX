@@ -30,9 +30,7 @@ export interface VaccinationInput {
 }
 
 export type RecordInput =
-  | { category: 'condition'; values: ConditionInput }
-  | { category: 'allergy'; values: AllergyInput }
-  | { category: 'vaccination'; values: VaccinationInput };
+  { category: 'condition'; values: ConditionInput } | { category: 'allergy'; values: AllergyInput } | { category: 'vaccination'; values: VaccinationInput };
 
 const TABLE: Record<RecordCategory, 'medical_conditions' | 'allergies' | 'vaccinations'> = {
   condition: 'medical_conditions',

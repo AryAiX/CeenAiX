@@ -2,8 +2,9 @@ import { PATIENT_RECORD_FIELD_LIMITS } from '@ceenaix/shared/form-field-limits';
 import type { AllergySeverity, ConditionStatus } from '@ceenaix/types';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { alertDialog } from '@/lib/dialog';
 import { Button, DateField, ErrorState, InlineMessage, Screen, SegmentedControl, Skeleton, StickyFooter, Text, TextField, ToggleRow } from '@/components/ui';
 import {
   saveRecord,
@@ -22,8 +23,7 @@ import { spacing } from '@/theme/tokens';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
-const isCategory = (value: string | undefined): value is RecordCategory =>
-  value === 'condition' || value === 'allergy' || value === 'vaccination';
+const isCategory = (value: string | undefined): value is RecordCategory => value === 'condition' || value === 'allergy' || value === 'vaccination';
 
 export default function RecordFormSheet(): React.ReactElement {
   const params = useLocalSearchParams<{ category?: string; id?: string }>();
@@ -31,7 +31,7 @@ export default function RecordFormSheet(): React.ReactElement {
   const records = useOfflineCache(usePatientRecords(user?.id), user ? `records:${user.id}` : null);
   if (params.id && !records.data) {
     return (
-      <Screen>
+      <Screen testID="screen-record-form">
         {records.error ? (
           <ErrorState message={records.error} onRetry={() => void records.refetch()} />
         ) : (
@@ -44,7 +44,14 @@ export default function RecordFormSheet(): React.ReactElement {
       </Screen>
     );
   }
-  return <RecordForm data={records.data} onSaved={() => void records.refetch()} category={isCategory(params.category) ? params.category : 'condition'} recordId={params.id} />;
+  return (
+    <RecordForm
+      data={records.data}
+      onSaved={() => void records.refetch()}
+      category={isCategory(params.category) ? params.category : 'condition'}
+      recordId={params.id}
+    />
+  );
 }
 
 function RecordForm({
@@ -92,11 +99,7 @@ function RecordForm({
   const [error, setError] = useState<string | null>(null);
 
   const title =
-    category === 'condition'
-      ? t('patient.records.addCondition')
-      : category === 'allergy'
-        ? t('patient.records.addAllergy')
-        : t('patient.records.addVax');
+    category === 'condition' ? t('patient.records.addCondition') : category === 'allergy' ? t('patient.records.addAllergy') : t('patient.records.addVax');
   const categoryLabel =
     category === 'condition'
       ? t('patient.records.categoryCondition')
@@ -141,7 +144,7 @@ function RecordForm({
   const confirmDelete = () => {
     if (!user || !params.id) return;
     const recordId = params.id;
-    Alert.alert(t('patient.records.remove'), t('m.records.confirmRemove', { category: categoryLabel }), [
+    alertDialog(t('patient.records.remove'), t('m.records.confirmRemove', { category: categoryLabel }), [
       { text: t('patient.records.cancel'), style: 'cancel' },
       {
         text: t('patient.records.remove'),
@@ -168,10 +171,18 @@ function RecordForm({
 
   return (
     <Screen
+      testID="screen-record-form"
       keyboard
       footer={
         <StickyFooter>
-          <Button label={busy === 'save' ? t('patient.records.saving') : saveLabel} size="lg" fullWidth loading={busy === 'save'} disabled={busy !== null} onPress={() => void submit()} />
+          <Button
+            label={busy === 'save' ? t('patient.records.saving') : saveLabel}
+            size="lg"
+            fullWidth
+            loading={busy === 'save'}
+            disabled={busy !== null}
+            onPress={() => void submit()}
+          />
           {editing ? (
             <Button
               label={busy === 'delete' ? t('patient.records.removing') : t('patient.records.remove')}
@@ -227,8 +238,14 @@ function RecordForm({
                 onChange={(status) => setCondition((current) => ({ ...current, status }))}
                 options={[
                   { value: 'active', label: t('patient.records.statusActive') },
-                  { value: 'chronic', label: t('patient.records.statusChronic') },
-                  { value: 'resolved', label: t('patient.records.statusResolved') },
+                  {
+                    value: 'chronic',
+                    label: t('patient.records.statusChronic'),
+                  },
+                  {
+                    value: 'resolved',
+                    label: t('patient.records.statusResolved'),
+                  },
                 ]}
               />
             </View>
@@ -258,8 +275,14 @@ function RecordForm({
                 onChange={(severity) => setAllergy((current) => ({ ...current, severity }))}
                 options={[
                   { value: 'mild', label: t('patient.records.severityMild') },
-                  { value: 'moderate', label: t('patient.records.severityModerate') },
-                  { value: 'severe', label: t('patient.records.severitySevere') },
+                  {
+                    value: 'moderate',
+                    label: t('patient.records.severityModerate'),
+                  },
+                  {
+                    value: 'severe',
+                    label: t('patient.records.severitySevere'),
+                  },
                 ]}
               />
             </View>
@@ -290,7 +313,12 @@ function RecordForm({
               value={vaccination.doseNumber}
               keyboardType="number-pad"
               maxLength={3}
-              onChangeText={(doseNumber) => setVaccination((current) => ({ ...current, doseNumber: doseNumber.replace(/[^0-9]/g, '') }))}
+              onChangeText={(doseNumber) =>
+                setVaccination((current) => ({
+                  ...current,
+                  doseNumber: doseNumber.replace(/[^0-9]/g, ''),
+                }))
+              }
             />
             <DateField
               label={t('patient.records.administeredDate')}

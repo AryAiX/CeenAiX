@@ -5,8 +5,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useRef, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DialogHost } from '@/components/dialog-host';
 import { LockScreen } from '@/components/lock-screen';
 import { initI18n } from '@/i18n';
 import { webPathToHref } from '@/lib/links';
@@ -19,12 +21,14 @@ export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
 void SplashScreen.preventAutoHideAsync();
 
+const useLastNotificationResponse = Platform.OS === 'web' ? () => null : Notifications.useLastNotificationResponse;
+
 function RootNavigator(): React.ReactElement | null {
   const { session, isLoading, isPatient, isRecovering, profile } = useAuth();
   const { isLocked } = useAppLock();
   const { colors, isDark } = useTheme();
   const router = useRouter();
-  const lastResponse = Notifications.useLastNotificationResponse();
+  const lastResponse = useLastNotificationResponse();
   const handledResponse = useRef<string | null>(null);
 
   useEffect(() => {
@@ -53,7 +57,12 @@ function RootNavigator(): React.ReactElement | null {
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
@@ -69,7 +78,29 @@ function RootNavigator(): React.ReactElement | null {
         <Stack.Screen name="reset-password" options={{ gestureEnabled: false }} />
       </Stack>
       {isLocked ? <LockScreen /> : null}
+      {Platform.OS === 'web' ? <DialogHost /> : null}
     </>
+  );
+}
+
+// Keeps the phone-first layout readable in a desktop browser; native renders children as-is.
+function WebFrame({ children }: { children: React.ReactNode }): React.ReactElement {
+  const { colors } = useTheme();
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.surfaceMuted }}>
+      <View
+        style={{
+          flex: 1,
+          width: '100%',
+          maxWidth: 520,
+          alignSelf: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        {children}
+      </View>
+    </View>
   );
 }
 
@@ -88,7 +119,9 @@ export default function RootLayout(): React.ReactElement | null {
         <ThemeProvider>
           <AuthProvider>
             <AppLockProvider>
-              <RootNavigator />
+              <WebFrame>
+                <RootNavigator />
+              </WebFrame>
             </AppLockProvider>
           </AuthProvider>
         </ThemeProvider>

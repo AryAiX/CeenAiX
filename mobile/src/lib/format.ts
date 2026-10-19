@@ -14,17 +14,14 @@ const format = (value: string | Date | null | undefined, options: Intl.DateTimeF
   }
 };
 
-export const formatDate = (value: string | Date | null | undefined): string =>
-  format(value, { day: 'numeric', month: 'short', year: 'numeric' });
+export const formatDate = (value: string | Date | null | undefined): string => format(value, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export const formatDateLong = (value: string | Date | null | undefined): string =>
   format(value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-export const formatShortDay = (value: string | Date | null | undefined): string =>
-  format(value, { weekday: 'short', day: 'numeric', month: 'short' });
+export const formatShortDay = (value: string | Date | null | undefined): string => format(value, { weekday: 'short', day: 'numeric', month: 'short' });
 
-export const formatTime = (value: string | Date | null | undefined): string =>
-  format(value, { hour: 'numeric', minute: '2-digit' });
+export const formatTime = (value: string | Date | null | undefined): string => format(value, { hour: 'numeric', minute: '2-digit' });
 
 export const formatDateTime = (value: string | Date | null | undefined): string =>
   format(value, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -44,8 +41,7 @@ export const formatNumber = (value: number, options?: Intl.NumberFormatOptions):
   }
 };
 
-export const formatAed = (value: number | null | undefined): string =>
-  value == null ? '—' : `${formatNumber(Math.round(value))} AED`;
+export const formatAed = (value: number | null | undefined): string => (value == null ? '—' : `${formatNumber(Math.round(value))} AED`);
 
 export const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${formatNumber(bytes)} B`;

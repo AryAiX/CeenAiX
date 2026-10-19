@@ -32,7 +32,10 @@ export default function PharmacyPickerSheet(): React.ReactElement {
     try {
       await assignPatientPrescriptionPharmacy(id, pharmacyId);
       haptics.success();
-      router.dismissTo({ pathname: '/prescriptions/[id]', params: { id, sent: '1' } });
+      router.dismissTo({
+        pathname: '/prescriptions/[id]',
+        params: { id, sent: '1' },
+      });
     } catch (assignError) {
       haptics.error();
       setError(assignError instanceof Error ? assignError.message : t('m.common.unexpected'));
@@ -41,7 +44,7 @@ export default function PharmacyPickerSheet(): React.ReactElement {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
+    <ScrollView testID="screen-pharmacy-picker" contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
       <Text variant="title">{t('patient.prescriptions.pharmacyAssignTitle')}</Text>
       <Text variant="caption" color="muted">
         {t('patient.prescriptions.pharmacyAssignSubtitle')}
@@ -58,7 +61,13 @@ export default function PharmacyPickerSheet(): React.ReactElement {
         <View style={{ gap: spacing.sm }}>
           {visible.map((pharmacy) => (
             <Card key={pharmacy.id} onPress={() => void select(pharmacy.id)} accessibilityLabel={pharmacy.name}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.md,
+                }}
+              >
                 <IconBadge name="storefront-outline" tone="success" size={36} />
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyStrong">{pharmacy.name}</Text>

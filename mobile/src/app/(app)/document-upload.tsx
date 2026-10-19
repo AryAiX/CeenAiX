@@ -3,19 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  ChoiceChips,
-  IconBadge,
-  InlineMessage,
-  ListRow,
-  Screen,
-  StickyFooter,
-  Text,
-  TextField,
-  ToggleRow,
-} from '@/components/ui';
+import { Button, Card, ChoiceChips, IconBadge, InlineMessage, ListRow, Screen, StickyFooter, Text, TextField, ToggleRow } from '@/components/ui';
 import { DOCUMENT_MAX_BYTES, UPLOAD_CATEGORIES, uploadVaultDocument } from '@/data/documents';
 import type { PatientVaultDocumentCategory } from '@/data/web/hooks/use-patient-document-vault';
 import { formatBytes } from '@/lib/format';
@@ -37,7 +25,10 @@ export default function DocumentUploadSheet(): React.ReactElement {
   const [category, setCategory] = useState<PatientVaultDocumentCategory>('upload');
   const [careTeam, setCareTeam] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; settings?: boolean } | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    settings?: boolean;
+  } | null>(null);
 
   const choose = async (source: AssetSource) => {
     setError(null);
@@ -46,7 +37,11 @@ export default function DocumentUploadSheet(): React.ReactElement {
       if (!picked) return;
       if (picked.size > DOCUMENT_MAX_BYTES) {
         haptics.error();
-        setError({ message: t('m.docs.tooLarge', { size: formatBytes(DOCUMENT_MAX_BYTES) }) });
+        setError({
+          message: t('m.docs.tooLarge', {
+            size: formatBytes(DOCUMENT_MAX_BYTES),
+          }),
+        });
         return;
       }
       haptics.tap();
@@ -54,9 +49,14 @@ export default function DocumentUploadSheet(): React.ReactElement {
       if (!title) setTitle(picked.name.replace(/\.[a-z0-9]+$/i, ''));
     } catch (pickError) {
       if (pickError instanceof PermissionDeniedError) {
-        setError({ message: pickError.source === 'camera' ? t('m.docs.permissionCamera') : t('m.docs.permissionLibrary'), settings: true });
+        setError({
+          message: pickError.source === 'camera' ? t('m.docs.permissionCamera') : t('m.docs.permissionLibrary'),
+          settings: true,
+        });
       } else {
-        setError({ message: pickError instanceof Error ? pickError.message : t('m.common.unexpected') });
+        setError({
+          message: pickError instanceof Error ? pickError.message : t('m.common.unexpected'),
+        });
       }
     }
   };
@@ -66,18 +66,28 @@ export default function DocumentUploadSheet(): React.ReactElement {
     setBusy(true);
     setError(null);
     try {
-      await uploadVaultDocument({ patientId: user.id, asset, title, description, category, allowCareTeamAccess: careTeam });
+      await uploadVaultDocument({
+        patientId: user.id,
+        asset,
+        title,
+        description,
+        category,
+        allowCareTeamAccess: careTeam,
+      });
       haptics.success();
       router.back();
     } catch (uploadError) {
       haptics.error();
-      setError({ message: uploadError instanceof Error ? uploadError.message : t('m.common.unexpected') });
+      setError({
+        message: uploadError instanceof Error ? uploadError.message : t('m.common.unexpected'),
+      });
       setBusy(false);
     }
   };
 
   return (
     <Screen
+      testID="screen-document-upload"
       keyboard
       footer={
         <StickyFooter>
@@ -97,7 +107,13 @@ export default function DocumentUploadSheet(): React.ReactElement {
       <View style={{ gap: spacing.lg, marginTop: spacing.lg }}>
         {asset ? (
           <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.md,
+              }}
+            >
               {asset.mimeType.startsWith('image/') ? (
                 <Image source={{ uri: asset.uri }} style={{ width: 64, height: 64, borderRadius: radius.md }} contentFit="cover" />
               ) : (
@@ -138,7 +154,10 @@ export default function DocumentUploadSheet(): React.ReactElement {
             {t('m.docs.category')}
           </Text>
           <ChoiceChips<PatientVaultDocumentCategory>
-            options={UPLOAD_CATEGORIES.map((value) => ({ value, label: t(`m.docs.categories.${value}`) }))}
+            options={UPLOAD_CATEGORIES.map((value) => ({
+              value,
+              label: t(`m.docs.categories.${value}`),
+            }))}
             selected={[category]}
             onToggle={setCategory}
           />

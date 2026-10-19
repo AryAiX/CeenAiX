@@ -2,19 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Avatar,
-  Button,
-  Card,
-  ChoiceChips,
-  DateField,
-  InlineMessage,
-  KeyValue,
-  Screen,
-  Section,
-  Text,
-  TextField,
-} from '@/components/ui';
+import { Avatar, Button, Card, ChoiceChips, DateField, InlineMessage, KeyValue, Screen, Section, Text, TextField } from '@/components/ui';
 import {
   removeAvatar,
   saveEmiratesIdSide,
@@ -97,7 +85,9 @@ export default function ProfileScreen(): React.ReactElement {
   const chooseSource = (title: string, onPick: (asset: LocalAsset) => Promise<void>, extra?: { label: string; onPress: () => void }) => {
     const pick = (source: AssetSource) =>
       void run(title, async () => {
-        const asset = await pickAsset(source, { allowsEditing: source !== 'files' });
+        const asset = await pickAsset(source, {
+          allowsEditing: source !== 'files',
+        });
         if (asset) await onPick(asset);
       });
     showActionSheet(title, [
@@ -142,7 +132,7 @@ export default function ProfileScreen(): React.ReactElement {
   const allergies = records.data?.allergies.map((row) => (row.reaction ? `${row.allergen} (${row.reaction})` : row.allergen)).join(', ');
 
   return (
-    <Screen keyboard onRefresh={() => Promise.all([refreshProfile(), records.refetch(), insurance.refetch()]).then(() => undefined)}>
+    <Screen testID="screen-profile" keyboard onRefresh={() => Promise.all([refreshProfile(), records.refetch(), insurance.refetch()]).then(() => undefined)}>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('m.profile.changePhoto')} onPress={changeAvatar}>
           <Avatar name={profile?.full_name} uri={profile?.avatar_url} size={96} />
@@ -155,7 +145,13 @@ export default function ProfileScreen(): React.ReactElement {
             {t('patient.profile.idLine', { id: profile.emirates_id })}
           </Text>
         ) : null}
-        <Button label={t('m.profile.changePhoto')} variant="ghost" size="sm" loading={busy === t('m.profile.changePhoto') || busy === 'avatar'} onPress={changeAvatar} />
+        <Button
+          label={t('m.profile.changePhoto')}
+          variant="ghost"
+          size="sm"
+          loading={busy === t('m.profile.changePhoto') || busy === 'avatar'}
+          onPress={changeAvatar}
+        />
       </View>
 
       {feedback ? (
@@ -181,7 +177,12 @@ export default function ProfileScreen(): React.ReactElement {
         <Card>
           {editingPersonal ? (
             <View style={{ gap: spacing.md }}>
-              <TextField label={t('patient.profile.fullName')} value={personal.fullName} onChangeText={(fullName) => setPersonal((v) => ({ ...v, fullName }))} textContentType="name" />
+              <TextField
+                label={t('patient.profile.fullName')}
+                value={personal.fullName}
+                onChangeText={(fullName) => setPersonal((v) => ({ ...v, fullName }))}
+                textContentType="name"
+              />
               <TextField
                 label={t('patient.profile.emiratesId')}
                 value={personal.emiratesId}
@@ -189,15 +190,28 @@ export default function ProfileScreen(): React.ReactElement {
                 keyboardType="numbers-and-punctuation"
                 onChangeText={(emiratesId) => setPersonal((v) => ({ ...v, emiratesId }))}
               />
-              <DateField label={t('patient.profile.dob')} value={personal.dateOfBirth} maximumDate={new Date()} onChange={(dateOfBirth) => setPersonal((v) => ({ ...v, dateOfBirth }))} />
+              <DateField
+                label={t('patient.profile.dob')}
+                value={personal.dateOfBirth}
+                maximumDate={new Date()}
+                onChange={(dateOfBirth) => setPersonal((v) => ({ ...v, dateOfBirth }))}
+              />
               <View style={{ gap: 6 }}>
                 <Text variant="captionStrong" color="muted">
                   {t('patient.profile.bloodType')}
                 </Text>
                 <ChoiceChips
-                  options={BLOOD_TYPES.map((value) => ({ value, label: value }))}
+                  options={BLOOD_TYPES.map((value) => ({
+                    value,
+                    label: value,
+                  }))}
                   selected={personal.bloodType ? [personal.bloodType as (typeof BLOOD_TYPES)[number]] : []}
-                  onToggle={(bloodType) => setPersonal((v) => ({ ...v, bloodType: v.bloodType === bloodType ? '' : bloodType }))}
+                  onToggle={(bloodType) =>
+                    setPersonal((v) => ({
+                      ...v,
+                      bloodType: v.bloodType === bloodType ? '' : bloodType,
+                    }))
+                  }
                 />
               </View>
               <TextField
@@ -253,7 +267,13 @@ export default function ProfileScreen(): React.ReactElement {
         </Card>
       </Section>
 
-      <Section title={t('m.profile.healthSummary')} action={{ label: t('m.profile.manageRecords'), onPress: () => router.push('/records') }}>
+      <Section
+        title={t('m.profile.healthSummary')}
+        action={{
+          label: t('m.profile.manageRecords'),
+          onPress: () => router.push('/records'),
+        }}
+      >
         <Card>
           <KeyValue label={t('patient.profile.allergies')} value={allergies || t('m.profile.none')} />
           <KeyValue label={t('patient.profile.chronicConditions')} value={conditions || t('m.profile.none')} />
@@ -267,10 +287,26 @@ export default function ProfileScreen(): React.ReactElement {
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
-              <Button label={t('m.profile.scanFront')} icon="id-card-outline" variant="secondary" size="sm" fullWidth loading={busy === t('m.profile.frontTitle')} onPress={() => captureEmirates('front')} />
+              <Button
+                label={t('m.profile.scanFront')}
+                icon="id-card-outline"
+                variant="secondary"
+                size="sm"
+                fullWidth
+                loading={busy === t('m.profile.frontTitle')}
+                onPress={() => captureEmirates('front')}
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <Button label={t('m.profile.scanBack')} icon="id-card-outline" variant="secondary" size="sm" fullWidth loading={busy === t('m.profile.backTitle')} onPress={() => captureEmirates('back')} />
+              <Button
+                label={t('m.profile.scanBack')}
+                icon="id-card-outline"
+                variant="secondary"
+                size="sm"
+                fullWidth
+                loading={busy === t('m.profile.backTitle')}
+                onPress={() => captureEmirates('back')}
+              />
             </View>
           </View>
         </Card>
@@ -298,10 +334,26 @@ export default function ProfileScreen(): React.ReactElement {
           ) : editingInsurance ? (
             <View style={{ gap: spacing.md }}>
               <KeyValue label={t('patient.profile.insuranceProvider')} value={`${plan.providerCompany} · ${plan.planName}`} />
-              <TextField label={t('patient.profile.policyNumber')} value={insuranceForm.policyNumber} onChangeText={(policyNumber) => setInsuranceForm((v) => ({ ...v, policyNumber }))} />
-              <TextField label={t('patient.profile.memberId')} value={insuranceForm.memberId} onChangeText={(memberId) => setInsuranceForm((v) => ({ ...v, memberId }))} />
-              <DateField label={t('m.profile.validFrom')} value={insuranceForm.validFrom} onChange={(validFrom) => setInsuranceForm((v) => ({ ...v, validFrom }))} />
-              <DateField label={t('patient.profile.validUntil')} value={insuranceForm.validUntil} onChange={(validUntil) => setInsuranceForm((v) => ({ ...v, validUntil }))} />
+              <TextField
+                label={t('patient.profile.policyNumber')}
+                value={insuranceForm.policyNumber}
+                onChangeText={(policyNumber) => setInsuranceForm((v) => ({ ...v, policyNumber }))}
+              />
+              <TextField
+                label={t('patient.profile.memberId')}
+                value={insuranceForm.memberId}
+                onChangeText={(memberId) => setInsuranceForm((v) => ({ ...v, memberId }))}
+              />
+              <DateField
+                label={t('m.profile.validFrom')}
+                value={insuranceForm.validFrom}
+                onChange={(validFrom) => setInsuranceForm((v) => ({ ...v, validFrom }))}
+              />
+              <DateField
+                label={t('patient.profile.validUntil')}
+                value={insuranceForm.validUntil}
+                onChange={(validUntil) => setInsuranceForm((v) => ({ ...v, validUntil }))}
+              />
               <Button
                 label={insuranceForm.cardPhotoUrl ? t('m.profile.cardAttached') : t('m.profile.captureCard')}
                 icon={insuranceForm.cardPhotoUrl ? 'checkmark-circle' : 'camera-outline'}

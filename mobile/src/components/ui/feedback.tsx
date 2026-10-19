@@ -23,8 +23,16 @@ export function Skeleton({
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 650, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 650, useNativeDriver: true }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.5,
+          duration: 650,
+          useNativeDriver: true,
+        }),
       ])
     );
     loop.start();
@@ -34,7 +42,16 @@ export function Skeleton({
     <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width, height, borderRadius: rounded, backgroundColor: colors.skeleton, opacity }, style]}
+      style={[
+        {
+          width,
+          height,
+          borderRadius: rounded,
+          backgroundColor: colors.skeleton,
+          opacity,
+        },
+        style,
+      ]}
     />
   );
 }
@@ -42,7 +59,7 @@ export function Skeleton({
 /** Card-shaped placeholders used while a list screen loads. */
 export function SkeletonList({ count = 4, height = 84 }: { count?: number; height?: number }): React.ReactElement {
   return (
-    <View style={{ gap: spacing.md }} accessibilityLabel="Loading">
+    <View testID="state-loading" style={{ gap: spacing.md }} accessibilityLabel="Loading">
       {Array.from({ length: count }, (_, index) => (
         <Skeleton key={index} height={height} rounded={radius.xl} />
       ))}
@@ -50,13 +67,20 @@ export function SkeletonList({ count = 4, height = 84 }: { count?: number; heigh
   );
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }): React.ReactElement {
+export function ErrorState({ message, onRetry, testID = 'state-error' }: { message: string; onRetry?: () => void; testID?: string }): React.ReactElement {
   const { t } = useTranslation();
   const { colors } = useTheme();
   return (
     <View
+      testID={testID}
       accessibilityRole="alert"
-      style={[styles.errorBox, { backgroundColor: colors.tones.danger.bg, borderColor: colors.tones.danger.border }]}
+      style={[
+        styles.errorBox,
+        {
+          backgroundColor: colors.tones.danger.bg,
+          borderColor: colors.tones.danger.border,
+        },
+      ]}
     >
       <Icon name="alert-circle" color={colors.tones.danger.fg} />
       <View style={{ flex: 1, gap: 4 }}>
@@ -68,7 +92,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
         </Text>
         {onRetry ? (
           <View style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }}>
-            <Button size="sm" variant="secondary" label={t('m.common.retry')} onPress={onRetry} />
+            <Button size="sm" variant="secondary" label={t('m.common.retry')} onPress={onRetry} testID="btn-retry" />
           </View>
         ) : null}
       </View>
@@ -81,15 +105,17 @@ export function EmptyState({
   title,
   body,
   action,
+  testID = 'state-empty',
 }: {
   icon?: IconName;
   title: string;
   body?: string;
   action?: { label: string; onPress: () => void };
+  testID?: string;
 }): React.ReactElement {
   const { colors } = useTheme();
   return (
-    <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View testID={testID} style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <IconBadge name={icon} size={52} />
       <Text variant="heading" align="center">
         {title}
@@ -101,7 +127,7 @@ export function EmptyState({
       ) : null}
       {action ? (
         <View style={{ marginTop: spacing.sm }}>
-          <Button label={action.label} onPress={action.onPress} />
+          <Button label={action.label} onPress={action.onPress} testID={`${testID}-action`} />
         </View>
       ) : null}
     </View>
@@ -111,24 +137,17 @@ export function EmptyState({
 /** Shown when a screen falls back to the last cached fetch after a network failure. */
 export function StaleBanner({ since }: { since: string }): React.ReactElement {
   const { t } = useTranslation();
-  return <InlineMessage tone="warning" icon="cloud-offline-outline" message={t('m.common.offline', { time: formatDateTime(since) })} />;
+  return <InlineMessage testID="banner-offline" tone="warning" icon="cloud-offline-outline" message={t('m.common.offline', { time: formatDateTime(since) })} />;
 }
 
-export function InlineMessage({
-  tone,
-  message,
-  icon,
-}: {
-  tone: Tone;
-  message: string;
-  icon?: IconName;
-}): React.ReactElement {
+export function InlineMessage({ tone, message, icon, testID }: { tone: Tone; message: string; icon?: IconName; testID?: string }): React.ReactElement {
   const { colors } = useTheme();
   const toneColors = colors.tones[tone];
   const fallbackIcon: IconName =
     tone === 'success' ? 'checkmark-circle' : tone === 'danger' ? 'alert-circle' : tone === 'warning' ? 'warning' : 'information-circle';
   return (
     <View
+      testID={testID ?? `message-${tone}`}
       accessibilityRole={tone === 'danger' ? 'alert' : undefined}
       style={[styles.inline, { backgroundColor: toneColors.bg, borderColor: toneColors.border }]}
     >
