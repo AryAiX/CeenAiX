@@ -55,7 +55,7 @@ export default function HomeScreen(): React.ReactElement {
   return (
     <Screen testID="screen-dashboard" edgeTop onRefresh={dashboard.refetch} refreshing={dashboard.refreshing} staleSince={dashboard.staleSince}>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('nav.profile')} onPress={() => router.push('/profile')}>
+        <Pressable testID="btn-open-profile" accessibilityRole="button" accessibilityLabel={t('nav.profile')} onPress={() => router.push('/profile')}>
           <Avatar name={profile?.full_name} uri={profile?.avatar_url} size={46} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -67,6 +67,7 @@ export default function HomeScreen(): React.ReactElement {
           </Text>
         </View>
         <IconButton
+          testID="btn-open-notifications"
           name="notifications-outline"
           accessibilityLabel={t('nav.notifications')}
           badge={unreadNotifications}
@@ -98,7 +99,7 @@ export default function HomeScreen(): React.ReactElement {
             }}
           />
           {data.allergyAlerts.length > 0 ? (
-            <Section title={t('m.home.allergyAlerts')}>
+            <Section testID="section-allergies" title={t('m.home.allergyAlerts')}>
               <View style={{ gap: spacing.sm }}>
                 {data.allergyAlerts.map((allergy) => (
                   <Card key={allergy.id} tone="danger">
@@ -157,6 +158,7 @@ function NextAppointment({ data, now }: { data: PatientDashboardData; now: numbe
   const next = data.nextAppointment;
   return (
     <Section
+      testID="section-next-appointment"
       title={t('patient.dashboard.nextAppointment')}
       action={{
         label: t('patient.dashboard.viewAll'),
@@ -180,6 +182,7 @@ function NextAppointment({ data, now }: { data: PatientDashboardData; now: numbe
         />
       ) : (
         <EmptyState
+          testID="state-empty-next-appointment"
           icon="calendar-outline"
           title={t('patient.dashboard.noUpcomingTitle')}
           body={t('patient.dashboard.noUpcomingBody')}
@@ -198,30 +201,35 @@ function QuickActions(): React.ReactElement {
   const router = useRouter();
   const { colors } = useTheme();
   const actions: Array<{
+    testID: string;
     icon: IconName;
     label: string;
     tone: Tone;
     onPress: () => void;
   }> = [
     {
+      testID: 'btn-book-appointment',
       icon: 'calendar',
       label: t('m.home.quickBook'),
       tone: 'brand',
       onPress: () => router.push('/book'),
     },
     {
+      testID: 'btn-quick-messages',
       icon: 'chatbubbles',
       label: t('m.home.quickMessage'),
       tone: 'info',
       onPress: () => router.push('/messages'),
     },
     {
+      testID: 'btn-quick-labs',
       icon: 'flask',
       label: t('m.home.quickLabs'),
       tone: 'ai',
       onPress: () => router.push('/lab-results'),
     },
     {
+      testID: 'btn-quick-assistant',
       icon: 'sparkles',
       label: t('m.home.quickAi'),
       tone: 'neutral',
@@ -233,6 +241,7 @@ function QuickActions(): React.ReactElement {
       {actions.map((action) => (
         <Pressable
           key={action.label}
+          testID={action.testID}
           accessibilityRole="button"
           accessibilityLabel={action.label}
           onPress={() => {
@@ -273,7 +282,7 @@ function Vitals({ data, takenIds }: { data: PatientDashboardData; takenIds: Set<
   const bp = data.latestBloodPressure;
   const labs = data.labsSummary;
   return (
-    <Section title={t('m.home.healthScore')}>
+    <Section testID="section-health-score" title={t('m.home.healthScore')}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
         <StatTile
           icon="pulse"
@@ -333,6 +342,7 @@ function Medications({
   const taken = data.medications.filter((medication) => medication.isDispensed || takenIds.has(medication.id)).length;
   return (
     <Section
+      testID="section-medications"
       title={t('m.home.todaysMedications')}
       action={{
         label: t('patient.dashboard.viewAll'),
@@ -340,7 +350,7 @@ function Medications({
       }}
     >
       {medications.length === 0 ? (
-        <EmptyState icon="medkit-outline" title={t('patient.dashboard.noMedTitle')} body={t('patient.dashboard.noMedBody')} />
+        <EmptyState testID="state-empty-medications" icon="medkit-outline" title={t('patient.dashboard.noMedTitle')} body={t('patient.dashboard.noMedBody')} />
       ) : (
         <Card>
           <Text variant="caption" color="muted">
@@ -355,7 +365,7 @@ function Medications({
           {medications.map((medication) => {
             const isTaken = medication.isDispensed || takenIds.has(medication.id);
             return (
-              <View key={medication.id} style={styles.medRow}>
+              <View key={medication.id} testID={`medication-row-${medication.id}`} style={styles.medRow}>
                 <IconBadge name="medical" tone={isTaken ? 'success' : 'brand'} size={36} />
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyStrong" numberOfLines={1}>
@@ -374,7 +384,13 @@ function Medications({
                     icon="checkmark"
                   />
                 ) : (
-                  <Button size="sm" variant="secondary" label={t('m.home.markTaken')} onPress={() => void onMarkTaken(medication.id)} />
+                  <Button
+                    testID={`btn-mark-taken-${medication.id}`}
+                    size="sm"
+                    variant="secondary"
+                    label={t('m.home.markTaken')}
+                    onPress={() => void onMarkTaken(medication.id)}
+                  />
                 )}
               </View>
             );
@@ -398,6 +414,7 @@ function Messages({ data }: { data: PatientDashboardData }): React.ReactElement 
   const router = useRouter();
   return (
     <Section
+      testID="section-messages"
       title={t('m.home.messagesTitle')}
       action={{
         label: t('patient.dashboard.viewAll'),
@@ -415,6 +432,7 @@ function Messages({ data }: { data: PatientDashboardData }): React.ReactElement 
           {data.recentMessages.map((message) => (
             <Card
               key={message.id}
+              testID={`message-card-${message.id}`}
               onPress={() =>
                 router.push({
                   pathname: '/conversation/[id]',
@@ -463,14 +481,20 @@ function Activity({ data }: { data: PatientDashboardData }): React.ReactElement 
   const router = useRouter();
   const { colors } = useTheme();
   return (
-    <Section title={t('patient.dashboard.recentActivity')}>
+    <Section testID="section-activity" title={t('patient.dashboard.recentActivity')}>
       {data.recentActivity.length === 0 ? (
-        <EmptyState icon="time-outline" title={t('patient.dashboard.noActivityTitle')} body={t('patient.dashboard.noActivityBody')} />
+        <EmptyState
+          testID="state-empty-activity"
+          icon="time-outline"
+          title={t('patient.dashboard.noActivityTitle')}
+          body={t('patient.dashboard.noActivityBody')}
+        />
       ) : (
         <Card padded={false} style={{ paddingHorizontal: spacing.lg }}>
           {data.recentActivity.map((item, index) => (
             <Pressable
               key={item.id}
+              testID={`activity-row-${item.id}`}
               accessibilityRole="button"
               disabled={!item.actionUrl}
               onPress={() => {
@@ -519,7 +543,7 @@ function CareTeam({ data }: { data: PatientDashboardData }): React.ReactElement 
   const { t } = useTranslation();
   const router = useRouter();
   return (
-    <Section title={t('m.home.careTeam')}>
+    <Section testID="section-care-team" title={t('m.home.careTeam')}>
       {data.careTeam.length === 0 ? (
         <Card>
           <Text variant="caption" color="muted">
@@ -531,6 +555,7 @@ function CareTeam({ data }: { data: PatientDashboardData }): React.ReactElement 
           {data.careTeam.map((member) => (
             <Card
               key={member.doctorId}
+              testID={`care-team-card-${member.doctorId}`}
               style={{ width: 200 }}
               onPress={() =>
                 router.push({
@@ -570,8 +595,8 @@ function Insurance({ insurance }: { insurance: NonNullable<PatientDashboardData[
   const router = useRouter();
   const used = insurance.annualLimit && insurance.annualLimit > 0 ? Math.min(1, insurance.annualLimitUsed / insurance.annualLimit) : 0;
   return (
-    <Section title={t('m.home.insuranceTitle')}>
-      <Card onPress={() => router.push('/insurance')}>
+    <Section testID="section-insurance" title={t('m.home.insuranceTitle')}>
+      <Card testID="btn-open-insurance" onPress={() => router.push('/insurance')}>
         <View
           style={{
             flexDirection: 'row',

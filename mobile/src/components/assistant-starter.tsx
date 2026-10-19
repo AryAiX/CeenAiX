@@ -115,8 +115,8 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
               {t('m.assistant.consentBody')}
             </Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button label={t('m.assistant.allow')} variant="ai" size="sm" onPress={() => onConsent(true)} />
-              <Button label={t('m.assistant.notNow')} variant="ghost" size="sm" onPress={() => onConsent(false)} />
+              <Button testID="btn-ai-consent-allow" label={t('m.assistant.allow')} variant="ai" size="sm" onPress={() => onConsent(true)} />
+              <Button testID="btn-ai-consent-deny" label={t('m.assistant.notNow')} variant="ghost" size="sm" onPress={() => onConsent(false)} />
             </View>
           </View>
         </Card>
@@ -154,6 +154,7 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
 
       {preVisitId ? (
         <Button
+          testID="btn-continue-previsit"
           label={t('patient.aiChat.continuePreVisit')}
           icon="clipboard-outline"
           variant="secondary"
@@ -167,10 +168,12 @@ export function AssistantStarter({ firstName, dashboard, consentUnset, onConsent
           {t('patient.aiChat.tryAsking')}
         </Text>
         <View style={styles.prompts}>
-          {prompts.map((prompt) => (
+          {prompts.map((prompt, index) => (
             <Pressable
               key={prompt}
+              testID={`prompt-chip-${index}`}
               accessibilityRole="button"
+              accessibilityLabel={prompt}
               onPress={() => {
                 haptics.tap();
                 onPrompt(prompt);

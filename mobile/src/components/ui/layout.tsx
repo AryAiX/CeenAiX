@@ -141,6 +141,7 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps): React.
   const { colors } = useTheme();
   return (
     <View
+      testID="state-route-error"
       style={{
         flex: 1,
         backgroundColor: colors.background,

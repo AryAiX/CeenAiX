@@ -287,19 +287,28 @@ export function Section({
   action,
   children,
   style,
+  testID,
 }: {
   title?: string;
   action?: { label: string; onPress: () => void };
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Section id, e.g. `section-medications`; the header action becomes `${testID}-action`. */
+  testID?: string;
 }): React.ReactElement {
   return (
-    <View style={[{ marginTop: spacing.xxl }, style]}>
+    <View testID={testID} style={[{ marginTop: spacing.xxl }, style]}>
       {title ? (
         <View style={styles.sectionHeader}>
           <Text variant="heading">{title}</Text>
           {action ? (
-            <Pressable accessibilityRole="button" onPress={action.onPress} hitSlop={8}>
+            <Pressable
+              testID={testID ? `${testID}-action` : undefined}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              onPress={action.onPress}
+              hitSlop={8}
+            >
               <Text variant="captionStrong" color="primary">
                 {action.label}
               </Text>

@@ -47,6 +47,7 @@ export default function MessagesScreen(): React.ReactElement {
       {(list.data?.length ?? 0) > 3 ? (
         <View style={{ marginBottom: spacing.md }}>
           <TextField
+            testID="input-messages-search"
             accessibilityLabel={t('patient.messages.searchPlaceholder')}
             placeholder={t('patient.messages.searchPlaceholder')}
             value={search}
@@ -61,9 +62,14 @@ export default function MessagesScreen(): React.ReactElement {
       ) : !list.data && list.error ? (
         <ErrorState message={t('patient.messages.loadError')} onRetry={() => void list.refetch()} />
       ) : (list.data?.length ?? 0) === 0 ? (
-        <EmptyState icon="chatbubbles-outline" title={t('patient.messages.noneTitle')} body={t('patient.messages.noneBody')} />
+        <EmptyState testID="state-empty-messages" icon="chatbubbles-outline" title={t('patient.messages.noneTitle')} body={t('patient.messages.noneBody')} />
       ) : conversations.length === 0 ? (
-        <EmptyState icon="search" title={t('patient.messages.noResultsTitle')} body={t('patient.messages.noResultsBody')} />
+        <EmptyState
+          testID="state-empty-messages-search"
+          icon="search"
+          title={t('patient.messages.noResultsTitle')}
+          body={t('patient.messages.noResultsBody')}
+        />
       ) : (
         <View style={{ gap: spacing.sm }}>
           {conversations.map((conversation) => {
@@ -71,6 +77,7 @@ export default function MessagesScreen(): React.ReactElement {
             return (
               <Card
                 key={conversation.id}
+                testID={`conversation-card-${conversation.id}`}
                 accessibilityLabel={`${conversation.counterpart.name}. ${conversation.lastMessagePreview ?? ''}`}
                 onPress={() =>
                   router.push({

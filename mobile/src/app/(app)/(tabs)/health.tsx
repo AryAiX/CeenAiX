@@ -118,6 +118,7 @@ export default function HealthHubScreen(): React.ReactElement {
                 {index > 0 ? <Divider /> : null}
                 <View style={{ paddingHorizontal: spacing.lg }}>
                   <ListRow
+                    testID={typeof item.href === 'string' ? `row-${item.href.slice(1)}` : undefined}
                     title={item.title}
                     subtitle={item.hint}
                     icon={item.icon}

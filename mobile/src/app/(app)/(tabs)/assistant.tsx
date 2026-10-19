@@ -311,7 +311,7 @@ export default function AssistantScreen(): React.ReactElement {
     <View style={{ gap: spacing.md }}>
       {isSending ? <AssistantThinking /> : null}
       {pendingUpdates.length > 0 ? (
-        <Card tone="ai">
+        <Card testID="card-record-updates" tone="ai">
           <View style={{ gap: spacing.sm }}>
             <Text variant="bodyStrong">{t('patient.aiChat.reviewUpdatesTitle')}</Text>
             <Text variant="caption" color="muted">
@@ -343,8 +343,22 @@ export default function AssistantScreen(): React.ReactElement {
               </View>
             ))}
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button label={t('patient.aiChat.applyUpdates')} variant="ai" size="sm" loading={applyingUpdates} onPress={() => void resolveUpdates(true)} />
-              <Button label={t('patient.aiChat.notNow')} variant="ghost" size="sm" disabled={applyingUpdates} onPress={() => void resolveUpdates(false)} />
+              <Button
+                testID="btn-apply-updates"
+                label={t('patient.aiChat.applyUpdates')}
+                variant="ai"
+                size="sm"
+                loading={applyingUpdates}
+                onPress={() => void resolveUpdates(true)}
+              />
+              <Button
+                testID="btn-dismiss-updates"
+                label={t('patient.aiChat.notNow')}
+                variant="ghost"
+                size="sm"
+                disabled={applyingUpdates}
+                onPress={() => void resolveUpdates(false)}
+              />
             </View>
           </View>
         </Card>
@@ -368,8 +382,14 @@ export default function AssistantScreen(): React.ReactElement {
             {t('patient.aiChat.heroSubtitle')}
           </Text>
         </View>
-        <IconButton name="time-outline" variant="plain" accessibilityLabel={t('m.assistant.history')} onPress={() => router.push('/assistant-history')} />
-        <IconButton name="create-outline" variant="plain" accessibilityLabel={t('patient.aiChat.newChat')} onPress={startNewChat} />
+        <IconButton
+          testID="btn-assistant-history"
+          name="time-outline"
+          variant="plain"
+          accessibilityLabel={t('m.assistant.history')}
+          onPress={() => router.push('/assistant-history')}
+        />
+        <IconButton testID="btn-new-chat" name="create-outline" variant="plain" accessibilityLabel={t('patient.aiChat.newChat')} onPress={startNewChat} />
       </View>
 
       {showStarter ? (
@@ -424,7 +444,7 @@ export default function AssistantScreen(): React.ReactElement {
         ]}
       >
         {sendError ? <InlineMessage tone="danger" message={sendError} /> : null}
-        <Pressable accessibilityRole="button" onPress={promptConsent} style={styles.contextRow} hitSlop={6}>
+        <Pressable testID="btn-ai-context" accessibilityRole="button" onPress={promptConsent} style={styles.contextRow} hitSlop={6}>
           <Icon
             name={consent === 'granted' ? 'shield-checkmark' : 'shield-outline'}
             size={14}
@@ -442,6 +462,7 @@ export default function AssistantScreen(): React.ReactElement {
             {pendingFiles.map((file, index) => (
               <Pressable
                 key={`${file.uri}-${index}`}
+                testID={`attachment-chip-${index}`}
                 accessibilityRole="button"
                 accessibilityLabel={t('m.assistant.removeAttachment', {
                   name: file.name,
@@ -460,6 +481,7 @@ export default function AssistantScreen(): React.ReactElement {
         ) : null}
         <View style={styles.inputRow}>
           <Pressable
+            testID="btn-attach"
             accessibilityRole="button"
             accessibilityLabel={t('patient.aiChat.attach')}
             onPress={addAttachment}
@@ -469,6 +491,7 @@ export default function AssistantScreen(): React.ReactElement {
             <Icon name="add" size={22} color={colors.text} />
           </Pressable>
           <TextInput
+            testID="input-assistant-message"
             ref={inputRef}
             value={input}
             onChangeText={setInput}
@@ -480,6 +503,7 @@ export default function AssistantScreen(): React.ReactElement {
             style={[typography.body, styles.input, { color: colors.text, backgroundColor: colors.surfaceMuted }]}
           />
           <Pressable
+            testID="btn-send-message"
             accessibilityRole="button"
             accessibilityLabel={t('patient.aiChat.send')}
             disabled={!canSend}

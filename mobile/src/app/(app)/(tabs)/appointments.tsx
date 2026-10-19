@@ -71,11 +71,11 @@ export default function AppointmentsScreen(): React.ReactElement {
     <Screen testID="screen-appointments" edgeTop onRefresh={list.refetch} refreshing={list.refreshing} staleSince={list.staleSince}>
       <ScreenTitle
         title={t('patient.appointments.title')}
-        right={<IconButton name="add" accessibilityLabel={t('patient.appointments.book')} onPress={() => router.push('/book')} />}
+        right={<IconButton testID="btn-book-appointment" name="add" accessibilityLabel={t('patient.appointments.book')} onPress={() => router.push('/book')} />}
       />
-      {bannerKey ? <InlineMessage tone="success" message={t(bannerKey)} /> : null}
+      {bannerKey ? <InlineMessage testID="banner-appointments" tone="success" message={t(bannerKey)} /> : null}
       {nextTeleconsult ? (
-        <Card tone="brand" style={{ marginTop: spacing.md }}>
+        <Card testID="card-next-teleconsult" tone="brand" style={{ marginTop: spacing.md }}>
           <View
             style={{
               flexDirection: 'row',
@@ -97,6 +97,7 @@ export default function AppointmentsScreen(): React.ReactElement {
           </View>
           <View style={{ marginTop: spacing.md }}>
             <Button
+              testID="btn-join-waiting-room"
               label={t('patient.appointments.joinWaitingRoom')}
               icon="videocam"
               fullWidth
@@ -118,6 +119,7 @@ export default function AppointmentsScreen(): React.ReactElement {
         }}
       >
         <SegmentedControl
+          testID="segment-appointments-status"
           value={segment}
           onChange={setSegment}
           options={[
@@ -139,6 +141,7 @@ export default function AppointmentsScreen(): React.ReactElement {
           ]}
         />
         <SegmentedControl
+          testID="segment-appointments-type"
           value={typeFilter}
           onChange={setTypeFilter}
           options={[
@@ -160,6 +163,7 @@ export default function AppointmentsScreen(): React.ReactElement {
         <ErrorState message={t('patient.appointments.loadError')} onRetry={() => void list.refetch()} />
       ) : list.appointments.length === 0 ? (
         <EmptyState
+          testID="state-empty-appointments"
           icon="calendar-outline"
           title={t('patient.appointments.emptyTitle')}
           body={t('patient.appointments.emptyBody')}
@@ -170,6 +174,7 @@ export default function AppointmentsScreen(): React.ReactElement {
         />
       ) : visible.length === 0 ? (
         <EmptyState
+          testID="state-empty-appointments-filtered"
           icon="search-outline"
           title={segment === 'upcoming' ? t('patient.appointments.noUpcomingTitle') : t('patient.appointments.noResultsFilters')}
           body={segment === 'upcoming' ? t('patient.appointments.noUpcomingBody') : t('patient.appointments.noResultsFiltersSub')}

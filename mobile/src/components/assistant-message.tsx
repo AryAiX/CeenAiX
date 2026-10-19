@@ -50,7 +50,7 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
 
   if (own) {
     return (
-      <Pressable onLongPress={openActions} delayLongPress={300} style={[styles.userBubble, { backgroundColor: colors.primary }]}>
+      <Pressable testID="chat-message-user" onLongPress={openActions} delayLongPress={300} style={[styles.userBubble, { backgroundColor: colors.primary }]}>
         {files.map((file) => (
           <View key={file.path} style={styles.fileRow}>
             <Icon name="attach" size={14} color={colors.primaryText} />
@@ -70,7 +70,12 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
   }
 
   return (
-    <Pressable onLongPress={openActions} delayLongPress={300} style={[styles.assistantBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <Pressable
+      testID="chat-message-assistant"
+      onLongPress={openActions}
+      delayLongPress={300}
+      style={[styles.assistantBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
       <View style={styles.header}>
         <AiGeneratedTag />
         {metadata?.usedPatientContext ? (
@@ -89,10 +94,12 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
       ) : null}
       {actions.length > 0 ? (
         <View style={styles.wrap}>
-          {actions.map((action) => (
+          {actions.map((action, index) => (
             <Pressable
               key={action.label}
+              testID={`chat-action-${index}`}
               accessibilityRole="button"
+              accessibilityLabel={action.label}
               onPress={() => {
                 haptics.tap();
                 if (action.href) router.push(action.href);

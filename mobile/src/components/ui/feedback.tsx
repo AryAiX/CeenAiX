@@ -59,7 +59,7 @@ export function Skeleton({
 /** Card-shaped placeholders used while a list screen loads. */
 export function SkeletonList({ count = 4, height = 84 }: { count?: number; height?: number }): React.ReactElement {
   return (
-    <View style={{ gap: spacing.md }} accessibilityLabel="Loading">
+    <View testID="state-loading" style={{ gap: spacing.md }} accessibilityLabel="Loading">
       {Array.from({ length: count }, (_, index) => (
         <Skeleton key={index} height={height} rounded={radius.xl} />
       ))}
