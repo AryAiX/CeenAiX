@@ -91,7 +91,7 @@ export function Button({
 }
 
 interface TextFieldProps extends Omit<TextInputProps, 'style'> {
-  label: string;
+  label?: string;
   error?: string | null;
   helper?: string;
   secureToggle?: boolean;
@@ -107,9 +107,11 @@ export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function 
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
   return (
     <View style={{ gap: 6 }}>
-      <Text variant="captionStrong" color="muted">
-        {label}
-      </Text>
+      {label ? (
+        <Text variant="captionStrong" color="muted">
+          {label}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.inputWrap,
@@ -123,6 +125,7 @@ export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function 
       >
         <TextInput
           ref={ref}
+          accessibilityLabel={label || undefined}
           {...rest}
           multiline={multiline}
           secureTextEntry={secureToggle ? hidden : secureTextEntry}

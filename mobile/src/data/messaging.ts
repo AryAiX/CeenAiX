@@ -1,21 +1,23 @@
-import type { Conversation } from '@ceenaix/types';
+import type { Conversation, Message } from '@ceenaix/types';
 import {
   buildDirectParticipantIds,
   getConversationCounterpartyId,
   getDefaultCareConversationSubject,
   getMessagePreviewText,
   isMissingMessagingRpcError,
+  trimMessageDraft,
   type ConversationListItem,
 } from '@ceenaix/shared/messaging';
 import i18n from 'i18next';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@/hooks/use-query';
 import { supabase } from '@/lib/supabase';
 
 // The web `useMessagingHub` couples the list with an "active" thread that
-// defaults to the first conversation and marks it read on load. On a phone
-// the list and thread are separate screens, so the list uses this read-only
-// copy of the hub's `loadConversations` query (same tables, RPC and ordering)
-// and the thread screen uses the generated hub with an explicit id.
+// defaults to the first conversation and marks it read on load, and it only
+// reloads a thread when the selection changes. On a phone the list and thread
+// are separate screens with realtime updates, so this module carries the
+// hub's queries (same tables, RPCs, filters and ordering) split per screen.
 
 interface MessagePreviewRow {
   id: string;
@@ -100,6 +102,120 @@ export async function fetchConversationList(userId: string): Promise<Conversatio
 
 export function useConversationList(userId: string | null | undefined) {
   return useQuery(() => (userId ? fetchConversationList(userId) : Promise.resolve([])), [userId ?? '']);
+}
+
+export function useConversationThread(userId: string | null | undefined, conversationId: string | null | undefined) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
+  const requestRef = useRef(0);
+
+  const load = useCallback(async () => {
+    if (!userId || !conversationId) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+    const requestId = ++requestRef.current;
+    setError(null);
+    const { data, error: queryError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('is_deleted', false)
+      .order('sent_at', { ascending: true });
+    if (requestRef.current !== requestId) return;
+    if (queryError) {
+      setError(queryError.message || i18n.t('messaging.errLoadMessages'));
+    } else {
+      setMessages((data ?? []) as Message[]);
+      const { error: readError } = await supabase.rpc('mark_conversation_messages_read', { p_conversation_id: conversationId });
+      if (readError && !isMissingMessagingRpcError(readError)) console.warn(readError.message);
+    }
+    setLoading(false);
+  }, [conversationId, userId]);
+
+  useEffect(() => {
+    setLoading(true);
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!userId || !conversationId) return;
+    const channel = supabase
+      .channel(`thread:${conversationId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        () => void load()
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [conversationId, load, userId]);
+
+  const run = useCallback(
+    async (action: () => Promise<void>, fallback: string): Promise<boolean> => {
+      setWorking(true);
+      setActionError(null);
+      try {
+        await action();
+        await load();
+        return true;
+      } catch (actionFailure) {
+        setActionError(actionFailure instanceof Error ? actionFailure.message : fallback);
+        return false;
+      } finally {
+        setWorking(false);
+      }
+    },
+    [load]
+  );
+
+  const send = useCallback(
+    (body: string) => {
+      const trimmed = trimMessageDraft(body);
+      if (!userId || !conversationId || !trimmed) return Promise.resolve(false);
+      return run(async () => {
+        const sentAt = new Date().toISOString();
+        const { error: insertError } = await supabase
+          .from('messages')
+          .insert({ conversation_id: conversationId, sender_id: userId, body: trimmed, sent_at: sentAt });
+        if (insertError) throw insertError;
+        const { error: touchError } = await supabase.from('conversations').update({ last_message_at: sentAt }).eq('id', conversationId);
+        if (touchError) console.warn(`[messaging] message sent but conversation timestamp update failed: ${touchError.message}`);
+      }, i18n.t('messaging.errSendMessage'));
+    },
+    [conversationId, run, userId]
+  );
+
+  const update = useCallback(
+    (messageId: string, body: string) => {
+      const trimmed = trimMessageDraft(body);
+      if (!userId || !trimmed) return Promise.resolve(false);
+      return run(async () => {
+        const { error: updateError } = await supabase.from('messages').update({ body: trimmed }).eq('id', messageId).eq('sender_id', userId);
+        if (updateError) throw updateError;
+      }, 'Unable to edit message.');
+    },
+    [run, userId]
+  );
+
+  const remove = useCallback(
+    (messageId: string) => {
+      if (!userId) return Promise.resolve(false);
+      return run(async () => {
+        const { error: deleteError } = await supabase.from('messages').update({ is_deleted: true }).eq('id', messageId).eq('sender_id', userId);
+        if (deleteError) throw deleteError;
+      }, 'Unable to delete message.');
+    },
+    [run, userId]
+  );
+
+  return { messages, loading, error, actionError, working, refetch: load, send, update, remove };
 }
 
 /** Same resolution order as the hub's `ensureDirectConversation`: RPC, existing lookup, then insert. */

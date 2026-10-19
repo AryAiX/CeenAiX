@@ -137,4 +137,16 @@ export const mobileAr: MobileStrings = {
     regarding: 'بخصوص موعدي في {{date}} الساعة {{time}}: ',
     followingUp: 'متابعة لموعدي في {{date}} الساعة {{time}}: ',
   },
+  messages: {
+    edit: 'تعديل',
+    delete: 'حذف',
+    editing: 'تعديل الرسالة',
+    save: 'حفظ',
+    cancel: 'إلغاء',
+    deleted: 'تم حذف الرسالة',
+    undo: 'تراجع',
+    today: 'اليوم',
+    yesterday: 'أمس',
+    sendFailed: 'لم يتم إرسال الرسالة. اضغط إرسال لإعادة المحاولة.',
+  },
 };

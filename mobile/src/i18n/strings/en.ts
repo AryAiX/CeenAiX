@@ -139,6 +139,18 @@ export const mobileEn = {
     regarding: 'Regarding my appointment on {{date}} at {{time}}: ',
     followingUp: 'Following up on my appointment on {{date}} at {{time}}: ',
   },
+  messages: {
+    edit: 'Edit',
+    delete: 'Delete',
+    editing: 'Editing message',
+    save: 'Save',
+    cancel: 'Cancel',
+    deleted: 'Message deleted',
+    undo: 'Undo',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    sendFailed: 'Message not sent. Tap send to retry.',
+  },
 } as const;
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
