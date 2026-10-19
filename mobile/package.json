@@ -55,7 +55,8 @@
     "doctor": "expo-doctor",
     "export:ios": "expo export --platform ios",
     "export:android": "expo export --platform android",
-    "sync:web": "node scripts/sync-web-data.mjs"
+    "sync:web": "node scripts/sync-web-data.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs"
   },
   "private": true
 }
