@@ -43,10 +43,13 @@ export function ThemeProvider({ children }: { children: ReactNode }): React.Reac
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
+const noop = (): void => undefined;
+
+/** Outside the provider (e.g. the root error boundary) this falls back to the system palette instead of throwing. */
 export function useTheme(): ThemeContextValue {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-  return context;
+  const systemScheme = useColorScheme();
+  if (context) return context;
+  const isDark = systemScheme === 'dark';
+  return { colors: isDark ? darkColors : lightColors, isDark, preference: 'system', setPreference: noop };
 }
