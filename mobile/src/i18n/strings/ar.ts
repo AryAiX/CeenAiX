@@ -236,4 +236,10 @@ export const mobileAr: MobileStrings = {
     confirmRemove: 'إزالة {{name}} من قائمتك؟',
     pastEmptyTitle: 'لا توجد وصفات سابقة',
   },
+  imaging: {
+    findings: 'النتائج',
+    recommendations: 'التوصيات',
+    accession: 'رقم الدراسة',
+    room: 'الغرفة',
+  },
 };

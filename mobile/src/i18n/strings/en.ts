@@ -238,6 +238,12 @@ export const mobileEn = {
     confirmRemove: 'Remove {{name}} from your list?',
     pastEmptyTitle: 'No past prescriptions',
   },
+  imaging: {
+    findings: 'Findings',
+    recommendations: 'Recommendations',
+    accession: 'Accession no.',
+    room: 'Room',
+  },
 } as const;
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
