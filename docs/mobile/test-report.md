@@ -30,7 +30,8 @@ Environment note: the DEV Supabase project is sometimes slow (2.5–3 s even for
 | Reschedule | dc8a230 | pass | `tests/appointment-flows.spec.ts` | Doctor step skipped, reason prefilled, new slot confirmed |
 | Cancel appointment | dc8a230 | pass | `tests/appointment-flows.spec.ts` | Reason required, keep returns, confirm moves the visit to Cancelled. Each run cancels its own booking |
 | Pre-visit intake | dc8a230 | fail (MB-010) | `tests/pre-visit.spec.ts` | DEV has no assessment for the smoke patient and no bookable doctor has a template, so the assessment row is mocked (writes stubbed, AI summary real). Every question type, required gating, back, review, complete, close confirm, not-found |
-| Conversation, records, record form, labs, prescriptions, pharmacy picker, imaging, documents, upload, insurance, notifications, profile, settings, reset password | — | in progress | — | Next batch |
+| Medical records + record form | c843c4c | pass | `tests/records.spec.ts` | Counts, filter, action sheet (3 types), required-field validation for each category, add/edit/remove a condition (soft delete), error state. Search only appears with more than 5 records (by design). Back button is named "Go back" |
+| Conversation, labs, prescriptions, pharmacy picker, imaging, documents, upload, insurance, notifications, profile, settings, reset password | — | in progress | — | Next batch |
 
 ### Spec totals at `dc8a230` (auth + tab screens)
 
