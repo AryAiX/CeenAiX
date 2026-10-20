@@ -35,6 +35,7 @@ import type { LocalAsset } from '@/lib/uploads';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { radius, spacing, typography } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -278,7 +279,7 @@ export default function AssistantScreen(): React.ReactElement {
       await updates.refetch();
     } catch (error) {
       haptics.error();
-      setSendError(error instanceof Error ? error.message : t('patient.aiChat.sendError'));
+      setSendError(errorMessage(error, t('patient.aiChat.sendError')));
       setMessages((current) => current.filter((message) => !message.id.startsWith('temp-user-')));
       if (!submitted) setInput(next);
       setPendingFiles(filesBeforeSend);
@@ -300,7 +301,7 @@ export default function AssistantScreen(): React.ReactElement {
       if (apply) haptics.success();
       await updates.refetch();
     } catch (error) {
-      setUpdateFeedback(error instanceof Error ? error.message : apply ? t('patient.aiChat.recordUpdateFail') : t('patient.aiChat.dismissFail'));
+      setUpdateFeedback(errorMessage(error, apply ? t('patient.aiChat.recordUpdateFail') : t('patient.aiChat.dismissFail')));
     } finally {
       setApplyingUpdates(false);
     }

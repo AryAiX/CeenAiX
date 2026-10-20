@@ -12,6 +12,7 @@ import i18n from 'i18next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@/hooks/use-query';
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 
 // The web `useMessagingHub` couples the list with an "active" thread that
 // defaults to the first conversation and marks it read on load, and it only
@@ -155,7 +156,7 @@ export function useConversationThread(userId: string | null | undefined, convers
         await load();
         return true;
       } catch (actionFailure) {
-        setActionError(actionFailure instanceof Error ? actionFailure.message : fallback);
+        setActionError(errorMessage(actionFailure, fallback));
         return false;
       } finally {
         setWorking(false);

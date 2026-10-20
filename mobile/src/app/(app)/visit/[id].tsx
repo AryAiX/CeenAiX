@@ -11,6 +11,7 @@ import { haptics } from '@/lib/haptics';
 import { isWebRtcAvailable } from '@/lib/livekit-globals';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -49,7 +50,7 @@ export default function VisitScreen(): React.ReactElement {
       haptics.success();
     } catch (joinError) {
       haptics.error();
-      setError(joinError instanceof Error ? joinError.message : t('m.common.unexpected'));
+      setError(errorMessage(joinError, t('m.common.unexpected')));
     } finally {
       setJoining(false);
     }

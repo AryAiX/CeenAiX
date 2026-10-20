@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clearQueryCache } from '@/lib/query-cache';
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 
 interface AuthResult {
   error: Error | null;
@@ -42,7 +43,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const toError = (value: unknown): Error => (value instanceof Error ? value : new Error(typeof value === 'string' && value ? value : 'Something went wrong.'));
+const toError = (value: unknown): Error =>
+  value instanceof Error ? value : new Error(errorMessage(value, typeof value === 'string' && value ? value : 'Something went wrong.'));
 
 const str = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
 

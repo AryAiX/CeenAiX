@@ -14,6 +14,7 @@ npx expo start --web --port 8081    # dev server alternative
 - Environment: `mobile/.env` (gitignored) holds `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` for the DEV project `lgfaucsfiyxvmsghnpey`. Copy `mobile/.env.example` and fill in the values from `env.template.dev` at the repo root.
 - Test patient: `smoke.patient@ceenaix.test` / `CeenAiXSmoke!2026`. Doctor: Dr. Smoke Doctor. Virtual appointment: `22222222-3333-4333-8444-000000000901`. It is in the past, so it shows under **Completed** and its join window has ended.
 - The smoke patient has no conversations, lab orders, prescriptions or imaging studies. Those list screens show their empty states (`state-empty-*`). Detail routes need ids that exist for this patient.
+- Known backend issue: removing a vault document fails with `new row violates row-level security policy` (RLS on `patient_document_files`, same on the web). See the blockers in `checklist.md`. Two leftover "QA upload check" documents from builder checks are in the smoke patient's vault and can't be soft-deleted until the policy is fixed.
 - Language follows the browser locale on first launch (`ar-*` gives Arabic with `dir="rtl"` on `<html>`). After that, the choice is stored under `localStorage['ceenaix.lang']`. Switching language in Settings reloads the page on web.
 - The session is stored by supabase-js in `localStorage`, so Playwright `storageState` works.
 

@@ -14,6 +14,7 @@ import { haptics } from '@/lib/haptics';
 import { appointmentStatusTone, labStatusTone, preVisitStatusTone, prescriptionStatusTone } from '@/lib/status';
 import { useAuth } from '@/providers/auth-provider';
 import { radius, spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -92,7 +93,7 @@ export default function AppointmentDetailScreen(): React.ReactElement {
       });
     } catch (error) {
       haptics.error();
-      setActionError(error instanceof Error ? error.message : t('messaging.errStartConversation'));
+      setActionError(errorMessage(error, t('messaging.errStartConversation')));
     } finally {
       setMessaging(false);
     }

@@ -12,6 +12,7 @@ import { PermissionDeniedError, pickAsset, type AssetSource } from '@/lib/pick-a
 import type { LocalAsset } from '@/lib/uploads';
 import { useAuth } from '@/providers/auth-provider';
 import { radius, spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -55,7 +56,7 @@ export default function DocumentUploadSheet(): React.ReactElement {
         });
       } else {
         setError({
-          message: pickError instanceof Error ? pickError.message : t('m.common.unexpected'),
+          message: errorMessage(pickError, t('m.common.unexpected')),
         });
       }
     }
@@ -79,7 +80,7 @@ export default function DocumentUploadSheet(): React.ReactElement {
     } catch (uploadError) {
       haptics.error();
       setError({
-        message: uploadError instanceof Error ? uploadError.message : t('m.common.unexpected'),
+        message: errorMessage(uploadError, t('m.common.unexpected')),
       });
       setBusy(false);
     }

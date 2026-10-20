@@ -18,6 +18,7 @@ import { prescriptionStatusTone } from '@/lib/status';
 import { useAuth } from '@/providers/auth-provider';
 import type { Tone } from '@/theme/tokens';
 import { radius, spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -108,7 +109,7 @@ export default function PrescriptionDetailScreen(): React.ReactElement {
       await action();
     } catch (actionError) {
       haptics.error();
-      setError(actionError instanceof Error ? actionError.message : t('m.common.unexpected'));
+      setError(errorMessage(actionError, t('m.common.unexpected')));
     } finally {
       setBusy(null);
     }

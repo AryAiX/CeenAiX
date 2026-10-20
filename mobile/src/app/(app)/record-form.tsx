@@ -20,6 +20,7 @@ import { useOfflineCache } from '@/hooks/use-offline-cache';
 import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -136,7 +137,7 @@ function RecordForm({
       router.back();
     } catch (saveError) {
       haptics.error();
-      setError(saveError instanceof Error ? saveError.message : t('m.common.unexpected'));
+      setError(errorMessage(saveError, t('m.common.unexpected')));
       setBusy(null);
     }
   };
@@ -158,7 +159,7 @@ function RecordForm({
             router.back();
           } catch (deleteError) {
             haptics.error();
-            setError(deleteError instanceof Error ? deleteError.message : t('m.common.unexpected'));
+            setError(errorMessage(deleteError, t('m.common.unexpected')));
             setBusy(null);
           }
         },

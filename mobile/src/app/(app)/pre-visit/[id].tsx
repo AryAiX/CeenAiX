@@ -39,6 +39,7 @@ import { formatDateTime } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import { useTheme } from '@/theme/theme-provider';
 import { radius, spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -231,7 +232,7 @@ export default function PreVisitScreen(): React.ReactElement {
       haptics.error();
       setFeedback({
         tone: 'danger',
-        message: taskError instanceof Error ? taskError.message : t('m.common.unexpected'),
+        message: errorMessage(taskError, t('m.common.unexpected')),
       });
     } finally {
       setBusy(null);

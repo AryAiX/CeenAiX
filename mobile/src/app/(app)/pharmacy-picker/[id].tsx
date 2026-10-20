@@ -7,6 +7,7 @@ import { assignPatientPrescriptionPharmacy, listActivePharmacies } from '@/data/
 import { useQuery } from '@/hooks/use-query';
 import { haptics } from '@/lib/haptics';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -38,7 +39,7 @@ export default function PharmacyPickerSheet(): React.ReactElement {
       });
     } catch (assignError) {
       haptics.error();
-      setError(assignError instanceof Error ? assignError.message : t('m.common.unexpected'));
+      setError(errorMessage(assignError, t('m.common.unexpected')));
       setSending(null);
     }
   };

@@ -29,6 +29,7 @@ import { haptics } from '@/lib/haptics';
 import { prescriptionStatusTone } from '@/lib/status';
 import { useAuth } from '@/providers/auth-provider';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -244,7 +245,7 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
       await meds.refetch();
     } catch (saveError) {
       haptics.error();
-      setError(saveError instanceof Error ? saveError.message : t('m.common.unexpected'));
+      setError(errorMessage(saveError, t('m.common.unexpected')));
     } finally {
       setSaving(false);
     }
@@ -262,7 +263,7 @@ function ReportedMedications({ patientId }: { patientId: string | null }): React
             await removeReportedMedication(patientId, id);
             await meds.refetch();
           } catch (removeError) {
-            setError(removeError instanceof Error ? removeError.message : t('m.common.unexpected'));
+            setError(errorMessage(removeError, t('m.common.unexpected')));
           }
         },
       },
