@@ -59,19 +59,19 @@ Stack screens are kept mounted underneath the screen on top, so a hidden `screen
 | Reset password | ready-for-test | edfc1f5 | `/reset-password` (recovery deep link) | Without a recovery session it shows "request a new link" (`btn-request-new-link`) |
 | Onboarding | ready-for-test | edfc1f5 | Shown automatically when `profile_completed = false` | Not reachable with the smoke patient (already completed) |
 | Patient only | ready-for-test | edfc1f5 | Sign in as a non-patient role | `state-profile-error` + `btn-retry` if the profile lookup fails |
-| Dashboard | ready-for-test | edfc1f5 | `/` or `tab-home` | Quick actions `btn-book-appointment`, `btn-quick-messages`, `btn-quick-labs`, `btn-quick-assistant` |
-| Appointments | ready-for-test | edfc1f5 | `/appointments` or `tab-appointments` | `segment-appointments-status-{upcoming,past,cancelled}`, `segment-appointments-type-{all,in_person,virtual}` |
+| Dashboard | fixed-ready-for-retest | c6cae45 | `/` or `tab-home` | Quick actions `btn-book-appointment`, `btn-quick-messages`, `btn-quick-labs`, `btn-quick-assistant`. Cold start on web paints a boot screen (`state-loading`) instead of a blank page (MB-008) |
+| Appointments | fixed-ready-for-retest | faa44e9 | `/appointments` or `tab-appointments` | `segment-appointments-status-{upcoming,past,cancelled}`, `segment-appointments-type-{all,in_person,virtual}`. Selected segment now carries `aria-selected` (MB-007) |
 | Appointment detail | ready-for-test | edfc1f5 | `/appointment/<id>` or `appointment-card-<id>` | Deep links have a back button (anchored on the tabs) |
-| Cancel appointment | ready-for-test | edfc1f5 | `btn-cancel-appointment` on an upcoming appointment, or `/cancel/<id>` | Sheet on native, full page on web |
-| Book / reschedule | ready-for-test | edfc1f5 | `/book`, `btn-book-appointment`; reschedule via `btn-reschedule` | Steps: doctor, then time (`date-*`, `slot-*`), then details, then review (`btn-booking-next`) |
-| Pre-visit intake | ready-for-test | edfc1f5 | `/pre-visit/<assessmentId>` (from appointment detail `btn-pre-visit` or after booking) | Route takes the **assessment** id, not the appointment id |
+| Cancel appointment | fixed-ready-for-retest | faa44e9 | `btn-cancel-appointment` on an upcoming appointment, or `/cancel/<id>` | Sheet on native, full page on web. Reason radios carry `aria-checked` (MB-007) |
+| Book / reschedule | fixed-ready-for-retest | faa44e9 | `/book`, `btn-book-appointment`; reschedule via `btn-reschedule` | Steps: doctor, then time (`date-*`, `slot-*`), then details, then review (`btn-booking-next`). Selected doctor, date and slot carry `aria-selected` (MB-007) |
+| Pre-visit intake | fixed-ready-for-retest | faa44e9 | `/pre-visit/<assessmentId>` (from appointment detail `btn-pre-visit` or after booking) | Route takes the **assessment** id, not the appointment id. Options carry `aria-checked` (MB-007) |
 | Video visit | ready-for-test | edfc1f5 | `/visit/<appointmentId>` or `btn-join-call` | Web shows `state-video-unavailable` ("Video visits require the mobile app"); LiveKit runs in native dev builds only |
-| AI assistant | ready-for-test | edfc1f5 | `/assistant` or `tab-assistant` | `input-assistant-message`, `btn-send-message`, `btn-ai-context`, `btn-ai-consent-allow`, `prompt-chip-<n>`. Replies are tagged as AI-generated |
+| AI assistant | fixed-ready-for-retest | 417d1cb | `/assistant` or `tab-assistant` | `input-assistant-message`, `btn-send-message`, `btn-ai-context`, `btn-ai-consent-allow`, `prompt-chip-<n>`. Replies are tagged as AI-generated. Message text direction follows its content, so English punctuation stays at the end in Arabic (MB-009) |
 | Assistant history | ready-for-test | edfc1f5 | `btn-assistant-history` or `/assistant-history` | `history-session-<id>`, `btn-history-new-chat` |
 | Messages | ready-for-test | edfc1f5 | `/messages` or `tab-messages` | Search box (`input-messages-search`) appears when there are more than 3 conversations |
-| Conversation | ready-for-test | edfc1f5 | `conversation-card-<id>` or `/conversation/<id>` | `input-message`, `btn-send-message`; long-press for edit/delete (native) |
+| Conversation | fixed-ready-for-retest | 417d1cb | `conversation-card-<id>` or `/conversation/<id>` | `input-message`, `btn-send-message`; long-press for edit/delete (native). Same content-direction fix as the assistant (MB-009) |
 | My health hub | ready-for-test | edfc1f5 | `/health` or `tab-health` | Rows `row-records`, `row-lab-results`, `row-prescriptions`, `row-imaging`, `row-documents`, `row-insurance`, `row-notifications`, `row-profile`, `row-settings` |
-| Medical records | ready-for-test | edfc1f5 | `/records` or `row-records` | `btn-add-record` opens an action sheet (`action-sheet` on web) |
+| Medical records | fixed-ready-for-retest | 36949f6 | `/records` or `row-records` | `btn-add-record` opens an action sheet (`action-sheet` on web). Header back button is named "Back" / "رجوع" instead of "(tabs)" (MB-006); applies to every pushed screen |
 | Record form | ready-for-test | edfc1f5 | `/record-form?category=condition\|allergy\|vaccination[&id=<id>]` | `btn-save-record`, `btn-remove-record` |
 | Lab results | ready-for-test | edfc1f5 | `/lab-results` or `row-lab-results` | `segment-labs-*` |
 | Lab result detail | ready-for-test | edfc1f5 | `lab-order-card-<id>` | `btn-explain-with-ai` opens the assistant with a prompt |
@@ -96,6 +96,10 @@ Stack screens are kept mounted underneath the screen on top, so a hidden `screen
 | MB-003 root error boundary needs `ThemeProvider` | fixed-ready-for-retest | fixed MB-003 in edfc1f5 (`useTheme` falls back to the system palette outside the provider; the boundary strings have defaults) |
 | MB-004 invalid `direction` style on OTP cells | fixed-ready-for-retest | fixed MB-004 in f5bf5b0 (native keeps `direction: 'ltr'`; web uses `row`/`row-reverse` from the document direction) |
 | MB-005 patient-only screen flashes (or sticks) while the profile loads | fixed-ready-for-retest | fixed MB-005 in 0218ca2 + c46a74a (session and role are published together; the profile query retries and a failure shows `state-profile-error` with Retry instead of "not a patient"; `ensureProfile` runs only when the select succeeds with no row; the sign-in button stays busy until the navigator moves on). Local run of `tests/auth.spec.ts` at c46a74a: 38 passed, 2 skipped |
+| MB-006 header back control is announced as "(tabs)" | fixed-ready-for-retest | fixed MB-006 in 36949f6 (`headerBackTitle` is the localized "Back" for every screen in the app stack; it is hidden visually by the minimal back style but names the control) |
+| MB-007 segmented control does not expose the selected segment | fixed-ready-for-retest | fixed MB-007 in faa44e9 (react-native-web 0.21 ignores `accessibilityState`; all selection/checked/expanded/disabled state now uses `aria-*` props, which also work on native) |
+| MB-008 blank page on cold start while the session loads | fixed-ready-for-retest | fixed MB-008 in c6cae45 (web renders a boot screen with the splash logo and a skeleton bar, `state-loading` / role `progressbar`, while i18n and auth load; native keeps the OS splash) |
+| MB-009 English text in Arabic mode puts punctuation on the wrong side | fixed-ready-for-retest | fixed MB-009 in 417d1cb (chat bubbles, AI replies and Markdown blocks take their writing direction from the first strong character of the content) |
 
 ## Native-only (not covered on web)
 
