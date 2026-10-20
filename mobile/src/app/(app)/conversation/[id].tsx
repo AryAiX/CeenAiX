@@ -86,12 +86,14 @@ export default function ConversationScreen(): React.ReactElement {
     const body = draft;
     if (!body.trim() || thread.working) return;
     haptics.tap();
-    const ok = editing ? await thread.update(editing.id, body) : await thread.send(body);
-    if (ok) {
-      setDraft('');
-      setEditing(null);
-    } else {
+    const wasEditing = editing;
+    setDraft('');
+    setEditing(null);
+    const ok = wasEditing ? await thread.update(wasEditing.id, body) : await thread.send(body);
+    if (!ok) {
       haptics.error();
+      setDraft((current) => current || body);
+      setEditing(wasEditing);
     }
   };
 
