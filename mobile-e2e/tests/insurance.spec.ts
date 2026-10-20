@@ -33,6 +33,7 @@ test.describe('Insurance', () => {
     const screen = await openScreen(page, '/insurance', 'screen-insurance');
     await waitForLoaded(page);
     const empty = screen.getByTestId('state-empty-insurance');
+    await expect(screen.getByTestId('card-insurance-coverage').or(empty).first()).toBeVisible({ timeout: 60_000 });
     test.skip((await empty.count()) === 0, 'smoke patient has an insurance plan');
     await empty.getByRole('button').click();
     await expect(page.getByTestId('screen-profile')).toBeVisible();

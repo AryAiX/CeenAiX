@@ -80,18 +80,30 @@ test.describe('Settings', () => {
     await expect(screen.getByTestId('message-success')).toBeVisible({ timeout: 30_000 });
   });
 
-  test('sign out: cancel keeps the session, confirm returns to sign-in', async ({ page }) => {
+  test('sign out: cancel keeps the session, confirm returns to sign-in and clears cached health data', async ({ page, consoleGuard }, testInfo) => {
+    consoleGuard.allow(/status of 401/);
     await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, body: '' }));
+    let signedOut = false;
+    const lateRequests: string[] = [];
+    page.on('response', (response) => {
+      if (signedOut && response.status() === 401 && response.url().includes('/rest/v1/')) lateRequests.push(new URL(response.url()).pathname);
+    });
+    await openScreen(page, '/', 'screen-dashboard');
+    await waitForLoaded(page);
     const screen = await openScreen(page, '/settings', 'screen-settings');
     await waitForLoaded(page);
+    expect(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith('ceenaix.cache.v1.')))).toBe(true);
     await screen.getByTestId('btn-sign-out').click();
     const dialog = page.getByTestId('dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByTestId('dialog-btn-cancel').click();
     await expect(screen).toBeVisible();
     await screen.getByTestId('btn-sign-out').click();
+    signedOut = true;
     await dialog.getByTestId('dialog-btn-0').click();
     await expect(page.getByTestId('screen-sign-in')).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('ceenaix.cache.v1.') || key.startsWith('sb-')))).toEqual([]);
+    if (lateRequests.length > 0) testInfo.annotations.push({ type: 'MB-014', description: `401 after sign-out: ${lateRequests.join(', ')}` });
     await page.goto('/records');
     await expect(page.getByTestId('screen-sign-in')).toBeVisible({ timeout: 60_000 });
   });

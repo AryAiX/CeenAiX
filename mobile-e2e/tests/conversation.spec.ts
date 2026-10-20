@@ -72,10 +72,38 @@ test.describe('Conversation', () => {
 
     await longPress(page, editedBubble);
     await dialog.getByTestId('dialog-btn-1').click();
-    await expect(editedBubble).toHaveCount(0, { timeout: 60_000 });
+    await expect(editedBubble).toHaveCount(0);
+    await expect(screen.getByTestId('btn-undo-delete')).toHaveCount(0, { timeout: 60_000 });
     await page.reload();
-    await expect(page.getByTestId('screen-conversation')).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId('chat-message-own').filter({ hasText: edited })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-testid^="chat-message-"]').first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('chat-message-own').filter({ hasText: edited })).toHaveCount(0);
+  });
+
+  test('MB-015: a delete still commits when leaving the thread during the undo window', async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const screen = await openFirstConversation(page);
+    const conversationUrl = page.url();
+    const body = `QA undo-window message (${testInfo.project.name}) ${Date.now()}`;
+    await screen.getByTestId('input-message').fill(body);
+    await screen.getByTestId('btn-send-message').click();
+    const bubble = () => page.getByTestId('chat-message-own').filter({ hasText: body });
+    await expect(bubble()).toBeVisible({ timeout: 60_000 });
+
+    await longPress(page, bubble());
+    await page.getByTestId('dialog').getByTestId('dialog-btn-1').click();
+    await expect(bubble()).toHaveCount(0);
+    await page.goBack();
+    await expect(page.getByTestId('screen-messages')).toBeVisible();
+    await page.waitForTimeout(6_000);
+    await page.goto(conversationUrl);
+    await expect(page.locator('[data-testid^="chat-message-"]').first()).toBeVisible({ timeout: 60_000 });
+    const leftover = await bubble().count();
+    if (leftover > 0) {
+      await longPress(page, bubble());
+      await page.getByTestId('dialog').getByTestId('dialog-btn-1').click();
+      await expect(page.getByTestId('btn-undo-delete')).toHaveCount(0, { timeout: 60_000 });
+    }
+    expect(leftover, 'MB-015: the message the patient deleted came back after leaving the thread').toBe(0);
   });
 
   test('unknown conversation id shows a not-found state without a composer (MB-011)', async ({ page }) => {

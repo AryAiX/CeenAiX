@@ -1,4 +1,4 @@
-import { commonScreenChecks, expect, failTables, headerBack, openScreen, test, waitForLoaded } from '../support/fixtures';
+import { commonScreenChecks, expect, failTables, headerBack, isRtlProject, openScreen, test, waitForLoaded } from '../support/fixtures';
 
 test.describe('Medical records', () => {
   test('renders category counts, filter and empty/list state', async ({ page }, testInfo) => {
@@ -8,6 +8,7 @@ test.describe('Medical records', () => {
     await expect(screen.locator('[data-testid^="record-card-"]').first().or(screen.getByTestId('state-empty-records'))).toBeVisible();
     await expect(headerBack(page)).toHaveAccessibleName(/back|رجوع/i);
     await expect(headerBack(page)).not.toHaveAccessibleName(/\(tabs\)/);
+    if (isRtlProject(testInfo)) await expect(headerBack(page), 'MB-016: Arabic back button name should be fully Arabic').not.toHaveAccessibleName(/back/i);
     await commonScreenChecks(page, testInfo, screen, 'records');
   });
 
