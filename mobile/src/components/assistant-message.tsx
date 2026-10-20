@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MarkdownText } from '@/components/markdown-text';
+import { contentDirection } from '@/lib/rtl';
 import { AiGeneratedTag, Icon, Pill, Text } from '@/components/ui';
 import { showActionSheet } from '@/lib/action-sheet';
 import { getAssistantMetadata, getFileAttachments, type AiChatStoredAttachment } from '@/lib/ai';
@@ -59,7 +60,7 @@ export function AssistantMessage({ message, firstName }: { message: AssistantCha
             </Text>
           </View>
         ))}
-        <Text variant="body" style={{ color: colors.primaryText }} selectable>
+        <Text variant="body" style={{ color: colors.primaryText, writingDirection: contentDirection(message.content) }} selectable>
           {message.content}
         </Text>
         <Text variant="micro" style={{ color: colors.primaryText, opacity: 0.75, alignSelf: 'flex-end' }}>

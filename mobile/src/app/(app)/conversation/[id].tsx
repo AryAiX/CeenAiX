@@ -13,6 +13,7 @@ import { useOfflineCache } from '@/hooks/use-offline-cache';
 import { formatDate, formatTime } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import { webPathToHref } from '@/lib/links';
+import { contentDirection } from '@/lib/rtl';
 import { useAuth } from '@/providers/auth-provider';
 import { useBadges } from '@/providers/badge-provider';
 import { useTheme } from '@/theme/theme-provider';
@@ -143,7 +144,7 @@ export default function ConversationScreen(): React.ReactElement {
     return parts.map((part, index) => {
       if (part.type === 'text') {
         return (
-          <Text key={`text-${index}`} variant="body" style={{ color: own ? colors.primaryText : colors.text }}>
+          <Text key={`text-${index}`} variant="body" style={{ color: own ? colors.primaryText : colors.text, writingDirection: contentDirection(part.value) }}>
             {part.value}
           </Text>
         );
