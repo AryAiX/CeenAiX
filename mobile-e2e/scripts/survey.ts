@@ -28,7 +28,10 @@ async function main(): Promise<void> {
   const routes = process.argv.slice(2);
   for (const route of routes.length ? routes : ['/']) {
     if (route !== '/') await page.goto(base + route);
-    await page.waitForTimeout(5000);
+    await page.locator('[data-testid^="screen-"]:visible').first().waitFor({ timeout: 60_000 });
+    await page.waitForTimeout(1500);
+    await page.getByTestId('state-loading').first().waitFor({ state: 'detached', timeout: 60_000 }).catch(() => console.log(`  ${route}: still loading after 60s`));
+    await page.waitForTimeout(1500);
     const name = route.replace(/[^a-z0-9]+/gi, '_') || 'root';
     await page.screenshot({ path: `scratch/survey${name}.png`, fullPage: false });
     const snap = await page.locator('body').ariaSnapshot();

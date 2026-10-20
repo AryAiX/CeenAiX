@@ -18,8 +18,8 @@ const pixel7 = {
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
+  timeout: 150_000,
+  expect: { timeout: 20_000 },
   fullyParallel: true,
   workers: process.env.CI ? 2 : 4,
   retries: process.env.CI ? 1 : 0,

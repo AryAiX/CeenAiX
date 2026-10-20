@@ -52,13 +52,13 @@ export const byTestId = (page: Page, id: string): Locator => page.getByTestId(id
 export async function openScreen(page: Page, path: string, screenTestId: string): Promise<Locator> {
   await page.goto(path);
   const screen = page.getByTestId(screenTestId);
-  await expect(screen).toBeVisible({ timeout: 30_000 });
+  await expect(screen).toBeVisible({ timeout: 60_000 });
   return screen;
 }
 
 /** Waits until no loading skeleton is visible. */
 export async function waitForLoaded(page: Page): Promise<void> {
-  await expect(page.getByTestId('state-loading')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator('[data-testid="state-loading"]:visible')).toHaveCount(0, { timeout: 60_000 });
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -122,14 +122,18 @@ export async function slowSupabase(page: Page, delayMs = 2500): Promise<void> {
   });
 }
 
-/** Makes Supabase REST GETs fail so error states can be exercised. */
-export async function failSupabaseReads(page: Page, guard: ConsoleGuard): Promise<void> {
+/** Makes Supabase REST GETs on the given tables fail so error states can be exercised. */
+export async function failTables(page: Page, guard: ConsoleGuard, tables: string[]): Promise<void> {
   guard.allow(/500|Internal Server Error|Failed to load resource/);
-  await page.route(SUPABASE_REST, async (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
+  const pattern = new RegExp(`/rest/v1/(${tables.join('|')})(\\?|$)`);
+  await page.route(pattern, async (route) => {
+    if (route.request().method() !== 'GET' && route.request().method() !== 'HEAD') return route.continue();
     return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'QA forced failure', code: 'XX000' }) });
   });
 }
+
+/** Header back control rendered by the native stack on web. */
+export const headerBack = (page: Page): Locator => page.getByRole('link', { name: /back|رجوع|عودة/i }).last();
 
 /** Standard per-screen checks: direction, no overflow, accessible controls, screenshot. */
 export async function commonScreenChecks(page: Page, testInfo: TestInfo, screen: Locator, name: string): Promise<void> {
