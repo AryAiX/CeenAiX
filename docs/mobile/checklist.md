@@ -1,183 +1,64 @@
-# CeenAiX Mobile — Build Checklist
+# CeenAiX Patient App — Checklist
 
-> Source of truth for the React Native (Expo) patient app. Mirrors the web
-> patient portal page-by-page (`src/pages/patient/*`) plus mobile-platform
-> setup. Update checkboxes as work lands. Companion to
-> `docs/mobile/overview.md`.
->
-> Legend: `[x]` done · `[~]` partial / scaffolded · `[ ]` not started.
+Status of the Expo app in `mobile/`. Architecture and UX decisions are in [overview.md](./overview.md). QA handoff and testIDs are in [test-handoff.md](./test-handoff.md).
 
----
+## Screens
 
-## 0. Branch & process
+Every web patient page and auth page has a native screen. All of them run in the Expo web build too.
 
-- [x] Create branch `mobile-6-1` from `origin/main`
-- [x] Plan + checklist committed before building
-- [x] Small focused commits per workstream
-- [x] Push `-u origin mobile-6-1` and open **draft** PR (do not merge)
-- [x] Exclude unrelated `docs/reviews/pr-70-review.md` from commits
+| Area | Screen | Status |
+|---|---|---|
+| Auth | Sign in (email/password, phone OTP), Sign up (email or phone), OTP, Forgot password, Reset password, Onboarding, Patient-only gate | Done |
+| Home | Dashboard (next visit, quick actions, health score, medications, messages, activity, care team, insurance) | Done |
+| Visits | Appointments list, Appointment detail, Cancel, Book / Reschedule wizard, Pre-visit intake, Video visit | Done (video needs a dev build) |
+| AI | Assistant chat (consent, attachments, record-update review), Chat history | Done |
+| Messages | Inbox, Conversation (realtime, edit/delete) | Done (no message attachments; same as web) |
+| Health | Hub, Records + record form, Lab results + detail, Prescriptions + detail + pharmacy picker, Imaging + detail, Documents + upload, Insurance | Done |
+| Account | Notifications, Profile (avatar, personal, Emirates ID, insurance), Settings | Done |
 
----
+Known gaps compared with the web, all intentional:
+- Family members are not ported, because on the web they exist only in local state.
+- Notifications cannot be dismissed, because the `notifications` table has no `is_deleted` column.
+- The booking specialty filter is single-select.
 
-## 1. Mobile platform setup
+## Quality bar
 
-### 1.1 Project scaffold
-- [x] Expo TypeScript app under `mobile/` (own `package.json` / lockfile)
-- [x] TypeScript **strict** mode, `no any`
-- [x] `mobile/.gitignore` (node_modules, .env, .expo, build artifacts)
-- [x] `mobile/README.md` with run/build instructions
-- [x] Does **not** break web build (web tsconfig only includes `src`; eslint ignores `mobile`)
+- [x] Brand tokens and light/dark themes (system, light or dark, chosen in Settings).
+- [x] EN/AR with RTL (`I18nManager` on native, `dir` on `<html>` on web).
+- [x] Skeleton loaders, empty states, error states with retry, and route and root error boundaries.
+- [x] Haptics, safe areas and keyboard avoidance (no-ops on web where they don't apply).
+- [x] Offline last-fetch cache with a stale banner.
+- [x] Stable `testID`s on screens, tabs, buttons, inputs, list items and states. Conventions are in `test-handoff.md`.
+- [x] AI only through the `ai-chat` Edge Function, tagged AI-generated, with the patient-context consent toggle.
 
-### 1.2 Navigation
-- [x] React Navigation installed (native stack + bottom tabs)
-- [x] Root navigator switches Auth stack vs App (tabs) on session
-- [x] Bottom tab navigator: Home · Appointments · Records · Notifications · Profile
-- [x] Stack navigators per tab for detail screens
-- [~] Deep linking config (`ceenaix://`) — scaffolded in RootNavigator
+## Verification
 
-### 1.3 Theming / design system
-- [x] NativeWind configured (`tailwind.config.js`, `global.css`, babel)
-- [x] Brand tokens mirrored from web (`teal`/`slate`, spacing) into `theme.ts`
-- [x] Shared typed `theme` for non-NativeWind surfaces (nav, status bar)
-- [x] Reusable primitives: `Screen`, `Card`, `Button`, `Skeleton`, `ErrorState`, `EmptyState`
+Run from `mobile/` unless noted otherwise.
 
-### 1.4 Supabase client
-- [x] `@supabase/supabase-js` + `react-native-url-polyfill` + `AsyncStorage`
-- [x] Client with `persistSession` + `autoRefreshToken`, `detectSessionInUrl: false`
-- [x] Reads `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- [x] RLS preserved; only patient token sent (no service role)
+| Command | Expected |
+|---|---|
+| `npm ci` | Installs cleanly |
+| `npm run typecheck` | No errors (TypeScript strict) |
+| `npm run check:i18n` | Every literal key resolves in EN and AR |
+| `npm run sync:web -- --check` | Generated data layer matches the web hooks |
+| `npm run format:check` | Prettier clean |
+| `npx expo export --platform ios` / `android` / `web` | Bundles export (`web` writes `mobile/dist`) |
+| `npx expo start --web --port 8081` | App serves on port 8081 |
+| `npx expo-doctor` | 19/20. The one failure is expected; see below |
+| Repo root: `npm ci && npm run lint && npm run typecheck && npm run build` | Web app still green |
+| `mobile-e2e/`: `APP_DIST=$PWD/../mobile/dist SMOKE_PATIENT_PASSWORD=… npx playwright test` | QA suite passes on iphone-14, pixel-7 and rtl-ar (288 passed, 9 intentional skips, 1 failure that needs the MB-013 migration on DEV, at the merge of `mobile-patient-parity-tests` 61bd0e5) |
 
-### 1.5 Auth / session persistence
-- [x] Auth context (parity with web `auth-context.tsx`, sans react-router)
-- [x] Session hydrate + `onAuthStateChange` subscription
-- [x] Loads `user_profiles` + `patient_profiles`; exposes `role`
-- [x] Route guard: only `role === 'patient'` reaches app tabs
-- [x] Sign out
-- [ ] Biometric unlock (Face ID / fingerprint) — `expo-local-authentication` deferred
+### Expected `expo-doctor` failure
 
-### 1.6 Env config
-- [x] `mobile/.env.example` (`EXPO_PUBLIC_*`, no secrets)
-- [x] Typed env accessor with friendly missing-var warning (`src/lib/env.ts`)
+**Metro config.** `metro.config.js` sets `disableHierarchicalLookup` and limits `nodeModulesPaths` to `mobile/node_modules`. Shared files under `../src/lib` and `../src/types` would otherwise resolve the web app's React 18 from the repo root.
 
-### 1.7 i18n (EN + Arabic / RTL)
-- [x] i18next + react-i18next init for RN
-- [x] Reuse existing `src/locales/{en,ar}` resources via path alias
-- [x] Language switch persisted (AsyncStorage) — toggle on Profile screen
-- [x] RTL handling baseline (`I18nManager` flip on Arabic)
+## Blockers and next steps
 
-### 1.8 Push notifications (stub)
-- [~] `expo-notifications` permission + token registration **stub** (no prod credentials)
-- [ ] Wire appointment / message / lab-result push (Phase 2, needs APNs/FCM)
-
-### 1.9 Native capture & offline (foundation)
-- [ ] Camera / image-picker for document + Emirates ID capture — deferred
-- [x] Pull-to-refresh wired on data screens (RefreshControl on Dashboard + Appointments)
-- [ ] Offline-friendly last-fetch caching — pattern documented, deferred
-
-### 1.10 Build / run
-- [x] `npm run typecheck` (tsc) for mobile — passes
-- [x] Documented: `npx expo start`, `npm run ios`, `npm run android`, `npm run web`
-- [ ] EAS build profile (`eas.json`) — deferred (no store submission this branch)
-
-### 1.11 Testing
-- [~] Test setup note (jest-expo) — documented; unit tests deferred
-- [x] Typecheck is the green gate for this foundation pass
-
----
-
-## 2. Shared code reuse
-
-- [x] `src/types/*` reused via `@ceenaix/types` path alias (no copy)
-- [x] `src/locales/*` reused via `@ceenaix/locales` path alias (no copy)
-- [x] Metro configured to resolve files outside `mobile/`
-- [x] Mobile data hooks replicate canonical query logic (same tables/columns)
-- [ ] **Deeper reuse:** extract pure hook query/transform bodies into a
-      `shared/` workspace package that accepts an injected `SupabaseClient`
-      (touches web hooks → deferred; see overview.md)
-
----
-
-## 3. Patient screens (parity with `src/pages/patient/*`)
-
-### 3.1 Auth — Login + Signup (`/auth/login`, `/auth/register`)
-- [x] Login screen (email + password) → Supabase `signInWithPassword`
-- [x] Signup screen (name, email, password, terms) → `signUpWithPassword` (role `patient`)
-- [x] Loading + error states; friendly auth error messages
-- [x] Redirect to tabs on authenticated patient session
-- [ ] Phone OTP login (Phase 2 parity)
-- [ ] Forgot password flow
-
-### 3.2 Dashboard (`/patient/dashboard`) — **vertical slice (real data)**
-- [x] Greeting + adherence header
-- [x] Stat cards (upcoming, HbA1c, blood pressure, medications) from real data
-- [x] Next appointment card (doctor, specialty, time, countdown)
-- [x] Today's medications list (dispensed indicator)
-- [x] Insurance summary card
-- [x] AI health tip card
-- [x] Bound to real Supabase data (canonical schema, RLS-scoped)
-- [x] Loading skeletons + error state + pull-to-refresh
-- [ ] HbA1c / BP trend charts (web uses SVG; mobile chart deferred)
-
-### 3.3 Appointments (`/patient/appointments`, `/:id`, `/book`) — **slice (real data)**
-- [x] Upcoming / past list from `appointments` (RLS-scoped, `is_deleted=false`)
-- [x] Status chips, doctor name + specialty resolution
-- [x] Loading + error + empty + pull-to-refresh
-- [x] Appointment detail screen (real data via stack route)
-- [ ] Booking flow (doctor → date → time → confirm)
-- [ ] Cancel / reschedule
-
-### 3.4 Records (`/patient/records`)
-- [~] Screen scaffolded (tab route)
-- [ ] Bind to `medical_conditions`, `allergies`, `vaccinations`
-- [ ] Manual entry forms
-
-### 3.5 Prescriptions (`/patient/prescriptions`)
-- [ ] Screen + bind to `prescriptions` + `prescription_items` (+ catalog hydration)
-- [ ] Pharmacy status display
-
-### 3.6 Lab results (`/patient/lab-results`)
-- [ ] List doctor-uploaded results (`lab_orders` + `lab_order_items`)
-- [ ] AI plain-language explanation (Edge Function)
-
-### 3.7 Messages (`/patient/messages`, `/:id`)
-- [ ] Conversation list (`conversations` / `messages`)
-- [ ] Conversation detail + send
-- [ ] Realtime subscription + unread counts
-
-### 3.8 Notifications (`/patient/notifications`)
-- [~] Screen scaffolded (tab route)
-- [ ] Bind to `notifications` (mark read, action routing)
-
-### 3.9 Documents (`/patient/documents`)
-- [ ] List documents (Supabase Storage `documents` / `medical-files`)
-- [ ] Camera / library capture + upload (Emirates ID, files)
-
-### 3.10 Profile (`/patient/profile`)
-- [x] Screen shows real profile + patient profile + sign out + language toggle
-- [ ] Edit personal info, Emirates ID, notification preferences
-- [ ] Avatar upload
-
-### 3.11 AI chat (`/patient/ai-chat`)
-- [ ] Chat UI; calls `ai-chat` Edge Function (never OpenAI direct)
-- [ ] Patient-context consent check before sending context
-- [ ] "AI-generated" tagging in UI
-
----
-
-## 4. Cross-cutting / compliance (per AGENTS.md)
-
-- [x] Canonical schema only — no ad-hoc tables
-- [x] All data access via Supabase client; patient-scoped by RLS
-- [x] No secrets committed
-- [ ] AI calls via Edge Functions only (when AI screens land)
-- [x] TypeScript strict, functional components, named exports
-- [x] Loading skeletons / spinners + error states on data screens
-
----
-
-## 5. Verification gate
-
-- [x] Mobile `tsc --noEmit` passes
-- [x] Web `npm run lint` passes (unchanged)
-- [x] Web `npm run typecheck` passes (unchanged)
-- [x] Web `npm run build` passes (unchanged)
+| Blocker | Next step |
+|---|---|
+| LiveKit video needs native WebRTC, which Expo Go doesn't have | `eas build --profile development` (or `npx expo run:ios` / `run:android`), then install the dev client. Expo Go and web show the "requires the app" state |
+| Password-reset deep link | Add `ceenaix://reset-password` and `ceenaix://` (email confirmation) to the Supabase Auth redirect allow-list for each environment. For Expo web, also add the web origin's `/reset-password` (e.g. `http://localhost:8081/reset-password`) |
+| Push notifications are a stub | Upload APNs key and FCM credentials to EAS (`eas credentials`), then store Expo push tokens in a canonical table and send from an Edge Function. Local badge and permission handling are already in place |
+| EAS `projectId` | Run `eas init` to create the project. It writes `extra.eas.projectId` to `app.json`, which is required for push tokens and EAS Update |
+| Document "Remove" is rejected by RLS (web and mobile) until migration `20260719090000_patient_document_soft_delete_rls.sql` (MB-013) is deployed | The old `FOR ALL USING (patient_id = auth.uid() AND NOT is_deleted)` policy also acts as the SELECT check on the updated row, so a soft delete always failed with `42501`. The migration splits it into SELECT (owner, all own rows), INSERT (unchanged checks) and UPDATE (live rows only, `deleted_at` required) with no DELETE policy. Next step: merge to main so the CI "Dev Supabase" job applies it to DEV, or run `node scripts/push-migrations-management-api.mjs --project-ref lgfaucsfiyxvmsghnpey` with `SUPABASE_ACCESS_TOKEN`; production gets it through the Release workflow. Then remove the leftover QA documents in the smoke patient's vault |
+| Store builds | Configure EAS environment variables (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`) for preview/production, then `eas build --profile production` |

@@ -1,80 +1,54 @@
-# CeenAiX Mobile (React Native / Expo)
+# CeenAiX patient app (Expo / React Native)
 
-Patient-oriented native iOS + Android app for CeenAiX. Shares the same
-hosted Supabase backend, schema, RLS, and `role === 'patient'` scoping as
-the web patient portal.
+Native iOS and Android app for the CeenAiX **patient** portal. It talks to the
+same hosted Supabase project as the web app, through the same RLS policies,
+RPCs and Edge Functions. See `docs/mobile/overview.md` for the architecture and
+`docs/mobile/checklist.md` for screen status and open blockers.
 
-See the plan and the page-by-page build status:
+## Requirements
 
-- `../docs/mobile/overview.md` — architecture, reuse strategy, decisions
-- `../docs/mobile/checklist.md` — source-of-truth build checklist
-
-## Stack
-
-- **Expo** (managed workflow), React Native 0.85, React 19, TypeScript (strict)
-- **React Navigation** — bottom tabs + native stacks
-- **NativeWind** (Tailwind for RN) — mirrors the web brand tokens
-- **@supabase/supabase-js** + AsyncStorage + `react-native-url-polyfill`
-- **i18next / react-i18next** — reuses the web `src/locales/{en,ar}` resources
-
-## Prerequisites
-
-- Node 20+ (Node 22 works)
-- The Expo Go app on a device, or an iOS Simulator / Android Emulator
-- Network access to the hosted Supabase project
+- Node 20+
+- Xcode 26+ (iOS) and/or Android Studio with an emulator
+- An Expo account and `eas-cli` for cloud builds (optional)
 
 ## Setup
 
 ```bash
 cd mobile
-cp .env.example .env     # fill EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY
 npm install
+cp .env.example .env   # fill in the dev Supabase URL + publishable anon key
 ```
 
-The Supabase URL/anon key are the **same backend** as the web app (see the
-web `.env.example`; dev project ref `lgfaucsfiyxvmsghnpey`). Only the anon /
-publishable key is used — never the service role key.
+Only the **publishable anon key** belongs in `.env` (git-ignored). Never put a
+service-role key in the app — every `EXPO_PUBLIC_*` value ships in the bundle.
 
 ## Run
 
-```bash
-npx expo start          # interactive: press i (iOS), a (Android), w (web)
-npm run ios             # open iOS Simulator
-npm run android         # open Android Emulator
-npm run web             # run in a browser (RN Web)
-```
+| Task | Command |
+|---|---|
+| Dev build on iOS simulator (first time / after native changes) | `npm run ios` |
+| Dev build on Android emulator | `npm run android` |
+| Start Metro for an installed dev build | `npm start` |
+| Expo Go (no video visits, no biometric prompt on some devices) | `npm run start:go` |
 
-## Verify (no simulator required)
+Video visits (LiveKit / WebRTC) need a **development or store build**; in Expo
+Go the visit screen explains this instead of crashing.
 
-```bash
-npm run typecheck       # tsc --noEmit — the green gate for this foundation
-```
+## Checks
 
-## Shared code with the web app
+| Task | Command |
+|---|---|
+| Type check (strict) | `npm run typecheck` |
+| Every literal `t('…')` key exists in EN and AR | `npm run check:i18n` |
+| Generated web data layer is up to date | `npm run sync:web -- --check` |
+| Expo dependency / config health | `npm run doctor` |
+| Bundle smoke test | `npm run export:ios` / `npm run export:android` |
 
-This app reuses platform-agnostic web modules **without copying** via path
-aliases (configured in `tsconfig.json` + `metro.config.js`):
+## Shared web code
 
-- `@ceenaix/types` → `../src/types` (all DB / enum types)
-- `@ceenaix/locales/*` → `../src/locales/*` (EN/AR translation JSON)
-
-Platform-specific concerns (Supabase client, auth context, navigation,
-screens) live under `src/` here because their web equivalents depend on
-`react-dom` / `react-router-dom` / Vite env / the DOM. The deeper-reuse plan
-(extracting pure hook query logic into a shared package) is documented in
-`../docs/mobile/overview.md`.
-
-## Project layout
-
-```
-mobile/
-  App.tsx                 app entry (i18n init, providers, navigator)
-  src/
-    components/ui.tsx      Screen, Card, Button, Skeleton, ErrorState, ...
-    context/auth-context   Supabase auth provider (patient-scoped)
-    hooks/                 use-query, use-patient-dashboard, use-patient-appointments
-    i18n/                  i18next init reusing web locales + RTL baseline
-    lib/                   supabase client, env, theme tokens, push stub
-    navigation/            root navigator (auth stack <-> bottom tabs)
-    screens/               auth/ + patient/ screens
-```
+- `src/data/web/**` is **generated** from the web hooks by `npm run sync:web`.
+  Do not edit it — change the web hook and re-run the script.
+- `@ceenaix/types` and `@ceenaix/shared/*` are path aliases to the web
+  `src/types` and pure `src/lib` helpers.
+- Web locales (`src/locales/{en,ar}`) are loaded as-is; mobile-only copy lives
+  under `m.*` in `src/i18n/strings/{en,ar}.ts`.

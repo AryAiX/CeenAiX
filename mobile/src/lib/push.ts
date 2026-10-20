@@ -1,38 +1,59 @@
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Push notifications registration STUB.
-//
-// This requests permission and obtains an Expo push token so the wiring is in
-// place, but it does NOT ship production credentials (APNs key / FCM server
-// key) and does not yet persist the token or deliver real pushes. Delivery of
-// appointment / message / lab-result notifications is Phase 2 work tracked in
-// docs/mobile/checklist.md (section 1.8). Safe to call on app start.
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
+if (Platform.OS !== 'web')
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: true,
+    }),
+  });
+
+/**
+ * Requests permission and returns the Expo push token. The token is not
+ * persisted server-side yet: the canonical schema has no device-token table
+ * and delivery requires APNs/FCM credentials (tracked in docs/mobile/checklist.md).
+ */
+export async function registerForPushNotifications(): Promise<string | null> {
   try {
+    if (Platform.OS === 'web' || !Device.isDevice) return null;
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+        name: 'CeenAiX',
         importance: Notifications.AndroidImportance.DEFAULT,
       });
     }
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      return null;
-    }
-
-    const tokenResponse = await Notifications.getExpoPushTokenAsync();
-    // TODO(Phase 2): persist tokenResponse.data against the patient profile and
-    // wire server-side delivery once APNs/FCM credentials are provisioned.
-    return tokenResponse.data;
-  } catch (error) {
-    console.warn('[CeenAiX] Push registration stub skipped:', error);
+    const existing = await Notifications.getPermissionsAsync();
+    const status = existing.granted ? existing.status : (await Notifications.requestPermissionsAsync()).status;
+    if (status !== 'granted') return null;
+    const projectId =
+      (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId ??
+      Constants.easConfig?.projectId ??
+      (process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || undefined);
+    if (!projectId) return null;
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    return token.data;
+  } catch {
     return null;
   }
+}
+
+/** Notification payloads carry a web-style `url` (same as `notifications.action_url`). */
+export function getNotificationUrl(response: Notifications.NotificationResponse): string | null {
+  const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+  const url = data?.url ?? data?.action_url;
+  return typeof url === 'string' ? url : null;
+}
+
+/** Asks for (or confirms) OS notification permission without fetching a token. */
+export async function ensureNotificationPermission(): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
+  const existing = await Notifications.getPermissionsAsync();
+  if (existing.granted) return true;
+  if (!existing.canAskAgain) return false;
+  return (await Notifications.requestPermissionsAsync()).granted;
 }

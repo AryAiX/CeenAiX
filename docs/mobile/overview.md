@@ -1,206 +1,93 @@
-# CeenAiX Mobile — Overview
+# CeenAiX Patient App — Overview
 
-> What we are building, why, and how it reuses the existing web patient
-> portal. This is the companion to `docs/mobile/checklist.md` (the
-> page-by-page source of truth) and follows the conventions in
-> `AGENTS.md`, `docs/agent/mvp-scope.md`, and `docs/agent/tech-stack.md`.
+The patient app in `mobile/` is a native iOS and Android client for the patient
+portal (`src/pages/patient/*`). It was rebuilt from scratch on Expo, with a
+phone-first information architecture. The backend is unchanged: it uses the
+same Supabase project, canonical schema, RLS policies, RPCs and Edge Functions
+as the web.
 
-## What we are building
+## Stack
 
-A **patient-oriented native mobile app** for **iOS + Android**, built with
-**React Native (Expo)**. The goal is **near feature-parity with the web
-patient portal** (`src/pages/patient/*`), backed by the **same Supabase
-project, schema, RLS, and `role === 'patient'` scoping** as the web app.
+| Concern | Choice |
+|---|---|
+| Runtime | Expo SDK 58 (managed workflow + `expo-dev-client`), React Native 0.88, React 19, Hermes |
+| Language | TypeScript strict; no `any` |
+| Navigation | `expo-router` (file routes in `src/app/`), `NativeTabs` (UITabBar / Material bottom nav), native-stack sheets |
+| Data | `@supabase/supabase-js` with an AsyncStorage session; generated copies of the web hooks |
+| Video | LiveKit (`@livekit/react-native`, `@livekit/react-native-webrtc`) + config plugins |
+| i18n | `i18next` with the web locales plus mobile copy under `m.*`; EN / AR with RTL |
+| Native APIs | expo-image-picker, expo-document-picker, expo-local-authentication, expo-notifications, expo-web-browser, expo-clipboard, expo-haptics, expo-keep-awake, `Share` |
 
-The mobile app is not a webview wrapper. It re-implements the patient
-surface with native navigation and platform-native UX, while sharing the
-non-visual logic (types, data-access patterns, i18n resources, constants)
-with the web codebase wherever feasible.
+## Information architecture
 
-### Patient surface in scope (mirrors `docs/agent/mvp-scope.md` → Patient Pages)
+There are five tabs, and everything else is pushed onto one stack, so the back
+gesture always works.
 
-- Dashboard (health overview, next appointment, today's meds, insurance, AI tip)
-- Appointments (upcoming/past list, detail, book) 
-- Records (conditions, allergies, medications, vaccinations)
-- Lab results
-- Prescriptions (active/past)
-- Messages (secure messaging with doctors)
-- Notifications (notification center)
-- Documents
-- Profile (personal info, Emirates ID, preferences)
-- AI chat entry point (calls Edge Functions only — never OpenAI directly)
-- Auth (login, signup, session persistence, route guard)
-
-## Mobile-native UX adaptations (explicit)
-
-Where a native pattern serves patients better than a literal port of the
-web layout, we adapt and **call it out here**:
-
-| Web pattern | Mobile adaptation | Rationale |
+| Tab | Screen | Pushed / presented from it |
 |---|---|---|
-| Left sidebar + top nav chrome | **Bottom tab navigator** (Home, Appointments, Records, Notifications, Profile) + stacks | Thumb-reachable primary nav is the iOS/Android convention |
-| Email confirmation / browser redirect auth | Native auth screens; **biometric unlock** (Face ID / fingerprint) to re-open an existing session | Faster, expected re-entry on personal devices |
-| Toast / in-app banners only | **Native push notifications** (Expo Notifications) for appointment reminders, new messages, lab results | Off-app reachability; this branch ships a **registration stub** only |
-| Manual reload buttons | **Pull-to-refresh** on list/dashboard screens | Standard mobile refresh affordance |
-| File `<input>` upload | **Camera + photo library** capture for documents / Emirates ID | Native capture is the natural mobile flow |
-| URL-based navigation | **Deep links** (`ceenaix://` + universal/app links) mapping to patient routes | Push taps and shared links open the right screen |
-| Always-online fetches | **Offline-friendly caching** of the last successful fetch per screen | Patients often open the app on poor connections |
+| Home | Dashboard: next visit, today's doses, vitals, attention items, care team | Notifications, Profile, Book |
+| Visits | Upcoming / Past / Cancelled segments | Appointment detail → Cancel (sheet), Reschedule (wizard), Pre-visit (full-screen), Video visit (full-screen) |
+| Assistant | AI chat | Chat history (sheet) |
+| Messages | Conversation list with search | Conversation thread (realtime) |
+| Health | Grouped hub | Records, Lab results, Prescriptions, Imaging, Documents, Insurance, Profile, Settings |
 
-These are documented as the target; this foundation branch wires the
-navigation, theming, Supabase/auth, i18n, and a representative vertical
-slice. Push, biometric, camera, deep links, and offline caching are
-scaffolded/stubbed and tracked in the checklist for follow-up.
+Auth lives outside the app group: sign-in, sign-up, forgot password, phone
+OTP, reset password (from the `ceenaix://reset-password` deep link) and
+onboarding. A non-patient role sees the `patient-only` screen, which mirrors
+the web `/access-denied` guard.
 
-## Architecture decision: Expo (managed workflow)
+## Mobile UX decisions (vs. web)
 
-**Decision: Expo managed workflow.** Justification:
+- **One step per screen.** Booking is a wizard (doctor → time → reason → review), and reschedule skips the doctor step. Pre-visit shows one question per screen, with an intro, a review list and record-update review as separate steps.
+- **Native sheets** replace web modals for cancel, the pharmacy picker, record add/edit, document upload and chat history.
+- **Segmented controls** replace web tabs and filters on visits, records, labs, prescriptions, imaging, insurance and notifications.
+- **Date strip and slot chips** replace the web month grid. Only days that have open slots are shown.
+- **Native actions** replace web-only affordances: action sheets, the share sheet (lab and imaging reports, document links), in-app browser for signed URLs, `mailto:` for support and insurer contact, Apple Maps or `geo:` for directions, long-press to copy or share AI replies, and long-press to edit or delete your own messages (5-second undo).
+- **States.** Every list has a skeleton loader, an empty state and an error state with retry. Cached data shows an offline banner. Every route exports an error boundary.
+- **Feel.** Haptics on taps, success and error; safe areas; keyboard avoidance using the real header height; dark mode with a system/light/dark setting; RTL with directional icons.
 
-- **Fastest cross-platform setup** — one TypeScript codebase produces iOS
-  and Android with zero native Xcode/Gradle wiring for the foundation.
-- **Batteries included** for everything this app needs as managed config
-  plugins: `expo-router`/React Navigation, `expo-secure-store`,
-  `expo-local-authentication` (biometrics), `expo-notifications` (push),
-  `expo-image-picker`/`expo-camera`, `expo-linking` (deep links).
-- **EAS Build / Update** gives cloud builds and OTA updates later without
-  re-architecting (no need to maintain local native toolchains in CI).
-- **Bare workflow is always an escape hatch** via `expo prebuild` if a
-  future native module is unavailable — so choosing managed now costs us
-  nothing later.
+## Data layer
 
-No strong reason to drop to bare RN for a patient CRUD + chat app, so we
-take the managed path.
+- `src/data/web/{hooks,lib}` is **generated** from the web (`npm run sync:web`). Only import paths are rewritten: the Supabase client becomes the native one, and `use-query` becomes the mobile hook with the same contract. Running `npm run sync:web -- --check` fails when the copy is stale.
+- `src/data/*.ts` holds query-for-query mirrors of logic that lives *inside* web pages rather than hooks: booking/reschedule/cancel with notifications, the messaging list and thread, record CRUD, documents, profile, pre-visit persistence, preferences and reported medications. Each file names its web source.
+- `useOfflineCache(result, key)` persists the last successful payload per user. When a fetch fails, it serves that copy with `staleSince`.
+- **Realtime:** the messages thread (`postgres_changes` on `messages`) plus the notification and unread-message badges.
+- RLS is the only authority. The app never uses a service-role key, never adds tables or columns, and soft-deletes clinical data (`is_deleted`, `deleted_at`) exactly as the web does.
 
-## Styling decision: NativeWind
+## AI
 
-**Decision: NativeWind (Tailwind for React Native).** Justification:
+- All AI goes through Supabase Edge Functions: `ai-chat` for the assistant and the pre-visit summary. The app never calls OpenAI.
+- **Consent:** sending patient context (`usePatientContext`) is opt-in on mobile. The patient chooses in the assistant or in Settings, and the choice is stored per user on the device. The web currently sends context on every message, and the schema has no consent table yet, so this setting is device-local.
+- Every AI output carries the "AI-generated" tag (assistant replies, the pre-visit summary on the appointment and intake screens). Assistant replies render Markdown with a small built-in renderer and show evidence ("Used: …") and suggested in-app actions.
+- Chat-derived record updates use the same review → apply / dismiss flow as the web.
 
-- The web app is **100% Tailwind** (`tailwind.config.js`, utility classes
-  everywhere). NativeWind lets us reuse the **same class vocabulary and the
-  same brand tokens** (teal/slate palette, spacing scale), keeping visual
-  parity cheap and the mental model identical for anyone crossing between
-  web and mobile.
-- We mirror the web palette into `mobile/tailwind.config.js` and a typed
-  `theme` module so non-NativeWind code (navigation options, status bar,
-  charts) shares the exact same colors.
+## Native capabilities
 
-## Reuse strategy (share, don't copy)
+| Capability | Status |
+|---|---|
+| Camera / photo library / files | Wired (documents, avatar, Emirates ID, insurance card, AI attachments) |
+| Biometric re-unlock | Wired (`expo-local-authentication`, toggle in Settings) |
+| Deep links `ceenaix://` | Wired (`webPathToHref` maps web paths; auth redirects for reset password and email confirmation) |
+| Realtime | Wired (messages thread, unread badges) |
+| Offline last-fetch cache | Wired (dashboard and all list screens) |
+| Video visits | Wired; needs a dev or store build (WebRTC is not in Expo Go) |
+| Push notifications | **Stub.** Permission and Expo token only; no server-side token storage or APNs/FCM delivery yet |
 
-The codebase splits cleanly into **platform-agnostic** vs **platform-specific**:
+## Web build (for QA)
 
-**Reusable as-is (pure TypeScript, no DOM / Vite / router):**
+`npx expo export --platform web` produces a single-page app in `mobile/dist`, used by the Playwright suite in `mobile-e2e/`. Native-only modules are guarded so web never crashes:
 
-- `src/types/*` — all DB and enum types. **Reused directly** by the mobile
-  app via a tsconfig path alias (`@ceenaix/types` → `../src/types`). No copy.
-- Pure helpers in `src/lib/*` that don't touch the DOM or `import.meta.env`
-  (e.g. `medication-display`, `medication-schedule`, `prescription-vocab`,
-  `with-timeout`, `auth-error-messages`). Reusable; aliased on demand.
-- **i18n resources** (`src/locales/{en,ar}/*.json`) — reused directly by
-  the mobile i18n init via path alias (`@ceenaix/locales`).
-- Validation, constants, and the **shape of the Supabase data hooks** in
-  `src/hooks/*` (the query/transform logic).
+- Native alerts and action sheets render through `DialogHost`.
+- The tab bar uses JS tabs (`(tabs)/_layout.web.tsx`), so tab `testID`s survive on web.
+- Video visits show "Video visits require the mobile app".
+- The camera option is hidden, and file and photo pickers use the browser chooser.
+- Dates are typed as YYYY-MM-DD.
+- There is no biometric lock, push or badge count on web.
+- RTL comes from `dir` on `<html>` (see `lib/rtl.ts`).
+- On desktop browsers the layout is capped at phone width.
 
-**Must be platform-specific (cannot cross the web/native boundary):**
+## Security
 
-- Anything importing `react-dom`, `react-router-dom`, `createPortal`,
-  `window`, `document`, or Tailwind-on-DOM classes — i.e. every
-  `src/pages/**` component and `src/lib/router.tsx`.
-- `src/lib/supabase.ts` — uses `import.meta.env` (Vite). Mobile needs its
-  own client using `EXPO_PUBLIC_*` env, `AsyncStorage`, and
-  `react-native-url-polyfill`.
-- `src/lib/auth-context.tsx` — imports `react-router-dom`. Mobile
-  re-implements the same auth provider against React Navigation.
-
-### Chosen sharing approach
-
-For this foundation pass we use **path-alias sharing into the existing
-`src/`** rather than a disruptive monorepo migration:
-
-- `mobile/tsconfig.json` maps `@ceenaix/types/*` → `../src/types/*` and
-  `@ceenaix/locales/*` → `../src/locales/*`. Metro's `watchFolders` +
-  `nodeModulesPaths` are configured so the bundler can resolve files
-  outside `mobile/`.
-- This gives **genuine, non-duplicated reuse of types and i18n today** with
-  zero changes to the web build (the web `tsconfig.app.json` only includes
-  `src`, so it never sees `mobile/`).
-
-**Deeper reuse path (documented, deferred):** the highest-value next step is
-to extract the **pure query/transform bodies** of the patient hooks
-(`use-patient-dashboard`, `use-appointments`, `use-patient-prescriptions`,
-etc.) into a `shared/` workspace package whose functions accept an injected
-`SupabaseClient` instead of importing the web client. Web and mobile would
-each pass their own client. That refactor touches the web hooks, so it is
-intentionally **out of scope for this branch** to keep the web app frozen;
-it is captured in the checklist under "Deeper reuse".
-
-Until then, the mobile data hooks **replicate the canonical query logic**
-(same tables, same columns, same `is_deleted`/status filters, same shared
-types) so behavior matches the web and the eventual extraction is mechanical.
-
-## Supabase + auth
-
-- Reuse the **same Supabase project/env** as web (dev ref
-  `lgfaucsfiyxvmsghnpey`). Mobile reads `EXPO_PUBLIC_SUPABASE_URL` /
-  `EXPO_PUBLIC_SUPABASE_ANON_KEY` (analogous to web `VITE_SUPABASE_*`).
-  See `mobile/.env.example`. **No secrets are committed** — only the anon
-  (publishable) key is ever used client-side, and it lives in a local
-  `.env` the developer creates.
-- Client built with `@supabase/supabase-js` + `react-native-url-polyfill`
-  and `AsyncStorage` for **session persistence** (`persistSession: true`,
-  `autoRefreshToken: true`, `detectSessionInUrl: false`).
-- **RLS is unchanged and authoritative.** The app only ever sends the
-  patient's own auth token; all patient scoping is enforced server-side by
-  existing policies. The client additionally guards routes so only
-  `role === 'patient'` reaches patient screens (parity with the web
-  `ProtectedRoute`).
-- AI features call the existing **Supabase Edge Functions** (`ai-chat`,
-  etc.) — never OpenAI directly, per `AGENTS.md`.
-
-## Out of scope for this branch (clearly noted)
-
-- Non-patient portals (doctor / pharmacy / lab / insurance / admin).
-- App Store / Play Store submission, store listings, screenshots.
-- Production push credentials (APNs key / FCM server key) and real push
-  delivery — only the client-side **registration stub** is included.
-- Real biometric/camera/deep-link/offline flows beyond scaffolding (the
-  navigation, theming, auth, i18n, and a vertical data slice are the
-  deliverable; the rest are tracked in the checklist).
-- The `shared/` workspace extraction of hook logic (documented above).
-
-## Assumptions
-
-1. **Arabic/RTL + push are Phase 2 for web**, but this brief explicitly
-   asks for an i18n EN/AR + RTL baseline and a push stub on mobile. We honor
-   the brief: mobile establishes the i18n/RTL baseline by **reusing the
-   existing `src/locales/{en,ar}` resources** and includes a push
-   registration stub. This is foundation only and is flagged as such.
-2. The **dev Supabase project** is the integration target; the developer
-   supplies `mobile/.env` from `mobile/.env.example`. Running on a device
-   requires a reachable Supabase URL (the hosted dev project works).
-3. **Native simulators may not be runnable in this environment.** We
-   therefore verify the mobile app via `tsc` typecheck (and document the
-   exact `expo` run commands) rather than asserting a booted simulator.
-4. The mobile app keeps **its own `package.json` / lockfile / `node_modules`**
-   under `mobile/` so its React Native dependency tree never pollutes or
-   breaks the web Vite build.
-5. We **replicate** (not copy verbatim) the patient dashboard/appointments
-   query logic against the canonical schema for the vertical slice, pending
-   the documented `shared/` extraction.
-6. `expo` CLI and native dependency installation require network access; if
-   `npm install` inside `mobile/` cannot reach the registry in this
-   environment, the scaffold, configs, and source are still committed and
-   the documented install/run commands reproduce a working app on a
-   connected machine.
-
-## How to run (summary — full details in the checklist)
-
-```bash
-cd mobile
-cp .env.example .env          # fill EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY
-npm install
-npm run typecheck             # tsc --noEmit (works without a simulator)
-npx expo start                # then press i (iOS) / a (Android) / w (web)
-# or: npm run ios / npm run android
-```
-
-The web app is untouched and continues to run with `npm run dev` from the
-repo root.
+- `mobile/.env` (git-ignored) holds only `EXPO_PUBLIC_SUPABASE_URL` and the publishable anon key. `mobile/.env.example` documents the variables.
+- Sessions live in AsyncStorage. The biometric lock hides the UI on resume, but it does not encrypt storage.
+- Signed storage URLs are short-lived (1 hour for shared document links) and open in the in-app browser.
