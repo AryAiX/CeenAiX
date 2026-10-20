@@ -15,6 +15,7 @@ import { useBadges } from '@/providers/badge-provider';
 import { useTheme } from '@/theme/theme-provider';
 import type { Tone } from '@/theme/tokens';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -68,7 +69,7 @@ export default function NotificationsScreen(): React.ReactElement {
         await markNotificationRead(user.id, row.id);
         void sync();
       } catch (markError) {
-        setError(markError instanceof Error ? markError.message : t('m.common.unexpected'));
+        setError(errorMessage(markError, t('m.common.unexpected')));
       }
     }
     const href = webPathToHref(row.action_url);
@@ -85,7 +86,7 @@ export default function NotificationsScreen(): React.ReactElement {
       await sync();
     } catch (markError) {
       haptics.error();
-      setError(markError instanceof Error ? markError.message : t('m.common.unexpected'));
+      setError(errorMessage(markError, t('m.common.unexpected')));
     } finally {
       setBusy(false);
     }

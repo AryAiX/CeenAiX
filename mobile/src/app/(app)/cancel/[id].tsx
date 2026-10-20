@@ -12,6 +12,7 @@ import { useAuth } from '@/providers/auth-provider';
 import { useBadges } from '@/providers/badge-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { radius, spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 const REASONS = ['schedule', 'better', 'another', 'personal', 'other'] as const;
 type Reason = (typeof REASONS)[number];
@@ -49,7 +50,7 @@ export default function CancelAppointmentSheet(): React.ReactElement {
       });
     } catch (cancelError) {
       haptics.error();
-      setError(cancelError instanceof Error ? cancelError.message : t('m.common.unexpected'));
+      setError(errorMessage(cancelError, t('m.common.unexpected')));
       setBusy(false);
     }
   };

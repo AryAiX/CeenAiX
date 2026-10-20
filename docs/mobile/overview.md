@@ -73,6 +73,19 @@ the web `/access-denied` guard.
 | Video visits | Wired; needs a dev or store build (WebRTC is not in Expo Go) |
 | Push notifications | **Stub.** Permission and Expo token only; no server-side token storage or APNs/FCM delivery yet |
 
+## Web build (for QA)
+
+`npx expo export --platform web` produces a single-page app in `mobile/dist`, used by the Playwright suite in `mobile-e2e/`. Native-only modules are guarded so web never crashes:
+
+- Native alerts and action sheets render through `DialogHost`.
+- The tab bar uses JS tabs (`(tabs)/_layout.web.tsx`), so tab `testID`s survive on web.
+- Video visits show "Video visits require the mobile app".
+- The camera option is hidden, and file and photo pickers use the browser chooser.
+- Dates are typed as YYYY-MM-DD.
+- There is no biometric lock, push or badge count on web.
+- RTL comes from `dir` on `<html>` (see `lib/rtl.ts`).
+- On desktop browsers the layout is capped at phone width.
+
 ## Security
 
 - `mobile/.env` (git-ignored) holds only `EXPO_PUBLIC_SUPABASE_URL` and the publishable anon key. `mobile/.env.example` documents the variables.

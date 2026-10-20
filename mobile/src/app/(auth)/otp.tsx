@@ -50,8 +50,8 @@ export default function OtpScreen(): React.ReactElement {
     setError(null);
     setBusy(true);
     const { error: verifyError } = await verifyPhoneOtp(phone, value);
-    setBusy(false);
     if (verifyError) {
+      setBusy(false);
       haptics.error();
       setError(verifyError.message);
       setCode('');

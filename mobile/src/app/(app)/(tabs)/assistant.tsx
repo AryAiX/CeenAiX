@@ -35,6 +35,7 @@ import type { LocalAsset } from '@/lib/uploads';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { radius, spacing, typography } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -58,6 +59,8 @@ export default function AssistantScreen(): React.ReactElement {
   const [pendingFiles, setPendingFiles] = useState<LocalAsset[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  // Narrower than isSending: the reply has not rendered yet (isSending also covers the history refetch).
+  const [awaitingReply, setAwaitingReply] = useState(false);
   const [consent, setConsent] = useState<AiContextConsent>('unset');
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
@@ -234,6 +237,7 @@ export default function AssistantScreen(): React.ReactElement {
     try {
       setSendError(null);
       setIsSending(true);
+      setAwaitingReply(true);
       haptics.tap();
       uploaded = filesBeforeSend.length > 0 ? await Promise.all(filesBeforeSend.map((file) => uploadAiChatAttachment(user.id, file))) : [];
       setMessages((current) => [
@@ -269,17 +273,19 @@ export default function AssistantScreen(): React.ReactElement {
           attachments: response.assistantMessage.attachments,
         },
       ]);
+      setAwaitingReply(false);
       haptics.success();
       await chat.refetch();
       await updates.refetch();
     } catch (error) {
       haptics.error();
-      setSendError(error instanceof Error ? error.message : t('patient.aiChat.sendError'));
+      setSendError(errorMessage(error, t('patient.aiChat.sendError')));
       setMessages((current) => current.filter((message) => !message.id.startsWith('temp-user-')));
       if (!submitted) setInput(next);
       setPendingFiles(filesBeforeSend);
       if (!invoked && uploaded.length > 0) await removeAiChatAttachments(uploaded);
     } finally {
+      setAwaitingReply(false);
       setIsSending(false);
     }
   };
@@ -295,7 +301,7 @@ export default function AssistantScreen(): React.ReactElement {
       if (apply) haptics.success();
       await updates.refetch();
     } catch (error) {
-      setUpdateFeedback(error instanceof Error ? error.message : apply ? t('patient.aiChat.recordUpdateFail') : t('patient.aiChat.dismissFail'));
+      setUpdateFeedback(errorMessage(error, apply ? t('patient.aiChat.recordUpdateFail') : t('patient.aiChat.dismissFail')));
     } finally {
       setApplyingUpdates(false);
     }
@@ -309,7 +315,7 @@ export default function AssistantScreen(): React.ReactElement {
 
   const listFooter = (
     <View style={{ gap: spacing.md }}>
-      {isSending ? <AssistantThinking /> : null}
+      {awaitingReply ? <AssistantThinking /> : null}
       {pendingUpdates.length > 0 ? (
         <Card testID="card-record-updates" tone="ai">
           <View style={{ gap: spacing.sm }}>

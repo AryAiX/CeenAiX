@@ -149,7 +149,7 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps): React.
         justifyContent: 'center',
       }}
     >
-      <ErrorState message={error.message || t('m.common.unexpected')} onRetry={() => void retry()} />
+      <ErrorState message={error.message || t('m.common.unexpected', { defaultValue: 'An unexpected error occurred.' })} onRetry={() => void retry()} />
     </View>
   );
 }

@@ -31,6 +31,7 @@ import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { radius, spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -245,7 +246,7 @@ export default function BookScreen(): React.ReactElement {
       else router.replace(`/appointment/${result.appointmentId}`);
     } catch (submitError) {
       haptics.error();
-      setError(submitError instanceof Error ? submitError.message : t('m.common.unexpected'));
+      setError(errorMessage(submitError, t('m.common.unexpected')));
     } finally {
       setSubmitting(false);
     }

@@ -14,6 +14,7 @@ import { useAppLock } from '@/providers/app-lock-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme, type ThemePreference } from '@/theme/theme-provider';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -57,7 +58,7 @@ export default function SettingsScreen(): React.ReactElement {
       haptics.error();
       setFeedback({
         tone: 'danger',
-        message: error instanceof Error ? error.message : t('m.common.unexpected'),
+        message: errorMessage(error, t('m.common.unexpected')),
       });
     } finally {
       setSaving(false);

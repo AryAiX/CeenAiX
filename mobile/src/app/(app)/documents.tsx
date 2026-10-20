@@ -37,6 +37,7 @@ import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 import type { Tone } from '@/theme/tokens';
 import { spacing } from '@/theme/tokens';
+import { errorMessage } from '@/lib/errors';
 
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/ui';
 
@@ -118,7 +119,7 @@ export default function DocumentsScreen(): React.ReactElement {
       await action();
     } catch (actionError) {
       haptics.error();
-      setError(actionError instanceof Error ? actionError.message : t('m.common.unexpected'));
+      setError(errorMessage(actionError, t('m.common.unexpected')));
     } finally {
       setBusyId(null);
     }

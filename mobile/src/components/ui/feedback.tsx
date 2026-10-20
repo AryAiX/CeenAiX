@@ -85,14 +85,14 @@ export function ErrorState({ message, onRetry, testID = 'state-error' }: { messa
       <Icon name="alert-circle" color={colors.tones.danger.fg} />
       <View style={{ flex: 1, gap: 4 }}>
         <Text variant="bodyStrong" color="danger">
-          {t('m.common.errorTitle')}
+          {t('m.common.errorTitle', { defaultValue: 'Something went wrong' })}
         </Text>
         <Text variant="caption" color="danger">
           {message}
         </Text>
         {onRetry ? (
           <View style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }}>
-            <Button size="sm" variant="secondary" label={t('m.common.retry')} onPress={onRetry} testID="btn-retry" />
+            <Button size="sm" variant="secondary" label={t('m.common.retry', { defaultValue: 'Try again' })} onPress={onRetry} testID="btn-retry" />
           </View>
         ) : null}
       </View>
