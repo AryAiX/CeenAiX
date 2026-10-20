@@ -1,4 +1,6 @@
 import { Stack } from 'expo-router';
+import { HeaderBackButton } from 'expo-router/react-navigation';
+import { Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { BadgeProvider } from '@/providers/badge-provider';
 import { useTheme } from '@/theme/theme-provider';
@@ -22,15 +24,29 @@ export default function AppLayout(): React.ReactElement {
   return (
     <BadgeProvider>
       <Stack
-        screenOptions={{
+        screenOptions={({ navigation }) => ({
           headerTintColor: colors.primary,
           headerTitleStyle: { color: colors.text },
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerBackButtonDisplayMode: 'minimal',
           headerBackTitle: t('m.common.back'),
+          // The web header names the button "<label>, back" in English; native uses the platform back control.
+          headerLeft:
+            Platform.OS === 'web'
+              ? ({ canGoBack, tintColor, href }) =>
+                  canGoBack ? (
+                    <HeaderBackButton
+                      tintColor={typeof tintColor === 'string' ? tintColor : colors.primary}
+                      displayMode="minimal"
+                      href={href}
+                      accessibilityLabel={t('m.common.back')}
+                      onPress={navigation.goBack}
+                    />
+                  ) : null
+              : undefined,
           contentStyle: { backgroundColor: colors.background },
-        }}
+        })}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="appointment/[id]" options={{ title: '' }} />
