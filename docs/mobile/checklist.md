@@ -46,6 +46,7 @@ Run from `mobile/` unless noted otherwise.
 | `npx expo start --web --port 8081` | App serves on port 8081 |
 | `npx expo-doctor` | 19/20. The one failure is expected; see below |
 | Repo root: `npm ci && npm run lint && npm run typecheck && npm run build` | Web app still green |
+| `mobile-e2e/`: `APP_DIST=$PWD/../mobile/dist SMOKE_PATIENT_PASSWORD=… npx playwright test` | QA suite passes on iphone-14, pixel-7 and rtl-ar (113 passed, 5 skipped at the merge of `mobile-patient-parity-tests` 152111a) |
 
 ### Expected `expo-doctor` failure
 

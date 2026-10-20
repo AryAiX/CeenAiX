@@ -1,6 +1,10 @@
+BUILD STATUS: COMPLETE
+
 # CeenAiX Patient App — Test Handoff
 
 Builder branch: `mobile-patient-parity`. QA branch: `mobile-patient-parity-tests` (the builder never edits QA files).
+
+All patient and auth screens are built. QA branch 152111a is merged; the full `mobile-e2e` suite passes against the build at 004e717 (113 passed, 5 skipped across iphone-14, pixel-7 and rtl-ar).
 
 ## Running the app for tests
 
