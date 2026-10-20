@@ -2,8 +2,8 @@ import { MESSAGE_DRAFT_MAX_LENGTH, parseMessageBodyParts, type MessageActionKind
 import type { Message } from '@ceenaix/types';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, type TextInputInstance, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, type TextInputInstance, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { alertDialog } from '@/lib/dialog';
@@ -57,12 +57,31 @@ export default function ConversationScreen(): React.ReactElement {
     if (!loading) void refreshBadges();
   }, [loading, messages.length, refreshBadges]);
 
-  useEffect(
-    () => () => {
-      if (undoTimer.current) clearTimeout(undoTimer.current);
-    },
-    []
-  );
+  // The undo window only delays the write; leaving the thread or backgrounding the app commits it.
+  const pendingDeleteRef = useRef<string | null>(null);
+  const removeRef = useRef(thread.remove);
+  useEffect(() => {
+    removeRef.current = thread.remove;
+  }, [thread.remove]);
+
+  const commitPendingDelete = useCallback(() => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = null;
+    const messageId = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    if (!messageId) return;
+    void removeRef.current(messageId).finally(() => setPendingDelete((current) => (current === messageId ? null : current)));
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') commitPendingDelete();
+    });
+    return () => {
+      subscription.remove();
+      commitPendingDelete();
+    };
+  }, [commitPendingDelete]);
 
   const rows = useMemo<Row[]>(() => {
     const visible = messages.filter((message) => message.id !== pendingDelete);
@@ -99,21 +118,17 @@ export default function ConversationScreen(): React.ReactElement {
   };
 
   const scheduleDelete = (message: Message) => {
-    if (undoTimer.current) {
-      clearTimeout(undoTimer.current);
-      if (pendingDelete) void thread.remove(pendingDelete);
-    }
+    commitPendingDelete();
     haptics.warning();
+    pendingDeleteRef.current = message.id;
     setPendingDelete(message.id);
-    undoTimer.current = setTimeout(() => {
-      undoTimer.current = null;
-      void thread.remove(message.id).finally(() => setPendingDelete(null));
-    }, UNDO_MS);
+    undoTimer.current = setTimeout(commitPendingDelete, UNDO_MS);
   };
 
   const undoDelete = () => {
     if (undoTimer.current) clearTimeout(undoTimer.current);
     undoTimer.current = null;
+    pendingDeleteRef.current = null;
     setPendingDelete(null);
     haptics.tap();
   };
