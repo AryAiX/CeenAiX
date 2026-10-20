@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   AiGeneratedTag,
   Button,
@@ -187,6 +188,22 @@ function QuestionInput({
           accessibilityLabel={question.label}
         />
       );
+  }
+}
+
+/** Select answers are stored as option values; the review shows the labels the patient picked. */
+function answerLabel(question: PreVisitTemplateQuestionDraft, answer: PreVisitAnswerDraft | undefined, t: TFunction): string {
+  const labelOf = (value: string) => question.options.find((option) => option.value === value)?.label ?? value;
+  const text = answer?.answerText ?? '';
+  switch (question.type) {
+    case 'single_select':
+      return labelOf(text);
+    case 'multi_select':
+      return Array.isArray(answer?.answerJson) ? (answer.answerJson as string[]).map(labelOf).join(', ') : text;
+    case 'boolean':
+      return text === 'Yes' ? t('m.preVisit.yes') : text === 'No' ? t('m.preVisit.no') : text;
+    default:
+      return text;
   }
 }
 
@@ -604,7 +621,7 @@ export default function PreVisitScreen(): React.ReactElement {
                     {question.label}
                   </Text>
                   <Text variant="body" color={hasAnswerValue(answer) ? 'default' : missing ? 'danger' : 'subtle'}>
-                    {hasAnswerValue(answer) ? answer?.answerText : t('m.preVisit.notAnswered')}
+                    {hasAnswerValue(answer) ? answerLabel(question, answer, t) : t('m.preVisit.notAnswered')}
                   </Text>
                 </View>
                 <Icon name={missing ? 'alert-circle' : 'create-outline'} size={18} />
