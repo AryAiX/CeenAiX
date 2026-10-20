@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readCache, writeCache } from '@/lib/query-cache';
+import { isAbortError } from '@/lib/supabase';
 
 export interface QueryResult<T> {
   data: T | null;
@@ -68,7 +69,7 @@ export function useQuery<T>(
         setStaleSince(null);
         if (cacheKey) void writeCache(cacheKey, result);
       } catch (err) {
-        if (!mounted.current || id !== requestId.current) return;
+        if (!mounted.current || id !== requestId.current || isAbortError(err)) return;
         setError(toMessage(err));
         setStaleSince(cachedAt.current);
       } finally {

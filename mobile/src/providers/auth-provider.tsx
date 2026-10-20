@@ -3,7 +3,7 @@ import type { PatientProfile, UserProfile, UserRole } from '@ceenaix/types';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clearQueryCache } from '@/lib/query-cache';
-import { supabase } from '@/lib/supabase';
+import { closeDataSession, openDataSession, supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
 
 interface AuthResult {
@@ -135,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
   const sync = useCallback(async (next: Session | null) => {
     const current = ++generation.current;
     if (!next?.user) {
+      closeDataSession();
       setSession(null);
       setProfile(null);
       setPatientProfile(null);
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       setIsLoading(false);
       return;
     }
+    openDataSession();
     // Publish the session together with its role so route guards never see a signed-in user without one.
     const state = await loadProfilesWithRetry(next.user);
     if (current !== generation.current) return;
@@ -272,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
   const finishRecovery = useCallback(() => setIsRecovering(false), []);
 
   const signOut = useCallback(async () => {
+    closeDataSession();
     try {
       await supabase.auth.signOut();
     } finally {
