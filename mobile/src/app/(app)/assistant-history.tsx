@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Card, EmptyState, ErrorState, IconBadge, SkeletonList, Text } from '@/components/ui';
+import { Card, EmptyState, ErrorState, IconBadge, SkeletonList, Text, SheetTitle } from '@/components/ui';
 import { usePatientAiChat } from '@/data/web/hooks/use-patient-ai-chat';
 import { formatRelative } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
@@ -24,9 +24,7 @@ export default function AssistantHistorySheet(): React.ReactElement {
 
   return (
     <ScrollView testID="screen-assistant-history" contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}>
-      <Text variant="title" style={{ marginBottom: 2 }}>
-        {t('patient.aiChat.chats')}
-      </Text>
+      <SheetTitle title={t('patient.aiChat.chats')} />
       <Text variant="caption" color="muted" style={{ marginBottom: spacing.md }}>
         {t('patient.aiChat.chatsSub')}
       </Text>

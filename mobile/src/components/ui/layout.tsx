@@ -1,4 +1,4 @@
-import type { ErrorBoundaryProps } from 'expo-router';
+import { useRouter, type ErrorBoundaryProps } from 'expo-router';
 import { use, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/theme/theme-provider';
 import { spacing } from '@/theme/tokens';
 import { ErrorState, StaleBanner } from './feedback';
-import { Text } from './primitives';
+import { IconButton, Text } from './primitives';
 
 interface ScreenProps {
   children: ReactNode;
@@ -25,6 +25,26 @@ interface ScreenProps {
   scroll?: boolean;
   /** Screen root id, e.g. `screen-dashboard`. */
   testID?: string;
+}
+
+/** Title row for form-sheet routes. The close button is the only exit on web and an explicit one for screen readers. */
+export function SheetTitle({ title }: { title: string }): React.ReactElement {
+  const { t } = useTranslation();
+  const router = useRouter();
+  return (
+    <View style={styles.sheetTitle}>
+      <Text variant="title" style={{ flex: 1 }} accessibilityRole="header">
+        {title}
+      </Text>
+      <IconButton
+        testID="btn-close-sheet"
+        name="close"
+        variant="plain"
+        accessibilityLabel={t('m.common.close')}
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+      />
+    </View>
+  );
 }
 
 export function Screen({
@@ -155,6 +175,11 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps): React.
 }
 
 const styles = StyleSheet.create({
+  sheetTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   content: { paddingHorizontal: spacing.lg },
   footer: {
     paddingHorizontal: spacing.lg,

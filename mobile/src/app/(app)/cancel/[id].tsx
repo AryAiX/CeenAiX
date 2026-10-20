@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Button, Icon, InlineMessage, Skeleton, Text, TextField } from '@/components/ui';
+import { Button, Icon, InlineMessage, Skeleton, Text, TextField, SheetTitle } from '@/components/ui';
 import { cancelPatientAppointment } from '@/data/appointments';
 import { usePatientAppointmentDetail } from '@/data/web/hooks/use-patient-appointment-detail';
 import { useOfflineCache } from '@/hooks/use-offline-cache';
@@ -57,7 +57,7 @@ export default function CancelAppointmentSheet(): React.ReactElement {
 
   return (
     <ScrollView testID="screen-cancel-appointment" contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
-      <Text variant="title">{t('m.appointment.cancelTitle')}</Text>
+      <SheetTitle title={t('m.appointment.cancelTitle')} />
       {appointment ? (
         <Text variant="body" color="muted">
           {detail.data?.doctorProfile?.fullName ?? t('shared.doctor')} · {formatShortDay(appointment.scheduled_at)} · {formatTime(appointment.scheduled_at)}

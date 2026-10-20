@@ -5,7 +5,20 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { alertDialog } from '@/lib/dialog';
-import { Button, DateField, ErrorState, InlineMessage, Screen, SegmentedControl, Skeleton, StickyFooter, Text, TextField, ToggleRow } from '@/components/ui';
+import {
+  Button,
+  DateField,
+  ErrorState,
+  InlineMessage,
+  Screen,
+  SegmentedControl,
+  Skeleton,
+  StickyFooter,
+  Text,
+  TextField,
+  ToggleRow,
+  SheetTitle,
+} from '@/components/ui';
 import {
   saveRecord,
   softDeleteRecord,
@@ -200,6 +213,7 @@ function RecordForm({
     >
       <Stack.Screen options={{ title: editing ? categoryLabel : title }} />
       <View style={{ gap: spacing.lg }}>
+        <SheetTitle title={editing ? categoryLabel : title} />
         {!editing ? (
           <Text variant="caption" color="muted">
             {category === 'condition'

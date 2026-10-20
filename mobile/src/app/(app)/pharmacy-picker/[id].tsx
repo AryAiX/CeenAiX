@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Card, EmptyState, ErrorState, IconBadge, InlineMessage, SkeletonList, Text, TextField } from '@/components/ui';
+import { Card, EmptyState, ErrorState, IconBadge, InlineMessage, SkeletonList, Text, TextField, SheetTitle } from '@/components/ui';
 import { assignPatientPrescriptionPharmacy, listActivePharmacies } from '@/data/web/hooks/use-patient-prescriptions';
 import { useQuery } from '@/hooks/use-query';
 import { haptics } from '@/lib/haptics';
@@ -46,7 +46,7 @@ export default function PharmacyPickerSheet(): React.ReactElement {
 
   return (
     <ScrollView testID="screen-pharmacy-picker" contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
-      <Text variant="title">{t('patient.prescriptions.pharmacyAssignTitle')}</Text>
+      <SheetTitle title={t('patient.prescriptions.pharmacyAssignTitle')} />
       <Text variant="caption" color="muted">
         {t('patient.prescriptions.pharmacyAssignSubtitle')}
       </Text>
