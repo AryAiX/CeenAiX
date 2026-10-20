@@ -152,6 +152,8 @@ export const mobileEn = {
     today: 'Today',
     yesterday: 'Yesterday',
     sendFailed: 'Message not sent. Tap send to retry.',
+    notFoundTitle: 'Conversation not found',
+    notFoundBody: 'This conversation may have been removed or you may not have access to it.',
   },
   health: {
     subtitle: 'Your records, results and documents in one place',

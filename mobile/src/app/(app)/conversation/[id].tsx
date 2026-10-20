@@ -220,6 +220,21 @@ export default function ConversationScreen(): React.ReactElement {
     );
   }
 
+  if (thread.notFound) {
+    return (
+      <View testID="screen-conversation" style={[styles.flex, { backgroundColor: colors.background, padding: spacing.lg }]}>
+        {header}
+        <EmptyState
+          testID="state-empty-conversation"
+          icon="chatbubbles-outline"
+          title={t('m.messages.notFoundTitle')}
+          body={t('m.messages.notFoundBody')}
+          action={{ label: t('patient.messages.title'), onPress: () => router.replace('/messages') }}
+        />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       testID="screen-conversation"

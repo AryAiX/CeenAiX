@@ -104,6 +104,7 @@ export function useConversationThread(userId: string | null | undefined, convers
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -114,17 +115,20 @@ export function useConversationThread(userId: string | null | undefined, convers
     }
     const requestId = ++requestRef.current;
     setError(null);
-    const { data, error: queryError } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .eq('is_deleted', false)
-      .order('sent_at', { ascending: true });
+    const [conversationResult, messagesResult] = await Promise.all([
+      supabase.from('conversations').select('id').eq('id', conversationId).maybeSingle(),
+      supabase.from('messages').select('*').eq('conversation_id', conversationId).eq('is_deleted', false).order('sent_at', { ascending: true }),
+    ]);
     if (requestRef.current !== requestId) return;
+    const queryError = conversationResult.error ?? messagesResult.error;
     if (queryError) {
       setError(queryError.message || i18n.t('messaging.errLoadMessages'));
+    } else if (!conversationResult.data) {
+      setMessages([]);
+      setNotFound(true);
     } else {
-      setMessages((data ?? []) as Message[]);
+      setNotFound(false);
+      setMessages((messagesResult.data ?? []) as Message[]);
       const { error: readError } = await supabase.rpc('mark_conversation_messages_read', { p_conversation_id: conversationId });
       if (readError && !isMissingMessagingRpcError(readError)) console.warn(readError.message);
     }
@@ -205,7 +209,7 @@ export function useConversationThread(userId: string | null | undefined, convers
     [run, userId]
   );
 
-  return { messages, loading, error, actionError, working, refetch: load, send, update, remove };
+  return { messages, loading, error, notFound, actionError, working, refetch: load, send, update, remove };
 }
 
 /** Same resolution order as the hub's `ensureDirectConversation`: RPC, existing lookup, then insert. */

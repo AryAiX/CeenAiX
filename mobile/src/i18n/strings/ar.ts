@@ -150,6 +150,8 @@ export const mobileAr: MobileStrings = {
     today: 'اليوم',
     yesterday: 'أمس',
     sendFailed: 'لم يتم إرسال الرسالة. اضغط إرسال لإعادة المحاولة.',
+    notFoundTitle: 'المحادثة غير موجودة',
+    notFoundBody: 'ربما تمت إزالة هذه المحادثة أو لم يعد لديك إذن بالوصول إليها.',
   },
   health: {
     subtitle: 'سجلاتك ونتائجك ومستنداتك في مكان واحد',
