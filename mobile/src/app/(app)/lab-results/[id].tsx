@@ -187,7 +187,7 @@ function LabItemCard({ item, subItems }: { item: LabOrderItem; subItems: LabOrde
         testID={`lab-item-${item.id}`}
         disabled={!hasDetails}
         accessibilityRole={hasDetails ? 'button' : undefined}
-        accessibilityState={hasDetails ? { expanded } : undefined}
+        aria-expanded={hasDetails ? expanded : undefined}
         onPress={() => setExpanded((current) => !current)}
       >
         <View

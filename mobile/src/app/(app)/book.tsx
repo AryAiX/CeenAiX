@@ -299,7 +299,7 @@ export default function BookScreen(): React.ReactElement {
                   key={option.id ?? 'all'}
                   testID={`chip-specialty-${option.id ?? 'all'}`}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
+                  aria-selected={active}
                   onPress={() => {
                     haptics.tap();
                     setSpecializationId(option.id);
@@ -440,7 +440,7 @@ export default function BookScreen(): React.ReactElement {
                       key={day.key}
                       testID={`date-${day.key}`}
                       accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
+                      aria-selected={active}
                       accessibilityLabel={dayLabel(day.date, {
                         weekday: 'long',
                         month: 'long',
@@ -493,7 +493,7 @@ export default function BookScreen(): React.ReactElement {
                       key={slot.iso}
                       testID={`slot-${slot.iso}`}
                       accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
+                      aria-selected={active}
                       onPress={() => {
                         haptics.tap();
                         setSlotIso(slot.iso);
