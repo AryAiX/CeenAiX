@@ -76,7 +76,7 @@ export default function CancelAppointmentSheet(): React.ReactElement {
               key={value}
               testID={`option-cancel-reason-${value}`}
               accessibilityRole="radio"
-              accessibilityState={{ selected }}
+              aria-checked={selected}
               onPress={() => {
                 haptics.tap();
                 setReason(value);

@@ -28,6 +28,7 @@ export default function AppLayout(): React.ReactElement {
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerBackButtonDisplayMode: 'minimal',
+          headerBackTitle: t('m.common.back'),
           contentStyle: { backgroundColor: colors.background },
         }}
       >

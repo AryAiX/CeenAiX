@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { BootScreen } from '@/components/boot-screen';
 import { DialogHost } from '@/components/dialog-host';
 import { LockScreen } from '@/components/lock-screen';
 import { initI18n } from '@/i18n';
@@ -52,7 +53,7 @@ function RootNavigator(): React.ReactElement | null {
     if (href) router.push(href);
   }, [inApp, lastResponse, router]);
 
-  if (isLoading) return null;
+  if (isLoading) return <BootScreen />;
 
   return (
     <>
@@ -111,7 +112,7 @@ export default function RootLayout(): React.ReactElement | null {
     void initI18n().finally(() => setI18nReady(true));
   }, []);
 
-  if (!i18nReady) return null;
+  if (!i18nReady) return <BootScreen />;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -44,7 +44,7 @@ function ControlButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
+      aria-selected={active}
       onPress={() => {
         haptics.tap();
         onPress();

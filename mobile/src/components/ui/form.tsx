@@ -67,7 +67,8 @@ export function Button({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      aria-disabled={isDisabled}
+      aria-busy={loading}
       accessibilityHint={accessibilityHint}
       disabled={isDisabled}
       onPress={() => {
@@ -206,7 +207,7 @@ export function SegmentedControl<T extends string>({
             testID={`${testID}-${option.value}`}
             accessibilityRole="tab"
             accessibilityLabel={option.label}
-            accessibilityState={{ selected }}
+            aria-selected={selected}
             onPress={() => {
               if (!selected) haptics.tap();
               onChange(option.value);
@@ -253,7 +254,7 @@ export function ChoiceChips<T extends string>({
             testID={`${testID}-${option.value}`}
             accessibilityRole="button"
             accessibilityLabel={option.label}
-            accessibilityState={{ selected: isSelected }}
+            aria-selected={isSelected}
             onPress={() => {
               haptics.tap();
               onToggle(option.value);

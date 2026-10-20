@@ -1,6 +1,7 @@
 import { Fragment, useMemo } from 'react';
 import { Platform, View } from 'react-native';
 import { Text } from '@/components/ui';
+import { contentDirection } from '@/lib/rtl';
 import { spacing } from '@/theme/tokens';
 
 // Minimal Markdown for assistant replies: headings, paragraphs, bullet and
@@ -83,14 +84,14 @@ export function MarkdownText({ children }: { children: string }): React.ReactEle
       {blocks.map((block, index) => {
         if (block.kind === 'heading') {
           return (
-            <Text key={index} variant="heading">
+            <Text key={index} variant="heading" style={{ writingDirection: contentDirection(block.text) }}>
               <Inline text={block.text} />
             </Text>
           );
         }
         if (block.kind === 'paragraph') {
           return (
-            <Text key={index} variant="body" selectable>
+            <Text key={index} variant="body" selectable style={{ writingDirection: contentDirection(block.text) }}>
               <Inline text={block.text} />
             </Text>
           );
@@ -98,11 +99,11 @@ export function MarkdownText({ children }: { children: string }): React.ReactEle
         return (
           <View key={index} style={{ gap: 4 }}>
             {block.items.map((item, itemIndex) => (
-              <View key={itemIndex} style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View key={itemIndex} style={{ flexDirection: 'row', gap: spacing.sm, direction: contentDirection(item) }}>
                 <Text variant="body" color="muted" style={{ minWidth: 16 }}>
                   {block.ordered ? `${itemIndex + 1}.` : '•'}
                 </Text>
-                <Text variant="body" selectable style={{ flex: 1 }}>
+                <Text variant="body" selectable style={{ flex: 1, writingDirection: contentDirection(item) }}>
                   <Inline text={item} />
                 </Text>
               </View>

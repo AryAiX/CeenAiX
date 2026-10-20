@@ -65,7 +65,7 @@ function OptionRow({
       testID={testID}
       accessibilityLabel={label}
       accessibilityRole={multi ? 'checkbox' : 'radio'}
-      accessibilityState={multi ? { checked: selected } : { selected }}
+      aria-checked={selected}
       onPress={() => {
         haptics.tap();
         onPress();
