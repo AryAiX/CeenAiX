@@ -31,8 +31,10 @@ test.describe('Documents', () => {
     await expect(screen.getByTestId('message-danger')).toBeVisible();
     await expect(screen.getByTestId('btn-save-document')).toBeDisabled();
     await commonScreenChecks(page, testInfo, screen, 'document-upload');
-    await page.goBack();
+    await expect(screen.getByTestId('btn-close-sheet'), 'MB-012').toHaveAccessibleName(/close|إغلاق/i);
+    await screen.getByTestId('btn-close-sheet').click();
     await expect(docs).toBeVisible();
+    await expect(screen).toHaveCount(0);
   });
 
   test('uploads a real PDF to the vault and tries to remove it', async ({ page }, testInfo) => {
@@ -58,7 +60,7 @@ test.describe('Documents', () => {
     await card.locator('[data-testid^="btn-remove-document-"]').click();
     await expect(page.getByTestId('dialog')).toBeVisible();
     await page.getByTestId('dialog').getByTestId('dialog-btn-0').click();
-    await expect(card, 'MB-013: removing a vault document should soft-delete it').toHaveCount(0, { timeout: 60_000 });
+    await expect(card, 'MB-013: removing a vault document should soft-delete it (fix ab64ac9 pending DEV deploy)').toHaveCount(0, { timeout: 60_000 });
   });
 
   test('shows an error state with retry when the vault fails to load', async ({ page, consoleGuard }) => {

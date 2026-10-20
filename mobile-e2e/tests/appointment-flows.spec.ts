@@ -191,6 +191,10 @@ test.describe.serial('Book → pre-visit → detail → reschedule → cancel', 
     const sheet = page.getByTestId('screen-cancel-appointment');
     await expect(sheet).toBeVisible();
     await commonScreenChecks(page, testInfo, sheet, 'cancel-appointment');
+    await expect(sheet.getByTestId('btn-close-sheet'), 'MB-012').toHaveAccessibleName(/close|إغلاق/i);
+    await sheet.getByTestId('btn-close-sheet').click();
+    await expect(detail).toBeVisible();
+    await detail.getByTestId('btn-cancel-appointment').click();
     await sheet.getByTestId('btn-keep-appointment').click();
     await expect(detail).toBeVisible();
     await detail.getByTestId('btn-cancel-appointment').click();

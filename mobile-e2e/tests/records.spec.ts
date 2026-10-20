@@ -36,6 +36,19 @@ test.describe('Medical records', () => {
     }
   });
 
+  test('MB-012: record form sheet has a labelled close button that returns to records', async ({ page }) => {
+    const records = await openScreen(page, '/records', 'screen-records');
+    await waitForLoaded(page);
+    await page.getByTestId('btn-add-record').filter({ visible: true }).click();
+    await page.getByTestId('action-sheet').getByTestId('dialog-btn-0').click();
+    const form = page.getByTestId('screen-record-form');
+    await expect(form).toBeVisible();
+    await expect(form.getByTestId('btn-close-sheet')).toHaveAccessibleName(/close|إغلاق/i);
+    await form.getByTestId('btn-close-sheet').click();
+    await expect(records).toBeVisible();
+    await expect(form).toHaveCount(0);
+  });
+
   test('adds, edits and removes a condition', async ({ page }, testInfo) => {
     test.setTimeout(240_000);
     const name = `QA condition ${testInfo.project.name} ${Date.now()}`;

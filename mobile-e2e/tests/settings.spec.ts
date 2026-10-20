@@ -1,4 +1,5 @@
 import { mockAuthSideEffects } from '../support/auth-mocks';
+import { SMOKE_PATIENT } from '../support/env';
 import { commonScreenChecks, expect, headerBack, isRtlProject, openScreen, test, waitForLoaded } from '../support/fixtures';
 
 const PREFERENCE_WRITE_PROJECT = 'iphone-14';
@@ -80,8 +81,7 @@ test.describe('Settings', () => {
     await expect(screen.getByTestId('message-success')).toBeVisible({ timeout: 30_000 });
   });
 
-  test('sign out: cancel keeps the session, confirm returns to sign-in and clears cached health data', async ({ page, consoleGuard }, testInfo) => {
-    consoleGuard.allow(/status of 401/);
+  test('sign out: cancel keeps the session, confirm returns to sign-in and clears cached health data', async ({ page }) => {
     await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, body: '' }));
     let signedOut = false;
     const lateRequests: string[] = [];
@@ -103,9 +103,33 @@ test.describe('Settings', () => {
     await dialog.getByTestId('dialog-btn-0').click();
     await expect(page.getByTestId('screen-sign-in')).toBeVisible({ timeout: 60_000 });
     await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('ceenaix.cache.v1.') || key.startsWith('sb-')))).toEqual([]);
-    if (lateRequests.length > 0) testInfo.annotations.push({ type: 'MB-014', description: `401 after sign-out: ${lateRequests.join(', ')}` });
+    await page.waitForTimeout(3_000);
+    expect(lateRequests, 'MB-014: no data request may get 401 after sign-out').toEqual([]);
+    expect(new URL(page.url()).pathname, 'MB-014: sign-out lands on /sign-in').toBe('/sign-in');
     await page.goto('/records');
     await expect(page.getByTestId('screen-sign-in')).toBeVisible({ timeout: 60_000 });
+  });
+
+  test('MB-014 regression: signing back in on the same page loads data again', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, body: '' }));
+    const screen = await openScreen(page, '/settings', 'screen-settings');
+    await waitForLoaded(page);
+    await screen.getByTestId('btn-sign-out').click();
+    await page.getByTestId('dialog').getByTestId('dialog-btn-0').click();
+    await expect(page.getByTestId('screen-sign-in')).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId('input-login-email').fill(SMOKE_PATIENT.email);
+    await page.getByTestId('input-login-password').fill(SMOKE_PATIENT.password);
+    await page.getByTestId('input-login-password').press('Enter');
+    const home = page.getByTestId('screen-dashboard');
+    await expect(home).toBeVisible({ timeout: 60_000 });
+    await waitForLoaded(page);
+    await expect(home.getByTestId('state-error')).toHaveCount(0);
+    await expect(home.locator('[data-testid^="care-team-card-"]').first()).toBeVisible({ timeout: 60_000 });
+    const records = await openScreen(page, '/records', 'screen-records');
+    await waitForLoaded(page);
+    await expect(records.getByTestId('state-error')).toHaveCount(0);
+    await expect(records.getByTestId('record-count-condition')).toBeVisible();
   });
 
   test('opens from the health hub and back returns', async ({ page }) => {

@@ -4,7 +4,7 @@ QA branch: `mobile-patient-parity-tests` (tracks builder branch `mobile-patient-
 Harness: Playwright against the Expo web export (`mobile/dist`), in `mobile-e2e/` (see `mobile-e2e/README.md`).
 Projects: `iphone-14` (WebKit, 390x844), `pixel-7` (Chromium, 412x915), `rtl-ar` (Chromium, 412x915, locale `ar-AE`).
 
-Last updated: 2026-10-19. **Final run at builder commit `c843c4c` (`BUILD STATUS: COMPLETE`)**: every screen in `docs/mobile/test-handoff.md` was tested at its latest commit, and the full suite was run once on all three projects.
+Last updated: 2026-10-19. **Final run at builder commit `d388ee2`** (after the MB-010 to MB-016 fixes; `BUILD STATUS: COMPLETE`). Every screen in `docs/mobile/test-handoff.md` was retested at that commit, each fix was checked with targeted tests, and the full suite was run on all three projects. The earlier full run at `c843c4c` is superseded.
 
 Every test also fails on unexpected console errors or page errors, and every screen spec checks document direction (LTR, or RTL in `rtl-ar`), no horizontal overflow at phone width, and accessible names on interactive controls. Screenshots are in `mobile-e2e/screenshots/{iphone-14,rtl-ar}/` (one per screen) and `mobile-e2e/screenshots/mb-*.png` (bugs).
 
@@ -14,49 +14,51 @@ Environment note: the DEV Supabase project is sometimes slow (2.5–3 s even for
 
 | Screen | Commit tested | Result | Specs | Notes |
 |---|---|---|---|---|
-| App boot (web) | c843c4c | pass | all | MB-001, MB-002, MB-003 and MB-008 fixed-verified: cold start paints a boot screen |
-| Sign in (email + phone OTP mode) | c843c4c | pass | `tests/auth.spec.ts` | MB-005 fixed-verified. Wrong password, validation, password toggle, links, signed-out redirect |
-| Forgot password | c843c4c | pass | `tests/auth.spec.ts` | Reset endpoint mocked (no real email) |
-| Reset password | c843c4c | pass | `tests/reset-password.spec.ts` | Without a recovery session: "request a new link" opens Forgot password. Setting a new password needs a real recovery link (not covered) |
-| Phone OTP | c843c4c | pass | `tests/auth.spec.ts` | SMS endpoints mocked. Wrong code, resend cooldown, digits stay LTR in Arabic |
-| Sign up (email + phone) | c843c4c | pass | `tests/auth.spec.ts` | Sign-up endpoint mocked (no account created). Every validation step, back, check-email state |
-| Onboarding | c843c4c | pass | `tests/role-gates.spec.ts` | Reached by rewriting the profile response to `profile_completed = false` (upserts stubbed). Routes are gated, name and terms validation, save lands on the dashboard |
-| Patient only | c843c4c | pass | `tests/role-gates.spec.ts` | Reached by rewriting the role to `doctor`: gate on every route, web-portal link, sign out. Failed profile lookup shows `state-profile-error`, and retry recovers |
-| Dashboard | c843c4c | pass | `tests/dashboard.spec.ts` | Real data (greeting, care team: Dr. Smoke Doctor), quick actions, tabs, skeleton, boot screen (MB-008), offline banner from cache, error + retry |
-| Appointments (Visits) | c843c4c | pass | `tests/appointments.spec.ts` | MB-007 fixed-verified. Status/type segments, past virtual visit 901, detail push and back, book, skeleton, error + retry |
-| Appointment detail | c843c4c | pass | `tests/appointment-flows.spec.ts` | Past visit 901 (no cancel/reschedule, follow-up message), upcoming booked visit (reschedule/cancel/pre-visit section), deep-link back, not-found, error + retry |
-| Video visit lobby | c843c4c | pass (web fallback) | `tests/appointment-flows.spec.ts` | Web shows the "requires the mobile app" state; close works. LiveKit call is native-only, not covered |
-| Book appointment | c843c4c | pass | `tests/appointment-flows.spec.ts` | Doctor search + empty state, Next gating per step, back, real booking with "Doctor Test" (each project uses a different date). Dr. Smoke Doctor has no published availability in DEV |
-| Reschedule | c843c4c | pass | `tests/appointment-flows.spec.ts` | Doctor step skipped, reason prefilled, new slot confirmed |
-| Cancel appointment | c843c4c | pass | `tests/appointment-flows.spec.ts` | Reason required, keep returns, confirm moves the visit to Cancelled. Each run cancels its own booking |
-| Pre-visit intake | c843c4c | fail (MB-010) | `tests/pre-visit.spec.ts` | DEV has no assessment for the smoke patient and no bookable doctor has a template, so the assessment row is mocked (writes stubbed, AI summary real). Every question type, required gating, back, review, complete, close confirm, not-found |
-| AI assistant + history | c843c4c | pass | `tests/assistant.spec.ts` | MB-009 fixed-verified. Consent allow/deny, context indicator, real `ai-chat` reply tagged "AI-generated", history sheet, new chat |
-| Messages | c843c4c | pass | `tests/messages.spec.ts` | 1 conversation, open thread and back, error state. Search only appears with more than 3 threads (by design, skipped) |
-| Conversation | c843c4c | fail (MB-011, MB-015) | `tests/conversation.spec.ts` | Real send, edit (long-press), delete with undo, and delete; English text is LTR in Arabic (MB-009 verified here). An unknown thread id looks like an empty, writable thread (MB-011). Leaving during the undo window cancels the delete (MB-015) |
-| My health hub | c843c4c | pass | `tests/health.spec.ts` | MB-006 fixed-verified (back is "Go back"). All 9 rows open the right screen and back returns |
-| Medical records + record form | c843c4c | pass (RTL: MB-016) | `tests/records.spec.ts` | Counts, filter, action sheet (3 types), required-field validation for each category, add/edit/remove a condition (soft delete), error state. Search only appears with more than 5 records (by design) |
-| Lab results | c843c4c | pass (empty only) | `tests/lab-results.spec.ts` | Segments with `aria-selected`, empty states, back, error + retry. The smoke patient has no lab orders, so lab detail and "Explain with AI" are not reachable |
-| Prescriptions | c843c4c | pass | `tests/prescriptions.spec.ts` | Segments, empty states, add and remove a self-reported medicine (save gating, cancel/confirm dialog), back, error + retry. No prescriptions in DEV, so prescription detail and the pharmacy picker are not reachable |
-| Imaging | c843c4c | pass (empty only) | `tests/imaging.spec.ts` | Segments, empty state, back, error + retry. No studies in DEV, so imaging detail is not reachable |
-| Documents | c843c4c | fail (MB-013) | `tests/documents.spec.ts` | Segments, list, error + retry. Real upload (iPhone run only) works; removing fails on RLS (MB-013, backend) |
-| Document upload | c843c4c | pass (MB-012 web-only) | `tests/documents.spec.ts` | Camera row hidden on web, file chooser, save gating, files over 20 MB rejected, title prefilled from the file name. No close control on web (MB-012) |
-| Insurance | c843c4c | pass | `tests/insurance.spec.ts` | No-plan state and its Profile action, claims list, status chips, benefits, error + retry. Note: cancelled visits are listed as "Denied" claims and counted in "You paid"; the web app does the same (parity, not filed) |
-| Notifications | c843c4c | pass | `tests/notifications.spec.ts` | Log with All/Unread, mark all read (button hidden when nothing is unread, by design), dashboard bell and back, error + retry. Some notification bodies mix Arabic dates into English text; they are generated by the backend trigger in the language of the session that booked |
-| Profile | c843c4c | pass | `tests/profile.spec.ts` | All sections render real data; edit then cancel discards; empty name blocks save; save keeps the values; dashboard avatar and back |
-| Settings | c843c4c | pass | `tests/settings.spec.ts` | Language switch shows the restart dialog and flips `dir` (then switches back), theme dark/system, email/SMS/pharmacy toggles persist across reload and are restored (iPhone run only), reset-password email (mocked), sign out (cancel/confirm, logout mocked) clears session and cached health data. Intermittent late 401 after sign-out (MB-014) |
+| App boot (web) | d388ee2 | pass | all | MB-001, MB-002, MB-003 and MB-008 fixed-verified: cold start paints a boot screen |
+| Sign in (email + phone OTP mode) | d388ee2 | pass | `tests/auth.spec.ts` | MB-005 fixed-verified. Wrong password, validation, password toggle, links, signed-out redirect |
+| Forgot password | d388ee2 | pass | `tests/auth.spec.ts` | Reset endpoint mocked (no real email) |
+| Reset password | d388ee2 | pass | `tests/reset-password.spec.ts` | Without a recovery session: "request a new link" opens Forgot password. Setting a new password needs a real recovery link (not covered) |
+| Phone OTP | d388ee2 | pass | `tests/auth.spec.ts` | SMS endpoints mocked. Wrong code, resend cooldown, digits stay LTR in Arabic |
+| Sign up (email + phone) | d388ee2 | pass | `tests/auth.spec.ts` | Sign-up endpoint mocked (no account created). Every validation step, back, check-email state |
+| Onboarding | d388ee2 | pass | `tests/role-gates.spec.ts` | Reached by rewriting the profile response to `profile_completed = false` (upserts stubbed). Routes are gated, name and terms validation, save lands on the dashboard |
+| Patient only | d388ee2 | pass | `tests/role-gates.spec.ts` | Reached by rewriting the role to `doctor`: gate on every route, web-portal link, sign out. Failed profile lookup shows `state-profile-error`, and retry recovers |
+| Dashboard | d388ee2 | pass | `tests/dashboard.spec.ts` | Real data (greeting, care team: Dr. Smoke Doctor), quick actions, tabs, skeleton, boot screen (MB-008), offline banner from cache, error + retry |
+| Appointments (Visits) | d388ee2 | pass | `tests/appointments.spec.ts` | MB-007 fixed-verified. Status/type segments, past virtual visit 901, detail push and back, book, skeleton, error + retry |
+| Appointment detail | d388ee2 | pass | `tests/appointment-flows.spec.ts` | Past visit 901 (no cancel/reschedule, follow-up message), upcoming booked visit (reschedule/cancel/pre-visit section), deep-link back, not-found, error + retry |
+| Video visit lobby | d388ee2 | pass (web fallback) | `tests/appointment-flows.spec.ts` | Web shows the "requires the mobile app" state; close works. LiveKit call is native-only, not covered |
+| Book appointment | d388ee2 | pass | `tests/appointment-flows.spec.ts` | Doctor search + empty state, Next gating per step, back, real booking with "Doctor Test" (each project uses a different date). Dr. Smoke Doctor has no published availability in DEV |
+| Reschedule | d388ee2 | pass | `tests/appointment-flows.spec.ts` | Doctor step skipped, reason prefilled, new slot confirmed |
+| Cancel appointment | d388ee2 | pass | `tests/appointment-flows.spec.ts` | Close button (MB-012), reason required, keep returns, confirm moves the visit to Cancelled. Each run cancels its own booking |
+| Pre-visit intake | d388ee2 | pass | `tests/pre-visit.spec.ts` | DEV has no assessment for the smoke patient and no bookable doctor has a template, so the assessment row is mocked (writes stubbed, AI summary real). Every question type, required gating, back, review, complete, close confirm, not-found |
+| AI assistant + history | d388ee2 | pass | `tests/assistant.spec.ts` | MB-009 fixed-verified. History sheet close button (MB-012). Consent allow/deny, context indicator, real `ai-chat` reply tagged "AI-generated", history sheet, new chat |
+| Messages | d388ee2 | pass | `tests/messages.spec.ts` | 1 conversation, open thread and back, error state. Search only appears with more than 3 threads (by design, skipped) |
+| Conversation | d388ee2 | pass | `tests/conversation.spec.ts` | Real send, edit (long-press), delete with undo, and delete; English text is LTR in Arabic (MB-009 verified here). An unknown thread id shows `state-empty-conversation` with no composer and a Messages action (MB-011 fixed). Leaving during the undo window sends the delete (MB-015 fixed) |
+| My health hub | d388ee2 | pass | `tests/health.spec.ts` | MB-006 fixed-verified (back is "Back"). All 9 rows open the right screen and back returns |
+| Medical records + record form | d388ee2 | pass | `tests/records.spec.ts` | Counts, filter, action sheet (3 types), required-field validation for each category, add/edit/remove a condition (soft delete), error state. Search only appears with more than 5 records (by design). Record form close button (MB-012). Arabic back button is just "رجوع" (MB-016) |
+| Lab results | d388ee2 | pass (empty only) | `tests/lab-results.spec.ts` | Segments with `aria-selected`, empty states, back, error + retry. The smoke patient has no lab orders, so lab detail and "Explain with AI" are not reachable |
+| Prescriptions | d388ee2 | pass | `tests/prescriptions.spec.ts` | Segments, empty states, add and remove a self-reported medicine (save gating, cancel/confirm dialog), back, error + retry. No prescriptions in DEV, so prescription detail and the pharmacy picker are not reachable |
+| Imaging | d388ee2 | pass (empty only) | `tests/imaging.spec.ts` | Segments, empty state, back, error + retry. No studies in DEV, so imaging detail is not reachable |
+| Documents | d388ee2 | fail (MB-013, fix pending DEV deploy) | `tests/documents.spec.ts` | Segments, list, error + retry. Real upload (iPhone run only) works; removing still fails on RLS because migration `20260719090000_patient_document_soft_delete_rls.sql` (ab64ac9) is not applied on DEV yet |
+| Document upload | d388ee2 | pass | `tests/documents.spec.ts` | Camera row hidden on web, file chooser, save gating, files over 20 MB rejected, title prefilled from the file name. Labelled close button returns to Documents (MB-012) |
+| Insurance | d388ee2 | pass | `tests/insurance.spec.ts` | No-plan state and its Profile action, claims list, status chips, benefits, error + retry. Note: cancelled visits are listed as "Denied" claims and counted in "You paid"; the web app does the same (parity, not filed) |
+| Notifications | d388ee2 | pass | `tests/notifications.spec.ts` | Log with All/Unread, mark all read (button hidden when nothing is unread, by design), dashboard bell and back, error + retry. Some notification bodies mix Arabic dates into English text; they are generated by the backend trigger in the language of the session that booked |
+| Profile | d388ee2 | pass | `tests/profile.spec.ts` | All sections render real data; edit then cancel discards; empty name blocks save; save keeps the values; dashboard avatar and back |
+| Settings | d388ee2 | pass | `tests/settings.spec.ts` | Language switch shows the restart dialog and flips `dir` (then switches back), theme dark/system, email/SMS/pharmacy toggles persist across reload and are restored (iPhone run only), reset-password email (mocked), sign out (cancel/confirm, logout mocked) clears session and cached health data. No request gets 401 after sign-out (MB-014; 15 test repeats plus 8 scripted loops). Signing back in on the same page loads data again (regression check) |
 
-### Final spec totals at `c843c4c` (full suite, all three projects)
+### Final spec totals at `d388ee2` (full suite, all three projects)
 
-Each project runs 99 tests (plus one shared sign-in setup).
+Each project runs 101 tests (plus one shared sign-in setup). Two tests were added for the fixes: the record-form close button (MB-012) and signing back in after sign-out (MB-014 regression).
 
 | Project | Passed | Failed | Skipped |
 |---|---|---|---|
-| iphone-14 | 93 | 4 (MB-010, MB-011, MB-013, MB-015) | 2 |
-| pixel-7 | 92 | 3 (MB-010, MB-011, MB-015) | 4 |
-| rtl-ar | 92 | 4 (MB-010, MB-011, MB-015, MB-016) | 3 |
-| **Total** | **277** | **11** | **9** |
+| iphone-14 | 98 | 1 (MB-013, fix pending DEV deploy) | 2 |
+| pixel-7 | 97 | 0 | 4 |
+| rtl-ar | 98 | 0 | 3 |
+| **Total** | **293** | **1** | **9** |
 
-Every failure maps to an open bug below; there were no other failures. The MB-016 assertion (RTL records test) was added right after the full run and re-run on its own; the `rtl-ar` row includes it.
+The only failure is the real document removal. It runs on iPhone only, and its backend fix isn't deployed to DEV yet. No regressions were found.
+
+One full run before this one also failed the MB-015 test once on `rtl-ar`. The test waited a fixed 6 s after leaving the thread and then reloaded, so on a slow DEV the reload could abort the in-flight delete. The test now waits for the delete request itself and passed 15 of 15 repeats, plus the final full run.
 
 Skips, all intentional:
 - The OTP "digits stay LTR in Arabic" test runs only on `rtl-ar`.
@@ -68,7 +70,7 @@ Skips, all intentional:
 - Bookings with "Doctor Test": each run books, reschedules and then cancels its own.
 - Conditions, reported medicines and messages: each run removes its own.
 - Profile and preferences: restored to their original values.
-- Vault documents: removal is blocked by MB-013. The smoke patient now has 2 "QA e2e upload …" documents from these runs, plus the builder's 2 "QA upload check" documents. They can be soft-deleted once the policy is fixed.
+- Vault documents: removal is blocked until the MB-013 migration is on DEV. The smoke patient now has 9 "QA e2e upload …" documents from these runs, plus the builder's 2 "QA upload check" documents. They can be soft-deleted once the migration is live.
 
 ## Bugs
 
@@ -83,13 +85,13 @@ Skips, all intentional:
 | MB-007 | P3 | Segmented controls | fixed-verified |
 | MB-008 | P3 | Cold start (web) | fixed-verified |
 | MB-009 | P3 | Assistant + conversation (RTL) | fixed-verified |
-| MB-010 | P3 | Pre-visit review | open |
-| MB-011 | P3 | Conversation (unknown id) | open |
-| MB-012 | P3 | Sheet screens (web) | open |
-| MB-013 | P2 | Documents (backend RLS) | open |
-| MB-014 | P3 | Sign out | open |
-| MB-015 | P2 | Conversation (delete) | open |
-| MB-016 | P3 | Every pushed screen, Arabic (header back) | open |
+| MB-010 | P3 | Pre-visit review | fixed-verified |
+| MB-011 | P3 | Conversation (unknown id) | fixed-verified |
+| MB-012 | P3 | Sheet screens (web) | fixed-verified |
+| MB-013 | P2 | Documents (backend RLS) | fix pending DEV deploy |
+| MB-014 | P3 | Sign out | fixed-verified |
+| MB-015 | P2 | Conversation (delete) | fixed-verified |
+| MB-016 | P3 | Every pushed screen, Arabic (header back) | fixed-verified |
 
 ### MB-001 — Web export fails: `react-dom` / `react-native-web` missing
 - Severity: P1 (blocks all web/Playwright testing)
@@ -132,7 +134,7 @@ Skips, all intentional:
 ### MB-006 — Header back button is announced as "(tabs), back"
 - Severity: P2 (accessibility)
 - Screen: every pushed stack screen (records, labs, prescriptions, imaging, documents, insurance, notifications, profile, settings, appointment detail…)
-- Status: **fixed-verified** in `36949f6` (tested at `c843c4c`): the back button is now named "Go back" on every pushed screen instead of "(tabs), back". In Arabic it is still "رجوع, back"; that leftover is MB-016
+- Status: **fixed-verified** in `36949f6` (tested at `c843c4c`): the back button is now named "Go back" on every pushed screen instead of "(tabs), back". At `d388ee2` it is "Back" in English and "رجوع" in Arabic (see MB-016)
 - Steps: Health tab → Records; inspect the header back control (or use VoiceOver/TalkBack).
 - Expected: an accessible name such as "Back" or "Back to My Health".
 - Actual: the accessible name is `(tabs), back`; the native-stack back button uses the previous route's name, which is the `(tabs)` group. On native the back title has the same source.
@@ -175,7 +177,7 @@ Skips, all intentional:
 ### MB-010 — Pre-visit review shows raw option values instead of labels
 - Severity: P3
 - Screen: Pre-visit intake › review step (`mobile/src/app/(app)/pre-visit/[id].tsx`, review card renders `answer.answerText`)
-- Status: open (still reproduces at `c843c4c`)
+- Status: **fixed-verified** in `6e38c05` (tested at `d388ee2`): the review shows "Mild", "Cough" and a localized yes/no on all 3 projects
 - Steps: answer a single-select question with option label "Mild" (value `mild`) and a multi-select with "Cough" (`cough`); open the review.
 - Expected: "Mild", "Cough" (the labels the patient picked, localized).
 - Actual: "mild", "cough" (stored values). Yes/no answers display correctly.
@@ -186,7 +188,7 @@ Skips, all intentional:
 ### MB-011 — Unknown conversation id shows an empty, writable thread
 - Severity: P3
 - Screen: Conversation (`/conversation/<id>`)
-- Status: open
+- Status: **fixed-verified** in `3be2857` (tested at `d388ee2`): `state-empty-conversation` shows with no composer, its Messages action works, and there is no mark-read 400
 - Steps: open `/conversation/00000000-0000-4000-8000-000000000000` (or a stale deep link or push to a conversation the patient can't access).
 - Expected: a not-found state, like appointment detail and pre-visit have, with no composer.
 - Actual: the screen shows "No messages in this thread yet" with an active composer and the generic "Messages" title. The read-receipt RPC `mark_conversation_messages_read` fails with 400 "Conversation not found." (a console error).
@@ -197,7 +199,7 @@ Skips, all intentional:
 ### MB-012 — Sheet screens have no close control on web
 - Severity: P3 (web only; native has swipe-down and the grabber)
 - Screen: every `formSheet` route with `headerShown: false`: document upload, record form, cancel appointment, pharmacy picker, assistant history
-- Status: open
+- Status: **fixed-verified** in `e8ada94` (tested at `d388ee2`): `btn-close-sheet` (named "Close") closes document upload, record form, cancel appointment and assistant history on all 3 projects. The pharmacy picker is not reachable (no prescriptions in DEV)
 - Steps: Documents › Upload.
 - Expected: a visible Close/Cancel control, or a header with a back button, as the pushed screens have.
 - Actual: on web the only way out is the browser's back button. On native, VoiceOver and TalkBack users also benefit from an explicit close button.
@@ -207,7 +209,7 @@ Skips, all intentional:
 ### MB-013 — Removing a vault document fails: RLS on `patient_document_files`
 - Severity: P2 (backend; same on the web app; already listed as a builder blocker)
 - Screen: Documents
-- Status: open (backend policy, not fixable in `mobile/`)
+- Status: **fix pending DEV deploy**: migration `20260719090000_patient_document_soft_delete_rls.sql` (ab64ac9) is committed but not applied to DEV, so removal still fails with the same RLS error at `d388ee2`. This is expected, not a regression; retest after the migration ships
 - Steps: upload a document, then Remove › confirm.
 - Expected: the document is soft-deleted and disappears.
 - Actual: 403 with `new row violates row-level security policy for table "patient_document_files"`; the document stays.
@@ -218,7 +220,7 @@ Skips, all intentional:
 ### MB-014 — After sign-out, a stale dashboard query fires and gets 401
 - Severity: P3 (intermittent; about 1 in 3 sign-outs)
 - Screen: Settings › Sign out
-- Status: open
+- Status: **fixed-verified** in `f5dfeaf` (tested at `d388ee2`): no request got 401 after sign-out in 15 spec repeats (5 per project) or 8 scripted loops, and signing back in on the same page loads data normally. The spec now fails on any late 401. Cosmetic leftover, not reopened: the URL still passes through `/(auth)` for a moment before `/sign-in`
 - Steps: open the dashboard, then Settings › Sign out › confirm.
 - Expected: no data requests after the session is cleared.
 - Actual: sometimes a `user_profiles` lookup for the care-team doctors runs after sign-out and returns 401 (a console error). The URL also passes through `/(auth)` before `/sign-in`. Session and cached health data (`ceenaix.cache.v1.*`) are correctly cleared.
@@ -228,7 +230,7 @@ Skips, all intentional:
 ### MB-015 — Leaving a thread during the 5-second undo window silently cancels a message delete
 - Severity: P2 (the patient believes a message is deleted, but the doctor still sees it)
 - Screen: Conversation
-- Status: open
+- Status: **fixed-verified** in `171ab18` (tested at `d388ee2`): leaving the thread during the undo window sends the delete, and the message stays gone after reopening (15 of 15 repeats plus the full run)
 - Steps: long-press your own message › Delete; within 5 s tap back (or the app is backgrounded/killed); reopen the thread.
 - Expected: the delete commits (or the undo bar says it was cancelled).
 - Actual: the message is still there. The unmount cleanup in `conversation/[id].tsx` calls `clearTimeout(undoTimer)` without running the pending `thread.remove`.
@@ -239,7 +241,7 @@ Skips, all intentional:
 ### MB-016 — In Arabic, the header back button is announced as "رجوع, back"
 - Severity: P3 (accessibility, RTL)
 - Screen: every pushed stack screen
-- Status: open
+- Status: **fixed-verified** in `e0d2772` (tested at `d388ee2`): the Arabic back button is named "رجوع" with no English "back"
 - Steps: language Arabic; Health › Records; inspect the header back control (or use TalkBack/VoiceOver in Arabic).
 - Expected: a fully Arabic name, such as "رجوع".
 - Actual: `رجوع, back`. The native-stack header appends the English word "back" to the localized back title.

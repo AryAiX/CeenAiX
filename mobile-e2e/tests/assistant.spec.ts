@@ -50,6 +50,11 @@ test.describe('AI assistant (Assistant tab)', () => {
     const history = page.getByTestId('screen-assistant-history');
     await expect(history).toBeVisible();
     await expect(history.getByTestId('btn-history-new-chat')).toBeVisible();
+    await expect(history.getByTestId('btn-close-sheet'), 'MB-012').toHaveAccessibleName(/close|إغلاق/i);
+    await history.getByTestId('btn-close-sheet').click();
+    await expect(history).toHaveCount(0);
+    await screen.getByTestId('btn-assistant-history').click();
+    await expect(history).toBeVisible();
     await history.getByTestId('btn-history-new-chat').click();
     await expect(screen).toBeVisible();
     await expect(screen.getByTestId('prompt-chip-0')).toBeVisible();

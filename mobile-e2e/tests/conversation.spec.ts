@@ -92,9 +92,11 @@ test.describe('Conversation', () => {
     await longPress(page, bubble());
     await page.getByTestId('dialog').getByTestId('dialog-btn-1').click();
     await expect(bubble()).toHaveCount(0);
+    const removeRequest = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/rest/v1/messages'), { timeout: 60_000 });
     await page.goBack();
     await expect(page.getByTestId('screen-messages')).toBeVisible();
-    await page.waitForTimeout(6_000);
+    const removed = await removeRequest.then((r) => r.status()).catch(() => null);
+    expect(removed, 'MB-015: leaving the thread must send the pending delete').not.toBeNull();
     await page.goto(conversationUrl);
     await expect(page.locator('[data-testid^="chat-message-"]').first()).toBeVisible({ timeout: 60_000 });
     const leftover = await bubble().count();
@@ -108,9 +110,11 @@ test.describe('Conversation', () => {
 
   test('unknown conversation id shows a not-found state without a composer (MB-011)', async ({ page }) => {
     const screen = await openScreen(page, '/conversation/00000000-0000-4000-8000-000000000000', 'screen-conversation');
-    await expect(screen.getByTestId('state-empty-thread').or(screen.getByTestId('state-error')).or(screen.getByTestId('state-empty-conversation')).first()).toBeVisible({ timeout: 60_000 });
+    await expect(screen.getByTestId('state-empty-conversation')).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId('state-route-error')).toHaveCount(0);
     await expect(screen.getByTestId('state-empty-thread'), 'MB-011: an unknown thread must not look like an empty, writable thread').toHaveCount(0);
     await expect(screen.getByTestId('input-message'), 'MB-011: no composer for an unknown conversation').toHaveCount(0);
+    await screen.getByTestId('state-empty-conversation').getByRole('button').click();
+    await expect(page.getByTestId('screen-messages')).toBeVisible();
   });
 });
