@@ -44,13 +44,12 @@ Run from `mobile/` unless noted otherwise.
 | `npm run format:check` | Prettier clean |
 | `npx expo export --platform ios` / `android` / `web` | Bundles export (`web` writes `mobile/dist`) |
 | `npx expo start --web --port 8081` | App serves on port 8081 |
-| `npx expo-doctor` | 18/20. The two failures are expected; see below |
+| `npx expo-doctor` | 19/20. The one failure is expected; see below |
 | Repo root: `npm ci && npm run lint && npm run typecheck && npm run build` | Web app still green |
 
-### Expected `expo-doctor` failures
+### Expected `expo-doctor` failure
 
-1. **Metro config.** `metro.config.js` sets `disableHierarchicalLookup` and limits `nodeModulesPaths` to `mobile/node_modules`. Shared files under `../src/lib` and `../src/types` would otherwise resolve the web app's React 18 from the repo root.
-2. **Duplicate React.** Doctor sees `react@18.3.1` in the repo-root `node_modules` (the web app). Metro never bundles it, for the reason above.
+**Metro config.** `metro.config.js` sets `disableHierarchicalLookup` and limits `nodeModulesPaths` to `mobile/node_modules`. Shared files under `../src/lib` and `../src/types` would otherwise resolve the web app's React 18 from the repo root.
 
 ## Blockers and next steps
 
