@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const SCREENSHOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'screenshots');
 
 /** Console noise that is not an app defect (dev tooling, documented web stubs). */
-const IGNORED_CONSOLE: RegExp[] = [/WebSocket connection to/, /Download the React DevTools/, /\[expo-notifications\]/];
+const IGNORED_CONSOLE: RegExp[] = [/WebSocket connection to/, /Download the React DevTools/, /\[expo-notifications\]/, /net::ERR_NETWORK_CHANGED/];
 
 export interface ConsoleGuard {
   errors: string[];
