@@ -19,18 +19,30 @@ Build: `origin/main` at `dc86283` (QA branch `qa/mobile-main-seeded-retest`; `mo
 | Check | iphone-14 | pixel-7 | rtl-ar |
 |---|---|---|---|
 | 1. MB-013: upload a PDF, remove it, still gone after reload, no "QA " documents left | pass | pass | pass |
-| 2. Lab result detail for order `…0921` shows HbA1c | **fail (MB-017)** | **fail (MB-017)** | **fail (MB-017)** |
+| 2. Lab result detail for order `…0921` shows HbA1c | fail at `dc86283` (MB-017); **pass at `5f3e808`** | fail at `dc86283`; **pass at `5f3e808`** | fail at `dc86283`; **pass at `5f3e808`** |
 | 3. Prescription detail shows Amoxicillin; pharmacy picker lists QA Al Noor Pharmacy | pass | pass | pass |
 | 4. Imaging list and detail show the MRI Brain study (accession IMG-22222222) | pass | pass | pass |
 
 Notes:
 - **MB-013 is fixed-verified on DEV.** Upload then Remove succeeds on every project. The document disappears and stays gone after a full reload. Afterwards the smoke patient has 0 live vault documents (the old "QA " leftovers are soft-deleted; this was also confirmed by querying `patient_document_files` as the patient). Each test removed its own upload.
 - **Pharmacy picker:** assigning a pharmacy updates the prescription (`pharmacy_organization_id`) and the app has no way to undo it, so the test opened the picker, asserted `pharmacy-card-*` "QA Al Noor Pharmacy", and closed it with `btn-close-sheet` without assigning. The prescription still has `pharmacy_organization_id = null`, so "Send to pharmacy" can be retested. The assign action itself (and the "sent" state after it) is **not covered**.
-- **Lab detail "Explain with AI"** (`btn-explain-with-ai`) is not reachable until MB-017 is fixed; the list card and detail header do load.
+- **Lab detail "Explain with AI"** (`btn-explain-with-ai`) was not reachable at `dc86283` (MB-017). It is present after the seed fix; see the follow-up retest below.
 - Imaging and prescription data are real DEV rows, so these tests will break if the seed is changed.
+
+### Follow-up retest of MB-017 at `5f3e808` — 2026-10-28
+
+Only the lab check was rerun (no full suite), against a fresh web export of `origin/main` `5f3e808` (the "Dev mobile QA seed" job had updated DEV). Spec: `tests/seeded-data.spec.ts` › "lab result detail for the seeded order shows HbA1c".
+
+| Check | iphone-14 | pixel-7 | rtl-ar |
+|---|---|---|---|
+| Lab detail for `…0921` shows HbA1c and `btn-explain-with-ai` | pass | pass | pass |
+
+- **MB-017 is fixed-verified.** The Result section lists HbA1c, "Reference: 4.0–5.6 %" and "6.1 %", plus MRI Brain ("Pending"). "Results released" now shows and "Explain with AI" is present. In `rtl-ar` the labels are Arabic and the values stay LTR.
+- **Seed discrepancy, not an app bug (MB-018, P4):** HbA1c 6.1 % is outside the 4.0–5.6 % reference range, but the item's `status_category` in DEV is `normal`, so the app shows a "Normal" pill and the order summary reads "2 normal". The app displays the stored category. If the seed should demonstrate an abnormal result, set `status_category` to the abnormal value on that item (the monitor/abnormal badge and `abnormalCount` need it).
 
 ### MB-017 — Seeded lab order shows no results: HbA1c is not visible to the patient
 
+- Status: **fixed-verified** at `5f3e808` (seed updated). Original finding at `dc86283` below.
 - Severity: P3 for the app, blocks QA of lab detail. Cause is DEV seed data, not `mobile/` code.
 - Screen: Lab result detail (`/lab-results/22222222-3333-4333-8444-000000000921`)
 - Steps: sign in as `smoke.patient@ceenaix.test`, Health › Lab results, open the card for `LAB-MOBILE-QA-001` (`lab-order-card-22222222-3333-4333-8444-000000000921`).
@@ -123,7 +135,7 @@ Skips, all intentional:
 | MB-014 | P3 | Sign out | fixed-verified |
 | MB-015 | P2 | Conversation (delete) | fixed-verified |
 | MB-016 | P3 | Every pushed screen, Arabic (header back) | fixed-verified |
-| MB-017 | P3 | Lab result detail (seed data: `results_released_at` is null, items hidden by RLS) | open (seed fix needed) |
+| MB-017 | P3 | Lab result detail (seed data: `results_released_at` is null, items hidden by RLS) | fixed-verified at `5f3e808` (2026-10-28) |
 
 ### MB-001 — Web export fails: `react-dom` / `react-native-web` missing
 - Severity: P1 (blocks all web/Playwright testing)
