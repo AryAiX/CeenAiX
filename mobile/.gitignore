@@ -31,12 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
-.env
 .env*.local
-!.env.example
-
-# NativeWind generated types
-nativewind-env.d.ts.map
 
 # typescript
 *.tsbuildinfo
@@ -44,3 +39,4 @@ nativewind-env.d.ts.map
 # generated native folders
 /ios
 /android
+.env

@@ -5,20 +5,35 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@ceenaix/types": ["../src/types"],
-      "@ceenaix/types/*": ["../src/types/*"],
-      "@ceenaix/locales/*": ["../src/locales/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@ceenaix/types": [
+        "../src/types"
+      ],
+      "@ceenaix/types/*": [
+        "../src/types/*"
+      ],
+      "@ceenaix/locales/*": [
+        "../src/locales/*"
+      ],
+      "@ceenaix/shared/*": [
+        "../src/lib/*"
+      ],
+      "i18next": [
+        "./node_modules/i18next"
+      ]
     }
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx",
-    "nativewind-env.d.ts",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "**/*.tsx"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

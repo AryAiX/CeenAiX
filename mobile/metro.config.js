@@ -1,35 +1,23 @@
-// Metro config for the CeenAiX mobile app.
-//
-// Two concerns are wired here:
-//   1. NativeWind — Tailwind class compilation via `global.css`.
-//   2. Shared-code reuse — the app imports platform-agnostic modules from
-//      the web codebase (`../src/types`, `../src/locales`) using the
-//      `@ceenaix/*` aliases. Metro must be allowed to watch and resolve
-//      files that live outside the `mobile/` folder.
+// The app shares platform-agnostic web code (`../src/types`, `../src/locales`
+// and a small allow-list of pure helpers in `../src/lib`) through the
+// `@ceenaix/*` tsconfig aliases. Metro must watch those folders, and every
+// bare import (e.g. `i18next` used by a shared helper) must resolve to the
+// mobile app's own node_modules so there is exactly one i18next instance.
 const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');
-const { withNativeWind } = require('nativewind/metro');
 
 const projectRoot = __dirname;
-const repoRoot = path.resolve(projectRoot, '..');
+const webSrc = path.resolve(projectRoot, '..', 'src');
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch the web `src/` so changes to shared types/locales hot-reload.
-config.watchFolders = [path.resolve(repoRoot, 'src')];
-
-// Resolve the shared aliases used in tsconfig `paths`.
-config.resolver.extraNodeModules = {
-  ...(config.resolver.extraNodeModules ?? {}),
-  '@ceenaix/types': path.resolve(repoRoot, 'src/types'),
-  '@ceenaix/locales': path.resolve(repoRoot, 'src/locales'),
-};
-
-// Prefer the mobile app's own node_modules; fall back to the repo root only
-// if a dependency is hoisted there.
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
-  path.resolve(repoRoot, 'node_modules'),
+config.watchFolders = [
+  path.join(webSrc, 'types'),
+  path.join(webSrc, 'locales'),
+  path.join(webSrc, 'lib'),
 ];
 
-module.exports = withNativeWind(config, { input: './global.css' });
+config.resolver.nodeModulesPaths = [path.resolve(projectRoot, 'node_modules')];
+config.resolver.disableHierarchicalLookup = true;
+
+module.exports = config;

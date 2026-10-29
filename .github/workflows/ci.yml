@@ -67,6 +67,25 @@ jobs:
           SUPABASE_RESEND_SMTP_PASSWORD: ${{ secrets.SUPABASE_RESEND_SMTP_PASSWORD }}
         run: bash scripts/dev-release-supabase.sh
 
+  dev-mobile-qa-seed:
+    name: Dev mobile QA seed
+    needs: dev-supabase
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Seed smoke-patient clinical rows on DEV
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DEV_PROJECT_REF: ${{ secrets.SUPABASE_DEV_PROJECT_REF }}
+        run: node scripts/run-sql-management-api.mjs --project-ref "$SUPABASE_DEV_PROJECT_REF" scripts/dev-mobile-qa-seed.sql
+
   dev-deploy:
     name: Dev Deploy (dev.ceenaix.com)
     needs: dev-supabase
