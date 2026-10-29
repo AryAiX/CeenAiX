@@ -103,13 +103,18 @@ BEGIN
   WHERE id = v_order;
 
   INSERT INTO public.lab_order_items (
-    id, lab_order_id, test_name, test_code, status,
+    id, lab_order_id, test_name, test_code, status, status_category,
     result_value, result_unit, reference_range, is_abnormal, resulted_at
   ) VALUES (
-    v_lab_item, v_order, 'HbA1c', '4548-4', 'resulted',
+    v_lab_item, v_order, 'HbA1c', '4548-4', 'resulted', 'borderline',
     '6.1', '%', '4.0–5.6 %', true, now() - interval '1 day'
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE
+  SET status_category = 'borderline',
+      is_abnormal = true,
+      result_value = EXCLUDED.result_value,
+      result_unit = EXCLUDED.result_unit,
+      reference_range = EXCLUDED.reference_range;
 
   INSERT INTO public.lab_order_items (
     id, lab_order_id, test_name, test_code, status, resulted_at
