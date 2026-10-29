@@ -4,11 +4,42 @@ QA branch: `mobile-patient-parity-tests` (tracks builder branch `mobile-patient-
 Harness: Playwright against the Expo web export (`mobile/dist`), in `mobile-e2e/` (see `mobile-e2e/README.md`).
 Projects: `iphone-14` (WebKit, 390x844), `pixel-7` (Chromium, 412x915), `rtl-ar` (Chromium, 412x915, locale `ar-AE`).
 
-Last updated: 2026-10-19. **Final run at builder commit `d388ee2`** (after the MB-010 to MB-016 fixes; `BUILD STATUS: COMPLETE`). Every screen in `docs/mobile/test-handoff.md` was retested at that commit, each fix was checked with targeted tests, and the full suite was run on all three projects. The earlier full run at `c843c4c` is superseded.
+Last updated: 2026-10-28 (retest on `main` `dc86283`, see the section below). Earlier text: 2026-10-19. **Final run at builder commit `d388ee2`** (after the MB-010 to MB-016 fixes; `BUILD STATUS: COMPLETE`). Every screen in `docs/mobile/test-handoff.md` was retested at that commit, each fix was checked with targeted tests, and the full suite was run on all three projects. The earlier full run at `c843c4c` is superseded.
 
 Every test also fails on unexpected console errors or page errors, and every screen spec checks document direction (LTR, or RTL in `rtl-ar`), no horizontal overflow at phone width, and accessible names on interactive controls. Screenshots are in `mobile-e2e/screenshots/{iphone-14,rtl-ar}/` (one per screen) and `mobile-e2e/screenshots/mb-*.png` (bugs).
 
 Environment note: the DEV Supabase project is sometimes slow (2.5–3 s even for `/auth/v1/health`, with individual queries taking 5–10 s at peak). Tests use generous timeouts; this is not treated as an app defect.
+
+## Retest on `main` (merge commit `dc86283`) with seeded DEV data — 2026-10-28
+
+Build: `origin/main` at `dc86283` (QA branch `qa/mobile-main-seeded-retest`; `mobile/` exported with `npx expo export --platform web`, served with `APP_DIST`). DEV (`lgfaucsfiyxvmsghnpey`) now has migration `20260719090000` (MB-013) and the seeded smoke-patient data: lab order `…0921`, prescription `…0911`, a released MRI Brain imaging study (accession `IMG-22222222`) and the pharmacy "QA Al Noor Pharmacy". New spec: `mobile-e2e/tests/seeded-data.spec.ts` (4 tests × 3 projects, uses the existing testIDs).
+
+**Full suite was run** on all three projects: 316 tests, **304 passed, 9 skipped (same intentional skips as before), 3 failed**. All 3 failures are the new lab detail check (below). No other test regressed. The old "uploads a real PDF to the vault and tries to remove it" test now passes on iphone-14.
+
+| Check | iphone-14 | pixel-7 | rtl-ar |
+|---|---|---|---|
+| 1. MB-013: upload a PDF, remove it, still gone after reload, no "QA " documents left | pass | pass | pass |
+| 2. Lab result detail for order `…0921` shows HbA1c | **fail (MB-017)** | **fail (MB-017)** | **fail (MB-017)** |
+| 3. Prescription detail shows Amoxicillin; pharmacy picker lists QA Al Noor Pharmacy | pass | pass | pass |
+| 4. Imaging list and detail show the MRI Brain study (accession IMG-22222222) | pass | pass | pass |
+
+Notes:
+- **MB-013 is fixed-verified on DEV.** Upload then Remove succeeds on every project. The document disappears and stays gone after a full reload. Afterwards the smoke patient has 0 live vault documents (the old "QA " leftovers are soft-deleted; this was also confirmed by querying `patient_document_files` as the patient). Each test removed its own upload.
+- **Pharmacy picker:** assigning a pharmacy updates the prescription (`pharmacy_organization_id`) and the app has no way to undo it, so the test opened the picker, asserted `pharmacy-card-*` "QA Al Noor Pharmacy", and closed it with `btn-close-sheet` without assigning. The prescription still has `pharmacy_organization_id = null`, so "Send to pharmacy" can be retested. The assign action itself (and the "sent" state after it) is **not covered**.
+- **Lab detail "Explain with AI"** (`btn-explain-with-ai`) is not reachable until MB-017 is fixed; the list card and detail header do load.
+- Imaging and prescription data are real DEV rows, so these tests will break if the seed is changed.
+
+### MB-017 — Seeded lab order shows no results: HbA1c is not visible to the patient
+
+- Severity: P3 for the app, blocks QA of lab detail. Cause is DEV seed data, not `mobile/` code.
+- Screen: Lab result detail (`/lab-results/22222222-3333-4333-8444-000000000921`)
+- Steps: sign in as `smoke.patient@ceenaix.test`, Health › Lab results, open the card for `LAB-MOBILE-QA-001` (`lab-order-card-22222222-3333-4333-8444-000000000921`).
+- Expected: the HbA1c item (abnormal), and "Explain with AI".
+- Actual: the header, lab (Dubai Medical Laboratory), "Resulted" pill and "Ordered by Dr. Smoke Doctor" show, then an empty "Result" section with only "View linked visit" and "Share report". `btn-explain-with-ai` is absent because `resultedCount` is 0. The orders list shows the order, so the list query works.
+- Evidence: `GET /rest/v1/lab_order_items?lab_order_id=eq.…0921` as the patient returns `[]` (any `lab_order_items` query returns `[]`). The order row has `status = 'resulted'` but `results_released_at = null`. The patient policy `patients_read_lab_items` (migration `20260719071500`) only exposes items when `lab_orders.results_released_at IS NOT NULL`, so RLS hides every item. The `lab_portal_imaging_studies` row (MRI Brain, `released`) is unaffected, which is why imaging passes.
+- Fix (data): set `results_released_at = now()` (and ideally `sample_collection_at`) on lab order `…0921`, e.g. in `scripts/dev-mobile-qa-seed.sql` where the order is inserted/updated. I could not confirm in the DB that the HbA1c item row exists (RLS hides it from the patient), so check that too.
+- Optional app follow-up (UX, not opened as a bug): a "Resulted" order whose items are all hidden shows a "Result" heading over nothing; an empty state would be clearer.
+- Spec: `tests/seeded-data.spec.ts` › "lab result detail for the seeded order shows HbA1c" (fails on all 3 projects until the seed is fixed). Screenshot: `mobile-e2e/test-results/seeded-data-*lab-result-detail*/test-failed-1.png` (not committed).
 
 ## Per-screen results
 
@@ -88,10 +119,11 @@ Skips, all intentional:
 | MB-010 | P3 | Pre-visit review | fixed-verified |
 | MB-011 | P3 | Conversation (unknown id) | fixed-verified |
 | MB-012 | P3 | Sheet screens (web) | fixed-verified |
-| MB-013 | P2 | Documents (backend RLS) | fix pending DEV deploy |
+| MB-013 | P2 | Documents (backend RLS) | fixed-verified on DEV at `dc86283` (2026-10-28) |
 | MB-014 | P3 | Sign out | fixed-verified |
 | MB-015 | P2 | Conversation (delete) | fixed-verified |
 | MB-016 | P3 | Every pushed screen, Arabic (header back) | fixed-verified |
+| MB-017 | P3 | Lab result detail (seed data: `results_released_at` is null, items hidden by RLS) | open (seed fix needed) |
 
 ### MB-001 — Web export fails: `react-dom` / `react-native-web` missing
 - Severity: P1 (blocks all web/Playwright testing)
@@ -209,7 +241,7 @@ Skips, all intentional:
 ### MB-013 — Removing a vault document fails: RLS on `patient_document_files`
 - Severity: P2 (backend; same on the web app; already listed as a builder blocker)
 - Screen: Documents
-- Status: **fix pending DEV deploy**: migration `20260719090000_patient_document_soft_delete_rls.sql` (ab64ac9) is committed but not applied to DEV, so removal still fails with the same RLS error at `d388ee2`. This is expected, not a regression; retest after the migration ships
+- Status: **fixed-verified** on 2026-10-28 at `dc86283` once the migration was applied to DEV (see the retest section at the top). Earlier status: migration `20260719090000_patient_document_soft_delete_rls.sql` (ab64ac9) is committed but not applied to DEV, so removal still fails with the same RLS error at `d388ee2`. This is expected, not a regression; retest after the migration ships
 - Steps: upload a document, then Remove › confirm.
 - Expected: the document is soft-deleted and disappears.
 - Actual: 403 with `new row violates row-level security policy for table "patient_document_files"`; the document stays.

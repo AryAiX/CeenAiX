@@ -89,12 +89,18 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.lab_orders WHERE id = v_order) THEN
     INSERT INTO public.lab_orders (
       id, patient_id, doctor_id, appointment_id, status, ordered_at,
-      assigned_lab_id, lab_order_code, urgency
+      assigned_lab_id, lab_order_code, urgency, results_released_at
     ) VALUES (
       v_order, v_patient, v_doctor, v_appt, 'resulted', now() - interval '2 days',
-      v_lab, 'LAB-MOBILE-QA-001', 'routine'
+      v_lab, 'LAB-MOBILE-QA-001', 'routine', now() - interval '1 day'
     );
   END IF;
+
+  -- Patients can read lab_order_items only after the order is released.
+  UPDATE public.lab_orders
+  SET status = 'resulted',
+      results_released_at = COALESCE(results_released_at, now() - interval '1 day')
+  WHERE id = v_order;
 
   INSERT INTO public.lab_order_items (
     id, lab_order_id, test_name, test_code, status,
