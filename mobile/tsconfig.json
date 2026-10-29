@@ -5,35 +5,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "resolveJsonModule": true,
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@ceenaix/types": [
-        "../src/types"
-      ],
-      "@ceenaix/types/*": [
-        "../src/types/*"
-      ],
-      "@ceenaix/locales/*": [
-        "../src/locales/*"
-      ],
-      "@ceenaix/shared/*": [
-        "../src/lib/*"
-      ],
-      "i18next": [
-        "./node_modules/i18next"
-      ]
-    }
+    "noImplicitOverride": true
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
 }

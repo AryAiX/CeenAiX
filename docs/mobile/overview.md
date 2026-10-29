@@ -1,93 +1,46 @@
-# CeenAiX Patient App — Overview
+# CeenAiX App — Overview
 
-The patient app in `mobile/` is a native iOS and Android client for the patient
-portal (`src/pages/patient/*`). It was rebuilt from scratch on Expo, with a
-phone-first information architecture. The backend is unchanged: it uses the
-same Supabase project, canonical schema, RLS policies, RPCs and Edge Functions
-as the web.
+The app in `mobile/` is a thin native shell (Expo, React Native) around the web
+portal. It opens `EXPO_PUBLIC_WEB_URL` (production: `https://www.ceenaix.com`)
+in a full-screen `react-native-webview`, starting at `/auth/login?role=patient`.
+The login page sends a signed-in patient straight to their portal.
 
-## Stack
+There are no native copies of web screens. Any change to `src/pages/*` ships to
+the app as soon as the website is deployed, with no app update.
 
-| Concern | Choice |
+## What the shell adds
+
+| Feature | Behaviour |
 |---|---|
-| Runtime | Expo SDK 58 (managed workflow + `expo-dev-client`), React Native 0.88, React 19, Hermes |
-| Language | TypeScript strict; no `any` |
-| Navigation | `expo-router` (file routes in `src/app/`), `NativeTabs` (UITabBar / Material bottom nav), native-stack sheets |
-| Data | `@supabase/supabase-js` with an AsyncStorage session; generated copies of the web hooks |
-| Video | LiveKit (`@livekit/react-native`, `@livekit/react-native-webrtc`) + config plugins |
-| i18n | `i18next` with the web locales plus mobile copy under `m.*`; EN / AR with RTL |
-| Native APIs | expo-image-picker, expo-document-picker, expo-local-authentication, expo-notifications, expo-web-browser, expo-clipboard, expo-haptics, expo-keep-awake, `Share` |
+| Splash screen | Native splash stays up until the first page finishes loading (10 s cap). |
+| Offline screen | A failed page load shows a native "You are offline" card with **Try again**. |
+| Face ID / fingerprint re-lock | After 5 minutes in the background, a signed-in user (any path outside `/` and `/auth/*`) must unlock with biometrics. Skipped when the device has no enrolled biometrics. |
+| Privacy cover | The app switcher shows a blank screen instead of health data. |
+| Video visits | Camera and microphone are granted to the portal origin for LiveKit consultations (`mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"`). |
+| Uploads | `<input type="file">` uses the native camera, photo library and file picker. |
+| External links | Other sites open in an in-app browser sheet. Maps, Waze, WhatsApp, `tel:`, `mailto:` and similar links open the native app. |
+| Deep links | `ceenaix://<path>` opens `<web url>/<path>`, e.g. `ceenaix://patient/appointments`. |
+| Navigation | iOS swipe-back and the Android back button move back through web history. |
+| Language | Native screens (offline, lock) follow the device language (English / Arabic). The portal keeps its own language switch. |
 
-## Information architecture
+The web view user agent ends with `CeenAiXApp/1.0`, and `window.CeenAiXApp`
+(`{ platform }`) is defined before the page loads, so the web app can detect the
+shell if it ever needs to.
 
-There are five tabs, and everything else is pushed onto one stack, so the back
-gesture always works.
+## Preview PIN
 
-| Tab | Screen | Pushed / presented from it |
-|---|---|---|
-| Home | Dashboard: next visit, today's doses, vitals, attention items, care team | Notifications, Profile, Book |
-| Visits | Upcoming / Past / Cancelled segments | Appointment detail → Cancel (sheet), Reschedule (wizard), Pre-visit (full-screen), Video visit (full-screen) |
-| Assistant | AI chat | Chat history (sheet) |
-| Messages | Conversation list with search | Conversation thread (realtime) |
-| Health | Grouped hub | Records, Lab results, Prescriptions, Imaging, Documents, Insurance, Profile, Settings |
+`www.ceenaix.com` and `dev.ceenaix.com` show the pre-launch preview PIN
+(`src/lib/preview-access.ts`). The shell marks preview access as granted before
+each page loads, so app users and App Store reviewers go straight to sign-in.
+The PIN is a client-side gate only; it never protected data.
 
-Auth lives outside the app group: sign-in, sign-up, forgot password, phone
-OTP, reset password (from the `ceenaix://reset-password` deep link) and
-onboarding. A non-patient role sees the `patient-only` screen, which mirrors
-the web `/access-denied` guard.
+## Not in the shell yet
 
-## Mobile UX decisions (vs. web)
-
-- **One step per screen.** Booking is a wizard (doctor → time → reason → review), and reschedule skips the doctor step. Pre-visit shows one question per screen, with an intro, a review list and record-update review as separate steps.
-- **Native sheets** replace web modals for cancel, the pharmacy picker, record add/edit, document upload and chat history.
-- **Segmented controls** replace web tabs and filters on visits, records, labs, prescriptions, imaging, insurance and notifications.
-- **Date strip and slot chips** replace the web month grid. Only days that have open slots are shown.
-- **Native actions** replace web-only affordances: action sheets, the share sheet (lab and imaging reports, document links), in-app browser for signed URLs, `mailto:` for support and insurer contact, Apple Maps or `geo:` for directions, long-press to copy or share AI replies, and long-press to edit or delete your own messages (5-second undo).
-- **States.** Every list has a skeleton loader, an empty state and an error state with retry. Cached data shows an offline banner. Every route exports an error boundary.
-- **Feel.** Haptics on taps, success and error; safe areas; keyboard avoidance using the real header height; dark mode with a system/light/dark setting; RTL with directional icons.
-
-## Data layer
-
-- `src/data/web/{hooks,lib}` is **generated** from the web (`npm run sync:web`). Only import paths are rewritten: the Supabase client becomes the native one, and `use-query` becomes the mobile hook with the same contract. Running `npm run sync:web -- --check` fails when the copy is stale.
-- `src/data/*.ts` holds query-for-query mirrors of logic that lives *inside* web pages rather than hooks: booking/reschedule/cancel with notifications, the messaging list and thread, record CRUD, documents, profile, pre-visit persistence, preferences and reported medications. Each file names its web source.
-- `useOfflineCache(result, key)` persists the last successful payload per user. When a fetch fails, it serves that copy with `staleSince`.
-- **Realtime:** the messages thread (`postgres_changes` on `messages`) plus the notification and unread-message badges.
-- RLS is the only authority. The app never uses a service-role key, never adds tables or columns, and soft-deletes clinical data (`is_deleted`, `deleted_at`) exactly as the web does.
-
-## AI
-
-- All AI goes through Supabase Edge Functions: `ai-chat` for the assistant and the pre-visit summary. The app never calls OpenAI.
-- **Consent:** sending patient context (`usePatientContext`) is opt-in on mobile. The patient chooses in the assistant or in Settings, and the choice is stored per user on the device. The web currently sends context on every message, and the schema has no consent table yet, so this setting is device-local.
-- Every AI output carries the "AI-generated" tag (assistant replies, the pre-visit summary on the appointment and intake screens). Assistant replies render Markdown with a small built-in renderer and show evidence ("Used: …") and suggested in-app actions.
-- Chat-derived record updates use the same review → apply / dismiss flow as the web.
-
-## Native capabilities
-
-| Capability | Status |
-|---|---|
-| Camera / photo library / files | Wired (documents, avatar, Emirates ID, insurance card, AI attachments) |
-| Biometric re-unlock | Wired (`expo-local-authentication`, toggle in Settings) |
-| Deep links `ceenaix://` | Wired (`webPathToHref` maps web paths; auth redirects for reset password and email confirmation) |
-| Realtime | Wired (messages thread, unread badges) |
-| Offline last-fetch cache | Wired (dashboard and all list screens) |
-| Video visits | Wired; needs a dev or store build (WebRTC is not in Expo Go) |
-| Push notifications | **Stub.** Permission and Expo token only; no server-side token storage or APNs/FCM delivery yet |
-
-## Web build (for QA)
-
-`npx expo export --platform web` produces a single-page app in `mobile/dist`, used by the Playwright suite in `mobile-e2e/`. Native-only modules are guarded so web never crashes:
-
-- Native alerts and action sheets render through `DialogHost`.
-- The tab bar uses JS tabs (`(tabs)/_layout.web.tsx`), so tab `testID`s survive on web.
-- Video visits show "Video visits require the mobile app".
-- The camera option is hidden, and file and photo pickers use the browser chooser.
-- Dates are typed as YYYY-MM-DD.
-- There is no biometric lock, push or badge count on web.
-- RTL comes from `dir` on `<html>` (see `lib/rtl.ts`).
-- On desktop browsers the layout is capped at phone width.
+- **Push notifications.** Needs APNs/FCM credentials and a table for device tokens (not in the canonical schema yet).
+- **File downloads triggered by `<a download>` or blob URLs.** Signed document links open in the in-app browser instead.
 
 ## Security
 
-- `mobile/.env` (git-ignored) holds only `EXPO_PUBLIC_SUPABASE_URL` and the publishable anon key. `mobile/.env.example` documents the variables.
-- Sessions live in AsyncStorage. The biometric lock hides the UI on resume, but it does not encrypt storage.
-- Signed storage URLs are short-lived (1 hour for shared document links) and open in the in-app browser.
+- The shell holds no keys. Supabase auth, RLS and Edge Functions are exactly the web app's.
+- The session lives in the web view's storage (WKWebView / Android WebView), like a browser.
+- Only the portal origin can use the camera and microphone without a prompt; other origins never load at top level inside the web view.
