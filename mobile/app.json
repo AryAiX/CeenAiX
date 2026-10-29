@@ -18,7 +18,8 @@
         "NSPhotoLibraryUsageDescription": "CeenAiX lets you choose photos of medical documents to store in your secure vault.",
         "UIBackgroundModes": [
           "audio"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bitcode": false
     },
