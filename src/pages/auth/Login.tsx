@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { getOtpRequestErrorMessage, getSignInErrorMessage } from '../../lib/auth-error-messages';
-import { getDefaultRouteForRole, getRoleDisplayName, useAuth } from '../../lib/auth-context';
+import { AuthLoadingScreen, getDefaultRouteForRole, getRoleDisplayName, useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { withTimeout } from '../../lib/with-timeout';
 
@@ -168,16 +168,21 @@ export const Login = () => {
 
   const redirectTarget = searchParams.get('redirect') ?? undefined;
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated && !isRecoveryMode) {
-      const roleMatches = !selectedRole ||
-        (selectedRole === 'admin' && (role === 'super_admin' || role === 'facility_admin')) ||
-        selectedRole === role;
-      if (roleMatches) {
-        navigate(redirectTarget ?? getDefaultRouteForRole(role), { replace: true });
-      }
+  const isRedirectingToPortal = useMemo(() => {
+    if (isLoading || !isAuthenticated || isRecoveryMode) {
+      return false;
     }
-  }, [isAuthenticated, isLoading, isRecoveryMode, navigate, redirectTarget, role, selectedRole]);
+
+    return !selectedRole ||
+      (selectedRole === 'admin' && (role === 'super_admin' || role === 'facility_admin')) ||
+      selectedRole === role;
+  }, [isAuthenticated, isLoading, isRecoveryMode, role, selectedRole]);
+
+  useEffect(() => {
+    if (isRedirectingToPortal) {
+      navigate(redirectTarget ?? getDefaultRouteForRole(role), { replace: true });
+    }
+  }, [isRedirectingToPortal, navigate, redirectTarget, role]);
 
   const resetFeedback = () => {
     setErrorMessage(null);
@@ -284,6 +289,10 @@ export const Login = () => {
     t('auth.roleAccess.sidebarFeature3'),
     t('auth.roleAccess.sidebarFeature4'),
   ];
+
+  if (isLoading || isRedirectingToPortal) {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <div className="relative min-h-screen bg-slate-50 lg:flex">

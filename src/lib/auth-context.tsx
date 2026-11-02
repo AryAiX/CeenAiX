@@ -758,7 +758,7 @@ export const useAuth = () => {
   return context;
 };
 
-const AuthLoadingScreen = () => (
+export const AuthLoadingScreen = () => (
   <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-ceenai-cyan/5 flex items-center justify-center px-6">
     <div className="w-full max-w-md rounded-3xl border border-white/70 bg-white/90 p-8 shadow-xl backdrop-blur">
       <div className="h-4 w-28 rounded-full bg-gray-200 animate-pulse" />
