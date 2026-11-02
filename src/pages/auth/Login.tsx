@@ -19,7 +19,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
-import { getOtpRequestErrorMessage } from '../../lib/auth-error-messages';
+import { getOtpRequestErrorMessage, getSignInErrorMessage } from '../../lib/auth-error-messages';
 import { getDefaultRouteForRole, getRoleDisplayName, useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { withTimeout } from '../../lib/with-timeout';
@@ -199,7 +199,7 @@ export const Login = () => {
     );
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(getSignInErrorMessage(error));
     }
 
     setIsSubmitting(false);

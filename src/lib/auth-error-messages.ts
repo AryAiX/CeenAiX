@@ -1,3 +1,4 @@
+import { isAuthApiError } from '@supabase/supabase-js';
 import i18n from 'i18next';
 
 interface OtpRequestErrorOptions {
@@ -36,4 +37,34 @@ export const getOtpVerificationErrorMessage = (message: string) => {
   }
 
   return message;
+};
+
+export const getSignInErrorMessage = (error: Error): string => {
+  if (isAuthApiError(error)) {
+    if (error.code === 'invalid_credentials') {
+      return i18n.t('auth.login.errors.invalidCredentials', {
+        defaultValue: 'That email and password do not match. Check them and try again.',
+      });
+    }
+
+    if (error.code === 'email_not_confirmed') {
+      return i18n.t('auth.login.errors.emailNotConfirmed', {
+        defaultValue: 'Confirm your email before signing in. Check your inbox for the confirmation link.',
+      });
+    }
+
+    if (error.code === 'over_request_rate_limit') {
+      return i18n.t('auth.login.errors.tooManyAttempts', {
+        defaultValue: 'Too many sign-in attempts. Wait a few minutes and try again.',
+      });
+    }
+  }
+
+  if (error.message.trim().toLowerCase() === 'failed to fetch') {
+    return i18n.t('auth.login.errors.network', {
+      defaultValue: 'We could not reach CeenAiX. Check your connection and try again.',
+    });
+  }
+
+  return error.message;
 };

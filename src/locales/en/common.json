@@ -807,7 +807,11 @@
       "errors": {
         "passwordShort": "Use at least 8 characters for your new password.",
         "passwordMismatch": "The new password and confirmation do not match.",
-        "signInTimeout": "Sign-in is taking too long. Check your connection and try again."
+        "signInTimeout": "Sign-in is taking too long. Check your connection and try again.",
+        "invalidCredentials": "That email and password do not match. Check them and try again.",
+        "emailNotConfirmed": "Confirm your email before signing in. Check your inbox for the confirmation link.",
+        "tooManyAttempts": "Too many sign-in attempts. Wait a few minutes and try again.",
+        "network": "We could not reach CeenAiX. Check your connection and try again."
       }
     },
     "register": {
