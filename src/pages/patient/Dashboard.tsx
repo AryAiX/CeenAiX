@@ -150,9 +150,12 @@ export const PatientDashboard: React.FC = () => {
             greeting: greetingAr,
             dateLocation: 'دبي، الإمارات',
             healthScore: 'مؤشر الصحة',
-            adherence: 'الالتزام',
-            adherenceSub: 'هذا الشهر',
-            scoreState: 'جيد',
+            adherence: 'الأدوية المستلمة',
+            adherenceSub: 'من إجمالي الوصفات',
+            scoreGood: 'جيد',
+            scoreFair: 'مقبول',
+            scoreAttention: 'يحتاج إلى متابعة',
+            noData: '—',
             hba1c: 'HbA1c',
             bloodPressure: 'ضغط الدم',
             lastLabs: 'آخر الفحوصات',
@@ -202,9 +205,12 @@ export const PatientDashboard: React.FC = () => {
             greeting: greetingEn,
             dateLocation: 'Dubai, UAE',
             healthScore: 'Health Score',
-            adherence: 'Adherence',
-            adherenceSub: 'This month',
-            scoreState: 'Good',
+            adherence: 'Medications collected',
+            adherenceSub: 'Of all prescriptions',
+            scoreGood: 'Good',
+            scoreFair: 'Fair',
+            scoreAttention: 'Needs attention',
+            noData: '—',
             hba1c: 'HbA1c Trend',
             bloodPressure: 'Blood Pressure Log',
             lastLabs: 'Last Labs',
@@ -261,8 +267,17 @@ export const PatientDashboard: React.FC = () => {
       year: 'numeric',
     })
   );
-  const healthScoreValue = dashboardData?.healthScore ?? (profile?.profile_completed ? 78 : 64);
-  const adherenceValue = dashboardData?.adherencePercentage ?? (medications.length > 0 ? 87 : 72);
+  const healthScoreValue = dashboardData?.healthScore ?? null;
+  const adherenceValue = dashboardData?.adherencePercentage ?? null;
+  // The label now follows the score.
+  const scoreBand =
+    healthScoreValue === null
+      ? null
+      : healthScoreValue >= 80
+        ? { label: localCopy.scoreGood, className: 'text-emerald-600' }
+        : healthScoreValue >= 60
+          ? { label: localCopy.scoreFair, className: 'text-amber-600' }
+          : { label: localCopy.scoreAttention, className: 'text-rose-600' };
   const takenCount = medications.filter((medication) => medication.isDispensed || takenItemIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
@@ -469,18 +484,26 @@ export const PatientDashboard: React.FC = () => {
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-teal-600">{formatLocaleDigits(healthScoreValue, i18n.language)}</span>
-              <span className="text-sm text-slate-400">/100</span>
+              <span className="text-3xl font-bold text-teal-600">
+                {healthScoreValue === null ? localCopy.noData : formatLocaleDigits(healthScoreValue, i18n.language)}
+              </span>
+              {healthScoreValue === null ? null : <span className="text-sm text-slate-400">/100</span>}
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-emerald-600">{localCopy.scoreState}</p>
+            {scoreBand ? (
+              <p className={`mt-0.5 text-xs font-semibold ${scoreBand.className}`}>{scoreBand.label}</p>
+            ) : null}
           </div>
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.adherence}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-slate-800">{formatLocaleDigits(adherenceValue, i18n.language)}</span>
-              <span className="text-sm text-slate-400">%</span>
+              <span className="text-3xl font-bold text-slate-800">
+                {adherenceValue === null ? localCopy.noData : formatLocaleDigits(adherenceValue, i18n.language)}
+              </span>
+              {adherenceValue === null ? null : <span className="text-sm text-slate-400">%</span>}
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-emerald-600">{localCopy.adherenceSub}</p>
+            {adherenceValue !== null ? (
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">{localCopy.adherenceSub}</p>
+            ) : null}
           </div>
         </div>
       </div>
