@@ -161,6 +161,7 @@ export const PatientDashboard: React.FC = () => {
             lastLabs: 'آخر الفحوصات',
             medicationsLabel: 'الأدوية',
             prediabetic: 'ما قبل السكري',
+            diabetesRange: 'نطاق السكري',
             attention: 'تحتاج مراجعة',
             improving: 'يتحسن',
             controlled: 'مسيطر عليه',
@@ -216,6 +217,7 @@ export const PatientDashboard: React.FC = () => {
             lastLabs: 'Last Labs',
             medicationsLabel: 'Medications',
             prediabetic: 'Pre-diabetic',
+            diabetesRange: 'Diabetes range',
             attention: 'Needs review',
             improving: 'Improving',
             controlled: 'Controlled',
@@ -328,11 +330,15 @@ export const PatientDashboard: React.FC = () => {
         iconColor: 'text-amber-600',
         label: localCopy.hba1c,
         value: latestHba1c ? `${formatLocaleDecimal(latestHba1c.value, i18n.language)}%` : 'N/A',
+        // Below 5.7 is normal, 5.7–6.4 is pre-diabetes, and 6.5 and above is the diabetes range.
+        // An absent result shows no band, since there is no reading to classify.
         badge: latestHba1c
           ? latestHba1c.value >= 6.5
-            ? localCopy.prediabetic
-            : localCopy.normal
-          : localCopy.normal,
+            ? localCopy.diabetesRange
+            : latestHba1c.value >= 5.7
+              ? localCopy.prediabetic
+              : localCopy.normal
+          : localCopy.noData,
         badgeColor: 'bg-amber-50 text-amber-700',
         trend: latestHba1cDelta !== null && latestHba1cDelta <= 0 ? ('down' as const) : ('up' as const),
         trendLabel:
