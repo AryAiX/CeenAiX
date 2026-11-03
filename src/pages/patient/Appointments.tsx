@@ -488,11 +488,11 @@ export const PatientAppointments: React.FC = () => {
     return (
       <div
         key={appointment.id}
-        className={`bg-white rounded-lg border-l-4 ${borderAccent} p-6 shadow-sm hover:shadow-md transition-all`}
+        className={`bg-white rounded-lg border-l-4 ${borderAccent} p-4 sm:p-6 shadow-sm hover:shadow-md transition-all`}
       >
-        <div className="flex gap-4">
+        <div className="flex gap-3 sm:gap-4">
           <div
-            className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-lg font-semibold ${
+            className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-lg font-semibold sm:h-16 sm:w-16 ${
               upcoming
                 ? 'bg-gradient-to-br from-teal-500 to-teal-600 text-white'
                 : 'bg-slate-200 text-slate-700'
@@ -502,9 +502,10 @@ export const PatientAppointments: React.FC = () => {
             {doctorProfile ? getDoctorInitials(doctorProfile.fullName) : <User className="h-6 w-6" />}
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-start justify-between mb-3 gap-3">
-              <div>
+          {/* Without min-w-0 a long name or address forces the card wider than the screen instead of wrapping. */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="text-xl font-bold text-gray-900">
                   {doctorProfile?.fullName ?? t('shared.doctor')}
                 </h3>
@@ -512,7 +513,8 @@ export const PatientAppointments: React.FC = () => {
                   {doctorProfile?.specialty ?? t('shared.careVisit')}
                 </p>
               </div>
-              <div className="flex gap-2 flex-wrap justify-end">
+              {/* Side by side the badges would take about 160px and squeeze the doctor name onto two lines, so they stack on a narrow screen. */}
+              <div className="flex flex-shrink-0 flex-col items-end gap-2 sm:flex-row sm:justify-end">
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${typeBadge}`}>
                   {isTeleconsult && <Video className="w-3 h-3 inline mr-1" />}
                   {isTeleconsult
@@ -524,15 +526,20 @@ export const PatientAppointments: React.FC = () => {
                 </span>
               </div>
             </div>
+          </div>
+        </div>
 
+        {/* The rest of the card is a sibling of the avatar row rather than a column beside it, so a phone uses the full width instead of leaving the space under the avatar empty. The sm left padding restores the original indent of the 64px avatar plus the 16px gap. */}
+        <div className="mt-3 sm:pl-20">
             {clinicName ? (
-              <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                <MapPin className="w-4 h-4 text-gray-400" />
+              <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-700">
+                {/* Without a city the name is only a placeholder, so the address must not sit beside it. flex-wrap lets a real address drop onto its own line on a phone. */}
+                <MapPin className="w-4 h-4 flex-shrink-0 text-gray-400" />
                 <span className="font-medium">{clinicName}</span>
-                {clinicAddress ? (
+                {clinicAddress && doctorProfile?.city ? (
                   <>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-gray-600">{clinicAddress}</span>
+                    <span className="hidden text-gray-400 sm:inline">•</span>
+                    <span className="w-full text-gray-600 sm:w-auto">{clinicAddress}</span>
                   </>
                 ) : null}
               </div>
@@ -611,7 +618,8 @@ export const PatientAppointments: React.FC = () => {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-2">
+            {/* Content-width buttons stack into a ragged column on a phone. */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {isTeleconsult && upcoming ? (
                 <button
                   type="button"
@@ -701,21 +709,21 @@ export const PatientAppointments: React.FC = () => {
                       : `Following up on my appointment on ${dateStr} at ${timeStr}: `;
                     navigate(`/patient/messages?doctor=${appointment.doctor_id}&draft=${encodeURIComponent(draft)}`);
                   }}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                  className="col-span-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors sm:col-span-1"
                 >
                   <MessageSquare className="w-4 h-4 inline mr-2" />
                   {upcoming ? t('patient.messages.messageDoctor') : t('patient.messages.followUpDoctor')}
                 </button>
               ) : null}
+              {/* This is the main action on a card, so it gets its own row and the primary colour rather than sitting among the utilities. */}
               <button
                 type="button"
                 onClick={() => navigate(`/patient/appointments/${appointment.id}`)}
-                className="px-4 py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg font-medium transition-colors"
+                className="col-span-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors sm:col-span-1"
               >
                 {t('patient.appointments.viewDetails', { defaultValue: 'View details' })}
               </button>
             </div>
-          </div>
         </div>
       </div>
     );
