@@ -570,9 +570,10 @@ export const PatientDashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            {/* On a phone the title and View All share one row and both wrap, so the group drops onto its own row until sm. */}
+            <div className="flex flex-col items-start gap-3 border-b border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50">
                   <Pill className="h-4 w-4 text-teal-600" />
                 </div>
                 <div>
@@ -584,9 +585,9 @@ export const PatientDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+              <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
+                <div className="flex flex-1 items-center gap-2 sm:flex-none">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 sm:w-32 sm:flex-none">
                     <div
                       className="h-full rounded-full bg-teal-500 transition-all duration-500"
                       style={{
