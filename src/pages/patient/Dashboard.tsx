@@ -287,6 +287,13 @@ export const PatientDashboard: React.FC = () => {
       : 0;
   const latestHba1cDelta =
     latestHba1c && previousHba1c ? Number((latestHba1c.value - previousHba1c.value).toFixed(1)) : null;
+  // Compare the last two readings so the card can report a real direction.
+  const previousBloodPressure =
+    bloodPressureHistory.length > 1 ? bloodPressureHistory[bloodPressureHistory.length - 2] : null;
+  const systolicDelta =
+    latestBloodPressure && previousBloodPressure
+      ? latestBloodPressure.systolic - previousBloodPressure.systolic
+      : null;
   const nextAppointmentCountdown = nextAppointment
     ? Math.max(
         0,
@@ -339,8 +346,19 @@ export const PatientDashboard: React.FC = () => {
               ? localCopy.prediabetic
               : localCopy.normal
           : localCopy.noData,
-        badgeColor: 'bg-amber-50 text-amber-700',
-        trend: latestHba1cDelta !== null && latestHba1cDelta <= 0 ? ('down' as const) : ('up' as const),
+        badgeColor: !latestHba1c
+          ? 'bg-slate-100 text-slate-500'
+          : latestHba1c.value >= 6.5
+            ? 'bg-rose-50 text-rose-700'
+            : latestHba1c.value >= 5.7
+              ? 'bg-amber-50 text-amber-700'
+              : 'bg-emerald-50 text-emerald-700',
+        trend:
+          latestHba1cDelta === null
+            ? ('stable' as const)
+            : latestHba1cDelta <= 0
+              ? ('down' as const)
+              : ('up' as const),
         trendLabel:
           latestHba1cDelta !== null
             ? `${latestHba1cDelta > 0 ? '+' : ''}${formatLocaleDecimal(Math.abs(latestHba1cDelta), i18n.language)}% ${
@@ -361,15 +379,32 @@ export const PatientDashboard: React.FC = () => {
               i18n.language
             )}`
           : 'N/A',
-        badge:
-          latestBloodPressure &&
-          latestBloodPressure.systolic <= 130 &&
-          latestBloodPressure.diastolic <= 85
+        badge: latestBloodPressure
+          ? latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
             ? localCopy.controlled
-            : localCopy.attention,
-        badgeColor: 'bg-emerald-50 text-emerald-700',
-        trend: 'stable' as const,
-        trendLabel: localCopy.stable,
+            : localCopy.attention
+          : localCopy.noData,
+        badgeColor: !latestBloodPressure
+          ? 'bg-slate-100 text-slate-500'
+          : latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+            ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-amber-50 text-amber-700',
+        trend:
+          systolicDelta !== null && systolicDelta < 0
+            ? ('down' as const)
+            : systolicDelta !== null && systolicDelta > 0
+              ? ('up' as const)
+              : ('stable' as const),
+        trendLabel:
+          systolicDelta !== null
+            ? `${systolicDelta > 0 ? '+' : ''}${formatLocaleDigits(systolicDelta, i18n.language)} ${
+                isArabic ? 'عن السابق' : 'vs last'
+              }`
+            : latestBloodPressure
+              ? isArabic
+                ? 'لا توجد مقارنة سابقة'
+                : 'No prior comparison'
+              : localCopy.noData,
       },
       {
         icon: FlaskConical,
@@ -382,12 +417,13 @@ export const PatientDashboard: React.FC = () => {
             : labsSummary.latestStatus === 'normal'
               ? localCopy.normal
               : 'N/A',
+        // The old fallback printed a literal "6 tests" when the count was unknown.
         badge:
           labsSummary.latestResultCount > 0
             ? isArabic
               ? `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} فحوصات`
               : `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} tests`
-            : localCopy.testsCount,
+            : localCopy.noData,
         badgeColor: 'bg-blue-50 text-blue-700',
         trend: 'stable' as const,
         trendLabel: labsSummary.latestRecordedAt
@@ -411,7 +447,7 @@ export const PatientDashboard: React.FC = () => {
             : formatLocaleDigits(0, i18n.language),
         badge: localCopy.todayBadge,
         badgeColor: 'bg-teal-50 text-teal-700',
-        trend: 'up' as const,
+        trend: takenCount > 0 ? ('up' as const) : ('stable' as const),
         trendLabel: isArabic ? 'تم أخذها' : 'taken',
       },
     ],
@@ -428,6 +464,7 @@ export const PatientDashboard: React.FC = () => {
       localCopy,
       locale,
       medications.length,
+      systolicDelta,
       takenCount,
     ]
   );
