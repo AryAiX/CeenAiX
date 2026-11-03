@@ -578,15 +578,20 @@ export const PatientDashboard: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">{localCopy.mainMedicationsTitle}</h2>
-                  <p className="text-xs text-slate-400">
-                    {localCopy.takenOf
-                      .replace('{{taken}}', formatLocaleDigits(takenCount, i18n.language))
-                      .replace('{{total}}', formatLocaleDigits(medications.length, i18n.language))}
-                  </p>
+                  {medications.length > 0 ? (
+                    <p className="text-xs text-slate-400">
+                      {localCopy.takenOf
+                        .replace('{{taken}}', formatLocaleDigits(takenCount, i18n.language))
+                        .replace('{{total}}', formatLocaleDigits(medications.length, i18n.language))}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
-                <div className="flex flex-1 items-center gap-2 sm:flex-none">
+                {/* An empty list has no progress to show. */}
+                <div
+                  className={`flex flex-1 items-center gap-2 sm:flex-none${medications.length === 0 ? ' hidden' : ''}`}
+                >
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 sm:w-32 sm:flex-none">
                     <div
                       className="h-full rounded-full bg-teal-500 transition-all duration-500"
@@ -613,7 +618,8 @@ export const PatientDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="min-h-[12.5rem] divide-y divide-slate-50">
+            {/* The floor is there for the skeleton rows and should not outlive them. */}
+            <div className={`divide-y divide-slate-50${dashboardLoading ? ' min-h-[12.5rem]' : ''}`}>
               {dashboardLoading ? (
                 <>
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>
