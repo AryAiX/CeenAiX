@@ -1074,12 +1074,13 @@ export const PatientAppointments: React.FC = () => {
     </div>
   );
 
+  // The value is what the component compares against, so it stays English. Only the label is translated.
   const CANCEL_REASONS = [
-    'Schedule conflict',
-    'Feeling better',
-    'Found another doctor',
-    'Personal reasons',
-    'Other',
+    { value: 'Schedule conflict', labelKey: 'patient.appointments.cancelReasonScheduleConflict' },
+    { value: 'Feeling better', labelKey: 'patient.appointments.cancelReasonFeelingBetter' },
+    { value: 'Found another doctor', labelKey: 'patient.appointments.cancelReasonFoundAnotherDoctor' },
+    { value: 'Personal reasons', labelKey: 'patient.appointments.cancelReasonPersonalReasons' },
+    { value: 'Other', labelKey: 'patient.appointments.cancelReasonOther' },
   ] as const;
 
   const renderCancelModal = () => {
@@ -1108,12 +1109,12 @@ export const PatientAppointments: React.FC = () => {
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
               <AlertCircle className="h-5 w-5 text-red-500" />
-              <h2 className="text-lg font-semibold text-gray-900">Cancel Appointment</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('patient.appointments.cancelModalTitle')}</h2>
             </div>
             <button
               type="button"
               onClick={resetCancelModal}
-              aria-label="Close"
+              aria-label={t('patient.appointments.cancelModalClose')}
               className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="h-5 w-5 text-gray-500" />
@@ -1138,21 +1139,21 @@ export const PatientAppointments: React.FC = () => {
 
             <div>
               <p className="text-sm font-semibold text-gray-900 mb-3">
-                Reason for cancellation
+                {t('patient.appointments.cancelReasonLabel')}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {CANCEL_REASONS.map((reason) => (
                   <button
-                    key={reason}
+                    key={reason.value}
                     type="button"
-                    onClick={() => setCancelReason(reason)}
+                    onClick={() => setCancelReason(reason.value)}
                     className={`px-3 py-2 rounded-lg border text-sm font-medium text-left transition-colors ${
-                      cancelReason === reason
+                      cancelReason === reason.value
                         ? 'border-teal-500 bg-teal-50 text-teal-700'
                         : 'border-gray-200 bg-white text-gray-700 hover:border-teal-300 hover:bg-teal-50/40'
                     }`}
                   >
-                    {reason}
+                    {t(reason.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1162,7 +1163,7 @@ export const PatientAppointments: React.FC = () => {
               <textarea
                 value={cancelCustomReason}
                 onChange={(e) => setCancelCustomReason(e.target.value)}
-                placeholder="Please describe your reason..."
+                placeholder={t('patient.appointments.cancelReasonOtherPlaceholder')}
                 required
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
@@ -1171,24 +1172,25 @@ export const PatientAppointments: React.FC = () => {
               <textarea
                 value={cancelCustomReason}
                 onChange={(e) => setCancelCustomReason(e.target.value)}
-                placeholder="Add additional details (optional)..."
+                placeholder={t('patient.appointments.cancelReasonDetailsPlaceholder')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
               />
             ) : null}
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              ⚠️ Cancelling within 24 hours of your appointment may incur a cancellation fee.
+              ⚠️ {t('patient.appointments.cancelFeeWarning')}
             </div>
           </div>
 
-          <div className="flex gap-3 px-6 pb-6">
+          {/* Stacked because the labels were cramped side by side on a phone, and a full-width target makes a mis-tap onto the destructive Confirm button less likely. */}
+          <div className="flex flex-col gap-3 px-6 pb-6 sm:flex-row">
             <button
               type="button"
               onClick={resetCancelModal}
-              className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+              className="w-full sm:flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
             >
-              Keep Appointment
+              {t('patient.appointments.cancelKeepAppointment')}
             </button>
             <button
               type="button"
@@ -1197,15 +1199,15 @@ export const PatientAppointments: React.FC = () => {
                 await handleCancelAppointment(cancellingAppointmentId);
                 resetCancelModal();
               }}
-              className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full sm:flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isBusy ? (
                 <>
                   <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Cancelling…
+                  {t('patient.appointments.cancelling')}
                 </>
               ) : (
-                'Confirm Cancellation'
+                t('patient.appointments.cancelConfirm')
               )}
             </button>
           </div>
