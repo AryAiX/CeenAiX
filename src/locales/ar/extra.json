@@ -286,7 +286,16 @@
       "confirmReschedule": "تأكيد إعادة الجدولة",
       "errPickSlot": "اختر طبيباً وتاريخاً ووقتاً قبل الحجز.",
       "errRescheduleLoad": "تعذّر تحميل الموعد لإعادة الجدولة.",
-      "errReason": "أضف سبب الزيارة قبل الحجز."
+      "errReason": "أضف سبب الزيارة قبل الحجز.",
+      "previousMonth": "الشهر السابق",
+      "nextMonth": "الشهر التالي",
+      "appointmentType": "نوع الموعد",
+      "discardTitle": "تجاهل الحجز؟",
+      "discardBody": "لديك معلومات غير محفوظة. هل أنت متأكد من المغادرة؟ ستفقد تغييراتك.",
+      "keepEditing": "متابعة التعديل",
+      "discard": "تجاهل",
+      "goBack": "رجوع",
+      "confirmBooking": "تأكيد الحجز"
     },
     "messages": {
       "title": "الرسائل",

@@ -286,7 +286,16 @@
       "confirmReschedule": "Confirm reschedule",
       "errPickSlot": "Choose a doctor, date, and time slot before booking.",
       "errRescheduleLoad": "The appointment being rescheduled could not be loaded.",
-      "errReason": "Add the reason for your visit before booking."
+      "errReason": "Add the reason for your visit before booking.",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "appointmentType": "Appointment Type",
+      "discardTitle": "Discard booking?",
+      "discardBody": "You have unsaved information. Are you sure you want to leave? Your changes will be lost.",
+      "keepEditing": "Keep Editing",
+      "discard": "Discard",
+      "goBack": "Go Back",
+      "confirmBooking": "Confirm Booking"
     },
     "messages": {
       "title": "Messages",
