@@ -648,7 +648,8 @@ export const PatientRecords: React.FC = () => {
       </div>
 
       <div>
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        {/* The missing base column count stacked them one per row on a phone. Two across matches the dashboard's stat row, which uses grid-cols-2 with a four-column breakpoint. */}
+        <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-4">
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
             onClick={() => setFilterType('condition')}
