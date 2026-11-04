@@ -1662,7 +1662,8 @@ export const PatientAppointments: React.FC = () => {
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4 animate-fadeIn">
+      {/* The label was wrapping onto two lines and making a 56px-tall block beside the heading. A full-width row also matches the full-width primary action on the cards below. The sm layout is unchanged. */}
+      <div className="flex flex-col items-stretch gap-4 animate-fadeIn sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
             {t('patient.appointments.title')}
@@ -1672,7 +1673,7 @@ export const PatientAppointments: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/patient/appointments/book')}
-          className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-500/30 transition-all duration-300 hover:bg-teal-700 hover:shadow-xl"
+          className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-500/30 transition-all duration-300 hover:bg-teal-700 hover:shadow-xl w-full flex-shrink-0 justify-center whitespace-nowrap sm:w-auto"
         >
           <Plus className="h-5 w-5" />
           <span>{t('patient.appointments.book')}</span>
