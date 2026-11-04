@@ -77,7 +77,9 @@
     "moreSuffix": "+ {{count}} more",
     "minutesUnit": "{{count}} minutes",
     "windowOne": "{{count}} window",
-    "windowMany": "{{count}} windows"
+    "windowMany": "{{count}} windows",
+    "retry": "Retry",
+    "notProvided": "Not provided"
   },
   "system": {
     "accessDenied": {
@@ -1193,6 +1195,26 @@
         "active": "Active",
         "pending": "Pending"
       }
+    },
+    "appointmentDetail": {
+      "notFoundTitle": "Appointment not found",
+      "notFoundBody": "This appointment may have been removed or you may not have access to it.",
+      "backToAppointments": "Back to appointments",
+      "date": "Date",
+      "time": "Time",
+      "location": "Location",
+      "actions": "Actions",
+      "cancelConfirm": "Cancel this appointment? This cannot be undone from this screen.",
+      "cancelling": "Cancelling...",
+      "preVisit": "Pre-visit intake",
+      "noPreVisit": "No intake form is attached to this appointment.",
+      "visitNote": "Visit note",
+      "noVisitNote": "Visit notes will appear here after your doctor completes the consultation.",
+      "prescriptions": "Prescriptions",
+      "noPrescriptions": "No prescriptions are linked to this appointment yet.",
+      "labOrders": "Lab orders",
+      "labOrder": "Lab order",
+      "noLabOrders": "No lab orders are linked to this appointment yet."
     }
   },
   "ai": {

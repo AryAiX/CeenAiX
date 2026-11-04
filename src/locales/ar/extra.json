@@ -77,7 +77,9 @@
     "moreSuffix": "+ {{count}} إضافية",
     "minutesUnit": "{{count}} دقيقة",
     "windowOne": "{{count}} نافذة",
-    "windowMany": "{{count}} نوافذ"
+    "windowMany": "{{count}} نوافذ",
+    "retry": "إعادة المحاولة",
+    "notProvided": "غير متوفر"
   },
   "system": {
     "accessDenied": {
@@ -1193,6 +1195,26 @@
         "active": "نشط",
         "pending": "قيد الانتظار"
       }
+    },
+    "appointmentDetail": {
+      "notFoundTitle": "الموعد غير موجود",
+      "notFoundBody": "ربما تم حذف هذا الموعد أو لا تملك صلاحية الوصول إليه.",
+      "backToAppointments": "العودة إلى المواعيد",
+      "date": "التاريخ",
+      "time": "الوقت",
+      "location": "الموقع",
+      "actions": "الإجراءات",
+      "cancelConfirm": "إلغاء هذا الموعد؟ لا يمكن التراجع عن ذلك من هذه الشاشة.",
+      "cancelling": "جارٍ الإلغاء...",
+      "preVisit": "استمارة ما قبل الزيارة",
+      "noPreVisit": "لا توجد استمارة مرفقة بهذا الموعد.",
+      "visitNote": "ملاحظة الزيارة",
+      "noVisitNote": "ستظهر ملاحظات الزيارة هنا بعد أن يكمل طبيبك الاستشارة.",
+      "prescriptions": "الوصفات",
+      "noPrescriptions": "لا توجد وصفات مرتبطة بهذا الموعد بعد.",
+      "labOrders": "طلبات المختبر",
+      "labOrder": "طلب مختبر",
+      "noLabOrders": "لا توجد طلبات مختبر مرتبطة بهذا الموعد بعد."
     }
   },
   "ai": {
