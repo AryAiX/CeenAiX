@@ -79,7 +79,11 @@
     "windowOne": "{{count}} نافذة",
     "windowMany": "{{count}} نوافذ",
     "retry": "إعادة المحاولة",
-    "notProvided": "غير متوفر"
+    "notProvided": "غير متوفر",
+    "cancel": "إلغاء",
+    "optional": "اختياري",
+    "keepEditing": "متابعة التعديل",
+    "discard": "تجاهل"
   },
   "system": {
     "accessDenied": {
@@ -597,7 +601,14 @@
       "nextDoseSoon": "قريباً",
       "noNextDose": "لا جرعة تالية مجدولة.",
       "doseN": "جرعة {{n}}",
-      "icdPrefix": "ICD {{code}}"
+      "icdPrefix": "ICD {{code}}",
+      "confirmedByDoctor": "مؤكد من الطبيب",
+      "edit": "تعديل",
+      "cancelEdit": "إلغاء التعديل",
+      "discardTitle": "تجاهل البيانات غير المحفوظة؟",
+      "discardBody": "لديك معلومات غير محفوظة في هذا النموذج. هل أنت متأكد من التبديل؟ ستفقد تغييراتك.",
+      "saveChanges": "حفظ التغييرات",
+      "updateSuccess": "تم تحديث السجل بنجاح."
     },
     "aiChat": {
       "title": "محادثة صحية بالذكاء الاصطناعي",

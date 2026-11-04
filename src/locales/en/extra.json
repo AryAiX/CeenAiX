@@ -79,7 +79,11 @@
     "windowOne": "{{count}} window",
     "windowMany": "{{count}} windows",
     "retry": "Retry",
-    "notProvided": "Not provided"
+    "notProvided": "Not provided",
+    "cancel": "Cancel",
+    "optional": "optional",
+    "keepEditing": "Keep Editing",
+    "discard": "Discard"
   },
   "system": {
     "accessDenied": {
@@ -597,7 +601,14 @@
       "nextDoseSoon": "soon",
       "noNextDose": "No next dose scheduled.",
       "doseN": "Dose {{n}}",
-      "icdPrefix": "ICD {{code}}"
+      "icdPrefix": "ICD {{code}}",
+      "confirmedByDoctor": "Confirmed by doctor",
+      "edit": "Edit",
+      "cancelEdit": "Cancel Edit",
+      "discardTitle": "Discard unsaved data?",
+      "discardBody": "You have unsaved information in this form. Are you sure you want to switch? Your changes will be lost.",
+      "saveChanges": "Save Changes",
+      "updateSuccess": "Record updated successfully."
     },
     "aiChat": {
       "title": "AI Health Chat",
