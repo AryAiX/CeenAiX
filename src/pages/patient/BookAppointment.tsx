@@ -896,14 +896,15 @@ export const BookAppointment: React.FC = () => {
                         <p className="mt-1 text-sm text-gray-600">{t('patient.book.selectDateHint')}</p>
                       )}
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {/* A missing base column count made this one column on phones. Three matches the existing sm layout, so nothing jumps at that breakpoint. */}
+                      <div className="mt-4 grid grid-cols-3 gap-3 lg:grid-cols-4">
                         {selectedDate && availableSlotsForSelectedDate.length > 0 ? (
                           availableSlotsForSelectedDate.map((slot) => (
                             <button
                               key={slot.iso}
                               type="button"
                               onClick={() => setSelectedSlotIso(slot.iso)}
-                              className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                              className={`rounded-xl border px-2 py-3 text-sm font-semibold transition sm:px-4 ${
                                 selectedSlotIso === slot.iso
                                   ? 'border-cyan-500 bg-cyan-500 text-white'
                                   : 'border-gray-200 bg-white text-gray-800 hover:border-cyan-300 hover:bg-cyan-50'
@@ -913,7 +914,7 @@ export const BookAppointment: React.FC = () => {
                             </button>
                           ))
                         ) : (
-                          <div className="sm:col-span-3 lg:col-span-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                          <div className="col-span-3 lg:col-span-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
                             <Clock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
                             <p className="font-semibold text-gray-900">{t('patient.book.noSlots')}</p>
                             <p className="mt-1 text-sm text-gray-600">{t('patient.book.noSlotsSub')}</p>
