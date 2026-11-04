@@ -158,6 +158,9 @@ export const BookAppointment: React.FC = () => {
     [rescheduleAppointmentId ?? '', user?.id ?? '']
   );
 
+  // Only a doctor the patient actually asked for is pre-selected, such as arriving
+  // from a care team card. Landing on the page with no doctor in mind leaves the
+  // choice open, because the slots panel already handles that.
   useEffect(() => {
     if (isRescheduling) {
       return;
@@ -169,15 +172,8 @@ export const BookAppointment: React.FC = () => {
 
     if (requestedDoctorId && doctors.some((doctor) => doctor.userId === requestedDoctorId)) {
       setSelectedDoctorId(requestedDoctorId);
-      return;
     }
-
-    if (searchTerm.trim().length > 0 || selectedSpecializationIds.length > 0) {
-      return;
-    }
-
-    setSelectedDoctorId(doctors[0]?.userId ?? null);
-  }, [doctors, isRescheduling, requestedDoctorId, searchTerm, selectedDoctorId, selectedSpecializationIds]);
+  }, [doctors, isRescheduling, requestedDoctorId, selectedDoctorId]);
 
   useEffect(() => {
     if (isRescheduling || didInitializeAiPrefill) {
@@ -294,7 +290,9 @@ export const BookAppointment: React.FC = () => {
       return;
     }
 
-    setSelectedDoctorId(filteredDoctors[0]?.userId ?? null);
+    // The chosen doctor has been filtered out, so the selection is cleared rather
+    // than silently moving the booking to whoever is first.
+    setSelectedDoctorId(null);
     setSelectedDate(null);
     setSelectedSlotIso(null);
   }, [filteredDoctors, selectedDoctorId]);
