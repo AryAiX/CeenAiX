@@ -1168,7 +1168,7 @@ export const PatientPrescriptions: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border-2 border-teal-200 bg-white p-8 shadow-lg">
+        <div className="rounded-2xl border-2 border-teal-200 bg-white p-5 shadow-lg sm:p-8">
           <div className="grid gap-8 lg:grid-cols-2">
             <div>
               <div className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">
@@ -1308,7 +1308,73 @@ export const PatientPrescriptions: React.FC = () => {
 
         <div>
           <h3 className="mb-4 text-lg font-bold text-slate-900">{t('patient.prescriptions.coverageTableTitle')}</h3>
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+          {/* On a phone, one card per medicine; the five-column table needs 720px so it shows from md up only. */}
+          <div className="space-y-3 md:hidden">
+            {activeLineItems.map(({ item }) => {
+              const accent = lineAccent(item.medication_name);
+              return (
+                <div key={item.id} className="rounded-xl bg-white p-4 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <span aria-hidden>{accent.emoji}</span>
+                    <span className="min-w-0 break-words text-sm font-medium text-slate-900">
+                      <MedicationNameDisplay
+                        canonicalName={item.medication_name}
+                        localizedName={item.medication_name_ar}
+                        language={uiLang}
+                        variant="compact"
+                      />{' '}
+                      {item.dosage ?? ''}
+                    </span>
+                  </div>
+                  <dl className="mt-3 space-y-2">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {t('patient.prescriptions.coverageFullPrice')}
+                      </dt>
+                      <dd className="font-mono text-sm text-slate-600">
+                        {t('patient.prescriptions.costNotPriced')}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {t('patient.prescriptions.coveragePlanCovers')}
+                      </dt>
+                      <dd className="font-mono text-sm font-bold text-emerald-600">
+                        {hasCoverage
+                          ? t('patient.prescriptions.costCoveragePercent', {
+                              percent: formatLocaleDigits(Math.round(coveredPercent), uiLang),
+                            })
+                          : t('patient.prescriptions.costNotPriced')}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {t('patient.prescriptions.coverageYouPay')}
+                      </dt>
+                      <dd className="font-mono text-sm font-bold text-slate-900">
+                        {hasCoverage
+                          ? t('patient.prescriptions.costCoveragePercent', {
+                              percent: formatLocaleDigits(Math.round(patientPercent), uiLang),
+                            })
+                          : t('patient.prescriptions.costNotPriced')}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-3 flex items-center gap-1 border-t border-slate-100 pt-3 text-xs">
+                    <span className={hasCoverage ? 'text-emerald-600' : 'text-amber-600'}>
+                      {hasCoverage ? '✓' : '⚠️'}
+                    </span>
+                    <span className="text-slate-600">
+                      {hasCoverage
+                        ? t('patient.prescriptions.coveragePlanRule', { name: planName })
+                        : t('patient.prescriptions.coveragePlanMissing')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-hidden rounded-xl bg-white shadow-sm md:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px]">
                 <thead>
@@ -1388,7 +1454,7 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="mt-3 text-xs italic text-slate-500">{t('patient.prescriptions.coverageNote')}</div>
         </div>
 
-        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-8">
+        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-5 sm:p-8">
           <div className="mb-4 flex items-center gap-3">
             <DollarSign className="h-8 w-8 text-teal-600" />
             <h3 className="text-xl font-bold text-slate-900">{t('patient.prescriptions.annualProjection')}</h3>
@@ -1457,10 +1523,11 @@ export const PatientPrescriptions: React.FC = () => {
         className="animate-slideUp rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:scale-[1.012] hover:shadow-lg"
         style={{ animationDelay: `${index * 50}ms`, borderLeftColor: accent.hex, borderLeftWidth: 5 }}
       >
-        <div className="p-6">
-          <div className="flex items-start gap-4 lg:gap-6">
-            <div className="w-full min-w-0 flex-shrink-0 md:w-72">
-              <div className="mb-4 flex items-start gap-4">
+        <div className="relative p-6">
+          {/* On a phone the three sections stack; from md up they sit side by side as before. */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-start lg:gap-6">
+            <div className="w-full min-w-0 md:w-72 md:flex-shrink-0">
+              <div className="mb-4 flex items-start gap-4 pe-10 md:pe-0">
                 <div
                   className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${accent.bg}`}
                 >
@@ -1475,8 +1542,8 @@ export const PatientPrescriptions: React.FC = () => {
                       canonicalName={item.medication_name}
                       localizedName={item.medication_name_ar}
                       language={uiLang}
-                      primaryClassName="block truncate"
-                      secondaryClassName="mt-0.5 block truncate text-sm font-normal text-slate-500"
+                      primaryClassName="block break-words md:truncate"
+                      secondaryClassName="mt-0.5 block break-words md:truncate text-sm font-normal text-slate-500"
                     />
                   </h3>
                   <div className="mt-0.5 font-mono text-base font-bold" style={{ color: accent.hex }}>
@@ -1522,7 +1589,7 @@ export const PatientPrescriptions: React.FC = () => {
               </div>
             </div>
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 border-t border-slate-100 pt-4 md:border-t-0 md:pt-0">
               <div className="mb-4">
                 <div className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                   {t('patient.prescriptions.dosingScheduleHeading')}
@@ -1571,7 +1638,7 @@ export const PatientPrescriptions: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-full flex-shrink-0 sm:w-56">
+            <div className="w-full border-t border-slate-100 pt-4 md:w-56 md:flex-shrink-0 md:border-t-0 md:pt-0">
               <div className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                 {t('patient.prescriptions.refillStatusHeading')}
               </div>
@@ -1670,7 +1737,7 @@ export const PatientPrescriptions: React.FC = () => {
             <button
               type="button"
               onClick={() => toggleExpanded(item.id)}
-              className="flex-shrink-0 self-start rounded-lg p-2 transition-colors hover:bg-slate-50"
+              className="absolute end-4 top-4 rounded-lg p-2 transition-colors hover:bg-slate-50 md:static md:flex-shrink-0 md:self-start"
               aria-label={isExpanded ? t('patient.prescriptions.collapse') : t('patient.prescriptions.expand')}
             >
               {isExpanded ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
@@ -1824,23 +1891,24 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
       </div>
 
+      {/* On a phone, two compact cards per row (the fifth spans both); from sm up the cards look as before. */}
       <div
-        className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 animate-slideUp xl:grid-cols-5"
+        className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 animate-slideUp xl:grid-cols-5"
         style={{ animationDelay: '80ms' }}
       >
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('active')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
-              <Pill className="h-7 w-7 text-blue-600" />
+          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-blue-100">
+              <Pill className="h-5 w-5 sm:h-7 sm:w-7 text-blue-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-slate-900">
+              <div className="font-mono text-2xl font-bold text-slate-900 sm:text-3xl">
                 {formatLocaleDigits(activeMedicationCount, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiActiveMeds')}</div>
@@ -1852,18 +1920,18 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('schedule')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('schedule'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle className="h-7 w-7 text-emerald-600" />
+          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-emerald-100">
+              <CheckCircle className="h-5 w-5 sm:h-7 sm:w-7 text-emerald-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-emerald-600">
+              <div className="font-mono text-2xl font-bold text-emerald-600 sm:text-3xl">
                 {formatLocaleDigits(takenToday, uiLang)}/{formatLocaleDigits(totalDosesToday, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiTakenToday')}</div>
@@ -1885,18 +1953,18 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('reminders')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('reminders'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100">
-              <TrendingUp className="h-7 w-7 text-teal-600" />
+          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-teal-100">
+              <TrendingUp className="h-5 w-5 sm:h-7 sm:w-7 text-teal-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-teal-600">
+              <div className="font-mono text-2xl font-bold text-teal-600 sm:text-3xl">
                 {formatLocaleDigits(monthlyAdherencePercent, uiLang)}%
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiAdherenceMonth')}</div>
@@ -1908,18 +1976,18 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('active')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-              <RefreshCw className="h-7 w-7 text-amber-600" />
+          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-amber-100">
+              <RefreshCw className="h-5 w-5 sm:h-7 sm:w-7 text-amber-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-amber-600">
+              <div className="font-mono text-2xl font-bold text-amber-600 sm:text-3xl">
                 {formatLocaleDigits(refillsDueCount, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiRefillSoon')}</div>
@@ -1943,7 +2011,7 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="col-span-2 cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:col-span-1 sm:p-6"
           role="button"
           tabIndex={0}
           onClick={() => navigate('/patient/insurance')}
@@ -1954,9 +2022,9 @@ export const PatientPrescriptions: React.FC = () => {
             }
           }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100">
-              <CreditCard className="h-7 w-7 text-purple-600" />
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-purple-100">
+              <CreditCard className="h-5 w-5 sm:h-7 sm:w-7 text-purple-600" />
             </div>
             <div className="min-w-0">
               {insuranceLoading ? (
@@ -1966,14 +2034,14 @@ export const PatientPrescriptions: React.FC = () => {
                 </>
               ) : primaryInsurance && primaryInsurance.coPayPercent != null ? (
                 <>
-                  <div className="font-mono text-3xl font-bold text-slate-900">
+                  <div className="font-mono text-2xl font-bold text-slate-900 sm:text-3xl">
                     {formatLocaleDigits(Math.round(primaryInsurance.coPayPercent), uiLang)}%
                   </div>
                   <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiCoPay')}</div>
                 </>
               ) : (
                 <>
-                  <div className="font-mono text-3xl font-bold text-slate-900">
+                  <div className="font-mono text-2xl font-bold text-slate-900 sm:text-3xl">
                     {t('patient.prescriptions.kpiCostPlaceholder')}
                   </div>
                   <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiMonthlyCost')}</div>
@@ -2005,15 +2073,20 @@ export const PatientPrescriptions: React.FC = () => {
         className="mb-6 animate-slideUp rounded-2xl bg-white shadow-sm"
         style={{ animationDelay: '160ms' }}
       >
-        <div className="border-b border-slate-100 px-4 sm:px-6">
-          <div className="flex min-w-max gap-6 sm:gap-8 overflow-x-auto">
+        {/* The five tabs are wider than a phone screen. The row scrolls inside its card rather than stretching the page. */}
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6 sm:gap-8">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={(event) => {
+                    setActiveTab(tab.key);
+                    // jsdom has no scrollIntoView, so calling it directly makes the existing Prescriptions tests throw.
+                    event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
                   className={`py-4 px-2 text-[15px] font-medium transition-all duration-300 relative whitespace-nowrap ${
                     isActive ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
                   }`}
@@ -2119,7 +2192,8 @@ export const PatientPrescriptions: React.FC = () => {
         : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        {/* On a phone the Add button sits under the title instead of squeezing it. */}
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{t('patient.prescriptions.reportedTitle')}</h2>
             <p className="mt-0.5 text-sm text-slate-500">{t('patient.prescriptions.reportedSubtitle')}</p>
@@ -2127,7 +2201,7 @@ export const PatientPrescriptions: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700"
+            className="inline-flex flex-shrink-0 items-center gap-2 self-start whitespace-nowrap rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 sm:self-auto"
           >
             <Plus className="h-4 w-4" />
             {t('patient.prescriptions.reportedAdd')}
@@ -2136,18 +2210,19 @@ export const PatientPrescriptions: React.FC = () => {
 
         <div className="divide-y divide-slate-100">
           {loadingReportedMeds ? (
-            <div className="p-6 text-sm text-slate-400">{t('patient.prescriptions.reportedLoading')}</div>
+            <div className="p-4 text-sm text-slate-400 sm:p-6">{t('patient.prescriptions.reportedLoading')}</div>
           ) : reportedMeds.length === 0 ? (
-            <div className="px-6 py-10 text-center">
+            <div className="px-4 py-10 text-center sm:px-6">
               <p className="font-semibold text-slate-700">{t('patient.prescriptions.reportedEmptyTitle')}</p>
               <p className="mt-1 text-sm text-slate-500">{t('patient.prescriptions.reportedEmptyBody')}</p>
             </div>
           ) : (
             reportedMeds.map((med) => (
-              <div key={med.id} className="flex items-start justify-between gap-4 px-6 py-4">
+              <div key={med.id} className="flex items-start justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-slate-900">{med.medication_name}</p>
+                  {/* The badges wrap under the name on a phone instead of squeezing it. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p dir="auto" className="break-words font-semibold text-slate-900">{med.medication_name}</p>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       med.review_status === 'reviewed'
                         ? 'bg-emerald-100 text-emerald-700'
@@ -2161,11 +2236,12 @@ export const PatientPrescriptions: React.FC = () => {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
+                  {/* The patient types these in either language, and without dir="auto" an English dose like "1000 IU" is reordered to "IU 1000" in the Arabic layout. */}
+                  <p dir="auto" className="mt-1 text-sm text-slate-500">
                     {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || t('patient.prescriptions.reportedNoDetails')}
                   </p>
                   {med.instructions ? (
-                    <p className="mt-1 text-xs text-slate-400">{med.instructions}</p>
+                    <p dir="auto" className="mt-1 text-xs text-slate-400">{med.instructions}</p>
                   ) : null}
                 </div>
                 <button
@@ -2173,7 +2249,7 @@ export const PatientPrescriptions: React.FC = () => {
                   onClick={() => void handleDeleteMedication(med.id)}
                   disabled={deletingMedId === med.id}
                   aria-label={t('patient.prescriptions.reportedDelete')}
-                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  className="flex-shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
