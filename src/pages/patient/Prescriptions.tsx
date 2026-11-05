@@ -1871,8 +1871,9 @@ export const PatientPrescriptions: React.FC = () => {
           </h1>
           <p className="text-[15px] text-slate-400">{t('patient.prescriptions.subtitleTrack')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/30 sm:px-6 sm:py-3 sm:text-[13px]">
+        {/* On a phone the doses pill is hidden because the Taken Today card just below shows the same number, and Request Refill becomes one full-width button. */}
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:gap-4">
+          <div className="hidden items-center gap-2 rounded-full bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/30 sm:inline-flex sm:px-6 sm:py-3 sm:text-[13px]">
             <Pill className="h-4 w-4" />
             <span>
               {t('patient.prescriptions.dosesTakenPill', {
@@ -1884,7 +1885,7 @@ export const PatientPrescriptions: React.FC = () => {
           <button
             type="button"
             onClick={handleRefillCta}
-            className="inline-flex items-center justify-center rounded-lg border-2 border-teal-600 px-5 py-2.5 font-medium text-teal-600 transition-all duration-300 hover:border-teal-600 hover:bg-teal-600 hover:text-white"
+            className="inline-flex w-full items-center justify-center rounded-lg border-2 border-teal-600 px-5 py-2.5 font-medium text-teal-600 transition-all duration-300 hover:border-teal-600 hover:bg-teal-600 hover:text-white sm:w-auto"
           >
             {t('patient.prescriptions.requestRefillCta')}
           </button>
