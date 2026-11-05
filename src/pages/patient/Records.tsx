@@ -722,12 +722,13 @@ export const PatientRecords: React.FC = () => {
             {/* Two selects took a row each on a phone. appearance-none also removed the native arrow, so a chevron marks each one as a dropdown. */}
             <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:space-x-3">
               <div className="relative">
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 rtl:left-auto rtl:right-3" />
+                {/* Hidden on a phone so the option text has room. The chevron already marks this as a dropdown. */}
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 rtl:left-auto rtl:right-3 hidden sm:block" />
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 rtl:right-auto rtl:left-3" />
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as RecordCategoryFilter)}
-                  className="w-full pl-10 pr-9 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
+                  className="w-full pl-4 sm:pl-10 pr-9 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
                 >
                   <option value="all">{t('patient.records.filterAllRecords')}</option>
                   <option value="condition">{t('patient.records.filterCondition')}</option>
