@@ -620,12 +620,13 @@ export const PatientLabResults: React.FC = () => {
                 className="animate-slideUp cursor-pointer rounded-2xl border-l-[5px] bg-white shadow-sm transition-all duration-300 hover:shadow-lg"
                 onClick={() => toggleTest(item.id)}
               >
-                <div className="p-6">
-                  <div className="flex items-start gap-6">
-                    <div className="w-60 flex-shrink-0">
+                <div className="p-4 sm:p-6">
+                  {/* On a phone name, result and trend stack; from md up they sit side by side as before, because side by side on a phone they pushed the result off the screen. */}
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+                    <div className="w-full md:w-60 md:flex-shrink-0">
                       <div className="flex items-start gap-3">
                         <div
-                          className="flex h-11 w-11 items-center justify-center rounded-full"
+                          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full"
                           style={{ backgroundColor: withAlpha(color, 0.18) }}
                         >
                           {item.status_category === 'normal' ? (
@@ -650,10 +651,10 @@ export const PatientLabResults: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       {subTests.length === 0 ? (
                         <>
-                          <div className="mb-3 flex items-baseline gap-2">
+                          <div className="mb-3 flex flex-wrap items-baseline gap-2">
                             {item.numeric_value != null ? (
                               <>
                                 <div className="font-mono text-4xl font-bold" style={{ color }}>
@@ -682,7 +683,8 @@ export const PatientLabResults: React.FC = () => {
                           </div>
 
                           {zones && zones.length > 0 && axisMax ? (
-                            <div className="mb-3">
+                            /* In the Arabic layout the labels flipped, so "4–5.6 %" read as "% 5.6–4". */
+                            <div className="mb-3" dir="ltr">
                               <div className="relative h-3 overflow-hidden rounded-full bg-slate-100">
                                 {zones.map((zone, zIdx) => {
                                   const zoneMin = zone.min ?? 0;
@@ -734,7 +736,7 @@ export const PatientLabResults: React.FC = () => {
                               </div>
                             </div>
                           ) : item.numeric_value != null && getZonePosition(item) != null ? (
-                            <div className="mb-3">
+                            <div className="mb-3" dir="ltr">
                               <div className="relative h-3 overflow-hidden rounded-full bg-slate-100">
                                 <div
                                   className="absolute h-full"
@@ -816,7 +818,7 @@ export const PatientLabResults: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="w-44 flex-shrink-0">
+                    <div className="w-full md:w-44 md:flex-shrink-0">
                       {trend && trend.points.length > 1 ? (
                         <div className="mb-3">
                           <div className="mb-2 text-xs uppercase text-slate-400">
@@ -1197,7 +1199,7 @@ export const PatientLabResults: React.FC = () => {
                               {renderValue(item)}
                             </div>
                             {item.reference_text ? (
-                              <div className="text-xs text-slate-500">{item.reference_text}</div>
+                              <div className="text-xs text-slate-500"><span dir="ltr">{item.reference_text}</span></div>
                             ) : null}
                           </div>
                           <div
@@ -2188,7 +2190,7 @@ export const PatientLabResults: React.FC = () => {
                     <div>
                       <div className="text-sm font-bold text-slate-900">{item.test_name}</div>
                       {item.reference_text ? (
-                        <div className="text-xs text-slate-400">{item.reference_text}</div>
+                        <div className="text-xs text-slate-400"><span dir="ltr">{item.reference_text}</span></div>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-3">
