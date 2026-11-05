@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
+  ChevronDown,
   FileText,
   Filter,
   Plus,
@@ -718,13 +719,15 @@ export const PatientRecords: React.FC = () => {
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+            {/* Two selects took a row each on a phone. appearance-none also removed the native arrow, so a chevron marks each one as a dropdown. */}
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:space-x-3">
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 rtl:left-auto rtl:right-3" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 rtl:right-auto rtl:left-3" />
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as RecordCategoryFilter)}
-                  className="pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
+                  className="w-full pl-10 pr-9 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
                 >
                   <option value="all">{t('patient.records.filterAllRecords')}</option>
                   <option value="condition">{t('patient.records.filterCondition')}</option>
@@ -733,27 +736,31 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </div>
 
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest' | 'alphabetical')}
-                className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
-              >
-                <option value="newest">{t('patient.records.sortNewest')}</option>
-                <option value="oldest">{t('patient.records.sortOldest')}</option>
-                <option value="alphabetical">{t('patient.records.sortAlpha')}</option>
-              </select>
+              <div className="relative">
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 rtl:right-auto rtl:left-3" />
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest' | 'alphabetical')}
+                  className="w-full pl-4 pr-9 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
+                >
+                  <option value="newest">{t('patient.records.sortNewest')}</option>
+                  <option value="oldest">{t('patient.records.sortOldest')}</option>
+                  <option value="alphabetical">{t('patient.records.sortAlpha')}</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          {/* The count and buttons were competing for one row. */}
+          <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-gray-600">
               {t('patient.records.showing', { shown: sortedRecords.length, total: totalRecords })}
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => handleSwitchForm('condition')}
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
               >
                 <Plus className="h-4 w-4" />
                 {t('patient.records.addCondition')}
@@ -761,7 +768,7 @@ export const PatientRecords: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleSwitchForm('allergy')}
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
               >
                 <Plus className="h-4 w-4" />
                 {t('patient.records.addAllergy')}
@@ -769,7 +776,7 @@ export const PatientRecords: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleSwitchForm('vaccination')}
-                className="inline-flex items-center gap-2 rounded-xl border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
               >
                 <Plus className="h-4 w-4" />
                 {t('patient.records.addVax')}
