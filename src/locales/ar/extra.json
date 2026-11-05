@@ -548,7 +548,9 @@
       "pharmacyContactMissing": "لا تتوفر بيانات تواصل مع صيدلية لهذه الوصفة بعد.",
       "pharmacyMessageError": "تعذّر فتح المراسلة مع الصيدلية. يرجى المحاولة مرة أخرى.",
       "pickedUpError": "تعذّر تسجيل استلام هذه الوصفة.",
-      "medicationUpdateError": "تعذّر حفظ تحديث الدواء."
+      "medicationUpdateError": "تعذّر حفظ تحديث الدواء.",
+      "reminderTimeSave": "حفظ",
+      "reminderTimeCancel": "إلغاء"
     },
     "records": {
       "title": "السجلات الطبية",

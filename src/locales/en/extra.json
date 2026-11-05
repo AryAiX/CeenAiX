@@ -548,7 +548,9 @@
       "pharmacyContactMissing": "No pharmacy contact is available for this prescription yet.",
       "pharmacyMessageError": "Could not open pharmacy messaging. Please try again.",
       "pickedUpError": "Could not mark this prescription as picked up.",
-      "medicationUpdateError": "Could not save that medication update."
+      "medicationUpdateError": "Could not save that medication update.",
+      "reminderTimeSave": "Save",
+      "reminderTimeCancel": "Cancel"
     },
     "records": {
       "title": "Medical Records",

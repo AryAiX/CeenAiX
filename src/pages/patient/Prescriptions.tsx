@@ -1076,14 +1076,14 @@ export const PatientPrescriptions: React.FC = () => {
                           onClick={() => void handleSaveReminderTime(reminder.id)}
                           className="rounded-lg bg-teal-600 px-2 py-1 text-xs font-semibold text-white hover:bg-teal-700"
                         >
-                          Save
+                          {t('patient.prescriptions.reminderTimeSave')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingReminderId(null)}
                           className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
                         >
-                          Cancel
+                          {t('patient.prescriptions.reminderTimeCancel')}
                         </button>
                       </div>
                     ) : (
