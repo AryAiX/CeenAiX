@@ -1115,12 +1115,13 @@ export const PatientLabResults: React.FC = () => {
               style={{ animationDelay: `${idx * 60}ms` }}
               className="animate-slideUp rounded-xl border-l-4 border-teal-500 bg-white shadow-sm transition-all duration-300 hover:shadow-md"
             >
+              {/* On a phone the badges sit under the lab name and the arrow in the top corner, instead of all on one line that pushed the badges off the screen. */}
               <div
-                className="flex cursor-pointer items-center justify-between p-5"
+                className="relative flex cursor-pointer flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
                 onClick={() => toggleVisit(order.id)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-600">
+                <div className="flex min-w-0 items-center gap-4 pe-8 sm:pe-0">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-600">
                     {order.labShortCode ?? order.labName?.slice(0, 3).toUpperCase() ?? 'LAB'}
                   </div>
                   <div>
@@ -1140,7 +1141,7 @@ export const PatientLabResults: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 sm:flex-nowrap sm:gap-3">
                   {order.normalCount > 0 ? (
                     <span className="rounded bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
                       {t('patient.labResults.normalCountBadge', { count: order.normalCount })}
@@ -1159,25 +1160,26 @@ export const PatientLabResults: React.FC = () => {
                     </span>
                   ) : null}
                   {isExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-slate-400" />
+                    <ChevronUp className="absolute end-4 top-4 h-5 w-5 text-slate-400 sm:static" />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-slate-400" />
+                    <ChevronDown className="absolute end-4 top-4 h-5 w-5 text-slate-400 sm:static" />
                   )}
                 </div>
               </div>
 
               {isExpanded ? (
-                <div className="space-y-2 border-t border-slate-100 px-5 pb-5 pt-4">
+                <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
                   {order.parentItems.map((item) => {
                     const color = STATUS_COLOR[item.status_category];
                     return (
+                      // On a phone, name on the first line, value and status on the next.
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-lg bg-slate-50 p-3"
+                        className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                            className="flex h-8 min-w-[2rem] flex-shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-bold"
                             style={{ backgroundColor: withAlpha(color, 0.2), color }}
                           >
                             {item.numeric_value ?? '—'}
@@ -1193,17 +1195,17 @@ export const PatientLabResults: React.FC = () => {
                             ) : null}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="font-mono text-sm font-bold text-slate-900">
-                              {renderValue(item)}
+                        <div className="flex items-center justify-between gap-3 ps-11 sm:justify-end sm:ps-0">
+                          <div className="text-start sm:text-right">
+                            <div className="whitespace-nowrap font-mono text-sm font-bold text-slate-900">
+                              <span dir="ltr">{renderValue(item)}</span>
                             </div>
                             {item.reference_text ? (
-                              <div className="text-xs text-slate-500"><span dir="ltr">{item.reference_text}</span></div>
+                              <div className="text-xs text-slate-500"><span dir="ltr" className="whitespace-nowrap">{item.reference_text}</span></div>
                             ) : null}
                           </div>
                           <div
-                            className="rounded-full px-3 py-1 text-xs font-bold"
+                            className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold"
                             style={{ backgroundColor: withAlpha(color, 0.2), color }}
                           >
                             {t(`patient.labResults.${statusBadgeKey(item.status_category)}`)}
