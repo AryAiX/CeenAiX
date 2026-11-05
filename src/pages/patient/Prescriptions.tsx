@@ -1903,7 +1903,7 @@ export const PatientPrescriptions: React.FC = () => {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
         >
-          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-blue-100">
               <Pill className="h-5 w-5 sm:h-7 sm:w-7 text-blue-600" />
             </div>
@@ -1926,7 +1926,7 @@ export const PatientPrescriptions: React.FC = () => {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('schedule'); } }}
         >
-          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-emerald-100">
               <CheckCircle className="h-5 w-5 sm:h-7 sm:w-7 text-emerald-600" />
             </div>
@@ -1959,7 +1959,7 @@ export const PatientPrescriptions: React.FC = () => {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('reminders'); } }}
         >
-          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-teal-100">
               <TrendingUp className="h-5 w-5 sm:h-7 sm:w-7 text-teal-600" />
             </div>
@@ -1982,7 +1982,7 @@ export const PatientPrescriptions: React.FC = () => {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
         >
-          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-amber-100">
               <RefreshCw className="h-5 w-5 sm:h-7 sm:w-7 text-amber-600" />
             </div>
