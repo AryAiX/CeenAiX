@@ -550,7 +550,11 @@
       "pickedUpError": "Could not mark this prescription as picked up.",
       "medicationUpdateError": "Could not save that medication update.",
       "reminderTimeSave": "Save",
-      "reminderTimeCancel": "Cancel"
+      "reminderTimeCancel": "Cancel",
+      "pharmacyStatusPickedUpTitle": "Picked Up",
+      "pharmacyStatusPickedUpBody": "You have collected this medication. Take it as prescribed.",
+      "markPickedUp": "Mark as Picked Up",
+      "pickedUpThanks": "Picked Up — Thank you!"
     },
     "records": {
       "title": "Medical Records",

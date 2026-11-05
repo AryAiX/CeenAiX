@@ -466,8 +466,8 @@ export const PatientPrescriptions: React.FC = () => {
     }
     if (status === 'picked_up') {
       return {
-        title: '✅ Picked Up',
-        body: 'You have collected this medication. Take it as prescribed.',
+        title: `✅ ${t('patient.prescriptions.pharmacyStatusPickedUpTitle')}`,
+        body: t('patient.prescriptions.pharmacyStatusPickedUpBody'),
       };
     }
     if (status === 'new' || justSent) {
@@ -1723,12 +1723,12 @@ export const PatientPrescriptions: React.FC = () => {
                     onClick={() => void handleMarkPickedUp(rx.id, rx.items)}
                     className="mt-2 w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                   >
-                    ✅ Mark as Picked Up
+                    ✅ {t('patient.prescriptions.markPickedUp')}
                   </button>
                 ) : null}
                 {(rx.pharmacyStatus === 'picked_up' || pickedUpIds.has(rx.id)) ? (
                   <div className="mt-2 w-full rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 text-center">
-                    ✅ Picked Up — Thank you!
+                    ✅ {t('patient.prescriptions.pickedUpThanks')}
                   </div>
                 ) : null}
               </div>

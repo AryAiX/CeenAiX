@@ -550,7 +550,11 @@
       "pickedUpError": "تعذّر تسجيل استلام هذه الوصفة.",
       "medicationUpdateError": "تعذّر حفظ تحديث الدواء.",
       "reminderTimeSave": "حفظ",
-      "reminderTimeCancel": "إلغاء"
+      "reminderTimeCancel": "إلغاء",
+      "pharmacyStatusPickedUpTitle": "تم الاستلام",
+      "pharmacyStatusPickedUpBody": "لقد استلمت هذا الدواء. تناوله حسب الوصفة.",
+      "markPickedUp": "تأكيد الاستلام",
+      "pickedUpThanks": "تم الاستلام — شكرًا لك!"
     },
     "records": {
       "title": "السجلات الطبية",
