@@ -187,22 +187,27 @@ export const PatientImaging = () => {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 sm:px-6">
-          <div className="flex min-w-max gap-6 overflow-x-auto sm:gap-8">
+        {/* On a phone the five tabs are wider than the screen. min-w-max stopped the row from scrolling and the card's overflow-hidden clipped the last three tabs, so Reports, My Findings and Scheduled could not be reached. Now the row scrolls inside the card. */}
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6 sm:gap-8">
             {tabs.map((tab) => {
               const active = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`relative px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
+                  onClick={(event) => {
+                    setActiveTab(tab.key);
+                    // The jsdom test environment has no scrollIntoView.
+                    event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
+                  className={`relative whitespace-nowrap px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
                     active ? 'text-violet-600' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
                   {tab.label}
                   {typeof tab.badge === 'number' ? (
-                    <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
+                    <span className="ms-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
                       {formatLocaleDigits(tab.badge, uiLang)}
                     </span>
                   ) : null}
