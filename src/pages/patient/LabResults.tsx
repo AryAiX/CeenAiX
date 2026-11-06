@@ -2107,14 +2107,19 @@ export const PatientLabResults: React.FC = () => {
         className="rounded-2xl bg-white shadow-sm animate-slideUp"
         style={{ animationDelay: '160ms' }}
       >
-        <div className="border-b border-slate-100 px-6">
-          <div className="flex flex-wrap gap-6">
+        {/* On a phone the five tabs are wider than the screen; they used to wrap onto three rows, and now they stay on one row that scrolls inside the card, as on Medications. */}
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
+                onClick={(event) => {
+                  setActiveTab(tab.id);
+                  // The jsdom test environment has no scrollIntoView.
+                  event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }}
+                className={`relative whitespace-nowrap px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
                   activeTab === tab.id ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
