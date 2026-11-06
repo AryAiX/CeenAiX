@@ -1796,13 +1796,14 @@ export const PatientLabResults: React.FC = () => {
           <div
             key={order.id}
             style={{ animationDelay: `${idx * 60}ms` }}
-            className="animate-slideUp rounded-xl bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md"
+            className="animate-slideUp rounded-xl bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md sm:p-5"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
+            {/* On a phone the buttons drop onto their own line (Download full width, Preview and Share side by side) instead of being pushed off the screen. */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-red-100">
                 <FileText className="h-6 w-6 text-red-600" />
               </div>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <h4 className="text-base font-bold text-slate-900">
                   {t('patient.labResults.reportsRowTitle', {
                     labName: order.labName ?? t('patient.labResults.orderedByFallback'),
@@ -1834,11 +1835,11 @@ export const PatientLabResults: React.FC = () => {
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
                 <button
                   type="button"
                   onClick={() => handleDownload(order)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
+                  className="col-span-2 inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
                 >
                   <Download className="h-4 w-4" />
                   {t('patient.labResults.reportsDownloadBtn')}
@@ -1846,7 +1847,7 @@ export const PatientLabResults: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewOrder(order)}
-                  className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Eye className="h-4 w-4" />
                   {t('patient.labResults.reportsPreviewBtn')}
@@ -1854,7 +1855,7 @@ export const PatientLabResults: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShareOrder(order)}
-                  className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Share2 className="h-4 w-4" />
                   {t('patient.labResults.reportsShareBtn')}
