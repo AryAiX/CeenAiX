@@ -33,9 +33,29 @@ import {
   usePatientPrescriptions,
   type PatientVaultDocumentCategory,
 } from '../../hooks';
+import type { PatientPharmacyWorkflowStatus } from '../../hooks/use-patient-prescriptions';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import type { LabItemStatusCategory } from '../../types';
+
+// Lab result categories reuse the existing Lab Results status badge keys.
+const LAB_STATUS_KEY: Record<LabItemStatusCategory, string> = {
+  normal: 'patient.labResults.statusNormal',
+  borderline: 'patient.labResults.statusBorderline',
+  high: 'patient.labResults.statusHigh',
+  low: 'patient.labResults.statusLow',
+  critical: 'patient.labResults.statusCritical',
+  pending: 'patient.labResults.statusPending',
+};
+
+// Prefix icons for pharmacy statuses that have one; the rest show the label alone.
+const PHARMACY_STATUS_ICON: Partial<Record<PatientPharmacyWorkflowStatus, string>> = {
+  dispensed: '✅ ',
+  picked_up: '✅ ',
+  in_progress: '⏳ ',
+  not_sent: '📤 ',
+};
 
 export const PatientDocuments = () => {
   const { t, i18n } = useTranslation('common');
@@ -154,7 +174,7 @@ export const PatientDocuments = () => {
       categoryLabel: t(`patient.documents.category.${doc.category}`, { defaultValue: doc.category.replace(/-/g, ' ') }),
       categoryColor: '#0891B2',
       date: doc.createdAt,
-      issuedBy: t('patient.documents.uploadedByPatient', { defaultValue: 'Uploaded by patient' }),
+      issuedBy: t('patient.documents.uploadedByPatient'),
       contains: doc.description ?? doc.originalFileName,
       status: doc.allowCareTeamAccess ? 'active' : 'reviewed',
       source: 'patient_document_files',
@@ -219,7 +239,7 @@ export const PatientDocuments = () => {
     },
     {
       id: 'upload',
-      label: t('patient.documents.categoryUploads', { defaultValue: 'Uploads' }),
+      label: t('patient.documents.categoryUploads'),
       count: documents.filter((doc) => doc.category === 'upload' || doc.source === 'patient_document_files').length,
     },
   ];
@@ -245,7 +265,7 @@ export const PatientDocuments = () => {
           await recordPatientDocumentShare(shareModalDocument.vaultDocumentId, user.id, shareMethod);
         }
       } catch (err) {
-        setVaultActionError(err instanceof Error ? err.message : t('patient.documents.shareError', { defaultValue: 'Unable to create a secure share link.' }));
+        setVaultActionError(err instanceof Error ? err.message : t('patient.documents.shareError'));
         return;
       }
     }
@@ -306,7 +326,7 @@ export const PatientDocuments = () => {
       resetUploadModal();
       await refetchVault();
     } catch (err) {
-      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.uploadError', { defaultValue: 'Unable to upload document.' }));
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.uploadError'));
       setUploadBusy(false);
     }
   };
@@ -319,7 +339,7 @@ export const PatientDocuments = () => {
       const signedUrl = await getPatientDocumentSignedUrl(doc.storagePath);
       window.open(signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.openError', { defaultValue: 'Unable to open document.' }));
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.openError'));
     } finally {
       setVaultActionBusyId(null);
     }
@@ -337,7 +357,7 @@ export const PatientDocuments = () => {
       }
       await refetchVault();
     } catch (err) {
-      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.accessError', { defaultValue: 'Unable to update care-team access.' }));
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.accessError'));
     } finally {
       setVaultActionBusyId(null);
     }
@@ -345,7 +365,7 @@ export const PatientDocuments = () => {
 
   const deleteVaultDocument = async (doc: PatientDocument) => {
     if (!doc.vaultDocumentId) return;
-    const confirmed = window.confirm(t('patient.documents.deleteConfirm', { defaultValue: 'Remove this document from your vault?' }));
+    const confirmed = window.confirm(t('patient.documents.deleteConfirm'));
     if (!confirmed) return;
     setVaultActionBusyId(doc.id);
     setVaultActionError(null);
@@ -355,7 +375,7 @@ export const PatientDocuments = () => {
       setContentModalId(null);
       await refetchVault();
     } catch (err) {
-      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.deleteError', { defaultValue: 'Unable to remove document.' }));
+      setVaultActionError(err instanceof Error ? err.message : t('patient.documents.deleteError'));
     } finally {
       setVaultActionBusyId(null);
     }
@@ -514,9 +534,7 @@ export const PatientDocuments = () => {
             setVaultActionError(null);
           }}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-          title={t('patient.documents.uploadHint', {
-            defaultValue: 'Upload a private document into your patient vault.',
-          })}
+          title={t('patient.documents.uploadHint')}
         >
           <Upload className="h-4 w-4" />
           {t('patient.documents.uploadDocument')}
@@ -833,8 +851,8 @@ export const PatientDocuments = () => {
                   >
                     <ShieldCheck className="h-4 w-4" />
                     {selectedDocument.allowCareTeamAccess
-                      ? t('patient.documents.revokeCareTeam', { defaultValue: 'Revoke care team' })
-                      : t('patient.documents.allowCareTeam', { defaultValue: 'Allow care team' })}
+                      ? t('patient.documents.revokeCareTeam')
+                      : t('patient.documents.allowCareTeam')}
                   </button>
                   <button
                     type="button"
@@ -843,7 +861,7 @@ export const PatientDocuments = () => {
                     className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
                   >
                     <Trash2 className="h-4 w-4" />
-                    {t('patient.documents.remove', { defaultValue: 'Remove' })}
+                    {t('patient.documents.remove')}
                   </button>
                 </>
               ) : null}
@@ -867,9 +885,9 @@ export const PatientDocuments = () => {
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">{t('patient.documents.uploadDocument', { defaultValue: 'Upload document' })}</h2>
+                <h2 className="text-lg font-bold text-slate-900">{t('patient.documents.uploadDocument')}</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {t('patient.documents.uploadVaultBody', { defaultValue: 'Files are stored in your private vault. You control whether your care team can access them.' })}
+                  {t('patient.documents.uploadVaultBody')}
                 </p>
               </div>
               <button
@@ -883,7 +901,7 @@ export const PatientDocuments = () => {
 
             <div className="space-y-4 p-6">
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.file', { defaultValue: 'File' })}</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.file')}</span>
                 <input
                   type="file"
                   accept="application/pdf,image/jpeg,image/png,image/webp"
@@ -899,42 +917,42 @@ export const PatientDocuments = () => {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.titleLabel', { defaultValue: 'Title' })}</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.titleLabel')}</span>
                 <input
                   value={uploadTitle}
                   onChange={(event) => setUploadTitle(event.target.value)}
                   maxLength={FORM_FIELD_LIMITS.shortText}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
-                  placeholder={t('patient.documents.titlePlaceholder', { defaultValue: 'e.g. Emirates ID scan' })}
+                  placeholder={t('patient.documents.titlePlaceholder')}
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.categoryLabel', { defaultValue: 'Category' })}</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.categoryLabel')}</span>
                 <select
                   value={uploadCategory}
                   onChange={(event) => setUploadCategory(event.target.value as PatientVaultDocumentCategory)}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
                 >
-                  <option value="upload">{t('patient.documents.categoryUploads', { defaultValue: 'Uploads' })}</option>
+                  <option value="upload">{t('patient.documents.categoryUploads')}</option>
                   <option value="lab-report">{t('patient.documents.categoryLab')}</option>
                   <option value="prescription">{t('patient.documents.categoryPrescription')}</option>
                   <option value="insurance">{t('patient.documents.categoryInsurance')}</option>
-                  <option value="imaging">{t('patient.documents.category.imaging', { defaultValue: 'Imaging' })}</option>
-                  <option value="visit-note">{t('patient.documents.category.visit-note', { defaultValue: 'Visit note' })}</option>
-                  <option value="other">{t('patient.documents.category.other', { defaultValue: 'Other' })}</option>
+                  <option value="imaging">{t('patient.documents.category.imaging')}</option>
+                  <option value="visit-note">{t('patient.documents.category.visit-note')}</option>
+                  <option value="other">{t('patient.documents.category.other')}</option>
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.description', { defaultValue: 'Description' })}</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('patient.documents.description')}</span>
                 <textarea
                   value={uploadDescription}
                   onChange={(event) => setUploadDescription(event.target.value)}
                   rows={3}
                   maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                   className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
-                  placeholder={t('patient.documents.descriptionPlaceholder', { defaultValue: 'Optional notes about this document' })}
+                  placeholder={t('patient.documents.descriptionPlaceholder')}
                 />
               </label>
 
@@ -947,10 +965,10 @@ export const PatientDocuments = () => {
                 />
                 <span>
                   <span className="block text-sm font-semibold text-cyan-900">
-                    {t('patient.documents.allowCareTeam', { defaultValue: 'Allow care team' })}
+                    {t('patient.documents.allowCareTeam')}
                   </span>
                   <span className="mt-1 block text-xs text-cyan-700">
-                    {t('patient.documents.allowCareTeamBody', { defaultValue: 'Doctors who have appointments with you can read this file while consent remains enabled.' })}
+                    {t('patient.documents.allowCareTeamBody')}
                   </span>
                 </span>
               </label>
@@ -970,8 +988,8 @@ export const PatientDocuments = () => {
                   className="flex-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {uploadBusy
-                    ? t('patient.documents.uploading', { defaultValue: 'Uploading...' })
-                    : t('patient.documents.uploadDocument', { defaultValue: 'Upload document' })}
+                    ? t('patient.documents.uploading')
+                    : t('patient.documents.uploadDocument')}
                 </button>
               </div>
             </div>
@@ -995,7 +1013,7 @@ export const PatientDocuments = () => {
                   <Share2 className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Share Document</h2>
+                  <h2 className="text-base font-bold text-slate-900">{t('patient.documents.shareTitle')}</h2>
                   <p className="text-xs text-slate-500">{shareModalDocument.name}</p>
                 </div>
               </div>
@@ -1003,6 +1021,7 @@ export const PatientDocuments = () => {
                 type="button"
                 onClick={() => { setShareModalId(null); setShareSuccess(false); }}
                 className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:bg-slate-50"
+                aria-label={t('patient.documents.shareCloseAria')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1014,20 +1033,20 @@ export const PatientDocuments = () => {
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
                     <CheckCircle className="h-9 w-9 text-emerald-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">Document Shared!</h3>
+                  <h3 className="text-lg font-bold text-slate-900">{t('patient.documents.shareSuccessTitle')}</h3>
                   <p className="mx-auto mt-2 max-w-xs text-sm text-slate-500">
                     {shareMethod === 'link'
-                      ? 'Document details copied to clipboard. Paste and share securely.'
+                      ? t('patient.documents.shareSuccessLink')
                       : shareMethod === 'email'
-                        ? 'Your email client has opened with the document pre-filled.'
-                        : 'WhatsApp has opened with the document ready to send.'}
+                        ? t('patient.documents.shareSuccessEmail')
+                        : t('patient.documents.shareSuccessWhatsapp')}
                   </p>
                   <button
                     type="button"
                     onClick={() => { setShareModalId(null); setShareSuccess(false); }}
                     className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
                   >
-                    Done
+                    {t('patient.documents.shareDone')}
                   </button>
                 </div>
               ) : (
@@ -1044,9 +1063,9 @@ export const PatientDocuments = () => {
 
                   <div className="mb-5 grid grid-cols-3 gap-3">
                     {[
-                      { id: 'link' as const, label: 'Secure Link', icon: '🔗' },
-                      { id: 'email' as const, label: 'Email', icon: '✉️' },
-                      { id: 'whatsapp' as const, label: 'WhatsApp', icon: '💬' },
+                      { id: 'link' as const, label: t('patient.documents.shareMethodLink'), icon: '🔗' },
+                      { id: 'email' as const, label: t('patient.documents.shareMethodEmail'), icon: '✉️' },
+                      { id: 'whatsapp' as const, label: t('patient.documents.shareMethodWhatsapp'), icon: '💬' },
                     ].map((m) => (
                       <button
                         key={m.id}
@@ -1065,7 +1084,7 @@ export const PatientDocuments = () => {
                   </div>
 
                   <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                    ⚠️ Only share with authorized healthcare providers. Recipient will have view-only access.
+                    ⚠️ {t('patient.documents.shareDisclaimer')}
                   </div>
 
                   <div className="flex gap-3">
@@ -1074,14 +1093,14 @@ export const PatientDocuments = () => {
                       onClick={() => { setShareModalId(null); setShareSuccess(false); }}
                       className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
-                      Cancel
+                      {t('patient.documents.shareCancel')}
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleShare()}
                       className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                     >
-                      Share
+                      {t('patient.documents.shareConfirm')}
                     </button>
                   </div>
                 </>
@@ -1110,6 +1129,7 @@ export const PatientDocuments = () => {
                 type="button"
                 onClick={() => setContentModalId(null)}
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label={t('patient.documents.viewCloseAria')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1122,72 +1142,74 @@ export const PatientDocuments = () => {
                     const orderId = contentModalDocument.id.replace('lab-', '');
                     const order = (labOrders ?? []).find((o) => o.id === orderId);
                     if (!order) return (
-                      <div className="text-center py-8 text-sm text-slate-400">No results available yet.</div>
+                      <div className="text-center py-8 text-sm text-slate-400">{t('patient.documents.viewNoLabResults')}</div>
                     );
                     return (
                       <div className="space-y-3">
                         {/* Lab info header */}
                         <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Lab</span>
-                            <span className="font-bold text-slate-900">{order.labName ?? 'CeenAiX Lab Network'}</span>
+                            <span className="text-slate-500">{t('patient.documents.viewLab')}</span>
+                            <span className="font-bold text-slate-900">{order.labName ?? t('patient.documents.viewLabFallback')}</span>
                           </div>
                           {order.labCity ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Location</span>
+                              <span className="text-slate-500">{t('patient.documents.viewLocation')}</span>
                               <span className="font-bold text-slate-900">📍 {order.labCity}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Ordered By</span>
+                            <span className="text-slate-500">{t('patient.documents.viewOrderedBy')}</span>
                             <span className="font-bold text-slate-900">{order.doctorName ?? '—'}</span>
                           </div>
                           {order.doctorSpecialty ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Specialty</span>
+                              <span className="text-slate-500">{t('patient.documents.viewSpecialty')}</span>
                               <span className="font-bold text-slate-900">{order.doctorSpecialty}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Order Date</span>
+                            <span className="text-slate-500">{t('patient.documents.viewOrderDate')}</span>
                             <span className="font-bold text-slate-900">{formatDate(order.ordered_at)}</span>
                           </div>
                           {order.results_released_at ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Results Released</span>
+                              <span className="text-slate-500">{t('patient.documents.viewResultsReleased')}</span>
                               <span className="font-bold text-slate-900">{formatDate(order.results_released_at)}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Review Status</span>
+                            <span className="text-slate-500">{t('patient.documents.viewReviewStatus')}</span>
                             <span className={`font-bold ${order.reviewStatus === 'reviewed' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              {order.reviewStatus === 'reviewed' ? '✅ Reviewed by doctor' : '⏳ Pending review'}
+                              {order.reviewStatus === 'reviewed'
+                                ? `✅ ${t('patient.documents.viewReviewedByDoctor')}`
+                                : `⏳ ${t('patient.documents.viewPendingReview')}`}
                             </span>
                           </div>
                           {order.lab_order_code ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Order Code</span>
+                              <span className="text-slate-500">{t('patient.documents.viewOrderCode')}</span>
                               <span className="font-mono font-bold text-slate-900">{order.lab_order_code}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Total Tests</span>
-                            <span className="font-bold text-slate-900">{order.parentItems.length} tests</span>
+                            <span className="text-slate-500">{t('patient.documents.viewTotalTests')}</span>
+                            <span className="font-bold text-slate-900">{t('patient.documents.viewTestsCount', { count: order.parentItems.length })}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Normal</span>
-                            <span className="font-bold text-emerald-600">{order.normalCount} normal</span>
+                            <span className="text-slate-500">{t('patient.documents.viewNormal')}</span>
+                            <span className="font-bold text-emerald-600">{t('patient.labResults.normalCountBadge', { count: order.normalCount })}</span>
                           </div>
                           {order.monitorCount > 0 ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">To Monitor</span>
-                              <span className="font-bold text-amber-600">{order.monitorCount} to monitor</span>
+                              <span className="text-slate-500">{t('patient.documents.viewToMonitor')}</span>
+                              <span className="font-bold text-amber-600">{t('patient.labResults.monitorCountBadge', { count: order.monitorCount })}</span>
                             </div>
                           ) : null}
                         </div>
 
                         {/* Test results */}
-                        <div className="text-xs font-bold uppercase tracking-wide text-slate-400 px-1">Test Results</div>
+                        <div className="text-xs font-bold uppercase tracking-wide text-slate-400 px-1">{t('patient.documents.viewTestResults')}</div>
                         {order.parentItems.map((item) => {
                           const isAbnormal = item.is_abnormal === true;
                           return (
@@ -1199,7 +1221,7 @@ export const PatientDocuments = () => {
                                     <div className="text-xs text-slate-400">{item.display_name_long}</div>
                                   ) : null}
                                   {item.reference_text ? (
-                                    <div className="text-xs text-slate-400 mt-0.5">Ref: {item.reference_text}</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">{t('patient.documents.viewRefLabel')} <span dir="ltr">{item.reference_text}</span></div>
                                   ) : null}
                                   {item.patient_explanation ? (
                                     <div className="text-xs text-slate-500 mt-1 italic">{item.patient_explanation}</div>
@@ -1211,16 +1233,18 @@ export const PatientDocuments = () => {
                                       ? `${item.numeric_value}${item.result_unit ? ` ${item.result_unit}` : ''}`
                                       : item.result_value != null && item.result_value.trim() !== ''
                                         ? `${item.result_value}${item.result_unit ? ` ${item.result_unit}` : ''}`
-                                        : 'Pending'}
+                                        : t('patient.documents.viewPending')}
                                   </span>
                                   <span className={`rounded-full px-3 py-1 text-xs font-bold ${isAbnormal ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                    {item.status_label ?? item.status_category}
+                                    {LAB_STATUS_KEY[item.status_category]
+                                      ? t(LAB_STATUS_KEY[item.status_category])
+                                      : (item.status_label ?? item.status_category)}
                                   </span>
                                 </div>
                               </div>
                               {item.doctor_comment ? (
                                 <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                                  <div className="text-xs font-bold text-blue-800">Doctor Note</div>
+                                  <div className="text-xs font-bold text-blue-800">{t('patient.documents.viewDoctorNote')}</div>
                                   <p className="text-xs italic text-blue-700">"{item.doctor_comment}"</p>
                                 </div>
                               ) : null}
@@ -1230,7 +1254,7 @@ export const PatientDocuments = () => {
 
                         {order.overall_comment ? (
                           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                            <div className="mb-1 text-xs font-bold text-blue-800">Doctor Comment</div>
+                            <div className="mb-1 text-xs font-bold text-blue-800">{t('patient.documents.viewDoctorComment')}</div>
                             <p className="text-sm italic text-blue-700">"{order.overall_comment}"</p>
                             {order.doctorName ? (
                               <p className="mt-1 text-xs text-blue-500">— {order.doctorName}{order.doctorSpecialty ? `, ${order.doctorSpecialty}` : ''}</p>
@@ -1247,56 +1271,55 @@ export const PatientDocuments = () => {
                     const rxId = contentModalDocument.id.replace('rx-', '');
                     const rx = (prescriptions ?? []).find((p) => p.id === rxId);
                     if (!rx) return (
-                      <div className="text-center py-8 text-sm text-slate-400">No prescription details available.</div>
+                      <div className="text-center py-8 text-sm text-slate-400">{t('patient.documents.viewNoPrescription')}</div>
                     );
                     return (
                       <div className="space-y-3">
                         {/* Prescription header */}
                         <div className="rounded-xl border border-teal-100 bg-teal-50 p-4 space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Prescribed By</span>
+                            <span className="text-slate-500">{t('patient.documents.viewPrescribedBy')}</span>
                             <span className="font-bold text-slate-900">{rx.doctorName}</span>
                           </div>
                           {rx.doctorSpecialty ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Specialty</span>
+                              <span className="text-slate-500">{t('patient.documents.viewSpecialty')}</span>
                               <span className="font-bold text-slate-900">{rx.doctorSpecialty}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Prescribed On</span>
+                            <span className="text-slate-500">{t('patient.documents.viewPrescribedOn')}</span>
                             <span className="font-bold text-slate-900">{formatDate(rx.prescribed_at)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Status</span>
+                            <span className="text-slate-500">{t('patient.documents.viewStatus')}</span>
                             <span className={`font-bold ${rx.status === 'active' ? 'text-emerald-600' : 'text-slate-500'}`}>
-                              {rx.status === 'active' ? '✅ Active' : '⏹ ' + rx.status.charAt(0).toUpperCase() + rx.status.slice(1)}
+                              {rx.status === 'active' ? '✅ ' : '⏹ '}
+                              {t(`patient.documents.rxStatus.${rx.status}`)}
                             </span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Total Medications</span>
-                            <span className="font-bold text-slate-900">{rx.items.length} medication{rx.items.length !== 1 ? 's' : ''}</span>
+                            <span className="text-slate-500">{t('patient.documents.viewTotalMedications')}</span>
+                            <span className="font-bold text-slate-900">{t('patient.documents.viewMedicationsCount', { count: rx.items.length })}</span>
                           </div>
                           {rx.pharmacyName ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Pharmacy</span>
+                              <span className="text-slate-500">{t('patient.documents.viewPharmacy')}</span>
                               <span className="font-bold text-slate-900">{rx.pharmacyName}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Pharmacy Status</span>
+                            <span className="text-slate-500">{t('patient.documents.viewPharmacyStatus')}</span>
                             <span className={`font-bold ${rx.pharmacyStatus === 'dispensed' || rx.pharmacyStatus === 'picked_up' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              {rx.pharmacyStatus === 'dispensed' ? '✅ Dispensed'
-                                : rx.pharmacyStatus === 'picked_up' ? '✅ Picked Up'
-                                : rx.pharmacyStatus === 'in_progress' ? '⏳ In Progress'
-                                : rx.pharmacyStatus === 'not_sent' ? '📤 Not Sent to Pharmacy'
-                                : rx.pharmacyStatus ?? '—'}
+                              {rx.pharmacyStatus
+                                ? `${PHARMACY_STATUS_ICON[rx.pharmacyStatus] ?? ''}${t(`patient.documents.pharmacyStatus.${rx.pharmacyStatus}`)}`
+                                : '—'}
                             </span>
                           </div>
                         </div>
 
                         {/* Medications list */}
-                        <div className="text-xs font-bold uppercase tracking-wide text-slate-400 px-1">Medications</div>
+                        <div className="text-xs font-bold uppercase tracking-wide text-slate-400 px-1">{t('patient.documents.viewMedications')}</div>
                         {rx.items.map((item) => (
                           <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
                             <div className="flex items-start justify-between gap-3">
@@ -1310,11 +1333,11 @@ export const PatientDocuments = () => {
                                   <div className="mt-1 text-xs text-slate-400">📋 {item.instructions}</div>
                                 ) : null}
                                 {item.quantity != null ? (
-                                  <div className="mt-1 text-xs text-slate-400">Qty: {item.quantity}</div>
+                                  <div className="mt-1 text-xs text-slate-400">{t('patient.documents.viewQty', { quantity: item.quantity })}</div>
                                 ) : null}
                               </div>
                               <span className={`rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${item.is_dispensed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                {item.is_dispensed ? '✅ Dispensed' : '⏳ Pending'}
+                                {item.is_dispensed ? `✅ ${t('patient.documents.viewDispensed')}` : `⏳ ${t('patient.documents.viewPending')}`}
                               </span>
                             </div>
                           </div>
@@ -1329,53 +1352,53 @@ export const PatientDocuments = () => {
                     const planId = contentModalDocument.id.replace('insurance-', '');
                     const plan = (insurance?.plans ?? []).find((p) => p.id === planId);
                     if (!plan) return (
-                      <div className="text-center py-8 text-sm text-slate-400">No insurance details available.</div>
+                      <div className="text-center py-8 text-sm text-slate-400">{t('patient.documents.viewNoInsurance')}</div>
                     );
                     return (
                       <div className="space-y-3">
                         <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Plan Name</span>
+                            <span className="text-slate-500">{t('patient.documents.viewPlanName')}</span>
                             <span className="font-bold text-slate-900">{plan.planName}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Provider</span>
+                            <span className="text-slate-500">{t('patient.documents.viewProvider')}</span>
                             <span className="font-bold text-slate-900">{plan.providerCompany}</span>
                           </div>
                           {plan.policyNumber ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Policy Number</span>
+                              <span className="text-slate-500">{t('patient.documents.viewPolicyNumber')}</span>
                               <span className="font-mono font-bold text-slate-900">{plan.policyNumber}</span>
                             </div>
                           ) : null}
                           {plan.memberId ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Member ID</span>
+                              <span className="text-slate-500">{t('patient.documents.viewMemberId')}</span>
                               <span className="font-mono font-bold text-slate-900">{plan.memberId}</span>
                             </div>
                           ) : null}
                           {plan.coPayPercent != null ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Co-pay</span>
+                              <span className="text-slate-500">{t('patient.documents.viewCoPay')}</span>
                               <span className="font-bold text-slate-900">{plan.coPayPercent}%</span>
                             </div>
                           ) : null}
                           {plan.validFrom ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Valid From</span>
+                              <span className="text-slate-500">{t('patient.documents.viewValidFrom')}</span>
                               <span className="font-bold text-slate-900">{formatDate(plan.validFrom)}</span>
                             </div>
                           ) : null}
                           {plan.validUntil ? (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Valid Until</span>
+                              <span className="text-slate-500">{t('patient.documents.viewValidUntil')}</span>
                               <span className="font-bold text-slate-900">{formatDate(plan.validUntil)}</span>
                             </div>
                           ) : null}
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Status</span>
+                            <span className="text-slate-500">{t('patient.documents.viewStatus')}</span>
                             <span className={`font-bold ${plan.isActive ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              {plan.isActive ? '✅ Active' : '⏳ Inactive'}
+                              {plan.isActive ? `✅ ${t('patient.documents.viewActive')}` : `⏳ ${t('patient.documents.viewInactive')}`}
                             </span>
                           </div>
                         </div>
@@ -1400,7 +1423,7 @@ export const PatientDocuments = () => {
                 onClick={() => setContentModalId(null)}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Close
+                {t('patient.documents.viewClose')}
               </button>
             </div>
           </div>
