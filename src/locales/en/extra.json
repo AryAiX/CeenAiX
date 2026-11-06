@@ -1275,7 +1275,9 @@
       "status": {
         "reviewed": "Reviewed",
         "active": "Active",
-        "pending": "Pending"
+        "pending": "Pending",
+        "private": "Private",
+        "shared": "Shared with care team"
       },
       "uploadedByPatient": "Uploaded by patient",
       "categoryUploads": "Uploads",

@@ -1319,7 +1319,9 @@
       "status": {
         "reviewed": "تمت المراجعة",
         "active": "نشط",
-        "pending": "قيد الانتظار"
+        "pending": "قيد الانتظار",
+        "private": "خاص",
+        "shared": "مشارك مع فريق الرعاية"
       },
       "uploadedByPatient": "رفعه المريض",
       "categoryUploads": "الملفات المرفوعة",

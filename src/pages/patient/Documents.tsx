@@ -13,11 +13,13 @@ import {
   FolderOpen,
   Grid3x3,
   List,
+  Lock,
   Search,
   Share2,
   ShieldCheck,
   Trash2,
   Upload,
+  Users,
   X,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
@@ -106,7 +108,7 @@ export const PatientDocuments = () => {
     date: string;
     issuedBy: string;
     contains: string;
-    status: 'reviewed' | 'active' | 'pending';
+    status: 'reviewed' | 'active' | 'pending' | 'private' | 'shared';
     source: 'lab_orders' | 'prescriptions' | 'patient_insurance' | 'patient_document_files';
     storagePath?: string;
     vaultDocumentId?: string;
@@ -176,7 +178,8 @@ export const PatientDocuments = () => {
       date: doc.createdAt,
       issuedBy: t('patient.documents.uploadedByPatient'),
       contains: doc.description ?? doc.originalFileName,
-      status: doc.allowCareTeamAccess ? 'active' : 'reviewed',
+      // A patient's own upload is never "reviewed", so show who can see it instead.
+      status: doc.allowCareTeamAccess ? 'shared' : 'private',
       source: 'patient_document_files',
       storagePath: doc.storagePath,
       vaultDocumentId: doc.id,
@@ -668,7 +671,15 @@ export const PatientDocuments = () => {
                   <FileText className="h-6 w-6" style={{ color: doc.categoryColor }} />
                 </div>
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                  {doc.status === 'pending' ? <AlertTriangle className="mr-1 inline h-3 w-3 text-amber-500" /> : <CheckCircle className="mr-1 inline h-3 w-3 text-emerald-500" />}
+                  {doc.status === 'pending' ? (
+                    <AlertTriangle className="me-1 inline h-3 w-3 text-amber-500" />
+                  ) : doc.status === 'private' ? (
+                    <Lock className="me-1 inline h-3 w-3 text-slate-500" />
+                  ) : doc.status === 'shared' ? (
+                    <Users className="me-1 inline h-3 w-3 text-teal-600" />
+                  ) : (
+                    <CheckCircle className="me-1 inline h-3 w-3 text-emerald-500" />
+                  )}
                   {t(`patient.documents.status.${doc.status}`)}
                 </span>
               </div>
