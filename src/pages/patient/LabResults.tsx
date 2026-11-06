@@ -208,18 +208,18 @@ const WhatsAppIcon = () => (
 
 const SHARE_METHODS: Array<{
   id: 'link' | 'email' | 'whatsapp';
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
 }> = [
-  { id: 'link', label: 'Secure Link', icon: <Link className="h-5 w-5" /> },
-  { id: 'email', label: 'Email', icon: <Mail className="h-5 w-5" /> },
-  { id: 'whatsapp', label: 'WhatsApp', icon: <WhatsAppIcon /> },
+  { id: 'link', labelKey: 'patient.labResults.shareMethodLink', icon: <Link className="h-5 w-5" /> },
+  { id: 'email', labelKey: 'patient.labResults.shareMethodEmail', icon: <Mail className="h-5 w-5" /> },
+  { id: 'whatsapp', labelKey: 'patient.labResults.shareMethodWhatsapp', icon: <WhatsAppIcon /> },
 ];
 
-const METHOD_SUCCESS_MESSAGE: Record<'link' | 'email' | 'whatsapp', string> = {
-  link: 'Report text copied to clipboard. Paste and share securely.',
-  email: 'Your email client has opened with the report pre-filled.',
-  whatsapp: 'WhatsApp has opened with the report ready to send.',
+const METHOD_SUCCESS_KEY: Record<'link' | 'email' | 'whatsapp', string> = {
+  link: 'patient.labResults.shareSuccessLink',
+  email: 'patient.labResults.shareSuccessEmail',
+  whatsapp: 'patient.labResults.shareSuccessWhatsapp',
 };
 
 const ShareModal: React.FC<ShareModalProps> = ({
@@ -231,6 +231,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   onShare,
   onClose,
 }) => {
+  const { t } = useTranslation('common');
   const dateStr = formatDate(language, order.results_released_at ?? order.ordered_at, true);
 
   return createPortal(
@@ -249,9 +250,9 @@ const ShareModal: React.FC<ShareModalProps> = ({
               <Share2 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Share Report</h2>
+              <h2 className="text-base font-bold text-slate-900">{t('patient.labResults.shareTitle')}</h2>
               <p className="text-xs text-slate-500">
-                {order.labName ?? 'Lab'} · {dateStr}
+                {order.labName ?? t('patient.labResults.shareLabFallback')} · {dateStr}
               </p>
             </div>
           </div>
@@ -259,7 +260,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
             type="button"
             onClick={onClose}
             className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-            aria-label="Close"
+            aria-label={t('patient.labResults.shareClose')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -272,16 +273,16 @@ const ShareModal: React.FC<ShareModalProps> = ({
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
                 <CheckCircle className="h-9 w-9 text-emerald-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Report Shared!</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('patient.labResults.shareSuccessTitle')}</h3>
               <p className="mx-auto mt-2 max-w-xs text-sm text-slate-500">
-                {METHOD_SUCCESS_MESSAGE[shareMethod]}
+                {t(METHOD_SUCCESS_KEY[shareMethod])}
               </p>
               <button
                 type="button"
                 onClick={onClose}
                 className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
               >
-                Done
+                {t('patient.labResults.shareDone')}
               </button>
             </div>
           ) : (
@@ -294,10 +295,10 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
                 <div>
                   <div className="text-sm font-bold text-slate-900">
-                    {order.labName ?? 'Lab Report'}
+                    {order.labName ?? t('patient.labResults.shareReportFallback')}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {dateStr} · {order.parentItems.length} test{order.parentItems.length !== 1 ? 's' : ''}
+                    {dateStr} · {t('patient.labResults.shareTestCount', { count: order.parentItems.length })}
                   </div>
                 </div>
               </div>
@@ -318,7 +319,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                       }`}
                     >
                       {m.icon}
-                      {m.label}
+                      {t(m.labelKey)}
                     </button>
                   );
                 })}
@@ -326,7 +327,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
               {/* Disclaimer */}
               <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                ⚠️ Only share with authorized healthcare providers. Recipient will have view-only access.
+                ⚠️ {t('patient.labResults.shareDisclaimer')}
               </div>
 
               {/* Actions */}
@@ -336,14 +337,14 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   onClick={onClose}
                   className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('patient.labResults.shareCancel')}
                 </button>
                 <button
                   type="button"
                   onClick={onShare}
                   className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                 >
-                  Share
+                  {t('patient.labResults.shareConfirm')}
                 </button>
               </div>
             </>
@@ -953,10 +954,14 @@ export const PatientLabResults: React.FC = () => {
               </div>
               {hba1c.delta != null ? (
                 <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  {t('patient.labResults.trendsDelta', {
-                    delta: hba1c.delta,
-                    direction: hba1c.direction ?? 'stable',
-                  })}
+                  {t(
+                    hba1c.direction === 'improving'
+                      ? 'patient.labResults.trendsDeltaImproving'
+                      : hba1c.direction === 'worsening'
+                        ? 'patient.labResults.trendsDeltaWorsening'
+                        : 'patient.labResults.trendsDeltaStable',
+                    { delta: hba1c.delta }
+                  )}
                 </div>
               ) : null}
             </div>
@@ -1584,10 +1589,7 @@ export const PatientLabResults: React.FC = () => {
                         {t('patient.labResults.upcomingConfirmBtn')}
                       </button>
                       <p className="mt-2 text-center text-xs text-slate-500">
-                        {t('patient.labResults.bookingComingSoonNote', {
-                          defaultValue:
-                            'Online lab booking is not available yet. Message your doctor to schedule collection.',
-                        })}
+                        {t('patient.labResults.bookingComingSoonNote')}
                       </p>
                     </div>
                   </div>
@@ -2175,7 +2177,7 @@ export const PatientLabResults: React.FC = () => {
                 type="button"
                 onClick={() => setPreviewOrder(null)}
                 className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-                aria-label="Close preview"
+                aria-label={t('patient.labResults.previewCloseAria')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -2243,7 +2245,7 @@ export const PatientLabResults: React.FC = () => {
                 onClick={() => setPreviewOrder(null)}
                 className="rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
-                Close
+                {t('patient.labResults.previewClose')}
               </button>
             </div>
           </div>
