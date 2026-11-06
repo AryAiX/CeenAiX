@@ -165,22 +165,30 @@ export const PatientImaging = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      {/* On a phone, two compact cards per row with the icon beside the number (the fifth spans both), as on Medications; from md up, five across with the icon on top, as before. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
         {[
           { label: t('patient.imaging.kpiStudies'), value: studies.length, icon: FileText, color: 'text-violet-600', bg: 'bg-violet-100' },
           { label: t('patient.imaging.kpiPending'), value: pendingCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
           { label: t('patient.imaging.kpiReviewed'), value: reviewedCount, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
           { label: t('patient.imaging.kpiFollowUp'), value: followUpCount, icon: Activity, color: 'text-blue-600', bg: 'bg-blue-100' },
           { label: t('patient.imaging.kpiScheduled'), value: scheduled.length, icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-        ].map((card) => {
+        ].map((card, index) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="rounded-2xl bg-white p-5 shadow-sm">
-              <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${card.bg}`}>
-                <Icon className={`h-6 w-6 ${card.color}`} />
+            <div
+              key={card.label}
+              className={`flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm sm:p-5 md:block${
+                index === 4 ? ' col-span-2 md:col-span-1' : ''
+              }`}
+            >
+              <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl md:mb-3 md:h-12 md:w-12 ${card.bg}`}>
+                <Icon className={`h-5 w-5 md:h-6 md:w-6 ${card.color}`} />
               </div>
-              <div className="font-mono text-3xl font-bold text-slate-900">{formatLocaleDigits(card.value, uiLang)}</div>
-              <div className="text-xs text-slate-400">{card.label}</div>
+              <div className="min-w-0">
+                <div className="font-mono text-2xl font-bold text-slate-900 md:text-3xl">{formatLocaleDigits(card.value, uiLang)}</div>
+                <div className="text-xs text-slate-400">{card.label}</div>
+              </div>
             </div>
           );
         })}
