@@ -541,9 +541,10 @@ export const PatientDocuments = () => {
         </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* On a phone two cards per row instead of four full-width rows; from md up four across, as before. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <div
-          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md sm:p-5"
           onClick={() => { setCategory('all'); setShowPendingOnly(false); }}
           role="button"
           tabIndex={0}
@@ -553,7 +554,7 @@ export const PatientDocuments = () => {
           <div className="mt-2 text-3xl font-bold text-slate-900">{formatLocaleDigits(documents.length, uiLang)}</div>
         </div>
         <div
-          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md sm:p-5"
           onClick={() => { setCategory('lab-report'); setShowPendingOnly(false); }}
           role="button"
           tabIndex={0}
@@ -565,7 +566,7 @@ export const PatientDocuments = () => {
           </div>
         </div>
         <div
-          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md sm:p-5"
           onClick={() => { setCategory('prescription'); setShowPendingOnly(false); }}
           role="button"
           tabIndex={0}
@@ -577,7 +578,7 @@ export const PatientDocuments = () => {
           </div>
         </div>
         <div
-          className="cursor-pointer rounded-2xl bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md sm:p-5"
           onClick={() => { setCategory('all'); setSearch(''); setShowPendingOnly(true); }}
           role="button"
           tabIndex={0}
