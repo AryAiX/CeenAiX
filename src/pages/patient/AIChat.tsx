@@ -509,38 +509,38 @@ export const PatientAIChat: React.FC = () => {
   return (
     <div className="h-full w-full flex overflow-hidden bg-slate-900">
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/5 px-4 py-5 sm:px-8">
-          <div className={`flex items-center gap-6 ${isArabic ? 'flex-row-reverse' : ''}`}>
-            <div className="relative">
+        <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 sm:px-8 sm:py-5">
+          <div className={`flex min-w-0 items-center gap-3 sm:gap-6 ${isArabic ? 'flex-row-reverse' : ''}`}>
+            <div className="relative shrink-0">
               <div className="absolute inset-0 animate-ping">
-                <div className="h-16 w-16 rounded-full border-2 border-teal-500/40" />
+                <div className="h-11 w-11 rounded-full border-2 border-teal-500/40 sm:h-16 sm:w-16" />
               </div>
               <div
                 className="absolute inset-0 animate-pulse"
                 style={{ animationDuration: '3s' }}
               >
-                <div className="h-16 w-16 rounded-full border-2 border-teal-500/15" />
+                <div className="h-11 w-11 rounded-full border-2 border-teal-500/15 sm:h-16 sm:w-16" />
               </div>
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 shadow-lg shadow-teal-500/30">
-                <Bot className="h-8 w-8 text-white" />
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 shadow-lg shadow-teal-500/30 sm:h-16 sm:w-16">
+                <Bot className="h-6 w-6 text-white sm:h-8 sm:w-8" />
               </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-white" style={PLAYFAIR}>
+            <div className="min-w-0">
+              <h1 className="whitespace-nowrap text-lg font-bold text-white" style={PLAYFAIR}>
                 {t('patient.aiChat.heroBrand')}
               </h1>
-              <p className="flex items-center gap-1 text-xs text-teal-300">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-400" />
+              <p className="flex items-center gap-1 text-[11px] text-teal-300 sm:text-xs">
+                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-teal-400" />
                 {t('patient.aiChat.heroSubtitle')}
               </p>
             </div>
           </div>
 
-          <div className={`flex items-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex shrink-0 items-center gap-1 sm:gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
             <button
               type="button"
               onClick={() => setIsHistoryOpen((value) => !value)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white sm:px-4"
             >
               {isHistoryOpen ? t('patient.aiChat.collapseHistory') : t('patient.aiChat.chats')}
               {sessions.length > 0 ? (
@@ -560,7 +560,7 @@ export const PatientAIChat: React.FC = () => {
             </button>
             <button
               type="button"
-              className="p-2 text-white/60 transition hover:text-white/90"
+              className="hidden p-2 text-white/60 transition hover:text-white/90 sm:inline-flex"
               title={t('patient.aiChat.exportChat')}
               aria-label={t('patient.aiChat.exportChat')}
               disabled
@@ -569,7 +569,7 @@ export const PatientAIChat: React.FC = () => {
             </button>
             <button
               type="button"
-              className="p-2 text-white/60 transition hover:text-white/90"
+              className="hidden p-2 text-white/60 transition hover:text-white/90 sm:inline-flex"
               title={t('patient.aiChat.aiSettings')}
               aria-label={t('patient.aiChat.aiSettings')}
               disabled
