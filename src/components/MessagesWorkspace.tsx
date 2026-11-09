@@ -1087,7 +1087,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="border-t border-gray-100 bg-white p-4">
+            {/* relative anchors the sr-only "Message draft" label to this form; without it the label is positioned against the whole page, sits below a long conversation and makes the document scroll into empty white space. */}
+            <form onSubmit={handleSubmit} className="relative border-t border-gray-100 bg-white p-4">
               {doctorQuickActions.length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-2">
                   {doctorQuickActions.map((action) => {
