@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  ArrowLeft,
   CalendarPlus,
   ChevronRight,
   ClipboardList,
@@ -779,8 +780,9 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
   return (
     <>
+    {/* Below lg the screen shows either the list or the open conversation, because a conversation opened from the list used to appear below the whole list, off screen. From lg up both sit side by side, as before. */}
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+      <div className={`overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md${conversationId ? ' hidden lg:block' : ''}`}>
         <div className="border-b border-gray-100 px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-gray-900">{t(`${namespace}.conversations`)}</h2>
@@ -880,7 +882,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         </div>
       </div>
 
-      <div className="flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+      <div className={`${conversationId ? 'flex' : 'hidden lg:flex'} min-h-[520px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md lg:min-h-[680px]`}>
         {conversationError ? (
           <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
             {t(`${namespace}.loadError`)}
@@ -900,6 +902,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         {activeConversation ? (
           <>
             <div className="border-b border-gray-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => navigate(`/${role}/messages`)}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg py-1 text-sm font-semibold text-gray-600 transition hover:text-gray-900 lg:hidden"
+              >
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                {t('shared.backToConversations')}
+              </button>
               <div className="flex items-start gap-4">
                 <div
                   className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-base font-bold text-white shadow-sm ${avatarGradient(

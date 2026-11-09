@@ -84,7 +84,8 @@
     "optional": "optional",
     "keepEditing": "Keep Editing",
     "discard": "Discard",
-    "close": "Close"
+    "close": "Close",
+    "backToConversations": "Conversations"
   },
   "system": {
     "accessDenied": {

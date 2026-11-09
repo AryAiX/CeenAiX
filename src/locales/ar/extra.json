@@ -84,7 +84,8 @@
     "optional": "اختياري",
     "keepEditing": "متابعة التعديل",
     "discard": "تجاهل",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "backToConversations": "المحادثات"
   },
   "system": {
     "accessDenied": {
