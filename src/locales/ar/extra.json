@@ -862,7 +862,10 @@
       "noPlanLinked": "لا توجد خطة تأمين مرتبطة بحسابك بعد، لذلك لا يمكن تعديل هذه البيانات هنا.",
       "emiratesFrontDocTitle": "الهوية الإماراتية (الوجه الأمامي)",
       "emiratesBackDocTitle": "الهوية الإماراتية (الوجه الخلفي)",
-      "insuranceCardDocTitle": "بطاقة التأمين"
+      "insuranceCardDocTitle": "بطاقة التأمين",
+      "comingSoon": "قريبًا",
+      "familyComingSoonTitle": "إضافة أفراد العائلة قريبًا",
+      "familyComingSoonBody": "ستتمكن من إضافة أفراد عائلتك وحفظهم هنا في تحديث قادم."
     },
     "preVisit": {
       "title": "الاستقبال المسبق",

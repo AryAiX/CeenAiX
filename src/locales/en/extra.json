@@ -854,7 +854,10 @@
       "noPlanLinked": "No insurance plan is linked to your account yet, so these details can't be edited here.",
       "emiratesFrontDocTitle": "Emirates ID (front)",
       "emiratesBackDocTitle": "Emirates ID (back)",
-      "insuranceCardDocTitle": "Insurance card"
+      "insuranceCardDocTitle": "Insurance card",
+      "comingSoon": "Coming soon",
+      "familyComingSoonTitle": "Family members are coming soon",
+      "familyComingSoonBody": "You'll be able to add and save your family members here in a future update."
     },
     "preVisit": {
       "title": "Pre-visit intake",

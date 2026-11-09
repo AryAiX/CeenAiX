@@ -949,21 +949,32 @@ export const Profile: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddFamily(true)}
-                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  disabled
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl transition-all duration-200 font-medium shadow-lg cursor-not-allowed opacity-70"
                 >
                   <Plus className="w-5 h-5" />
                   <span>{t('patient.profile.addMember')}</span>
+                  <span className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-semibold">{t('patient.profile.comingSoon')}</span>
                 </button>
               </div>
               <div className="p-5 sm:p-8">
-                <FamilyTree
-                  members={familyMembers}
-                  primaryUser={{
-                    name: personalInfo.fullName || t('patient.profile.you'),
-                    profileImage: profileImage,
-                  }}
-                />
+                {familyMembers.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-orange-100 to-amber-100">
+                      <Users className="h-10 w-10 text-orange-500" />
+                    </div>
+                    <p className="text-lg font-semibold text-gray-700">{t('patient.profile.familyComingSoonTitle')}</p>
+                    <p className="mt-2 text-sm text-gray-500">{t('patient.profile.familyComingSoonBody')}</p>
+                  </div>
+                ) : (
+                  <FamilyTree
+                    members={familyMembers}
+                    primaryUser={{
+                      name: personalInfo.fullName || t('patient.profile.you'),
+                      profileImage: profileImage,
+                    }}
+                  />
+                )}
 
                 {familyMembers.length > 0 && (
                   <div className="mt-12 pt-8 border-t-2 border-gray-100">
