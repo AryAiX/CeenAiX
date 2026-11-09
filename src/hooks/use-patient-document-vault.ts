@@ -162,6 +162,20 @@ export async function getPatientDocumentSignedUrl(storagePath: string, expiresIn
   return data.signedUrl;
 }
 
+const PUBLIC_DOCUMENTS_MARKER = '/storage/v1/object/public/documents/';
+
+export async function resolvePatientDocumentUrl(value: string, expiresInSeconds = 3600): Promise<string> {
+  const markerIndex = value.indexOf(PUBLIC_DOCUMENTS_MARKER);
+  if (markerIndex !== -1) {
+    const path = value.slice(markerIndex + PUBLIC_DOCUMENTS_MARKER.length).split('?')[0];
+    return getPatientDocumentSignedUrl(decodeURIComponent(path), expiresInSeconds);
+  }
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  return getPatientDocumentSignedUrl(value, expiresInSeconds);
+}
+
 export async function setPatientDocumentCareTeamAccess(documentId: string, enabled: boolean): Promise<void> {
   const { error } = await supabase
     .from('patient_document_files')

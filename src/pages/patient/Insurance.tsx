@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -21,7 +21,7 @@ import {
   Video,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
+import { resolvePatientDocumentUrl, usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
@@ -55,6 +55,7 @@ export const PatientInsurance = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showExclusions, setShowExclusions] = useState(false);
   const [cardActionMessage, setCardActionMessage] = useState<string | null>(null);
+  const [cardPhotoLink, setCardPhotoLink] = useState<string | null>(null);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -76,10 +77,29 @@ export const PatientInsurance = () => {
 
   const primaryPlan = data?.primaryPlan ?? null;
 
+  useEffect(() => {
+    let active = true;
+    const cardPhotoUrl = primaryPlan?.cardPhotoUrl;
+    if (!cardPhotoUrl) {
+      setCardPhotoLink(null);
+      return;
+    }
+    void resolvePatientDocumentUrl(cardPhotoUrl)
+      .then((url) => {
+        if (active) setCardPhotoLink(url);
+      })
+      .catch(() => {
+        if (active) setCardPhotoLink(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [primaryPlan?.cardPhotoUrl]);
+
   const handleDownloadCard = () => {
     setCardActionMessage(null);
-    if (primaryPlan?.cardPhotoUrl) {
-      window.open(primaryPlan.cardPhotoUrl, '_blank', 'noopener,noreferrer');
+    if (cardPhotoLink) {
+      window.open(cardPhotoLink, '_blank', 'noopener,noreferrer');
       return;
     }
     const lines = [
@@ -608,8 +628,8 @@ export const PatientInsurance = () => {
                 const Icon = doc.icon;
                 const handleDocumentAction = () => {
                   if (doc.key === 'card') {
-                    if (primaryPlan?.cardPhotoUrl) {
-                      window.open(primaryPlan.cardPhotoUrl, '_blank', 'noopener,noreferrer');
+                    if (cardPhotoLink) {
+                      window.open(cardPhotoLink, '_blank', 'noopener,noreferrer');
                       return;
                     }
                     navigate('/patient/profile');

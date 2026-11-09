@@ -4,7 +4,16 @@ import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
 import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save } from 'lucide-react';
-import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
+import {
+  resolvePatientDocumentUrl,
+  softDeletePatientDocument,
+  uploadPatientDocument,
+  usePatientDocumentVault,
+  usePatientInsurance,
+  usePatientRecords,
+  useUserProfile,
+  type PatientVaultDocument,
+} from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
@@ -18,6 +27,8 @@ interface FamilyMember {
   emiratesId: string;
   profileImage?: string;
 }
+
+const EMIRATES_ID_FILE_NAMES = { emiratesFront: 'emirates-id-front', emiratesBack: 'emirates-id-back' } as const;
 
 export const Profile: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -54,6 +65,7 @@ export const Profile: React.FC = () => {
   const { data: profile, refetch: refetchProfile } = useUserProfile();
   const { data: records } = usePatientRecords(user?.id);
   const { data: insurance } = usePatientInsurance(user?.id);
+  const { data: vaultDocuments, refetch: refetchVault } = usePatientDocumentVault(user?.id);
   const [patientProfile, setPatientProfile] = useState<{
     blood_type: string | null;
     emergency_contact_name: string | null;
@@ -90,6 +102,7 @@ export const Profile: React.FC = () => {
     validUntil: '',
     cardImage: '',
   });
+  const [insuranceCardPreview, setInsuranceCardPreview] = useState<string>('');
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddFamily, setShowAddFamily] = useState(false);
@@ -154,6 +167,39 @@ export const Profile: React.FC = () => {
     const timer = setTimeout(() => setSaveSuccess(null), 4000);
     return () => clearTimeout(timer);
   }, [saveSuccess]);
+
+  const findEmiratesIdDocument = (side: keyof typeof EMIRATES_ID_FILE_NAMES): PatientVaultDocument | undefined =>
+    (vaultDocuments ?? []).find((vaultDocument) =>
+      vaultDocument.originalFileName.startsWith(`${EMIRATES_ID_FILE_NAMES[side]}.`)
+    );
+
+  const emiratesFrontPath = findEmiratesIdDocument('emiratesFront')?.storagePath ?? '';
+  const emiratesBackPath = findEmiratesIdDocument('emiratesBack')?.storagePath ?? '';
+
+  useEffect(() => {
+    let active = true;
+
+    const applyResolvedUrl = async (value: string, apply: (url: string) => void) => {
+      if (!value) {
+        if (active) apply('');
+        return;
+      }
+      try {
+        const url = await resolvePatientDocumentUrl(value);
+        if (active) apply(url);
+      } catch {
+        if (active) apply('');
+      }
+    };
+
+    void applyResolvedUrl(emiratesFrontPath, setEmiratesIdFront);
+    void applyResolvedUrl(emiratesBackPath, setEmiratesIdBack);
+    void applyResolvedUrl(insuranceInfo.cardImage, setInsuranceCardPreview);
+
+    return () => {
+      active = false;
+    };
+  }, [emiratesFrontPath, emiratesBackPath, insuranceInfo.cardImage]);
 
   const savePersonalInfo = async () => {
     if (!user?.id) return;
@@ -253,38 +299,43 @@ export const Profile: React.FC = () => {
             .update({ avatar_url: publicUrl })
             .eq('user_id', user.id);
         }
-      } else if (type === 'emiratesFront') {
-        const path = `${user.id}/emirates_front_${timestamp}.${ext}`;
-        const { error } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path);
-          setEmiratesIdFront(urlData.publicUrl);
-        }
-      } else if (type === 'emiratesBack') {
-        const path = `${user.id}/emirates_back_${timestamp}.${ext}`;
-        const { error } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path);
-          setEmiratesIdBack(urlData.publicUrl);
-        }
-      } else if (type === 'insurance') {
-        const path = `${user.id}/insurance_card_${timestamp}.${ext}`;
-        const { error } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path);
-          setInsuranceInfo((prev) => ({ ...prev, cardImage: urlData.publicUrl }));
+      } else {
+        const baseName = type === 'insurance' ? 'insurance-card' : EMIRATES_ID_FILE_NAMES[type];
+        const namedFile = new File([file], `${baseName}.${ext.toLowerCase()}`, { type: file.type });
+        const title =
+          type === 'emiratesFront'
+            ? t('patient.profile.emiratesFrontDocTitle')
+            : type === 'emiratesBack'
+              ? t('patient.profile.emiratesBackDocTitle')
+              : t('patient.profile.insuranceCardDocTitle');
+        try {
+          const previous = type === 'insurance' ? undefined : findEmiratesIdDocument(type);
+          const uploaded = await uploadPatientDocument({
+            patientId: user.id,
+            file: namedFile,
+            title,
+            category: type === 'insurance' ? 'insurance' : 'other',
+            allowCareTeamAccess: false,
+          });
+          if (type === 'insurance') {
+            setInsuranceInfo((prev) => ({ ...prev, cardImage: uploaded.storagePath }));
+          } else {
+            if (previous) {
+              await softDeletePatientDocument(previous.id);
+            }
+            await refetchVault();
+          }
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : typeof error === 'object' &&
+                  error !== null &&
+                  'message' in error &&
+                  typeof error.message === 'string'
+                ? error.message
+                : String(error);
+          setSaveError(message);
         }
       }
     };
@@ -866,8 +917,8 @@ export const Profile: React.FC = () => {
                       onClick={() => isEditingInsurance && handleImageUpload('insurance')}
                       className={`group border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 transition-all duration-300 ${isEditingInsurance ? 'cursor-pointer hover:border-violet-500 hover:bg-violet-50/50' : 'cursor-not-allowed opacity-75'}`}
                     >
-                      {insuranceInfo.cardImage ? (
-                        <img src={insuranceInfo.cardImage} alt={t('patient.profile.altInsuranceCard')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
+                      {insuranceCardPreview ? (
+                        <img src={insuranceCardPreview} alt={t('patient.profile.altInsuranceCard')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
                       ) : (
                         <div className="space-y-3">
                           <div className={`w-16 h-16 mx-auto bg-gray-100 rounded-2xl flex items-center justify-center transition-colors duration-300 ${isEditingInsurance ? 'group-hover:bg-violet-100' : ''}`}>

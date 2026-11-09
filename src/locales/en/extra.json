@@ -851,7 +851,10 @@
       "noneRecorded": "None recorded",
       "recordsManagedNote": "Allergies and conditions are kept in My Health, where you can add them and your doctor can confirm them.",
       "planDetailsNote": "Provider, group number and coverage type come from your insurance plan and can't be changed here.",
-      "noPlanLinked": "No insurance plan is linked to your account yet, so these details can't be edited here."
+      "noPlanLinked": "No insurance plan is linked to your account yet, so these details can't be edited here.",
+      "emiratesFrontDocTitle": "Emirates ID (front)",
+      "emiratesBackDocTitle": "Emirates ID (back)",
+      "insuranceCardDocTitle": "Insurance card"
     },
     "preVisit": {
       "title": "Pre-visit intake",

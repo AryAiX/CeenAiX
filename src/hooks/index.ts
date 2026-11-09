@@ -14,6 +14,7 @@ export type {
 export {
   getPatientDocumentSignedUrl,
   recordPatientDocumentShare,
+  resolvePatientDocumentUrl,
   setPatientDocumentCareTeamAccess,
   softDeletePatientDocument,
   uploadPatientDocument,
