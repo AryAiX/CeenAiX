@@ -1262,7 +1262,7 @@ export const PatientLabResults: React.FC = () => {
                   {t('patient.labResults.upcomingConfirmedLab')}
                 </span>
                 <span className="text-sm font-bold text-slate-900">
-                  {upcomingPrimary.labName ?? 'Dubai Medical Laboratory'}
+                  {upcomingPrimary.labName ?? t('patient.labResults.labNotAssigned')}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1546,9 +1546,9 @@ export const PatientLabResults: React.FC = () => {
                     onClick={() => setShowBookingForm(true)}
                     className="w-full rounded-lg bg-amber-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-amber-700"
                   >
-                    {t('patient.labResults.upcomingBookCta', {
-                      labName: order.labName ?? 'Dubai Medical Laboratory',
-                    })}
+                    {order.labName
+                      ? t('patient.labResults.upcomingBookCta', { labName: order.labName })
+                      : t('patient.labResults.upcomingBookCtaNoLab')}
                   </button>
                 </div>
 

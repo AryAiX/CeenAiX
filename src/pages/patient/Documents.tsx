@@ -125,7 +125,7 @@ export const PatientDocuments = () => {
       categoryLabel: t('patient.documents.categoryLab'),
       categoryColor: '#7C3AED',
       date: order.ordered_at,
-      issuedBy: order.labName ?? t('patient.documents.ceenaixLab'),
+      issuedBy: order.labName ?? t('patient.documents.labNotRecorded'),
       contains:
         order.parentItems.length > 0
           ? order.parentItems
@@ -1166,7 +1166,7 @@ export const PatientDocuments = () => {
                         <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">{t('patient.documents.viewLab')}</span>
-                            <span className="font-bold text-slate-900">{order.labName ?? t('patient.documents.viewLabFallback')}</span>
+                            <span className="font-bold text-slate-900">{order.labName ?? t('patient.documents.labNotRecorded')}</span>
                           </div>
                           {order.labCity ? (
                             <div className="flex justify-between text-sm">

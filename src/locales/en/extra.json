@@ -1050,7 +1050,9 @@
       "shareTestCount_one": "{{count}} test",
       "shareTestCount_other": "{{count}} tests",
       "reportsRowFormat": "PDF report",
-      "trendsTargetLine": "Target: {{value}}%"
+      "trendsTargetLine": "Target: {{value}}%",
+      "labNotAssigned": "Lab not assigned yet",
+      "upcomingBookCtaNoLab": "📅 Book a lab visit"
     },
     "notifications": {
       "title": "Notifications",
@@ -1242,7 +1244,8 @@
       "noReportsTitle": "No released imaging reports yet",
       "noReportsBody": "Reports will appear here after radiology releases them.",
       "emptyBodyPatient": "Your scans and imaging reports will appear here once your doctor orders them.",
-      "viewerUnavailable": "Viewing scan images in the app isn't available yet."
+      "viewerUnavailable": "Viewing scan images in the app isn't available yet.",
+      "facilityNotRecorded": "Facility not recorded"
     },
     "insurance": {
       "title": "My Insurance",
@@ -1511,7 +1514,8 @@
       "viewTestsCount_one": "{{count}} test",
       "viewTestsCount_other": "{{count}} tests",
       "viewMedicationsCount_one": "{{count}} medication",
-      "viewMedicationsCount_other": "{{count}} medications"
+      "viewMedicationsCount_other": "{{count}} medications",
+      "labNotRecorded": "Lab not recorded"
     },
     "appointmentDetail": {
       "notFoundTitle": "Appointment not found",

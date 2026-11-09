@@ -47,7 +47,7 @@ export const PatientImaging = () => {
         date: study.releasedAt ?? study.scheduledAt ?? new Date().toISOString(),
         modality: study.modality,
         studyType: study.studyName,
-        facility: study.clinicName || t('patient.imaging.ceenaixRadiology'),
+        facility: study.clinicName || t('patient.imaging.facilityNotRecorded'),
         orderedBy: study.doctorName || t('patient.imaging.careTeam'),
         status: study.status === 'released' ? 'reviewed' as const : 'pending' as const,
         findings: [
@@ -391,7 +391,7 @@ export const PatientImaging = () => {
                   <div key={study.id} className="rounded-xl bg-violet-50 p-5">
                     <div className="font-bold text-slate-900">{study.studyName ?? t('patient.imaging.scheduledStudy')}</div>
                     <div className="text-sm text-slate-600">
-                      {formatDate(study.scheduledAt ?? new Date().toISOString())} · {study.clinicName ?? t('patient.imaging.ceenaixRadiology')}
+                      {formatDate(study.scheduledAt ?? new Date().toISOString())} · {study.clinicName ?? t('patient.imaging.facilityNotRecorded')}
                     </div>
                   </div>
                 ))}

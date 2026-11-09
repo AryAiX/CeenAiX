@@ -1112,7 +1112,9 @@
       "shareTestCount_many": "{{count}} فحصًا",
       "shareTestCount_other": "{{count}} فحص",
       "reportsRowFormat": "تقرير PDF",
-      "trendsTargetLine": "الهدف: {{value}}٪"
+      "trendsTargetLine": "الهدف: {{value}}٪",
+      "labNotAssigned": "لم يُحدَّد المختبر بعد",
+      "upcomingBookCtaNoLab": "📅 احجز زيارة للمختبر"
     },
     "notifications": {
       "title": "الإشعارات",
@@ -1304,7 +1306,8 @@
       "noReportsTitle": "لا توجد تقارير تصوير صادرة بعد",
       "noReportsBody": "ستظهر التقارير هنا بعد أن يصدرها قسم الأشعة.",
       "emptyBodyPatient": "ستظهر فحوصات الأشعة وتقاريرها هنا بعد أن يطلبها طبيبك.",
-      "viewerUnavailable": "عرض صور الفحص داخل التطبيق غير متاح بعد."
+      "viewerUnavailable": "عرض صور الفحص داخل التطبيق غير متاح بعد.",
+      "facilityNotRecorded": "المنشأة غير مسجّلة"
     },
     "insurance": {
       "title": "تأميني",
@@ -1581,7 +1584,8 @@
       "viewMedicationsCount_two": "دواءان",
       "viewMedicationsCount_few": "{{count}} أدوية",
       "viewMedicationsCount_many": "{{count}} دواءً",
-      "viewMedicationsCount_other": "{{count}} دواء"
+      "viewMedicationsCount_other": "{{count}} دواء",
+      "labNotRecorded": "المختبر غير مسجّل"
     },
     "appointmentDetail": {
       "notFoundTitle": "الموعد غير موجود",
