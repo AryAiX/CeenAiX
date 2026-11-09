@@ -219,7 +219,7 @@ export const PatientSettings = () => {
           <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
             <label className="mb-2 block text-sm font-bold text-slate-900">{t('patient.settings.language')}</label>
             <select
-              value={prefs.language}
+              value={i18n.language.startsWith('ar') ? 'ar' : 'en'}
               onChange={(event) => {
                 updatePref('language', event.target.value);
                 void i18n.changeLanguage(event.target.value);
