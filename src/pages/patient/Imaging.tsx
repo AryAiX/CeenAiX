@@ -231,7 +231,7 @@ export const PatientImaging = () => {
             <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center">
               <Scan className="mx-auto mb-4 h-12 w-12 text-slate-300" />
               <h3 className="text-lg font-bold text-slate-900">{t('patient.imaging.emptyTitle')}</h3>
-              <p className="mt-2 text-sm text-slate-500">{t('patient.imaging.emptyBody')}</p>
+              <p className="mt-2 text-sm text-slate-500">{t('patient.imaging.emptyBodyPatient')}</p>
             </div>
           ) : null}
 
@@ -289,7 +289,7 @@ export const PatientImaging = () => {
                   <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-white/10 bg-slate-800">
                     <div className="text-center">
                       <Scan className="mx-auto mb-4 h-20 w-20 text-violet-300" />
-                      <p className="font-mono text-sm text-slate-300">{t('patient.imaging.viewerPlaceholder')}</p>
+                      <p className="px-4 text-sm text-slate-300">{t('patient.imaging.viewerUnavailable')}</p>
                     </div>
                   </div>
                 </div>
@@ -399,10 +399,6 @@ export const PatientImaging = () => {
             )
           ) : null}
         </div>
-      </div>
-
-      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
-        {t('patient.imaging.dataNote')}
       </div>
     </div>
   );

@@ -1236,7 +1236,11 @@
       "noScheduledTitle": "No scheduled scans",
       "noScheduledBody": "Upcoming radiology orders will appear here when your doctor orders them.",
       "scheduledStudy": "Scheduled study",
-      "dataNote": "Imaging is data-bound to radiology-style lab order items. A dedicated imaging study/DICOM model is still needed for images, series, accession metadata, and radiologist report PDFs."
+      "dataNote": "Imaging is data-bound to radiology-style lab order items. A dedicated imaging study/DICOM model is still needed for images, series, accession metadata, and radiologist report PDFs.",
+      "noReportsTitle": "No released imaging reports yet",
+      "noReportsBody": "Reports will appear here after radiology releases them.",
+      "emptyBodyPatient": "Your scans and imaging reports will appear here once your doctor orders them.",
+      "viewerUnavailable": "Viewing scan images in the app isn't available yet."
     },
     "insurance": {
       "title": "My Insurance",
