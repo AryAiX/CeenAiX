@@ -125,7 +125,7 @@ export const PatientImaging = () => {
               {t('patient.imaging.title')}
             </div>
             <h1 className="mb-2 text-3xl font-bold">{t('patient.imaging.heroTitle')}</h1>
-            <p className="max-w-2xl text-violet-100">{t('patient.imaging.subtitle')}</p>
+            <p className="max-w-2xl text-violet-100">{t('patient.imaging.subtitlePlain')}</p>
           </div>
           <button
             type="button"
@@ -169,8 +169,8 @@ export const PatientImaging = () => {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
         {[
           { label: t('patient.imaging.kpiStudies'), value: studies.length, icon: FileText, color: 'text-violet-600', bg: 'bg-violet-100' },
-          { label: t('patient.imaging.kpiPending'), value: pendingCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
-          { label: t('patient.imaging.kpiReviewed'), value: reviewedCount, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+          { label: t('patient.imaging.kpiNotReleased'), value: pendingCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+          { label: t('patient.imaging.kpiReleased'), value: reviewedCount, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
           { label: t('patient.imaging.kpiFollowUp'), value: followUpCount, icon: Activity, color: 'text-blue-600', bg: 'bg-blue-100' },
           { label: t('patient.imaging.kpiScheduled'), value: scheduled.length, icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-100' },
         ].map((card, index) => {
@@ -267,7 +267,8 @@ export const PatientImaging = () => {
                       </div>
                     </div>
                     <span className={study.status === 'reviewed' ? 'text-sm font-bold text-emerald-600' : 'text-sm font-bold text-amber-600'}>
-                      {study.status === 'reviewed' ? t('patient.imaging.reviewed') : t('patient.imaging.awaitingReview')}
+                      {/* 'reviewed' here only means the report was released by radiology. */}
+                      {study.status === 'reviewed' ? t('patient.imaging.statusReleased') : t('patient.imaging.statusNotReleased')}
                     </span>
                   </div>
                 </button>

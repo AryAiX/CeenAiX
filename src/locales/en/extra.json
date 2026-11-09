@@ -1245,7 +1245,12 @@
       "noReportsBody": "Reports will appear here after radiology releases them.",
       "emptyBodyPatient": "Your scans and imaging reports will appear here once your doctor orders them.",
       "viewerUnavailable": "Viewing scan images in the app isn't available yet.",
-      "facilityNotRecorded": "Facility not recorded"
+      "facilityNotRecorded": "Facility not recorded",
+      "subtitlePlain": "A central place to see your radiology studies and reports.",
+      "kpiReleased": "Reports released",
+      "kpiNotReleased": "Reports pending",
+      "statusReleased": "Report released",
+      "statusNotReleased": "Report not released yet"
     },
     "insurance": {
       "title": "My Insurance",

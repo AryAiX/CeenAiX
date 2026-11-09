@@ -1307,7 +1307,12 @@
       "noReportsBody": "ستظهر التقارير هنا بعد أن يصدرها قسم الأشعة.",
       "emptyBodyPatient": "ستظهر فحوصات الأشعة وتقاريرها هنا بعد أن يطلبها طبيبك.",
       "viewerUnavailable": "عرض صور الفحص داخل التطبيق غير متاح بعد.",
-      "facilityNotRecorded": "المنشأة غير مسجّلة"
+      "facilityNotRecorded": "المنشأة غير مسجّلة",
+      "subtitlePlain": "مكان موحد لمشاهدة دراساتك الشعاعية وتقاريرها.",
+      "kpiReleased": "تقارير صادرة",
+      "kpiNotReleased": "تقارير قيد الانتظار",
+      "statusReleased": "صدر التقرير",
+      "statusNotReleased": "لم يصدر التقرير بعد"
     },
     "insurance": {
       "title": "تأميني",
