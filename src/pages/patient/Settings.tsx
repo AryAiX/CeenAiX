@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User } from 'lucide-react';
+import { Bell, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -185,7 +185,7 @@ export const PatientSettings = () => {
               className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
             >
               <Pencil className="h-4 w-4" />
-              Edit Profile
+              {t('patient.settings.editProfile')}
             </button>
           </div>
         </div>
@@ -260,7 +260,7 @@ export const PatientSettings = () => {
           kind: 'success',
           text: t('patient.settings.passwordResetSent', {
             defaultValue: 'We just emailed a password reset link to {{email}}.',
-            email: accountEmail,
+            email: `\u2066${accountEmail}\u2069`,
           }),
         });
       };
@@ -314,7 +314,7 @@ export const PatientSettings = () => {
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
               <div>
-                <div className="font-bold text-slate-900">Email Support</div>
+                <div className="font-bold text-slate-900">{t('patient.settings.emailSupport')}</div>
                 <div className="text-xs text-slate-500">support@ceenaix.com</div>
               </div>
             </button>
@@ -338,8 +338,8 @@ export const PatientSettings = () => {
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
               <div>
-                <div className="font-bold text-slate-900">Report a Bug</div>
-                <div className="text-xs text-slate-500">Help us improve CeenAiX</div>
+                <div className="font-bold text-slate-900">{t('patient.settings.reportBug')}</div>
+                <div className="text-xs text-slate-500">{t('patient.settings.reportBugHint')}</div>
               </div>
             </button>
 
@@ -350,27 +350,27 @@ export const PatientSettings = () => {
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
               <div>
-                <div className="font-bold text-slate-900">Help Center</div>
-                <div className="text-xs text-slate-500">Browse FAQs and guides</div>
+                <div className="font-bold text-slate-900">{t('patient.settings.helpCenter')}</div>
+                <div className="text-xs text-slate-500">{t('patient.settings.helpCenterHint')}</div>
               </div>
             </button>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900">App Information</h3>
+          <h3 className="text-base font-bold text-slate-900">{t('patient.settings.appInfo')}</h3>
           <div className="mt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Version</span>
+              <span className="text-slate-500">{t('patient.settings.version')}</span>
               <span className="font-semibold text-slate-900">1.0.0</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Platform</span>
-              <span className="font-semibold text-slate-900">CeenAiX Health Platform</span>
+              <span className="text-slate-500">{t('patient.settings.platform')}</span>
+              <span className="font-semibold text-slate-900">{t('patient.settings.platformName')}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Region</span>
-              <span className="font-semibold text-slate-900">UAE 🇦🇪</span>
+              <span className="text-slate-500">{t('patient.settings.region')}</span>
+              <span className="font-semibold text-slate-900">{t('patient.settings.regionUae')}</span>
             </div>
           </div>
         </div>
@@ -392,7 +392,7 @@ export const PatientSettings = () => {
             onClick={() => void refetch()}
             className="ms-2 font-semibold underline"
           >
-            Retry
+            {t('shared.retry')}
           </button>
         </div>
       ) : null}
@@ -470,41 +470,41 @@ export const PatientSettings = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Email Support</h2>
-                      <p className="text-xs text-slate-500">We typically reply within 24 hours</p>
+                      <h2 className="text-base font-bold text-slate-900">{t('patient.settings.emailSupport')}</h2>
+                      <p className="text-xs text-slate-500">{t('patient.settings.emailSupportSub')}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="rounded-xl bg-cyan-50 border border-cyan-100 p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Email</span>
+                      <span className="text-slate-500">{t('patient.settings.email')}</span>
                       <span className="font-bold text-slate-900">support@ceenaix.com</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Response Time</span>
-                      <span className="font-bold text-slate-900">Within 24 hours</span>
+                      <span className="text-slate-500">{t('patient.settings.responseTime')}</span>
+                      <span className="font-bold text-slate-900">{t('patient.settings.within24h')}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Hours</span>
-                      <span className="font-bold text-slate-900">Sunday – Thursday</span>
+                      <span className="text-slate-500">{t('patient.settings.hours')}</span>
+                      <span className="font-bold text-slate-900">{t('patient.settings.sundayToThursday')}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500">Include your account email and a description of your issue for faster resolution.</p>
+                  <p className="text-sm text-slate-500">{t('patient.settings.emailSupportTip')}</p>
                 </div>
                 <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Cancel
+                    {t('shared.cancel')}
                   </button>
                   <a
                     href={`mailto:support@ceenaix.com?subject=Support Request — ${profile?.email ?? ''}&body=Hi CeenAiX Support,%0D%0A%0D%0AAccount: ${profile?.email ?? ''}%0D%0A%0D%0AIssue description:%0D%0A`}
                     className="flex-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-cyan-700"
                     onClick={() => setSupportModal(null)}
                   >
-                    Open Email
+                    {t('patient.settings.openEmail')}
                   </a>
                 </div>
               </>
@@ -518,8 +518,8 @@ export const PatientSettings = () => {
                       <p className="text-xs text-slate-500">Chat with our support team</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-4">
@@ -541,7 +541,7 @@ export const PatientSettings = () => {
                 </div>
                 <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Cancel
+                    {t('shared.cancel')}
                   </button>
                   <a
                     href="https://wa.me/971500000000?text=Hi%20CeenAiX%20Support%2C%20I%20need%20help%20with%20my%20account."
@@ -560,37 +560,37 @@ export const PatientSettings = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Report a Bug</h2>
-                      <p className="text-xs text-slate-500">Help us improve CeenAiX</p>
+                      <h2 className="text-base font-bold text-slate-900">{t('patient.settings.reportBug')}</h2>
+                      <p className="text-xs text-slate-500">{t('patient.settings.reportBugHint')}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="rounded-xl bg-red-50 border border-red-100 p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Report To</span>
+                      <span className="text-slate-500">{t('patient.settings.reportTo')}</span>
                       <span className="font-bold text-slate-900">bugs@ceenaix.com</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Response Time</span>
-                      <span className="font-bold text-slate-900">Within 48 hours</span>
+                      <span className="text-slate-500">{t('patient.settings.responseTime')}</span>
+                      <span className="font-bold text-slate-900">{t('patient.settings.within48h')}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500">Please include steps to reproduce the bug, which page it occurred on, and any screenshots if possible.</p>
+                  <p className="text-sm text-slate-500">{t('patient.settings.bugTip')}</p>
                 </div>
                 <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Cancel
+                    {t('shared.cancel')}
                   </button>
                   <a
                     href={`mailto:bugs@ceenaix.com?subject=Bug Report — CeenAiX Patient Portal&body=Account: ${profile?.email ?? ''}%0D%0A%0D%0APage where bug occurred:%0D%0A%0D%0ASteps to reproduce:%0D%0A1. %0D%0A2. %0D%0A3. %0D%0A%0D%0AExpected behavior:%0D%0A%0D%0AActual behavior:%0D%0A`}
                     className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-red-700"
                     onClick={() => setSupportModal(null)}
                   >
-                    Send Bug Report
+                    {t('patient.settings.sendBugReport')}
                   </a>
                 </div>
               </>
@@ -600,31 +600,25 @@ export const PatientSettings = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Help Center</h2>
-                      <p className="text-xs text-slate-500">Browse FAQs and guides</p>
+                      <h2 className="text-base font-bold text-slate-900">{t('patient.settings.helpCenter')}</h2>
+                      <p className="text-xs text-slate-500">{t('patient.settings.helpCenterHint')}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-3">
-                  {[
-                    { q: 'How do I book an appointment?', a: 'Go to Appointments → New Appointment and select your preferred doctor and time slot.' },
-                    { q: 'How do I request a prescription refill?', a: 'Go to Prescriptions → find your medication → click Request Refill to message your doctor.' },
-                    { q: 'How do I view my lab results?', a: 'Go to Lab Results to see all your test results, trends and upcoming tests.' },
-                    { q: 'How do I update my insurance?', a: 'Go to Profile → Insurance section to update your insurance details.' },
-                    { q: 'How do I change my password?', a: 'Go to Settings → Security → click Email me a password reset link.' },
-                  ].map((item, idx) => (
-                    <div key={idx} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                      <div className="text-sm font-bold text-slate-900">❓ {item.q}</div>
-                      <div className="mt-1 text-sm text-slate-500">{item.a}</div>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <div key={n} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="text-sm font-bold text-slate-900">❓ {t(`patient.settings.faq.q${n}`)}</div>
+                      <div className="mt-1 text-sm text-slate-500">{t(`patient.settings.faq.a${n}`)}</div>
                     </div>
                   ))}
                 </div>
                 <div className="border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Close
+                    {t('shared.close')}
                   </button>
                 </div>
               </>
