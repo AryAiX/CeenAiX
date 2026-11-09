@@ -222,7 +222,7 @@ describe('PatientAIChat', () => {
 
     const user = userEvent.setup();
     expect(screen.getByRole('button', { name: /Review my health history/i })).toBeInTheDocument();
-    await user.type(screen.getByPlaceholderText(/Ask a question or add context/i), 'Summarize my history');
+    await user.type(screen.getByPlaceholderText(/Ask about your health/i), 'Summarize my history');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => {

@@ -169,6 +169,12 @@ export const PatientAIChat: React.FC = () => {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  // It grows the message box with what the patient types, up to its 120px max, and shrinks it back after sending.
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+  }, [input]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
@@ -1082,9 +1088,10 @@ export const PatientAIChat: React.FC = () => {
                   >
                     <Paperclip className="h-5 w-5" />
                   </button>
+                  {/* Voice input is not built yet, and the message box needs the room on phones. */}
                   <button
                     type="button"
-                    className="rounded-xl p-3 text-white/40 transition hover:bg-white/5 hover:text-white/80"
+                    className="hidden rounded-xl p-3 text-white/40 transition hover:bg-white/5 hover:text-white/80 sm:inline-flex"
                     title={t('patient.aiChat.voiceInput')}
                     aria-label={t('patient.aiChat.voiceInput')}
                     disabled
@@ -1109,7 +1116,7 @@ export const PatientAIChat: React.FC = () => {
                       maxLength={FORM_FIELD_LIMITS.chatMessage}
                       onChange={(event) => setInput(event.target.value)}
                       rows={1}
-                      placeholder={t('patient.aiChat.inputPhLong')}
+                      placeholder={pendingFiles.length > 0 ? t('patient.aiChat.inputPhLong') : t('patient.aiChat.inputPh')}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' && !event.shiftKey) {
                           event.preventDefault();

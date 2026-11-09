@@ -707,7 +707,7 @@
       "starterPrepare": "ساعِدني على التحضير لموعدي",
       "starterReviewHistory": "راجع تاريخي",
       "preparingResponse": "جاري تجهيز الرد...",
-      "inputPhLong": "اسأل سؤالاً أو أضف سياقاً عن المرفق...",
+      "inputPhLong": "اسأل عن هذا الملف...",
       "inputSrOnly": "رسالة إلى المساعد الصحي بالذكاء الاصطناعي",
       "usedPrefix": "مستخدم: {{label}}",
       "newChatShort": "جديد",
