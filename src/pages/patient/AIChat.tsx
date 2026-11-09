@@ -183,10 +183,11 @@ export const PatientAIChat: React.FC = () => {
   const [isApplyingRecordUpdates, setIsApplyingRecordUpdates] = useState(false);
 
   const sessions = data?.sessions ?? [];
+  // Empty when we have no name, so the greeting uses its own no-name wording instead of the English word "there" (which also showed in Arabic).
   const firstName = useMemo(() => {
     const fromProfile = profile?.first_name?.trim() || profile?.full_name?.trim().split(/\s+/)[0];
     const fromEmail = user?.email?.split('@')[0];
-    return fromProfile || fromEmail || 'there';
+    return fromProfile || fromEmail || '';
   }, [profile?.first_name, profile?.full_name, user?.email]);
 
   const { data: pendingCanonicalUpdatesData, refetch: refetchCanonicalUpdates } = useQuery(
@@ -304,9 +305,7 @@ export const PatientAIChat: React.FC = () => {
       const oversized = selectedFiles.find((file) => file.size > 10 * 1024 * 1024);
       if (oversized) {
         setSendError(
-          t('ai.errors.attachmentTooLarge', {
-            defaultValue: 'Attachments must be 10 MB or smaller.',
-          })
+          t('ai.errors.attachmentTooLarge')
         );
         return currentFiles;
       }
@@ -483,9 +482,7 @@ export const PatientAIChat: React.FC = () => {
         : hba1cTrend === 'stable'
           ? t('patient.aiChat.hba1cStable')
           : hba1cTrend === 'baseline'
-            ? t('patient.aiChat.hba1cBaseline', {
-                defaultValue: 'Baseline reading on file',
-              })
+            ? t('patient.aiChat.hba1cBaseline')
             : null;
 
   const bpStatusText =
@@ -710,7 +707,7 @@ export const PatientAIChat: React.FC = () => {
                         className="mb-2 text-3xl font-bold text-white"
                         style={PLAYFAIR}
                       >
-                        {t('patient.aiChat.greeting', { name: firstName })} 👋
+                        {firstName ? t('patient.aiChat.greeting', { name: firstName }) : t('patient.aiChat.greetingNoName')} 👋
                       </h2>
                       <p className="text-lg text-white/70">{t('patient.aiChat.howCanHelp')}</p>
                     </div>
@@ -873,20 +870,21 @@ export const PatientAIChat: React.FC = () => {
                                       {t('patient.aiChat.heroBrand')}
                                     </p>
                                     <p className="font-mono text-xs text-teal-400/60">
-                                      {t('patient.aiChat.personalizedFor', { name: firstName })}
+                                      {firstName ? t('patient.aiChat.personalizedFor', { name: firstName }) : t('patient.aiChat.personalizedForYou')}
                                     </p>
                                   </div>
                                 ) : null}
-                                <div className="whitespace-pre-line text-[15px] leading-relaxed text-white/90">
+                                {/* Each reply reads in its own language's direction, so an English reply in the Arabic layout no longer shows ".with your doctor". */}
+                                <div dir="auto" className="whitespace-pre-line text-[15px] leading-relaxed text-white/90">
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
                                     components={{
                                       p: ({ children }) => <p className="mt-3 first:mt-0">{children}</p>,
                                       ol: ({ children }) => (
-                                        <ol className="mt-3 list-decimal space-y-2 pl-5 first:mt-0">{children}</ol>
+                                        <ol className="mt-3 list-decimal space-y-2 ps-5 first:mt-0">{children}</ol>
                                       ),
                                       ul: ({ children }) => (
-                                        <ul className="mt-3 list-disc space-y-2 pl-5 first:mt-0">{children}</ul>
+                                        <ul className="mt-3 list-disc space-y-2 ps-5 first:mt-0">{children}</ul>
                                       ),
                                       strong: ({ children }) => (
                                         <strong className="font-semibold text-white">{children}</strong>
@@ -1028,7 +1026,7 @@ export const PatientAIChat: React.FC = () => {
                                 ))}
                               </div>
                             ) : null}
-                            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-white">
+                            <p dir="auto" className="whitespace-pre-wrap text-[15px] leading-relaxed text-white">
                               {message.content}
                             </p>
                           </div>

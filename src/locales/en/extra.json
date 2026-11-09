@@ -755,7 +755,10 @@
       "actionNotHelpful": "Not helpful",
       "actionCopy": "Copy",
       "actionShare": "Share",
-      "actionRegenerate": "Regenerate"
+      "actionRegenerate": "Regenerate",
+      "hba1cBaseline": "Baseline reading on file",
+      "greetingNoName": "Hi there!",
+      "personalizedForYou": "● Personalized for you"
     },
     "profile": {
       "title": "My Profile",
@@ -1418,7 +1421,8 @@
     "errors": {
       "invalidChatResponse": "AI chat returned an invalid response.",
       "invalidDocResponse": "AI document analysis returned an invalid response.",
-      "invalidMedEnrichment": "Medication enrichment returned an invalid response."
+      "invalidMedEnrichment": "Medication enrichment returned an invalid response.",
+      "attachmentTooLarge": "Attachments must be 10 MB or smaller."
     }
   },
   "records": {

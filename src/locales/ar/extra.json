@@ -763,7 +763,10 @@
       "actionNotHelpful": "غير مفيد",
       "actionCopy": "نسخ",
       "actionShare": "مشاركة",
-      "actionRegenerate": "إعادة إنشاء الرد"
+      "actionRegenerate": "إعادة إنشاء الرد",
+      "hba1cBaseline": "قراءة أساسية مسجّلة",
+      "greetingNoName": "مرحباً!",
+      "personalizedForYou": "● مخصص لك"
     },
     "profile": {
       "title": "ملفي الشخصي",
@@ -1470,7 +1473,8 @@
     "errors": {
       "invalidChatResponse": "أعاد المساعد الذكي ردًا غير صالح.",
       "invalidDocResponse": "أعاد تحليل المستندات بالذكاء الاصطناعي ردًا غير صالح.",
-      "invalidMedEnrichment": "أعاد إثراء معلومات الدواء ردًا غير صالح."
+      "invalidMedEnrichment": "أعاد إثراء معلومات الدواء ردًا غير صالح.",
+      "attachmentTooLarge": "يجب ألا يتجاوز حجم المرفق 10 ميغابايت."
     }
   },
   "records": {
