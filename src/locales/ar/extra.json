@@ -1110,7 +1110,8 @@
       "shareTestCount_two": "فحصان",
       "shareTestCount_few": "{{count}} فحوصات",
       "shareTestCount_many": "{{count}} فحصًا",
-      "shareTestCount_other": "{{count}} فحص"
+      "shareTestCount_other": "{{count}} فحص",
+      "reportsRowFormat": "تقرير PDF"
     },
     "notifications": {
       "title": "الإشعارات",

@@ -1829,7 +1829,7 @@ export const PatientLabResults: React.FC = () => {
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-slate-400">
-                  {t('patient.labResults.reportsRowMeta')}
+                  {t('patient.labResults.reportsRowFormat')}
                 </div>
                 {order.nabidh_reference ? (
                   <div className="mt-1 font-mono text-[10px] text-slate-300">
