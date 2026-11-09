@@ -1176,7 +1176,9 @@
         "a5": "Go to Settings → Security → tap Email me a password reset link."
       },
       "comingSoon": "Coming soon",
-      "comingSoonNote": "These settings aren't active yet. They'll be available in a future update."
+      "comingSoonNote": "These settings aren't active yet. They'll be available in a future update.",
+      "supportIntro": "Email our support team, report a bug, or browse common questions. For questions about your care, message your care team in Messages.",
+      "securityIntro": "Your account is protected with a password. If you need to change it, we'll email you a secure reset link."
     },
     "imaging": {
       "title": "Imaging & scans",

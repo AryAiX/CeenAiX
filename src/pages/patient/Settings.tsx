@@ -63,7 +63,7 @@ export const PatientSettings = () => {
   const [passwordResetMessage, setPasswordResetMessage] = useState<
     { kind: 'success' | 'error'; text: string } | null
   >(null);
-  const [supportModal, setSupportModal] = useState<'email' | 'whatsapp' | 'bug' | 'help' | null>(null);
+  const [supportModal, setSupportModal] = useState<'email' | 'bug' | 'help' | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -284,7 +284,7 @@ export const PatientSettings = () => {
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.securityTitle')}</h3>
-            <p className="mt-2 text-sm text-slate-500">{t('patient.settings.securityBody')}</p>
+            <p className="mt-2 text-sm text-slate-500">{t('patient.settings.securityIntro')}</p>
             <button
               type="button"
               onClick={() => void handleSendReset()}
@@ -319,7 +319,7 @@ export const PatientSettings = () => {
       <div className="space-y-4">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-4">
           <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.supportTitle')}</h3>
-          <p className="text-sm text-slate-500">{t('patient.settings.supportBody')}</p>
+          <p className="text-sm text-slate-500">{t('patient.settings.supportIntro')}</p>
 
           <div className="grid gap-3 md:grid-cols-2">
             <button
@@ -331,18 +331,6 @@ export const PatientSettings = () => {
               <div>
                 <div className="font-bold text-slate-900">{t('patient.settings.emailSupport')}</div>
                 <div className="text-xs text-slate-500">support@ceenaix.com</div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSupportModal('whatsapp')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-emerald-200 hover:bg-emerald-50"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
-              <div>
-                <div className="font-bold text-slate-900">WhatsApp Support</div>
-                <div className="text-xs text-slate-500">Available 9AM – 6PM GST</div>
               </div>
             </button>
 
@@ -520,52 +508,6 @@ export const PatientSettings = () => {
                     onClick={() => setSupportModal(null)}
                   >
                     {t('patient.settings.openEmail')}
-                  </a>
-                </div>
-              </>
-            ) : supportModal === 'whatsapp' ? (
-              <>
-                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
-                    <div>
-                      <h2 className="text-base font-bold text-slate-900">WhatsApp Support</h2>
-                      <p className="text-xs text-slate-500">Chat with our support team</p>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                <div className="p-6 space-y-4">
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">WhatsApp Number</span>
-                      <span className="font-bold text-slate-900">+971 50 000 0000</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Available</span>
-                      <span className="font-bold text-slate-900">9AM – 6PM GST</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Days</span>
-                      <span className="font-bold text-slate-900">Sunday – Thursday</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-slate-500">Our support team will respond to your message during working hours.</p>
-                </div>
-                <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-                  <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    {t('shared.cancel')}
-                  </button>
-                  <a
-                    href="https://wa.me/971500000000?text=Hi%20CeenAiX%20Support%2C%20I%20need%20help%20with%20my%20account."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-emerald-700"
-                    onClick={() => setSupportModal(null)}
-                  >
-                    Open WhatsApp
                   </a>
                 </div>
               </>
