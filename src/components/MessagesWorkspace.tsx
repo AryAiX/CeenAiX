@@ -851,9 +851,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-gray-900">{conversation.counterpart.name}</p>
-                            <p className="truncate text-xs text-gray-500">
-                              {conversation.counterpart.email ?? t(`${namespace}.noEmail`)}
-                            </p>
+                            {/* patients skip the "No doctor email on file" line because it does not help them. */}
+                            {conversation.counterpart.email || role !== 'patient' ? (
+                              <p className="truncate text-xs text-gray-500">
+                                {conversation.counterpart.email ?? t(`${namespace}.noEmail`)}
+                              </p>
+                            ) : null}
                           </div>
                           {conversation.unreadCount > 0 ? (
                             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${theme.badge}`}>
@@ -920,9 +923,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-lg font-bold text-gray-900">{activeConversation.counterpart.name}</p>
-                  <p className="truncate text-sm text-gray-500">
-                    {activeConversation.counterpart.email ?? t(`${namespace}.noEmail`)}
-                  </p>
+                  {activeConversation.counterpart.email || role !== 'patient' ? (
+                    <p className="truncate text-sm text-gray-500">
+                      {activeConversation.counterpart.email ?? t(`${namespace}.noEmail`)}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-gray-500">
                     {activeConversation.lastMessageAt
                       ? t(`${namespace}.lastUpdated`, {
@@ -1268,9 +1273,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   {avatarInitials(activeConversation.counterpart.name)}
                 </div>
                 <p className='mt-4 text-xl font-bold text-gray-900'>{activeConversation.counterpart.name}</p>
-                <p className='mt-1 text-sm text-gray-500'>
-                  {activeConversation.counterpart.email ?? t('messaging.noEmail')}
-                </p>
+                {activeConversation.counterpart.email || role !== 'patient' ? (
+                  <p className='mt-1 text-sm text-gray-500'>
+                    {activeConversation.counterpart.email ?? t('messaging.noEmail')}
+                  </p>
+                ) : null}
                 <span
                   className={`mt-3 rounded-full px-3 py-1 text-xs font-semibold ${
                     role === 'patient'
@@ -1288,13 +1295,15 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
               {/* Details */}
               <div className='mx-6 mb-6 divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50'>
-                <div className='flex items-center gap-3 px-4 py-3 text-sm'>
-                  <span className='text-base'>📧</span>
-                  <span className='text-gray-500'>{t('messaging.email')}</span>
-                  <span className='ms-auto font-medium text-gray-800 truncate max-w-[180px]'>
-                    {activeConversation.counterpart.email ?? t('messaging.notAvailable')}
-                  </span>
-                </div>
+                {activeConversation.counterpart.email || role !== 'patient' ? (
+                  <div className='flex items-center gap-3 px-4 py-3 text-sm'>
+                    <span className='text-base'>📧</span>
+                    <span className='text-gray-500'>{t('messaging.email')}</span>
+                    <span className='ms-auto font-medium text-gray-800 truncate max-w-[180px]'>
+                      {activeConversation.counterpart.email ?? t('messaging.notAvailable')}
+                    </span>
+                  </div>
+                ) : null}
                 <div className='flex items-center gap-3 px-4 py-3 text-sm'>
                   <span className='text-base'>👤</span>
                   <span className='text-gray-500'>{t('messaging.role')}</span>
