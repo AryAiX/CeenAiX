@@ -548,7 +548,15 @@ export const PatientAIChat: React.FC = () => {
               onClick={() => setIsHistoryOpen((value) => !value)}
               className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white sm:px-4"
             >
-              {isHistoryOpen ? t('patient.aiChat.collapseHistory') : t('patient.aiChat.chats')}
+              {/* on a phone the label stays "Chats", because the longer "Collapse chat history" squashed the header title onto four lines and the full-screen panel has its own close button. */}
+              {isHistoryOpen ? (
+                <>
+                  <span className="md:hidden">{t('patient.aiChat.chats')}</span>
+                  <span className="hidden md:inline">{t('patient.aiChat.collapseHistory')}</span>
+                </>
+              ) : (
+                t('patient.aiChat.chats')
+              )}
               {sessions.length > 0 ? (
                 <span className="rounded-full bg-teal-500/20 px-2 py-0.5 text-[10px] font-mono text-teal-200">
                   {sessions.length}
@@ -1158,21 +1166,32 @@ export const PatientAIChat: React.FC = () => {
             </div>
           </div>
 
+          {/* below md the chat history opens as a full-screen panel over the chat; it used to be hidden below md, so on a phone "Chats" opened nothing; from md up it is the side panel, as before. */}
           {isHistoryOpen ? (
-            <aside className="hidden w-72 shrink-0 flex-col border-l border-white/5 bg-slate-900/60 md:flex">
+            <aside className="fixed inset-0 z-[60] flex flex-col bg-slate-900 md:static md:inset-auto md:z-auto md:w-72 md:shrink-0 md:border-l md:border-white/5 md:bg-slate-900/60">
               <div className="border-b border-white/5 px-4 py-4">
                 <div className={`flex items-center justify-between gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
                   <div>
                     <h3 className="text-sm font-semibold text-white">{t('patient.aiChat.chats')}</h3>
                     <p className="mt-0.5 text-xs text-white/50">{t('patient.aiChat.chatsSub')}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={startNewSession}
-                    className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-teal-500/30 transition hover:bg-teal-500"
-                  >
-                    {t('patient.aiChat.newChatShort')}
-                  </button>
+                  <div className={`flex items-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+                    <button
+                      type="button"
+                      onClick={startNewSession}
+                      className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-teal-500/30 transition hover:bg-teal-500"
+                    >
+                      {t('patient.aiChat.newChatShort')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsHistoryOpen(false)}
+                      aria-label={t('shared.close')}
+                      className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white md:hidden"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
