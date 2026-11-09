@@ -335,7 +335,7 @@ export const Profile: React.FC = () => {
       <div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100/50 backdrop-blur-sm sticky top-8">
+            <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8 border border-gray-100/50 backdrop-blur-sm sticky top-8">
               <div className="text-center">
                 <div className="relative inline-block group">
                   <div className="w-36 h-36 rounded-full bg-gradient-to-br from-blue-500 via-blue-400 to-cyan-400 flex items-center justify-center overflow-hidden border-4 border-white shadow-2xl ring-4 ring-blue-50">
@@ -447,13 +447,13 @@ export const Profile: React.FC = () => {
 
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <User className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.personalTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.personalTitle')}</h3>
                     <p className="text-blue-100 text-sm mt-1">{t('patient.profile.personalSub')}</p>
                   </div>
                 </div>
@@ -467,7 +467,7 @@ export const Profile: React.FC = () => {
                       setIsEditingPersonal(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isEditingPersonal ? (
                     savingPersonal ? (
@@ -480,7 +480,7 @@ export const Profile: React.FC = () => {
                   <span>{isEditingPersonal ? (savingPersonal ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editProfile')}</span>
                 </button>
               </div>
-              <div className="p-6">
+              <div className="p-5 sm:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.fullName')}</label>
@@ -524,7 +524,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -554,7 +554,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -601,7 +601,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -624,7 +624,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -636,32 +636,32 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <Camera className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.emiratesTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.emiratesTitle')}</h3>
                     <p className="text-emerald-100 text-sm mt-1">{t('patient.profile.emiratesSub')}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleScanEmiratesId}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Camera className="w-5 h-5" />
                   <span>{t('patient.profile.scanId')}</span>
                 </button>
               </div>
-              <div className="p-8">
+              <div className="p-5 sm:p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.frontSide')}</label>
                     <div
                       onClick={() => handleImageUpload('emiratesFront')}
-                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
+                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
                     >
                       {emiratesIdFront ? (
                         <img src={emiratesIdFront} alt={t('patient.profile.altEmiratesFront')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
@@ -682,7 +682,7 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.backSide')}</label>
                     <div
                       onClick={() => handleImageUpload('emiratesBack')}
-                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
+                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
                     >
                       {emiratesIdBack ? (
                         <img src={emiratesIdBack} alt={t('patient.profile.altEmiratesBack')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
@@ -704,13 +704,13 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <Shield className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.insuranceTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.insuranceTitle')}</h3>
                     <p className="text-violet-100 text-sm mt-1">{t('patient.profile.insuranceSub')}</p>
                   </div>
                 </div>
@@ -724,7 +724,7 @@ export const Profile: React.FC = () => {
                       setIsEditingInsurance(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isEditingInsurance ? (
                     savingInsurance ? (
@@ -737,7 +737,7 @@ export const Profile: React.FC = () => {
                   <span>{isEditingInsurance ? (savingInsurance ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editInsurance')}</span>
                 </button>
               </div>
-              <div className="p-8">
+              <div className="p-5 sm:p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.insuranceProvider')}</label>
@@ -813,7 +813,7 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.insuranceCardLabel')}</label>
                     <div
                       onClick={() => isEditingInsurance && handleImageUpload('insurance')}
-                      className={`group border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center transition-all duration-300 ${isEditingInsurance ? 'cursor-pointer hover:border-violet-500 hover:bg-violet-50/50' : 'cursor-not-allowed opacity-75'}`}
+                      className={`group border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 transition-all duration-300 ${isEditingInsurance ? 'cursor-pointer hover:border-violet-500 hover:bg-violet-50/50' : 'cursor-not-allowed opacity-75'}`}
                     >
                       {insuranceInfo.cardImage ? (
                         <img src={insuranceInfo.cardImage} alt={t('patient.profile.altInsuranceCard')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
@@ -835,26 +835,26 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-orange-600 to-amber-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-orange-600 to-amber-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <Users className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.familyTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.familyTitle')}</h3>
                     <p className="text-orange-100 text-sm mt-1">{t('patient.profile.familySub')}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowAddFamily(true)}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />
                   <span>{t('patient.profile.addMember')}</span>
                 </button>
               </div>
-              <div className="p-8">
+              <div className="p-5 sm:p-8">
                 <FamilyTree
                   members={familyMembers}
                   primaryUser={{
@@ -873,7 +873,7 @@ export const Profile: React.FC = () => {
                       {familyMembers.map((member) => (
                         <div key={member.id} className="group border-2 border-gray-200 rounded-2xl p-5 hover:shadow-xl hover:border-orange-200 transition-all duration-300 bg-gradient-to-br from-white to-orange-50/30">
                           <div className="flex items-start justify-between">
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center gap-4">
                               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-400 to-amber-400 flex items-center justify-center ring-4 ring-orange-100 group-hover:ring-orange-200 transition-all duration-300">
                                 {member.profileImage ? (
                                   <img src={member.profileImage} alt={member.name} className="w-full h-full rounded-full object-cover" />
@@ -954,7 +954,7 @@ export const Profile: React.FC = () => {
                         />
                       </div>
                     </div>
-                    <div className="flex space-x-3 mt-6">
+                    <div className="mt-6 flex gap-3">
                       <button
                         type="button"
                         onClick={() => void addFamilyMember()}
