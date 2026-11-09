@@ -13,6 +13,7 @@ import {
   ChevronRight,
   FlaskConical,
   Heart,
+  Lightbulb,
   MapPin,
   Minus,
   RefreshCw,
@@ -60,8 +61,8 @@ const getDisplayName = (fullName: string | null | undefined, firstName: string |
   return '';
 };
 
+// General, fixed wellness tips.
 const AI_HEALTH_TIPS_EN = [
-  'Your recent readings have improved compared with last week. Keep your medication and diet routine steady to stay on track for your target.',
   'Staying hydrated helps regulate blood pressure. Aim for at least 8 glasses of water throughout the day.',
   'Even a 20-minute walk after meals can meaningfully lower your post-meal blood sugar levels over time.',
   'Consistent sleep of 7–8 hours per night supports both blood pressure control and metabolic health.',
@@ -70,7 +71,6 @@ const AI_HEALTH_TIPS_EN = [
 ];
 
 const AI_HEALTH_TIPS_AR = [
-  'تحسنت قراءاتك الأخيرة مقارنة بالأسبوع الماضي. حافظ على روتين الدواء والغذاء للوصول إلى الهدف في الأشهر المقبلة.',
   'يساعد شرب كميات كافية من الماء في تنظيم ضغط الدم. احرص على تناول 8 أكواب على مدار اليوم.',
   'المشي لمدة 20 دقيقة بعد الوجبات يقلل بشكل ملحوظ من مستوى السكر في الدم بعد الأكل.',
   'النوم المنتظم من 7 إلى 8 ساعات يوميًا يدعم صحة ضغط الدم والتمثيل الغذائي.',
@@ -222,7 +222,7 @@ export const PatientDashboard: React.FC = () => {
             messagesTitle: 'الرسائل',
             newMessages: '{{count}} جديدة',
             newMessage: '+ رسالة جديدة',
-            aiTipTitle: 'نصيحة صحية من الذكاء الاصطناعي',
+            aiTipTitle: 'نصيحة صحية',
             details: 'التفاصيل',
             directions: 'الاتجاهات',
             bookApptShort: 'حجز موعد',
@@ -278,7 +278,7 @@ export const PatientDashboard: React.FC = () => {
             messagesTitle: 'Messages',
             newMessages: '{{count}} new',
             newMessage: '+ New Message',
-            aiTipTitle: 'AI Health Tip',
+            aiTipTitle: 'Health tip',
             details: 'Details',
             directions: 'Directions',
             bookApptShort: 'Book Appt',
@@ -310,6 +310,8 @@ export const PatientDashboard: React.FC = () => {
     })
   );
   const healthScoreValue = dashboardData?.healthScore ?? null;
+  // The score is an unapproved formula, so it is hidden until a clinically approved method exists. Set to true to show it again.
+  const SHOW_HEALTH_SCORE = false;
   const adherenceValue = dashboardData?.adherencePercentage ?? null;
   // The label now follows the score.
   const scoreBand =
@@ -564,18 +566,20 @@ export const PatientDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
-            <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
-            <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-teal-600">
-                {healthScoreValue === null ? localCopy.noData : formatLocaleDigits(healthScoreValue, i18n.language)}
-              </span>
-              {healthScoreValue === null ? null : <span className="text-sm text-slate-400">/100</span>}
+          {SHOW_HEALTH_SCORE ? (
+            <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
+              <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
+              <div className="mt-1 flex items-baseline justify-center gap-1">
+                <span className="text-3xl font-bold text-teal-600">
+                  {healthScoreValue === null ? localCopy.noData : formatLocaleDigits(healthScoreValue, i18n.language)}
+                </span>
+                {healthScoreValue === null ? null : <span className="text-sm text-slate-400">/100</span>}
+              </div>
+              {scoreBand ? (
+                <p className={`mt-0.5 text-xs font-semibold ${scoreBand.className}`}>{scoreBand.label}</p>
+              ) : null}
             </div>
-            {scoreBand ? (
-              <p className={`mt-0.5 text-xs font-semibold ${scoreBand.className}`}>{scoreBand.label}</p>
-            ) : null}
-          </div>
+          ) : null}
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.adherence}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
@@ -1157,7 +1161,7 @@ export const PatientDashboard: React.FC = () => {
           <div className="rounded-2xl border border-teal-100 bg-white p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50">
-                <Bot className="h-4 w-4 text-teal-600" />
+                <Lightbulb className="h-4 w-4 text-teal-600" />
               </div>
               <div className="flex-1">
                 <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-teal-600">{localCopy.aiTipTitle}</p>
