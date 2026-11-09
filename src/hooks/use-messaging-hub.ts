@@ -21,6 +21,10 @@ const errLoadConversations = () =>
   i18n.t('messaging.errLoadConversations', { defaultValue: 'Unable to load conversations.' });
 const errLoadMessages = () =>
   i18n.t('messaging.errLoadMessages', { defaultValue: 'Unable to load messages.' });
+const errDeleteMessage = () =>
+  i18n.t('messaging.errDeleteMessage', { defaultValue: 'Unable to delete message.' });
+const errEditMessage = () =>
+  i18n.t('messaging.errEditMessage', { defaultValue: 'Unable to edit message.' });
 
 interface UserProfileRow {
   user_id: string;
@@ -431,7 +435,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : 'Unable to delete message.');
+        setActionError(error instanceof Error ? error.message : errDeleteMessage());
         return false;
       } finally {
         setWorking(false);
@@ -457,7 +461,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await loadMessages(activeConversationId);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : 'Unable to edit message.');
+        setActionError(error instanceof Error ? error.message : errEditMessage());
         return false;
       } finally {
         setWorking(false);

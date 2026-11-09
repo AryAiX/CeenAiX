@@ -935,7 +935,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   type='button'
                   onClick={() => setShowProfileModal(true)}
                   className='rounded-lg p-1 text-gray-300 transition hover:bg-gray-100 hover:text-gray-500'
-                  title='View profile'
+                  title={t('messaging.viewProfile')}
+                  aria-label={t('messaging.viewProfile')}
                 >
                   <ChevronRight className='h-5 w-5 rtl:rotate-180' />
                 </button>
@@ -980,13 +981,13 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 return undoMessageId === message.id ? (
                   <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                     <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                      <span className="text-sm text-amber-700">Message deleted</span>
+                      <span className="text-sm text-amber-700">{t('messaging.messageDeleted')}</span>
                       <button
                         type="button"
                         onClick={() => handleUndoDelete(message.id)}
                         className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
                       >
-                        Undo
+                        {t('messaging.undo')}
                       </button>
                     </div>
                   </div>
@@ -1015,14 +1016,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                               onClick={() => handleEditMessage(message.id, message.body)}
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
                             >
-                              Edit
+                              {t('messaging.edit')}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteMessage(message.id)}
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
                             >
-                              Delete
+                              {t('messaging.delete')}
                             </button>
                           </div>
                         ) : null}
@@ -1049,14 +1050,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                             disabled={savingEdit || !editingMessageText.trim()}
                             className='rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/30 disabled:opacity-60'
                           >
-                            {savingEdit ? 'Saving...' : 'Save'}
+                            {savingEdit ? t('messaging.saving') : t('messaging.save')}
                           </button>
                           <button
                             type="button"
                             onClick={handleCancelEdit}
                             className="rounded-lg px-3 py-1 text-xs font-medium text-white/70 transition hover:text-white"
                           >
-                            Cancel
+                            {t('messaging.cancel')}
                           </button>
                         </div>
                       </div>
@@ -1066,9 +1067,9 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     {isOwn && editingMessageId !== message.id ? (
                       <div className="mt-1 flex items-center justify-end gap-1">
                         {message.read_at ? (
-                          <span className="text-[10px] text-white/70">✓✓ Read</span>
+                          <span className="text-[10px] text-white/70">✓✓ {t('messaging.read')}</span>
                         ) : (
-                          <span className="text-[10px] text-white/60">✓ Sent</span>
+                          <span className="text-[10px] text-white/60">✓ {t('messaging.sent')}</span>
                         )}
                       </div>
                     ) : null}
@@ -1125,7 +1126,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     type="button"
                     onClick={removeAttachment}
                     className="flex-shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-                    aria-label="Remove attachment"
+                    aria-label={t('messaging.removeAttachment')}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -1204,12 +1205,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
-                    title="Attach file"
+                    title={t('messaging.attachFile')}
                   >
                     <Paperclip className="h-4 w-4" />
-                    <span>Attach</span>
+                    <span>{t('messaging.attach')}</span>
                   </button>
-                  <p className="text-xs text-gray-400">Images, PDF, Word, TXT</p>
+                  <p className="text-xs text-gray-400">{t('messaging.attachHint')}</p>
                 </div>
                 <button
                   type="submit"
@@ -1246,11 +1247,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
             >
               {/* Header */}
               <div className='flex items-center justify-between border-b border-gray-100 px-5 py-4'>
-                <h3 className='font-bold text-gray-900'>Profile Details</h3>
+                <h3 className='font-bold text-gray-900'>{t('messaging.profileTitle')}</h3>
                 <button
                   type='button'
                   onClick={() => setShowProfileModal(false)}
                   className='rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
+                  aria-label={t('shared.close')}
                 >
                   <X className='h-5 w-5' />
                 </button>
@@ -1267,7 +1269,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
                 <p className='mt-4 text-xl font-bold text-gray-900'>{activeConversation.counterpart.name}</p>
                 <p className='mt-1 text-sm text-gray-500'>
-                  {activeConversation.counterpart.email ?? 'No email'}
+                  {activeConversation.counterpart.email ?? t('messaging.noEmail')}
                 </p>
                 <span
                   className={`mt-3 rounded-full px-3 py-1 text-xs font-semibold ${
@@ -1280,7 +1282,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                       : 'bg-blue-100 text-blue-700'
                   }`}
                 >
-                  {role === 'patient' ? 'Doctor' : role === 'pharmacy' ? 'Patient' : role === 'clinic' ? 'Contact' : 'Patient'}
+                  {role === 'patient' ? t('messaging.roleDoctor') : role === 'clinic' ? t('messaging.roleContact') : t('messaging.rolePatient')}
                 </span>
               </div>
 
@@ -1288,16 +1290,16 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               <div className='mx-6 mb-6 divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50'>
                 <div className='flex items-center gap-3 px-4 py-3 text-sm'>
                   <span className='text-base'>📧</span>
-                  <span className='text-gray-500'>Email</span>
-                  <span className='ml-auto font-medium text-gray-800 truncate max-w-[180px]'>
-                    {activeConversation.counterpart.email ?? 'Not available'}
+                  <span className='text-gray-500'>{t('messaging.email')}</span>
+                  <span className='ms-auto font-medium text-gray-800 truncate max-w-[180px]'>
+                    {activeConversation.counterpart.email ?? t('messaging.notAvailable')}
                   </span>
                 </div>
                 <div className='flex items-center gap-3 px-4 py-3 text-sm'>
                   <span className='text-base'>👤</span>
-                  <span className='text-gray-500'>Role</span>
-                  <span className='ml-auto font-medium text-gray-800'>
-                    {role === 'patient' ? 'Healthcare Provider' : role === 'clinic' ? 'Contact' : 'Patient'}
+                  <span className='text-gray-500'>{t('messaging.role')}</span>
+                  <span className='ms-auto font-medium text-gray-800'>
+                    {role === 'patient' ? t('messaging.roleHealthcareProvider') : role === 'clinic' ? t('messaging.roleContact') : t('messaging.rolePatient')}
                   </span>
                 </div>
               </div>
@@ -1309,7 +1311,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   onClick={() => setShowProfileModal(false)}
                   className={`w-full rounded-xl bg-gradient-to-r py-2.5 text-sm font-semibold text-white transition hover:opacity-90 ${theme.button}`}
                 >
-                  Message
+                  {t('messaging.messageButton')}
                 </button>
               </div>
             </div>
