@@ -208,18 +208,18 @@ const WhatsAppIcon = () => (
 
 const SHARE_METHODS: Array<{
   id: 'link' | 'email' | 'whatsapp';
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
 }> = [
-  { id: 'link', label: 'Secure Link', icon: <Link className="h-5 w-5" /> },
-  { id: 'email', label: 'Email', icon: <Mail className="h-5 w-5" /> },
-  { id: 'whatsapp', label: 'WhatsApp', icon: <WhatsAppIcon /> },
+  { id: 'link', labelKey: 'patient.labResults.shareMethodLink', icon: <Link className="h-5 w-5" /> },
+  { id: 'email', labelKey: 'patient.labResults.shareMethodEmail', icon: <Mail className="h-5 w-5" /> },
+  { id: 'whatsapp', labelKey: 'patient.labResults.shareMethodWhatsapp', icon: <WhatsAppIcon /> },
 ];
 
-const METHOD_SUCCESS_MESSAGE: Record<'link' | 'email' | 'whatsapp', string> = {
-  link: 'Report text copied to clipboard. Paste and share securely.',
-  email: 'Your email client has opened with the report pre-filled.',
-  whatsapp: 'WhatsApp has opened with the report ready to send.',
+const METHOD_SUCCESS_KEY: Record<'link' | 'email' | 'whatsapp', string> = {
+  link: 'patient.labResults.shareSuccessLink',
+  email: 'patient.labResults.shareSuccessEmail',
+  whatsapp: 'patient.labResults.shareSuccessWhatsapp',
 };
 
 const ShareModal: React.FC<ShareModalProps> = ({
@@ -231,6 +231,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   onShare,
   onClose,
 }) => {
+  const { t } = useTranslation('common');
   const dateStr = formatDate(language, order.results_released_at ?? order.ordered_at, true);
 
   return createPortal(
@@ -249,9 +250,9 @@ const ShareModal: React.FC<ShareModalProps> = ({
               <Share2 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Share Report</h2>
+              <h2 className="text-base font-bold text-slate-900">{t('patient.labResults.shareTitle')}</h2>
               <p className="text-xs text-slate-500">
-                {order.labName ?? 'Lab'} · {dateStr}
+                {order.labName ?? t('patient.labResults.shareLabFallback')} · {dateStr}
               </p>
             </div>
           </div>
@@ -259,7 +260,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
             type="button"
             onClick={onClose}
             className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-            aria-label="Close"
+            aria-label={t('patient.labResults.shareClose')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -272,16 +273,16 @@ const ShareModal: React.FC<ShareModalProps> = ({
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
                 <CheckCircle className="h-9 w-9 text-emerald-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Report Shared!</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('patient.labResults.shareSuccessTitle')}</h3>
               <p className="mx-auto mt-2 max-w-xs text-sm text-slate-500">
-                {METHOD_SUCCESS_MESSAGE[shareMethod]}
+                {t(METHOD_SUCCESS_KEY[shareMethod])}
               </p>
               <button
                 type="button"
                 onClick={onClose}
                 className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
               >
-                Done
+                {t('patient.labResults.shareDone')}
               </button>
             </div>
           ) : (
@@ -294,10 +295,10 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
                 <div>
                   <div className="text-sm font-bold text-slate-900">
-                    {order.labName ?? 'Lab Report'}
+                    {order.labName ?? t('patient.labResults.shareReportFallback')}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {dateStr} · {order.parentItems.length} test{order.parentItems.length !== 1 ? 's' : ''}
+                    {dateStr} · {t('patient.labResults.shareTestCount', { count: order.parentItems.length })}
                   </div>
                 </div>
               </div>
@@ -318,7 +319,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                       }`}
                     >
                       {m.icon}
-                      {m.label}
+                      {t(m.labelKey)}
                     </button>
                   );
                 })}
@@ -326,7 +327,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
               {/* Disclaimer */}
               <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                ⚠️ Only share with authorized healthcare providers. Recipient will have view-only access.
+                ⚠️ {t('patient.labResults.shareDisclaimer')}
               </div>
 
               {/* Actions */}
@@ -336,14 +337,14 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   onClick={onClose}
                   className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('patient.labResults.shareCancel')}
                 </button>
                 <button
                   type="button"
                   onClick={onShare}
                   className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                 >
-                  Share
+                  {t('patient.labResults.shareConfirm')}
                 </button>
               </div>
             </>
@@ -620,12 +621,13 @@ export const PatientLabResults: React.FC = () => {
                 className="animate-slideUp cursor-pointer rounded-2xl border-l-[5px] bg-white shadow-sm transition-all duration-300 hover:shadow-lg"
                 onClick={() => toggleTest(item.id)}
               >
-                <div className="p-6">
-                  <div className="flex items-start gap-6">
-                    <div className="w-60 flex-shrink-0">
+                <div className="p-4 sm:p-6">
+                  {/* On a phone name, result and trend stack; from md up they sit side by side as before, because side by side on a phone they pushed the result off the screen. */}
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+                    <div className="w-full md:w-60 md:flex-shrink-0">
                       <div className="flex items-start gap-3">
                         <div
-                          className="flex h-11 w-11 items-center justify-center rounded-full"
+                          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full"
                           style={{ backgroundColor: withAlpha(color, 0.18) }}
                         >
                           {item.status_category === 'normal' ? (
@@ -650,10 +652,10 @@ export const PatientLabResults: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       {subTests.length === 0 ? (
                         <>
-                          <div className="mb-3 flex items-baseline gap-2">
+                          <div className="mb-3 flex flex-wrap items-baseline gap-2">
                             {item.numeric_value != null ? (
                               <>
                                 <div className="font-mono text-4xl font-bold" style={{ color }}>
@@ -682,7 +684,8 @@ export const PatientLabResults: React.FC = () => {
                           </div>
 
                           {zones && zones.length > 0 && axisMax ? (
-                            <div className="mb-3">
+                            /* In the Arabic layout the labels flipped, so "4–5.6 %" read as "% 5.6–4". */
+                            <div className="mb-3" dir="ltr">
                               <div className="relative h-3 overflow-hidden rounded-full bg-slate-100">
                                 {zones.map((zone, zIdx) => {
                                   const zoneMin = zone.min ?? 0;
@@ -734,7 +737,7 @@ export const PatientLabResults: React.FC = () => {
                               </div>
                             </div>
                           ) : item.numeric_value != null && getZonePosition(item) != null ? (
-                            <div className="mb-3">
+                            <div className="mb-3" dir="ltr">
                               <div className="relative h-3 overflow-hidden rounded-full bg-slate-100">
                                 <div
                                   className="absolute h-full"
@@ -816,7 +819,7 @@ export const PatientLabResults: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="w-44 flex-shrink-0">
+                    <div className="w-full md:w-44 md:flex-shrink-0">
                       {trend && trend.points.length > 1 ? (
                         <div className="mb-3">
                           <div className="mb-2 text-xs uppercase text-slate-400">
@@ -951,10 +954,14 @@ export const PatientLabResults: React.FC = () => {
               </div>
               {hba1c.delta != null ? (
                 <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  {t('patient.labResults.trendsDelta', {
-                    delta: hba1c.delta,
-                    direction: hba1c.direction ?? 'stable',
-                  })}
+                  {t(
+                    hba1c.direction === 'improving'
+                      ? 'patient.labResults.trendsDeltaImproving'
+                      : hba1c.direction === 'worsening'
+                        ? 'patient.labResults.trendsDeltaWorsening'
+                        : 'patient.labResults.trendsDeltaStable',
+                    { delta: hba1c.delta }
+                  )}
                 </div>
               ) : null}
             </div>
@@ -1113,12 +1120,13 @@ export const PatientLabResults: React.FC = () => {
               style={{ animationDelay: `${idx * 60}ms` }}
               className="animate-slideUp rounded-xl border-l-4 border-teal-500 bg-white shadow-sm transition-all duration-300 hover:shadow-md"
             >
+              {/* On a phone the badges sit under the lab name and the arrow in the top corner, instead of all on one line that pushed the badges off the screen. */}
               <div
-                className="flex cursor-pointer items-center justify-between p-5"
+                className="relative flex cursor-pointer flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
                 onClick={() => toggleVisit(order.id)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-600">
+                <div className="flex min-w-0 items-center gap-4 pe-8 sm:pe-0">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-600">
                     {order.labShortCode ?? order.labName?.slice(0, 3).toUpperCase() ?? 'LAB'}
                   </div>
                   <div>
@@ -1138,7 +1146,7 @@ export const PatientLabResults: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 sm:flex-nowrap sm:gap-3">
                   {order.normalCount > 0 ? (
                     <span className="rounded bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
                       {t('patient.labResults.normalCountBadge', { count: order.normalCount })}
@@ -1157,25 +1165,26 @@ export const PatientLabResults: React.FC = () => {
                     </span>
                   ) : null}
                   {isExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-slate-400" />
+                    <ChevronUp className="absolute end-4 top-4 h-5 w-5 text-slate-400 sm:static" />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-slate-400" />
+                    <ChevronDown className="absolute end-4 top-4 h-5 w-5 text-slate-400 sm:static" />
                   )}
                 </div>
               </div>
 
               {isExpanded ? (
-                <div className="space-y-2 border-t border-slate-100 px-5 pb-5 pt-4">
+                <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
                   {order.parentItems.map((item) => {
                     const color = STATUS_COLOR[item.status_category];
                     return (
+                      // On a phone, name on the first line, value and status on the next.
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-lg bg-slate-50 p-3"
+                        className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                            className="flex h-8 min-w-[2rem] flex-shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-bold"
                             style={{ backgroundColor: withAlpha(color, 0.2), color }}
                           >
                             {item.numeric_value ?? '—'}
@@ -1191,17 +1200,17 @@ export const PatientLabResults: React.FC = () => {
                             ) : null}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="font-mono text-sm font-bold text-slate-900">
-                              {renderValue(item)}
+                        <div className="flex items-center justify-between gap-3 ps-11 sm:justify-end sm:ps-0">
+                          <div className="text-start sm:text-right">
+                            <div className="whitespace-nowrap font-mono text-sm font-bold text-slate-900">
+                              <span dir="ltr">{renderValue(item)}</span>
                             </div>
                             {item.reference_text ? (
-                              <div className="text-xs text-slate-500">{item.reference_text}</div>
+                              <div className="text-xs text-slate-500"><span dir="ltr" className="whitespace-nowrap">{item.reference_text}</span></div>
                             ) : null}
                           </div>
                           <div
-                            className="rounded-full px-3 py-1 text-xs font-bold"
+                            className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold"
                             style={{ backgroundColor: withAlpha(color, 0.2), color }}
                           >
                             {t(`patient.labResults.${statusBadgeKey(item.status_category)}`)}
@@ -1580,10 +1589,7 @@ export const PatientLabResults: React.FC = () => {
                         {t('patient.labResults.upcomingConfirmBtn')}
                       </button>
                       <p className="mt-2 text-center text-xs text-slate-500">
-                        {t('patient.labResults.bookingComingSoonNote', {
-                          defaultValue:
-                            'Online lab booking is not available yet. Message your doctor to schedule collection.',
-                        })}
+                        {t('patient.labResults.bookingComingSoonNote')}
                       </p>
                     </div>
                   </div>
@@ -1792,13 +1798,14 @@ export const PatientLabResults: React.FC = () => {
           <div
             key={order.id}
             style={{ animationDelay: `${idx * 60}ms` }}
-            className="animate-slideUp rounded-xl bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md"
+            className="animate-slideUp rounded-xl bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md sm:p-5"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
+            {/* On a phone the buttons drop onto their own line (Download full width, Preview and Share side by side) instead of being pushed off the screen. */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-red-100">
                 <FileText className="h-6 w-6 text-red-600" />
               </div>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <h4 className="text-base font-bold text-slate-900">
                   {t('patient.labResults.reportsRowTitle', {
                     labName: order.labName ?? t('patient.labResults.orderedByFallback'),
@@ -1830,11 +1837,11 @@ export const PatientLabResults: React.FC = () => {
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
                 <button
                   type="button"
                   onClick={() => handleDownload(order)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
+                  className="col-span-2 inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
                 >
                   <Download className="h-4 w-4" />
                   {t('patient.labResults.reportsDownloadBtn')}
@@ -1842,7 +1849,7 @@ export const PatientLabResults: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewOrder(order)}
-                  className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Eye className="h-4 w-4" />
                   {t('patient.labResults.reportsPreviewBtn')}
@@ -1850,7 +1857,7 @@ export const PatientLabResults: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShareOrder(order)}
-                  className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Share2 className="h-4 w-4" />
                   {t('patient.labResults.reportsShareBtn')}
@@ -2102,14 +2109,19 @@ export const PatientLabResults: React.FC = () => {
         className="rounded-2xl bg-white shadow-sm animate-slideUp"
         style={{ animationDelay: '160ms' }}
       >
-        <div className="border-b border-slate-100 px-6">
-          <div className="flex flex-wrap gap-6">
+        {/* On a phone the five tabs are wider than the screen; they used to wrap onto three rows, and now they stay on one row that scrolls inside the card, as on Medications. */}
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
+                onClick={(event) => {
+                  setActiveTab(tab.id);
+                  // The jsdom test environment has no scrollIntoView.
+                  event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }}
+                className={`relative whitespace-nowrap px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
                   activeTab === tab.id ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
@@ -2165,7 +2177,7 @@ export const PatientLabResults: React.FC = () => {
                 type="button"
                 onClick={() => setPreviewOrder(null)}
                 className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-                aria-label="Close preview"
+                aria-label={t('patient.labResults.previewCloseAria')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -2188,7 +2200,7 @@ export const PatientLabResults: React.FC = () => {
                     <div>
                       <div className="text-sm font-bold text-slate-900">{item.test_name}</div>
                       {item.reference_text ? (
-                        <div className="text-xs text-slate-400">{item.reference_text}</div>
+                        <div className="text-xs text-slate-400"><span dir="ltr">{item.reference_text}</span></div>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-3">
@@ -2233,7 +2245,7 @@ export const PatientLabResults: React.FC = () => {
                 onClick={() => setPreviewOrder(null)}
                 className="rounded-lg border-2 border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
-                Close
+                {t('patient.labResults.previewClose')}
               </button>
             </div>
           </div>

@@ -140,7 +140,8 @@ export interface PatientDashboardData {
   labsSummary: DashboardLabsSummary;
   insurance: DashboardInsuranceSummary | null;
   recentMessages: DashboardMessagePreview[];
-  healthScore: number;
+  /** null means there was no clinical input to score. */
+  healthScore: number | null;
   adherencePercentage: number | null;
 }
 
@@ -176,6 +177,11 @@ const computeHealthScore = ({
   adherencePercentage: number | null;
   labsStatus: DashboardLabsSummary['latestStatus'];
 }) => {
+  // Returning a number here would present the baseline as a measurement.
+  if (!latestHba1c && !latestBloodPressure && adherencePercentage === null) {
+    return null;
+  }
+
   let score = 78;
 
   if (latestHba1c) {

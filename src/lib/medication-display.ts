@@ -67,11 +67,17 @@ const ARABIC_INDIC_TO_WESTERN: Record<string, string> = {
   '٩': '9',
 };
 
+// Vocabulary-sourced frequencies arrive already localized. This map is the
+// fallback for free text, and both wordings resolve to the same leaf.
 const FREQUENCY_KEY: Record<string, string> = {
   'once daily': 'onceDaily',
+  'once a day': 'onceDaily',
   'twice daily': 'twiceDaily',
+  'twice a day': 'twiceDaily',
   'three times daily': 'threeTimesDaily',
+  'three times a day': 'threeTimesDaily',
   'four times daily': 'fourTimesDaily',
+  'four times a day': 'fourTimesDaily',
   'every 12 hours': 'every12Hours',
   'every 8 hours': 'every8Hours',
   'every 6 hours': 'every6Hours',

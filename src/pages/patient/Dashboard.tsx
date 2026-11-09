@@ -26,7 +26,14 @@ import {
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
 import { useAuth } from '../../lib/auth-context';
-import { useMedicationLogs, usePatientDashboard } from '../../hooks';
+import {
+  BP_LIMITS,
+  useMedicationLogs,
+  usePatientDashboard,
+  usePatientVitals,
+  validateBloodPressure,
+  type BloodPressureValidationError,
+} from '../../hooks';
 import {
   dateTimeFormatWithNumerals,
   formatLocaleDecimal,
@@ -92,6 +99,12 @@ export const PatientDashboard: React.FC = () => {
     error: medicationLogError,
     markTaken: markMedicationTaken,
   } = useMedicationLogs(user?.id);
+  const {
+    saving: bpSaving,
+    error: bpSaveError,
+    clearError: clearBpError,
+    recordBloodPressure,
+  } = usePatientVitals(user?.id);
 
   const handleMarkTaken = async (medicationId: string) => {
     await markMedicationTaken(medicationId);
@@ -103,6 +116,7 @@ export const PatientDashboard: React.FC = () => {
   const [bpModalOpen, setBpModalOpen] = useState(false);
   const [bpSystolic, setBpSystolic] = useState('');
   const [bpDiastolic, setBpDiastolic] = useState('');
+  const [bpValidationError, setBpValidationError] = useState<BloodPressureValidationError | null>(null);
 
   const [aiTipIndex, setAiTipIndex] = useState(0);
 
@@ -115,11 +129,37 @@ export const PatientDashboard: React.FC = () => {
     });
   };
 
-  const handleBpSave = () => {
+  const closeBpModal = () => {
     setBpModalOpen(false);
     setBpSystolic('');
     setBpDiastolic('');
+    setBpValidationError(null);
+    clearBpError();
   };
+
+  const handleBpSave = async () => {
+    const systolic = Number.parseInt(bpSystolic, 10);
+    const diastolic = Number.parseInt(bpDiastolic, 10);
+    if (!Number.isFinite(systolic) || !Number.isFinite(diastolic)) {
+      return;
+    }
+
+    const problem = validateBloodPressure(systolic, diastolic);
+    if (problem) {
+      setBpValidationError(problem);
+      return;
+    }
+
+    setBpValidationError(null);
+    const saved = await recordBloodPressure(systolic, diastolic);
+    if (saved) {
+      closeBpModal();
+      await refetchDashboard();
+    }
+  };
+
+  const bpIsComplete =
+    Number.isFinite(Number.parseInt(bpSystolic, 10)) && Number.isFinite(Number.parseInt(bpDiastolic, 10));
 
   const displayName =
     getDisplayName(profile?.full_name, profile?.first_name, user?.email) || t('patient.dashboard.greetingFallback');
@@ -150,14 +190,18 @@ export const PatientDashboard: React.FC = () => {
             greeting: greetingAr,
             dateLocation: 'دبي، الإمارات',
             healthScore: 'مؤشر الصحة',
-            adherence: 'الالتزام',
-            adherenceSub: 'هذا الشهر',
-            scoreState: 'جيد',
+            adherence: 'المستلمة',
+            adherenceSub: 'من إجمالي الوصفات',
+            scoreGood: 'جيد',
+            scoreFair: 'مقبول',
+            scoreAttention: 'يحتاج إلى متابعة',
+            noData: '—',
             hba1c: 'HbA1c',
             bloodPressure: 'ضغط الدم',
             lastLabs: 'آخر الفحوصات',
             medicationsLabel: 'الأدوية',
             prediabetic: 'ما قبل السكري',
+            diabetesRange: 'نطاق السكري',
             attention: 'تحتاج مراجعة',
             improving: 'يتحسن',
             controlled: 'مسيطر عليه',
@@ -202,14 +246,18 @@ export const PatientDashboard: React.FC = () => {
             greeting: greetingEn,
             dateLocation: 'Dubai, UAE',
             healthScore: 'Health Score',
-            adherence: 'Adherence',
-            adherenceSub: 'This month',
-            scoreState: 'Good',
+            adherence: 'Collected',
+            adherenceSub: 'Of all prescriptions',
+            scoreGood: 'Good',
+            scoreFair: 'Fair',
+            scoreAttention: 'Needs attention',
+            noData: '—',
             hba1c: 'HbA1c Trend',
             bloodPressure: 'Blood Pressure Log',
             lastLabs: 'Last Labs',
             medicationsLabel: 'Medications',
             prediabetic: 'Pre-diabetic',
+            diabetesRange: 'Diabetes range',
             attention: 'Needs review',
             improving: 'Improving',
             controlled: 'Controlled',
@@ -261,8 +309,17 @@ export const PatientDashboard: React.FC = () => {
       year: 'numeric',
     })
   );
-  const healthScoreValue = dashboardData?.healthScore ?? (profile?.profile_completed ? 78 : 64);
-  const adherenceValue = dashboardData?.adherencePercentage ?? (medications.length > 0 ? 87 : 72);
+  const healthScoreValue = dashboardData?.healthScore ?? null;
+  const adherenceValue = dashboardData?.adherencePercentage ?? null;
+  // The label now follows the score.
+  const scoreBand =
+    healthScoreValue === null
+      ? null
+      : healthScoreValue >= 80
+        ? { label: localCopy.scoreGood, className: 'text-emerald-600' }
+        : healthScoreValue >= 60
+          ? { label: localCopy.scoreFair, className: 'text-amber-600' }
+          : { label: localCopy.scoreAttention, className: 'text-rose-600' };
   const takenCount = medications.filter((medication) => medication.isDispensed || takenItemIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
@@ -270,6 +327,13 @@ export const PatientDashboard: React.FC = () => {
       : 0;
   const latestHba1cDelta =
     latestHba1c && previousHba1c ? Number((latestHba1c.value - previousHba1c.value).toFixed(1)) : null;
+  // Compare the last two readings so the card can report a real direction.
+  const previousBloodPressure =
+    bloodPressureHistory.length > 1 ? bloodPressureHistory[bloodPressureHistory.length - 2] : null;
+  const systolicDelta =
+    latestBloodPressure && previousBloodPressure
+      ? latestBloodPressure.systolic - previousBloodPressure.systolic
+      : null;
   const nextAppointmentCountdown = nextAppointment
     ? Math.max(
         0,
@@ -313,13 +377,28 @@ export const PatientDashboard: React.FC = () => {
         iconColor: 'text-amber-600',
         label: localCopy.hba1c,
         value: latestHba1c ? `${formatLocaleDecimal(latestHba1c.value, i18n.language)}%` : 'N/A',
+        // Below 5.7 is normal, 5.7–6.4 is pre-diabetes, and 6.5 and above is the diabetes range.
+        // An absent result shows no band, since there is no reading to classify.
         badge: latestHba1c
           ? latestHba1c.value >= 6.5
-            ? localCopy.prediabetic
-            : localCopy.normal
-          : localCopy.normal,
-        badgeColor: 'bg-amber-50 text-amber-700',
-        trend: latestHba1cDelta !== null && latestHba1cDelta <= 0 ? ('down' as const) : ('up' as const),
+            ? localCopy.diabetesRange
+            : latestHba1c.value >= 5.7
+              ? localCopy.prediabetic
+              : localCopy.normal
+          : localCopy.noData,
+        badgeColor: !latestHba1c
+          ? 'bg-slate-100 text-slate-500'
+          : latestHba1c.value >= 6.5
+            ? 'bg-rose-50 text-rose-700'
+            : latestHba1c.value >= 5.7
+              ? 'bg-amber-50 text-amber-700'
+              : 'bg-emerald-50 text-emerald-700',
+        trend:
+          latestHba1cDelta === null
+            ? ('stable' as const)
+            : latestHba1cDelta <= 0
+              ? ('down' as const)
+              : ('up' as const),
         trendLabel:
           latestHba1cDelta !== null
             ? `${latestHba1cDelta > 0 ? '+' : ''}${formatLocaleDecimal(Math.abs(latestHba1cDelta), i18n.language)}% ${
@@ -340,15 +419,32 @@ export const PatientDashboard: React.FC = () => {
               i18n.language
             )}`
           : 'N/A',
-        badge:
-          latestBloodPressure &&
-          latestBloodPressure.systolic <= 130 &&
-          latestBloodPressure.diastolic <= 85
+        badge: latestBloodPressure
+          ? latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
             ? localCopy.controlled
-            : localCopy.attention,
-        badgeColor: 'bg-emerald-50 text-emerald-700',
-        trend: 'stable' as const,
-        trendLabel: localCopy.stable,
+            : localCopy.attention
+          : localCopy.noData,
+        badgeColor: !latestBloodPressure
+          ? 'bg-slate-100 text-slate-500'
+          : latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+            ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-amber-50 text-amber-700',
+        trend:
+          systolicDelta !== null && systolicDelta < 0
+            ? ('down' as const)
+            : systolicDelta !== null && systolicDelta > 0
+              ? ('up' as const)
+              : ('stable' as const),
+        trendLabel:
+          systolicDelta !== null
+            ? `${systolicDelta > 0 ? '+' : ''}${formatLocaleDigits(systolicDelta, i18n.language)} ${
+                isArabic ? 'عن السابق' : 'vs last'
+              }`
+            : latestBloodPressure
+              ? isArabic
+                ? 'لا توجد مقارنة سابقة'
+                : 'No prior comparison'
+              : localCopy.noData,
       },
       {
         icon: FlaskConical,
@@ -361,12 +457,13 @@ export const PatientDashboard: React.FC = () => {
             : labsSummary.latestStatus === 'normal'
               ? localCopy.normal
               : 'N/A',
+        // The old fallback printed a literal "6 tests" when the count was unknown.
         badge:
           labsSummary.latestResultCount > 0
             ? isArabic
               ? `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} فحوصات`
               : `${formatLocaleDigits(labsSummary.latestResultCount, i18n.language)} tests`
-            : localCopy.testsCount,
+            : localCopy.noData,
         badgeColor: 'bg-blue-50 text-blue-700',
         trend: 'stable' as const,
         trendLabel: labsSummary.latestRecordedAt
@@ -390,7 +487,7 @@ export const PatientDashboard: React.FC = () => {
             : formatLocaleDigits(0, i18n.language),
         badge: localCopy.todayBadge,
         badgeColor: 'bg-teal-50 text-teal-700',
-        trend: 'up' as const,
+        trend: takenCount > 0 ? ('up' as const) : ('stable' as const),
         trendLabel: isArabic ? 'تم أخذها' : 'taken',
       },
     ],
@@ -407,6 +504,7 @@ export const PatientDashboard: React.FC = () => {
       localCopy,
       locale,
       medications.length,
+      systolicDelta,
       takenCount,
     ]
   );
@@ -469,18 +567,26 @@ export const PatientDashboard: React.FC = () => {
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-teal-600">{formatLocaleDigits(healthScoreValue, i18n.language)}</span>
-              <span className="text-sm text-slate-400">/100</span>
+              <span className="text-3xl font-bold text-teal-600">
+                {healthScoreValue === null ? localCopy.noData : formatLocaleDigits(healthScoreValue, i18n.language)}
+              </span>
+              {healthScoreValue === null ? null : <span className="text-sm text-slate-400">/100</span>}
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-emerald-600">{localCopy.scoreState}</p>
+            {scoreBand ? (
+              <p className={`mt-0.5 text-xs font-semibold ${scoreBand.className}`}>{scoreBand.label}</p>
+            ) : null}
           </div>
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.adherence}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-slate-800">{formatLocaleDigits(adherenceValue, i18n.language)}</span>
-              <span className="text-sm text-slate-400">%</span>
+              <span className="text-3xl font-bold text-slate-800">
+                {adherenceValue === null ? localCopy.noData : formatLocaleDigits(adherenceValue, i18n.language)}
+              </span>
+              {adherenceValue === null ? null : <span className="text-sm text-slate-400">%</span>}
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-emerald-600">{localCopy.adherenceSub}</p>
+            {adherenceValue !== null ? (
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">{localCopy.adherenceSub}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -504,23 +610,29 @@ export const PatientDashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            {/* On a phone the title and View All share one row and both wrap, so the group drops onto its own row until sm. */}
+            <div className="flex flex-col items-start gap-3 border-b border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50">
                   <Pill className="h-4 w-4 text-teal-600" />
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">{localCopy.mainMedicationsTitle}</h2>
-                  <p className="text-xs text-slate-400">
-                    {localCopy.takenOf
-                      .replace('{{taken}}', formatLocaleDigits(takenCount, i18n.language))
-                      .replace('{{total}}', formatLocaleDigits(medications.length, i18n.language))}
-                  </p>
+                  {medications.length > 0 ? (
+                    <p className="text-xs text-slate-400">
+                      {localCopy.takenOf
+                        .replace('{{taken}}', formatLocaleDigits(takenCount, i18n.language))
+                        .replace('{{total}}', formatLocaleDigits(medications.length, i18n.language))}
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+              <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
+                {/* An empty list has no progress to show. */}
+                <div
+                  className={`flex flex-1 items-center gap-2 sm:flex-none${medications.length === 0 ? ' hidden' : ''}`}
+                >
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 sm:w-32 sm:flex-none">
                     <div
                       className="h-full rounded-full bg-teal-500 transition-all duration-500"
                       style={{
@@ -546,7 +658,8 @@ export const PatientDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="min-h-[12.5rem] divide-y divide-slate-50">
+            {/* The floor is there for the skeleton rows and should not outlive them. */}
+            <div className={`divide-y divide-slate-50${dashboardLoading ? ' min-h-[12.5rem]' : ''}`}>
               {dashboardLoading ? (
                 <>
                   <div className="px-6 py-4"><Skeleton className="h-14 w-full rounded-xl" /></div>
@@ -681,15 +794,28 @@ export const PatientDashboard: React.FC = () => {
               </svg>
             </div>
             <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-4">
-              <span className="text-xs font-semibold text-emerald-600">
-                {latestBloodPressure && latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
-                  ? isArabic
-                    ? 'آخر قراءة ضمن النطاق المتحكم به'
-                    : 'Latest reading is within the controlled range'
-                  : isArabic
-                    ? 'آخر قراءة تحتاج متابعة'
-                    : 'Latest reading needs follow-up'}
-              </span>
+              {/* The line describes the latest reading, so with none there is nothing to say, and green is reserved for the controlled case. */}
+              {latestBloodPressure ? (
+                <span
+                  className={`text-xs font-semibold ${
+                    latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+                      ? 'text-emerald-600'
+                      : 'text-amber-600'
+                  }`}
+                >
+                  {latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+                    ? isArabic
+                      ? 'آخر قراءة ضمن النطاق المتحكم به'
+                      : 'Latest reading is within the controlled range'
+                    : isArabic
+                      ? 'آخر قراءة تحتاج متابعة'
+                      : 'Latest reading needs follow-up'}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">
+                  {isArabic ? 'لا توجد قراءات ضغط دم مسجلة بعد.' : 'No blood pressure readings recorded yet.'}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => setBpModalOpen(true)}
@@ -1265,11 +1391,11 @@ export const PatientDashboard: React.FC = () => {
       ) : null}
       {bpModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setBpModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+          onClick={closeBpModal}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+            className="my-auto max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
@@ -1283,7 +1409,7 @@ export const PatientDashboard: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setBpModalOpen(false)}
+                onClick={closeBpModal}
                 className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
               >
                 <X className="h-4 w-4" />
@@ -1319,12 +1445,31 @@ export const PatientDashboard: React.FC = () => {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 />
               </div>
+              {bpValidationError || bpSaveError ? (
+                <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700" role="alert">
+                  {bpValidationError === 'systolicRange'
+                    ? isArabic
+                      ? `أدخل ضغطاً انقباضياً بين ${formatLocaleDigits(BP_LIMITS.systolicMin, i18n.language)} و${formatLocaleDigits(BP_LIMITS.systolicMax, i18n.language)}.`
+                      : `Enter a systolic value between ${formatLocaleDigits(BP_LIMITS.systolicMin, i18n.language)} and ${formatLocaleDigits(BP_LIMITS.systolicMax, i18n.language)}.`
+                    : bpValidationError === 'diastolicRange'
+                      ? isArabic
+                        ? `أدخل ضغطاً انبساطياً بين ${formatLocaleDigits(BP_LIMITS.diastolicMin, i18n.language)} و${formatLocaleDigits(BP_LIMITS.diastolicMax, i18n.language)}.`
+                        : `Enter a diastolic value between ${formatLocaleDigits(BP_LIMITS.diastolicMin, i18n.language)} and ${formatLocaleDigits(BP_LIMITS.diastolicMax, i18n.language)}.`
+                      : bpValidationError === 'diastolicNotBelowSystolic'
+                        ? isArabic
+                          ? 'يجب أن يكون الضغط الانبساطي أقل من الانقباضي.'
+                          : 'Diastolic must be lower than systolic.'
+                        : isArabic
+                          ? 'تعذّر حفظ القراءة. حاول مرة أخرى.'
+                          : 'We could not save your reading. Please try again.'}
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                onClick={() => setBpModalOpen(false)}
+                onClick={closeBpModal}
                 className="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
               >
                 {isArabic ? 'إلغاء' : 'Cancel'}
@@ -1332,10 +1477,10 @@ export const PatientDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={handleBpSave}
-                disabled={!bpSystolic || !bpDiastolic}
+                disabled={!bpIsComplete || bpSaving}
                 className="flex-1 rounded-lg bg-teal-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isArabic ? 'حفظ' : 'Save'}
+                {bpSaving ? (isArabic ? 'جارٍ الحفظ...' : 'Saving...') : isArabic ? 'حفظ' : 'Save'}
               </button>
             </div>
           </div>

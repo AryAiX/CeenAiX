@@ -158,6 +158,9 @@ export const BookAppointment: React.FC = () => {
     [rescheduleAppointmentId ?? '', user?.id ?? '']
   );
 
+  // Only a doctor the patient actually asked for is pre-selected, such as arriving
+  // from a care team card. Landing on the page with no doctor in mind leaves the
+  // choice open, because the slots panel already handles that.
   useEffect(() => {
     if (isRescheduling) {
       return;
@@ -169,15 +172,8 @@ export const BookAppointment: React.FC = () => {
 
     if (requestedDoctorId && doctors.some((doctor) => doctor.userId === requestedDoctorId)) {
       setSelectedDoctorId(requestedDoctorId);
-      return;
     }
-
-    if (searchTerm.trim().length > 0 || selectedSpecializationIds.length > 0) {
-      return;
-    }
-
-    setSelectedDoctorId(doctors[0]?.userId ?? null);
-  }, [doctors, isRescheduling, requestedDoctorId, searchTerm, selectedDoctorId, selectedSpecializationIds]);
+  }, [doctors, isRescheduling, requestedDoctorId, selectedDoctorId]);
 
   useEffect(() => {
     if (isRescheduling || didInitializeAiPrefill) {
@@ -294,7 +290,9 @@ export const BookAppointment: React.FC = () => {
       return;
     }
 
-    setSelectedDoctorId(filteredDoctors[0]?.userId ?? null);
+    // The chosen doctor has been filtered out, so the selection is cleared rather
+    // than silently moving the booking to whoever is first.
+    setSelectedDoctorId(null);
     setSelectedDate(null);
     setSelectedSlotIso(null);
   }, [filteredDoctors, selectedDoctorId]);
@@ -896,14 +894,15 @@ export const BookAppointment: React.FC = () => {
                         <p className="mt-1 text-sm text-gray-600">{t('patient.book.selectDateHint')}</p>
                       )}
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {/* A missing base column count made this one column on phones. Three matches the existing sm layout, so nothing jumps at that breakpoint. */}
+                      <div className="mt-4 grid grid-cols-3 gap-3 lg:grid-cols-4">
                         {selectedDate && availableSlotsForSelectedDate.length > 0 ? (
                           availableSlotsForSelectedDate.map((slot) => (
                             <button
                               key={slot.iso}
                               type="button"
                               onClick={() => setSelectedSlotIso(slot.iso)}
-                              className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                              className={`rounded-xl border px-2 py-3 text-sm font-semibold transition sm:px-4 ${
                                 selectedSlotIso === slot.iso
                                   ? 'border-cyan-500 bg-cyan-500 text-white'
                                   : 'border-gray-200 bg-white text-gray-800 hover:border-cyan-300 hover:bg-cyan-50'
@@ -913,7 +912,7 @@ export const BookAppointment: React.FC = () => {
                             </button>
                           ))
                         ) : (
-                          <div className="sm:col-span-3 lg:col-span-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                          <div className="col-span-3 lg:col-span-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
                             <Clock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
                             <p className="font-semibold text-gray-900">{t('patient.book.noSlots')}</p>
                             <p className="mt-1 text-sm text-gray-600">{t('patient.book.noSlotsSub')}</p>
@@ -1047,26 +1046,27 @@ export const BookAppointment: React.FC = () => {
           >
             <div className="px-6 py-5">
               <h2 className="text-base font-semibold text-slate-900">
-                Discard booking?
+                {t('patient.book.discardTitle')}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                You have unsaved information. Are you sure you want to leave? Your changes will be lost.
+                {t('patient.book.discardBody')}
               </p>
             </div>
-            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+            {/* Matches the cancel modal: buttons stack on a phone so each is a full-width target, which makes a mis-tap onto the destructive action less likely. */}
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setShowCancelWarning(false)}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:flex-1"
               >
-                Keep Editing
+                {t('patient.book.keepEditing')}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/patient/appointments')}
-                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                className="w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 sm:flex-1"
               >
-                Discard
+                {t('patient.book.discard')}
               </button>
             </div>
           </div>
@@ -1086,7 +1086,7 @@ export const BookAppointment: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-teal-600" />
                 <h2 className="text-base font-semibold text-slate-900">
-                  {isRescheduling ? 'Confirm Reschedule' : 'Confirm Booking'}
+                  {isRescheduling ? t('patient.book.confirmReschedule') : t('patient.book.confirmBooking')}
                 </h2>
               </div>
               <button
@@ -1145,13 +1145,13 @@ export const BookAppointment: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:flex-1"
               >
-                Go Back
+                {t('patient.book.goBack')}
               </button>
               <button
                 type="button"
@@ -1160,9 +1160,9 @@ export const BookAppointment: React.FC = () => {
                   setShowConfirmModal(false);
                   await handleBooking();
                 }}
-                className="flex-1 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
               >
-                {isSubmitting ? 'Booking...' : isRescheduling ? 'Confirm Reschedule' : 'Confirm Booking'}
+                {isSubmitting ? t('patient.book.booking') : isRescheduling ? t('patient.book.confirmReschedule') : t('patient.book.confirmBooking')}
               </button>
             </div>
           </div>

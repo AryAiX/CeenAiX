@@ -20,6 +20,9 @@ const fakeT = ((key: string, options?: Record<string, unknown>) => {
     'patient.dashboard.medUnitUnit': 'وحدة',
     'patient.dashboard.medUnitUnits': 'وحدات',
     'patient.dashboard.medFreq.onceDaily': 'مرة يومياً',
+    'patient.dashboard.medFreq.twiceDaily': 'مرتان يومياً',
+    'patient.dashboard.medFreq.threeTimesDaily': 'ثلاث مرات يومياً',
+    'patient.dashboard.medFreq.fourTimesDaily': 'أربع مرات يومياً',
     'patient.dashboard.medDurationDays': `${count ?? ''} يوماً`.trim(),
     'patient.dashboard.medActiveFallback': 'وصفة طبية نشطة',
   };
@@ -47,5 +50,31 @@ describe('medication attribute localization', () => {
         detail: '',
       })
     ).toBe('١٠٠ ملغ • مرة يومياً • ٧ يوماً');
+  });
+
+  it('localizes free-text "a day" frequencies for Arabic, regardless of case', () => {
+    const line = (frequency: string) =>
+      formatMedicationDetailLine(fakeT, 'ar', {
+        dosage: null,
+        frequency,
+        duration: null,
+        detail: '',
+      });
+
+    expect(line('once a day')).toBe('مرة يومياً');
+    expect(line('twice a day')).toBe('مرتان يومياً');
+    expect(line('Three times a day')).toBe('ثلاث مرات يومياً');
+    expect(line('four times a day')).toBe('أربع مرات يومياً');
+  });
+
+  it('returns an unrecognised frequency unchanged', () => {
+    expect(
+      formatMedicationDetailLine(fakeT, 'ar', {
+        dosage: null,
+        frequency: 'every other Tuesday',
+        duration: null,
+        detail: '',
+      })
+    ).toBe('every other Tuesday');
   });
 });

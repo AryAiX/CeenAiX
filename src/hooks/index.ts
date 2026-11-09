@@ -27,6 +27,8 @@ export type {
 export { useNotifications } from './use-notifications';
 export { usePatientDashboard } from './use-patient-dashboard';
 export { useMedicationLogs } from './use-medication-logs';
+export { BP_LIMITS, usePatientVitals, validateBloodPressure } from './use-patient-vitals';
+export type { BloodPressureValidationError } from './use-patient-vitals';
 export { usePatientPrescriptions } from './use-patient-prescriptions';
 export { usePatientPrimaryInsurance } from './use-patient-primary-insurance';
 export type { PatientPrimaryInsurance } from './use-patient-primary-insurance';

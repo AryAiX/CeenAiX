@@ -397,11 +397,11 @@ export const PatientPrescriptions: React.FC = () => {
     try {
       const contact = await getPatientPrescriptionPharmacyContact(prescriptionId);
       if (!contact?.user_id) {
-        throw new Error('No pharmacy contact is available for this prescription yet.');
+        throw new Error(t('patient.prescriptions.pharmacyContactMissing'));
       }
       navigate(`/patient/messages?pharmacy=${contact.user_id}`);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not open pharmacy messaging. Please try again.');
+      setActionError(err instanceof Error ? err.message : t('patient.prescriptions.pharmacyMessageError'));
     }
   };
 
@@ -432,7 +432,7 @@ export const PatientPrescriptions: React.FC = () => {
       setPickedUpIds((prev) => new Set([...prev, prescriptionId]));
       void refetch();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not mark this prescription as picked up.');
+      setActionError(err instanceof Error ? err.message : t('patient.prescriptions.pickedUpError'));
     }
   };
 
@@ -466,8 +466,8 @@ export const PatientPrescriptions: React.FC = () => {
     }
     if (status === 'picked_up') {
       return {
-        title: '✅ Picked Up',
-        body: 'You have collected this medication. Take it as prescribed.',
+        title: `✅ ${t('patient.prescriptions.pharmacyStatusPickedUpTitle')}`,
+        body: t('patient.prescriptions.pharmacyStatusPickedUpBody'),
       };
     }
     if (status === 'new' || justSent) {
@@ -561,7 +561,7 @@ export const PatientPrescriptions: React.FC = () => {
       await markMedicationTaken(itemId);
       void doseIndex;
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not save that medication update.');
+      setActionError(err instanceof Error ? err.message : t('patient.prescriptions.medicationUpdateError'));
     }
   };
 
@@ -999,13 +999,13 @@ export const PatientPrescriptions: React.FC = () => {
               if (isDeleted) {
                 return undoReminderId === reminder.id ? (
                   <div key={reminder.id} className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                    <span className="text-sm text-amber-700">Reminder deleted</span>
+                    <span className="text-sm text-amber-700">{t('patient.prescriptions.reminderDeleted')}</span>
                     <button
                       type="button"
                       onClick={() => handleUndoDeleteReminder(reminder.id)}
                       className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
                     >
-                      Undo
+                      {t('patient.prescriptions.reminderUndo')}
                     </button>
                   </div>
                 ) : null;
@@ -1076,14 +1076,14 @@ export const PatientPrescriptions: React.FC = () => {
                           onClick={() => void handleSaveReminderTime(reminder.id)}
                           className="rounded-lg bg-teal-600 px-2 py-1 text-xs font-semibold text-white hover:bg-teal-700"
                         >
-                          Save
+                          {t('patient.prescriptions.reminderTimeSave')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingReminderId(null)}
                           className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
                         >
-                          Cancel
+                          {t('patient.prescriptions.reminderTimeCancel')}
                         </button>
                       </div>
                     ) : (
@@ -1105,7 +1105,7 @@ export const PatientPrescriptions: React.FC = () => {
                       }`}
                     >
                       <Pause className="h-3.5 w-3.5" />
-                      {isPaused ? t('patient.prescriptions.reminderResume', { defaultValue: 'Resume' }) : t('patient.prescriptions.reminderPause')}
+                      {isPaused ? t('patient.prescriptions.reminderResume') : t('patient.prescriptions.reminderPause')}
                     </button>
                     <button
                       type="button"
@@ -1168,7 +1168,7 @@ export const PatientPrescriptions: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border-2 border-teal-200 bg-white p-8 shadow-lg">
+        <div className="rounded-2xl border-2 border-teal-200 bg-white p-5 shadow-lg sm:p-8">
           <div className="grid gap-8 lg:grid-cols-2">
             <div>
               <div className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">
@@ -1308,7 +1308,73 @@ export const PatientPrescriptions: React.FC = () => {
 
         <div>
           <h3 className="mb-4 text-lg font-bold text-slate-900">{t('patient.prescriptions.coverageTableTitle')}</h3>
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+          {/* On a phone, one card per medicine; the five-column table needs 720px so it shows from md up only. */}
+          <div className="space-y-3 md:hidden">
+            {activeLineItems.map(({ item }) => {
+              const accent = lineAccent(item.medication_name);
+              return (
+                <div key={item.id} className="rounded-xl bg-white p-4 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <span aria-hidden>{accent.emoji}</span>
+                    <span className="min-w-0 break-words text-sm font-medium text-slate-900">
+                      <MedicationNameDisplay
+                        canonicalName={item.medication_name}
+                        localizedName={item.medication_name_ar}
+                        language={uiLang}
+                        variant="compact"
+                      />{' '}
+                      {item.dosage ?? ''}
+                    </span>
+                  </div>
+                  <dl className="mt-3 space-y-2">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {t('patient.prescriptions.coverageFullPrice')}
+                      </dt>
+                      <dd className="font-mono text-sm text-slate-600">
+                        {t('patient.prescriptions.costNotPriced')}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {t('patient.prescriptions.coveragePlanCovers')}
+                      </dt>
+                      <dd className="font-mono text-sm font-bold text-emerald-600">
+                        {hasCoverage
+                          ? t('patient.prescriptions.costCoveragePercent', {
+                              percent: formatLocaleDigits(Math.round(coveredPercent), uiLang),
+                            })
+                          : t('patient.prescriptions.costNotPriced')}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {t('patient.prescriptions.coverageYouPay')}
+                      </dt>
+                      <dd className="font-mono text-sm font-bold text-slate-900">
+                        {hasCoverage
+                          ? t('patient.prescriptions.costCoveragePercent', {
+                              percent: formatLocaleDigits(Math.round(patientPercent), uiLang),
+                            })
+                          : t('patient.prescriptions.costNotPriced')}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-3 flex items-center gap-1 border-t border-slate-100 pt-3 text-xs">
+                    <span className={hasCoverage ? 'text-emerald-600' : 'text-amber-600'}>
+                      {hasCoverage ? '✓' : '⚠️'}
+                    </span>
+                    <span className="text-slate-600">
+                      {hasCoverage
+                        ? t('patient.prescriptions.coveragePlanRule', { name: planName })
+                        : t('patient.prescriptions.coveragePlanMissing')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-hidden rounded-xl bg-white shadow-sm md:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px]">
                 <thead>
@@ -1388,7 +1454,7 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="mt-3 text-xs italic text-slate-500">{t('patient.prescriptions.coverageNote')}</div>
         </div>
 
-        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-8">
+        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-5 sm:p-8">
           <div className="mb-4 flex items-center gap-3">
             <DollarSign className="h-8 w-8 text-teal-600" />
             <h3 className="text-xl font-bold text-slate-900">{t('patient.prescriptions.annualProjection')}</h3>
@@ -1457,10 +1523,11 @@ export const PatientPrescriptions: React.FC = () => {
         className="animate-slideUp rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:scale-[1.012] hover:shadow-lg"
         style={{ animationDelay: `${index * 50}ms`, borderLeftColor: accent.hex, borderLeftWidth: 5 }}
       >
-        <div className="p-6">
-          <div className="flex items-start gap-4 lg:gap-6">
-            <div className="w-full min-w-0 flex-shrink-0 md:w-72">
-              <div className="mb-4 flex items-start gap-4">
+        <div className="relative p-6">
+          {/* On a phone the three sections stack; from md up they sit side by side as before. */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-start lg:gap-6">
+            <div className="w-full min-w-0 md:w-72 md:flex-shrink-0">
+              <div className="mb-4 flex items-start gap-4 pe-10 md:pe-0">
                 <div
                   className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${accent.bg}`}
                 >
@@ -1475,8 +1542,8 @@ export const PatientPrescriptions: React.FC = () => {
                       canonicalName={item.medication_name}
                       localizedName={item.medication_name_ar}
                       language={uiLang}
-                      primaryClassName="block truncate"
-                      secondaryClassName="mt-0.5 block truncate text-sm font-normal text-slate-500"
+                      primaryClassName="block break-words md:truncate"
+                      secondaryClassName="mt-0.5 block break-words md:truncate text-sm font-normal text-slate-500"
                     />
                   </h3>
                   <div className="mt-0.5 font-mono text-base font-bold" style={{ color: accent.hex }}>
@@ -1522,7 +1589,7 @@ export const PatientPrescriptions: React.FC = () => {
               </div>
             </div>
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 border-t border-slate-100 pt-4 md:border-t-0 md:pt-0">
               <div className="mb-4">
                 <div className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                   {t('patient.prescriptions.dosingScheduleHeading')}
@@ -1571,7 +1638,7 @@ export const PatientPrescriptions: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-full flex-shrink-0 sm:w-56">
+            <div className="w-full border-t border-slate-100 pt-4 md:w-56 md:flex-shrink-0 md:border-t-0 md:pt-0">
               <div className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                 {t('patient.prescriptions.refillStatusHeading')}
               </div>
@@ -1656,12 +1723,12 @@ export const PatientPrescriptions: React.FC = () => {
                     onClick={() => void handleMarkPickedUp(rx.id, rx.items)}
                     className="mt-2 w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                   >
-                    ✅ Mark as Picked Up
+                    ✅ {t('patient.prescriptions.markPickedUp')}
                   </button>
                 ) : null}
                 {(rx.pharmacyStatus === 'picked_up' || pickedUpIds.has(rx.id)) ? (
                   <div className="mt-2 w-full rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 text-center">
-                    ✅ Picked Up — Thank you!
+                    ✅ {t('patient.prescriptions.pickedUpThanks')}
                   </div>
                 ) : null}
               </div>
@@ -1670,7 +1737,7 @@ export const PatientPrescriptions: React.FC = () => {
             <button
               type="button"
               onClick={() => toggleExpanded(item.id)}
-              className="flex-shrink-0 self-start rounded-lg p-2 transition-colors hover:bg-slate-50"
+              className="absolute end-4 top-4 rounded-lg p-2 transition-colors hover:bg-slate-50 md:static md:flex-shrink-0 md:self-start"
               aria-label={isExpanded ? t('patient.prescriptions.collapse') : t('patient.prescriptions.expand')}
             >
               {isExpanded ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
@@ -1700,7 +1767,7 @@ export const PatientPrescriptions: React.FC = () => {
                     onClick={() => void handleMessagePharmacy(rx.id)}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-600 transition-all duration-300 hover:bg-emerald-50"
                   >
-                    <MessageSquare className="h-4 w-4" /> Message Pharmacy
+                    <MessageSquare className="h-4 w-4" /> {t('patient.prescriptions.messagePharmacy')}
                   </button>
                 ) : null}
               </div>
@@ -1792,7 +1859,6 @@ export const PatientPrescriptions: React.FC = () => {
       {actionError || medicationLogError ? (
         <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
           {t('patient.prescriptions.actionError', {
-            defaultValue: 'We could not save that update: {{message}}',
             message: actionError ?? medicationLogError,
           })}
         </div>
@@ -1805,8 +1871,9 @@ export const PatientPrescriptions: React.FC = () => {
           </h1>
           <p className="text-[15px] text-slate-400">{t('patient.prescriptions.subtitleTrack')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/30 sm:px-6 sm:py-3 sm:text-[13px]">
+        {/* On a phone the doses pill is hidden because the Taken Today card just below shows the same number, and Request Refill becomes one full-width button. */}
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:gap-4">
+          <div className="hidden items-center gap-2 rounded-full bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/30 sm:inline-flex sm:px-6 sm:py-3 sm:text-[13px]">
             <Pill className="h-4 w-4" />
             <span>
               {t('patient.prescriptions.dosesTakenPill', {
@@ -1818,30 +1885,31 @@ export const PatientPrescriptions: React.FC = () => {
           <button
             type="button"
             onClick={handleRefillCta}
-            className="inline-flex items-center justify-center rounded-lg border-2 border-teal-600 px-5 py-2.5 font-medium text-teal-600 transition-all duration-300 hover:border-teal-600 hover:bg-teal-600 hover:text-white"
+            className="inline-flex w-full items-center justify-center rounded-lg border-2 border-teal-600 px-5 py-2.5 font-medium text-teal-600 transition-all duration-300 hover:border-teal-600 hover:bg-teal-600 hover:text-white sm:w-auto"
           >
             {t('patient.prescriptions.requestRefillCta')}
           </button>
         </div>
       </div>
 
+      {/* On a phone, two compact cards per row (the fifth spans both); from sm up the cards look as before. */}
       <div
-        className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 animate-slideUp xl:grid-cols-5"
+        className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 animate-slideUp xl:grid-cols-5"
         style={{ animationDelay: '80ms' }}
       >
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('active')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
-              <Pill className="h-7 w-7 text-blue-600" />
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-blue-100">
+              <Pill className="h-5 w-5 sm:h-7 sm:w-7 text-blue-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-slate-900">
+              <div className="font-mono text-2xl font-bold text-slate-900 sm:text-3xl">
                 {formatLocaleDigits(activeMedicationCount, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiActiveMeds')}</div>
@@ -1853,18 +1921,18 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('schedule')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('schedule'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle className="h-7 w-7 text-emerald-600" />
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-emerald-100">
+              <CheckCircle className="h-5 w-5 sm:h-7 sm:w-7 text-emerald-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-emerald-600">
+              <div className="font-mono text-2xl font-bold text-emerald-600 sm:text-3xl">
                 {formatLocaleDigits(takenToday, uiLang)}/{formatLocaleDigits(totalDosesToday, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiTakenToday')}</div>
@@ -1886,18 +1954,18 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('reminders')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('reminders'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100">
-              <TrendingUp className="h-7 w-7 text-teal-600" />
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-teal-100">
+              <TrendingUp className="h-5 w-5 sm:h-7 sm:w-7 text-teal-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-teal-600">
+              <div className="font-mono text-2xl font-bold text-teal-600 sm:text-3xl">
                 {formatLocaleDigits(monthlyAdherencePercent, uiLang)}%
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiAdherenceMonth')}</div>
@@ -1909,18 +1977,18 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:p-6"
           onClick={() => setActiveTab('active')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('active'); } }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-              <RefreshCw className="h-7 w-7 text-amber-600" />
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-amber-100">
+              <RefreshCw className="h-5 w-5 sm:h-7 sm:w-7 text-amber-600" />
             </div>
             <div>
-              <div className="font-mono text-3xl font-bold text-amber-600">
+              <div className="font-mono text-2xl font-bold text-amber-600 sm:text-3xl">
                 {formatLocaleDigits(refillsDueCount, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiRefillSoon')}</div>
@@ -1944,7 +2012,7 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
 
         <div
-          className="cursor-pointer rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+          className="col-span-2 cursor-pointer rounded-2xl bg-white p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md sm:col-span-1 sm:p-6"
           role="button"
           tabIndex={0}
           onClick={() => navigate('/patient/insurance')}
@@ -1955,9 +2023,9 @@ export const PatientPrescriptions: React.FC = () => {
             }
           }}
         >
-          <div className="mb-3 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100">
-              <CreditCard className="h-7 w-7 text-purple-600" />
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 bg-purple-100">
+              <CreditCard className="h-5 w-5 sm:h-7 sm:w-7 text-purple-600" />
             </div>
             <div className="min-w-0">
               {insuranceLoading ? (
@@ -1967,14 +2035,14 @@ export const PatientPrescriptions: React.FC = () => {
                 </>
               ) : primaryInsurance && primaryInsurance.coPayPercent != null ? (
                 <>
-                  <div className="font-mono text-3xl font-bold text-slate-900">
+                  <div className="font-mono text-2xl font-bold text-slate-900 sm:text-3xl">
                     {formatLocaleDigits(Math.round(primaryInsurance.coPayPercent), uiLang)}%
                   </div>
                   <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiCoPay')}</div>
                 </>
               ) : (
                 <>
-                  <div className="font-mono text-3xl font-bold text-slate-900">
+                  <div className="font-mono text-2xl font-bold text-slate-900 sm:text-3xl">
                     {t('patient.prescriptions.kpiCostPlaceholder')}
                   </div>
                   <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiMonthlyCost')}</div>
@@ -2006,15 +2074,20 @@ export const PatientPrescriptions: React.FC = () => {
         className="mb-6 animate-slideUp rounded-2xl bg-white shadow-sm"
         style={{ animationDelay: '160ms' }}
       >
-        <div className="border-b border-slate-100 px-4 sm:px-6">
-          <div className="flex min-w-max gap-6 sm:gap-8 overflow-x-auto">
+        {/* The five tabs are wider than a phone screen. The row scrolls inside its card rather than stretching the page. */}
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6 sm:gap-8">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={(event) => {
+                    setActiveTab(tab.key);
+                    // jsdom has no scrollIntoView, so calling it directly makes the existing Prescriptions tests throw.
+                    event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
                   className={`py-4 px-2 text-[15px] font-medium transition-all duration-300 relative whitespace-nowrap ${
                     isActive ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
                   }`}
@@ -2120,60 +2193,64 @@ export const PatientPrescriptions: React.FC = () => {
         : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        {/* On a phone the Add button sits under the title instead of squeezing it. */}
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">My Reported Medications</h2>
-            <p className="mt-0.5 text-sm text-slate-500">Medications you are currently taking — shared with your doctor.</p>
+            <h2 className="text-lg font-bold text-slate-900">{t('patient.prescriptions.reportedTitle')}</h2>
+            <p className="mt-0.5 text-sm text-slate-500">{t('patient.prescriptions.reportedSubtitle')}</p>
           </div>
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700"
+            className="inline-flex flex-shrink-0 items-center gap-2 self-start whitespace-nowrap rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 sm:self-auto"
           >
             <Plus className="h-4 w-4" />
-            Add Medication
+            {t('patient.prescriptions.reportedAdd')}
           </button>
         </div>
 
         <div className="divide-y divide-slate-100">
           {loadingReportedMeds ? (
-            <div className="p-6 text-sm text-slate-400">Loading...</div>
+            <div className="p-4 text-sm text-slate-400 sm:p-6">{t('patient.prescriptions.reportedLoading')}</div>
           ) : reportedMeds.length === 0 ? (
-            <div className="px-6 py-10 text-center">
-              <p className="font-semibold text-slate-700">No medications reported yet</p>
-              <p className="mt-1 text-sm text-slate-500">Add medications you are currently taking so your doctor can review them.</p>
+            <div className="px-4 py-10 text-center sm:px-6">
+              <p className="font-semibold text-slate-700">{t('patient.prescriptions.reportedEmptyTitle')}</p>
+              <p className="mt-1 text-sm text-slate-500">{t('patient.prescriptions.reportedEmptyBody')}</p>
             </div>
           ) : (
             reportedMeds.map((med) => (
-              <div key={med.id} className="flex items-start justify-between gap-4 px-6 py-4">
+              <div key={med.id} className="flex items-start justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-slate-900">{med.medication_name}</p>
+                  {/* The badges wrap under the name on a phone instead of squeezing it. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p dir="auto" className="break-words font-semibold text-slate-900">{med.medication_name}</p>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       med.review_status === 'reviewed'
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-amber-100 text-amber-700'
                     }`}>
-                      {med.review_status === 'reviewed' ? '✅ Reviewed by doctor' : '⏳ Pending review'}
+                      {med.review_status === 'reviewed' ? <>✅ {t('patient.prescriptions.reportedReviewed')}</> : <>⏳ {t('patient.prescriptions.reportedPendingReview')}</>}
                     </span>
                     {med.is_current ? (
                       <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
-                        Currently taking
+                        {t('patient.prescriptions.reportedCurrentlyTaking')}
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'No details provided'}
+                  {/* The patient types these in either language, and without dir="auto" an English dose like "1000 IU" is reordered to "IU 1000" in the Arabic layout. */}
+                  <p dir="auto" className="mt-1 text-sm text-slate-500">
+                    {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || t('patient.prescriptions.reportedNoDetails')}
                   </p>
                   {med.instructions ? (
-                    <p className="mt-1 text-xs text-slate-400">{med.instructions}</p>
+                    <p dir="auto" className="mt-1 text-xs text-slate-400">{med.instructions}</p>
                   ) : null}
                 </div>
                 <button
                   type="button"
                   onClick={() => void handleDeleteMedication(med.id)}
                   disabled={deletingMedId === med.id}
-                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  aria-label={t('patient.prescriptions.reportedDelete')}
+                  className="flex-shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -2187,7 +2264,7 @@ export const PatientPrescriptions: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h3 className="font-bold text-slate-900">Add Medication</h3>
+              <h3 className="font-bold text-slate-900">{t('patient.prescriptions.reportedAdd')}</h3>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
@@ -2199,54 +2276,54 @@ export const PatientPrescriptions: React.FC = () => {
             <div className="space-y-4 p-5">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
-                  Medication Name <span className="text-red-500">*</span>
+                  {t('patient.prescriptions.reportedFieldName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={newMed.medication_name}
                   onChange={(e) => setNewMed((prev) => ({ ...prev, medication_name: e.target.value }))}
-                  placeholder="e.g. Paracetamol"
+                  placeholder={t('patient.prescriptions.reportedPlaceholderName')}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Dosage</label>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reportedFieldDosage')}</label>
                   <input
                     type="text"
                     value={newMed.dosage}
                     onChange={(e) => setNewMed((prev) => ({ ...prev, dosage: e.target.value }))}
-                    placeholder="e.g. 500mg"
+                    placeholder={t('patient.prescriptions.reportedPlaceholderDosage')}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Frequency</label>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reportedFieldFrequency')}</label>
                   <input
                     type="text"
                     value={newMed.frequency}
                     onChange={(e) => setNewMed((prev) => ({ ...prev, frequency: e.target.value }))}
-                    placeholder="e.g. Twice daily"
+                    placeholder={t('patient.prescriptions.reportedPlaceholderFrequency')}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Duration</label>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reportedFieldDuration')}</label>
                 <input
                   type="text"
                   value={newMed.duration}
                   onChange={(e) => setNewMed((prev) => ({ ...prev, duration: e.target.value }))}
-                  placeholder="e.g. 7 days"
+                  placeholder={t('patient.prescriptions.reportedPlaceholderDuration')}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Instructions</label>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">{t('patient.prescriptions.reportedFieldInstructions')}</label>
                 <textarea
                   value={newMed.instructions}
                   onChange={(e) => setNewMed((prev) => ({ ...prev, instructions: e.target.value }))}
-                  placeholder="e.g. Take after meals"
+                  placeholder={t('patient.prescriptions.reportedPlaceholderInstructions')}
                   rows={2}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                 />
@@ -2260,7 +2337,7 @@ export const PatientPrescriptions: React.FC = () => {
                   className="h-4 w-4 rounded border-slate-300 text-cyan-600"
                 />
                 <label htmlFor="is_current" className="text-sm font-medium text-slate-700">
-                  I am currently taking this medication
+                  {t('patient.prescriptions.reportedCurrentCheckbox')}
                 </label>
               </div>
             </div>
@@ -2270,7 +2347,7 @@ export const PatientPrescriptions: React.FC = () => {
                 onClick={() => setShowAddModal(false)}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Cancel
+                {t('patient.prescriptions.reportedCancel')}
               </button>
               <button
                 type="button"
@@ -2278,7 +2355,7 @@ export const PatientPrescriptions: React.FC = () => {
                 disabled={savingMed || !newMed.medication_name.trim()}
                 className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-60"
               >
-                {savingMed ? 'Saving...' : 'Add Medication'}
+                {savingMed ? t('patient.prescriptions.reportedSaving') : t('patient.prescriptions.reportedAdd')}
               </button>
             </div>
           </div>

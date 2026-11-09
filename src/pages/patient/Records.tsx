@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
+  ChevronDown,
   FileText,
   Filter,
   Plus,
@@ -636,7 +637,7 @@ export const PatientRecords: React.FC = () => {
 
     setSubmittingEdit(false);
     setEditingRecordId(null);
-    setFeedback({ type: 'success', message: 'Record updated successfully.' });
+    setFeedback({ type: 'success', message: t('patient.records.updateSuccess') });
     refetch();
   };
 
@@ -648,7 +649,8 @@ export const PatientRecords: React.FC = () => {
       </div>
 
       <div>
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        {/* The missing base column count stacked them one per row on a phone. Two across matches the dashboard's stat row, which uses grid-cols-2 with a four-column breakpoint. */}
+        <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-4">
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md"
             onClick={() => setFilterType('condition')}
@@ -717,13 +719,16 @@ export const PatientRecords: React.FC = () => {
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+            {/* Two selects took a row each on a phone. appearance-none also removed the native arrow, so a chevron marks each one as a dropdown. */}
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:space-x-3">
               <div className="relative">
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 rtl:left-auto rtl:right-3" />
+                {/* Hidden on a phone so the option text has room. The chevron already marks this as a dropdown. */}
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 rtl:left-auto rtl:right-3 hidden sm:block" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 rtl:right-auto rtl:left-3" />
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as RecordCategoryFilter)}
-                  className="pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
+                  className="w-full pl-4 sm:pl-10 pr-9 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
                 >
                   <option value="all">{t('patient.records.filterAllRecords')}</option>
                   <option value="condition">{t('patient.records.filterCondition')}</option>
@@ -732,27 +737,31 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </div>
 
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest' | 'alphabetical')}
-                className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
-              >
-                <option value="newest">{t('patient.records.sortNewest')}</option>
-                <option value="oldest">{t('patient.records.sortOldest')}</option>
-                <option value="alphabetical">{t('patient.records.sortAlpha')}</option>
-              </select>
+              <div className="relative">
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 rtl:right-auto rtl:left-3" />
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest' | 'alphabetical')}
+                  className="w-full pl-4 pr-9 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-medium appearance-none bg-white cursor-pointer"
+                >
+                  <option value="newest">{t('patient.records.sortNewest')}</option>
+                  <option value="oldest">{t('patient.records.sortOldest')}</option>
+                  <option value="alphabetical">{t('patient.records.sortAlpha')}</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          {/* The count and buttons were competing for one row. */}
+          <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-gray-600">
               {t('patient.records.showing', { shown: sortedRecords.length, total: totalRecords })}
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => handleSwitchForm('condition')}
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
               >
                 <Plus className="h-4 w-4" />
                 {t('patient.records.addCondition')}
@@ -760,7 +769,7 @@ export const PatientRecords: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleSwitchForm('allergy')}
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
               >
                 <Plus className="h-4 w-4" />
                 {t('patient.records.addAllergy')}
@@ -768,7 +777,7 @@ export const PatientRecords: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleSwitchForm('vaccination')}
-                className="inline-flex items-center gap-2 rounded-xl border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
               >
                 <Plus className="h-4 w-4" />
                 {t('patient.records.addVax')}
@@ -801,7 +810,7 @@ export const PatientRecords: React.FC = () => {
               onClick={() => void refetch()}
               className="ml-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -844,7 +853,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.icdCode')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <input
                   type="text"
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.icdCode}
@@ -856,7 +865,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.diagnosedDate')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <input
                   type="date"
                   value={conditionForm.diagnosedDate}
@@ -884,7 +893,7 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.notes')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <textarea
                   rows={4}
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.notes}
@@ -978,7 +987,7 @@ export const PatientRecords: React.FC = () => {
                 </select>
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.reaction')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <textarea
                   rows={4}
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.reaction}
@@ -1069,7 +1078,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.doseNumber')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <input
                   type="number"
                   min={1}
@@ -1082,7 +1091,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredDate')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <input
                   type="date"
                   value={vaccinationForm.administeredDate}
@@ -1096,7 +1105,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.administeredBy')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <input
                   type="text"
                   maxLength={PATIENT_RECORD_FIELD_LIMITS.administeredBy}
@@ -1111,7 +1120,7 @@ export const PatientRecords: React.FC = () => {
                 />
               </label>
               <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-semibold text-gray-700">{t('patient.records.nextDose')} <span aria-hidden className="text-slate-400 font-normal text-xs">(optional)</span></span>
+                <span className="text-sm font-semibold text-gray-700">{t('patient.records.nextDose')} <span aria-hidden className="text-slate-400 font-normal text-xs">({t('shared.optional')})</span></span>
                 <input
                   type="date"
                   value={vaccinationForm.nextDoseDue}
@@ -1237,7 +1246,7 @@ export const PatientRecords: React.FC = () => {
                     onClick={() => editingRecordId === record.id ? setEditingRecordId(null) : handleStartEdit(record)}
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    ✏️ {editingRecordId === record.id ? 'Cancel Edit' : 'Edit'}
+                    ✏️ {editingRecordId === record.id ? t('patient.records.cancelEdit') : t('patient.records.edit')}
                   </button>
                   <button
                     type="button"
@@ -1258,23 +1267,23 @@ export const PatientRecords: React.FC = () => {
                           <input type="text" value={editConditionForm.conditionName} onChange={(e) => setEditConditionForm(prev => ({ ...prev, conditionName: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
                         </label>
                         <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-slate-700">ICD Code</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.icdCode')}</span>
                           <input type="text" value={editConditionForm.icdCode} onChange={(e) => setEditConditionForm(prev => ({ ...prev, icdCode: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
                         </label>
                         <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-slate-700">Diagnosed Date</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.diagnosedDate')}</span>
                           <input type="date" value={editConditionForm.diagnosedDate} onChange={(e) => setEditConditionForm(prev => ({ ...prev, diagnosedDate: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
                         </label>
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-slate-700">Status *</span>
                           <select value={editConditionForm.status} onChange={(e) => setEditConditionForm(prev => ({ ...prev, status: e.target.value as ConditionStatus }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20">
-                            <option value="active">Active</option>
-                            <option value="chronic">Chronic</option>
-                            <option value="resolved">Resolved</option>
+                            <option value="active">{t('patient.records.statusActive')}</option>
+                            <option value="chronic">{t('patient.records.statusChronic')}</option>
+                            <option value="resolved">{t('patient.records.statusResolved')}</option>
                           </select>
                         </label>
                         <label className="block space-y-1 md:col-span-2">
-                          <span className="text-xs font-semibold text-slate-700">Notes</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.notes')}</span>
                           <textarea rows={3} value={editConditionForm.notes} onChange={(e) => setEditConditionForm(prev => ({ ...prev, notes: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20" />
                         </label>
                       </div>
@@ -1287,18 +1296,18 @@ export const PatientRecords: React.FC = () => {
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-slate-700">Severity *</span>
                           <select value={editAllergyForm.severity} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, severity: e.target.value as AllergySeverity }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20">
-                            <option value="mild">Mild</option>
-                            <option value="moderate">Moderate</option>
-                            <option value="severe">Severe</option>
+                            <option value="mild">{t('patient.records.severityMild')}</option>
+                            <option value="moderate">{t('patient.records.severityModerate')}</option>
+                            <option value="severe">{t('patient.records.severitySevere')}</option>
                           </select>
                         </label>
                         <label className="block space-y-1 md:col-span-2">
-                          <span className="text-xs font-semibold text-slate-700">Reaction</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.reaction')}</span>
                           <textarea rows={3} value={editAllergyForm.reaction} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, reaction: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20" />
                         </label>
                         <label className="inline-flex items-center gap-2 md:col-span-2">
                           <input type="checkbox" checked={editAllergyForm.confirmedByDoctor} onChange={(e) => setEditAllergyForm(prev => ({ ...prev, confirmedByDoctor: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-amber-600" />
-                          <span className="text-sm text-slate-700">Confirmed by doctor</span>
+                          <span className="text-sm text-slate-700">{t('patient.records.confirmedByDoctor')}</span>
                         </label>
                       </div>
                     ) : (
@@ -1308,29 +1317,29 @@ export const PatientRecords: React.FC = () => {
                           <input type="text" value={editVaccinationForm.vaccineName} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, vaccineName: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
                         </label>
                         <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-slate-700">Dose Number</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.doseNumber')}</span>
                           <input type="number" min={1} value={editVaccinationForm.doseNumber} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, doseNumber: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
                         </label>
                         <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-slate-700">Administered Date</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.administeredDate')}</span>
                           <input type="date" value={editVaccinationForm.administeredDate} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, administeredDate: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
                         </label>
                         <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-slate-700">Administered By</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.administeredBy')}</span>
                           <input type="text" value={editVaccinationForm.administeredBy} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, administeredBy: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
                         </label>
                         <label className="block space-y-1 md:col-span-2">
-                          <span className="text-xs font-semibold text-slate-700">Next Dose Due</span>
+                          <span className="text-xs font-semibold text-slate-700">{t('patient.records.nextDose')}</span>
                           <input type="date" value={editVaccinationForm.nextDoseDue} onChange={(e) => setEditVaccinationForm(prev => ({ ...prev, nextDoseDue: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20" />
                         </label>
                       </div>
                     )}
                     <div className="flex gap-3 pt-2">
                       <button type="button" onClick={() => handleSaveEdit(record)} disabled={submittingEdit} className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60">
-                        {submittingEdit ? 'Saving...' : 'Save Changes'}
+                        {submittingEdit ? t('patient.records.saving') : t('patient.records.saveChanges')}
                       </button>
                       <button type="button" onClick={() => setEditingRecordId(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                        Cancel
+                        {t('shared.cancel')}
                       </button>
                     </div>
                   </div>
@@ -1376,7 +1385,7 @@ export const PatientRecords: React.FC = () => {
                 onClick={() => setConfirmDeleteRecord(null)}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Cancel
+                {t('shared.cancel')}
               </button>
               <button
                 type="button"
@@ -1406,10 +1415,10 @@ export const PatientRecords: React.FC = () => {
           >
             <div className="px-6 py-5">
               <h2 className="text-base font-semibold text-slate-900">
-                Discard unsaved data?
+                {t('patient.records.discardTitle')}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                You have unsaved information in this form. Are you sure you want to switch? Your changes will be lost.
+                {t('patient.records.discardBody')}
               </p>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
@@ -1421,7 +1430,7 @@ export const PatientRecords: React.FC = () => {
                 }}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Keep Editing
+                {t('shared.keepEditing')}
               </button>
               <button
                 type="button"
@@ -1433,7 +1442,7 @@ export const PatientRecords: React.FC = () => {
                 }}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
               >
-                Discard
+                {t('shared.discard')}
               </button>
             </div>
           </div>
