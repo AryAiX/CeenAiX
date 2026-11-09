@@ -834,7 +834,19 @@
       "relOther": "Other",
       "phMemberName": "Enter name",
       "familyEmiratesId": "Emirates ID",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "changePhoto": "Change profile photo",
+      "removePhoto": "Remove profile photo",
+      "saving": "Saving...",
+      "saveSuccessPersonal": "Personal information saved successfully!",
+      "saveSuccessInsurance": "Insurance information saved successfully!",
+      "saveError": "We could not save your changes: {{message}}",
+      "removeFamilyMember": "Remove family member",
+      "removeFamilyTitle": "Remove family member?",
+      "removeFamilyConfirm": "will be removed from your family members. This cannot be undone.",
+      "familyEmptyTitle": "No family members added yet",
+      "familyEmptyBody": "Add your family members to see the family tree",
+      "familyOtherRelations": "Other relations"
     },
     "preVisit": {
       "title": "Pre-visit intake",

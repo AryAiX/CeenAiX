@@ -842,7 +842,19 @@
       "relOther": "أخرى",
       "phMemberName": "أدخل الاسم",
       "familyEmiratesId": "الهوية الإماراتية",
-      "cancel": "إلغاء"
+      "cancel": "إلغاء",
+      "changePhoto": "تغيير صورة الملف الشخصي",
+      "removePhoto": "إزالة صورة الملف الشخصي",
+      "saving": "جارٍ الحفظ...",
+      "saveSuccessPersonal": "تم حفظ المعلومات الشخصية بنجاح!",
+      "saveSuccessInsurance": "تم حفظ معلومات التأمين بنجاح!",
+      "saveError": "تعذّر حفظ التغييرات: {{message}}",
+      "removeFamilyMember": "إزالة فرد من العائلة",
+      "removeFamilyTitle": "إزالة فرد من العائلة؟",
+      "removeFamilyConfirm": "ستتم إزالته من أفراد عائلتك. لا يمكن التراجع عن ذلك.",
+      "familyEmptyTitle": "لم تتم إضافة أفراد من العائلة بعد",
+      "familyEmptyBody": "أضف أفراد عائلتك لرؤية شجرة العائلة",
+      "familyOtherRelations": "علاقات أخرى"
     },
     "preVisit": {
       "title": "الاستقبال المسبق",

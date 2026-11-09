@@ -6,6 +6,7 @@ import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2,
 import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 interface FamilyMember {
@@ -18,7 +19,36 @@ interface FamilyMember {
 }
 
 export const Profile: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formatDateOfBirth = (value: string) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString(
+      resolveLocale(i18n.language),
+      dateTimeFormatWithNumerals(i18n.language, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    );
+  };
+  const relationshipLabel = (relationship: string) => {
+    switch (relationship) {
+      case 'Spouse':
+        return t('patient.profile.relSpouse');
+      case 'Child':
+        return t('patient.profile.relChild');
+      case 'Parent':
+        return t('patient.profile.relParent');
+      case 'Sibling':
+        return t('patient.profile.relSibling');
+      case 'Other':
+        return t('patient.profile.relOther');
+      default:
+        return relationship;
+    }
+  };
   const { user } = useAuth();
   const { data: profile, refetch: refetchProfile } = useUserProfile();
   const { data: records } = usePatientRecords(user?.id);
@@ -370,7 +400,9 @@ export const Profile: React.FC = () => {
                 </h2>
                 <p className="text-gray-500 text-sm mt-2 font-medium">
                   {t('patient.profile.idLine', {
-                    id: personalInfo.emiratesId?.trim() ? personalInfo.emiratesId : t('patient.profile.notSet'),
+                    id: personalInfo.emiratesId?.trim()
+                      ? `\u2066${personalInfo.emiratesId}\u2069`
+                      : t('patient.profile.notSet'),
                   })}
                 </p>
               </div>
@@ -386,7 +418,11 @@ export const Profile: React.FC = () => {
                         {t('patient.profile.cardBloodType')}
                       </p>
                       <p className="text-lg font-bold text-gray-900">
-                        {personalInfo.bloodType || t('patient.profile.notSet')}
+                        {personalInfo.bloodType ? (
+                          <span dir="ltr">{personalInfo.bloodType}</span>
+                        ) : (
+                          t('patient.profile.notSet')
+                        )}
                       </p>
                     </div>
                     {!isEditingPersonal && (
@@ -407,7 +443,9 @@ export const Profile: React.FC = () => {
                         {t('patient.profile.cardDob')}
                       </p>
                       <p className="text-lg font-bold text-gray-900">
-                        {personalInfo.dateOfBirth || t('patient.profile.notSet')}
+                        {personalInfo.dateOfBirth
+                          ? formatDateOfBirth(personalInfo.dateOfBirth)
+                          : t('patient.profile.notSet')}
                       </p>
                     </div>
                     {!isEditingPersonal && (
@@ -431,7 +469,9 @@ export const Profile: React.FC = () => {
                         {personalInfo.emergencyContactName || t('patient.profile.notSet')}
                       </p>
                       {personalInfo.emergencyContactPhone && (
-                        <p className="text-sm text-gray-600 mt-1">{personalInfo.emergencyContactPhone}</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          <span dir="ltr">{personalInfo.emergencyContactPhone}</span>
+                        </p>
                       )}
                     </div>
                     {!isEditingPersonal && (
@@ -505,8 +545,9 @@ export const Profile: React.FC = () => {
                         maxLength={FORM_FIELD_LIMITS.emiratesId}
                         value={personalInfo.emiratesId}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emiratesId: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium rtl:text-right"
                         placeholder={t('patient.profile.phEmiratesId')}
+                        dir="ltr"
                       />
                     </div>
                   </div>
@@ -538,7 +579,8 @@ export const Profile: React.FC = () => {
                         disabled={!isEditingPersonal}
                         value={personalInfo.bloodType}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, bloodType: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium appearance-none bg-white"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium appearance-none bg-white rtl:text-right"
+                        dir="ltr"
                       >
                         <option value="">{t('patient.profile.selectBloodType')}</option>
                         <option value="A+">A+</option>
@@ -617,8 +659,9 @@ export const Profile: React.FC = () => {
                         maxLength={FORM_FIELD_LIMITS.phone}
                         value={personalInfo.emergencyContactPhone}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emergencyContactPhone: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium rtl:text-right"
                         placeholder={t('patient.profile.phEmergencyPhone')}
+                        dir="ltr"
                       />
                       {!isEditingPersonal && (
                         <button
@@ -883,7 +926,7 @@ export const Profile: React.FC = () => {
                               </div>
                               <div>
                                 <h4 className="font-bold text-gray-900 text-lg">{member.name}</h4>
-                                <p className="text-sm text-orange-600 font-medium">{member.relationship}</p>
+                                <p className="text-sm text-orange-600 font-medium">{relationshipLabel(member.relationship)}</p>
                                 {member.dateOfBirth && (
                                   <p className="text-xs text-gray-500 mt-1">{member.dateOfBirth}</p>
                                 )}
@@ -949,8 +992,9 @@ export const Profile: React.FC = () => {
                           type="text"
                           value={newFamilyMember.emiratesId || ''}
                           onChange={(e) => setNewFamilyMember({ ...newFamilyMember, emiratesId: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 bg-white font-medium"
+                          className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 bg-white font-medium rtl:text-right"
                           placeholder="784-XXXX-XXXXXXX-X"
+                          dir="ltr"
                         />
                       </div>
                     </div>
@@ -996,7 +1040,7 @@ export const Profile: React.FC = () => {
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
               <h2 className="text-base font-semibold text-slate-900">
-                {t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member?' })}
+                {t('patient.profile.removeFamilyTitle', { defaultValue: 'Remove family member?' })}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
                 <span className="font-semibold text-slate-700">

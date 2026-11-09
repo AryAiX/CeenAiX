@@ -1069,7 +1069,8 @@
     "deleteButton": "Delete account",
     "deletingAccount": "Deleting account...",
     "errorTypeDelete": "Type DELETE to confirm account deletion.",
-    "confirmDeleteDialog": "Delete this account now? This cannot be undone. Accounts with clinical or shared care data cannot self-delete."
+    "confirmDeleteDialog": "Delete this account now? This cannot be undone. Accounts with clinical or shared care data cannot self-delete.",
+    "confirmDeleteButton": "Confirm permanent deletion"
   },
   "clinic": {
     "portalEyebrow": "Clinic Portal",
