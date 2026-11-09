@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
@@ -604,28 +605,33 @@ export const Profile: React.FC = () => {
                     </div>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.allergies')}</label>
+                    <div className="mb-2.5 flex items-center justify-between gap-2">
+                      <label className="block text-sm font-semibold text-gray-700">{t('patient.profile.allergies')}</label>
+                      <Link to="/patient/records" className="text-xs font-semibold text-blue-600 hover:underline">{t('patient.profile.manageInMyHealth')}</Link>
+                    </div>
                     <textarea
-                      disabled={!isEditingPersonal}
-                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                      disabled
+                      readOnly
                       value={personalInfo.allergies}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, allergies: e.target.value })}
                       rows={3}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 resize-none font-medium"
-                      placeholder={t('patient.profile.phAllergies')}
+                      placeholder={t('patient.profile.noneRecorded')}
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.chronicConditions')}</label>
+                    <div className="mb-2.5 flex items-center justify-between gap-2">
+                      <label className="block text-sm font-semibold text-gray-700">{t('patient.profile.chronicConditions')}</label>
+                      <Link to="/patient/records" className="text-xs font-semibold text-blue-600 hover:underline">{t('patient.profile.manageInMyHealth')}</Link>
+                    </div>
                     <textarea
-                      disabled={!isEditingPersonal}
-                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                      disabled
+                      readOnly
                       value={personalInfo.chronicConditions}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, chronicConditions: e.target.value })}
                       rows={3}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 resize-none font-medium"
-                      placeholder={t('patient.profile.phChronic')}
+                      placeholder={t('patient.profile.noneRecorded')}
                     />
+                    <p className="mt-1.5 text-xs text-gray-500">{t('patient.profile.recordsManagedNote')}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.emergencyName')}</label>

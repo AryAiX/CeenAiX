@@ -854,7 +854,10 @@
       "removeFamilyConfirm": "ستتم إزالته من أفراد عائلتك. لا يمكن التراجع عن ذلك.",
       "familyEmptyTitle": "لم تتم إضافة أفراد من العائلة بعد",
       "familyEmptyBody": "أضف أفراد عائلتك لرؤية شجرة العائلة",
-      "familyOtherRelations": "علاقات أخرى"
+      "familyOtherRelations": "علاقات أخرى",
+      "manageInMyHealth": "إدارتها في صحتي",
+      "noneRecorded": "لا يوجد شيء مسجّل",
+      "recordsManagedNote": "تُحفظ الحساسية والأمراض المزمنة في صفحة صحتي، حيث يمكنك إضافتها ويمكن لطبيبك تأكيدها."
     },
     "preVisit": {
       "title": "الاستقبال المسبق",
