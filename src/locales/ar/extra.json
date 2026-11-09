@@ -754,7 +754,16 @@
       "aiSettings": "إعدادات الذكاء الاصطناعي",
       "encrypted": "بياناتك الصحية خاصة ومشفّرة",
       "disclaimer": "إرشاد مُولَّد بالذكاء الاصطناعي — تأكد دائمًا مع فريقك الطبي.",
-      "personalizedFor": "● مخصص لـ {{name}}"
+      "personalizedFor": "● مخصص لـ {{name}}",
+      "comingSoonLabel": "قريبًا",
+      "feedbackComingSoon": "التقييم — قريبًا",
+      "shareComingSoon": "المشاركة — قريبًا",
+      "regenerateComingSoon": "إعادة الإنشاء — قريبًا",
+      "actionHelpful": "مفيد",
+      "actionNotHelpful": "غير مفيد",
+      "actionCopy": "نسخ",
+      "actionShare": "مشاركة",
+      "actionRegenerate": "إعادة إنشاء الرد"
     },
     "profile": {
       "title": "ملفي الشخصي",

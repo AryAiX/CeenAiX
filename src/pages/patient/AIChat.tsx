@@ -942,25 +942,8 @@ export const PatientAIChat: React.FC = () => {
                                   </p>
                                 </div>
                               </div>
-                              <div className="mt-2 flex items-center gap-2 opacity-60 transition-opacity hover:opacity-100">
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.feedbackComingSoon', { defaultValue: 'Feedback — coming soon' })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="thumbs up"
-                                >
-                                  <ThumbsUp className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.feedbackComingSoon', { defaultValue: 'Feedback — coming soon' })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="thumbs down"
-                                >
-                                  <ThumbsDown className="h-4 w-4" />
-                                </button>
+                              {/* Copy works; feedback, share and regenerate are not built yet, so they stay disabled and are grouped under a visible "Coming soon" label, because a tooltip cannot be seen on a phone. */}
+                              <div className="mt-2 flex flex-wrap items-center gap-2 opacity-60 transition-opacity hover:opacity-100">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -969,30 +952,51 @@ export const PatientAIChat: React.FC = () => {
                                       : undefined
                                   }
                                   className="p-1.5 text-white/30 transition hover:text-white/70"
-                                  aria-label="copy"
+                                  aria-label={t('patient.aiChat.actionCopy')}
+                                  title={t('patient.aiChat.actionCopy')}
                                 >
                                   <Copy className="h-4 w-4" />
                                 </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.shareComingSoon', { defaultValue: 'Share — coming soon' })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="share"
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.regenerateComingSoon', {
-                                    defaultValue: 'Regenerate — coming soon',
-                                  })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="regenerate"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                </button>
+                                {/* kept together so "Coming soon" always sits next to the buttons it describes, even when the row wraps on a narrow phone. */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title={t('patient.aiChat.feedbackComingSoon')}
+                                    className="cursor-not-allowed p-1.5 text-white/20"
+                                    aria-label={t('patient.aiChat.actionHelpful')}
+                                  >
+                                    <ThumbsUp className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title={t('patient.aiChat.feedbackComingSoon')}
+                                    className="cursor-not-allowed p-1.5 text-white/20"
+                                    aria-label={t('patient.aiChat.actionNotHelpful')}
+                                  >
+                                    <ThumbsDown className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title={t('patient.aiChat.shareComingSoon')}
+                                    className="cursor-not-allowed p-1.5 text-white/20"
+                                    aria-label={t('patient.aiChat.actionShare')}
+                                  >
+                                    <Share2 className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title={t('patient.aiChat.regenerateComingSoon')}
+                                    className="cursor-not-allowed p-1.5 text-white/20"
+                                    aria-label={t('patient.aiChat.actionRegenerate')}
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </button>
+                                  <span className="ms-1 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-white/40">{t('patient.aiChat.comingSoonLabel')}</span>
+                                </div>
                               </div>
                             </div>
                           </div>

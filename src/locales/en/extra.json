@@ -746,7 +746,16 @@
       "aiSettings": "AI settings",
       "encrypted": "Your health data is private and encrypted",
       "disclaimer": "AI-generated guidance — always confirm with your care team.",
-      "personalizedFor": "● Personalized for {{name}}"
+      "personalizedFor": "● Personalized for {{name}}",
+      "comingSoonLabel": "Coming soon",
+      "feedbackComingSoon": "Feedback — coming soon",
+      "shareComingSoon": "Share — coming soon",
+      "regenerateComingSoon": "Regenerate — coming soon",
+      "actionHelpful": "Helpful",
+      "actionNotHelpful": "Not helpful",
+      "actionCopy": "Copy",
+      "actionShare": "Share",
+      "actionRegenerate": "Regenerate"
     },
     "profile": {
       "title": "My Profile",
