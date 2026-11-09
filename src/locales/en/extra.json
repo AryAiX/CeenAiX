@@ -1353,7 +1353,14 @@
         "memberId": "Member ID",
         "plan": "Plan",
         "validUntil": "Valid until"
-      }
+      },
+      "estimatesNote": "Amounts on this page are estimates based on your plan's co-pay. Your insurer's final decision may differ.",
+      "preauthInfo": "Pre-authorization requests aren't sent to your insurer from the app yet. The services below usually need approval under your plan.",
+      "approvalUsuallyNeeded": "Approval usually needed",
+      "benefitLabsEstimate": "Estimated from your plan's co-pay.",
+      "benefitPharmacyEstimate": "Estimated from your prescriptions. Exact prices depend on your plan's medication list.",
+      "benefitTelehealthEstimate": "Estimated with your plan's usual co-pay.",
+      "benefitPreventiveInfo": "Shown as a plan benefit. Check with your insurer for what is included."
     },
     "documents": {
       "title": "Documents",

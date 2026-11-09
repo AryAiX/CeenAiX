@@ -194,7 +194,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitLabs'),
       pct: coveredPercent == null ? '—' : `${formatLocaleDigits(coveredPercent, uiLang)}%`,
       copay: coPay == null ? t('patient.insurance.planNeeded') : t('patient.insurance.coPayPct', { percent: formatLocaleDigits(coPay, uiLang) }),
-      notes: t('patient.insurance.benefitLabsNote'),
+      notes: t('patient.insurance.benefitLabsEstimate'),
     },
     {
       icon: Pill,
@@ -203,7 +203,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitPharmacy'),
       pct: coveredPercent == null ? '—' : `${formatLocaleDigits(Math.max(0, coveredPercent - 10), uiLang)}%`,
       copay: coPay == null ? t('patient.insurance.planNeeded') : t('patient.insurance.pharmacyCoPayNote'),
-      notes: t('patient.insurance.benefitPharmacyNote'),
+      notes: t('patient.insurance.benefitPharmacyEstimate'),
     },
     {
       icon: Video,
@@ -212,7 +212,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitTelehealth'),
       pct: coveredPercent == null ? '—' : `${formatLocaleDigits(coveredPercent, uiLang)}%`,
       copay: coPay == null ? t('patient.insurance.planNeeded') : t('patient.insurance.coPayPct', { percent: formatLocaleDigits(coPay, uiLang) }),
-      notes: t('patient.insurance.benefitTelehealthNote'),
+      notes: t('patient.insurance.benefitTelehealthEstimate'),
     },
     {
       icon: Heart,
@@ -221,7 +221,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitPreventive'),
       pct: primaryPlan ? '100%' : '—',
       copay: primaryPlan ? t('patient.insurance.noCopay') : t('patient.insurance.planNeeded'),
-      notes: t('patient.insurance.benefitPreventiveNote'),
+      notes: t('patient.insurance.benefitPreventiveInfo'),
     },
     {
       icon: Activity,
@@ -532,7 +532,7 @@ export const PatientInsurance = () => {
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                   {t('patient.insurance.preauthTitle')}
                 </div>
-                <p className="text-sm text-slate-600">{t('patient.insurance.preauthBody')}</p>
+                <p className="text-sm text-slate-600">{t('patient.insurance.preauthInfo')}</p>
               </div>
               {[
                 t('patient.insurance.preauthItemImaging'),
@@ -548,7 +548,7 @@ export const PatientInsurance = () => {
                     </div>
                   </div>
                   <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                    {t('patient.insurance.ruleBased')}
+                    {t('patient.insurance.approvalUsuallyNeeded')}
                   </span>
                 </div>
               ))}
@@ -670,7 +670,7 @@ export const PatientInsurance = () => {
       </div>
 
       <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        {t('patient.insurance.dataNote')}
+        {t('patient.insurance.estimatesNote')}
       </div>
     </div>
   );
