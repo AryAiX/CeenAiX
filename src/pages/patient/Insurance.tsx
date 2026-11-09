@@ -370,22 +370,25 @@ export const PatientInsurance = () => {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 sm:px-6">
-          <div className="flex min-w-max gap-6 overflow-x-auto sm:gap-8">
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6 sm:gap-8">
             {tabs.map((item) => {
               const active = tab === item.key;
               return (
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => setTab(item.key)}
-                  className={`relative px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
+                  onClick={(event) => {
+                    setTab(item.key);
+                    event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
+                  className={`relative whitespace-nowrap px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
                     active ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
                   {item.label}
                   {typeof item.badge === 'number' ? (
-                    <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+                    <span className="ms-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
                       {formatLocaleDigits(item.badge, uiLang)}
                     </span>
                   ) : null}
