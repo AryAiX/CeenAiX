@@ -62,7 +62,9 @@ export const PatientInsurance = () => {
         )
       : t('shared.notAvailable', 'N/A');
   const money = (value: number | null | undefined) =>
-    value == null ? '—' : `AED ${formatLocaleDigits(Math.round(value), uiLang)}`;
+    value == null
+      ? '—'
+      : `AED ${uiLang.startsWith('en') ? Math.round(value).toLocaleString('en-US') : formatLocaleDigits(Math.round(value), uiLang)}`;
 
   const primaryPlan = data?.primaryPlan ?? null;
 
@@ -321,23 +323,23 @@ export const PatientInsurance = () => {
             </div>
           </div>
 
-          <div className="mt-8 grid w-full gap-4 md:grid-cols-4">
-            <div className="rounded-xl bg-emerald-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-emerald-600">
+          <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+            <div className="rounded-xl bg-emerald-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-emerald-600 sm:text-3xl">
                 {coveredPercent == null ? '—' : `${formatLocaleDigits(coveredPercent, uiLang)}%`}
               </div>
               <div className="text-sm text-slate-600">{t('patient.insurance.coverage')}</div>
             </div>
-            <div className="rounded-xl bg-blue-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-blue-600">{money(annualLimit)}</div>
+            <div className="rounded-xl bg-blue-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-blue-600 sm:text-3xl">{money(annualLimit)}</div>
               <div className="text-sm text-slate-600">{t('patient.insurance.annualLimit')}</div>
             </div>
-            <div className="rounded-xl bg-violet-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-violet-600">{money(annualUsed)}</div>
+            <div className="rounded-xl bg-violet-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-violet-600 sm:text-3xl">{money(annualUsed)}</div>
               <div className="text-sm text-slate-600">{t('patient.insurance.usedThisYear')}</div>
             </div>
-            <div className="rounded-xl bg-amber-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-amber-600">{formatLocaleDigits(totals.pending, uiLang)}</div>
+            <div className="rounded-xl bg-amber-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-amber-600 sm:text-3xl">{formatLocaleDigits(totals.pending, uiLang)}</div>
               <div className="text-sm text-slate-600">{t('patient.insurance.pendingActivity')}</div>
             </div>
           </div>
@@ -389,18 +391,18 @@ export const PatientInsurance = () => {
         <div className="p-6">
           {tab === 'claims' ? (
             <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-xl bg-slate-50 p-5">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">{t('patient.insurance.totalActivity')}</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-slate-900">{money(totals.total)}</div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="rounded-xl bg-slate-50 p-3 sm:p-5">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">{t('patient.insurance.totalActivity')}</div>
+                  <div className="mt-1 font-mono text-sm font-bold text-slate-900 sm:text-2xl">{money(totals.total)}</div>
                 </div>
-                <div className="rounded-xl bg-emerald-50 p-5">
-                  <div className="text-xs uppercase tracking-wide text-emerald-600">{t('patient.insurance.planCovered')}</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-emerald-700">{money(totals.covered)}</div>
+                <div className="rounded-xl bg-emerald-50 p-3 sm:p-5">
+                  <div className="text-[10px] uppercase tracking-wide text-emerald-600 sm:text-xs">{t('patient.insurance.planCovered')}</div>
+                  <div className="mt-1 font-mono text-sm font-bold text-emerald-700 sm:text-2xl">{money(totals.covered)}</div>
                 </div>
-                <div className="rounded-xl bg-blue-50 p-5">
-                  <div className="text-xs uppercase tracking-wide text-blue-600">{t('patient.insurance.youPaid')}</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-blue-700">{money(totals.patient)}</div>
+                <div className="rounded-xl bg-blue-50 p-3 sm:p-5">
+                  <div className="text-[10px] uppercase tracking-wide text-blue-600 sm:text-xs">{t('patient.insurance.youPaid')}</div>
+                  <div className="mt-1 font-mono text-sm font-bold text-blue-700 sm:text-2xl">{money(totals.patient)}</div>
                 </div>
               </div>
 
