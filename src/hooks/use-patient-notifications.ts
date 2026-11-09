@@ -75,6 +75,7 @@ export function usePatientNotifications(userId: string | null | undefined) {
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false })
         .limit(25),
       supabase

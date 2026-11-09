@@ -5,7 +5,7 @@ import { Bell, CheckCheck, Loader2, RefreshCcw, Sparkles, X } from 'lucide-react
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
-import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
+import { appointmentPickerLabel, formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 export const PatientNotifications: React.FC = () => {
@@ -15,7 +15,7 @@ export const PatientNotifications: React.FC = () => {
   const { data, loading, error, refetch } = usePatientNotifications(user?.id);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'appointment' | 'medication' | 'message'>('all');
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'appointment' | 'medication' | 'lab_result'>('all');
   const [dismissingId, setDismissingId] = useState<string | null>(null);
 
   const filteredNotifications = useMemo(() => {
@@ -190,7 +190,9 @@ export const PatientNotifications: React.FC = () => {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-semibold text-slate-900">{notification.title}</p>
                     <span className="text-xs font-semibold text-slate-500">
-                      {formatRelativeTime(t, notification.createdAt)}
+                      {notification.kind === 'upcoming_appointment'
+                        ? appointmentPickerLabel(i18n.language, notification.createdAt)
+                        : formatRelativeTime(t, notification.createdAt)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
@@ -213,7 +215,7 @@ export const PatientNotifications: React.FC = () => {
                 { value: 'unread', label: t('patient.notifications.filterUnread', { defaultValue: 'Unread' }) },
                 { value: 'appointment', label: t('patient.notifications.filterAppointment', { defaultValue: 'Appointments' }) },
                 { value: 'medication', label: t('patient.notifications.filterMedication', { defaultValue: 'Medications' }) },
-                { value: 'message', label: t('patient.notifications.filterMessage', { defaultValue: 'Messages' }) },
+                { value: 'lab_result', label: t('patient.notifications.filterLabResult', { defaultValue: 'Lab results' }) },
               ] as const
             ).map((option) => (
               <button
