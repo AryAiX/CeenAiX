@@ -865,7 +865,10 @@
       "insuranceCardDocTitle": "بطاقة التأمين",
       "comingSoon": "قريبًا",
       "familyComingSoonTitle": "إضافة أفراد العائلة قريبًا",
-      "familyComingSoonBody": "ستتمكن من إضافة أفراد عائلتك وحفظهم هنا في تحديث قادم."
+      "familyComingSoonBody": "ستتمكن من إضافة أفراد عائلتك وحفظهم هنا في تحديث قادم.",
+      "uploadTypeError": "يرجى اختيار صورة بصيغة JPG أو PNG أو WebP.",
+      "uploadSizeError": "هذه الصورة كبيرة جدًا. الحد الأقصى للحجم هو {{max}} ميغابايت.",
+      "photoUpdateFailed": "تعذّر تحديث الصورة. يرجى المحاولة مرة أخرى."
     },
     "preVisit": {
       "title": "الاستقبال المسبق",

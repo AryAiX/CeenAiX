@@ -16,7 +16,7 @@ import {
 } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
-import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
+import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 interface FamilyMember {
@@ -29,6 +29,9 @@ interface FamilyMember {
 }
 
 const EMIRATES_ID_FILE_NAMES = { emiratesFront: 'emirates-id-front', emiratesBack: 'emirates-id-back' } as const;
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_PHOTO_MB = { profile: 5, document: 10 } as const;
+type PhotoUploadTarget = 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance';
 
 export const Profile: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -108,6 +111,7 @@ export const Profile: React.FC = () => {
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({});
   const [confirmDeleteFamilyId, setConfirmDeleteFamilyId] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<{ target: PhotoUploadTarget; message: string } | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -271,14 +275,28 @@ export const Profile: React.FC = () => {
     setSavingInsurance(false);
   };
 
-  const handleImageUpload = (type: 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance') => {
+  const handleImageUpload = (type: PhotoUploadTarget) => {
     if (!user?.id) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = ALLOWED_PHOTO_TYPES.join(',');
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+
+      setPhotoError(null);
+      if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+        setPhotoError({ target: type, message: t('patient.profile.uploadTypeError') });
+        return;
+      }
+      const maxMb = type === 'profile' ? MAX_PHOTO_MB.profile : MAX_PHOTO_MB.document;
+      if (file.size > maxMb * 1024 * 1024) {
+        setPhotoError({
+          target: type,
+          message: t('patient.profile.uploadSizeError', { max: formatLocaleDigits(maxMb, i18n.language) }),
+        });
+        return;
+      }
 
       const ext = file.name.split('.').pop() ?? 'jpg';
       const timestamp = Date.now();
@@ -288,17 +306,23 @@ export const Profile: React.FC = () => {
         const { error } = await supabase.storage
           .from('avatars')
           .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(path);
-          const publicUrl = urlData.publicUrl;
-          setProfileImage(publicUrl);
-          await supabase
-            .from('user_profiles')
-            .update({ avatar_url: publicUrl })
-            .eq('user_id', user.id);
+        if (error) {
+          setPhotoError({ target: type, message: t('patient.profile.photoUpdateFailed') });
+          return;
         }
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(path);
+        const publicUrl = urlData.publicUrl;
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('user_id', user.id);
+        if (profileError) {
+          setPhotoError({ target: type, message: t('patient.profile.photoUpdateFailed') });
+          return;
+        }
+        setProfileImage(publicUrl);
       } else {
         const baseName = type === 'insurance' ? 'insurance-card' : EMIRATES_ID_FILE_NAMES[type];
         const namedFile = new File([file], `${baseName}.${ext.toLowerCase()}`, { type: file.type });
@@ -325,17 +349,8 @@ export const Profile: React.FC = () => {
             }
             await refetchVault();
           }
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : typeof error === 'object' &&
-                  error !== null &&
-                  'message' in error &&
-                  typeof error.message === 'string'
-                ? error.message
-                : String(error);
-          setSaveError(message);
+        } catch {
+          setPhotoError({ target: type, message: t('patient.profile.photoUpdateFailed') });
         }
       }
     };
@@ -344,14 +359,19 @@ export const Profile: React.FC = () => {
 
   const removeProfileImage = async () => {
     if (!user?.id || !profileImage) return;
+    setPhotoError(null);
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ avatar_url: null })
+      .eq('user_id', user.id);
+    if (error) {
+      setPhotoError({ target: 'profile', message: t('patient.profile.photoUpdateFailed') });
+      return;
+    }
     const path = profileImage.split('/avatars/')[1];
     if (path) {
       await supabase.storage.from('avatars').remove([path]);
     }
-    await supabase
-      .from('user_profiles')
-      .update({ avatar_url: null })
-      .eq('user_id', user.id);
     setProfileImage('');
   };
 
@@ -383,6 +403,11 @@ export const Profile: React.FC = () => {
   const removeFamilyMember = (id: string) => {
     setFamilyMembers((prev) => prev.filter((member) => member.id !== id));
   };
+
+  const photoErrorFor = (...targets: PhotoUploadTarget[]) =>
+    photoError && targets.includes(photoError.target) ? (
+      <p role="alert" className="my-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{photoError.message}</p>
+    ) : null;
 
   return (
     <>
@@ -459,6 +484,7 @@ export const Profile: React.FC = () => {
                 </p>
               </div>
 
+              {photoErrorFor('profile')}
               <div className="mt-8 space-y-4">
                 <div
                   className="group relative overflow-hidden bg-gradient-to-br from-rose-50 to-red-50 rounded-xl p-4 cursor-pointer hover:shadow-lg transition-all duration-300 border border-red-100/50 hover:border-red-200"
@@ -756,6 +782,7 @@ export const Profile: React.FC = () => {
                 </button>
               </div>
               <div className="p-5 sm:p-8">
+                {photoErrorFor('emiratesFront', 'emiratesBack')}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.frontSide')}</label>
@@ -913,6 +940,7 @@ export const Profile: React.FC = () => {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.insuranceCardLabel')}</label>
+                    {photoErrorFor('insurance')}
                     <div
                       onClick={() => isEditingInsurance && handleImageUpload('insurance')}
                       className={`group border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 transition-all duration-300 ${isEditingInsurance ? 'cursor-pointer hover:border-violet-500 hover:bg-violet-50/50' : 'cursor-not-allowed opacity-75'}`}
