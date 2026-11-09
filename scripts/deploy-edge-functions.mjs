@@ -71,10 +71,16 @@ const projectRef =
 for (const deployable of selectedDeployables) {
   console.log(`\nDeploying ${deployable.name} from ${deployable.path}`);
   const [command, ...args] = deployable.deployCommand;
-  const deployArgs =
-    projectRef && command === 'supabase' && !args.includes('--project-ref')
-      ? [...args, '--project-ref', projectRef]
-      : args;
+  const deployArgs = [...args];
+  if (command === 'supabase') {
+    if (projectRef && !deployArgs.includes('--project-ref')) {
+      deployArgs.push('--project-ref', projectRef);
+    }
+    // Newer CLI releases refuse to deploy without a terminal unless confirmed.
+    if (!deployArgs.includes('--yes')) {
+      deployArgs.push('--yes');
+    }
+  }
   await runCommandWithRetry(command, deployArgs, deployable.name);
 }
 
