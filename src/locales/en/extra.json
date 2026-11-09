@@ -1049,7 +1049,8 @@
       "previewCloseAria": "Close preview",
       "shareTestCount_one": "{{count}} test",
       "shareTestCount_other": "{{count}} tests",
-      "reportsRowFormat": "PDF report"
+      "reportsRowFormat": "PDF report",
+      "trendsTargetLine": "Target: {{value}}%"
     },
     "notifications": {
       "title": "Notifications",

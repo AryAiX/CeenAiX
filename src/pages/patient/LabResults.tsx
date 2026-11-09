@@ -30,7 +30,7 @@ import { Skeleton } from '../../components/Skeleton';
 import { usePatientLabResults } from '../../hooks';
 import type { PatientLabOrderRecord } from '../../hooks/use-patient-lab-results';
 import { useAuth } from '../../lib/auth-context';
-import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
+import { dateTimeFormatWithNumerals, formatLocaleDecimal, resolveLocale } from '../../lib/i18n-ui';
 import type { LabItemStatusCategory, LabOrderItem } from '../../types';
 
 type LabTab = 'recent' | 'trends' | 'history' | 'upcoming' | 'reports';
@@ -927,6 +927,8 @@ export const PatientLabResults: React.FC = () => {
     const first = hba1c.points[0];
     const last = hba1c.points[hba1c.points.length - 1];
     const maxVal = Math.max(...hba1c.points.map((p) => p.value));
+    const HBA1C_TARGET = 6.5;
+    const scaleMax = Math.max(maxVal, HBA1C_TARGET) * 1.15;
 
     return (
       <div className="space-y-6">
@@ -968,13 +970,19 @@ export const PatientLabResults: React.FC = () => {
           </div>
 
           <div className="relative h-56">
-            <div className="absolute inset-0 flex items-end justify-between gap-2">
+            <div className="absolute inset-x-0 top-0 bottom-12 flex items-end gap-2">
               {hba1c.points.map((point, idx) => (
-                <div key={idx} className="flex flex-1 flex-col items-center gap-2">
+                <div key={idx} className="flex h-full flex-1 items-end">
                   <div
                     className="w-full rounded-t bg-gradient-to-t from-teal-600 to-teal-400 transition-all duration-1000"
-                    style={{ height: `${(point.value / maxVal) * 100}%` }}
+                    style={{ height: `${(point.value / scaleMax) * 100}%` }}
                   />
+                </div>
+              ))}
+            </div>
+            <div className="absolute inset-x-0 bottom-0 flex h-12 gap-2">
+              {hba1c.points.map((point, idx) => (
+                <div key={idx} className="flex flex-1 flex-col items-center justify-end gap-1">
                   <div className="font-mono text-xs text-slate-400">{point.label}</div>
                   <div className="font-mono text-xs font-bold text-slate-700">
                     {point.value}%
@@ -983,11 +991,11 @@ export const PatientLabResults: React.FC = () => {
               ))}
             </div>
             <div
-              className="absolute left-0 right-0 h-px bg-emerald-500"
-              style={{ top: '30%' }}
+              className="absolute inset-x-0 z-10 h-0.5 bg-emerald-600"
+              style={{ bottom: `calc(3rem + (100% - 3rem) * ${HBA1C_TARGET / scaleMax})` }}
             >
-              <div className="absolute right-0 -top-3 text-xs font-bold text-emerald-600">
-                Target: 6.5%
+              <div className="absolute end-0 -top-5 rounded bg-white/90 px-1 text-xs font-bold text-emerald-600">
+                {t('patient.labResults.trendsTargetLine', { value: formatLocaleDecimal(HBA1C_TARGET, i18n.language, 1) })}
               </div>
             </div>
           </div>

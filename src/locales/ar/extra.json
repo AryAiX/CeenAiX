@@ -1111,7 +1111,8 @@
       "shareTestCount_few": "{{count}} فحوصات",
       "shareTestCount_many": "{{count}} فحصًا",
       "shareTestCount_other": "{{count}} فحص",
-      "reportsRowFormat": "تقرير PDF"
+      "reportsRowFormat": "تقرير PDF",
+      "trendsTargetLine": "الهدف: {{value}}٪"
     },
     "notifications": {
       "title": "الإشعارات",
