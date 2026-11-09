@@ -29,6 +29,14 @@ import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '.
 type InsuranceTab = 'claims' | 'preauth' | 'benefits' | 'documents';
 type StatusFilter = 'all' | PatientInsuranceActivity['status'];
 
+const SERVICE_TYPE_KEYS: Record<PatientInsuranceActivity['serviceType'], string> = {
+  Consultation: 'patient.insurance.serviceType.consultation',
+  Laboratory: 'patient.insurance.serviceType.laboratory',
+  Pharmacy: 'patient.insurance.serviceType.pharmacy',
+  'Insurance Claim': 'patient.insurance.serviceType.claim',
+  'Pre-Authorization': 'patient.insurance.serviceType.preauth',
+};
+
 function statusClasses(status: PatientInsuranceActivity['status']) {
   if (status === 'approved') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   if (status === 'pending') return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -75,12 +83,12 @@ export const PatientInsurance = () => {
       return;
     }
     const lines = [
-      'Insurance card summary',
-      `Provider: ${primaryPlan?.providerCompany ?? '—'}`,
-      `Member: ${data?.patientName ?? '—'}`,
-      `Member ID: ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? '—'}`,
-      `Plan: ${primaryPlan?.planName ?? '—'}`,
-      `Valid until: ${formatDate(primaryPlan?.validUntil)}`,
+      t('patient.insurance.cardSummary.title'),
+      `${t('patient.insurance.cardSummary.provider')}: ${primaryPlan?.providerCompany ?? '—'}`,
+      `${t('patient.insurance.cardSummary.member')}: ${data?.patientName ?? '—'}`,
+      `${t('patient.insurance.cardSummary.memberId')}: ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? '—'}`,
+      `${t('patient.insurance.cardSummary.plan')}: ${primaryPlan?.planName ?? '—'}`,
+      `${t('patient.insurance.cardSummary.validUntil')}: ${formatDate(primaryPlan?.validUntil)}`,
     ];
     try {
       const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
@@ -227,9 +235,9 @@ export const PatientInsurance = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="ml-2 font-semibold underline"
+            className="ms-2 font-semibold underline"
           >
-            Retry
+            {t('shared.retry')}
           </button>
         </div>
       ) : null}
@@ -459,7 +467,7 @@ export const PatientInsurance = () => {
                             </span>
                           </div>
                           <div className="mt-1 text-sm text-slate-500">
-                            {item.provider} · {item.serviceType} · {formatDate(item.date)}
+                            {item.provider} · {t(SERVICE_TYPE_KEYS[item.serviceType])} · {formatDate(item.date)}
                           </div>
                           <div className="mt-2 font-mono text-xs text-slate-400">{item.referenceCode}</div>
                         </div>
@@ -503,7 +511,11 @@ export const PatientInsurance = () => {
                 </div>
                 <p className="text-sm text-slate-600">{t('patient.insurance.preauthBody')}</p>
               </div>
-              {['MRI / CT imaging', 'High-cost branded medication', 'Elective procedures'].map((label) => (
+              {[
+                t('patient.insurance.preauthItemImaging'),
+                t('patient.insurance.preauthItemBrandedMeds'),
+                t('patient.insurance.preauthItemElective'),
+              ].map((label) => (
                 <div key={label} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-5 shadow-sm">
                   <div className="flex items-center gap-3">
                     <Calendar className="h-5 w-5 text-blue-600" />

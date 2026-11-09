@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
 
@@ -83,15 +84,6 @@ interface LinkedClaimRow {
 
 function asFirstPlan(value: PlanJoin | PlanJoin[] | null): PlanJoin {
   return Array.isArray(value) ? value[0] ?? null : value;
-}
-
-function titleCase(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback;
-  return value
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(' ');
 }
 
 function estimateSplit(total: number, coPayPercent: number | null | undefined) {
@@ -298,7 +290,11 @@ export function usePatientInsurance(userId: string | null | undefined) {
         date: row.scheduled_at,
         provider: 'CeenAiX Clinic',
         doctor: null,
-        service: row.chief_complaint || `${titleCase(row.type, 'Clinical')} consultation`,
+        service:
+          row.chief_complaint ||
+          (row.type === 'virtual'
+            ? i18n.t('patient.insurance.fallbackService.virtualConsultation', { defaultValue: 'Virtual consultation' })
+            : i18n.t('patient.insurance.fallbackService.inPersonConsultation', { defaultValue: 'In-person consultation' })),
         serviceType: 'Consultation',
         referenceCode: `APT-${row.id.slice(0, 8).toUpperCase()}`,
         totalEstimate: total,
@@ -328,7 +324,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
         date: row.ordered_at,
         provider: 'CeenAiX Lab Network',
         doctor: null,
-        service: tests.length > 0 ? tests.slice(0, 2).join(', ') : 'Laboratory order',
+        service: tests.length > 0 ? tests.slice(0, 2).join(', ') : i18n.t('patient.insurance.fallbackService.labOrder', { defaultValue: 'Laboratory order' }),
         serviceType: 'Laboratory',
         referenceCode: `LAB-${row.id.slice(0, 8).toUpperCase()}`,
         totalEstimate: total,
@@ -353,7 +349,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
         date: row.prescribed_at,
         provider: 'CeenAiX Pharmacy Network',
         doctor: null,
-        service: meds.length > 0 ? meds.slice(0, 2).join(', ') : 'Prescription medication',
+        service: meds.length > 0 ? meds.slice(0, 2).join(', ') : i18n.t('patient.insurance.fallbackService.prescription', { defaultValue: 'Prescription medication' }),
         serviceType: 'Pharmacy',
         referenceCode: `RX-${row.id.slice(0, 8).toUpperCase()}`,
         totalEstimate: total,
@@ -399,7 +395,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
         date: row.submitted_at,
         provider: row.provider_name,
         doctor: null,
-        service: row.claim_type || 'Insurance claim',
+        service: row.claim_type || i18n.t('patient.insurance.fallbackService.claim', { defaultValue: 'Insurance claim' }),
         serviceType: 'Insurance Claim',
         referenceCode: row.external_ref,
         totalEstimate: total,

@@ -85,7 +85,8 @@
     "keepEditing": "متابعة التعديل",
     "discard": "تجاهل",
     "close": "إغلاق",
-    "backToConversations": "المحادثات"
+    "backToConversations": "المحادثات",
+    "notAvailable": "غير متوفر"
   },
   "system": {
     "accessDenied": {
@@ -1289,7 +1290,33 @@
       "generateFromActivity": "إنشاء من النشاط",
       "viewSummary": "عرض الملخص",
       "cardDownloadError": "تعذر تجهيز التنزيل. يُرجى المحاولة مرة أخرى.",
-      "dataNote": "بيانات خطة التأمين مباشرة من patient_insurance و insurance_plans. صفوف المطالبات مقدّرة من المواعيد وطلبات المختبر والوصفات حتى ربط جداول المطالبات والموافقات المسبقة."
+      "dataNote": "بيانات خطة التأمين مباشرة من patient_insurance و insurance_plans. صفوف المطالبات مقدّرة من المواعيد وطلبات المختبر والوصفات حتى ربط جداول المطالبات والموافقات المسبقة.",
+      "uploadCard": "ارفعها من الملف الشخصي",
+      "preauthItemImaging": "التصوير بالرنين المغناطيسي / الأشعة المقطعية",
+      "preauthItemBrandedMeds": "الأدوية ذات العلامة التجارية مرتفعة التكلفة",
+      "preauthItemElective": "الإجراءات الاختيارية",
+      "serviceType": {
+        "consultation": "استشارة",
+        "laboratory": "مختبر",
+        "pharmacy": "صيدلية",
+        "claim": "مطالبة تأمين",
+        "preauth": "موافقة مسبقة"
+      },
+      "fallbackService": {
+        "inPersonConsultation": "استشارة حضورية",
+        "virtualConsultation": "استشارة عن بُعد",
+        "labOrder": "طلب فحوصات مخبرية",
+        "prescription": "أدوية بوصفة طبية",
+        "claim": "مطالبة تأمين"
+      },
+      "cardSummary": {
+        "title": "ملخص بطاقة التأمين",
+        "provider": "شركة التأمين",
+        "member": "المؤمَّن عليه",
+        "memberId": "رقم العضوية",
+        "plan": "الخطة",
+        "validUntil": "صالحة حتى"
+      }
     },
     "documents": {
       "title": "المستندات",

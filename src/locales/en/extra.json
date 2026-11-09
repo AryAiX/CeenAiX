@@ -85,7 +85,8 @@
     "keepEditing": "Keep Editing",
     "discard": "Discard",
     "close": "Close",
-    "backToConversations": "Conversations"
+    "backToConversations": "Conversations",
+    "notAvailable": "N/A"
   },
   "system": {
     "accessDenied": {
@@ -1245,7 +1246,33 @@
       "generateFromActivity": "Generate from activity",
       "viewSummary": "View summary",
       "cardDownloadError": "Could not prepare a download. Please try again.",
-      "dataNote": "Insurance plan data is live from patient_insurance and insurance_plans. Claim rows are estimated from appointments, lab orders, and prescriptions until the claims/pre-authorization tables are connected."
+      "dataNote": "Insurance plan data is live from patient_insurance and insurance_plans. Claim rows are estimated from appointments, lab orders, and prescriptions until the claims/pre-authorization tables are connected.",
+      "uploadCard": "Upload on profile",
+      "preauthItemImaging": "MRI / CT imaging",
+      "preauthItemBrandedMeds": "High-cost branded medication",
+      "preauthItemElective": "Elective procedures",
+      "serviceType": {
+        "consultation": "Consultation",
+        "laboratory": "Laboratory",
+        "pharmacy": "Pharmacy",
+        "claim": "Insurance claim",
+        "preauth": "Pre-authorization"
+      },
+      "fallbackService": {
+        "inPersonConsultation": "In-person consultation",
+        "virtualConsultation": "Virtual consultation",
+        "labOrder": "Laboratory order",
+        "prescription": "Prescription medication",
+        "claim": "Insurance claim"
+      },
+      "cardSummary": {
+        "title": "Insurance card summary",
+        "provider": "Provider",
+        "member": "Member",
+        "memberId": "Member ID",
+        "plan": "Plan",
+        "validUntil": "Valid until"
+      }
     },
     "documents": {
       "title": "Documents",
