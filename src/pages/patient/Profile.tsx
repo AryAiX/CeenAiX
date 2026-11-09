@@ -765,7 +765,7 @@ export const Profile: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  disabled={savingInsurance}
+                  disabled={savingInsurance || !insurance?.primaryPlan}
                   onClick={() => {
                     if (isEditingInsurance) {
                       void saveInsuranceInfo();
@@ -787,17 +787,21 @@ export const Profile: React.FC = () => {
                 </button>
               </div>
               <div className="p-5 sm:p-8">
+                {insurance?.primaryPlan ? (
+                  <p className="mb-5 text-xs text-gray-500">{t('patient.profile.planDetailsNote')}</p>
+                ) : (
+                  <p className="mb-5 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800">{t('patient.profile.noPlanLinked')}</p>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.insuranceProvider')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
-                      maxLength={FORM_FIELD_LIMITS.shortText}
+                      disabled
+                      readOnly
                       value={insuranceInfo.provider}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, provider: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phProvider')}
+                      placeholder={t('patient.profile.notSet')}
                     />
                   </div>
                   <div>
@@ -828,24 +832,22 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.groupNumber')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
-                      maxLength={FORM_FIELD_LIMITS.shortText}
+                      disabled
+                      readOnly
                       value={insuranceInfo.groupNumber}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, groupNumber: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phGroup')}
+                      placeholder={t('patient.profile.notSet')}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.coverageType')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
-                      maxLength={FORM_FIELD_LIMITS.shortText}
+                      disabled
+                      readOnly
                       value={insuranceInfo.coverageType}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, coverageType: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phCoverage')}
+                      placeholder={t('patient.profile.notSet')}
                     />
                   </div>
                   <div>

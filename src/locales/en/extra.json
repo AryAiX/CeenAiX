@@ -849,7 +849,9 @@
       "familyOtherRelations": "Other relations",
       "manageInMyHealth": "Manage in My Health",
       "noneRecorded": "None recorded",
-      "recordsManagedNote": "Allergies and conditions are kept in My Health, where you can add them and your doctor can confirm them."
+      "recordsManagedNote": "Allergies and conditions are kept in My Health, where you can add them and your doctor can confirm them.",
+      "planDetailsNote": "Provider, group number and coverage type come from your insurance plan and can't be changed here.",
+      "noPlanLinked": "No insurance plan is linked to your account yet, so these details can't be edited here."
     },
     "preVisit": {
       "title": "Pre-visit intake",
