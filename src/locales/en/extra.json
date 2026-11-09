@@ -1070,7 +1070,15 @@
       "upcomingBody": "Review the appointment detail for preparation guidance.",
       "newLabsFrom": "New lab results from {{name}}",
       "labsBody": "Open your lab results to see details and ask the AI assistant for a plain-language explanation.",
-      "openThreadFallback": "Open the thread to review the latest care message."
+      "openThreadFallback": "Open the thread to review the latest care message.",
+      "filterAll": "All",
+      "filterUnread": "Unread",
+      "filterAppointment": "Appointments",
+      "filterMedication": "Medications",
+      "filterLabResult": "Lab results",
+      "dismiss": "Dismiss",
+      "markingAllRead": "Marking…",
+      "actionError": "Could not update notification: {{message}}"
     },
     "telemedicine": {
       "title": "Virtual consultation",

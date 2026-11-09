@@ -119,9 +119,9 @@ export const PatientNotifications: React.FC = () => {
             <button
               type="button"
               onClick={refetch}
-              className="ml-2 font-semibold underline"
+              className="ms-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -185,7 +185,7 @@ export const PatientNotifications: React.FC = () => {
                   key={notification.id}
                   type="button"
                   onClick={() => navigate(notification.actionUrl)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-teal-200 hover:bg-teal-50/40"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-semibold text-slate-900">{notification.title}</p>
@@ -294,13 +294,14 @@ export const PatientNotifications: React.FC = () => {
                         disabled={dismissingId === notification.id}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-60"
                         title={t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}
+                        aria-label={t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}
                       >
                         {dismissingId === notification.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <X className="h-4 w-4" />
                         )}
-                        <span>{t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}</span>
+                        <span className="hidden sm:inline">{t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}</span>
                       </button>
                     </div>
                   </div>
