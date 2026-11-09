@@ -1174,7 +1174,9 @@
         "a4": "Go to Profile → Insurance information to update your policy number, member ID and card photo.",
         "q5": "How do I change my password?",
         "a5": "Go to Settings → Security → tap Email me a password reset link."
-      }
+      },
+      "comingSoon": "Coming soon",
+      "comingSoonNote": "These settings aren't active yet. They'll be available in a future update."
     },
     "imaging": {
       "title": "Imaging & scans",

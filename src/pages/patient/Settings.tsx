@@ -133,25 +133,38 @@ export const PatientSettings = () => {
     );
   }
 
-  const renderToggle = (key: keyof Preferences, label: string, body: string) => (
+  const renderToggle = (
+    key: keyof Preferences,
+    label: string,
+    body: string,
+    options?: { comingSoon?: boolean },
+  ) => (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
       <div>
         <div className="font-bold text-slate-900">{label}</div>
         <p className="mt-1 text-sm text-slate-500">{body}</p>
       </div>
-      <button
-        type="button"
-        onClick={() => updatePref(key, !prefs[key] as Preferences[typeof key])}
-        className={`relative h-7 w-12 rounded-full transition ${prefs[key] ? 'bg-cyan-600' : 'bg-slate-300'}`}
-        aria-pressed={Boolean(prefs[key])}
-      >
-        <span
-          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-            prefs[key] ? 'start-6' : 'start-1'
-          }`}
-        />
-      </button>
+      {options?.comingSoon ? (
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">{t('patient.settings.comingSoon')}</span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => updatePref(key, !prefs[key] as Preferences[typeof key])}
+          className={`relative h-7 w-12 rounded-full transition ${prefs[key] ? 'bg-cyan-600' : 'bg-slate-300'}`}
+          aria-pressed={Boolean(prefs[key])}
+        >
+          <span
+            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+              prefs[key] ? 'start-6' : 'start-1'
+            }`}
+          />
+        </button>
+      )}
     </div>
+  );
+
+  const renderComingSoonNote = () => (
+    <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">{t('patient.settings.comingSoonNote')}</p>
   );
 
   const renderSection = () => {
@@ -196,9 +209,10 @@ export const PatientSettings = () => {
     if (section === 'privacy') {
       return (
         <div className="space-y-4">
-          {renderToggle('shareWithDoctors', t('patient.settings.shareDoctors'), t('patient.settings.shareDoctorsBody'))}
-          {renderToggle('shareWithPharmacy', t('patient.settings.sharePharmacy'), t('patient.settings.sharePharmacyBody'))}
-          {renderToggle('shareWithInsurance', t('patient.settings.shareInsurance'), t('patient.settings.shareInsuranceBody'))}
+          {renderComingSoonNote()}
+          {renderToggle('shareWithDoctors', t('patient.settings.shareDoctors'), t('patient.settings.shareDoctorsBody'), { comingSoon: true })}
+          {renderToggle('shareWithPharmacy', t('patient.settings.sharePharmacy'), t('patient.settings.sharePharmacyBody'), { comingSoon: true })}
+          {renderToggle('shareWithInsurance', t('patient.settings.shareInsurance'), t('patient.settings.shareInsuranceBody'), { comingSoon: true })}
         </div>
       );
     }
@@ -206,9 +220,10 @@ export const PatientSettings = () => {
     if (section === 'notifications') {
       return (
         <div className="space-y-4">
-          {renderToggle('email', t('patient.settings.emailNotifications'), t('patient.settings.emailNotificationsBody'))}
-          {renderToggle('sms', t('patient.settings.smsNotifications'), t('patient.settings.smsNotificationsBody'))}
-          {renderToggle('push', t('patient.settings.pushNotifications'), t('patient.settings.pushNotificationsBody'))}
+          {renderComingSoonNote()}
+          {renderToggle('email', t('patient.settings.emailNotifications'), t('patient.settings.emailNotificationsBody'), { comingSoon: true })}
+          {renderToggle('sms', t('patient.settings.smsNotifications'), t('patient.settings.smsNotificationsBody'), { comingSoon: true })}
+          {renderToggle('push', t('patient.settings.pushNotifications'), t('patient.settings.pushNotificationsBody'), { comingSoon: true })}
         </div>
       );
     }
@@ -230,8 +245,8 @@ export const PatientSettings = () => {
               <option value="ar">العربية</option>
             </select>
           </div>
-          {renderToggle('largeText', t('patient.settings.largeText'), t('patient.settings.largeTextBody'))}
-          {renderToggle('highContrast', t('patient.settings.highContrast'), t('patient.settings.highContrastBody'))}
+          {renderToggle('largeText', t('patient.settings.largeText'), t('patient.settings.largeTextBody'), { comingSoon: true })}
+          {renderToggle('highContrast', t('patient.settings.highContrast'), t('patient.settings.highContrastBody'), { comingSoon: true })}
         </div>
       );
     }
