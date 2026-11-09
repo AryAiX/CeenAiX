@@ -13,7 +13,25 @@
     "time": {
       "minutesAgo": "منذ {{count}} د",
       "hoursAgo": "منذ {{count}} س",
-      "daysAgo": "منذ {{count}} يوم"
+      "daysAgo": "منذ {{count}} يوم",
+      "minutesAgo_zero": "منذ {{value}} دقيقة",
+      "minutesAgo_one": "منذ دقيقة",
+      "minutesAgo_two": "منذ دقيقتين",
+      "minutesAgo_few": "منذ {{value}} دقائق",
+      "minutesAgo_many": "منذ {{value}} دقيقة",
+      "minutesAgo_other": "منذ {{value}} دقيقة",
+      "hoursAgo_zero": "منذ {{value}} ساعة",
+      "hoursAgo_one": "منذ ساعة",
+      "hoursAgo_two": "منذ ساعتين",
+      "hoursAgo_few": "منذ {{value}} ساعات",
+      "hoursAgo_many": "منذ {{value}} ساعة",
+      "hoursAgo_other": "منذ {{value}} ساعة",
+      "daysAgo_zero": "منذ {{value}} يوم",
+      "daysAgo_one": "منذ يوم",
+      "daysAgo_two": "منذ يومين",
+      "daysAgo_few": "منذ {{value}} أيام",
+      "daysAgo_many": "منذ {{value}} يومًا",
+      "daysAgo_other": "منذ {{value}} يوم"
     },
     "appointmentType": {
       "inPerson": "حضوري",

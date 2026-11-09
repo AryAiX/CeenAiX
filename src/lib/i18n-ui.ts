@@ -1,4 +1,4 @@
-import type { TFunction } from 'i18next';
+import i18n, { type TFunction } from 'i18next';
 
 export const CLINIC_TIME_ZONE = 'Asia/Dubai';
 
@@ -41,16 +41,16 @@ export const formatRelativeTime = (t: TFunction, value: string) => {
   const diffMinutes = Math.max(1, Math.round(Math.abs(diffMs) / 60000));
 
   if (diffMinutes < 60) {
-    return t('shared.time.minutesAgo', { count: diffMinutes });
+    return t('shared.time.minutesAgo', { count: diffMinutes, value: formatLocaleDigits(diffMinutes, i18n.language) });
   }
 
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) {
-    return t('shared.time.hoursAgo', { count: diffHours });
+    return t('shared.time.hoursAgo', { count: diffHours, value: formatLocaleDigits(diffHours, i18n.language) });
   }
 
   const diffDays = Math.floor(diffHours / 24);
-  return t('shared.time.daysAgo', { count: diffDays });
+  return t('shared.time.daysAgo', { count: diffDays, value: formatLocaleDigits(diffDays, i18n.language) });
 };
 
 export const appointmentTypeLabel = (t: TFunction, value: 'in_person' | 'virtual') =>
