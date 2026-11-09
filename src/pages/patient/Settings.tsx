@@ -158,7 +158,7 @@ export const PatientSettings = () => {
     if (section === 'account') {
       return (
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="mb-4 text-lg font-bold text-slate-900">{t('patient.settings.accountSummary')}</h3>
             <dl className="grid gap-4 md:grid-cols-2">
               <div>
@@ -310,7 +310,7 @@ export const PatientSettings = () => {
             <button
               type="button"
               onClick={() => setSupportModal('email')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-cyan-200 hover:bg-cyan-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
               <div>
@@ -322,7 +322,7 @@ export const PatientSettings = () => {
             <button
               type="button"
               onClick={() => setSupportModal('whatsapp')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-emerald-200 hover:bg-emerald-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
               <div>
@@ -334,7 +334,7 @@ export const PatientSettings = () => {
             <button
               type="button"
               onClick={() => setSupportModal('bug')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-red-200 hover:bg-red-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-red-200 hover:bg-red-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
               <div>
@@ -346,7 +346,7 @@ export const PatientSettings = () => {
             <button
               type="button"
               onClick={() => setSupportModal('help')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-blue-200 hover:bg-blue-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
               <div>
@@ -390,27 +390,27 @@ export const PatientSettings = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="ml-2 font-semibold underline"
+            className="ms-2 font-semibold underline"
           >
             Retry
           </button>
         </div>
       ) : null}
 
-      <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-8 text-white shadow-lg">
+      <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-5 text-white shadow-lg sm:p-8">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
             <SettingsIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">{t('patient.settings.title')}</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">{t('patient.settings.title')}</h1>
             <p className="text-cyan-100">{t('patient.settings.subtitle')}</p>
           </div>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="space-y-2 rounded-2xl bg-white p-3 shadow-sm">
+        <aside className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:block lg:space-y-2 lg:overflow-visible lg:rounded-2xl lg:bg-white lg:p-3 lg:pb-3 lg:shadow-sm">
           {sections.map((item) => {
             const Icon = item.icon;
             const active = section === item.id;
@@ -418,26 +418,28 @@ export const PatientSettings = () => {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setSection(item.id)}
-                className={`w-full rounded-xl p-4 text-left transition ${
-                  active ? 'bg-cyan-50 text-cyan-700' : 'text-slate-600 hover:bg-slate-50'
+                aria-pressed={active}
+                onClick={(event) => {
+                  setSection(item.id);
+                  event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }}
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm transition lg:w-full lg:items-start lg:gap-3 lg:whitespace-normal lg:rounded-xl lg:border-0 lg:p-4 lg:text-start lg:text-base ${
+                  active ? 'border-cyan-200 bg-cyan-50 text-cyan-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <Icon className="mt-0.5 h-5 w-5" />
-                  <div>
-                    <div className="font-bold">{item.title}</div>
-                    <div className="mt-0.5 text-xs text-slate-400">{item.desc}</div>
-                  </div>
-                </div>
+                <Icon className="h-4 w-4 shrink-0 lg:mt-0.5 lg:h-5 lg:w-5" />
+                <span className="lg:block">
+                  <span className="font-bold lg:block">{item.title}</span>
+                  <span className="mt-0.5 hidden text-xs text-slate-400 lg:block">{item.desc}</span>
+                </span>
               </button>
             );
           })}
         </aside>
 
-        <main>
+        <section>
           <div className="mb-5">
-            <h2 className="text-2xl font-bold text-slate-900">{currentSection.title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">{currentSection.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{currentSection.desc}</p>
             <div className="mt-2 h-5 text-sm">
               {saving ? <span className="text-slate-500">{t('patient.settings.saving')}</span> : null}
@@ -450,7 +452,7 @@ export const PatientSettings = () => {
             </div>
           </div>
           {renderSection()}
-        </main>
+        </section>
       </div>
     </div>
     {supportModal ? (
