@@ -690,7 +690,9 @@ export const PatientDocuments = () => {
                   <Calendar className="h-3.5 w-3.5" /> {formatDate(doc.date)}
                 </div>
                 <div>{doc.issuedBy}</div>
-                <div className="font-mono">{doc.fileName}</div>
+                {doc.source === 'patient_document_files' ? (
+                  <div className="font-mono">{doc.fileName}</div>
+                ) : null}
               </div>
               <div className="mt-4 flex items-center gap-2">
                 <span className="rounded-full px-3 py-1 text-xs font-bold text-white" style={{ backgroundColor: doc.categoryColor }}>
@@ -783,7 +785,9 @@ export const PatientDocuments = () => {
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">{selectedDocument.name}</h2>
-                <p className="mt-1 text-sm text-slate-500">{selectedDocument.fileName}</p>
+                {selectedDocument.source === 'patient_document_files' ? (
+                  <p className="mt-1 text-sm text-slate-500">{selectedDocument.fileName}</p>
+                ) : null}
               </div>
               <button
                 type="button"
