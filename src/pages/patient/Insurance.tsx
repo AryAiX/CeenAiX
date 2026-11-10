@@ -467,7 +467,9 @@ export const PatientInsurance = () => {
               <div className="space-y-3">
                 {filteredActivity.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-                    {t('patient.insurance.noActivity')}
+                    {activity.length === 0
+                      ? t('patient.insurance.noInsurerClaims')
+                      : t('patient.insurance.noActivity')}
                   </div>
                 ) : (
                   filteredActivity.map((item) => {

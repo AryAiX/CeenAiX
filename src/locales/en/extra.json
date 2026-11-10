@@ -1374,7 +1374,8 @@
       "benefitLabsEstimate": "Estimated from your plan's co-pay.",
       "benefitPharmacyEstimate": "Estimated from your prescriptions. Exact prices depend on your plan's medication list.",
       "benefitTelehealthEstimate": "Estimated with your plan's usual co-pay.",
-      "benefitPreventiveInfo": "Shown as a plan benefit. Check with your insurer for what is included."
+      "benefitPreventiveInfo": "Shown as a plan benefit. Check with your insurer for what is included.",
+      "noInsurerClaims": "No claims or pre-authorizations from your insurer yet."
     },
     "documents": {
       "title": "Documents",
