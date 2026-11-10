@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
-import { useMedicationLogs } from '../../hooks/use-medication-logs';
+import { lastSevenIsoDates, useMedicationLogs } from '../../hooks/use-medication-logs';
 import {
   assignPatientPrescriptionPharmacy,
   getPatientPrescriptionPharmacyContact,
@@ -218,6 +218,7 @@ export const PatientPrescriptions: React.FC = () => {
   });
   const {
     takenItemIds,
+    takenByDate,
     error: medicationLogError,
     markTaken: markMedicationTaken,
   } = useMedicationLogs(user?.id);
@@ -305,30 +306,31 @@ export const PatientPrescriptions: React.FC = () => {
 
   const activeMedicationCount = activeLineItems.length;
 
-  const { totalDosesToday, takenToday, monthlyAdherencePercent, dispensedCount } = useMemo(() => {
-    if (activeLineItems.length === 0) {
+  // Taken today used to be a fixed 0, "adherence" was the share of dispensed medicines, and the weekly bars were invented.
+  const { totalMedsToday, takenMedsToday, weeklyDays, weeklyMarked, weeklySlots, weeklyMarkedPercent, fullyMarkedDays } = useMemo(() => {
+    const activeIds = activeLineItems.map((row) => row.item.id);
+    const activeCount = activeIds.length;
+    const weeklyDays = lastSevenIsoDates().map((date) => {
+      const markedIds = takenByDate[date];
+      const marked = markedIds ? activeIds.filter((id) => markedIds.has(id)).length : 0;
       return {
-        totalDosesToday: 0,
-        takenToday: 0,
-        monthlyAdherencePercent: 0,
-        dispensedCount: 0,
+        date,
+        marked,
+        percent: activeCount > 0 ? (marked / activeCount) * 100 : 0,
       };
-    }
-    const totalDoses = activeLineItems.reduce(
-      (sum, row) => sum + Math.max(1, estimateDosesPerDay(row.item.frequency) ?? 1),
-      0
-    );
-    // No dose-level logging in DB — show 0 "taken" until adherence ships; value is data-honest.
-    const taken = 0;
-    const dispensed = activeLineItems.filter((r) => r.item.is_dispensed).length;
-    const adh = Math.round((dispensed / activeLineItems.length) * 100);
+    });
+    const weeklyMarked = weeklyDays.reduce((sum, day) => sum + day.marked, 0);
+    const weeklySlots = activeCount * 7;
     return {
-      totalDosesToday: totalDoses,
-      takenToday: taken,
-      monthlyAdherencePercent: adh,
-      dispensedCount: dispensed,
+      totalMedsToday: activeCount,
+      takenMedsToday: activeIds.filter((id) => takenItemIds.has(id)).length,
+      weeklyDays,
+      weeklyMarked,
+      weeklySlots,
+      weeklyMarkedPercent: weeklySlots > 0 ? Math.round((weeklyMarked / weeklySlots) * 100) : 0,
+      fullyMarkedDays: weeklyDays.filter((day) => activeCount > 0 && day.marked === activeCount).length,
     };
-  }, [activeLineItems]);
+  }, [activeLineItems, takenItemIds, takenByDate]);
 
   const activeLinesWithDays: ActiveLineWithDays[] = useMemo(
     () =>
@@ -364,9 +366,9 @@ export const PatientPrescriptions: React.FC = () => {
     return sorted[0] ?? null;
   }, [activeLinesWithDays]);
 
-  const pendingDoses = Math.max(0, totalDosesToday - takenToday);
+  const pendingMeds = Math.max(0, totalMedsToday - takenMedsToday);
 
-  const todayProgress = totalDosesToday > 0 ? Math.min(100, (takenToday / totalDosesToday) * 100) : 0;
+  const todayProgress = totalMedsToday > 0 ? Math.min(100, (takenMedsToday / totalMedsToday) * 100) : 0;
 
   const handleRefillCta = () => {
     navigate('/patient/messages');
@@ -755,7 +757,7 @@ export const PatientPrescriptions: React.FC = () => {
       );
     }
 
-    const completion = totalDosesToday > 0 ? Math.round((takenToday / totalDosesToday) * 100) : 0;
+    const completion = totalMedsToday > 0 ? Math.round((takenMedsToday / totalMedsToday) * 100) : 0;
 
     return (
       <div className="space-y-6">
@@ -764,16 +766,16 @@ export const PatientPrescriptions: React.FC = () => {
             <div>
               <h3 className="text-lg font-bold text-slate-900">{todayLabel}</h3>
               <p className="mt-1 text-sm text-slate-600">
-                {t('patient.prescriptions.scheduleProgress', {
-                  taken: formatLocaleDigits(takenToday, uiLang),
-                  total: formatLocaleDigits(totalDosesToday, uiLang),
+                {t('patient.prescriptions.scheduleProgressMeds', {
+                  taken: formatLocaleDigits(takenMedsToday, uiLang),
+                  total: formatLocaleDigits(totalMedsToday, uiLang),
                   percent: formatLocaleDigits(completion, uiLang),
                 })}
               </p>
             </div>
             <div className="text-sm font-medium text-amber-600">
-              {t('patient.prescriptions.scheduleRemaining', {
-                count: formatLocaleDigits(pendingDoses, uiLang),
+              {t('patient.prescriptions.scheduleRemainingMeds', {
+                count: formatLocaleDigits(pendingMeds, uiLang),
               })}
             </div>
           </div>
@@ -863,7 +865,7 @@ export const PatientPrescriptions: React.FC = () => {
                       {isTaken ? (
                         <div className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-4 py-2 text-xs font-bold text-emerald-700">
                           <CheckCircle className="h-3.5 w-3.5" />
-                          {t('patient.prescriptions.dispensed', { defaultValue: 'Taken ✓' })}
+                          {t('patient.prescriptions.takenTodayLabel')}
                         </div>
                       ) : (
                         <button
@@ -871,7 +873,7 @@ export const PatientPrescriptions: React.FC = () => {
                           onClick={() => void handleMarkScheduleTaken(row.item.id, doseIndex)}
                           className="rounded-full bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700"
                         >
-                          {t('patient.prescriptions.scheduleMarkTaken')}
+                          {t('patient.prescriptions.markTodayTaken')}
                         </button>
                       )}
                     </div>
@@ -904,7 +906,7 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="rounded-xl bg-white p-4 shadow-sm">
             <div className="mb-2 text-xs text-slate-400">{t('patient.prescriptions.scheduleOverall')}</div>
             <div className="text-lg font-bold text-teal-600">
-              {formatLocaleDigits(takenToday, uiLang)}/{formatLocaleDigits(totalDosesToday, uiLang)} ({formatLocaleDigits(completion, uiLang)}%)
+              {formatLocaleDigits(takenMedsToday, uiLang)}/{formatLocaleDigits(totalMedsToday, uiLang)} ({formatLocaleDigits(completion, uiLang)}%)
             </div>
           </div>
         </div>
@@ -921,15 +923,11 @@ export const PatientPrescriptions: React.FC = () => {
       );
     }
 
-    const weeklyBars = [
-      { label: t('patient.prescriptions.dayMon'), percent: monthlyAdherencePercent },
-      { label: t('patient.prescriptions.dayTue'), percent: monthlyAdherencePercent },
-      { label: t('patient.prescriptions.dayWed'), percent: monthlyAdherencePercent },
-      { label: t('patient.prescriptions.dayThu'), percent: Math.max(0, monthlyAdherencePercent - 10) },
-      { label: t('patient.prescriptions.dayFri'), percent: monthlyAdherencePercent },
-      { label: t('patient.prescriptions.daySat'), percent: Math.max(0, monthlyAdherencePercent - 15) },
-      { label: t('patient.prescriptions.daySun'), percent: monthlyAdherencePercent },
-    ];
+    const weeklyBars = weeklyDays.map((day) => ({
+      key: day.date,
+      label: new Intl.DateTimeFormat(resolveLocale(uiLang), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day.date}T00:00:00Z`)),
+      percent: day.percent,
+    }));
 
     return (
       <div className="space-y-6">
@@ -937,8 +935,8 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="mb-2 font-playfair text-3xl font-bold">
-                {t('patient.prescriptions.reminderAdherenceTitle', {
-                  percent: formatLocaleDigits(monthlyAdherencePercent, uiLang),
+                {t('patient.prescriptions.reminderMarkedTitle', {
+                  percent: formatLocaleDigits(weeklyMarkedPercent, uiLang),
                 })}
               </div>
               <div className="flex items-center gap-2 text-teal-100">
@@ -959,13 +957,13 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="mb-6 h-2 overflow-hidden rounded-full bg-white/20">
             <div
               className="h-full bg-white transition-all duration-500 ease-out"
-              style={{ width: `${monthlyAdherencePercent}%` }}
+              style={{ width: `${weeklyMarkedPercent}%` }}
             />
           </div>
 
           <div className="flex items-end justify-between gap-2">
             {weeklyBars.map((day, idx) => (
-              <div key={day.label} className="flex flex-col items-center gap-2">
+              <div key={day.key} className="flex flex-col items-center gap-2">
                 <div
                   className={`w-10 rounded-lg transition-all duration-500 ${
                     day.percent >= 90 ? 'bg-white' : day.percent > 0 ? 'bg-amber-400' : 'bg-red-400'
@@ -1129,7 +1127,7 @@ export const PatientPrescriptions: React.FC = () => {
           >
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <TrendingUp className="h-5 w-5 text-teal-600" />
-              {t('patient.prescriptions.missedDoseAnalysis')}
+              {t('patient.prescriptions.markedAnalysisTitle')}
             </div>
             {showMissedDoseAnalysis
               ? <ChevronUp className="h-4 w-4 text-slate-400" />
@@ -1139,19 +1137,19 @@ export const PatientPrescriptions: React.FC = () => {
             <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
-                  { label: 'This Week', value: '0', color: 'text-emerald-600' },
-                  { label: 'This Month', value: '0', color: 'text-emerald-600' },
-                  { label: 'Streak', value: `${formatLocaleDigits(dispensedCount, uiLang)} days`, color: 'text-teal-600' },
-                  { label: 'Adherence', value: `${formatLocaleDigits(monthlyAdherencePercent, uiLang)}%`, color: 'text-teal-600' },
+                  { key: 'statMarked', label: t('patient.prescriptions.statMarked'), value: formatLocaleDigits(weeklyMarked, uiLang), color: 'text-emerald-600' },
+                  { key: 'statNotMarked', label: t('patient.prescriptions.statNotMarked'), value: formatLocaleDigits(weeklySlots - weeklyMarked, uiLang), color: 'text-emerald-600' },
+                  { key: 'statFullDays', label: t('patient.prescriptions.statFullDays'), value: formatLocaleDigits(fullyMarkedDays, uiLang), color: 'text-teal-600' },
+                  { key: 'statRate', label: t('patient.prescriptions.statRate'), value: `${formatLocaleDigits(weeklyMarkedPercent, uiLang)}%`, color: 'text-teal-600' },
                 ].map((stat) => (
-                  <div key={stat.label} className="rounded-lg bg-slate-50 p-3 text-center">
+                  <div key={stat.key} className="rounded-lg bg-slate-50 p-3 text-center">
                     <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
                     <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
                   </div>
                 ))}
               </div>
               <p className="text-xs text-slate-500 text-center">
-                {t('patient.prescriptions.adherenceNote')}
+                {t('patient.prescriptions.markedNote')}
               </p>
             </div>
           ) : null}
@@ -1634,7 +1632,7 @@ export const PatientPrescriptions: React.FC = () => {
                   </div>
                 ) : null}
 
-                <p className="text-xs text-slate-500">{t('patient.prescriptions.adherenceNote')}</p>
+                <p className="text-xs text-slate-500">{t('patient.prescriptions.markedNote')}</p>
               </div>
             </div>
 
@@ -1876,9 +1874,9 @@ export const PatientPrescriptions: React.FC = () => {
           <div className="hidden items-center gap-2 rounded-full bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/30 sm:inline-flex sm:px-6 sm:py-3 sm:text-[13px]">
             <Pill className="h-4 w-4" />
             <span>
-              {t('patient.prescriptions.dosesTakenPill', {
-                taken: formatLocaleDigits(takenToday, uiLang),
-                total: formatLocaleDigits(totalDosesToday, uiLang),
+              {t('patient.prescriptions.medsTakenPill', {
+                taken: formatLocaleDigits(takenMedsToday, uiLang),
+                total: formatLocaleDigits(totalMedsToday, uiLang),
               })}
             </span>
           </div>
@@ -1933,17 +1931,17 @@ export const PatientPrescriptions: React.FC = () => {
             </div>
             <div>
               <div className="font-mono text-2xl font-bold text-emerald-600 sm:text-3xl">
-                {formatLocaleDigits(takenToday, uiLang)}/{formatLocaleDigits(totalDosesToday, uiLang)}
+                {formatLocaleDigits(takenMedsToday, uiLang)}/{formatLocaleDigits(totalMedsToday, uiLang)}
               </div>
               <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiTakenToday')}</div>
             </div>
           </div>
-          {pendingDoses > 0 ? (
+          {pendingMeds > 0 ? (
             <div className="mb-2 text-xs font-medium text-amber-500">
-              {t('patient.prescriptions.kpiMorePending', { count: String(pendingDoses) })}
+              {t('patient.prescriptions.medsNotMarked', { count: formatLocaleDigits(pendingMeds, uiLang) })}
             </div>
           ) : (
-            <div className="mb-2 text-xs font-medium text-emerald-600">{t('patient.prescriptions.kpiDosesPlanned')}</div>
+            <div className="mb-2 text-xs font-medium text-emerald-600">{t('patient.prescriptions.allMedsMarked')}</div>
           )}
           <div className="h-1 overflow-hidden rounded-full bg-slate-100">
             <div
@@ -1966,13 +1964,13 @@ export const PatientPrescriptions: React.FC = () => {
             </div>
             <div>
               <div className="font-mono text-2xl font-bold text-teal-600 sm:text-3xl">
-                {formatLocaleDigits(monthlyAdherencePercent, uiLang)}%
+                {formatLocaleDigits(weeklyMarkedPercent, uiLang)}%
               </div>
-              <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiAdherenceMonth')}</div>
+              <div className="text-xs text-slate-400">{t('patient.prescriptions.kpiMarkedWeek')}</div>
             </div>
           </div>
           <div className="text-xs font-medium text-slate-500">
-            {t('patient.prescriptions.kpiAdherenceFromPickup', { dispensed: String(dispensedCount) })}
+            {t('patient.prescriptions.kpiMarkedWeekSub')}
           </div>
         </div>
 

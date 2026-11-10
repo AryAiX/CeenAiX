@@ -322,7 +322,8 @@ export const PatientDashboard: React.FC = () => {
         : healthScoreValue >= 60
           ? { label: localCopy.scoreFair, className: 'text-amber-600' }
           : { label: localCopy.scoreAttention, className: 'text-rose-600' };
-  const takenCount = medications.filter((medication) => medication.isDispensed || takenItemIds.has(medication.id)).length;
+  // Taken means marked taken today, not dispensed.
+  const takenCount = medications.filter((medication) => takenItemIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
       ? Math.min(100, Math.round(((insurance.annualLimitUsed ?? 0) / insurance.annualLimit) * 100))
@@ -672,7 +673,8 @@ export const PatientDashboard: React.FC = () => {
                 </>
               ) : medications.length > 0 ? (
                 displayedMedications.map((medication) => {
-                  const isTaken = medication.isDispensed || takenItemIds.has(medication.id);
+                  // Taken means marked taken today, not dispensed.
+                  const isTaken = takenItemIds.has(medication.id);
                   return (
                     <div key={medication.id} className="flex items-center gap-3 px-6 py-4">
                       <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${isTaken ? 'bg-emerald-500' : 'bg-amber-400'}`} />
