@@ -4,12 +4,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
+import { Alert, AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { RELOCK_AFTER_MS, START_PATH, USER_AGENT_SUFFIX, WEB_URL } from './config';
 import { IN_WEBVIEW_SCHEMES, SYSTEM_SCHEMES, deepLinkToWebUrl, isPortalUrl, isSignedInArea } from './links';
+import { saveAndShareFile } from './save-file';
+import { parseSaveFileMessage } from './save-file-message';
 import { StatusScreen } from './StatusScreen';
 import { strings } from './strings';
 
@@ -146,6 +148,15 @@ export function App(): React.ReactElement | null {
     return false;
   }, []);
 
+  // The portal posts files it creates (PDF reports, calendar files) here, because iOS can't save its temporary blob: links.
+  const onMessage = useCallback((event: WebViewMessageEvent) => {
+    const { url, data } = event.nativeEvent;
+    if (!isPortalUrl(url)) return;
+    const request = parseSaveFileMessage(data);
+    if (!request) return;
+    saveAndShareFile(request).catch(() => Alert.alert(strings.saveFileFailedTitle, strings.saveFileFailedBody));
+  }, []);
+
   const onNavigationStateChange = useCallback((state: WebViewNavigation) => {
     currentUrl.current = state.url;
     canGoBack.current = state.canGoBack;
@@ -172,6 +183,7 @@ export function App(): React.ReactElement | null {
           injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_SCRIPT}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onNavigationStateChange={onNavigationStateChange}
+          onMessage={onMessage}
           onOpenWindow={({ nativeEvent }) => {
             const { targetUrl } = nativeEvent;
             if (isPortalUrl(targetUrl)) {

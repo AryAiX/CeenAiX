@@ -8,6 +8,8 @@ const en = {
   lockedBody: 'Unlock to see your health information.',
   unlock: 'Unlock',
   unlockPrompt: 'Unlock CeenAiX',
+  saveFileFailedTitle: 'Could not open the file',
+  saveFileFailedBody: 'Please try again. If it keeps happening, open CeenAiX in your browser to download it.',
 };
 
 type Strings = typeof en;
@@ -20,6 +22,8 @@ const ar: Strings = {
   lockedBody: 'افتح القفل لعرض معلوماتك الصحية.',
   unlock: 'فتح القفل',
   unlockPrompt: 'افتح CeenAiX',
+  saveFileFailedTitle: 'تعذّر فتح الملف',
+  saveFileFailedBody: 'يُرجى المحاولة مرة أخرى. إذا تكرر ذلك، افتح CeenAiX في المتصفح لتنزيله.',
 };
 
 export const isArabic = (getLocales()[0]?.languageCode ?? 'en').startsWith('ar');

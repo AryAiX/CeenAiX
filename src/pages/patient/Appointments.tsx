@@ -35,6 +35,7 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
+import { saveTextFile } from '../../lib/save-file';
 import type { Appointment, AppointmentStatus } from '../../types';
 
 interface DoctorAppointmentProfile {
@@ -86,17 +87,12 @@ function downloadIcs(
   location: string,
   labels: { summary: string; description: string }
 ) {
-  const blob = new Blob([buildIcsFile(appointment, doctorName, location, labels)], {
-    type: 'text/calendar;charset=utf-8',
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `appointment-${appointment.id}.ics`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // saveTextFile also works inside the phone app, where a blob: download does nothing (QA-096).
+  void saveTextFile(
+    buildIcsFile(appointment, doctorName, location, labels),
+    `appointment-${appointment.id}.ics`,
+    'text/calendar'
+  ).catch(() => undefined);
 }
 
 async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/appointments') {

@@ -25,6 +25,7 @@ import { resolvePatientDocumentUrl, usePatientInsurance, type PatientInsuranceAc
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { saveTextFile } from '../../lib/save-file';
 
 type InsuranceTab = 'claims' | 'preauth' | 'benefits' | 'documents';
 type StatusFilter = 'all' | PatientInsuranceActivity['status'];
@@ -111,21 +112,16 @@ export const PatientInsurance = () => {
       `${t('patient.insurance.cardSummary.plan')}: ${primaryPlan?.planName ?? '—'}`,
       `${t('patient.insurance.cardSummary.validUntil')}: ${formatDate(primaryPlan?.validUntil)}`,
     ];
-    try {
-      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `insurance-card-summary-${new Date().toISOString().slice(0, 10)}.txt`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-    } catch {
+    // saveTextFile also works inside the phone app, where a blob: download does nothing (QA-096).
+    saveTextFile(
+      lines.join('\n'),
+      `insurance-card-summary-${new Date().toISOString().slice(0, 10)}.txt`,
+      'text/plain'
+    ).catch(() => {
       setCardActionMessage(
         t('patient.insurance.cardDownloadError', { defaultValue: 'Could not prepare a download. Please try again.' })
       );
-    }
+    });
   };
 
   // No insurer email or phone is stored, so this only shows a message.

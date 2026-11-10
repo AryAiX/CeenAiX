@@ -39,6 +39,7 @@ import type { PatientPharmacyWorkflowStatus } from '../../hooks/use-patient-pres
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { savePdf } from '../../lib/save-file';
 import type { LabItemStatusCategory } from '../../types';
 
 // Lab result categories reuse the existing Lab Results status badge keys.
@@ -500,7 +501,8 @@ export const PatientDocuments = () => {
       pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pdf.internal.pageSize.getHeight() - 3, { align: 'right' });
     }
 
-    pdf.save(doc.fileName);
+    // savePdf also works inside the phone app, where jsPDF's own save does nothing on iOS (QA-096).
+    void savePdf(pdf, doc.fileName).catch(() => undefined);
   };
 
   return (

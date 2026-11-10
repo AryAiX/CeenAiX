@@ -31,6 +31,7 @@ import { usePatientLabResults } from '../../hooks';
 import type { PatientLabOrderRecord } from '../../hooks/use-patient-lab-results';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatLocaleDecimal, resolveLocale } from '../../lib/i18n-ui';
+import { savePdf, saveTextFile } from '../../lib/save-file';
 import type { LabItemStatusCategory, LabOrderItem } from '../../types';
 
 type LabTab = 'recent' | 'trends' | 'history' | 'upcoming' | 'reports';
@@ -1340,15 +1341,9 @@ export const PatientLabResults: React.FC = () => {
                   'END:VEVENT',
                   'END:VCALENDAR',
                 ].join('\r\n');
-                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const anchor = document.createElement('a');
-                anchor.href = url;
-                anchor.download = `lab-booking-${upcomingPrimary.id}.ics`;
-                document.body.appendChild(anchor);
-                anchor.click();
-                document.body.removeChild(anchor);
-                URL.revokeObjectURL(url);
+                void saveTextFile(icsContent, `lab-booking-${upcomingPrimary.id}.ics`, 'text/calendar').catch(
+                  () => undefined
+                );
               }}
               className="rounded-lg bg-teal-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-teal-700"
             >
@@ -1761,7 +1756,8 @@ export const PatientLabResults: React.FC = () => {
       doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 3, { align: 'right' });
     }
 
-    doc.save(`lab-report-${order.lab_order_code ?? order.id}.pdf`);
+    // savePdf also works inside the phone app, where jsPDF's own save does nothing on iOS (QA-096).
+    void savePdf(doc, `lab-report-${order.lab_order_code ?? order.id}.pdf`).catch(() => undefined);
   };
 
   const closeShareModal = () => {
