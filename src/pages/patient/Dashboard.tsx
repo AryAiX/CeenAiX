@@ -50,10 +50,13 @@ import {
   chartY,
   fitChartDomain,
 } from '../../lib/dashboard-charts';
+import { careTeamCountLabel } from '../../lib/care-team-count';
 import { formatMedicationDetailLine } from '../../lib/medication-display';
 import { DEFAULT_CARE_CONVERSATION_SUBJECT, getMessagePreviewText } from '../../lib/messaging';
 
 // QA-010 chart settings. The right padding leaves room for the reference-line labels.
+const CARE_TEAM_PREVIEW_COUNT = 3;
+
 const HBA1C_TARGET = 6.5;
 const BP_SYSTOLIC_LIMIT = 130;
 const BP_DIASTOLIC_LIMIT = 85;
@@ -183,6 +186,9 @@ export const PatientDashboard: React.FC = () => {
   const displayedMedications = medications.slice(0, 3);
   const recentMessages = dashboardData?.recentMessages ?? [];
   const careTeam = dashboardData?.careTeam ?? [];
+  // QA-013: three doctors by default, the rest behind "Show all"; the count always covers everyone.
+  const [showAllCareTeam, setShowAllCareTeam] = useState(false);
+  const visibleCareTeam = showAllCareTeam ? careTeam : careTeam.slice(0, CARE_TEAM_PREVIEW_COUNT);
   const insurance = dashboardData?.insurance ?? null;
   const latestHba1c = dashboardData?.latestHba1c ?? null;
   const previousHba1c = dashboardData?.previousHba1c ?? null;
@@ -250,7 +256,6 @@ export const PatientDashboard: React.FC = () => {
             recentTitle: 'النشاط الحديث',
             shortcutsTitle: 'اختصارات سريعة',
             careTeamTitle: 'فريق الرعاية',
-            careTeamCount: '{{count}} أطباء',
             nextLabel: 'التالي',
             lastLabel: 'آخر زيارة',
             noCareTeam: 'سيظهر أعضاء فريق الرعاية بعد مواعيدك ورسائلك مع الأطباء.',
@@ -306,7 +311,6 @@ export const PatientDashboard: React.FC = () => {
             recentTitle: 'Recent Activity',
             shortcutsTitle: 'Quick Shortcuts',
             careTeamTitle: 'My Care Team',
-            careTeamCount: '{{count}} doctors',
             nextLabel: 'Next',
             lastLabel: 'Last',
             noCareTeam: 'Your care team will appear here once you have doctor appointments or message threads.',
@@ -948,7 +952,7 @@ export const PatientDashboard: React.FC = () => {
                 <h2 className="text-sm font-semibold text-slate-900">{localCopy.careTeamTitle}</h2>
               </div>
               <span className="text-xs text-slate-400">
-                {localCopy.careTeamCount.replace('{{count}}', formatLocaleDigits(careTeam.length, i18n.language))}
+                {careTeamCountLabel(careTeam.length, i18n.language)}
               </span>
             </div>
 
@@ -959,15 +963,18 @@ export const PatientDashboard: React.FC = () => {
                 <Skeleton className="h-40 w-full rounded-xl" />
               </div>
             ) : careTeam.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {careTeam.map((member) => (
+              <>
+              {/* On a phone each doctor is a compact row (avatar beside the name); from sm up the cards sit three across as before. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+                {visibleCareTeam.map((member) => (
                   <div
                     key={member.doctorId}
-                    className="rounded-xl border border-slate-100 p-4 transition-all hover:border-teal-200 hover:shadow-sm"
+                    data-testid="care-team-member"
+                    className="rounded-xl border border-slate-100 p-3 transition-all hover:border-teal-200 hover:shadow-sm sm:p-4"
                   >
-                    <div className="mb-3 flex flex-col items-center text-center">
-                      <div className="relative mb-2">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-teal-600 text-sm font-bold text-white">
+                    <div className="flex items-center gap-3 sm:mb-3 sm:flex-col sm:gap-0 sm:text-center">
+                      <div className="relative shrink-0 sm:mb-2">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-teal-600 text-sm font-bold text-white sm:h-12 sm:w-12">
                           {member.doctorName
                             .split(' ')
                             .map((part) => part[0] ?? '')
@@ -976,17 +983,37 @@ export const PatientDashboard: React.FC = () => {
                             .toUpperCase()}
                         </div>
                       </div>
-                      <p className="text-sm font-semibold text-slate-900">{member.doctorName}</p>
-                      <span className="mt-0.5 text-xs font-medium text-teal-600">
-                        {member.specialty ?? t('shared.careVisit')}
-                      </span>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
-                        <MapPin className="h-3 w-3" />
-                        {member.doctorCity || localCopy.locationPending}
-                      </p>
+                      <div className="min-w-0 flex-1 sm:w-full sm:flex-none">
+                        <p className="truncate text-sm font-semibold text-slate-900 sm:whitespace-normal">{member.doctorName}</p>
+                        <span className="mt-0.5 block truncate text-xs font-medium text-teal-600 sm:whitespace-normal">
+                          {member.specialty ?? t('shared.careVisit')}
+                          {member.doctorCity ? (
+                            <span className="font-normal text-slate-400 sm:hidden">{` · ${member.doctorCity}`}</span>
+                          ) : null}
+                        </span>
+                        <p className="mt-0.5 hidden items-center gap-1 text-xs text-slate-400 sm:flex sm:justify-center">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span>{member.doctorCity || localCopy.locationPending}</span>
+                        </p>
+                        {member.nextAppointmentAt || member.lastAppointmentAt ? (
+                          <p className="mt-0.5 truncate text-xs text-slate-500 sm:hidden">
+                            {member.nextAppointmentAt ? (
+                              <>
+                                {localCopy.nextLabel}:{' '}
+                                <span className="font-medium text-teal-600">{formatCompactDate(member.nextAppointmentAt)}</span>
+                              </>
+                            ) : (
+                              <>
+                                {localCopy.lastLabel}:{' '}
+                                <span className="font-medium text-slate-600">{formatCompactDate(member.lastAppointmentAt!)}</span>
+                              </>
+                            )}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                     {member.nextAppointmentAt || member.lastAppointmentAt ? (
-                      <p className="mb-3 border-t border-slate-50 pt-2 text-center text-xs text-slate-500">
+                      <p className="mb-3 hidden border-t border-slate-50 pt-2 text-center text-xs text-slate-500 sm:block">
                         {member.nextAppointmentAt ? (
                           <>
                             {localCopy.nextLabel}:{' '}
@@ -1004,7 +1031,7 @@ export const PatientDashboard: React.FC = () => {
                         )}
                       </p>
                     ) : null}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0">
                       <button
                         type="button"
                         onClick={() => navigate(`/patient/messages?doctor=${member.doctorId}`)}
@@ -1025,6 +1052,21 @@ export const PatientDashboard: React.FC = () => {
                   </div>
                 ))}
               </div>
+              {careTeam.length > CARE_TEAM_PREVIEW_COUNT ? (
+                <button
+                  type="button"
+                  data-testid="care-team-toggle"
+                  aria-expanded={showAllCareTeam}
+                  onClick={() => setShowAllCareTeam((value) => !value)}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-xs font-semibold text-teal-700 transition-colors hover:bg-slate-50"
+                >
+                  {showAllCareTeam
+                    ? t('patient.dashboard.careTeamShowFewer')
+                    : t('patient.dashboard.careTeamShowAll', { total: formatLocaleDigits(careTeam.length, i18n.language) })}
+                  <ChevronRight className={`h-3 w-3 transition-transform ${showAllCareTeam ? '-rotate-90' : 'rotate-90'}`} />
+                </button>
+              ) : null}
+              </>
             ) : (
               <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{localCopy.noCareTeam}</div>
             )}

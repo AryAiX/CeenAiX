@@ -179,7 +179,9 @@
         "every6Hours": "Every 6 hours",
         "asNeeded": "As needed",
         "asNeededPain": "As needed for pain"
-      }
+      },
+      "careTeamShowAll": "Show all ({{total}})",
+      "careTeamShowFewer": "Show fewer"
     },
     "appointments": {
       "title": "Appointments",

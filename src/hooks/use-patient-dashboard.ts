@@ -459,8 +459,8 @@ export function usePatientDashboard(userId: string | null | undefined, uiLanguag
           return -1;
         }
         return new Date(right.lastAppointmentAt).getTime() - new Date(left.lastAppointmentAt).getTime();
-      })
-      .slice(0, 3);
+      });
+    // The full list is returned; the Dashboard shows the first three and a "Show all" button (QA-013).
 
     const activePrescriptions = safePrescriptions.filter((prescription) => prescription.status === 'active');
     const activePrescriptionIds = activePrescriptions.map((prescription) => prescription.id);

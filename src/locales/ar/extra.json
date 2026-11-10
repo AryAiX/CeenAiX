@@ -197,7 +197,9 @@
         "every6Hours": "كل ٦ ساعات",
         "asNeeded": "حسب الحاجة",
         "asNeededPain": "حسب الحاجة للألم"
-      }
+      },
+      "careTeamShowAll": "عرض الكل ({{total}})",
+      "careTeamShowFewer": "عرض أقل"
     },
     "appointments": {
       "title": "المواعيد",
