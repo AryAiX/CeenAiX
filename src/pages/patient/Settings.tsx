@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { Bell, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Bell, ChevronLeft, ChevronRight, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 
 type SettingsSection = 'account' | 'privacy' | 'notifications' | 'language' | 'security' | 'support';
+
+const SETTINGS_SECTIONS: SettingsSection[] = ['account', 'privacy', 'notifications', 'language', 'security', 'support'];
+
+const isSettingsSection = (value: string | null): value is SettingsSection =>
+  value !== null && SETTINGS_SECTIONS.some((section) => section === value);
 
 interface Preferences {
   email: boolean;
@@ -54,6 +59,32 @@ export const PatientSettings = () => {
   const { user, requestPasswordReset } = useAuth();
   const { data: profile, loading, error, refetch } = useUserProfile();
   const [section, setSection] = useState<SettingsSection>('account');
+  // The open section is kept in the address (?section=...) so the back button, iPhone swipe-back and Android back button all return to the list.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section');
+  const phoneSection = isSettingsSection(sectionParam) ? sectionParam : null;
+  const openedFromListRef = useRef(false);
+
+  useEffect(() => {
+    if (!phoneSection) return;
+    setSection(phoneSection);
+    document.querySelector('main')?.scrollTo({ top: 0 });
+  }, [phoneSection]);
+
+  const openPhoneSection = (id: SettingsSection) => {
+    openedFromListRef.current = true;
+    setSection(id);
+    setSearchParams({ section: id });
+  };
+
+  const backToSettingsList = () => {
+    if (openedFromListRef.current) {
+      openedFromListRef.current = false;
+      navigate(-1);
+      return;
+    }
+    setSearchParams({}, { replace: true });
+  };
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -400,7 +431,7 @@ export const PatientSettings = () => {
         </div>
       ) : null}
 
-      <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-5 text-white shadow-lg sm:p-8">
+      <div className={`rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-5 text-white shadow-lg sm:p-8${phoneSection ? ' hidden lg:block' : ''}`}>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
             <SettingsIcon className="h-6 w-6" />
@@ -412,8 +443,35 @@ export const PatientSettings = () => {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:block lg:space-y-2 lg:overflow-visible lg:rounded-2xl lg:bg-white lg:p-3 lg:pb-3 lg:shadow-sm">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+        {phoneSection === null ? (
+          <nav className="lg:hidden" aria-label={t('patient.settings.title')} data-testid="settings-phone-list">
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              {sections.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => openPhoneSection(item.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-start"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-slate-900">{item.title}</span>
+                        <span className="block truncate text-xs text-slate-500">{item.desc}</span>
+                      </span>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 rtl:rotate-180" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        ) : null}
+        <aside className="hidden lg:block lg:space-y-2 lg:rounded-2xl lg:bg-white lg:p-3 lg:shadow-sm">
           {sections.map((item) => {
             const Icon = item.icon;
             const active = section === item.id;
@@ -440,7 +498,16 @@ export const PatientSettings = () => {
           })}
         </aside>
 
-        <section>
+        <section className={phoneSection ? '' : 'hidden lg:block'} data-testid="settings-section">
+          <button
+            type="button"
+            data-testid="settings-back"
+            onClick={backToSettingsList}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-cyan-700 lg:hidden"
+          >
+            <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+            {t('patient.settings.title')}
+          </button>
           <div className="mb-5">
             <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">{currentSection.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{currentSection.desc}</p>
