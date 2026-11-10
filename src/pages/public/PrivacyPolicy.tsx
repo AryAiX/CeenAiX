@@ -1,9 +1,23 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Shield } from 'lucide-react';
+
+interface PrivacySection {
+  id: string;
+  title: string;
+  items: string[];
+}
 
 export const PrivacyPolicy = () => {
   const { t } = useTranslation('common');
+  const { hash } = useLocation();
+  const sections = t('privacy.sections', { returnObjects: true }) as PrivacySection[];
+
+  useEffect(() => {
+    if (!hash) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [hash]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
@@ -21,22 +35,16 @@ export const PrivacyPolicy = () => {
 
       <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
         <p>{t('privacy.intro')}</p>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">{t('privacy.collectionTitle')}</h2>
-          <p>{t('privacy.collectionBody')}</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">{t('privacy.useTitle')}</h2>
-          <p>{t('privacy.useBody')}</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">{t('privacy.retentionTitle')}</h2>
-          <p>{t('privacy.retentionBody')}</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">{t('privacy.contactTitle')}</h2>
-          <p>{t('privacy.contactBody')}</p>
-        </section>
+        {sections.map((section) => (
+          <section key={section.id} id={section.id} className="scroll-mt-24">
+            <h2 className="text-lg font-semibold text-slate-900">{section.title}</h2>
+            <ul className="mt-2 list-disc space-y-2 ps-5">
+              {section.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
 
       <div className="mt-10">

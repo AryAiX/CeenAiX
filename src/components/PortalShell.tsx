@@ -234,9 +234,13 @@ export const PortalShell = ({
   const accountDisplayEmail = profile?.email ?? user?.email ?? null;
   const accountPath = role === 'patient' ? '/patient/profile' : '/doctor/profile';
   const portalLabel = role === 'patient' ? t('nav.patientPortal') : t('nav.doctorPortal');
-  const showPatientDashboardAlert =
+  const patientDashboardAlertEligible =
     role === 'patient' && location.pathname === '/patient/dashboard' && !patientAlertDismissed;
-  const { data: patientDashboardAlerts } = usePatientDashboardAlert(showPatientDashboardAlert ? user?.id : null);
+  const { data: patientDashboardAlerts } = usePatientDashboardAlert(
+    patientDashboardAlertEligible ? user?.id : null
+  );
+  const showPatientDashboardAlert =
+    patientDashboardAlertEligible && (patientDashboardAlerts?.length ?? 0) > 0;
   const { data: doctorChromeData } = useDoctorPortalChrome(role === 'doctor' ? user?.id : null);
   const { data: doctorClinicMembership } = useDoctorClinicMembership(role === 'doctor' ? user?.id : null);
 
@@ -535,17 +539,9 @@ export const PortalShell = ({
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span className="font-medium">{isArabic ? 'تنبيه حساسية:' : 'Allergy Alert:'}</span>
                   <span className="text-red-600">
-                    {patientDashboardAlerts && patientDashboardAlerts.length > 0
-                      ? patientDashboardAlerts
-                          .map((alert) =>
-                            alert.reaction
-                              ? `${alert.allergen} (${alert.reaction})`
-                              : alert.allergen
-                          )
-                          .join(' · ')
-                      : isArabic
-                        ? 'لا توجد تنبيهات حساسية حالية'
-                        : 'No current allergy alerts'}
+                    {(patientDashboardAlerts ?? [])
+                      .map((alert) => (alert.reaction ? `${alert.allergen} (${alert.reaction})` : alert.allergen))
+                      .join(' · ')}
                   </span>
                 </div>
                 <button
