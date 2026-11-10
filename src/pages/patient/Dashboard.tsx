@@ -585,7 +585,7 @@ export const PatientDashboard: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">{localCopy.greeting},</p>
-          <h1 className="mt-0.5 text-2xl font-bold text-slate-900">{displayName}</h1>
+          <h1 className="mt-0.5 font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{displayName}</h1>
           <p className="mt-1 text-xs text-slate-400">
             {todayLabel} · {profile?.city?.trim() || localCopy.dateLocation}
           </p>

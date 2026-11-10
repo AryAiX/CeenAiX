@@ -62,7 +62,10 @@ const PATIENT_AI_STARTER_ID = 'patient-ai-starter';
 // Only replies saved in the database have a real id (the greeting and messages still being sent do not), and only those can be rated.
 const SAVED_MESSAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const PLAYFAIR: CSSProperties = { fontFamily: 'Playfair Display, serif' };
+// Same fallbacks as .font-playfair in index.css, so Arabic uses the body's Arabic font (QA-099).
+const PLAYFAIR: CSSProperties = {
+  fontFamily: "'Playfair Display', system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, 'Noto Sans Arabic', 'Arabic UI Text', sans-serif",
+};
 
 const formatTimestamp = (value: string, language: string) => {
   const locale = resolveLocale(language);

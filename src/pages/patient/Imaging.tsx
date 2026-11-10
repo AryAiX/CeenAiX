@@ -124,7 +124,7 @@ export const PatientImaging = () => {
               <Scan className="h-4 w-4" />
               {t('patient.imaging.title')}
             </div>
-            <h1 className="mb-2 text-3xl font-bold">{t('patient.imaging.heroTitle')}</h1>
+            <h1 className="mb-2 font-playfair text-3xl md:text-4xl font-bold tracking-tight">{t('patient.imaging.heroTitle')}</h1>
             <p className="max-w-2xl text-violet-100">{t('patient.imaging.subtitlePlain')}</p>
           </div>
           <button

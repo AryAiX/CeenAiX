@@ -13,7 +13,17 @@ body {
 }
 
 .font-playfair {
-  font-family: 'Playfair Display', serif;
+  /* Playfair has no Arabic letters, so Arabic falls back to the same fonts as the body text (QA-099). */
+  font-family:
+    'Playfair Display',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Tahoma,
+    Arial,
+    'Noto Sans Arabic',
+    'Arabic UI Text',
+    sans-serif;
 }
 
 html[lang='ar'] body {

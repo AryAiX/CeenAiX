@@ -644,7 +644,7 @@ export const PatientRecords: React.FC = () => {
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">{t('patient.records.title')}</h1>
+        <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.records.title')}</h1>
         <p className="mt-1 text-sm text-slate-500">{t('patient.records.subtitle')}</p>
       </div>
 

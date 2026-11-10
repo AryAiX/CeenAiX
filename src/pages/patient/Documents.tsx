@@ -500,7 +500,7 @@ export const PatientDocuments = () => {
             <FolderOpen className="h-6 w-6 text-cyan-700" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t('patient.documents.title')}</h1>
+            <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.documents.title')}</h1>
             <p className="text-sm text-slate-500">{t('patient.documents.subtitle')}</p>
           </div>
         </div>

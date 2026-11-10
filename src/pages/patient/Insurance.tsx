@@ -271,7 +271,7 @@ export const PatientInsurance = () => {
             <Shield className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t('patient.insurance.title')}</h1>
+            <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.insurance.title')}</h1>
             <p className="text-xs text-slate-400">{t('patient.insurance.subtitle')}</p>
           </div>
         </div>

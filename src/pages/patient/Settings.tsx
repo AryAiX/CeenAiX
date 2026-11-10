@@ -406,7 +406,7 @@ export const PatientSettings = () => {
             <SettingsIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold sm:text-3xl">{t('patient.settings.title')}</h1>
+            <h1 className="font-playfair text-3xl md:text-4xl font-bold tracking-tight">{t('patient.settings.title')}</h1>
             <p className="text-cyan-100">{t('patient.settings.subtitle')}</p>
           </div>
         </div>
