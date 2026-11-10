@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Bell, ChevronLeft, ChevronRight, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
@@ -525,7 +526,8 @@ export const PatientSettings = () => {
         </section>
       </div>
     </div>
-    {supportModal ? (
+    {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+    {supportModal ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setSupportModal(null)}
@@ -648,7 +650,8 @@ export const PatientSettings = () => {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );

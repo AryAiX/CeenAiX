@@ -2258,7 +2258,8 @@ export const PatientPrescriptions: React.FC = () => {
         </div>
       </div>
 
-      {showAddModal ? (
+      {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+      {showAddModal ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm sheet-backdrop">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl sheet-panel">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -2357,7 +2358,8 @@ export const PatientPrescriptions: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );

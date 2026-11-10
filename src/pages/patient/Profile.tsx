@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
@@ -1124,7 +1125,8 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
-      {confirmDeleteFamilyId ? (
+      {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+      {confirmDeleteFamilyId ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setConfirmDeleteFamilyId(null)}
@@ -1167,7 +1169,8 @@ export const Profile: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );

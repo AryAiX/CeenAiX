@@ -2137,7 +2137,8 @@ export const PatientLabResults: React.FC = () => {
         </div>
       </div>
 
-      {previewOrder ? (
+      {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+      {previewOrder ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setPreviewOrder(null)}
@@ -2236,7 +2237,8 @@ export const PatientLabResults: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
 
       {shareOrder ? (

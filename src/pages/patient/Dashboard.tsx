@@ -1544,7 +1544,8 @@ export const PatientDashboard: React.FC = () => {
         </div>,
         document.body
       ) : null}
-      {bpModalOpen ? (
+      {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+      {bpModalOpen ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 sheet-backdrop"
           onClick={closeBpModal}
@@ -1639,7 +1640,8 @@ export const PatientDashboard: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );
