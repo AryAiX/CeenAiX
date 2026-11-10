@@ -56,6 +56,7 @@ export const PatientInsurance = () => {
   const [showExclusions, setShowExclusions] = useState(false);
   const [cardActionMessage, setCardActionMessage] = useState<string | null>(null);
   const [cardPhotoLink, setCardPhotoLink] = useState<string | null>(null);
+  const [contactInfoOpen, setContactInfoOpen] = useState(false);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -127,15 +128,12 @@ export const PatientInsurance = () => {
     }
   };
 
+  // No insurer email or phone is stored, so this only shows a message.
   const handleContactInsurer = () => {
-    const subject = encodeURIComponent(
-      `Insurance inquiry — ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? 'member'}`
-    );
-    const body = encodeURIComponent(
-      `Plan: ${primaryPlan?.planName ?? '—'}\nMember ID: ${primaryPlan?.memberId ?? '—'}\nPolicy: ${primaryPlan?.policyNumber ?? '—'}\n\n`
-    );
-    window.location.assign(`mailto:?subject=${subject}&body=${body}`);
+    setContactInfoOpen((open) => !open);
   };
+  const insurerName = primaryPlan?.providerCompany ?? t('patient.insurance.contactInsurer');
+  const memberReference = primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? null;
   const coPay = primaryPlan?.coPayPercent ?? null;
   const coveredPercent = coPay == null ? null : Math.max(0, 100 - coPay);
   const annualLimit = primaryPlan?.annualLimit ?? null;
@@ -291,11 +289,25 @@ export const PatientInsurance = () => {
         <button
           type="button"
           onClick={handleContactInsurer}
+          aria-expanded={contactInfoOpen}
           className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
         >
           <Phone className="h-4 w-4" /> {primaryPlan?.providerCompany ?? t('patient.insurance.contactInsurer')}
         </button>
       </div>
+
+      {contactInfoOpen ? (
+        <div data-testid="contact-insurer-info" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          {memberReference ? (
+            <>
+              {t('patient.insurance.contactInsurerInfo', { insurer: `\u2068${insurerName}\u2069` })}{' '}
+              <span dir="ltr" className="inline-block whitespace-nowrap font-mono font-semibold">{memberReference}</span>
+            </>
+          ) : (
+            t('patient.insurance.contactInsurerInfoNoId', { insurer: `\u2068${insurerName}\u2069` })
+          )}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
         <div className="flex flex-col items-center">
