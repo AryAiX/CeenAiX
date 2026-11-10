@@ -399,12 +399,14 @@ export const PatientAppointments: React.FC = () => {
     }
   }, [isDateRangeInPast]);
 
-  const handleCancelAppointment = async (appointmentId: string) => {
+  const handleCancelAppointment = async (appointmentId: string, reason: string) => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
 
-    const { error: updateError } = await supabase.rpc('cancel_patient_appointment', {
+    // Saves the reason the patient picked.
+    const { error: updateError } = await supabase.rpc('cancel_patient_appointment_with_reason', {
       p_appointment_id: appointmentId,
+      p_reason: reason,
     });
 
     setBusyAppointmentId(null);
@@ -433,7 +435,7 @@ export const PatientAppointments: React.FC = () => {
           await notifyClinicStaff(
             staffData.facility_id,
             '❌ Appointment Cancelled',
-            `A patient cancelled their appointment with ${doctorProfile?.fullName ?? 'a doctor'} on ${apptDateStr} at ${apptTimeStr}.`
+            `A patient cancelled their appointment with ${doctorProfile?.fullName ?? 'a doctor'} on ${apptDateStr} at ${apptTimeStr}.${reason.trim() !== '' ? ` Reason: ${reason}` : ''}`
           );
         }
       }
@@ -1282,7 +1284,13 @@ export const PatientAppointments: React.FC = () => {
               type="button"
               disabled={!canConfirm || isBusy}
               onClick={async () => {
-                await handleCancelAppointment(cancellingAppointmentId);
+                const details = cancelCustomReason.trim();
+                const reason = cancelReason === 'Other'
+                  ? details
+                  : details !== ''
+                    ? `${cancelReason}: ${details}`
+                    : cancelReason;
+                await handleCancelAppointment(cancellingAppointmentId, reason);
                 resetCancelModal();
               }}
               className="w-full sm:flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
