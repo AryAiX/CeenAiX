@@ -1052,7 +1052,11 @@
       "reportsRowFormat": "PDF report",
       "trendsTargetLine": "Target: {{value}}%",
       "labNotAssigned": "Lab not assigned yet",
-      "upcomingBookCtaNoLab": "📅 Book a lab visit"
+      "upcomingBookCtaNoLab": "📅 Book a lab visit",
+      "shareMethodCopy": "Copy text",
+      "shareDisclaimerPlain": "Only share with people you trust, such as your healthcare providers. Whoever receives it gets a full copy of your results.",
+      "shareSuccessCopy": "Report text copied. Paste it wherever you want to share it.",
+      "shareCopyFailed": "Couldn't copy the report. Please try again, or use Email or WhatsApp."
     },
     "notifications": {
       "title": "Notifications",

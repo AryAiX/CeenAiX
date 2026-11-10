@@ -1114,7 +1114,11 @@
       "reportsRowFormat": "تقرير PDF",
       "trendsTargetLine": "الهدف: {{value}}٪",
       "labNotAssigned": "لم يُحدَّد المختبر بعد",
-      "upcomingBookCtaNoLab": "📅 احجز زيارة للمختبر"
+      "upcomingBookCtaNoLab": "📅 احجز زيارة للمختبر",
+      "shareMethodCopy": "نسخ النص",
+      "shareDisclaimerPlain": "شارك فقط مع من تثق بهم، مثل مقدمي الرعاية الصحية. من يستلم التقرير يحصل على نسخة كاملة من نتائجك.",
+      "shareSuccessCopy": "تم نسخ نص التقرير. الصقه حيث تريد مشاركته.",
+      "shareCopyFailed": "تعذّر نسخ التقرير. حاول مرة أخرى أو استخدم البريد الإلكتروني أو واتساب."
     },
     "notifications": {
       "title": "الإشعارات",

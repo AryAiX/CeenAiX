@@ -17,7 +17,7 @@ import {
   FileText,
   FlaskConical,
   LineChart,
-  Link,
+  Copy,
   Mail,
   MessageCircle,
   Share2,
@@ -195,6 +195,7 @@ interface ShareModalProps {
   language: string;
   shareMethod: 'link' | 'email' | 'whatsapp';
   shareSuccess: boolean;
+  shareError: string | null;
   onMethodChange: (m: 'link' | 'email' | 'whatsapp') => void;
   onShare: () => void;
   onClose: () => void;
@@ -211,13 +212,14 @@ const SHARE_METHODS: Array<{
   labelKey: string;
   icon: React.ReactNode;
 }> = [
-  { id: 'link', labelKey: 'patient.labResults.shareMethodLink', icon: <Link className="h-5 w-5" /> },
+  // Copies the report as text.
+  { id: 'link', labelKey: 'patient.labResults.shareMethodCopy', icon: <Copy className="h-5 w-5" /> },
   { id: 'email', labelKey: 'patient.labResults.shareMethodEmail', icon: <Mail className="h-5 w-5" /> },
   { id: 'whatsapp', labelKey: 'patient.labResults.shareMethodWhatsapp', icon: <WhatsAppIcon /> },
 ];
 
 const METHOD_SUCCESS_KEY: Record<'link' | 'email' | 'whatsapp', string> = {
-  link: 'patient.labResults.shareSuccessLink',
+  link: 'patient.labResults.shareSuccessCopy',
   email: 'patient.labResults.shareSuccessEmail',
   whatsapp: 'patient.labResults.shareSuccessWhatsapp',
 };
@@ -227,6 +229,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   language,
   shareMethod,
   shareSuccess,
+  shareError,
   onMethodChange,
   onShare,
   onClose,
@@ -327,8 +330,12 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
               {/* Disclaimer */}
               <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                ⚠️ {t('patient.labResults.shareDisclaimer')}
+                ⚠️ {t('patient.labResults.shareDisclaimerPlain')}
               </div>
+
+              {shareError ? (
+                <p role="alert" className="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{shareError}</p>
+              ) : null}
 
               {/* Actions */}
               <div className="flex gap-3">
@@ -375,6 +382,7 @@ export const PatientLabResults: React.FC = () => {
   const [shareOrder, setShareOrder] = useState<PatientLabOrderRecord | null>(null);
   const [shareMethod, setShareMethod] = useState<'link' | 'email' | 'whatsapp'>('link');
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const labOrders = useMemo<PatientLabOrderRecord[]>(() => data ?? [], [data]);
 
@@ -1760,9 +1768,11 @@ export const PatientLabResults: React.FC = () => {
     setShareOrder(null);
     setShareSuccess(false);
     setShareMethod('link');
+    setShareError(null);
   };
 
   const handleShareAction = async () => {
+    setShareError(null);
     if (!shareOrder) return;
     const dateStr = formatDate(i18n.language, shareOrder.results_released_at ?? shareOrder.ordered_at, true);
     const text = buildReportText(shareOrder, dateStr);
@@ -1771,7 +1781,8 @@ export const PatientLabResults: React.FC = () => {
       try {
         await navigator.clipboard.writeText(text);
       } catch {
-        // clipboard denied — proceed to success screen anyway
+        setShareError(t('patient.labResults.shareCopyFailed'));
+        return;
       }
     } else if (shareMethod === 'email') {
       window.open(`mailto:?subject=Lab Results Report&body=${encodeURIComponent(text)}`);
@@ -2266,7 +2277,8 @@ export const PatientLabResults: React.FC = () => {
           language={i18n.language}
           shareMethod={shareMethod}
           shareSuccess={shareSuccess}
-          onMethodChange={setShareMethod}
+          shareError={shareError}
+          onMethodChange={(method) => { setShareError(null); setShareMethod(method); }}
           onShare={handleShareAction}
           onClose={closeShareModal}
         />
