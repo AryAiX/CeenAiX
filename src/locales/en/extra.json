@@ -318,7 +318,7 @@
       "conversationCount_other": "{{count}} threads",
       "searchPlaceholder": "Search doctors, subjects, or recent messages...",
       "noneTitle": "No conversations yet",
-      "noneBody": "Secure clinician conversations will appear here after a message thread is created for your care.",
+      "noneBody": "Start a secure conversation with a doctor from your care team.",
       "noResultsTitle": "No matching conversations",
       "noResultsBody": "Try a different name, subject, or message keyword.",
       "noEmail": "No doctor email on file",
@@ -342,7 +342,19 @@
       "defaultSubject": "Care conversation",
       "messageDoctor": "Message doctor",
       "followUpDoctor": "Follow up with doctor",
-      "messagePrescriber": "Message prescribing doctor"
+      "messagePrescriber": "Message prescribing doctor",
+      "careTeam": {
+        "newMessage": "New message",
+        "title": "Message your care team",
+        "subtitle": "Choose a doctor you have booked with.",
+        "openExisting": "Open conversation",
+        "opening": "Opening…",
+        "startError": "Couldn't open the conversation. Please try again.",
+        "loadError": "Couldn't load your care team. Please try again.",
+        "emptyTitle": "No care team yet",
+        "emptyBody": "You can message doctors you have booked an appointment with. Book an appointment to get started.",
+        "bookAppointment": "Book an appointment"
+      }
     },
     "prescriptions": {
       "title": "My Prescriptions",

@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FileText,
   MessageSquare,
+  MessageSquarePlus,
   Paperclip,
   Search,
   Send,
@@ -16,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { useMessagingHub } from '../hooks';
+import { usePatientCareTeam } from '../hooks/use-patient-care-team';
 import { useAuth } from '../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatRelativeTime, resolveLocale } from '../lib/i18n-ui';
 import {
@@ -129,6 +131,40 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     deleteMessage,
     updateMessage,
   } = useMessagingHub(user?.id, conversationId ?? null);
+
+  // QA-014: patients start a conversation from here by picking a doctor from their care team.
+  const isPatient = role === 'patient';
+  const [careTeamOpen, setCareTeamOpen] = useState(false);
+  const [careTeamBusyId, setCareTeamBusyId] = useState<string | null>(null);
+  const [careTeamError, setCareTeamError] = useState<string | null>(null);
+  const careTeam = usePatientCareTeam(isPatient ? user?.id : null);
+
+  const openCareTeam = () => {
+    setCareTeamError(null);
+    setCareTeamOpen(true);
+  };
+
+  const startConversationWith = async (doctorId: string) => {
+    const existing = conversations.find((conversation) => conversation.counterpart.id === doctorId);
+    if (existing) {
+      setCareTeamOpen(false);
+      navigate(`/${role}/messages/${existing.id}`);
+      return;
+    }
+    setCareTeamBusyId(doctorId);
+    setCareTeamError(null);
+    const { conversationId: nextConversationId } = await ensureDirectConversation(
+      doctorId,
+      t(`${namespace}.defaultSubject`)
+    );
+    setCareTeamBusyId(null);
+    if (nextConversationId) {
+      setCareTeamOpen(false);
+      navigate(`/${role}/messages/${nextConversationId}`);
+    } else {
+      setCareTeamError(t('patient.messages.careTeam.startError'));
+    }
+  };
 
   useEffect(() => {
     if (!composeTargetId || !user?.id) {
@@ -790,6 +826,18 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               {t(`${namespace}.conversationCount`, { count: conversations.length })}
             </span>
           </div>
+          {/* Own line under the title, because next to the title and count it ran past the card. Hidden while the empty list shows its own button. */}
+          {isPatient && (loadingConversations || conversations.length > 0) ? (
+            <button
+              type="button"
+              onClick={openCareTeam}
+              data-testid="messages-new-conversation"
+              className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 ${theme.button}`}
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              {t('patient.messages.careTeam.newMessage')}
+            </button>
+          ) : null}
           <div className="relative mt-4">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 rtl:left-auto rtl:right-4" />
             <input
@@ -824,6 +872,17 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               <p className="mt-2 text-sm text-gray-600">
                 {searchQuery.trim() ? t(`${namespace}.noResultsBody`) : t(`${namespace}.noneBody`)}
               </p>
+              {isPatient && !searchQuery.trim() ? (
+                <button
+                  type="button"
+                  onClick={openCareTeam}
+                  data-testid="messages-empty-new-conversation"
+                  className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 ${theme.button}`}
+                >
+                  <MessageSquarePlus className="h-4 w-4" />
+                  {t('patient.messages.careTeam.newMessage')}
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-3">
@@ -1240,6 +1299,111 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         )}
       </div>
     </div>
+
+    {isPatient && careTeamOpen
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={() => setCareTeamOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="care-team-picker-title"
+              data-testid="care-team-picker"
+              className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                <div>
+                  <h3 id="care-team-picker-title" className="font-bold text-gray-900">
+                    {t('patient.messages.careTeam.title')}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">{t('patient.messages.careTeam.subtitle')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCareTeamOpen(false)}
+                  className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                  aria-label={t('shared.close')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-3">
+                {careTeamError ? (
+                  <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {careTeamError}
+                  </p>
+                ) : null}
+                {careTeam.loading ? (
+                  <div className="space-y-3 p-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <Skeleton key={index} className="h-14 w-full" />
+                    ))}
+                  </div>
+                ) : careTeam.error ? (
+                  <p className="px-3 py-6 text-center text-sm text-red-700">{t('patient.messages.careTeam.loadError')}</p>
+                ) : (careTeam.data ?? []).length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <p className="font-semibold text-gray-900">{t('patient.messages.careTeam.emptyTitle')}</p>
+                    <p className="mt-2 text-sm text-gray-600">{t('patient.messages.careTeam.emptyBody')}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCareTeamOpen(false);
+                        navigate('/patient/appointments/book');
+                      }}
+                      className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 ${theme.button}`}
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                      {t('patient.messages.careTeam.bookAppointment')}
+                    </button>
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {(careTeam.data ?? []).map((member) => {
+                      const name = member.name ?? t('messaging.careTeamFallback');
+                      const hasConversation = conversations.some((conversation) => conversation.counterpart.id === member.doctorId);
+                      return (
+                        <li key={member.doctorId}>
+                          <button
+                            type="button"
+                            disabled={careTeamBusyId !== null}
+                            onClick={() => void startConversationWith(member.doctorId)}
+                            className="flex w-full items-center gap-3 rounded-xl border border-gray-100 px-3 py-3 text-start transition hover:border-teal-200 hover:bg-teal-50 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            <span
+                              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white ${avatarGradient(member.doctorId)}`}
+                            >
+                              {avatarInitials(name)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-semibold text-gray-900">{name}</span>
+                              <span className="block truncate text-xs text-gray-500">
+                                {[member.specialty, hasConversation ? t('patient.messages.careTeam.openExisting') : null]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            </span>
+                            {careTeamBusyId === member.doctorId ? (
+                              <span className="text-xs text-gray-500">{t('patient.messages.careTeam.opening')}</span>
+                            ) : (
+                              <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400 rtl:rotate-180" />
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
 
     {showProfileModal && activeConversation
       ? createPortal(
