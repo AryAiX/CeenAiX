@@ -381,8 +381,17 @@ html[lang='ar'] body {
   }
 }
 
-/* The floating AI chat button would sit on top of an open sheet or pop-up (it is on the same layer), so hide it meanwhile. */
-body:has(.sheet-backdrop) .chatbot-fab {
+/*
+ * A pop-up placed inside a "space-y-*" section inherited its top margin (24px), so its dark layer started
+ * below the top of the screen and left a white band over the top bar (QA-102). A full-screen layer never
+ * needs outside spacing. !important because the space-y rule is more specific than this one.
+ */
+.sheet-backdrop {
+  margin: 0 !important;
+}
+
+/* The floating AI chat button would sit on top of an open sheet, pop-up or the phone menu, so hide it meanwhile. */
+body:has(.sheet-backdrop, [data-hide-chatbot]) .chatbot-fab {
   display: none;
 }
 

@@ -554,7 +554,7 @@ export const PortalShell = ({
         </div>
 
         {patientMenuOpen ? (
-          <div className="fixed inset-0 z-[70] lg:hidden">
+          <div className="fixed inset-0 z-[70] lg:hidden" data-hide-chatbot>
             <div className="absolute inset-0 bg-black/40" onClick={() => setPatientMenuOpen(false)} />
             <div
               role="dialog"
