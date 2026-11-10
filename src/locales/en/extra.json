@@ -772,10 +772,20 @@
       "actionNotHelpful": "Not helpful",
       "actionCopy": "Copy",
       "actionShare": "Share",
-      "actionRegenerate": "Regenerate",
+      "actionRegenerate": "Ask again",
       "hba1cBaseline": "Baseline reading on file",
       "greetingNoName": "Hi there!",
-      "personalizedForYou": "● Personalized for you"
+      "personalizedForYou": "● Personalized for you",
+      "actionCopied": "Copied",
+      "copyFailed": "Couldn't copy the text.",
+      "feedbackThanks": "Thanks for your feedback",
+      "feedbackError": "Couldn't save your feedback. Please try again.",
+      "shareCopied": "Sharing isn't available here, so the text was copied instead.",
+      "shareFailed": "Couldn't share. Please try again.",
+      "exportTitle": "CeenAiX – Ceen Agent conversation",
+      "exportedOn": "Exported {{date}}",
+      "exportYou": "You",
+      "exportCopied": "Conversation copied. You can paste it anywhere."
     },
     "profile": {
       "title": "My Profile",

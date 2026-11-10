@@ -798,10 +798,20 @@
       "actionNotHelpful": "غير مفيد",
       "actionCopy": "نسخ",
       "actionShare": "مشاركة",
-      "actionRegenerate": "إعادة إنشاء الرد",
+      "actionRegenerate": "اسأل مرة أخرى",
       "hba1cBaseline": "قراءة أساسية مسجّلة",
       "greetingNoName": "مرحباً!",
-      "personalizedForYou": "● مخصص لك"
+      "personalizedForYou": "● مخصص لك",
+      "actionCopied": "تم النسخ",
+      "copyFailed": "تعذّر نسخ النص.",
+      "feedbackThanks": "شكرًا على ملاحظاتك",
+      "feedbackError": "تعذّر حفظ تقييمك. يُرجى المحاولة مرة أخرى.",
+      "shareCopied": "المشاركة غير متاحة هنا، لذا تم نسخ النص بدلًا من ذلك.",
+      "shareFailed": "تعذّرت المشاركة. يُرجى المحاولة مرة أخرى.",
+      "exportTitle": "CeenAiX – محادثة مع وكيل Ceen",
+      "exportedOn": "تم التصدير في {{date}}",
+      "exportYou": "أنت",
+      "exportCopied": "تم نسخ المحادثة. يمكنك لصقها في أي مكان."
     },
     "profile": {
       "title": "ملفي الشخصي",
