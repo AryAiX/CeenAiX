@@ -115,7 +115,13 @@
     "account": "الحساب",
     "goBack": "عودة",
     "goHome": "الرئيسية",
-    "notifications": "الإشعارات"
+    "notifications": "الإشعارات",
+    "openMenu": "فتح القائمة",
+    "menu": "القائمة",
+    "language": "اللغة",
+    "logOutConfirmTitle": "تسجيل الخروج",
+    "logOutConfirmBody": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+    "logOutConfirmYes": "نعم، سجّل الخروج"
   },
   "language": {
     "enShort": "EN",

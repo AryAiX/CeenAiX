@@ -115,7 +115,13 @@
     "account": "Account",
     "goBack": "Go back",
     "goHome": "Home",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "openMenu": "Open menu",
+    "menu": "Menu",
+    "language": "Language",
+    "logOutConfirmTitle": "Log out",
+    "logOutConfirmBody": "Are you sure you want to log out?",
+    "logOutConfirmYes": "Yes, log out"
   },
   "language": {
     "enShort": "EN",
