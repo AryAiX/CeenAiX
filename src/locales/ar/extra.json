@@ -271,7 +271,9 @@
       "teleconsultBannerStartingNow": "تبدأ الآن",
       "joinWaitingRoom": "الدخول إلى غرفة الانتظار",
       "noResultsFilters": "لا توجد مواعيد تطابق عوامل التصفية.",
-      "noResultsFiltersSub": "جرّب تعديل الحالة أو النوع أو نطاق التاريخ."
+      "noResultsFiltersSub": "جرّب تعديل الحالة أو النوع أو نطاق التاريخ.",
+      "searchDoctorOrSpecialtyPh": "ابحث عن طبيب أو تخصص",
+      "clearFilters": "مسح عوامل التصفية"
     },
     "book": {
       "title": "حجز موعد",

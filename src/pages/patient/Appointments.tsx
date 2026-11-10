@@ -15,6 +15,7 @@ import {
   MapPin,
   MessageSquare,
   Plus,
+  Search,
   Sparkles,
   User,
   Video,
@@ -152,6 +153,8 @@ export const PatientAppointments: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [specialtyQuery, setSpecialtyQuery] = useState('');
   const [providerQuery, setProviderQuery] = useState('');
+  // The phone filter bar has one box matching the doctor's name or specialty.
+  const [quickSearch, setQuickSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -234,6 +237,7 @@ export const PatientAppointments: React.FC = () => {
   const filteredAppointments = useMemo(() => {
     const normalizedSpecialty = specialtyQuery.trim().toLowerCase();
     const normalizedProvider = providerQuery.trim().toLowerCase();
+    const normalizedQuickSearch = quickSearch.trim().toLowerCase();
     // Parse the date strings as local-time so users in UAE don't see filter
     // boundaries shifted by 4h. `new Date('2025-01-01')` parses as UTC midnight.
     const parseLocal = (value: string) => {
@@ -268,9 +272,16 @@ export const PatientAppointments: React.FC = () => {
         if (normalizedProvider && !name.includes(normalizedProvider)) return false;
       }
 
+      if (normalizedQuickSearch) {
+        const profile = doctorProfileById.get(appointment.doctor_id);
+        const name = (profile?.fullName ?? '').toLowerCase();
+        const specialty = (profile?.specialty ?? '').toLowerCase();
+        if (!name.includes(normalizedQuickSearch) && !specialty.includes(normalizedQuickSearch)) return false;
+      }
+
       return true;
     });
-  }, [appointments, statusFilter, typeFilter, specialtyQuery, providerQuery, dateFrom, dateTo, doctorProfileById, isUpcoming]);
+  }, [appointments, statusFilter, typeFilter, specialtyQuery, providerQuery, quickSearch, dateFrom, dateTo, doctorProfileById, isUpcoming]);
 
   const upcomingAppointments = useMemo(
     () => filteredAppointments.filter(isUpcoming),
@@ -763,6 +774,69 @@ export const PatientAppointments: React.FC = () => {
   const isTodayVisible =
     today.getFullYear() === calendarMonth.getFullYear() &&
     today.getMonth() === calendarMonth.getMonth();
+
+  const renderPhoneFilters = () => (
+    <div
+      className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-white p-3 lg:hidden"
+      data-testid="appointments-phone-filters"
+    >
+      <div className="relative">
+        <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={quickSearch}
+          onChange={(event) => setQuickSearch(event.target.value)}
+          placeholder={t('patient.appointments.searchDoctorOrSpecialtyPh')}
+          aria-label={t('patient.appointments.searchDoctorOrSpecialtyPh')}
+          maxLength={FORM_FIELD_LIMITS.searchQuery}
+          className="w-full rounded-lg border border-slate-300 bg-white py-2 pe-3 ps-9 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-sm font-medium text-slate-700">
+          {t('patient.appointments.filterStatus')}
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            {statusOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          {t('patient.appointments.filterType')}
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            {typeOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {quickSearch !== '' || statusFilter !== 'all' || typeFilter !== 'all' ? (
+        <button
+          type="button"
+          onClick={() => {
+            setQuickSearch('');
+            setStatusFilter('all');
+            setTypeFilter('all');
+          }}
+          className="text-sm font-semibold text-teal-700 hover:text-teal-800"
+        >
+          {t('patient.appointments.clearFilters')}
+        </button>
+      ) : null}
+    </div>
+  );
 
   const renderFilterPanel = () => (
     <aside className="hidden lg:block w-[280px] flex-shrink-0 bg-white border border-slate-200 rounded-xl p-6 space-y-6 h-fit sticky top-4">
@@ -1858,6 +1932,7 @@ export const PatientAppointments: React.FC = () => {
           {renderFilterPanel()}
 
           <div className="flex-1 min-w-0">
+            {hasAnyAppointments ? renderPhoneFilters() : null}
             {isLoadingPage ? (
               <div className="min-h-[24rem] space-y-6">
                 <Skeleton className="h-48 w-full rounded-2xl" />

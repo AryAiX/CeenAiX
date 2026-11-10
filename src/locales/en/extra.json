@@ -253,7 +253,9 @@
       "teleconsultBannerStartingNow": "Starting now",
       "joinWaitingRoom": "Join Waiting Room",
       "noResultsFilters": "No appointments match your filters.",
-      "noResultsFiltersSub": "Try adjusting the status, type, or date range."
+      "noResultsFiltersSub": "Try adjusting the status, type, or date range.",
+      "searchDoctorOrSpecialtyPh": "Search doctor or specialty",
+      "clearFilters": "Clear filters"
     },
     "book": {
       "title": "Book Appointment",
