@@ -8,8 +8,19 @@ export const PREVIEW_ACCESS_CHANGED_EVENT = 'ceenaix-preview-access-changed';
 /** Hosted domains that always require the preview PIN until public launch. */
 const PREVIEW_PIN_GATED_HOSTS = new Set(['ceenaix.com', 'www.ceenaix.com', 'dev.ceenaix.com']);
 
+/** App store reviewers must be able to read these without the preview PIN. */
+const PREVIEW_PIN_EXEMPT_PATHS = new Set(['/privacy']);
+
+export function isPreviewPinExemptPath(pathname: string): boolean {
+  return PREVIEW_PIN_EXEMPT_PATHS.has(pathname.replace(/\/+$/, '') || '/');
+}
+
 export function isPreviewPinGateEnabled(): boolean {
   if (typeof window !== 'undefined') {
+    if (isPreviewPinExemptPath(window.location.pathname ?? '/')) {
+      return false;
+    }
+
     if (PREVIEW_PIN_GATED_HOSTS.has(window.location.hostname)) {
       return true;
     }
