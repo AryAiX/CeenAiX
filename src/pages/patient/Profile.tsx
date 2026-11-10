@@ -1126,11 +1126,11 @@ export const Profile: React.FC = () => {
       </div>
       {confirmDeleteFamilyId ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setConfirmDeleteFamilyId(null)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5">

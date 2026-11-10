@@ -460,11 +460,11 @@ export const PatientSettings = () => {
     </div>
     {supportModal ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setSupportModal(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             {supportModal === 'email' ? (

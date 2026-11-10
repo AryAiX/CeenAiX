@@ -1257,11 +1257,11 @@ export const PatientAppointments: React.FC = () => {
 
     return createPortal(
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
         onClick={resetCancelModal}
       >
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+          className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto sheet-panel"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -1446,11 +1446,11 @@ export const PatientAppointments: React.FC = () => {
 
     return createPortal(
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
         onClick={resetDirectionsModal}
       >
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+          className="bg-white rounded-xl shadow-xl w-full max-w-sm sheet-panel"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between p-5 border-b border-gray-200">
@@ -1580,11 +1580,11 @@ export const PatientAppointments: React.FC = () => {
 
     return createPortal(
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
         onClick={resetCalendarModal}
       >
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+          className="bg-white rounded-xl shadow-xl w-full max-w-sm sheet-panel"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between p-5 border-b border-gray-200">
@@ -1671,11 +1671,11 @@ export const PatientAppointments: React.FC = () => {
 
     return createPortal(
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
         onClick={closeIntakeModal}
       >
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-lg"
+          className="bg-white rounded-xl shadow-xl w-full max-w-lg sheet-panel"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200">

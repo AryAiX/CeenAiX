@@ -240,11 +240,11 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+        className="w-full max-w-md rounded-2xl bg-white shadow-2xl sheet-panel"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -2139,11 +2139,11 @@ export const PatientLabResults: React.FC = () => {
 
       {previewOrder ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setPreviewOrder(null)}
         >
           <div
-            className="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 flex items-start justify-between gap-4 rounded-t-2xl border-b border-slate-100 bg-white px-6 py-5">

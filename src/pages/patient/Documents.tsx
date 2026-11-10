@@ -754,13 +754,13 @@ export const PatientDocuments = () => {
 
       {selectedDocument ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 sheet-backdrop"
           role="dialog"
           aria-modal="true"
           onClick={() => setSelectedId(null)}
         >
           <div
-            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-3">
@@ -873,11 +873,11 @@ export const PatientDocuments = () => {
 
       {showUploadModal ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={resetUploadModal}
         >
           <div
-            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
@@ -997,11 +997,11 @@ export const PatientDocuments = () => {
 
       {shareModalDocument ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => { setShareModalId(null); setShareSuccess(false); }}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
@@ -1110,11 +1110,11 @@ export const PatientDocuments = () => {
 
       {contentModalDocument ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 sheet-backdrop"
           onClick={() => setContentModalId(null)}
         >
           <div
-            className="w-full max-w-xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 flex items-start justify-between gap-3 rounded-t-2xl border-b border-slate-100 bg-white px-6 py-5">

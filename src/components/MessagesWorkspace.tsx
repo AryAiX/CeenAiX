@@ -1303,7 +1303,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     {isPatient && careTeamOpen
       ? createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            className="sheet-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
             onClick={() => setCareTeamOpen(false)}
           >
             <div
@@ -1408,11 +1408,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     {showProfileModal && activeConversation
       ? createPortal(
           <div
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm'
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm sheet-backdrop'
             onClick={() => setShowProfileModal(false)}
           >
             <div
-              className='w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl'
+              className='w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel'
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}

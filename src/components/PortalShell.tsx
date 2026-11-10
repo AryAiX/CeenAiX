@@ -750,9 +750,9 @@ export const PortalShell = ({
             role="dialog"
             aria-modal="true"
             data-testid="logout-confirm"
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sheet-backdrop"
           >
-            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
+            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6 sheet-panel">
               <h3 className="text-lg font-bold text-gray-900">{t('nav.logOutConfirmTitle')}</h3>
               <p className="mt-2 text-sm text-gray-500">{t('nav.logOutConfirmBody')}</p>
               <div className="mt-6 flex items-center gap-3">

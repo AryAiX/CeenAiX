@@ -340,3 +340,63 @@ html[lang='ar'] body {
     backdrop-filter: blur(18px);
   }
 }
+
+/*
+ * QA-101: on phones, pop-ups slide up from the bottom as a sheet (full width, rounded top, grab bar),
+ * which feels native in the app. From the sm breakpoint up they stay centred as before.
+ * Add "sheet-backdrop" to the dark full-screen layer and "sheet-panel" to the white box.
+ * The doubled class beats the box's own Tailwind classes (max-w-*, rounded-*, my-auto) on phones only.
+ */
+@media (max-width: 639.98px) {
+  .sheet-backdrop.sheet-backdrop {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sheet-panel.sheet-panel {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1.25rem 1.25rem 0 0;
+    animation: sheet-up 0.22s ease-out;
+  }
+
+  .sheet-panel.sheet-panel::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+    z-index: 1;
+  }
+}
+
+/* The floating AI chat button would sit on top of an open sheet or pop-up (it is on the same layer), so hide it meanwhile. */
+body:has(.sheet-backdrop) .chatbot-fab {
+  display: none;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel.sheet-panel {
+    animation: none;
+  }
+}

@@ -1361,11 +1361,11 @@ export const PatientRecords: React.FC = () => {
 
       {confirmDeleteRecord ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setConfirmDeleteRecord(null)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5">
@@ -1406,11 +1406,11 @@ export const PatientRecords: React.FC = () => {
 
       {showFormSwitchWarning ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setShowFormSwitchWarning(false)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5">

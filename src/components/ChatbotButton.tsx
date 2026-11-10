@@ -24,7 +24,7 @@ export const ChatbotButton: React.FC = () => {
   return (
     <>
       {/* Floating chatbot button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="chatbot-fab fixed bottom-6 right-6 z-50">
         <div className="relative">
           {/* Tooltip */}
           {showTooltip && (

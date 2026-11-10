@@ -1341,11 +1341,11 @@ export const PatientDashboard: React.FC = () => {
       </div>
       {showDetailsModal && nextAppointment ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setShowDetailsModal(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
@@ -1441,11 +1441,11 @@ export const PatientDashboard: React.FC = () => {
       ) : null}
       {showDirectionsModal && nextAppointment ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => { setShowDirectionsModal(false); setAddressCopied(false); }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+            className="bg-white rounded-xl shadow-xl w-full max-w-sm sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
@@ -1546,11 +1546,11 @@ export const PatientDashboard: React.FC = () => {
       ) : null}
       {bpModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 sheet-backdrop"
           onClick={closeBpModal}
         >
           <div
-            className="my-auto max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            className="my-auto max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
