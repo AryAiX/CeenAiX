@@ -21,6 +21,15 @@ describe('isPreviewPinGateEnabled', () => {
     expect(isPreviewPinGateEnabled()).toBe(false);
   });
 
+  it('leaves the privacy policy public on gated hostnames', () => {
+    for (const pathname of ['/privacy', '/privacy/']) {
+      vi.stubGlobal('window', { location: { hostname: 'www.ceenaix.com', pathname } } as Window);
+      expect(isPreviewPinGateEnabled()).toBe(false);
+    }
+    vi.stubGlobal('window', { location: { hostname: 'www.ceenaix.com', pathname: '/privacy-old' } } as Window);
+    expect(isPreviewPinGateEnabled()).toBe(true);
+  });
+
   it('defaults to enabled on localhost when env is unset', () => {
     vi.stubEnv('VITE_PREVIEW_PIN_GATE', undefined);
     vi.stubGlobal('window', { location: { hostname: 'localhost' } } as Window);
