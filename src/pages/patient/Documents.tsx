@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import jsPDF from 'jspdf';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -39,6 +38,7 @@ import type { PatientPharmacyWorkflowStatus } from '../../hooks/use-patient-pres
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { createPdfReport, drawPdfFooters, drawPdfHeader } from '../../lib/pdf-report';
 import { savePdf } from '../../lib/save-file';
 import type { LabItemStatusCategory } from '../../types';
 
@@ -385,124 +385,103 @@ export const PatientDocuments = () => {
     }
   };
 
-  const generateDocumentPdf = (doc: PatientDocument) => {
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const margin = 16;
-    let y = 20;
+  // The PDF follows the app language, with Arabic laid out right to left (QA-069).
+  const generateDocumentPdf = async (doc: PatientDocument) => {
+    const pdfKey = (name: string) => t(`patient.documents.pdf.${name}`);
+    const report = await createPdfReport(uiLang);
+    const { doc: pdf, pageWidth, margin } = report;
 
-    // Header
-    pdf.setFillColor(13, 148, 136);
-    pdf.rect(0, 0, pageWidth, 14, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('CeenAiX Health Platform', margin, 9);
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Patient Document', pageWidth - margin, 9, { align: 'right' });
+    drawPdfHeader(report, t('shared.pdf.brand'), pdfKey('title'));
 
-    y = 26;
+    let y = 26;
     pdf.setTextColor(15, 23, 42);
-
-    // Title
     pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(doc.name, margin, y);
+    report.setWeight('bold');
+    report.text(report.fitLine(doc.name, pageWidth - margin * 2), margin, y);
     y += 8;
 
-    // Meta
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
+    report.setWeight('normal');
     pdf.setTextColor(100, 116, 139);
-    pdf.text(`Issued by: ${doc.issuedBy}`, margin, y);
-    pdf.text(`Date: ${formatDate(doc.date)}`, pageWidth - margin, y, { align: 'right' });
+    report.labelValue(pdfKey('issuedBy'), report.fitLine(doc.issuedBy, 90), margin, y);
+    const dateText = `${pdfKey('date')}: ${formatDate(doc.date)}`;
+    report.text(dateText, pageWidth - margin, y, { align: 'right' });
     y += 5;
 
-    // Divider
     pdf.setDrawColor(226, 232, 240);
-    pdf.line(margin, y, pageWidth - margin, y);
+    report.line(margin, y, pageWidth - margin);
     y += 8;
 
-    // Category badge
+    // Category badge, as wide as its label.
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(255, 255, 255);
+    report.setWeight('bold');
+    const badgeLabel = uiLang.toLowerCase().startsWith('ar') ? doc.categoryLabel : doc.categoryLabel.toUpperCase();
+    const badgeWidth = report.textWidth(badgeLabel) + 8;
     pdf.setFillColor(
       parseInt(doc.categoryColor.slice(1, 3), 16),
       parseInt(doc.categoryColor.slice(3, 5), 16),
       parseInt(doc.categoryColor.slice(5, 7), 16)
     );
-    pdf.roundedRect(margin, y - 4, 40, 8, 2, 2, 'F');
-    pdf.text(doc.categoryLabel.toUpperCase(), margin + 4, y + 1);
+    report.roundedRect(margin, y - 4, badgeWidth, 8, 2);
+    pdf.setTextColor(255, 255, 255);
+    report.text(badgeLabel, margin + 4, y + 1);
     y += 12;
 
-    // Contents section
     pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'bold');
+    report.setWeight('bold');
     pdf.setTextColor(15, 23, 42);
-    pdf.text('Document Contents', margin, y);
+    report.text(pdfKey('contents'), margin, y);
     y += 7;
 
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
+    report.setWeight('normal');
     pdf.setTextColor(71, 85, 105);
-    const contentLines = pdf.splitTextToSize(doc.contains, pageWidth - margin * 2);
-    pdf.text(contentLines, margin, y);
+    const contentLines = report.splitLines(doc.contains, pageWidth - margin * 2);
+    report.text(contentLines, margin, y);
     y += contentLines.length * 5 + 8;
 
-    // Divider
     pdf.setDrawColor(226, 232, 240);
-    pdf.line(margin, y, pageWidth - margin, y);
+    report.line(margin, y, pageWidth - margin);
     y += 8;
 
-    // Source link
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'bold');
+    report.setWeight('bold');
     pdf.setTextColor(15, 23, 42);
-    pdf.text('View Live Source', margin, y);
+    report.text(pdfKey('viewSource'), margin, y);
     y += 6;
-    pdf.setFont('helvetica', 'normal');
+    report.setWeight('normal');
     pdf.setTextColor(13, 148, 136);
     const sourceUrl = `${window.location.origin}${
       doc.source === 'lab_orders'
         ? '/patient/lab-results'
         : doc.source === 'prescriptions'
           ? '/patient/prescriptions'
-          : '/patient/insurance'
+          : doc.source === 'patient_document_files'
+            ? '/patient/documents'
+            : '/patient/insurance'
     }`;
-    pdf.text(sourceUrl, margin, y);
+    report.text(sourceUrl, margin, y);
     y += 10;
 
-    // Status
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'bold');
+    report.setWeight('bold');
     pdf.setTextColor(15, 23, 42);
-    pdf.text('Status', margin, y);
+    report.text(pdfKey('status'), margin, y);
     y += 6;
-    pdf.setFont('helvetica', 'normal');
+    report.setWeight('normal');
     if (doc.status === 'pending') {
       pdf.setTextColor(180, 83, 9);
     } else {
       pdf.setTextColor(5, 150, 105);
     }
-    pdf.text(doc.status.toUpperCase(), margin, y);
+    const statusText = t(`patient.documents.status.${doc.status}`);
+    report.text(uiLang.toLowerCase().startsWith('ar') ? statusText : statusText.toUpperCase(), margin, y);
 
-    // Footer
-    const pageCount = pdf.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      pdf.setPage(i);
-      pdf.setFillColor(248, 250, 252);
-      pdf.rect(0, pdf.internal.pageSize.getHeight() - 10, pageWidth, 10, 'F');
-      pdf.setFontSize(7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(148, 163, 184);
-      pdf.text('Generated by CeenAiX Health Platform — Confidential Medical Record', margin, pdf.internal.pageSize.getHeight() - 3);
-      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pdf.internal.pageSize.getHeight() - 3, { align: 'right' });
-    }
+    drawPdfFooters(report, t('shared.pdf.footerNote'), (page, total) =>
+      t('shared.pdf.pageOf', { page: formatLocaleDigits(page, uiLang), total: formatLocaleDigits(total, uiLang) })
+    );
 
     // savePdf also works inside the phone app, where jsPDF's own save does nothing on iOS (QA-096).
-    void savePdf(pdf, doc.fileName).catch(() => undefined);
+    await savePdf(pdf, doc.fileName);
   };
 
   return (
@@ -746,7 +725,7 @@ export const PatientDocuments = () => {
                     if (doc.source === 'patient_document_files') {
                       void openVaultDocument(doc);
                     } else {
-                      generateDocumentPdf(doc);
+                      void generateDocumentPdf(doc).catch(() => undefined);
                     }
                   }}
                   title={t('patient.documents.download')}
@@ -840,7 +819,7 @@ export const PatientDocuments = () => {
                   if (selectedDocument.source === 'patient_document_files') {
                     void openVaultDocument(selectedDocument);
                   } else {
-                    generateDocumentPdf(selectedDocument);
+                    void generateDocumentPdf(selectedDocument).catch(() => undefined);
                   }
                 }}
                 className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
@@ -1430,7 +1409,7 @@ export const PatientDocuments = () => {
             <div className="sticky bottom-0 flex justify-end gap-2 rounded-b-2xl border-t border-slate-100 bg-white px-6 py-4">
               <button
                 type="button"
-                onClick={() => generateDocumentPdf(contentModalDocument)}
+                onClick={() => void generateDocumentPdf(contentModalDocument).catch(() => undefined)}
                 className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
               >
                 <Download className="h-4 w-4" />
