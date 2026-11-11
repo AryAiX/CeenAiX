@@ -279,7 +279,7 @@ export interface LabOrderItem extends BaseRecord {
   display_name_long: string | null;
   description: string | null;
   status: LabOrderStatus;
-  status_category: LabItemStatusCategory;
+  status_category: LabItemStatusCategory | null;
   flag: LabItemFlag | null;
   result_value: string | null;
   result_unit: string | null;

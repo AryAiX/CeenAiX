@@ -1,9 +1,9 @@
 import type {
   LabOrder,
   LabOrderItem,
-  LabItemStatusCategory,
   LabProfile,
 } from '../types';
+import { labItemDisplayStatus, type LabDisplayStatus } from '../lib/lab-report-item';
 import {
   hydrateLabOrderItemsWithCatalog,
   loadLabTestCatalogRowsForLabOrderItems,
@@ -20,7 +20,7 @@ export interface PatientLabTrendPoint {
   visitDate: string;
   label: string;
   value: number;
-  status: LabItemStatusCategory;
+  status: LabDisplayStatus;
 }
 
 export interface PatientLabTrendSeries {
@@ -220,7 +220,7 @@ export function usePatientLabResults(userId: string | null | undefined) {
           visitDate: order.results_released_at ?? order.ordered_at,
           label: monthLabel(order.results_released_at ?? order.ordered_at),
           value: Number(item.numeric_value),
-          status: item.status_category,
+          status: labItemDisplayStatus(item),
         };
         const list = trendRollup[key] ?? [];
         list.push(point);
@@ -268,16 +268,11 @@ export function usePatientLabResults(userId: string | null | undefined) {
       const abnormalCount = parentItems.filter((item) => item.is_abnormal === true).length;
       const resultedCount = parentItems.filter((item) => item.result_value != null).length;
       const pendingCount = parentItems.length - resultedCount;
-      const normalCount = parentItems.filter(
-        (item) => item.status_category === 'normal'
-      ).length;
-      const monitorCount = parentItems.filter(
-        (item) =>
-          item.status_category === 'borderline' ||
-          item.status_category === 'high' ||
-          item.status_category === 'low' ||
-          item.status_category === 'critical'
-      ).length;
+      const normalCount = parentItems.filter((item) => labItemDisplayStatus(item) === 'normal').length;
+      const monitorCount = parentItems.filter((item) => {
+        const status = labItemDisplayStatus(item);
+        return status !== 'normal' && status !== 'pending';
+      }).length;
 
       trendsByOrderKey[labOrder.id] = globalTrends;
 

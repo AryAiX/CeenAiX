@@ -1073,6 +1073,7 @@
       "statusHigh": "⚠️ مرتفع",
       "statusLow": "⚠️ منخفض",
       "statusCritical": "⚠️ حرج",
+      "statusAbnormal": "⚠️ غير طبيعي",
       "statusPending": "⏱ معلق",
       "trendLabel": "الاتجاه",
       "trendImproving": "تحسّن",
