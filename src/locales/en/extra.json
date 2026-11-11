@@ -1015,6 +1015,7 @@
       "statusHigh": "⚠️ Elevated",
       "statusLow": "⚠️ Low",
       "statusCritical": "⚠️ Critical",
+      "statusAbnormal": "⚠️ Abnormal",
       "statusPending": "⏱ Pending",
       "trendLabel": "Trend",
       "trendImproving": "Improving",
