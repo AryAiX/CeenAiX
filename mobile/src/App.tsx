@@ -4,12 +4,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
+import { Alert, AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { RELOCK_AFTER_MS, START_PATH, USER_AGENT_SUFFIX, WEB_URL } from './config';
 import { IN_WEBVIEW_SCHEMES, SYSTEM_SCHEMES, deepLinkToWebUrl, isPortalUrl, isSignedInArea } from './links';
+import { saveAndShareFile } from './save-file';
+import { parseSaveFileMessage } from './save-file-message';
+import { parseStatusBarMessage } from './status-bar-message';
 import { StatusScreen } from './StatusScreen';
 import { strings } from './strings';
 
@@ -70,6 +73,8 @@ export function App(): React.ReactElement | null {
   const [loadFailed, setLoadFailed] = useState(false);
   const [locked, setLocked] = useState(false);
   const [covered, setCovered] = useState(false);
+  // Colour of the strip behind the clock; the portal dims it while a sheet or the menu is open (QA-102).
+  const [topInsetColor, setTopInsetColor] = useState(BACKGROUND);
   const currentUrl = useRef('');
   const canGoBack = useRef(false);
   const backgroundedAt = useRef<number | null>(null);
@@ -146,6 +151,20 @@ export function App(): React.ReactElement | null {
     return false;
   }, []);
 
+  // The portal posts files it creates (PDF reports, calendar files) here, because iOS can't save its temporary blob: links.
+  const onMessage = useCallback((event: WebViewMessageEvent) => {
+    const { url, data } = event.nativeEvent;
+    if (!isPortalUrl(url)) return;
+    const statusBarColor = parseStatusBarMessage(data);
+    if (statusBarColor !== undefined) {
+      setTopInsetColor(statusBarColor ?? BACKGROUND);
+      return;
+    }
+    const request = parseSaveFileMessage(data);
+    if (!request) return;
+    saveAndShareFile(request).catch(() => Alert.alert(strings.saveFileFailedTitle, strings.saveFileFailedBody));
+  }, []);
+
   const onNavigationStateChange = useCallback((state: WebViewNavigation) => {
     currentUrl.current = state.url;
     canGoBack.current = state.canGoBack;
@@ -162,46 +181,51 @@ export function App(): React.ReactElement | null {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
-      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-        <WebView<object>
-          key={webKey}
-          ref={webRef}
-          source={{ uri: startUrl }}
-          style={styles.web}
-          applicationNameForUserAgent={USER_AGENT_SUFFIX}
-          injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_SCRIPT}
-          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-          onNavigationStateChange={onNavigationStateChange}
-          onOpenWindow={({ nativeEvent }) => {
-            const { targetUrl } = nativeEvent;
-            if (isPortalUrl(targetUrl)) {
-              webRef.current?.injectJavaScript(`window.location.assign(${JSON.stringify(targetUrl)}); true;`);
-            } else {
-              openOutside(targetUrl);
-            }
-          }}
-          onLoadEnd={hideSplash}
-          onError={({ nativeEvent }) => {
-            hideSplash();
-            if (!IGNORED_ERROR_CODES.has(nativeEvent.code)) setLoadFailed(true);
-          }}
-          onContentProcessDidTerminate={() => webRef.current?.reload()}
-          onRenderProcessGone={() => setWebKey((key) => key + 1)}
-          allowsBackForwardNavigationGestures
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-          sharedCookiesEnabled
-          setSupportMultipleWindows
-          javaScriptCanOpenWindowsAutomatically
-          contentInsetAdjustmentBehavior="never"
-          decelerationRate="normal"
-          textInteractionEnabled
-          webviewDebuggingEnabled={__DEV__}
-        />
-        {loadFailed ? (
-          <StatusScreen testID="screen-offline" title={strings.offlineTitle} body={strings.offlineBody} actionLabel={strings.retry} onAction={retry} />
-        ) : null}
+      {/* The top strip (behind the clock) gets its own colour so it can dim with the page's sheets and menu (QA-102); the bottom stays white. */}
+      <SafeAreaView style={[styles.root, { backgroundColor: topInsetColor }]} edges={['top']}>
+        <SafeAreaView style={styles.root} edges={['bottom']}>
+          <WebView<object>
+            key={webKey}
+            ref={webRef}
+            source={{ uri: startUrl }}
+            style={styles.web}
+            applicationNameForUserAgent={USER_AGENT_SUFFIX}
+            injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_SCRIPT}
+            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+            onNavigationStateChange={onNavigationStateChange}
+            onLoadStart={() => setTopInsetColor(BACKGROUND)}
+            onMessage={onMessage}
+            onOpenWindow={({ nativeEvent }) => {
+              const { targetUrl } = nativeEvent;
+              if (isPortalUrl(targetUrl)) {
+                webRef.current?.injectJavaScript(`window.location.assign(${JSON.stringify(targetUrl)}); true;`);
+              } else {
+                openOutside(targetUrl);
+              }
+            }}
+            onLoadEnd={hideSplash}
+            onError={({ nativeEvent }) => {
+              hideSplash();
+              if (!IGNORED_ERROR_CODES.has(nativeEvent.code)) setLoadFailed(true);
+            }}
+            onContentProcessDidTerminate={() => webRef.current?.reload()}
+            onRenderProcessGone={() => setWebKey((key) => key + 1)}
+            allowsBackForwardNavigationGestures
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+            sharedCookiesEnabled
+            setSupportMultipleWindows
+            javaScriptCanOpenWindowsAutomatically
+            contentInsetAdjustmentBehavior="never"
+            decelerationRate="normal"
+            textInteractionEnabled
+            webviewDebuggingEnabled={__DEV__}
+          />
+          {loadFailed ? (
+            <StatusScreen testID="screen-offline" title={strings.offlineTitle} body={strings.offlineBody} actionLabel={strings.retry} onAction={retry} />
+          ) : null}
+        </SafeAreaView>
       </SafeAreaView>
       {locked ? (
         <StatusScreen

@@ -1,11 +1,23 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FamilyTree } from '../../components/FamilyTree';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
 import { Upload, Camera, User, Shield, Users, Plus, Trash2, CreditCard as Edit2, Save } from 'lucide-react';
-import { usePatientInsurance, usePatientRecords, useUserProfile } from '../../hooks';
+import {
+  resolvePatientDocumentUrl,
+  softDeletePatientDocument,
+  uploadPatientDocument,
+  usePatientDocumentVault,
+  usePatientInsurance,
+  usePatientRecords,
+  useUserProfile,
+  type PatientVaultDocument,
+} from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 interface FamilyMember {
@@ -17,12 +29,47 @@ interface FamilyMember {
   profileImage?: string;
 }
 
+const EMIRATES_ID_FILE_NAMES = { emiratesFront: 'emirates-id-front', emiratesBack: 'emirates-id-back' } as const;
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_PHOTO_MB = { profile: 5, document: 10 } as const;
+type PhotoUploadTarget = 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance';
+
 export const Profile: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formatDateOfBirth = (value: string) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString(
+      resolveLocale(i18n.language),
+      dateTimeFormatWithNumerals(i18n.language, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    );
+  };
+  const relationshipLabel = (relationship: string) => {
+    switch (relationship) {
+      case 'Spouse':
+        return t('patient.profile.relSpouse');
+      case 'Child':
+        return t('patient.profile.relChild');
+      case 'Parent':
+        return t('patient.profile.relParent');
+      case 'Sibling':
+        return t('patient.profile.relSibling');
+      case 'Other':
+        return t('patient.profile.relOther');
+      default:
+        return relationship;
+    }
+  };
   const { user } = useAuth();
   const { data: profile, refetch: refetchProfile } = useUserProfile();
   const { data: records } = usePatientRecords(user?.id);
   const { data: insurance } = usePatientInsurance(user?.id);
+  const { data: vaultDocuments, refetch: refetchVault } = usePatientDocumentVault(user?.id);
   const [patientProfile, setPatientProfile] = useState<{
     blood_type: string | null;
     emergency_contact_name: string | null;
@@ -59,11 +106,13 @@ export const Profile: React.FC = () => {
     validUntil: '',
     cardImage: '',
   });
+  const [insuranceCardPreview, setInsuranceCardPreview] = useState<string>('');
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({});
   const [confirmDeleteFamilyId, setConfirmDeleteFamilyId] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<{ target: PhotoUploadTarget; message: string } | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -123,6 +172,39 @@ export const Profile: React.FC = () => {
     const timer = setTimeout(() => setSaveSuccess(null), 4000);
     return () => clearTimeout(timer);
   }, [saveSuccess]);
+
+  const findEmiratesIdDocument = (side: keyof typeof EMIRATES_ID_FILE_NAMES): PatientVaultDocument | undefined =>
+    (vaultDocuments ?? []).find((vaultDocument) =>
+      vaultDocument.originalFileName.startsWith(`${EMIRATES_ID_FILE_NAMES[side]}.`)
+    );
+
+  const emiratesFrontPath = findEmiratesIdDocument('emiratesFront')?.storagePath ?? '';
+  const emiratesBackPath = findEmiratesIdDocument('emiratesBack')?.storagePath ?? '';
+
+  useEffect(() => {
+    let active = true;
+
+    const applyResolvedUrl = async (value: string, apply: (url: string) => void) => {
+      if (!value) {
+        if (active) apply('');
+        return;
+      }
+      try {
+        const url = await resolvePatientDocumentUrl(value);
+        if (active) apply(url);
+      } catch {
+        if (active) apply('');
+      }
+    };
+
+    void applyResolvedUrl(emiratesFrontPath, setEmiratesIdFront);
+    void applyResolvedUrl(emiratesBackPath, setEmiratesIdBack);
+    void applyResolvedUrl(insuranceInfo.cardImage, setInsuranceCardPreview);
+
+    return () => {
+      active = false;
+    };
+  }, [emiratesFrontPath, emiratesBackPath, insuranceInfo.cardImage]);
 
   const savePersonalInfo = async () => {
     if (!user?.id) return;
@@ -194,14 +276,28 @@ export const Profile: React.FC = () => {
     setSavingInsurance(false);
   };
 
-  const handleImageUpload = (type: 'profile' | 'emiratesFront' | 'emiratesBack' | 'insurance') => {
+  const handleImageUpload = (type: PhotoUploadTarget) => {
     if (!user?.id) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = ALLOWED_PHOTO_TYPES.join(',');
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+
+      setPhotoError(null);
+      if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+        setPhotoError({ target: type, message: t('patient.profile.uploadTypeError') });
+        return;
+      }
+      const maxMb = type === 'profile' ? MAX_PHOTO_MB.profile : MAX_PHOTO_MB.document;
+      if (file.size > maxMb * 1024 * 1024) {
+        setPhotoError({
+          target: type,
+          message: t('patient.profile.uploadSizeError', { max: formatLocaleDigits(maxMb, i18n.language) }),
+        });
+        return;
+      }
 
       const ext = file.name.split('.').pop() ?? 'jpg';
       const timestamp = Date.now();
@@ -211,49 +307,51 @@ export const Profile: React.FC = () => {
         const { error } = await supabase.storage
           .from('avatars')
           .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(path);
-          const publicUrl = urlData.publicUrl;
-          setProfileImage(publicUrl);
-          await supabase
-            .from('user_profiles')
-            .update({ avatar_url: publicUrl })
-            .eq('user_id', user.id);
+        if (error) {
+          setPhotoError({ target: type, message: t('patient.profile.photoUpdateFailed') });
+          return;
         }
-      } else if (type === 'emiratesFront') {
-        const path = `${user.id}/emirates_front_${timestamp}.${ext}`;
-        const { error } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path);
-          setEmiratesIdFront(urlData.publicUrl);
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(path);
+        const publicUrl = urlData.publicUrl;
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('user_id', user.id);
+        if (profileError) {
+          setPhotoError({ target: type, message: t('patient.profile.photoUpdateFailed') });
+          return;
         }
-      } else if (type === 'emiratesBack') {
-        const path = `${user.id}/emirates_back_${timestamp}.${ext}`;
-        const { error } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path);
-          setEmiratesIdBack(urlData.publicUrl);
-        }
-      } else if (type === 'insurance') {
-        const path = `${user.id}/insurance_card_${timestamp}.${ext}`;
-        const { error } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path);
-          setInsuranceInfo((prev) => ({ ...prev, cardImage: urlData.publicUrl }));
+        setProfileImage(publicUrl);
+      } else {
+        const baseName = type === 'insurance' ? 'insurance-card' : EMIRATES_ID_FILE_NAMES[type];
+        const namedFile = new File([file], `${baseName}.${ext.toLowerCase()}`, { type: file.type });
+        const title =
+          type === 'emiratesFront'
+            ? t('patient.profile.emiratesFrontDocTitle')
+            : type === 'emiratesBack'
+              ? t('patient.profile.emiratesBackDocTitle')
+              : t('patient.profile.insuranceCardDocTitle');
+        try {
+          const previous = type === 'insurance' ? undefined : findEmiratesIdDocument(type);
+          const uploaded = await uploadPatientDocument({
+            patientId: user.id,
+            file: namedFile,
+            title,
+            category: type === 'insurance' ? 'insurance' : 'other',
+            allowCareTeamAccess: false,
+          });
+          if (type === 'insurance') {
+            setInsuranceInfo((prev) => ({ ...prev, cardImage: uploaded.storagePath }));
+          } else {
+            if (previous) {
+              await softDeletePatientDocument(previous.id);
+            }
+            await refetchVault();
+          }
+        } catch {
+          setPhotoError({ target: type, message: t('patient.profile.photoUpdateFailed') });
         }
       }
     };
@@ -262,14 +360,19 @@ export const Profile: React.FC = () => {
 
   const removeProfileImage = async () => {
     if (!user?.id || !profileImage) return;
+    setPhotoError(null);
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ avatar_url: null })
+      .eq('user_id', user.id);
+    if (error) {
+      setPhotoError({ target: 'profile', message: t('patient.profile.photoUpdateFailed') });
+      return;
+    }
     const path = profileImage.split('/avatars/')[1];
     if (path) {
       await supabase.storage.from('avatars').remove([path]);
     }
-    await supabase
-      .from('user_profiles')
-      .update({ avatar_url: null })
-      .eq('user_id', user.id);
     setProfileImage('');
   };
 
@@ -301,6 +404,11 @@ export const Profile: React.FC = () => {
   const removeFamilyMember = (id: string) => {
     setFamilyMembers((prev) => prev.filter((member) => member.id !== id));
   };
+
+  const photoErrorFor = (...targets: PhotoUploadTarget[]) =>
+    photoError && targets.includes(photoError.target) ? (
+      <p role="alert" className="my-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{photoError.message}</p>
+    ) : null;
 
   return (
     <>
@@ -335,7 +443,7 @@ export const Profile: React.FC = () => {
       <div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100/50 backdrop-blur-sm sticky top-8">
+            <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8 border border-gray-100/50 backdrop-blur-sm sticky top-8">
               <div className="text-center">
                 <div className="relative inline-block group">
                   <div className="w-36 h-36 rounded-full bg-gradient-to-br from-blue-500 via-blue-400 to-cyan-400 flex items-center justify-center overflow-hidden border-4 border-white shadow-2xl ring-4 ring-blue-50">
@@ -370,11 +478,14 @@ export const Profile: React.FC = () => {
                 </h2>
                 <p className="text-gray-500 text-sm mt-2 font-medium">
                   {t('patient.profile.idLine', {
-                    id: personalInfo.emiratesId?.trim() ? personalInfo.emiratesId : t('patient.profile.notSet'),
+                    id: personalInfo.emiratesId?.trim()
+                      ? `\u2066${personalInfo.emiratesId}\u2069`
+                      : t('patient.profile.notSet'),
                   })}
                 </p>
               </div>
 
+              {photoErrorFor('profile')}
               <div className="mt-8 space-y-4">
                 <div
                   className="group relative overflow-hidden bg-gradient-to-br from-rose-50 to-red-50 rounded-xl p-4 cursor-pointer hover:shadow-lg transition-all duration-300 border border-red-100/50 hover:border-red-200"
@@ -386,7 +497,11 @@ export const Profile: React.FC = () => {
                         {t('patient.profile.cardBloodType')}
                       </p>
                       <p className="text-lg font-bold text-gray-900">
-                        {personalInfo.bloodType || t('patient.profile.notSet')}
+                        {personalInfo.bloodType ? (
+                          <span dir="ltr">{personalInfo.bloodType}</span>
+                        ) : (
+                          t('patient.profile.notSet')
+                        )}
                       </p>
                     </div>
                     {!isEditingPersonal && (
@@ -407,7 +522,9 @@ export const Profile: React.FC = () => {
                         {t('patient.profile.cardDob')}
                       </p>
                       <p className="text-lg font-bold text-gray-900">
-                        {personalInfo.dateOfBirth || t('patient.profile.notSet')}
+                        {personalInfo.dateOfBirth
+                          ? formatDateOfBirth(personalInfo.dateOfBirth)
+                          : t('patient.profile.notSet')}
                       </p>
                     </div>
                     {!isEditingPersonal && (
@@ -431,7 +548,9 @@ export const Profile: React.FC = () => {
                         {personalInfo.emergencyContactName || t('patient.profile.notSet')}
                       </p>
                       {personalInfo.emergencyContactPhone && (
-                        <p className="text-sm text-gray-600 mt-1">{personalInfo.emergencyContactPhone}</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          <span dir="ltr">{personalInfo.emergencyContactPhone}</span>
+                        </p>
                       )}
                     </div>
                     {!isEditingPersonal && (
@@ -447,13 +566,13 @@ export const Profile: React.FC = () => {
 
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <User className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.personalTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.personalTitle')}</h3>
                     <p className="text-blue-100 text-sm mt-1">{t('patient.profile.personalSub')}</p>
                   </div>
                 </div>
@@ -467,7 +586,7 @@ export const Profile: React.FC = () => {
                       setIsEditingPersonal(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isEditingPersonal ? (
                     savingPersonal ? (
@@ -480,7 +599,7 @@ export const Profile: React.FC = () => {
                   <span>{isEditingPersonal ? (savingPersonal ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editProfile')}</span>
                 </button>
               </div>
-              <div className="p-6">
+              <div className="p-5 sm:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.fullName')}</label>
@@ -505,8 +624,9 @@ export const Profile: React.FC = () => {
                         maxLength={FORM_FIELD_LIMITS.emiratesId}
                         value={personalInfo.emiratesId}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emiratesId: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium rtl:text-right"
                         placeholder={t('patient.profile.phEmiratesId')}
+                        dir="ltr"
                       />
                     </div>
                   </div>
@@ -524,7 +644,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -538,7 +658,8 @@ export const Profile: React.FC = () => {
                         disabled={!isEditingPersonal}
                         value={personalInfo.bloodType}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, bloodType: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium appearance-none bg-white"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium appearance-none bg-white rtl:text-right"
+                        dir="ltr"
                       >
                         <option value="">{t('patient.profile.selectBloodType')}</option>
                         <option value="A+">A+</option>
@@ -554,7 +675,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -562,28 +683,33 @@ export const Profile: React.FC = () => {
                     </div>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.allergies')}</label>
+                    <div className="mb-2.5 flex items-center justify-between gap-2">
+                      <label className="block text-sm font-semibold text-gray-700">{t('patient.profile.allergies')}</label>
+                      <Link to="/patient/records" className="text-xs font-semibold text-blue-600 hover:underline">{t('patient.profile.manageInMyHealth')}</Link>
+                    </div>
                     <textarea
-                      disabled={!isEditingPersonal}
-                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                      disabled
+                      readOnly
                       value={personalInfo.allergies}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, allergies: e.target.value })}
                       rows={3}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 resize-none font-medium"
-                      placeholder={t('patient.profile.phAllergies')}
+                      placeholder={t('patient.profile.noneRecorded')}
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.chronicConditions')}</label>
+                    <div className="mb-2.5 flex items-center justify-between gap-2">
+                      <label className="block text-sm font-semibold text-gray-700">{t('patient.profile.chronicConditions')}</label>
+                      <Link to="/patient/records" className="text-xs font-semibold text-blue-600 hover:underline">{t('patient.profile.manageInMyHealth')}</Link>
+                    </div>
                     <textarea
-                      disabled={!isEditingPersonal}
-                      maxLength={FORM_FIELD_LIMITS.clinicalNotes}
+                      disabled
+                      readOnly
                       value={personalInfo.chronicConditions}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, chronicConditions: e.target.value })}
                       rows={3}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 resize-none font-medium"
-                      placeholder={t('patient.profile.phChronic')}
+                      placeholder={t('patient.profile.noneRecorded')}
                     />
+                    <p className="mt-1.5 text-xs text-gray-500">{t('patient.profile.recordsManagedNote')}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.emergencyName')}</label>
@@ -601,7 +727,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -617,14 +743,15 @@ export const Profile: React.FC = () => {
                         maxLength={FORM_FIELD_LIMITS.phone}
                         value={personalInfo.emergencyContactPhone}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, emergencyContactPhone: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 transition-all duration-200 font-medium rtl:text-right"
                         placeholder={t('patient.profile.phEmergencyPhone')}
+                        dir="ltr"
                       />
                       {!isEditingPersonal && (
                         <button
                           type="button"
                           onClick={() => setIsEditingPersonal(true)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
                         >
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
@@ -636,32 +763,33 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <Camera className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.emiratesTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.emiratesTitle')}</h3>
                     <p className="text-emerald-100 text-sm mt-1">{t('patient.profile.emiratesSub')}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleScanEmiratesId}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   <Camera className="w-5 h-5" />
                   <span>{t('patient.profile.scanId')}</span>
                 </button>
               </div>
-              <div className="p-8">
+              <div className="p-5 sm:p-8">
+                {photoErrorFor('emiratesFront', 'emiratesBack')}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.frontSide')}</label>
                     <div
                       onClick={() => handleImageUpload('emiratesFront')}
-                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
+                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
                     >
                       {emiratesIdFront ? (
                         <img src={emiratesIdFront} alt={t('patient.profile.altEmiratesFront')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
@@ -682,7 +810,7 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.backSide')}</label>
                     <div
                       onClick={() => handleImageUpload('emiratesBack')}
-                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
+                      className="group relative border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-300"
                     >
                       {emiratesIdBack ? (
                         <img src={emiratesIdBack} alt={t('patient.profile.altEmiratesBack')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
@@ -704,19 +832,19 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <Shield className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.insuranceTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.insuranceTitle')}</h3>
                     <p className="text-violet-100 text-sm mt-1">{t('patient.profile.insuranceSub')}</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  disabled={savingInsurance}
+                  disabled={savingInsurance || !insurance?.primaryPlan}
                   onClick={() => {
                     if (isEditingInsurance) {
                       void saveInsuranceInfo();
@@ -724,7 +852,7 @@ export const Profile: React.FC = () => {
                       setIsEditingInsurance(true);
                     }
                   }}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isEditingInsurance ? (
                     savingInsurance ? (
@@ -737,18 +865,22 @@ export const Profile: React.FC = () => {
                   <span>{isEditingInsurance ? (savingInsurance ? t('patient.profile.saving', { defaultValue: 'Saving...' }) : t('patient.profile.saveChanges')) : t('patient.profile.editInsurance')}</span>
                 </button>
               </div>
-              <div className="p-8">
+              <div className="p-5 sm:p-8">
+                {insurance?.primaryPlan ? (
+                  <p className="mb-5 text-xs text-gray-500">{t('patient.profile.planDetailsNote')}</p>
+                ) : (
+                  <p className="mb-5 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800">{t('patient.profile.noPlanLinked')}</p>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.insuranceProvider')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
-                      maxLength={FORM_FIELD_LIMITS.shortText}
+                      disabled
+                      readOnly
                       value={insuranceInfo.provider}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, provider: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phProvider')}
+                      placeholder={t('patient.profile.notSet')}
                     />
                   </div>
                   <div>
@@ -779,24 +911,22 @@ export const Profile: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.groupNumber')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
-                      maxLength={FORM_FIELD_LIMITS.shortText}
+                      disabled
+                      readOnly
                       value={insuranceInfo.groupNumber}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, groupNumber: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phGroup')}
+                      placeholder={t('patient.profile.notSet')}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2.5">{t('patient.profile.coverageType')}</label>
                     <input
                       type="text"
-                      disabled={!isEditingInsurance}
-                      maxLength={FORM_FIELD_LIMITS.shortText}
+                      disabled
+                      readOnly
                       value={insuranceInfo.coverageType}
-                      onChange={(e) => setInsuranceInfo({ ...insuranceInfo, coverageType: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-violet-500/20 focus:border-violet-500 disabled:bg-gray-50 transition-all duration-200 font-medium"
-                      placeholder={t('patient.profile.phCoverage')}
+                      placeholder={t('patient.profile.notSet')}
                     />
                   </div>
                   <div>
@@ -811,12 +941,13 @@ export const Profile: React.FC = () => {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">{t('patient.profile.insuranceCardLabel')}</label>
+                    {photoErrorFor('insurance')}
                     <div
                       onClick={() => isEditingInsurance && handleImageUpload('insurance')}
-                      className={`group border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center transition-all duration-300 ${isEditingInsurance ? 'cursor-pointer hover:border-violet-500 hover:bg-violet-50/50' : 'cursor-not-allowed opacity-75'}`}
+                      className={`group border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center sm:p-10 transition-all duration-300 ${isEditingInsurance ? 'cursor-pointer hover:border-violet-500 hover:bg-violet-50/50' : 'cursor-not-allowed opacity-75'}`}
                     >
-                      {insuranceInfo.cardImage ? (
-                        <img src={insuranceInfo.cardImage} alt={t('patient.profile.altInsuranceCard')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
+                      {insuranceCardPreview ? (
+                        <img src={insuranceCardPreview} alt={t('patient.profile.altInsuranceCard')} className="max-h-48 mx-auto rounded-xl shadow-lg" />
                       ) : (
                         <div className="space-y-3">
                           <div className={`w-16 h-16 mx-auto bg-gray-100 rounded-2xl flex items-center justify-center transition-colors duration-300 ${isEditingInsurance ? 'group-hover:bg-violet-100' : ''}`}>
@@ -835,33 +966,44 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-orange-600 to-amber-600 p-6 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-orange-600 to-amber-600 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
                   <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                     <Users className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{t('patient.profile.familyTitle')}</h3>
+                    <h3 className="text-xl font-bold text-white tracking-tight sm:text-2xl">{t('patient.profile.familyTitle')}</h3>
                     <p className="text-orange-100 text-sm mt-1">{t('patient.profile.familySub')}</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddFamily(true)}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  disabled
+                  className="flex items-center gap-2 self-start whitespace-nowrap px-5 py-2.5 sm:self-auto bg-white/20 backdrop-blur-sm text-white rounded-xl transition-all duration-200 font-medium shadow-lg cursor-not-allowed opacity-70"
                 >
                   <Plus className="w-5 h-5" />
                   <span>{t('patient.profile.addMember')}</span>
+                  <span className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-semibold">{t('patient.profile.comingSoon')}</span>
                 </button>
               </div>
-              <div className="p-8">
-                <FamilyTree
-                  members={familyMembers}
-                  primaryUser={{
-                    name: personalInfo.fullName || t('patient.profile.you'),
-                    profileImage: profileImage,
-                  }}
-                />
+              <div className="p-5 sm:p-8">
+                {familyMembers.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-orange-100 to-amber-100">
+                      <Users className="h-10 w-10 text-orange-500" />
+                    </div>
+                    <p className="text-lg font-semibold text-gray-700">{t('patient.profile.familyComingSoonTitle')}</p>
+                    <p className="mt-2 text-sm text-gray-500">{t('patient.profile.familyComingSoonBody')}</p>
+                  </div>
+                ) : (
+                  <FamilyTree
+                    members={familyMembers}
+                    primaryUser={{
+                      name: personalInfo.fullName || t('patient.profile.you'),
+                      profileImage: profileImage,
+                    }}
+                  />
+                )}
 
                 {familyMembers.length > 0 && (
                   <div className="mt-12 pt-8 border-t-2 border-gray-100">
@@ -873,7 +1015,7 @@ export const Profile: React.FC = () => {
                       {familyMembers.map((member) => (
                         <div key={member.id} className="group border-2 border-gray-200 rounded-2xl p-5 hover:shadow-xl hover:border-orange-200 transition-all duration-300 bg-gradient-to-br from-white to-orange-50/30">
                           <div className="flex items-start justify-between">
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center gap-4">
                               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-400 to-amber-400 flex items-center justify-center ring-4 ring-orange-100 group-hover:ring-orange-200 transition-all duration-300">
                                 {member.profileImage ? (
                                   <img src={member.profileImage} alt={member.name} className="w-full h-full rounded-full object-cover" />
@@ -883,7 +1025,7 @@ export const Profile: React.FC = () => {
                               </div>
                               <div>
                                 <h4 className="font-bold text-gray-900 text-lg">{member.name}</h4>
-                                <p className="text-sm text-orange-600 font-medium">{member.relationship}</p>
+                                <p className="text-sm text-orange-600 font-medium">{relationshipLabel(member.relationship)}</p>
                                 {member.dateOfBirth && (
                                   <p className="text-xs text-gray-500 mt-1">{member.dateOfBirth}</p>
                                 )}
@@ -949,12 +1091,13 @@ export const Profile: React.FC = () => {
                           type="text"
                           value={newFamilyMember.emiratesId || ''}
                           onChange={(e) => setNewFamilyMember({ ...newFamilyMember, emiratesId: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 bg-white font-medium"
+                          className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 bg-white font-medium rtl:text-right"
                           placeholder="784-XXXX-XXXXXXX-X"
+                          dir="ltr"
                         />
                       </div>
                     </div>
-                    <div className="flex space-x-3 mt-6">
+                    <div className="mt-6 flex gap-3">
                       <button
                         type="button"
                         onClick={() => void addFamilyMember()}
@@ -982,13 +1125,14 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
-      {confirmDeleteFamilyId ? (
+      {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+      {confirmDeleteFamilyId ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setConfirmDeleteFamilyId(null)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5">
@@ -996,7 +1140,7 @@ export const Profile: React.FC = () => {
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
               <h2 className="text-base font-semibold text-slate-900">
-                {t('patient.profile.removeFamilyMember', { defaultValue: 'Remove family member?' })}
+                {t('patient.profile.removeFamilyTitle', { defaultValue: 'Remove family member?' })}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
                 <span className="font-semibold text-slate-700">
@@ -1025,7 +1169,8 @@ export const Profile: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );

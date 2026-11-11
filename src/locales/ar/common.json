@@ -13,7 +13,33 @@
     "actionRecordsLink": "تذكير السجلات",
     "actionCareDefault": "إجراء رعاية",
     "defaultCareSubject": "محادثة رعاية",
-    "sendMessage": "إرسال رسالة"
+    "sendMessage": "إرسال رسالة",
+    "messageDeleted": "تم حذف الرسالة",
+    "undo": "تراجع",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ...",
+    "cancel": "إلغاء",
+    "read": "مقروءة",
+    "sent": "مُرسلة",
+    "removeAttachment": "إزالة المرفق",
+    "attachFile": "إرفاق ملف",
+    "attach": "إرفاق",
+    "attachHint": "صور، PDF، Word، TXT",
+    "viewProfile": "عرض الملف الشخصي",
+    "profileTitle": "تفاصيل الملف الشخصي",
+    "noEmail": "لا يوجد بريد إلكتروني",
+    "email": "البريد الإلكتروني",
+    "notAvailable": "غير متاح",
+    "role": "الدور",
+    "roleDoctor": "طبيب",
+    "rolePatient": "مريض",
+    "roleContact": "جهة اتصال",
+    "roleHealthcareProvider": "مقدم رعاية صحية",
+    "messageButton": "مراسلة",
+    "errDeleteMessage": "تعذّر حذف الرسالة.",
+    "errEditMessage": "تعذّر تعديل الرسالة."
   },
   "errorBoundary": {
     "title": "حدث خطأ",
@@ -89,7 +115,13 @@
     "account": "الحساب",
     "goBack": "عودة",
     "goHome": "الرئيسية",
-    "notifications": "الإشعارات"
+    "notifications": "الإشعارات",
+    "openMenu": "فتح القائمة",
+    "menu": "القائمة",
+    "language": "اللغة",
+    "logOutConfirmTitle": "تسجيل الخروج",
+    "logOutConfirmBody": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+    "logOutConfirmYes": "نعم، سجّل الخروج"
   },
   "language": {
     "enShort": "EN",
@@ -1135,7 +1167,8 @@
     "deleteButton": "حذف الحساب",
     "deletingAccount": "جاري حذف الحساب...",
     "errorTypeDelete": "اكتب DELETE لتأكيد حذف الحساب.",
-    "confirmDeleteDialog": "حذف هذا الحساب الآن؟ لا يمكن التراجع. الحسابات التي تحتوي على بيانات سريرية أو رعاية مشتركة لا يمكن حذفها ذاتياً."
+    "confirmDeleteDialog": "حذف هذا الحساب الآن؟ لا يمكن التراجع. الحسابات التي تحتوي على بيانات سريرية أو رعاية مشتركة لا يمكن حذفها ذاتياً.",
+    "confirmDeleteButton": "تأكيد الحذف النهائي"
   },
   "clinic": {
     "portalEyebrow": "بوابة العيادة",

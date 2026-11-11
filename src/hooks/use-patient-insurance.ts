@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
 
@@ -83,15 +84,6 @@ interface LinkedClaimRow {
 
 function asFirstPlan(value: PlanJoin | PlanJoin[] | null): PlanJoin {
   return Array.isArray(value) ? value[0] ?? null : value;
-}
-
-function titleCase(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback;
-  return value
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(' ');
 }
 
 function estimateSplit(total: number, coPayPercent: number | null | undefined) {
@@ -204,7 +196,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
       };
     }
 
-    const [profileResult, insuranceResult, appointmentsResult, labOrdersResult, prescriptionsResult] = await Promise.all([
+    const [profileResult, insuranceResult] = await Promise.all([
       supabase
         .from('user_profiles')
         .select('full_name, first_name, last_name, email')
@@ -216,34 +208,10 @@ export function usePatientInsurance(userId: string | null | undefined) {
           'id, is_primary, annual_limit_used, policy_number, member_id, card_photo_url, valid_from, valid_until, insurance_plans (id, name, provider_company, coverage_type, annual_limit, co_pay_percentage, network_type, is_active)'
         )
         .eq('patient_id', userId),
-      supabase
-        .from('appointments')
-        .select('id, type, status, scheduled_at, chief_complaint')
-        .eq('patient_id', userId)
-        .eq('is_deleted', false)
-        .order('scheduled_at', { ascending: false })
-        .limit(6),
-      supabase
-        .from('lab_orders')
-        .select('id, status, ordered_at, lab_order_items (test_name)')
-        .eq('patient_id', userId)
-        .eq('is_deleted', false)
-        .order('ordered_at', { ascending: false })
-        .limit(6),
-      supabase
-        .from('prescriptions')
-        .select('id, status, prescribed_at, prescription_items (medication_name)')
-        .eq('patient_id', userId)
-        .eq('is_deleted', false)
-        .order('prescribed_at', { ascending: false })
-        .limit(6),
     ]);
 
     if (profileResult.error) throw profileResult.error;
     if (insuranceResult.error) throw insuranceResult.error;
-    if (appointmentsResult.error) throw appointmentsResult.error;
-    if (labOrdersResult.error) throw labOrdersResult.error;
-    if (prescriptionsResult.error) throw prescriptionsResult.error;
 
     const plans = ((insuranceResult.data ?? []) as Array<{
       id: string;
@@ -284,86 +252,6 @@ export function usePatientInsurance(userId: string | null | undefined) {
     const coPayPercent = primaryPlan?.coPayPercent ?? null;
     const payerActivity = await loadLinkedPayerActivity(plans.map((plan) => plan.id));
 
-    const appointmentRows = ((appointmentsResult.data ?? []) as Array<{
-      id: string;
-      type: string | null;
-      status: string | null;
-      scheduled_at: string;
-      chief_complaint: string | null;
-    }>).map((row): PatientInsuranceActivity => {
-      const total = row.type === 'virtual' ? 300 : 400;
-      const split = estimateSplit(total, coPayPercent);
-      return {
-        id: `appointment-${row.id}`,
-        date: row.scheduled_at,
-        provider: 'CeenAiX Clinic',
-        doctor: null,
-        service: row.chief_complaint || `${titleCase(row.type, 'Clinical')} consultation`,
-        serviceType: 'Consultation',
-        referenceCode: `APT-${row.id.slice(0, 8).toUpperCase()}`,
-        totalEstimate: total,
-        patientShareEstimate: split.patientShare,
-        coveredEstimate: split.covered,
-        status:
-          row.status === 'completed'
-            ? 'approved'
-            : row.status === 'cancelled' || row.status === 'no_show'
-              ? 'denied'
-              : 'pending',
-        source: 'appointments',
-      };
-    });
-
-    const labRows = ((labOrdersResult.data ?? []) as Array<{
-      id: string;
-      status: string | null;
-      ordered_at: string;
-      lab_order_items: Array<{ test_name: string | null }> | null;
-    }>).map((row): PatientInsuranceActivity => {
-      const tests = (row.lab_order_items ?? []).map((item) => item.test_name).filter(Boolean);
-      const total = Math.max(1, tests.length) * 160;
-      const split = estimateSplit(total, coPayPercent);
-      return {
-        id: `lab-${row.id}`,
-        date: row.ordered_at,
-        provider: 'CeenAiX Lab Network',
-        doctor: null,
-        service: tests.length > 0 ? tests.slice(0, 2).join(', ') : 'Laboratory order',
-        serviceType: 'Laboratory',
-        referenceCode: `LAB-${row.id.slice(0, 8).toUpperCase()}`,
-        totalEstimate: total,
-        patientShareEstimate: split.patientShare,
-        coveredEstimate: split.covered,
-        status: row.status === 'reviewed' || row.status === 'resulted' ? 'approved' : 'pending',
-        source: 'lab_orders',
-      };
-    });
-
-    const prescriptionRows = ((prescriptionsResult.data ?? []) as Array<{
-      id: string;
-      status: string | null;
-      prescribed_at: string;
-      prescription_items: Array<{ medication_name: string | null }> | null;
-    }>).map((row): PatientInsuranceActivity => {
-      const meds = (row.prescription_items ?? []).map((item) => item.medication_name).filter(Boolean);
-      const total = Math.max(1, meds.length) * 120;
-      const split = estimateSplit(total, coPayPercent);
-      return {
-        id: `rx-${row.id}`,
-        date: row.prescribed_at,
-        provider: 'CeenAiX Pharmacy Network',
-        doctor: null,
-        service: meds.length > 0 ? meds.slice(0, 2).join(', ') : 'Prescription medication',
-        serviceType: 'Pharmacy',
-        referenceCode: `RX-${row.id.slice(0, 8).toUpperCase()}`,
-        totalEstimate: total,
-        patientShareEstimate: split.patientShare,
-        coveredEstimate: split.covered,
-        status: row.status === 'active' || row.status === 'completed' ? 'approved' : 'review',
-        source: 'prescriptions',
-      };
-    });
-
     const payerPreAuthRows = payerActivity.preAuthorizations.map((row): PatientInsuranceActivity => {
       const total = toNumber(row.requested_amount_aed);
       const approved = row.status === 'approved'
@@ -399,7 +287,7 @@ export function usePatientInsurance(userId: string | null | undefined) {
         date: row.submitted_at,
         provider: row.provider_name,
         doctor: null,
-        service: row.claim_type || 'Insurance claim',
+        service: row.claim_type || i18n.t('patient.insurance.fallbackService.claim', { defaultValue: 'Insurance claim' }),
         serviceType: 'Insurance Claim',
         referenceCode: row.external_ref,
         totalEstimate: total,
@@ -418,12 +306,13 @@ export function usePatientInsurance(userId: string | null | undefined) {
       [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ??
       null;
 
+    // Only insurer records. Appointment, lab, and prescription rows were removed because they used fixed prices, invented providers, and statuses no insurer gave.
     return {
       patientName: patientName || null,
       email: profile?.email ?? null,
       plans,
       primaryPlan,
-      activity: [...payerPreAuthRows, ...payerClaimRows, ...appointmentRows, ...labRows, ...prescriptionRows]
+      activity: [...payerPreAuthRows, ...payerClaimRows]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10),
     };

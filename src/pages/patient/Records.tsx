@@ -644,7 +644,7 @@ export const PatientRecords: React.FC = () => {
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">{t('patient.records.title')}</h1>
+        <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.records.title')}</h1>
         <p className="mt-1 text-sm text-slate-500">{t('patient.records.subtitle')}</p>
       </div>
 
@@ -1361,11 +1361,11 @@ export const PatientRecords: React.FC = () => {
 
       {confirmDeleteRecord ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setConfirmDeleteRecord(null)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5">
@@ -1406,11 +1406,11 @@ export const PatientRecords: React.FC = () => {
 
       {showFormSwitchWarning ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setShowFormSwitchWarning(false)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5">

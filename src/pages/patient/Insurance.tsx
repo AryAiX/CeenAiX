@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -21,13 +21,22 @@ import {
   Video,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
-import { usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
+import { resolvePatientDocumentUrl, usePatientInsurance, type PatientInsuranceActivity } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { saveTextFile } from '../../lib/save-file';
 
 type InsuranceTab = 'claims' | 'preauth' | 'benefits' | 'documents';
 type StatusFilter = 'all' | PatientInsuranceActivity['status'];
+
+const SERVICE_TYPE_KEYS: Record<PatientInsuranceActivity['serviceType'], string> = {
+  Consultation: 'patient.insurance.serviceType.consultation',
+  Laboratory: 'patient.insurance.serviceType.laboratory',
+  Pharmacy: 'patient.insurance.serviceType.pharmacy',
+  'Insurance Claim': 'patient.insurance.serviceType.claim',
+  'Pre-Authorization': 'patient.insurance.serviceType.preauth',
+};
 
 function statusClasses(status: PatientInsuranceActivity['status']) {
   if (status === 'approved') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -47,6 +56,8 @@ export const PatientInsurance = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showExclusions, setShowExclusions] = useState(false);
   const [cardActionMessage, setCardActionMessage] = useState<string | null>(null);
+  const [cardPhotoLink, setCardPhotoLink] = useState<string | null>(null);
+  const [contactInfoOpen, setContactInfoOpen] = useState(false);
 
   const uiLang = i18n.language ?? 'en';
   const locale = resolveLocale(uiLang);
@@ -62,50 +73,63 @@ export const PatientInsurance = () => {
         )
       : t('shared.notAvailable', 'N/A');
   const money = (value: number | null | undefined) =>
-    value == null ? '—' : `AED ${formatLocaleDigits(Math.round(value), uiLang)}`;
+    value == null
+      ? '—'
+      : `AED ${uiLang.startsWith('en') ? Math.round(value).toLocaleString('en-US') : formatLocaleDigits(Math.round(value), uiLang)}`;
 
   const primaryPlan = data?.primaryPlan ?? null;
 
+  useEffect(() => {
+    let active = true;
+    const cardPhotoUrl = primaryPlan?.cardPhotoUrl;
+    if (!cardPhotoUrl) {
+      setCardPhotoLink(null);
+      return;
+    }
+    void resolvePatientDocumentUrl(cardPhotoUrl)
+      .then((url) => {
+        if (active) setCardPhotoLink(url);
+      })
+      .catch(() => {
+        if (active) setCardPhotoLink(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [primaryPlan?.cardPhotoUrl]);
+
   const handleDownloadCard = () => {
     setCardActionMessage(null);
-    if (primaryPlan?.cardPhotoUrl) {
-      window.open(primaryPlan.cardPhotoUrl, '_blank', 'noopener,noreferrer');
+    if (cardPhotoLink) {
+      window.open(cardPhotoLink, '_blank', 'noopener,noreferrer');
       return;
     }
     const lines = [
-      'Insurance card summary',
-      `Provider: ${primaryPlan?.providerCompany ?? '—'}`,
-      `Member: ${data?.patientName ?? '—'}`,
-      `Member ID: ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? '—'}`,
-      `Plan: ${primaryPlan?.planName ?? '—'}`,
-      `Valid until: ${formatDate(primaryPlan?.validUntil)}`,
+      t('patient.insurance.cardSummary.title'),
+      `${t('patient.insurance.cardSummary.provider')}: ${primaryPlan?.providerCompany ?? '—'}`,
+      `${t('patient.insurance.cardSummary.member')}: ${data?.patientName ?? '—'}`,
+      `${t('patient.insurance.cardSummary.memberId')}: ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? '—'}`,
+      `${t('patient.insurance.cardSummary.plan')}: ${primaryPlan?.planName ?? '—'}`,
+      `${t('patient.insurance.cardSummary.validUntil')}: ${formatDate(primaryPlan?.validUntil)}`,
     ];
-    try {
-      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `insurance-card-summary-${new Date().toISOString().slice(0, 10)}.txt`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-    } catch {
+    // saveTextFile also works inside the phone app, where a blob: download does nothing (QA-096).
+    saveTextFile(
+      lines.join('\n'),
+      `insurance-card-summary-${new Date().toISOString().slice(0, 10)}.txt`,
+      'text/plain'
+    ).catch(() => {
       setCardActionMessage(
         t('patient.insurance.cardDownloadError', { defaultValue: 'Could not prepare a download. Please try again.' })
       );
-    }
+    });
   };
 
+  // No insurer email or phone is stored, so this only shows a message.
   const handleContactInsurer = () => {
-    const subject = encodeURIComponent(
-      `Insurance inquiry — ${primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? 'member'}`
-    );
-    const body = encodeURIComponent(
-      `Plan: ${primaryPlan?.planName ?? '—'}\nMember ID: ${primaryPlan?.memberId ?? '—'}\nPolicy: ${primaryPlan?.policyNumber ?? '—'}\n\n`
-    );
-    window.location.assign(`mailto:?subject=${subject}&body=${body}`);
+    setContactInfoOpen((open) => !open);
   };
+  const insurerName = primaryPlan?.providerCompany ?? t('patient.insurance.contactInsurer');
+  const memberReference = primaryPlan?.memberId ?? primaryPlan?.policyNumber ?? null;
   const coPay = primaryPlan?.coPayPercent ?? null;
   const coveredPercent = coPay == null ? null : Math.max(0, 100 - coPay);
   const annualLimit = primaryPlan?.annualLimit ?? null;
@@ -164,7 +188,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitLabs'),
       pct: coveredPercent == null ? '—' : `${formatLocaleDigits(coveredPercent, uiLang)}%`,
       copay: coPay == null ? t('patient.insurance.planNeeded') : t('patient.insurance.coPayPct', { percent: formatLocaleDigits(coPay, uiLang) }),
-      notes: t('patient.insurance.benefitLabsNote'),
+      notes: t('patient.insurance.benefitLabsEstimate'),
     },
     {
       icon: Pill,
@@ -173,7 +197,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitPharmacy'),
       pct: coveredPercent == null ? '—' : `${formatLocaleDigits(Math.max(0, coveredPercent - 10), uiLang)}%`,
       copay: coPay == null ? t('patient.insurance.planNeeded') : t('patient.insurance.pharmacyCoPayNote'),
-      notes: t('patient.insurance.benefitPharmacyNote'),
+      notes: t('patient.insurance.benefitPharmacyEstimate'),
     },
     {
       icon: Video,
@@ -182,7 +206,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitTelehealth'),
       pct: coveredPercent == null ? '—' : `${formatLocaleDigits(coveredPercent, uiLang)}%`,
       copay: coPay == null ? t('patient.insurance.planNeeded') : t('patient.insurance.coPayPct', { percent: formatLocaleDigits(coPay, uiLang) }),
-      notes: t('patient.insurance.benefitTelehealthNote'),
+      notes: t('patient.insurance.benefitTelehealthEstimate'),
     },
     {
       icon: Heart,
@@ -191,7 +215,7 @@ export const PatientInsurance = () => {
       name: t('patient.insurance.benefitPreventive'),
       pct: primaryPlan ? '100%' : '—',
       copay: primaryPlan ? t('patient.insurance.noCopay') : t('patient.insurance.planNeeded'),
-      notes: t('patient.insurance.benefitPreventiveNote'),
+      notes: t('patient.insurance.benefitPreventiveInfo'),
     },
     {
       icon: Activity,
@@ -225,9 +249,9 @@ export const PatientInsurance = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="ml-2 font-semibold underline"
+            className="ms-2 font-semibold underline"
           >
-            Retry
+            {t('shared.retry')}
           </button>
         </div>
       ) : null}
@@ -247,7 +271,7 @@ export const PatientInsurance = () => {
             <Shield className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t('patient.insurance.title')}</h1>
+            <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.insurance.title')}</h1>
             <p className="text-xs text-slate-400">{t('patient.insurance.subtitle')}</p>
           </div>
         </div>
@@ -261,11 +285,25 @@ export const PatientInsurance = () => {
         <button
           type="button"
           onClick={handleContactInsurer}
+          aria-expanded={contactInfoOpen}
           className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
         >
           <Phone className="h-4 w-4" /> {primaryPlan?.providerCompany ?? t('patient.insurance.contactInsurer')}
         </button>
       </div>
+
+      {contactInfoOpen ? (
+        <div data-testid="contact-insurer-info" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          {memberReference ? (
+            <>
+              {t('patient.insurance.contactInsurerInfo', { insurer: `\u2068${insurerName}\u2069` })}{' '}
+              <span dir="ltr" className="inline-block whitespace-nowrap font-mono font-semibold">{memberReference}</span>
+            </>
+          ) : (
+            t('patient.insurance.contactInsurerInfoNoId', { insurer: `\u2068${insurerName}\u2069` })
+          )}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
         <div className="flex flex-col items-center">
@@ -321,23 +359,23 @@ export const PatientInsurance = () => {
             </div>
           </div>
 
-          <div className="mt-8 grid w-full gap-4 md:grid-cols-4">
-            <div className="rounded-xl bg-emerald-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-emerald-600">
+          <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+            <div className="rounded-xl bg-emerald-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-emerald-600 sm:text-3xl">
                 {coveredPercent == null ? '—' : `${formatLocaleDigits(coveredPercent, uiLang)}%`}
               </div>
               <div className="text-sm text-slate-600">{t('patient.insurance.coverage')}</div>
             </div>
-            <div className="rounded-xl bg-blue-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-blue-600">{money(annualLimit)}</div>
+            <div className="rounded-xl bg-blue-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-blue-600 sm:text-3xl">{money(annualLimit)}</div>
               <div className="text-sm text-slate-600">{t('patient.insurance.annualLimit')}</div>
             </div>
-            <div className="rounded-xl bg-violet-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-violet-600">{money(annualUsed)}</div>
+            <div className="rounded-xl bg-violet-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-violet-600 sm:text-3xl">{money(annualUsed)}</div>
               <div className="text-sm text-slate-600">{t('patient.insurance.usedThisYear')}</div>
             </div>
-            <div className="rounded-xl bg-amber-50 p-5 text-center">
-              <div className="mb-1 text-3xl font-bold text-amber-600">{formatLocaleDigits(totals.pending, uiLang)}</div>
+            <div className="rounded-xl bg-amber-50 p-4 text-center sm:p-5">
+              <div className="mb-1 text-xl font-bold text-amber-600 sm:text-3xl">{formatLocaleDigits(totals.pending, uiLang)}</div>
               <div className="text-sm text-slate-600">{t('patient.insurance.pendingActivity')}</div>
             </div>
           </div>
@@ -360,22 +398,25 @@ export const PatientInsurance = () => {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 sm:px-6">
-          <div className="flex min-w-max gap-6 overflow-x-auto sm:gap-8">
+        <div className="overflow-x-auto border-b border-slate-100 px-4 sm:px-6">
+          <div className="flex w-max gap-6 sm:gap-8">
             {tabs.map((item) => {
               const active = tab === item.key;
               return (
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => setTab(item.key)}
-                  className={`relative px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
+                  onClick={(event) => {
+                    setTab(item.key);
+                    event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
+                  className={`relative whitespace-nowrap px-2 py-4 text-[15px] font-medium transition-all duration-300 ${
                     active ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
                   {item.label}
                   {typeof item.badge === 'number' ? (
-                    <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+                    <span className="ms-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
                       {formatLocaleDigits(item.badge, uiLang)}
                     </span>
                   ) : null}
@@ -389,18 +430,18 @@ export const PatientInsurance = () => {
         <div className="p-6">
           {tab === 'claims' ? (
             <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-xl bg-slate-50 p-5">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">{t('patient.insurance.totalActivity')}</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-slate-900">{money(totals.total)}</div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="rounded-xl bg-slate-50 p-3 sm:p-5">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">{t('patient.insurance.totalActivity')}</div>
+                  <div className="mt-1 font-mono text-sm font-bold text-slate-900 sm:text-2xl">{money(totals.total)}</div>
                 </div>
-                <div className="rounded-xl bg-emerald-50 p-5">
-                  <div className="text-xs uppercase tracking-wide text-emerald-600">{t('patient.insurance.planCovered')}</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-emerald-700">{money(totals.covered)}</div>
+                <div className="rounded-xl bg-emerald-50 p-3 sm:p-5">
+                  <div className="text-[10px] uppercase tracking-wide text-emerald-600 sm:text-xs">{t('patient.insurance.planCovered')}</div>
+                  <div className="mt-1 font-mono text-sm font-bold text-emerald-700 sm:text-2xl">{money(totals.covered)}</div>
                 </div>
-                <div className="rounded-xl bg-blue-50 p-5">
-                  <div className="text-xs uppercase tracking-wide text-blue-600">{t('patient.insurance.youPaid')}</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-blue-700">{money(totals.patient)}</div>
+                <div className="rounded-xl bg-blue-50 p-3 sm:p-5">
+                  <div className="text-[10px] uppercase tracking-wide text-blue-600 sm:text-xs">{t('patient.insurance.youPaid')}</div>
+                  <div className="mt-1 font-mono text-sm font-bold text-blue-700 sm:text-2xl">{money(totals.patient)}</div>
                 </div>
               </div>
 
@@ -434,7 +475,9 @@ export const PatientInsurance = () => {
               <div className="space-y-3">
                 {filteredActivity.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-                    {t('patient.insurance.noActivity')}
+                    {activity.length === 0
+                      ? t('patient.insurance.noInsurerClaims')
+                      : t('patient.insurance.noActivity')}
                   </div>
                 ) : (
                   filteredActivity.map((item) => {
@@ -457,7 +500,7 @@ export const PatientInsurance = () => {
                             </span>
                           </div>
                           <div className="mt-1 text-sm text-slate-500">
-                            {item.provider} · {item.serviceType} · {formatDate(item.date)}
+                            {item.provider} · {t(SERVICE_TYPE_KEYS[item.serviceType])} · {formatDate(item.date)}
                           </div>
                           <div className="mt-2 font-mono text-xs text-slate-400">{item.referenceCode}</div>
                         </div>
@@ -499,9 +542,13 @@ export const PatientInsurance = () => {
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                   {t('patient.insurance.preauthTitle')}
                 </div>
-                <p className="text-sm text-slate-600">{t('patient.insurance.preauthBody')}</p>
+                <p className="text-sm text-slate-600">{t('patient.insurance.preauthInfo')}</p>
               </div>
-              {['MRI / CT imaging', 'High-cost branded medication', 'Elective procedures'].map((label) => (
+              {[
+                t('patient.insurance.preauthItemImaging'),
+                t('patient.insurance.preauthItemBrandedMeds'),
+                t('patient.insurance.preauthItemElective'),
+              ].map((label) => (
                 <div key={label} className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-5 shadow-sm">
                   <div className="flex items-center gap-3">
                     <Calendar className="h-5 w-5 text-blue-600" />
@@ -511,7 +558,7 @@ export const PatientInsurance = () => {
                     </div>
                   </div>
                   <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                    {t('patient.insurance.ruleBased')}
+                    {t('patient.insurance.approvalUsuallyNeeded')}
                   </span>
                 </div>
               ))}
@@ -591,8 +638,8 @@ export const PatientInsurance = () => {
                 const Icon = doc.icon;
                 const handleDocumentAction = () => {
                   if (doc.key === 'card') {
-                    if (primaryPlan?.cardPhotoUrl) {
-                      window.open(primaryPlan.cardPhotoUrl, '_blank', 'noopener,noreferrer');
+                    if (cardPhotoLink) {
+                      window.open(cardPhotoLink, '_blank', 'noopener,noreferrer');
                       return;
                     }
                     navigate('/patient/profile');
@@ -633,7 +680,7 @@ export const PatientInsurance = () => {
       </div>
 
       <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        {t('patient.insurance.dataNote')}
+        {t('patient.insurance.estimatesNote')}
       </div>
     </div>
   );

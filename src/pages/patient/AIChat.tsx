@@ -3,15 +3,14 @@ import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   Bot,
+  Check,
   CheckCircle2,
   Copy,
   Download,
   Loader2,
-  Mic,
   Paperclip,
   RotateCcw,
   Send,
-  Settings as SettingsIcon,
   Share2,
   ShieldCheck,
   ThumbsDown,
@@ -33,6 +32,14 @@ import {
   removeAiChatAttachments,
   uploadAiChatAttachment,
 } from '../../lib/ai';
+import {
+  type AiChatFeedbackRating,
+  buildAiChatTranscript,
+  copyText,
+  fetchAiChatMessageFeedback,
+  setAiChatMessageFeedback,
+  shareOrCopyText,
+} from '../../lib/ai-chat-actions';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
 import {
@@ -52,8 +59,13 @@ interface ChatMessage {
 }
 
 const PATIENT_AI_STARTER_ID = 'patient-ai-starter';
+// Only replies saved in the database have a real id (the greeting and messages still being sent do not), and only those can be rated.
+const SAVED_MESSAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const PLAYFAIR: CSSProperties = { fontFamily: 'Playfair Display, serif' };
+// Same fallbacks as .font-playfair in index.css, so Arabic uses the body's Arabic font (QA-099).
+const PLAYFAIR: CSSProperties = {
+  fontFamily: "'Playfair Display', system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, 'Noto Sans Arabic', 'Arabic UI Text', sans-serif",
+};
 
 const formatTimestamp = (value: string, language: string) => {
   const locale = resolveLocale(language);
@@ -169,18 +181,70 @@ export const PatientAIChat: React.FC = () => {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  // It grows the message box with what the patient types, up to its 120px max, and shrinks it back after sending.
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+  }, [input]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [recordUpdateFeedback, setRecordUpdateFeedback] = useState<string | null>(null);
   const [isApplyingRecordUpdates, setIsApplyingRecordUpdates] = useState(false);
+  const [feedbackByMessageId, setFeedbackByMessageId] = useState<Record<string, AiChatFeedbackRating>>({});
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  // One short status line for copy, share, export and feedback results; a tooltip can't be seen on a phone.
+  const [actionNotice, setActionNotice] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
+  const actionNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showActionNotice = (text: string, tone: 'ok' | 'error' = 'ok') => {
+    if (actionNoticeTimer.current) clearTimeout(actionNoticeTimer.current);
+    setActionNotice({ text, tone });
+    actionNoticeTimer.current = setTimeout(() => setActionNotice(null), 3000);
+  };
+
+  useEffect(
+    () => () => {
+      if (actionNoticeTimer.current) clearTimeout(actionNoticeTimer.current);
+    },
+    []
+  );
+
+  const savedAssistantIds = useMemo(
+    () =>
+      messages
+        .filter((message) => message.role === 'assistant' && SAVED_MESSAGE_ID.test(message.id))
+        .map((message) => message.id),
+    [messages]
+  );
+  const savedAssistantIdsKey = savedAssistantIds.join(',');
+
+  useEffect(() => {
+    if (!user || savedAssistantIds.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    fetchAiChatMessageFeedback(savedAssistantIds)
+      .then((ratings) => {
+        if (!cancelled) setFeedbackByMessageId((current) => ({ ...current, ...ratings }));
+      })
+      .catch(() => {
+        // Ratings are optional; if they can't load, the buttons simply start unselected.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedAssistantIdsKey stands for savedAssistantIds
+  }, [user?.id, savedAssistantIdsKey]);
 
   const sessions = data?.sessions ?? [];
+  // Empty when we have no name, so the greeting uses its own no-name wording instead of the English word "there" (which also showed in Arabic).
   const firstName = useMemo(() => {
     const fromProfile = profile?.first_name?.trim() || profile?.full_name?.trim().split(/\s+/)[0];
     const fromEmail = user?.email?.split('@')[0];
-    return fromProfile || fromEmail || 'there';
+    return fromProfile || fromEmail || '';
   }, [profile?.first_name, profile?.full_name, user?.email]);
 
   const { data: pendingCanonicalUpdatesData, refetch: refetchCanonicalUpdates } = useQuery(
@@ -298,9 +362,7 @@ export const PatientAIChat: React.FC = () => {
       const oversized = selectedFiles.find((file) => file.size > 10 * 1024 * 1024);
       if (oversized) {
         setSendError(
-          t('ai.errors.attachmentTooLarge', {
-            defaultValue: 'Attachments must be 10 MB or smaller.',
-          })
+          t('ai.errors.attachmentTooLarge')
         );
         return currentFiles;
       }
@@ -453,6 +515,85 @@ export const PatientAIChat: React.FC = () => {
     startNewSession();
   };
 
+  const handleCopyMessage = async (message: ChatMessage) => {
+    if (await copyText(message.content)) {
+      setCopiedMessageId(message.id);
+      setTimeout(() => setCopiedMessageId((current) => (current === message.id ? null : current)), 2000);
+      showActionNotice(t('patient.aiChat.actionCopied'));
+    } else {
+      showActionNotice(t('patient.aiChat.copyFailed'), 'error');
+    }
+  };
+
+  // Clicking the selected thumb again removes the rating. The choice shows at once and is undone if saving fails.
+  const handleRateMessage = async (messageId: string, rating: AiChatFeedbackRating) => {
+    const previous = feedbackByMessageId[messageId];
+    const next = previous === rating ? null : rating;
+    setFeedbackByMessageId((current) => {
+      const updated = { ...current };
+      if (next === null) delete updated[messageId];
+      else updated[messageId] = next;
+      return updated;
+    });
+    try {
+      await setAiChatMessageFeedback(messageId, next);
+      if (next !== null) showActionNotice(t('patient.aiChat.feedbackThanks'));
+    } catch {
+      setFeedbackByMessageId((current) => {
+        const restored = { ...current };
+        if (previous === undefined) delete restored[messageId];
+        else restored[messageId] = previous;
+        return restored;
+      });
+      showActionNotice(t('patient.aiChat.feedbackError'), 'error');
+    }
+  };
+
+  const reportShareResult = (result: Awaited<ReturnType<typeof shareOrCopyText>>, copiedText: string) => {
+    if (result === 'copied') showActionNotice(copiedText);
+    else if (result === 'failed') showActionNotice(t('patient.aiChat.shareFailed'), 'error');
+  };
+
+  const handleShareMessage = async (message: ChatMessage) => {
+    const text = `${message.content.trim()}\n\n${t('patient.aiChat.disclaimer')}`;
+    reportShareResult(await shareOrCopyText(text, t('patient.aiChat.heroBrand')), t('patient.aiChat.shareCopied'));
+  };
+
+  // Only messages saved to the conversation are exported (not the greeting or a message still being sent).
+  const exportableMessages = messages.filter(
+    (message) => message.id !== PATIENT_AI_STARTER_ID && !message.id.startsWith('temp-')
+  );
+
+  const handleExportChat = async () => {
+    if (exportableMessages.length === 0) return;
+    const transcript = buildAiChatTranscript(exportableMessages, {
+      title: t('patient.aiChat.exportTitle'),
+      exportedOn: t('patient.aiChat.exportedOn', {
+        date: new Date().toLocaleString(resolveLocale(lang), dateTimeFormatWithNumerals(lang, { dateStyle: 'medium', timeStyle: 'short' })),
+      }),
+      you: t('patient.aiChat.exportYou'),
+      assistant: t('patient.aiChat.agentName'),
+      disclaimer: t('patient.aiChat.disclaimer'),
+      formatTime: (iso) => formatTimestamp(iso, lang),
+    });
+    reportShareResult(await shareOrCopyText(transcript, t('patient.aiChat.exportTitle')), t('patient.aiChat.exportCopied'));
+  };
+
+  // "Ask again" sends the patient's last question once more and adds a fresh answer below.
+  const lastAssistantIndex = messages.reduce(
+    (found, message, index) => (message.role === 'assistant' && message.id !== PATIENT_AI_STARTER_ID ? index : found),
+    -1
+  );
+  const questionBeforeLastReply =
+    lastAssistantIndex > 0 && messages[lastAssistantIndex - 1]?.role === 'user'
+      ? messages[lastAssistantIndex - 1].content
+      : null;
+
+  const handleAskAgain = async () => {
+    if (!questionBeforeLastReply || isSending || pendingFiles.length > 0) return;
+    await handleSendMessage({ submittedMessage: questionBeforeLastReply });
+  };
+
   const latestHba1c = dashboardData?.latestHba1c?.value ?? null;
   const previousHba1c = dashboardData?.previousHba1c?.value ?? null;
   const hba1cTrend = classifyHba1c(latestHba1c, previousHba1c);
@@ -477,9 +618,7 @@ export const PatientAIChat: React.FC = () => {
         : hba1cTrend === 'stable'
           ? t('patient.aiChat.hba1cStable')
           : hba1cTrend === 'baseline'
-            ? t('patient.aiChat.hba1cBaseline', {
-                defaultValue: 'Baseline reading on file',
-              })
+            ? t('patient.aiChat.hba1cBaseline')
             : null;
 
   const bpStatusText =
@@ -542,7 +681,15 @@ export const PatientAIChat: React.FC = () => {
               onClick={() => setIsHistoryOpen((value) => !value)}
               className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white sm:px-4"
             >
-              {isHistoryOpen ? t('patient.aiChat.collapseHistory') : t('patient.aiChat.chats')}
+              {/* on a phone the label stays "Chats", because the longer "Collapse chat history" squashed the header title onto four lines and the full-screen panel has its own close button. */}
+              {isHistoryOpen ? (
+                <>
+                  <span className="md:hidden">{t('patient.aiChat.chats')}</span>
+                  <span className="hidden md:inline">{t('patient.aiChat.collapseHistory')}</span>
+                </>
+              ) : (
+                t('patient.aiChat.chats')
+              )}
               {sessions.length > 0 ? (
                 <span className="rounded-full bg-teal-500/20 px-2 py-0.5 text-[10px] font-mono text-teal-200">
                   {sessions.length}
@@ -558,23 +705,17 @@ export const PatientAIChat: React.FC = () => {
             >
               <Trash2 className="h-5 w-5" />
             </button>
+            {/* Export shares the conversation as text (or copies it), because a file download does not work inside the phone app. AI settings are not defined yet, so there is no settings button. */}
             <button
               type="button"
-              className="hidden p-2 text-white/60 transition hover:text-white/90 sm:inline-flex"
+              onClick={() => void handleExportChat()}
+              disabled={exportableMessages.length === 0}
+              className="p-2 text-white/60 transition hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-30"
               title={t('patient.aiChat.exportChat')}
               aria-label={t('patient.aiChat.exportChat')}
-              disabled
+              data-testid="ai-export-chat"
             >
               <Download className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              className="hidden p-2 text-white/60 transition hover:text-white/90 sm:inline-flex"
-              title={t('patient.aiChat.aiSettings')}
-              aria-label={t('patient.aiChat.aiSettings')}
-              disabled
-            >
-              <SettingsIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -696,7 +837,7 @@ export const PatientAIChat: React.FC = () => {
                         className="mb-2 text-3xl font-bold text-white"
                         style={PLAYFAIR}
                       >
-                        {t('patient.aiChat.greeting', { name: firstName })} 👋
+                        {firstName ? t('patient.aiChat.greeting', { name: firstName }) : t('patient.aiChat.greetingNoName')} 👋
                       </h2>
                       <p className="text-lg text-white/70">{t('patient.aiChat.howCanHelp')}</p>
                     </div>
@@ -859,20 +1000,21 @@ export const PatientAIChat: React.FC = () => {
                                       {t('patient.aiChat.heroBrand')}
                                     </p>
                                     <p className="font-mono text-xs text-teal-400/60">
-                                      {t('patient.aiChat.personalizedFor', { name: firstName })}
+                                      {firstName ? t('patient.aiChat.personalizedFor', { name: firstName }) : t('patient.aiChat.personalizedForYou')}
                                     </p>
                                   </div>
                                 ) : null}
-                                <div className="whitespace-pre-line text-[15px] leading-relaxed text-white/90">
+                                {/* Each reply reads in its own language's direction, so an English reply in the Arabic layout no longer shows ".with your doctor". */}
+                                <div dir="auto" className="whitespace-pre-line text-[15px] leading-relaxed text-white/90">
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
                                     components={{
                                       p: ({ children }) => <p className="mt-3 first:mt-0">{children}</p>,
                                       ol: ({ children }) => (
-                                        <ol className="mt-3 list-decimal space-y-2 pl-5 first:mt-0">{children}</ol>
+                                        <ol className="mt-3 list-decimal space-y-2 ps-5 first:mt-0">{children}</ol>
                                       ),
                                       ul: ({ children }) => (
-                                        <ul className="mt-3 list-disc space-y-2 pl-5 first:mt-0">{children}</ul>
+                                        <ul className="mt-3 list-disc space-y-2 ps-5 first:mt-0">{children}</ul>
                                       ),
                                       strong: ({ children }) => (
                                         <strong className="font-semibold text-white">{children}</strong>
@@ -936,57 +1078,66 @@ export const PatientAIChat: React.FC = () => {
                                   </p>
                                 </div>
                               </div>
-                              <div className="mt-2 flex items-center gap-2 opacity-60 transition-opacity hover:opacity-100">
+                              {/* The greeting is not a saved reply, so it only gets Copy. */}
+                              <div className="mt-2 flex flex-wrap items-center gap-1" data-testid="ai-message-actions">
                                 <button
                                   type="button"
-                                  disabled
-                                  title={t('patient.aiChat.feedbackComingSoon', { defaultValue: 'Feedback — coming soon' })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="thumbs up"
+                                  onClick={() => void handleCopyMessage(message)}
+                                  className="p-1.5 text-white/40 transition hover:text-white/80"
+                                  aria-label={t('patient.aiChat.actionCopy')}
+                                  title={t('patient.aiChat.actionCopy')}
                                 >
-                                  <ThumbsUp className="h-4 w-4" />
+                                  {copiedMessageId === message.id ? (
+                                    <Check className="h-4 w-4 text-teal-300" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
                                 </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.feedbackComingSoon', { defaultValue: 'Feedback — coming soon' })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="thumbs down"
-                                >
-                                  <ThumbsDown className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    typeof navigator !== 'undefined' && navigator.clipboard
-                                      ? void navigator.clipboard.writeText(message.content)
-                                      : undefined
-                                  }
-                                  className="p-1.5 text-white/30 transition hover:text-white/70"
-                                  aria-label="copy"
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.shareComingSoon', { defaultValue: 'Share — coming soon' })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="share"
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  title={t('patient.aiChat.regenerateComingSoon', {
-                                    defaultValue: 'Regenerate — coming soon',
-                                  })}
-                                  className="cursor-not-allowed p-1.5 text-white/20"
-                                  aria-label="regenerate"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                </button>
+                                {SAVED_MESSAGE_ID.test(message.id) ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleRateMessage(message.id, 1)}
+                                      aria-pressed={feedbackByMessageId[message.id] === 1}
+                                      className={`p-1.5 transition ${feedbackByMessageId[message.id] === 1 ? 'text-teal-300' : 'text-white/40 hover:text-white/80'}`}
+                                      aria-label={t('patient.aiChat.actionHelpful')}
+                                      title={t('patient.aiChat.actionHelpful')}
+                                    >
+                                      <ThumbsUp className="h-4 w-4" fill={feedbackByMessageId[message.id] === 1 ? 'currentColor' : 'none'} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleRateMessage(message.id, -1)}
+                                      aria-pressed={feedbackByMessageId[message.id] === -1}
+                                      className={`p-1.5 transition ${feedbackByMessageId[message.id] === -1 ? 'text-rose-300' : 'text-white/40 hover:text-white/80'}`}
+                                      aria-label={t('patient.aiChat.actionNotHelpful')}
+                                      title={t('patient.aiChat.actionNotHelpful')}
+                                    >
+                                      <ThumbsDown className="h-4 w-4" fill={feedbackByMessageId[message.id] === -1 ? 'currentColor' : 'none'} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleShareMessage(message)}
+                                      className="p-1.5 text-white/40 transition hover:text-white/80"
+                                      aria-label={t('patient.aiChat.actionShare')}
+                                      title={t('patient.aiChat.actionShare')}
+                                    >
+                                      <Share2 className="h-4 w-4" />
+                                    </button>
+                                    {index === lastAssistantIndex && questionBeforeLastReply ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleAskAgain()}
+                                        disabled={isSending || pendingFiles.length > 0}
+                                        className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-white/50 transition hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-40"
+                                        title={t('patient.aiChat.actionRegenerate')}
+                                      >
+                                        <RotateCcw className="h-4 w-4" />
+                                        <span>{t('patient.aiChat.actionRegenerate')}</span>
+                                      </button>
+                                    ) : null}
+                                  </>
+                                ) : null}
                               </div>
                             </div>
                           </div>
@@ -1010,7 +1161,7 @@ export const PatientAIChat: React.FC = () => {
                                 ))}
                               </div>
                             ) : null}
-                            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-white">
+                            <p dir="auto" className="whitespace-pre-wrap text-[15px] leading-relaxed text-white">
                               {message.content}
                             </p>
                           </div>
@@ -1046,6 +1197,16 @@ export const PatientAIChat: React.FC = () => {
 
             <div className="border-t border-white/5 bg-slate-900/80 px-4 py-6 backdrop-blur-xl sm:px-8">
               <form onSubmit={handleSubmit} className="mx-auto max-w-4xl">
+                <div aria-live="polite" role="status">
+                  {actionNotice ? (
+                    <div
+                      data-testid="ai-action-notice"
+                      className={`mb-3 rounded-2xl border px-4 py-2 text-sm ${actionNotice.tone === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-teal-500/30 bg-teal-500/10 text-teal-100'}`}
+                    >
+                      {actionNotice.text}
+                    </div>
+                  ) : null}
+                </div>
                 {sendError ? (
                   <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200" role="alert">
                     {sendError}
@@ -1082,15 +1243,7 @@ export const PatientAIChat: React.FC = () => {
                   >
                     <Paperclip className="h-5 w-5" />
                   </button>
-                  <button
-                    type="button"
-                    className="rounded-xl p-3 text-white/40 transition hover:bg-white/5 hover:text-white/80"
-                    title={t('patient.aiChat.voiceInput')}
-                    aria-label={t('patient.aiChat.voiceInput')}
-                    disabled
-                  >
-                    <Mic className="h-5 w-5" />
-                  </button>
+                  {/* Voice input needs speech-to-text in the native app, which is not built yet, so there is no microphone button. */}
 
                   <input
                     ref={fileInputRef}
@@ -1109,7 +1262,7 @@ export const PatientAIChat: React.FC = () => {
                       maxLength={FORM_FIELD_LIMITS.chatMessage}
                       onChange={(event) => setInput(event.target.value)}
                       rows={1}
-                      placeholder={t('patient.aiChat.inputPhLong')}
+                      placeholder={pendingFiles.length > 0 ? t('patient.aiChat.inputPhLong') : t('patient.aiChat.inputPh')}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' && !event.shiftKey) {
                           event.preventDefault();
@@ -1147,21 +1300,32 @@ export const PatientAIChat: React.FC = () => {
             </div>
           </div>
 
+          {/* below md the chat history opens as a full-screen panel over the chat; it used to be hidden below md, so on a phone "Chats" opened nothing; from md up it is the side panel, as before. */}
           {isHistoryOpen ? (
-            <aside className="hidden w-72 shrink-0 flex-col border-l border-white/5 bg-slate-900/60 md:flex">
+            <aside className="fixed inset-0 z-[60] flex flex-col bg-slate-900 md:static md:inset-auto md:z-auto md:w-72 md:shrink-0 md:border-l md:border-white/5 md:bg-slate-900/60">
               <div className="border-b border-white/5 px-4 py-4">
                 <div className={`flex items-center justify-between gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
                   <div>
                     <h3 className="text-sm font-semibold text-white">{t('patient.aiChat.chats')}</h3>
                     <p className="mt-0.5 text-xs text-white/50">{t('patient.aiChat.chatsSub')}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={startNewSession}
-                    className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-teal-500/30 transition hover:bg-teal-500"
-                  >
-                    {t('patient.aiChat.newChatShort')}
-                  </button>
+                  <div className={`flex items-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+                    <button
+                      type="button"
+                      onClick={startNewSession}
+                      className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-teal-500/30 transition hover:bg-teal-500"
+                    >
+                      {t('patient.aiChat.newChatShort')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsHistoryOpen(false)}
+                      aria-label={t('shared.close')}
+                      className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white md:hidden"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">

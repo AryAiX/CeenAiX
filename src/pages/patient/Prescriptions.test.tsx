@@ -303,7 +303,7 @@ describe('PatientPrescriptions', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: /Today's Schedule/i }));
-    expect(await screen.findByText(/remaining today/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/not marked yet today/i)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Suggested dose|Scheduled for/i).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: /Reminders/i }));

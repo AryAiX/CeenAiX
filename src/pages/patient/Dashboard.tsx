@@ -13,6 +13,7 @@ import {
   ChevronRight,
   FlaskConical,
   Heart,
+  Lightbulb,
   MapPin,
   Minus,
   RefreshCw,
@@ -41,8 +42,26 @@ import {
   formatRelativeTime,
   resolveLocale,
 } from '../../lib/i18n-ui';
+import {
+  type ChartBox,
+  chartAreaPath,
+  chartLinePath,
+  chartPoints,
+  chartY,
+  fitChartDomain,
+} from '../../lib/dashboard-charts';
+import { careTeamCountLabel } from '../../lib/care-team-count';
 import { formatMedicationDetailLine } from '../../lib/medication-display';
 import { DEFAULT_CARE_CONVERSATION_SUBJECT, getMessagePreviewText } from '../../lib/messaging';
+
+// QA-010 chart settings. The right padding leaves room for the reference-line labels.
+const CARE_TEAM_PREVIEW_COUNT = 3;
+
+const HBA1C_TARGET = 6.5;
+const BP_SYSTOLIC_LIMIT = 130;
+const BP_DIASTOLIC_LIMIT = 85;
+const HBA1C_CHART_BOX: ChartBox = { width: 600, height: 160, padLeft: 24, padRight: 64, padTop: 34, padBottom: 14 };
+const BP_CHART_BOX: ChartBox = { width: 600, height: 150, padLeft: 24, padRight: 64, padTop: 30, padBottom: 30 };
 
 const getDisplayName = (fullName: string | null | undefined, firstName: string | null | undefined, email?: string) => {
   if (firstName?.trim()) {
@@ -60,8 +79,8 @@ const getDisplayName = (fullName: string | null | undefined, firstName: string |
   return '';
 };
 
+// General, fixed wellness tips.
 const AI_HEALTH_TIPS_EN = [
-  'Your recent readings have improved compared with last week. Keep your medication and diet routine steady to stay on track for your target.',
   'Staying hydrated helps regulate blood pressure. Aim for at least 8 glasses of water throughout the day.',
   'Even a 20-minute walk after meals can meaningfully lower your post-meal blood sugar levels over time.',
   'Consistent sleep of 7–8 hours per night supports both blood pressure control and metabolic health.',
@@ -70,7 +89,6 @@ const AI_HEALTH_TIPS_EN = [
 ];
 
 const AI_HEALTH_TIPS_AR = [
-  'تحسنت قراءاتك الأخيرة مقارنة بالأسبوع الماضي. حافظ على روتين الدواء والغذاء للوصول إلى الهدف في الأشهر المقبلة.',
   'يساعد شرب كميات كافية من الماء في تنظيم ضغط الدم. احرص على تناول 8 أكواب على مدار اليوم.',
   'المشي لمدة 20 دقيقة بعد الوجبات يقلل بشكل ملحوظ من مستوى السكر في الدم بعد الأكل.',
   'النوم المنتظم من 7 إلى 8 ساعات يوميًا يدعم صحة ضغط الدم والتمثيل الغذائي.',
@@ -168,6 +186,9 @@ export const PatientDashboard: React.FC = () => {
   const displayedMedications = medications.slice(0, 3);
   const recentMessages = dashboardData?.recentMessages ?? [];
   const careTeam = dashboardData?.careTeam ?? [];
+  // QA-013: three doctors by default, the rest behind "Show all"; the count always covers everyone.
+  const [showAllCareTeam, setShowAllCareTeam] = useState(false);
+  const visibleCareTeam = showAllCareTeam ? careTeam : careTeam.slice(0, CARE_TEAM_PREVIEW_COUNT);
   const insurance = dashboardData?.insurance ?? null;
   const latestHba1c = dashboardData?.latestHba1c ?? null;
   const previousHba1c = dashboardData?.previousHba1c ?? null;
@@ -222,7 +243,7 @@ export const PatientDashboard: React.FC = () => {
             messagesTitle: 'الرسائل',
             newMessages: '{{count}} جديدة',
             newMessage: '+ رسالة جديدة',
-            aiTipTitle: 'نصيحة صحية من الذكاء الاصطناعي',
+            aiTipTitle: 'نصيحة صحية',
             details: 'التفاصيل',
             directions: 'الاتجاهات',
             bookApptShort: 'حجز موعد',
@@ -235,7 +256,6 @@ export const PatientDashboard: React.FC = () => {
             recentTitle: 'النشاط الحديث',
             shortcutsTitle: 'اختصارات سريعة',
             careTeamTitle: 'فريق الرعاية',
-            careTeamCount: '{{count}} أطباء',
             nextLabel: 'التالي',
             lastLabel: 'آخر زيارة',
             noCareTeam: 'سيظهر أعضاء فريق الرعاية بعد مواعيدك ورسائلك مع الأطباء.',
@@ -278,7 +298,7 @@ export const PatientDashboard: React.FC = () => {
             messagesTitle: 'Messages',
             newMessages: '{{count}} new',
             newMessage: '+ New Message',
-            aiTipTitle: 'AI Health Tip',
+            aiTipTitle: 'Health tip',
             details: 'Details',
             directions: 'Directions',
             bookApptShort: 'Book Appt',
@@ -291,7 +311,6 @@ export const PatientDashboard: React.FC = () => {
             recentTitle: 'Recent Activity',
             shortcutsTitle: 'Quick Shortcuts',
             careTeamTitle: 'My Care Team',
-            careTeamCount: '{{count}} doctors',
             nextLabel: 'Next',
             lastLabel: 'Last',
             noCareTeam: 'Your care team will appear here once you have doctor appointments or message threads.',
@@ -310,6 +329,8 @@ export const PatientDashboard: React.FC = () => {
     })
   );
   const healthScoreValue = dashboardData?.healthScore ?? null;
+  // The score is an unapproved formula, so it is hidden until a clinically approved method exists. Set to true to show it again.
+  const SHOW_HEALTH_SCORE = false;
   const adherenceValue = dashboardData?.adherencePercentage ?? null;
   // The label now follows the score.
   const scoreBand =
@@ -320,7 +341,8 @@ export const PatientDashboard: React.FC = () => {
         : healthScoreValue >= 60
           ? { label: localCopy.scoreFair, className: 'text-amber-600' }
           : { label: localCopy.scoreAttention, className: 'text-rose-600' };
-  const takenCount = medications.filter((medication) => medication.isDispensed || takenItemIds.has(medication.id)).length;
+  // Taken means marked taken today, not dispensed.
+  const takenCount = medications.filter((medication) => takenItemIds.has(medication.id)).length;
   const insuranceProgress =
     insurance?.annualLimit && insurance.annualLimit > 0
       ? Math.min(100, Math.round(((insurance.annualLimitUsed ?? 0) / insurance.annualLimit) * 100))
@@ -420,13 +442,13 @@ export const PatientDashboard: React.FC = () => {
             )}`
           : 'N/A',
         badge: latestBloodPressure
-          ? latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+          ? latestBloodPressure.systolic <= BP_SYSTOLIC_LIMIT && latestBloodPressure.diastolic <= BP_DIASTOLIC_LIMIT
             ? localCopy.controlled
             : localCopy.attention
           : localCopy.noData,
         badgeColor: !latestBloodPressure
           ? 'bg-slate-100 text-slate-500'
-          : latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+          : latestBloodPressure.systolic <= BP_SYSTOLIC_LIMIT && latestBloodPressure.diastolic <= BP_DIASTOLIC_LIMIT
             ? 'bg-emerald-50 text-emerald-700'
             : 'bg-amber-50 text-amber-700',
         trend:
@@ -509,23 +531,28 @@ export const PatientDashboard: React.FC = () => {
     ]
   );
   const aiTip = (isArabic ? AI_HEALTH_TIPS_AR : AI_HEALTH_TIPS_EN)[aiTipIndex] ?? '';
-  const hba1cChartPoints = hba1cHistory.slice(-6).map((point) => point.value);
-  const hba1cLinePath = buildLinePath(hba1cChartPoints, 600, 160, 5.5, 8.5);
-  const hba1cAreaPath = buildAreaPath(hba1cChartPoints, 600, 160, 5.5, 8.5);
-  const systolicChartPath = buildLinePath(
-    bloodPressureHistory.slice(-7).map((point) => point.systolic),
-    600,
-    150,
-    100,
-    150
+  // QA-010: each chart's range fits its readings (and its reference lines), so nothing is drawn past the edge,
+  // and systolic and diastolic share one scale. Reference lines sit at their real values.
+  const hba1cValues = hba1cHistory.slice(-6).map((point) => point.value);
+  const hba1cDomain = fitChartDomain(hba1cValues, [HBA1C_TARGET], 0.5, 0.5);
+  const hba1cPoints = chartPoints(hba1cValues, HBA1C_CHART_BOX, hba1cDomain);
+  const hba1cLinePath = hba1cPoints.length > 1 ? chartLinePath(hba1cPoints) : '';
+  const hba1cAreaPath = chartAreaPath(hba1cPoints, HBA1C_CHART_BOX);
+  const hba1cTargetY = chartY(HBA1C_TARGET, HBA1C_CHART_BOX, hba1cDomain);
+  const bpRecent = bloodPressureHistory.slice(-7);
+  const bpDomain = fitChartDomain(
+    [...bpRecent.map((point) => point.systolic), ...bpRecent.map((point) => point.diastolic)],
+    [BP_SYSTOLIC_LIMIT, BP_DIASTOLIC_LIMIT],
+    10,
+    10
   );
-  const diastolicChartPath = buildLinePath(
-    bloodPressureHistory.slice(-7).map((point) => point.diastolic),
-    600,
-    150,
-    60,
-    100
-  );
+  const systolicPoints = chartPoints(bpRecent.map((point) => point.systolic), BP_CHART_BOX, bpDomain);
+  const diastolicPoints = chartPoints(bpRecent.map((point) => point.diastolic), BP_CHART_BOX, bpDomain);
+  const systolicChartPath = systolicPoints.length > 1 ? chartLinePath(systolicPoints) : '';
+  const diastolicChartPath = diastolicPoints.length > 1 ? chartLinePath(diastolicPoints) : '';
+  const systolicLimitY = chartY(BP_SYSTOLIC_LIMIT, BP_CHART_BOX, bpDomain);
+  const diastolicLimitY = chartY(BP_DIASTOLIC_LIMIT, BP_CHART_BOX, bpDomain);
+  const chartNumber = (value: number) => formatLocaleDecimal(value, i18n.language);
   const formatCompactDate = (value: string) =>
     new Date(value).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }));
   const genericConversationSubjects = new Set([DEFAULT_CARE_CONVERSATION_SUBJECT.toLowerCase(), 'محادثة رعاية']);
@@ -558,24 +585,26 @@ export const PatientDashboard: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">{localCopy.greeting},</p>
-          <h1 className="mt-0.5 text-2xl font-bold text-slate-900">{displayName}</h1>
+          <h1 className="mt-0.5 font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{displayName}</h1>
           <p className="mt-1 text-xs text-slate-400">
             {todayLabel} · {profile?.city?.trim() || localCopy.dateLocation}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
-            <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
-            <div className="mt-1 flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-bold text-teal-600">
-                {healthScoreValue === null ? localCopy.noData : formatLocaleDigits(healthScoreValue, i18n.language)}
-              </span>
-              {healthScoreValue === null ? null : <span className="text-sm text-slate-400">/100</span>}
+          {SHOW_HEALTH_SCORE ? (
+            <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
+              <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
+              <div className="mt-1 flex items-baseline justify-center gap-1">
+                <span className="text-3xl font-bold text-teal-600">
+                  {healthScoreValue === null ? localCopy.noData : formatLocaleDigits(healthScoreValue, i18n.language)}
+                </span>
+                {healthScoreValue === null ? null : <span className="text-sm text-slate-400">/100</span>}
+              </div>
+              {scoreBand ? (
+                <p className={`mt-0.5 text-xs font-semibold ${scoreBand.className}`}>{scoreBand.label}</p>
+              ) : null}
             </div>
-            {scoreBand ? (
-              <p className={`mt-0.5 text-xs font-semibold ${scoreBand.className}`}>{scoreBand.label}</p>
-            ) : null}
-          </div>
+          ) : null}
           <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
             <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.adherence}</p>
             <div className="mt-1 flex items-baseline justify-center gap-1">
@@ -668,7 +697,8 @@ export const PatientDashboard: React.FC = () => {
                 </>
               ) : medications.length > 0 ? (
                 displayedMedications.map((medication) => {
-                  const isTaken = medication.isDispensed || takenItemIds.has(medication.id);
+                  // Taken means marked taken today, not dispensed.
+                  const isTaken = takenItemIds.has(medication.id);
                   return (
                     <div key={medication.id} className="flex items-center gap-3 px-6 py-4">
                       <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${isTaken ? 'bg-emerald-500' : 'bg-amber-400'}`} />
@@ -728,7 +758,7 @@ export const PatientDashboard: React.FC = () => {
               <div>
                 <h2 className="font-semibold text-slate-900">{localCopy.hba1c}</h2>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {isArabic ? 'آخر 6 أشهر · الهدف: أقل من 6.5%' : 'Last 6 months · Target: <6.5%'}
+                  {isArabic ? 'أحدث النتائج · الهدف: أقل من 6.5%' : 'Recent results · Target: <6.5%'}
                 </p>
               </div>
               <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
@@ -736,16 +766,47 @@ export const PatientDashboard: React.FC = () => {
               </span>
             </div>
             <div className="h-44 rounded-xl bg-gradient-to-b from-teal-50 to-white p-4">
-              <svg viewBox="0 0 600 160" className="h-full w-full">
-                {hba1cAreaPath ? <path d={hba1cAreaPath} fill="url(#hba1c-fill)" /> : null}
-                {hba1cLinePath ? <path d={hba1cLinePath} fill="none" stroke="#0D9488" strokeWidth="3" /> : null}
+              {/* Time runs left to right in both languages, like the page's other charts. */}
+              <svg
+                viewBox={`0 0 ${HBA1C_CHART_BOX.width} ${HBA1C_CHART_BOX.height}`}
+                className="h-full w-full"
+                direction="ltr"
+                role="img"
+                aria-label={localCopy.hba1c}
+              >
                 <defs>
                   <linearGradient id="hba1c-fill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#0D9488" stopOpacity="0.18" />
                     <stop offset="100%" stopColor="#0D9488" stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                <line x1="20" y1="76" x2="580" y2="76" stroke="#f59e0b" strokeDasharray="4 4" />
+                {hba1cAreaPath ? <path d={hba1cAreaPath} fill="url(#hba1c-fill)" /> : null}
+                <line
+                  x1={HBA1C_CHART_BOX.padLeft}
+                  y1={hba1cTargetY}
+                  x2={HBA1C_CHART_BOX.width - HBA1C_CHART_BOX.padRight}
+                  y2={hba1cTargetY}
+                  stroke="#f59e0b"
+                  strokeDasharray="6 6"
+                  strokeWidth="2"
+                />
+                <text
+                  x={HBA1C_CHART_BOX.width - HBA1C_CHART_BOX.padRight + 8}
+                  y={hba1cTargetY + 7}
+                  fontSize="20"
+                  fill="#b45309"
+                >
+                  {`${chartNumber(HBA1C_TARGET)}%`}
+                </text>
+                {hba1cLinePath ? <path d={hba1cLinePath} fill="none" stroke="#0D9488" strokeWidth="3" /> : null}
+                {hba1cPoints.map((point, index) => (
+                  <g key={index}>
+                    <circle cx={point.x} cy={point.y} r="6" fill="#ffffff" stroke="#0D9488" strokeWidth="3" />
+                    <text x={point.x} y={point.y - 14} fontSize="20" fontWeight="600" fill="#0f766e" textAnchor="middle">
+                      {chartNumber(point.value)}
+                    </text>
+                  </g>
+                ))}
               </svg>
             </div>
             <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-3">
@@ -772,7 +833,7 @@ export const PatientDashboard: React.FC = () => {
               <div>
                 <h2 className="font-semibold text-slate-900">{localCopy.bloodPressure}</h2>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {isArabic ? 'آخر 7 أيام · متابعة منزلية' : 'Last 7 days · home monitoring'}
+                  {isArabic ? 'أحدث القراءات · متابعة منزلية' : 'Recent readings · home monitoring'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -787,10 +848,66 @@ export const PatientDashboard: React.FC = () => {
               </div>
             </div>
             <div className="h-40 rounded-xl bg-slate-50 p-4">
-              <svg viewBox="0 0 600 150" className="h-full w-full">
+              {/* One scale for both lines; dashed lines mark 130 and 85, the limits used for "within the controlled range" below.
+                  The latest reading is labelled to the left of its dot so it never runs into the 130/85 labels. */}
+              <svg
+                viewBox={`0 0 ${BP_CHART_BOX.width} ${BP_CHART_BOX.height}`}
+                className="h-full w-full"
+                direction="ltr"
+                role="img"
+                aria-label={localCopy.bloodPressure}
+              >
+                {[
+                  { y: systolicLimitY, value: BP_SYSTOLIC_LIMIT },
+                  { y: diastolicLimitY, value: BP_DIASTOLIC_LIMIT },
+                ].map((limit) => (
+                  <g key={limit.value}>
+                    <line
+                      x1={BP_CHART_BOX.padLeft}
+                      y1={limit.y}
+                      x2={BP_CHART_BOX.width - BP_CHART_BOX.padRight}
+                      y2={limit.y}
+                      stroke="#f59e0b"
+                      strokeDasharray="6 6"
+                      strokeWidth="2"
+                    />
+                    <text x={BP_CHART_BOX.width - BP_CHART_BOX.padRight + 8} y={limit.y + 7} fontSize="20" fill="#b45309">
+                      {formatLocaleDigits(limit.value, i18n.language)}
+                    </text>
+                  </g>
+                ))}
                 {systolicChartPath ? <path d={systolicChartPath} fill="none" stroke="#f43f5e" strokeWidth="3" /> : null}
                 {diastolicChartPath ? <path d={diastolicChartPath} fill="none" stroke="#3b82f6" strokeWidth="3" /> : null}
-                <line x1="20" y1="70" x2="580" y2="70" stroke="#f59e0b" strokeDasharray="4 4" />
+                {systolicPoints.map((point, index) => (
+                  <circle key={`s${index}`} cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#f43f5e" strokeWidth="3" />
+                ))}
+                {diastolicPoints.map((point, index) => (
+                  <circle key={`d${index}`} cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#3b82f6" strokeWidth="3" />
+                ))}
+                {systolicPoints.length > 0 ? (
+                  <text
+                    x={systolicPoints[systolicPoints.length - 1].x - 10}
+                    y={systolicPoints[systolicPoints.length - 1].y - 12}
+                    fontSize="20"
+                    fontWeight="600"
+                    fill="#e11d48"
+                    textAnchor="end"
+                  >
+                    {formatLocaleDigits(systolicPoints[systolicPoints.length - 1].value, i18n.language)}
+                  </text>
+                ) : null}
+                {diastolicPoints.length > 0 ? (
+                  <text
+                    x={diastolicPoints[diastolicPoints.length - 1].x - 10}
+                    y={diastolicPoints[diastolicPoints.length - 1].y + 26}
+                    fontSize="20"
+                    fontWeight="600"
+                    fill="#2563eb"
+                    textAnchor="end"
+                  >
+                    {formatLocaleDigits(diastolicPoints[diastolicPoints.length - 1].value, i18n.language)}
+                  </text>
+                ) : null}
               </svg>
             </div>
             <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-4">
@@ -798,12 +915,12 @@ export const PatientDashboard: React.FC = () => {
               {latestBloodPressure ? (
                 <span
                   className={`text-xs font-semibold ${
-                    latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+                    latestBloodPressure.systolic <= BP_SYSTOLIC_LIMIT && latestBloodPressure.diastolic <= BP_DIASTOLIC_LIMIT
                       ? 'text-emerald-600'
                       : 'text-amber-600'
                   }`}
                 >
-                  {latestBloodPressure.systolic <= 130 && latestBloodPressure.diastolic <= 85
+                  {latestBloodPressure.systolic <= BP_SYSTOLIC_LIMIT && latestBloodPressure.diastolic <= BP_DIASTOLIC_LIMIT
                     ? isArabic
                       ? 'آخر قراءة ضمن النطاق المتحكم به'
                       : 'Latest reading is within the controlled range'
@@ -835,7 +952,7 @@ export const PatientDashboard: React.FC = () => {
                 <h2 className="text-sm font-semibold text-slate-900">{localCopy.careTeamTitle}</h2>
               </div>
               <span className="text-xs text-slate-400">
-                {localCopy.careTeamCount.replace('{{count}}', formatLocaleDigits(careTeam.length, i18n.language))}
+                {careTeamCountLabel(careTeam.length, i18n.language)}
               </span>
             </div>
 
@@ -846,15 +963,18 @@ export const PatientDashboard: React.FC = () => {
                 <Skeleton className="h-40 w-full rounded-xl" />
               </div>
             ) : careTeam.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {careTeam.map((member) => (
+              <>
+              {/* On a phone each doctor is a compact row (avatar beside the name); from sm up the cards sit three across as before. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+                {visibleCareTeam.map((member) => (
                   <div
                     key={member.doctorId}
-                    className="rounded-xl border border-slate-100 p-4 transition-all hover:border-teal-200 hover:shadow-sm"
+                    data-testid="care-team-member"
+                    className="rounded-xl border border-slate-100 p-3 transition-all hover:border-teal-200 hover:shadow-sm sm:p-4"
                   >
-                    <div className="mb-3 flex flex-col items-center text-center">
-                      <div className="relative mb-2">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-teal-600 text-sm font-bold text-white">
+                    <div className="flex items-center gap-3 sm:mb-3 sm:flex-col sm:gap-0 sm:text-center">
+                      <div className="relative shrink-0 sm:mb-2">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-teal-600 text-sm font-bold text-white sm:h-12 sm:w-12">
                           {member.doctorName
                             .split(' ')
                             .map((part) => part[0] ?? '')
@@ -863,17 +983,37 @@ export const PatientDashboard: React.FC = () => {
                             .toUpperCase()}
                         </div>
                       </div>
-                      <p className="text-sm font-semibold text-slate-900">{member.doctorName}</p>
-                      <span className="mt-0.5 text-xs font-medium text-teal-600">
-                        {member.specialty ?? t('shared.careVisit')}
-                      </span>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
-                        <MapPin className="h-3 w-3" />
-                        {member.doctorCity || localCopy.locationPending}
-                      </p>
+                      <div className="min-w-0 flex-1 sm:w-full sm:flex-none">
+                        <p className="truncate text-sm font-semibold text-slate-900 sm:whitespace-normal">{member.doctorName}</p>
+                        <span className="mt-0.5 block truncate text-xs font-medium text-teal-600 sm:whitespace-normal">
+                          {member.specialty ?? t('shared.careVisit')}
+                          {member.doctorCity ? (
+                            <span className="font-normal text-slate-400 sm:hidden">{` · ${member.doctorCity}`}</span>
+                          ) : null}
+                        </span>
+                        <p className="mt-0.5 hidden items-center gap-1 text-xs text-slate-400 sm:flex sm:justify-center">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span>{member.doctorCity || localCopy.locationPending}</span>
+                        </p>
+                        {member.nextAppointmentAt || member.lastAppointmentAt ? (
+                          <p className="mt-0.5 truncate text-xs text-slate-500 sm:hidden">
+                            {member.nextAppointmentAt ? (
+                              <>
+                                {localCopy.nextLabel}:{' '}
+                                <span className="font-medium text-teal-600">{formatCompactDate(member.nextAppointmentAt)}</span>
+                              </>
+                            ) : (
+                              <>
+                                {localCopy.lastLabel}:{' '}
+                                <span className="font-medium text-slate-600">{formatCompactDate(member.lastAppointmentAt!)}</span>
+                              </>
+                            )}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                     {member.nextAppointmentAt || member.lastAppointmentAt ? (
-                      <p className="mb-3 border-t border-slate-50 pt-2 text-center text-xs text-slate-500">
+                      <p className="mb-3 hidden border-t border-slate-50 pt-2 text-center text-xs text-slate-500 sm:block">
                         {member.nextAppointmentAt ? (
                           <>
                             {localCopy.nextLabel}:{' '}
@@ -891,7 +1031,7 @@ export const PatientDashboard: React.FC = () => {
                         )}
                       </p>
                     ) : null}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0">
                       <button
                         type="button"
                         onClick={() => navigate(`/patient/messages?doctor=${member.doctorId}`)}
@@ -912,6 +1052,21 @@ export const PatientDashboard: React.FC = () => {
                   </div>
                 ))}
               </div>
+              {careTeam.length > CARE_TEAM_PREVIEW_COUNT ? (
+                <button
+                  type="button"
+                  data-testid="care-team-toggle"
+                  aria-expanded={showAllCareTeam}
+                  onClick={() => setShowAllCareTeam((value) => !value)}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-xs font-semibold text-teal-700 transition-colors hover:bg-slate-50"
+                >
+                  {showAllCareTeam
+                    ? t('patient.dashboard.careTeamShowFewer')
+                    : t('patient.dashboard.careTeamShowAll', { total: formatLocaleDigits(careTeam.length, i18n.language) })}
+                  <ChevronRight className={`h-3 w-3 transition-transform ${showAllCareTeam ? '-rotate-90' : 'rotate-90'}`} />
+                </button>
+              ) : null}
+              </>
             ) : (
               <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{localCopy.noCareTeam}</div>
             )}
@@ -1157,7 +1312,7 @@ export const PatientDashboard: React.FC = () => {
           <div className="rounded-2xl border border-teal-100 bg-white p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50">
-                <Bot className="h-4 w-4 text-teal-600" />
+                <Lightbulb className="h-4 w-4 text-teal-600" />
               </div>
               <div className="flex-1">
                 <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-teal-600">{localCopy.aiTipTitle}</p>
@@ -1186,11 +1341,11 @@ export const PatientDashboard: React.FC = () => {
       </div>
       {showDetailsModal && nextAppointment ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setShowDetailsModal(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
@@ -1286,11 +1441,11 @@ export const PatientDashboard: React.FC = () => {
       ) : null}
       {showDirectionsModal && nextAppointment ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => { setShowDirectionsModal(false); setAddressCopied(false); }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-sm"
+            className="bg-white rounded-xl shadow-xl w-full max-w-sm sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
@@ -1389,13 +1544,14 @@ export const PatientDashboard: React.FC = () => {
         </div>,
         document.body
       ) : null}
-      {bpModalOpen ? (
+      {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+      {bpModalOpen ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 sheet-backdrop"
           onClick={closeBpModal}
         >
           <div
-            className="my-auto max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            className="my-auto max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
@@ -1484,7 +1640,8 @@ export const PatientDashboard: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );
@@ -1529,56 +1686,3 @@ function StatCard({
   );
 }
 
-function buildLinePath(
-  values: number[],
-  width: number,
-  height: number,
-  minDomain: number,
-  maxDomain: number
-) {
-  if (values.length === 0) {
-    return '';
-  }
-
-  const leftPad = 20;
-  const rightPad = 20;
-  const topPad = 12;
-  const bottomPad = 18;
-  const drawableWidth = width - leftPad - rightPad;
-  const drawableHeight = height - topPad - bottomPad;
-  const safeRange = maxDomain - minDomain || 1;
-
-  return values
-    .map((value, index) => {
-      const x =
-        values.length === 1
-          ? leftPad + drawableWidth / 2
-          : leftPad + (index / (values.length - 1)) * drawableWidth;
-      const normalized = (value - minDomain) / safeRange;
-      const y = height - bottomPad - normalized * drawableHeight;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(' ');
-}
-
-function buildAreaPath(
-  values: number[],
-  width: number,
-  height: number,
-  minDomain: number,
-  maxDomain: number
-) {
-  const linePath = buildLinePath(values, width, height, minDomain, maxDomain);
-
-  if (!linePath) {
-    return '';
-  }
-
-  const leftPad = 20;
-  const rightPad = 20;
-  const bottomPad = 18;
-  const baselineY = height - bottomPad;
-  const lastX = values.length === 1 ? width / 2 : width - rightPad;
-
-  return `${linePath} L${lastX.toFixed(2)} ${baselineY.toFixed(2)} L${leftPad} ${baselineY.toFixed(2)} Z`;
-}

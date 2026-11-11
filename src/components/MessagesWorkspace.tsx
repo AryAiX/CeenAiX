@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  ArrowLeft,
   CalendarPlus,
   ChevronRight,
   ClipboardList,
   FileText,
   MessageSquare,
+  MessageSquarePlus,
   Paperclip,
   Search,
   Send,
@@ -15,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { useMessagingHub } from '../hooks';
+import { usePatientCareTeam } from '../hooks/use-patient-care-team';
 import { useAuth } from '../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatRelativeTime, resolveLocale } from '../lib/i18n-ui';
 import {
@@ -128,6 +131,40 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     deleteMessage,
     updateMessage,
   } = useMessagingHub(user?.id, conversationId ?? null);
+
+  // QA-014: patients start a conversation from here by picking a doctor from their care team.
+  const isPatient = role === 'patient';
+  const [careTeamOpen, setCareTeamOpen] = useState(false);
+  const [careTeamBusyId, setCareTeamBusyId] = useState<string | null>(null);
+  const [careTeamError, setCareTeamError] = useState<string | null>(null);
+  const careTeam = usePatientCareTeam(isPatient ? user?.id : null);
+
+  const openCareTeam = () => {
+    setCareTeamError(null);
+    setCareTeamOpen(true);
+  };
+
+  const startConversationWith = async (doctorId: string) => {
+    const existing = conversations.find((conversation) => conversation.counterpart.id === doctorId);
+    if (existing) {
+      setCareTeamOpen(false);
+      navigate(`/${role}/messages/${existing.id}`);
+      return;
+    }
+    setCareTeamBusyId(doctorId);
+    setCareTeamError(null);
+    const { conversationId: nextConversationId } = await ensureDirectConversation(
+      doctorId,
+      t(`${namespace}.defaultSubject`)
+    );
+    setCareTeamBusyId(null);
+    if (nextConversationId) {
+      setCareTeamOpen(false);
+      navigate(`/${role}/messages/${nextConversationId}`);
+    } else {
+      setCareTeamError(t('patient.messages.careTeam.startError'));
+    }
+  };
 
   useEffect(() => {
     if (!composeTargetId || !user?.id) {
@@ -779,8 +816,9 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
   return (
     <>
+    {/* Below lg the screen shows either the list or the open conversation, because a conversation opened from the list used to appear below the whole list, off screen. From lg up both sit side by side, as before. */}
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+      <div className={`overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md${conversationId ? ' hidden lg:block' : ''}`}>
         <div className="border-b border-gray-100 px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-gray-900">{t(`${namespace}.conversations`)}</h2>
@@ -788,6 +826,18 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               {t(`${namespace}.conversationCount`, { count: conversations.length })}
             </span>
           </div>
+          {/* Own line under the title, because next to the title and count it ran past the card. Hidden while the empty list shows its own button. */}
+          {isPatient && (loadingConversations || conversations.length > 0) ? (
+            <button
+              type="button"
+              onClick={openCareTeam}
+              data-testid="messages-new-conversation"
+              className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 ${theme.button}`}
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              {t('patient.messages.careTeam.newMessage')}
+            </button>
+          ) : null}
           <div className="relative mt-4">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 rtl:left-auto rtl:right-4" />
             <input
@@ -822,6 +872,17 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               <p className="mt-2 text-sm text-gray-600">
                 {searchQuery.trim() ? t(`${namespace}.noResultsBody`) : t(`${namespace}.noneBody`)}
               </p>
+              {isPatient && !searchQuery.trim() ? (
+                <button
+                  type="button"
+                  onClick={openCareTeam}
+                  data-testid="messages-empty-new-conversation"
+                  className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 ${theme.button}`}
+                >
+                  <MessageSquarePlus className="h-4 w-4" />
+                  {t('patient.messages.careTeam.newMessage')}
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-3">
@@ -849,9 +910,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-gray-900">{conversation.counterpart.name}</p>
-                            <p className="truncate text-xs text-gray-500">
-                              {conversation.counterpart.email ?? t(`${namespace}.noEmail`)}
-                            </p>
+                            {/* patients skip the "No doctor email on file" line because it does not help them. */}
+                            {conversation.counterpart.email || role !== 'patient' ? (
+                              <p className="truncate text-xs text-gray-500">
+                                {conversation.counterpart.email ?? t(`${namespace}.noEmail`)}
+                              </p>
+                            ) : null}
                           </div>
                           {conversation.unreadCount > 0 ? (
                             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${theme.badge}`}>
@@ -880,7 +944,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         </div>
       </div>
 
-      <div className="flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+      <div className={`${conversationId ? 'flex' : 'hidden lg:flex'} min-h-[520px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md lg:min-h-[680px]`}>
         {conversationError ? (
           <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
             {t(`${namespace}.loadError`)}
@@ -900,6 +964,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         {activeConversation ? (
           <>
             <div className="border-b border-gray-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => navigate(`/${role}/messages`)}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg py-1 text-sm font-semibold text-gray-600 transition hover:text-gray-900 lg:hidden"
+              >
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                {t('shared.backToConversations')}
+              </button>
               <div className="flex items-start gap-4">
                 <div
                   className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-base font-bold text-white shadow-sm ${avatarGradient(
@@ -910,9 +982,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-lg font-bold text-gray-900">{activeConversation.counterpart.name}</p>
-                  <p className="truncate text-sm text-gray-500">
-                    {activeConversation.counterpart.email ?? t(`${namespace}.noEmail`)}
-                  </p>
+                  {activeConversation.counterpart.email || role !== 'patient' ? (
+                    <p className="truncate text-sm text-gray-500">
+                      {activeConversation.counterpart.email ?? t(`${namespace}.noEmail`)}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-gray-500">
                     {activeConversation.lastMessageAt
                       ? t(`${namespace}.lastUpdated`, {
@@ -925,7 +999,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   type='button'
                   onClick={() => setShowProfileModal(true)}
                   className='rounded-lg p-1 text-gray-300 transition hover:bg-gray-100 hover:text-gray-500'
-                  title='View profile'
+                  title={t('messaging.viewProfile')}
+                  aria-label={t('messaging.viewProfile')}
                 >
                   <ChevronRight className='h-5 w-5 rtl:rotate-180' />
                 </button>
@@ -970,13 +1045,13 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 return undoMessageId === message.id ? (
                   <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                     <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                      <span className="text-sm text-amber-700">Message deleted</span>
+                      <span className="text-sm text-amber-700">{t('messaging.messageDeleted')}</span>
                       <button
                         type="button"
                         onClick={() => handleUndoDelete(message.id)}
                         className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
                       >
-                        Undo
+                        {t('messaging.undo')}
                       </button>
                     </div>
                   </div>
@@ -1005,14 +1080,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                               onClick={() => handleEditMessage(message.id, message.body)}
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
                             >
-                              Edit
+                              {t('messaging.edit')}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteMessage(message.id)}
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
                             >
-                              Delete
+                              {t('messaging.delete')}
                             </button>
                           </div>
                         ) : null}
@@ -1039,14 +1114,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                             disabled={savingEdit || !editingMessageText.trim()}
                             className='rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/30 disabled:opacity-60'
                           >
-                            {savingEdit ? 'Saving...' : 'Save'}
+                            {savingEdit ? t('messaging.saving') : t('messaging.save')}
                           </button>
                           <button
                             type="button"
                             onClick={handleCancelEdit}
                             className="rounded-lg px-3 py-1 text-xs font-medium text-white/70 transition hover:text-white"
                           >
-                            Cancel
+                            {t('messaging.cancel')}
                           </button>
                         </div>
                       </div>
@@ -1056,9 +1131,9 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     {isOwn && editingMessageId !== message.id ? (
                       <div className="mt-1 flex items-center justify-end gap-1">
                         {message.read_at ? (
-                          <span className="text-[10px] text-white/70">✓✓ Read</span>
+                          <span className="text-[10px] text-white/70">✓✓ {t('messaging.read')}</span>
                         ) : (
-                          <span className="text-[10px] text-white/60">✓ Sent</span>
+                          <span className="text-[10px] text-white/60">✓ {t('messaging.sent')}</span>
                         )}
                       </div>
                     ) : null}
@@ -1071,7 +1146,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="border-t border-gray-100 bg-white p-4">
+            {/* relative anchors the sr-only "Message draft" label to this form; without it the label is positioned against the whole page, sits below a long conversation and makes the document scroll into empty white space. */}
+            <form onSubmit={handleSubmit} className="relative border-t border-gray-100 bg-white p-4">
               {doctorQuickActions.length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-2">
                   {doctorQuickActions.map((action) => {
@@ -1115,7 +1191,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     type="button"
                     onClick={removeAttachment}
                     className="flex-shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-                    aria-label="Remove attachment"
+                    aria-label={t('messaging.removeAttachment')}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -1194,12 +1270,12 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
-                    title="Attach file"
+                    title={t('messaging.attachFile')}
                   >
                     <Paperclip className="h-4 w-4" />
-                    <span>Attach</span>
+                    <span>{t('messaging.attach')}</span>
                   </button>
-                  <p className="text-xs text-gray-400">Images, PDF, Word, TXT</p>
+                  <p className="text-xs text-gray-400">{t('messaging.attachHint')}</p>
                 </div>
                 <button
                   type="submit"
@@ -1224,23 +1300,129 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       </div>
     </div>
 
+    {isPatient && careTeamOpen
+      ? createPortal(
+          <div
+            className="sheet-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={() => setCareTeamOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="care-team-picker-title"
+              data-testid="care-team-picker"
+              className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                <div>
+                  <h3 id="care-team-picker-title" className="font-bold text-gray-900">
+                    {t('patient.messages.careTeam.title')}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">{t('patient.messages.careTeam.subtitle')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCareTeamOpen(false)}
+                  className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                  aria-label={t('shared.close')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-3">
+                {careTeamError ? (
+                  <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {careTeamError}
+                  </p>
+                ) : null}
+                {careTeam.loading ? (
+                  <div className="space-y-3 p-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <Skeleton key={index} className="h-14 w-full" />
+                    ))}
+                  </div>
+                ) : careTeam.error ? (
+                  <p className="px-3 py-6 text-center text-sm text-red-700">{t('patient.messages.careTeam.loadError')}</p>
+                ) : (careTeam.data ?? []).length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <p className="font-semibold text-gray-900">{t('patient.messages.careTeam.emptyTitle')}</p>
+                    <p className="mt-2 text-sm text-gray-600">{t('patient.messages.careTeam.emptyBody')}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCareTeamOpen(false);
+                        navigate('/patient/appointments/book');
+                      }}
+                      className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 ${theme.button}`}
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                      {t('patient.messages.careTeam.bookAppointment')}
+                    </button>
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {(careTeam.data ?? []).map((member) => {
+                      const name = member.name ?? t('messaging.careTeamFallback');
+                      const hasConversation = conversations.some((conversation) => conversation.counterpart.id === member.doctorId);
+                      return (
+                        <li key={member.doctorId}>
+                          <button
+                            type="button"
+                            disabled={careTeamBusyId !== null}
+                            onClick={() => void startConversationWith(member.doctorId)}
+                            className="flex w-full items-center gap-3 rounded-xl border border-gray-100 px-3 py-3 text-start transition hover:border-teal-200 hover:bg-teal-50 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            <span
+                              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white ${avatarGradient(member.doctorId)}`}
+                            >
+                              {avatarInitials(name)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-semibold text-gray-900">{name}</span>
+                              <span className="block truncate text-xs text-gray-500">
+                                {[member.specialty, hasConversation ? t('patient.messages.careTeam.openExisting') : null]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            </span>
+                            {careTeamBusyId === member.doctorId ? (
+                              <span className="text-xs text-gray-500">{t('patient.messages.careTeam.opening')}</span>
+                            ) : (
+                              <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400 rtl:rotate-180" />
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+
     {showProfileModal && activeConversation
       ? createPortal(
           <div
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm'
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm sheet-backdrop'
             onClick={() => setShowProfileModal(false)}
           >
             <div
-              className='w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl'
+              className='w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sheet-panel'
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className='flex items-center justify-between border-b border-gray-100 px-5 py-4'>
-                <h3 className='font-bold text-gray-900'>Profile Details</h3>
+                <h3 className='font-bold text-gray-900'>{t('messaging.profileTitle')}</h3>
                 <button
                   type='button'
                   onClick={() => setShowProfileModal(false)}
                   className='rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
+                  aria-label={t('shared.close')}
                 >
                   <X className='h-5 w-5' />
                 </button>
@@ -1256,9 +1438,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   {avatarInitials(activeConversation.counterpart.name)}
                 </div>
                 <p className='mt-4 text-xl font-bold text-gray-900'>{activeConversation.counterpart.name}</p>
-                <p className='mt-1 text-sm text-gray-500'>
-                  {activeConversation.counterpart.email ?? 'No email'}
-                </p>
+                {activeConversation.counterpart.email || role !== 'patient' ? (
+                  <p className='mt-1 text-sm text-gray-500'>
+                    {activeConversation.counterpart.email ?? t('messaging.noEmail')}
+                  </p>
+                ) : null}
                 <span
                   className={`mt-3 rounded-full px-3 py-1 text-xs font-semibold ${
                     role === 'patient'
@@ -1270,24 +1454,26 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                       : 'bg-blue-100 text-blue-700'
                   }`}
                 >
-                  {role === 'patient' ? 'Doctor' : role === 'pharmacy' ? 'Patient' : role === 'clinic' ? 'Contact' : 'Patient'}
+                  {role === 'patient' ? t('messaging.roleDoctor') : role === 'clinic' ? t('messaging.roleContact') : t('messaging.rolePatient')}
                 </span>
               </div>
 
               {/* Details */}
               <div className='mx-6 mb-6 divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50'>
-                <div className='flex items-center gap-3 px-4 py-3 text-sm'>
-                  <span className='text-base'>📧</span>
-                  <span className='text-gray-500'>Email</span>
-                  <span className='ml-auto font-medium text-gray-800 truncate max-w-[180px]'>
-                    {activeConversation.counterpart.email ?? 'Not available'}
-                  </span>
-                </div>
+                {activeConversation.counterpart.email || role !== 'patient' ? (
+                  <div className='flex items-center gap-3 px-4 py-3 text-sm'>
+                    <span className='text-base'>📧</span>
+                    <span className='text-gray-500'>{t('messaging.email')}</span>
+                    <span className='ms-auto font-medium text-gray-800 truncate max-w-[180px]'>
+                      {activeConversation.counterpart.email ?? t('messaging.notAvailable')}
+                    </span>
+                  </div>
+                ) : null}
                 <div className='flex items-center gap-3 px-4 py-3 text-sm'>
                   <span className='text-base'>👤</span>
-                  <span className='text-gray-500'>Role</span>
-                  <span className='ml-auto font-medium text-gray-800'>
-                    {role === 'patient' ? 'Healthcare Provider' : role === 'clinic' ? 'Contact' : 'Patient'}
+                  <span className='text-gray-500'>{t('messaging.role')}</span>
+                  <span className='ms-auto font-medium text-gray-800'>
+                    {role === 'patient' ? t('messaging.roleHealthcareProvider') : role === 'clinic' ? t('messaging.roleContact') : t('messaging.rolePatient')}
                   </span>
                 </div>
               </div>
@@ -1299,7 +1485,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   onClick={() => setShowProfileModal(false)}
                   className={`w-full rounded-xl bg-gradient-to-r py-2.5 text-sm font-semibold text-white transition hover:opacity-90 ${theme.button}`}
                 >
-                  Message
+                  {t('messaging.messageButton')}
                 </button>
               </div>
             </div>

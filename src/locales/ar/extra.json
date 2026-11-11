@@ -13,7 +13,25 @@
     "time": {
       "minutesAgo": "منذ {{count}} د",
       "hoursAgo": "منذ {{count}} س",
-      "daysAgo": "منذ {{count}} يوم"
+      "daysAgo": "منذ {{count}} يوم",
+      "minutesAgo_zero": "منذ {{value}} دقيقة",
+      "minutesAgo_one": "منذ دقيقة",
+      "minutesAgo_two": "منذ دقيقتين",
+      "minutesAgo_few": "منذ {{value}} دقائق",
+      "minutesAgo_many": "منذ {{value}} دقيقة",
+      "minutesAgo_other": "منذ {{value}} دقيقة",
+      "hoursAgo_zero": "منذ {{value}} ساعة",
+      "hoursAgo_one": "منذ ساعة",
+      "hoursAgo_two": "منذ ساعتين",
+      "hoursAgo_few": "منذ {{value}} ساعات",
+      "hoursAgo_many": "منذ {{value}} ساعة",
+      "hoursAgo_other": "منذ {{value}} ساعة",
+      "daysAgo_zero": "منذ {{value}} يوم",
+      "daysAgo_one": "منذ يوم",
+      "daysAgo_two": "منذ يومين",
+      "daysAgo_few": "منذ {{value}} أيام",
+      "daysAgo_many": "منذ {{value}} يومًا",
+      "daysAgo_other": "منذ {{value}} يوم"
     },
     "appointmentType": {
       "inPerson": "حضوري",
@@ -84,7 +102,14 @@
     "optional": "اختياري",
     "keepEditing": "متابعة التعديل",
     "discard": "تجاهل",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "backToConversations": "المحادثات",
+    "notAvailable": "غير متوفر",
+    "pdf": {
+      "brand": "منصة CeenAiX الصحية",
+      "footerNote": "أُنشئ بواسطة منصة CeenAiX الصحية — سجل طبي سري",
+      "pageOf": "صفحة {{page}} من {{total}}"
+    }
   },
   "system": {
     "accessDenied": {
@@ -172,7 +197,9 @@
         "every6Hours": "كل ٦ ساعات",
         "asNeeded": "حسب الحاجة",
         "asNeededPain": "حسب الحاجة للألم"
-      }
+      },
+      "careTeamShowAll": "عرض الكل ({{total}})",
+      "careTeamShowFewer": "عرض أقل"
     },
     "appointments": {
       "title": "المواعيد",
@@ -244,7 +271,9 @@
       "teleconsultBannerStartingNow": "تبدأ الآن",
       "joinWaitingRoom": "الدخول إلى غرفة الانتظار",
       "noResultsFilters": "لا توجد مواعيد تطابق عوامل التصفية.",
-      "noResultsFiltersSub": "جرّب تعديل الحالة أو النوع أو نطاق التاريخ."
+      "noResultsFiltersSub": "جرّب تعديل الحالة أو النوع أو نطاق التاريخ.",
+      "searchDoctorOrSpecialtyPh": "ابحث عن طبيب أو تخصص",
+      "clearFilters": "مسح عوامل التصفية"
     },
     "book": {
       "title": "حجز موعد",
@@ -315,7 +344,7 @@
       "conversationCount_other": "{{count}} محادثة",
       "searchPlaceholder": "ابحث عن طبيب أو موضوع أو رسالة حديثة...",
       "noneTitle": "لا محادثات بعد",
-      "noneBody": "ستظهر محادثات آمنة مع الأطباء هنا بعد إنشاء خيط رسائل لرعايتك.",
+      "noneBody": "ابدأ محادثة آمنة مع طبيب من فريق رعايتك.",
       "noResultsTitle": "لا توجد محادثات مطابقة",
       "noResultsBody": "جرّب اسماً أو موضوعاً أو كلمة مختلفة.",
       "noEmail": "لا يوجد بريد للطبيب",
@@ -343,7 +372,19 @@
       "defaultSubject": "محادثة رعاية",
       "messageDoctor": "مراسلة الطبيب",
       "followUpDoctor": "متابعة مع الطبيب",
-      "messagePrescriber": "مراسلة الطبيب الواصف"
+      "messagePrescriber": "مراسلة الطبيب الواصف",
+      "careTeam": {
+        "newMessage": "رسالة جديدة",
+        "title": "راسل فريق رعايتك",
+        "subtitle": "اختر طبيبًا سبق أن حجزت معه.",
+        "openExisting": "فتح المحادثة",
+        "opening": "جارٍ الفتح…",
+        "startError": "تعذّر فتح المحادثة. يُرجى المحاولة مرة أخرى.",
+        "loadError": "تعذّر تحميل فريق رعايتك. يُرجى المحاولة مرة أخرى.",
+        "emptyTitle": "لا يوجد فريق رعاية بعد",
+        "emptyBody": "يمكنك مراسلة الأطباء الذين حجزت معهم موعدًا. احجز موعدًا للبدء.",
+        "bookAppointment": "احجز موعدًا"
+      }
     },
     "prescriptions": {
       "title": "وصفاتي",
@@ -563,7 +604,23 @@
       "pharmacyStatusPickedUpTitle": "تم الاستلام",
       "pharmacyStatusPickedUpBody": "لقد استلمت هذا الدواء. تناوله حسب الوصفة.",
       "markPickedUp": "تأكيد الاستلام",
-      "pickedUpThanks": "تم الاستلام — شكرًا لك!"
+      "pickedUpThanks": "تم الاستلام — شكرًا لك!",
+      "markTodayTaken": "تحديد جرعات اليوم كمأخوذة",
+      "takenTodayLabel": "مأخوذة اليوم ✓",
+      "medsTakenPill": "{{taken}} / {{total}} أدوية مأخوذة اليوم",
+      "medsNotMarked": "لم تُحدَّد بعد اليوم: {{count}}",
+      "allMedsMarked": "تم تحديد جميع الأدوية كمأخوذة اليوم",
+      "scheduleProgressMeds": "{{taken}} من {{total}} أدوية محددة كمأخوذة اليوم — {{percent}}٪ مكتمل",
+      "scheduleRemainingMeds": "{{count}} لم تُحدَّد بعد اليوم",
+      "kpiMarkedWeek": "محدد كمأخوذ · آخر ٧ أيام",
+      "kpiMarkedWeekSub": "بناءً على الأدوية التي تحددها كمأخوذة كل يوم",
+      "reminderMarkedTitle": "{{percent}}٪ من الجرعات محددة كمأخوذة هذا الأسبوع",
+      "markedNote": "هذه الأرقام مأخوذة فقط من الأدوية التي تحددها كمأخوذة. يُحدَّد كل دواء مرة واحدة في اليوم.",
+      "statMarked": "محدد هذا الأسبوع",
+      "statNotMarked": "غير محدد هذا الأسبوع",
+      "statFullDays": "أيام مكتملة التحديد",
+      "statRate": "نسبة التحديد",
+      "markedAnalysisTitle": "الجرعات المحددة — آخر ٧ أيام"
     },
     "records": {
       "title": "السجلات الطبية",
@@ -706,7 +763,7 @@
       "starterPrepare": "ساعِدني على التحضير لموعدي",
       "starterReviewHistory": "راجع تاريخي",
       "preparingResponse": "جاري تجهيز الرد...",
-      "inputPhLong": "اسأل سؤالاً أو أضف سياقاً عن المرفق...",
+      "inputPhLong": "اسأل عن هذا الملف...",
       "inputSrOnly": "رسالة إلى المساعد الصحي بالذكاء الاصطناعي",
       "usedPrefix": "مستخدم: {{label}}",
       "newChatShort": "جديد",
@@ -753,7 +810,29 @@
       "aiSettings": "إعدادات الذكاء الاصطناعي",
       "encrypted": "بياناتك الصحية خاصة ومشفّرة",
       "disclaimer": "إرشاد مُولَّد بالذكاء الاصطناعي — تأكد دائمًا مع فريقك الطبي.",
-      "personalizedFor": "● مخصص لـ {{name}}"
+      "personalizedFor": "● مخصص لـ {{name}}",
+      "comingSoonLabel": "قريبًا",
+      "feedbackComingSoon": "التقييم — قريبًا",
+      "shareComingSoon": "المشاركة — قريبًا",
+      "regenerateComingSoon": "إعادة الإنشاء — قريبًا",
+      "actionHelpful": "مفيد",
+      "actionNotHelpful": "غير مفيد",
+      "actionCopy": "نسخ",
+      "actionShare": "مشاركة",
+      "actionRegenerate": "اسأل مرة أخرى",
+      "hba1cBaseline": "قراءة أساسية مسجّلة",
+      "greetingNoName": "مرحباً!",
+      "personalizedForYou": "● مخصص لك",
+      "actionCopied": "تم النسخ",
+      "copyFailed": "تعذّر نسخ النص.",
+      "feedbackThanks": "شكرًا على ملاحظاتك",
+      "feedbackError": "تعذّر حفظ تقييمك. يُرجى المحاولة مرة أخرى.",
+      "shareCopied": "المشاركة غير متاحة هنا، لذا تم نسخ النص بدلًا من ذلك.",
+      "shareFailed": "تعذّرت المشاركة. يُرجى المحاولة مرة أخرى.",
+      "exportTitle": "CeenAiX – محادثة مع وكيل Ceen",
+      "exportedOn": "تم التصدير في {{date}}",
+      "exportYou": "أنت",
+      "exportCopied": "تم نسخ المحادثة. يمكنك لصقها في أي مكان."
     },
     "profile": {
       "title": "ملفي الشخصي",
@@ -828,7 +907,33 @@
       "relOther": "أخرى",
       "phMemberName": "أدخل الاسم",
       "familyEmiratesId": "الهوية الإماراتية",
-      "cancel": "إلغاء"
+      "cancel": "إلغاء",
+      "changePhoto": "تغيير صورة الملف الشخصي",
+      "removePhoto": "إزالة صورة الملف الشخصي",
+      "saving": "جارٍ الحفظ...",
+      "saveSuccessPersonal": "تم حفظ المعلومات الشخصية بنجاح!",
+      "saveSuccessInsurance": "تم حفظ معلومات التأمين بنجاح!",
+      "saveError": "تعذّر حفظ التغييرات: {{message}}",
+      "removeFamilyMember": "إزالة فرد من العائلة",
+      "removeFamilyTitle": "إزالة فرد من العائلة؟",
+      "removeFamilyConfirm": "ستتم إزالته من أفراد عائلتك. لا يمكن التراجع عن ذلك.",
+      "familyEmptyTitle": "لم تتم إضافة أفراد من العائلة بعد",
+      "familyEmptyBody": "أضف أفراد عائلتك لرؤية شجرة العائلة",
+      "familyOtherRelations": "علاقات أخرى",
+      "manageInMyHealth": "إدارتها في صحتي",
+      "noneRecorded": "لا يوجد شيء مسجّل",
+      "recordsManagedNote": "تُحفظ الحساسية والأمراض المزمنة في صفحة صحتي، حيث يمكنك إضافتها ويمكن لطبيبك تأكيدها.",
+      "planDetailsNote": "يأتي مقدم التأمين ورقم المجموعة ونوع التغطية من خطة التأمين ولا يمكن تغييرها هنا.",
+      "noPlanLinked": "لا توجد خطة تأمين مرتبطة بحسابك بعد، لذلك لا يمكن تعديل هذه البيانات هنا.",
+      "emiratesFrontDocTitle": "الهوية الإماراتية (الوجه الأمامي)",
+      "emiratesBackDocTitle": "الهوية الإماراتية (الوجه الخلفي)",
+      "insuranceCardDocTitle": "بطاقة التأمين",
+      "comingSoon": "قريبًا",
+      "familyComingSoonTitle": "إضافة أفراد العائلة قريبًا",
+      "familyComingSoonBody": "ستتمكن من إضافة أفراد عائلتك وحفظهم هنا في تحديث قادم.",
+      "uploadTypeError": "يرجى اختيار صورة بصيغة JPG أو PNG أو WebP.",
+      "uploadSizeError": "هذه الصورة كبيرة جدًا. الحد الأقصى للحجم هو {{max}} ميغابايت.",
+      "photoUpdateFailed": "تعذّر تحديث الصورة. يرجى المحاولة مرة أخرى."
     },
     "preVisit": {
       "title": "الاستقبال المسبق",
@@ -1052,7 +1157,34 @@
       "shareTestCount_two": "فحصان",
       "shareTestCount_few": "{{count}} فحوصات",
       "shareTestCount_many": "{{count}} فحصًا",
-      "shareTestCount_other": "{{count}} فحص"
+      "shareTestCount_other": "{{count}} فحص",
+      "reportsRowFormat": "تقرير PDF",
+      "trendsTargetLine": "الهدف: {{value}}٪",
+      "labNotAssigned": "لم يُحدَّد المختبر بعد",
+      "upcomingBookCtaNoLab": "📅 احجز زيارة للمختبر",
+      "shareMethodCopy": "نسخ النص",
+      "shareDisclaimerPlain": "شارك فقط مع من تثق بهم، مثل مقدمي الرعاية الصحية. من يستلم التقرير يحصل على نسخة كاملة من نتائجك.",
+      "shareSuccessCopy": "تم نسخ نص التقرير. الصقه حيث تريد مشاركته.",
+      "shareCopyFailed": "تعذّر نسخ التقرير. حاول مرة أخرى أو استخدم البريد الإلكتروني أو واتساب.",
+      "pdf": {
+        "title": "تقرير نتائج المختبر",
+        "titleFallback": "تقرير المختبر",
+        "lab": "المختبر",
+        "date": "التاريخ",
+        "doctor": "الطبيب",
+        "order": "رقم الطلب",
+        "testResults": "نتائج الفحوصات",
+        "reference": "النطاق المرجعي",
+        "doctorComment": "تعليق الطبيب",
+        "noValue": "لا توجد قيمة مسجلة",
+        "statusNormal": "طبيعي",
+        "statusBorderline": "حدّي",
+        "statusHigh": "مرتفع",
+        "statusLow": "منخفض",
+        "statusCritical": "حرج",
+        "statusPending": "قيد الانتظار",
+        "statusAbnormal": "غير طبيعي"
+      }
     },
     "notifications": {
       "title": "الإشعارات",
@@ -1074,7 +1206,15 @@
       "upcomingBody": "راجع تفاصيل الموعد للاستعداد.",
       "newLabsFrom": "نتائج مختبر جديدة من {{name}}",
       "labsBody": "افتح نتائج المختبر للاطلاع على التفاصيل واطلب من المساعد الذكي تفسيراً مبسطاً.",
-      "openThreadFallback": "افتح المحادثة لمراجعة آخر رسائل الرعاية."
+      "openThreadFallback": "افتح المحادثة لمراجعة آخر رسائل الرعاية.",
+      "filterAll": "الكل",
+      "filterUnread": "غير المقروءة",
+      "filterAppointment": "المواعيد",
+      "filterMedication": "الأدوية",
+      "filterLabResult": "نتائج المختبر",
+      "dismiss": "تجاهل",
+      "markingAllRead": "جارٍ التعليم كمقروء…",
+      "actionError": "تعذّر تحديث الإشعار: {{message}}"
     },
     "telemedicine": {
       "title": "الاستشارة الافتراضية",
@@ -1139,7 +1279,50 @@
       "securityBody": "تتم إدارة المصادقة عبر Supabase Auth. ستظهر هنا كلمة المرور وMFA والجلسات عند توسيع سير عمل الأمان.",
       "passwordManaged": "كلمة المرور تُدار عبر مصادقة آمنة",
       "supportTitle": "تحتاج مساعدة؟",
-      "supportBody": "حالياً استخدم الرسائل للتواصل مع فريق الرعاية. يمكن ربط صندوق دعم مخصص لاحقاً."
+      "supportBody": "حالياً استخدم الرسائل للتواصل مع فريق الرعاية. يمكن ربط صندوق دعم مخصص لاحقاً.",
+      "editProfile": "تعديل الملف الشخصي",
+      "emailSupport": "الدعم عبر البريد الإلكتروني",
+      "reportBug": "الإبلاغ عن خطأ",
+      "reportBugHint": "ساعدنا في تحسين CeenAiX",
+      "helpCenter": "مركز المساعدة",
+      "helpCenterHint": "تصفح الأسئلة الشائعة والأدلة",
+      "appInfo": "معلومات التطبيق",
+      "version": "الإصدار",
+      "platform": "المنصة",
+      "platformName": "منصة CeenAiX الصحية",
+      "region": "المنطقة",
+      "regionUae": "الإمارات 🇦🇪",
+      "emailSupportSub": "نرد عادةً خلال 24 ساعة",
+      "responseTime": "وقت الرد",
+      "within24h": "خلال 24 ساعة",
+      "within48h": "خلال 48 ساعة",
+      "hours": "أيام العمل",
+      "sundayToThursday": "الأحد – الخميس",
+      "emailSupportTip": "اذكر البريد الإلكتروني لحسابك ووصفًا للمشكلة لحلّها بشكل أسرع.",
+      "openEmail": "فتح البريد",
+      "reportTo": "أرسل البلاغ إلى",
+      "bugTip": "يرجى ذكر خطوات تكرار الخطأ والصفحة التي ظهر فيها، وإرفاق لقطات شاشة إن أمكن.",
+      "sendBugReport": "إرسال بلاغ الخطأ",
+      "passwordResetCta": "أرسل لي رابط إعادة تعيين كلمة المرور",
+      "passwordResetSending": "جارٍ إرسال الرابط…",
+      "passwordResetSent": "أرسلنا للتو رابط إعادة تعيين كلمة المرور إلى {{email}}.",
+      "passwordResetMissingEmail": "أضف بريدًا إلكترونيًا إلى ملفك الشخصي قبل طلب إعادة تعيين كلمة المرور.",
+      "faq": {
+        "q1": "كيف أحجز موعدًا؟",
+        "a1": "انتقل إلى المواعيد ← حجز موعد واختر الطبيب والوقت المناسبين.",
+        "q2": "كيف أطلب إعادة تعبئة وصفة طبية؟",
+        "a2": "انتقل إلى الوصفات ← اختر الدواء ← اضغط طلب إعادة تعبئة لمراسلة طبيبك.",
+        "q3": "كيف أطّلع على نتائج المختبر؟",
+        "a3": "انتقل إلى نتائج المختبر لرؤية جميع نتائجك واتجاهاتها والفحوصات القادمة.",
+        "q4": "كيف أحدّث بيانات التأمين؟",
+        "a4": "انتقل إلى الملف الشخصي ← معلومات التأمين لتحديث رقم الوثيقة ورقم العضوية وصورة البطاقة.",
+        "q5": "كيف أغيّر كلمة المرور؟",
+        "a5": "انتقل إلى الإعدادات ← الأمان ← اضغط «أرسل لي رابط إعادة تعيين كلمة المرور»."
+      },
+      "comingSoon": "قريبًا",
+      "comingSoonNote": "هذه الإعدادات غير مفعّلة بعد، وستتوفر في تحديث قادم.",
+      "supportIntro": "راسل فريق الدعم عبر البريد الإلكتروني، أو أبلغ عن خطأ، أو تصفح الأسئلة الشائعة. للأسئلة المتعلقة برعايتك، راسل فريق الرعاية من صفحة الرسائل.",
+      "securityIntro": "حسابك محمي بكلمة مرور. إذا احتجت إلى تغييرها، سنرسل لك رابطًا آمنًا لإعادة التعيين عبر البريد الإلكتروني."
     },
     "imaging": {
       "title": "الأشعة والفحوصات",
@@ -1189,7 +1372,17 @@
       "noScheduledTitle": "لا توجد فحوصات مجدولة",
       "noScheduledBody": "ستظهر طلبات الأشعة القادمة عندما يطلبها الطبيب.",
       "scheduledStudy": "دراسة مجدولة",
-      "dataNote": "التصوير مرتبط فعلياً بعناصر طلبات المختبر ذات نمط الأشعة. لا يزال يلزم نموذج مخصص لدراسات التصوير/DICOM للصور والسلاسل وبيانات الوصول وتقارير اختصاصي الأشعة."
+      "dataNote": "التصوير مرتبط فعلياً بعناصر طلبات المختبر ذات نمط الأشعة. لا يزال يلزم نموذج مخصص لدراسات التصوير/DICOM للصور والسلاسل وبيانات الوصول وتقارير اختصاصي الأشعة.",
+      "noReportsTitle": "لا توجد تقارير تصوير صادرة بعد",
+      "noReportsBody": "ستظهر التقارير هنا بعد أن يصدرها قسم الأشعة.",
+      "emptyBodyPatient": "ستظهر فحوصات الأشعة وتقاريرها هنا بعد أن يطلبها طبيبك.",
+      "viewerUnavailable": "عرض صور الفحص داخل التطبيق غير متاح بعد.",
+      "facilityNotRecorded": "المنشأة غير مسجّلة",
+      "subtitlePlain": "مكان موحد لمشاهدة دراساتك الشعاعية وتقاريرها.",
+      "kpiReleased": "تقارير صادرة",
+      "kpiNotReleased": "تقارير قيد الانتظار",
+      "statusReleased": "صدر التقرير",
+      "statusNotReleased": "لم يصدر التقرير بعد"
     },
     "insurance": {
       "title": "تأميني",
@@ -1276,7 +1469,43 @@
       "generateFromActivity": "إنشاء من النشاط",
       "viewSummary": "عرض الملخص",
       "cardDownloadError": "تعذر تجهيز التنزيل. يُرجى المحاولة مرة أخرى.",
-      "dataNote": "بيانات خطة التأمين مباشرة من patient_insurance و insurance_plans. صفوف المطالبات مقدّرة من المواعيد وطلبات المختبر والوصفات حتى ربط جداول المطالبات والموافقات المسبقة."
+      "dataNote": "بيانات خطة التأمين مباشرة من patient_insurance و insurance_plans. صفوف المطالبات مقدّرة من المواعيد وطلبات المختبر والوصفات حتى ربط جداول المطالبات والموافقات المسبقة.",
+      "uploadCard": "ارفعها من الملف الشخصي",
+      "preauthItemImaging": "التصوير بالرنين المغناطيسي / الأشعة المقطعية",
+      "preauthItemBrandedMeds": "الأدوية ذات العلامة التجارية مرتفعة التكلفة",
+      "preauthItemElective": "الإجراءات الاختيارية",
+      "serviceType": {
+        "consultation": "استشارة",
+        "laboratory": "مختبر",
+        "pharmacy": "صيدلية",
+        "claim": "مطالبة تأمين",
+        "preauth": "موافقة مسبقة"
+      },
+      "fallbackService": {
+        "inPersonConsultation": "استشارة حضورية",
+        "virtualConsultation": "استشارة عن بُعد",
+        "labOrder": "طلب فحوصات مخبرية",
+        "prescription": "أدوية بوصفة طبية",
+        "claim": "مطالبة تأمين"
+      },
+      "cardSummary": {
+        "title": "ملخص بطاقة التأمين",
+        "provider": "شركة التأمين",
+        "member": "المؤمَّن عليه",
+        "memberId": "رقم العضوية",
+        "plan": "الخطة",
+        "validUntil": "صالحة حتى"
+      },
+      "estimatesNote": "المبالغ في هذه الصفحة تقديرية بناءً على نسبة المشاركة في خطتك، وقد يختلف قرار شركة التأمين النهائي.",
+      "preauthInfo": "لا تُرسل طلبات الموافقة المسبقة إلى شركة التأمين من التطبيق بعد. الخدمات أدناه تحتاج عادةً إلى موافقة وفق خطتك.",
+      "approvalUsuallyNeeded": "تحتاج عادةً إلى موافقة",
+      "benefitLabsEstimate": "مقدّرة بناءً على نسبة المشاركة في خطتك.",
+      "benefitPharmacyEstimate": "مقدّرة من وصفاتك الطبية. تعتمد الأسعار الدقيقة على قائمة أدوية خطتك.",
+      "benefitTelehealthEstimate": "مقدّرة بنسبة المشاركة المعتادة في خطتك.",
+      "benefitPreventiveInfo": "معروضة كمزية ضمن الخطة. تحقق من شركة التأمين لمعرفة ما تشمله.",
+      "noInsurerClaims": "لا توجد مطالبات أو موافقات مسبقة من شركة التأمين بعد.",
+      "contactInsurerInfo": "بيانات التواصل مع {{insurer}} غير متوفرة في التطبيق بعد. اتصل بالرقم المدوّن على بطاقة التأمين واذكر رقم العضوية:",
+      "contactInsurerInfoNoId": "بيانات التواصل مع {{insurer}} غير متوفرة في التطبيق بعد. اتصل بالرقم المدوّن على بطاقة التأمين."
     },
     "documents": {
       "title": "المستندات",
@@ -1433,7 +1662,16 @@
       "viewMedicationsCount_two": "دواءان",
       "viewMedicationsCount_few": "{{count}} أدوية",
       "viewMedicationsCount_many": "{{count}} دواءً",
-      "viewMedicationsCount_other": "{{count}} دواء"
+      "viewMedicationsCount_other": "{{count}} دواء",
+      "labNotRecorded": "المختبر غير مسجّل",
+      "pdf": {
+        "title": "مستند المريض",
+        "issuedBy": "صادر عن",
+        "date": "التاريخ",
+        "contents": "محتوى المستند",
+        "viewSource": "عرض المصدر المباشر",
+        "status": "الحالة"
+      }
     },
     "appointmentDetail": {
       "notFoundTitle": "الموعد غير موجود",
@@ -1460,7 +1698,8 @@
     "errors": {
       "invalidChatResponse": "أعاد المساعد الذكي ردًا غير صالح.",
       "invalidDocResponse": "أعاد تحليل المستندات بالذكاء الاصطناعي ردًا غير صالح.",
-      "invalidMedEnrichment": "أعاد إثراء معلومات الدواء ردًا غير صالح."
+      "invalidMedEnrichment": "أعاد إثراء معلومات الدواء ردًا غير صالح.",
+      "attachmentTooLarge": "يجب ألا يتجاوز حجم المرفق 10 ميغابايت."
     }
   },
   "records": {

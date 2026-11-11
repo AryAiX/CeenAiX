@@ -5,6 +5,12 @@ import { usePatientDashboard, usePatientPreVisitAssessments } from '../../hooks'
 import { usePatientAiChat } from '../../hooks/use-patient-ai-chat';
 import { useQuery } from '../../hooks/use-query';
 import { invokeAiChat, uploadAiChatAttachment } from '../../lib/ai';
+import {
+  buildAiChatTranscript,
+  fetchAiChatMessageFeedback,
+  setAiChatMessageFeedback,
+  shareOrCopyText,
+} from '../../lib/ai-chat-actions';
 import { useAuth } from '../../lib/auth-context';
 import { PatientAIChat } from './AIChat';
 
@@ -42,6 +48,14 @@ vi.mock('react-router-dom', () => ({
 vi.mock('../../lib/ai', () => ({
   invokeAiChat: vi.fn(),
   uploadAiChatAttachment: vi.fn(),
+}));
+
+vi.mock('../../lib/ai-chat-actions', () => ({
+  fetchAiChatMessageFeedback: vi.fn(),
+  setAiChatMessageFeedback: vi.fn(),
+  copyText: vi.fn(),
+  shareOrCopyText: vi.fn(),
+  buildAiChatTranscript: vi.fn(),
 }));
 
 vi.mock('../../lib/auth-context', () => ({
@@ -93,6 +107,10 @@ describe('PatientAIChat', () => {
       error: null,
       refetch: vi.fn(),
     } as never);
+    vi.mocked(fetchAiChatMessageFeedback).mockResolvedValue({});
+    vi.mocked(setAiChatMessageFeedback).mockResolvedValue(undefined);
+    vi.mocked(shareOrCopyText).mockResolvedValue('copied');
+    vi.mocked(buildAiChatTranscript).mockReturnValue('TRANSCRIPT');
     uploadAiChatAttachmentMock.mockResolvedValue({
       type: 'uploaded_file',
       bucket: 'medical-files',
@@ -222,7 +240,7 @@ describe('PatientAIChat', () => {
 
     const user = userEvent.setup();
     expect(screen.getByRole('button', { name: /Review my health history/i })).toBeInTheDocument();
-    await user.type(screen.getByPlaceholderText(/Ask a question or add context/i), 'Summarize my history');
+    await user.type(screen.getByPlaceholderText(/Ask about your health/i), 'Summarize my history');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => {
@@ -328,5 +346,118 @@ describe('PatientAIChat', () => {
     expect(screen.getByText('Address')).toBeInTheDocument();
     expect(screen.getByText('Dubai Marina')).toBeInTheDocument();
     expect(screen.getByText('Abu Dhabi')).toBeInTheDocument();
+  });
+  it('rates a saved reply, asks the last question again and exports the chat (QA-074)', async () => {
+    const userMessageId = '0a000000-0000-4000-8000-000000000001';
+    const assistantMessageId = '0b000000-0000-4000-8000-000000000002';
+    const savedMessages = [
+      {
+        id: userMessageId,
+        role: 'user' as const,
+        content: 'What does my HbA1c mean?',
+        createdAt: '2026-03-21T09:29:00Z',
+        attachments: [],
+      },
+      {
+        id: assistantMessageId,
+        role: 'assistant' as const,
+        content: 'HbA1c shows your average blood sugar over about three months.',
+        createdAt: '2026-03-21T09:30:00Z',
+        attachments: [],
+      },
+    ];
+    const chatData = (messages: typeof savedMessages) => ({
+      data: {
+        sessionId: 'session-1',
+        sessions: [
+          {
+            id: 'session-1',
+            startedAt: '2026-03-21T09:00:00Z',
+            lastMessageAt: '2026-03-21T09:30:00Z',
+            preview: 'What does my HbA1c mean?',
+          },
+        ],
+        messages,
+        contextSummary: {
+          conditionsCount: 0,
+          allergiesCount: 0,
+          activeMedicationCount: 0,
+          recentAppointmentsCount: 0,
+          labResultCount: 0,
+        },
+        nextAppointment: null,
+      },
+      loading: false,
+      error: null,
+      refetch,
+    });
+    // After sending, the real page reloads the chat; here the reload returns the new question and answer.
+    const refetch = vi.fn(async () => {
+      usePatientAiChatMock.mockReturnValue(
+        chatData([
+          ...savedMessages,
+          { ...savedMessages[0], id: '0d000000-0000-4000-8000-000000000004', createdAt: '2026-03-21T09:31:00Z' },
+          { ...savedMessages[1], id: '0c000000-0000-4000-8000-000000000003', content: 'A fresh answer.', createdAt: '2026-03-21T09:31:30Z' },
+        ])
+      );
+    });
+    usePatientAiChatMock.mockReturnValue(chatData(savedMessages));
+    invokeAiChatMock.mockResolvedValue({
+      sessionId: 'session-1',
+      assistantMessage: {
+        id: '0c000000-0000-4000-8000-000000000003',
+        content: 'A fresh answer.',
+        createdAt: '2026-03-21T09:31:00Z',
+        attachments: [],
+      },
+      contextSummary: {
+        conditionsCount: 0,
+        allergiesCount: 0,
+        activeMedicationCount: 0,
+        recentAppointmentsCount: 0,
+        labResultCount: 0,
+      },
+    });
+
+    render(<PatientAIChat />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Chats/i }));
+    await user.click(screen.getByTitle('What does my HbA1c mean?'));
+    expect(await screen.findByText(/average blood sugar/)).toBeInTheDocument();
+
+    // No "Coming soon" placeholders and no microphone or AI settings buttons any more.
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Voice input' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'AI settings' })).not.toBeInTheDocument();
+
+    const helpful = screen.getByRole('button', { name: 'Helpful' });
+    await user.click(helpful);
+    await waitFor(() => expect(setAiChatMessageFeedback).toHaveBeenCalledWith(assistantMessageId, 1));
+    expect(helpful).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText('Thanks for your feedback')).toBeInTheDocument();
+
+    await user.click(helpful);
+    await waitFor(() => expect(setAiChatMessageFeedback).toHaveBeenLastCalledWith(assistantMessageId, null));
+    expect(helpful).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await waitFor(() =>
+      expect(shareOrCopyText).toHaveBeenCalledWith(expect.stringContaining('average blood sugar'), expect.any(String))
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Export chat' }));
+    await waitFor(() => expect(buildAiChatTranscript).toHaveBeenCalled());
+    expect(vi.mocked(buildAiChatTranscript).mock.calls[0][0]).toHaveLength(2);
+    expect(shareOrCopyText).toHaveBeenLastCalledWith('TRANSCRIPT', expect.any(String));
+    expect(await screen.findByText(/Conversation copied/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ask again' }));
+    await waitFor(() =>
+      expect(invokeAiChatMock).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'What does my HbA1c mean?', sessionId: 'session-1' })
+      )
+    );
+    expect(await screen.findByText('A fresh answer.')).toBeInTheDocument();
   });
 });

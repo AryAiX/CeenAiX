@@ -47,7 +47,7 @@ export const PatientImaging = () => {
         date: study.releasedAt ?? study.scheduledAt ?? new Date().toISOString(),
         modality: study.modality,
         studyType: study.studyName,
-        facility: study.clinicName || t('patient.imaging.ceenaixRadiology'),
+        facility: study.clinicName || t('patient.imaging.facilityNotRecorded'),
         orderedBy: study.doctorName || t('patient.imaging.careTeam'),
         status: study.status === 'released' ? 'reviewed' as const : 'pending' as const,
         findings: [
@@ -124,8 +124,8 @@ export const PatientImaging = () => {
               <Scan className="h-4 w-4" />
               {t('patient.imaging.title')}
             </div>
-            <h1 className="mb-2 text-3xl font-bold">{t('patient.imaging.heroTitle')}</h1>
-            <p className="max-w-2xl text-violet-100">{t('patient.imaging.subtitle')}</p>
+            <h1 className="mb-2 font-playfair text-3xl md:text-4xl font-bold tracking-tight">{t('patient.imaging.heroTitle')}</h1>
+            <p className="max-w-2xl text-violet-100">{t('patient.imaging.subtitlePlain')}</p>
           </div>
           <button
             type="button"
@@ -169,8 +169,8 @@ export const PatientImaging = () => {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
         {[
           { label: t('patient.imaging.kpiStudies'), value: studies.length, icon: FileText, color: 'text-violet-600', bg: 'bg-violet-100' },
-          { label: t('patient.imaging.kpiPending'), value: pendingCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
-          { label: t('patient.imaging.kpiReviewed'), value: reviewedCount, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+          { label: t('patient.imaging.kpiNotReleased'), value: pendingCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+          { label: t('patient.imaging.kpiReleased'), value: reviewedCount, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
           { label: t('patient.imaging.kpiFollowUp'), value: followUpCount, icon: Activity, color: 'text-blue-600', bg: 'bg-blue-100' },
           { label: t('patient.imaging.kpiScheduled'), value: scheduled.length, icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-100' },
         ].map((card, index) => {
@@ -231,7 +231,7 @@ export const PatientImaging = () => {
             <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center">
               <Scan className="mx-auto mb-4 h-12 w-12 text-slate-300" />
               <h3 className="text-lg font-bold text-slate-900">{t('patient.imaging.emptyTitle')}</h3>
-              <p className="mt-2 text-sm text-slate-500">{t('patient.imaging.emptyBody')}</p>
+              <p className="mt-2 text-sm text-slate-500">{t('patient.imaging.emptyBodyPatient')}</p>
             </div>
           ) : null}
 
@@ -267,7 +267,8 @@ export const PatientImaging = () => {
                       </div>
                     </div>
                     <span className={study.status === 'reviewed' ? 'text-sm font-bold text-emerald-600' : 'text-sm font-bold text-amber-600'}>
-                      {study.status === 'reviewed' ? t('patient.imaging.reviewed') : t('patient.imaging.awaitingReview')}
+                      {/* 'reviewed' here only means the report was released by radiology. */}
+                      {study.status === 'reviewed' ? t('patient.imaging.statusReleased') : t('patient.imaging.statusNotReleased')}
                     </span>
                   </div>
                 </button>
@@ -289,7 +290,7 @@ export const PatientImaging = () => {
                   <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-white/10 bg-slate-800">
                     <div className="text-center">
                       <Scan className="mx-auto mb-4 h-20 w-20 text-violet-300" />
-                      <p className="font-mono text-sm text-slate-300">{t('patient.imaging.viewerPlaceholder')}</p>
+                      <p className="px-4 text-sm text-slate-300">{t('patient.imaging.viewerUnavailable')}</p>
                     </div>
                   </div>
                 </div>
@@ -391,7 +392,7 @@ export const PatientImaging = () => {
                   <div key={study.id} className="rounded-xl bg-violet-50 p-5">
                     <div className="font-bold text-slate-900">{study.studyName ?? t('patient.imaging.scheduledStudy')}</div>
                     <div className="text-sm text-slate-600">
-                      {formatDate(study.scheduledAt ?? new Date().toISOString())} · {study.clinicName ?? t('patient.imaging.ceenaixRadiology')}
+                      {formatDate(study.scheduledAt ?? new Date().toISOString())} · {study.clinicName ?? t('patient.imaging.facilityNotRecorded')}
                     </div>
                   </div>
                 ))}
@@ -399,10 +400,6 @@ export const PatientImaging = () => {
             )
           ) : null}
         </div>
-      </div>
-
-      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
-        {t('patient.imaging.dataNote')}
       </div>
     </div>
   );

@@ -13,7 +13,17 @@ body {
 }
 
 .font-playfair {
-  font-family: 'Playfair Display', serif;
+  /* Playfair has no Arabic letters, so Arabic falls back to the same fonts as the body text (QA-099). */
+  font-family:
+    'Playfair Display',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Tahoma,
+    Arial,
+    'Noto Sans Arabic',
+    'Arabic UI Text',
+    sans-serif;
 }
 
 html[lang='ar'] body {
@@ -328,5 +338,74 @@ html[lang='ar'] body {
     border-bottom: 1px solid rgba(226, 232, 240, 0.9);
     box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
     backdrop-filter: blur(18px);
+  }
+}
+
+/*
+ * QA-101: on phones, pop-ups slide up from the bottom as a sheet (full width, rounded top, grab bar),
+ * which feels native in the app. From the sm breakpoint up they stay centred as before.
+ * Add "sheet-backdrop" to the dark full-screen layer and "sheet-panel" to the white box.
+ * The doubled class beats the box's own Tailwind classes (max-w-*, rounded-*, my-auto) on phones only.
+ */
+@media (max-width: 639.98px) {
+  .sheet-backdrop.sheet-backdrop {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sheet-panel.sheet-panel {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1.25rem 1.25rem 0 0;
+    animation: sheet-up 0.22s ease-out;
+  }
+
+  .sheet-panel.sheet-panel::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+    z-index: 1;
+  }
+}
+
+/*
+ * A pop-up placed inside a "space-y-*" section inherited its top margin (24px), so its dark layer started
+ * below the top of the screen and left a white band over the top bar (QA-102). A full-screen layer never
+ * needs outside spacing. !important because the space-y rule is more specific than this one.
+ */
+.sheet-backdrop {
+  margin: 0 !important;
+}
+
+/* The floating AI chat button would sit on top of an open sheet, pop-up or the phone menu, so hide it meanwhile. */
+body:has(.sheet-backdrop, [data-hide-chatbot]) .chatbot-fab {
+  display: none;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel.sheet-panel {
+    animation: none;
   }
 }

@@ -103,6 +103,7 @@ export const PortalShell = ({
   const { profile, doctorProfile, user, signOut } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [portalMenuOpen, setPortalMenuOpen] = useState(false);
+  const [patientMenuOpen, setPatientMenuOpen] = useState(false);
   const [patientSidebarCollapsed, setPatientSidebarCollapsed] = useState(false);
   const [doctorSidebarCollapsed, setDoctorSidebarCollapsed] = useState(false);
   const [patientAlertDismissed, setPatientAlertDismissed] = useState(false);
@@ -120,8 +121,24 @@ export const PortalShell = ({
   useEffect(() => {
     setAccountMenuOpen(false);
     setPortalMenuOpen(false);
+    setPatientMenuOpen(false);
     setPatientAlertDismissed(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!patientMenuOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPatientMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [patientMenuOpen]);
 
   useEffect(() => {
     if (role !== 'patient' || !user?.id) return;
@@ -330,11 +347,48 @@ export const PortalShell = ({
     };
 
     const patientRoleLabel = t('header.patient');
-    const patientMobileNavItems = [...patientNavItems, ...patientBottomItems.filter((item) => item.id !== 'signout')];
+    const patientPageTitle =
+      [...patientNavItems, ...patientBottomItems].find((item) => isActivePath(location.pathname, item.href))
+        ?.label ??
+      (location.pathname === '/patient/notifications' || location.pathname.startsWith('/patient/notifications/')
+        ? t('nav.notifications')
+        : 'CeenAiX');
+
+    const renderPatientMobileMenuRow = (item: PortalNavItem) => {
+      const Icon = item.icon;
+      const active = isActivePath(location.pathname, item.href);
+
+      return (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => {
+            setPatientMenuOpen(false);
+            if (item.href) {
+              navigate(item.href);
+            }
+          }}
+          aria-current={active ? 'page' : undefined}
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm font-medium transition-colors ${
+            active
+              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20'
+              : 'text-gray-700 hover:bg-slate-50'
+          }`}
+        >
+          <Icon className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {item.badge ? (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+              {item.badge}
+            </span>
+          ) : null}
+        </button>
+      );
+    };
 
     return (
       <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-        <div className="z-50 flex-shrink-0 border-b border-cyan-100 bg-white px-3 py-3 shadow-sm shadow-cyan-500/5 sm:px-6 sm:py-4">
+        <div className="z-50 hidden flex-shrink-0 border-b border-cyan-100 bg-white px-3 py-3 shadow-sm shadow-cyan-500/5 sm:px-6 sm:py-4 lg:block">
           <div className={`flex items-center justify-between gap-2 sm:gap-4 ${isArabic ? 'flex-row-reverse' : ''}`}>
             <div className={`flex min-w-0 items-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
               <button
@@ -461,36 +515,112 @@ export const PortalShell = ({
           </div>
         </div>
 
-        <nav className={`lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-cyan-100 bg-white px-3 py-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
-          {patientMobileNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActivePath(location.pathname, item.href);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  if (item.href) {
-                    navigate(item.href);
-                  }
-                }}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
-                  active
-                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700'
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
-                {item.badge ? (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                    {item.badge}
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-cyan-100 bg-white px-3 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setPatientMenuOpen(true)}
+            aria-label={t('nav.openMenu')}
+            data-testid="patient-menu-button"
+            className="relative rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-50"
+          >
+            <Menu className="h-5 w-5" />
+            {unreadMessagesCount > 0 ? (
+              <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+            ) : null}
+          </button>
+          <p
+            data-testid="patient-page-title"
+            className="min-w-0 flex-1 truncate text-base font-semibold text-slate-900"
+          >
+            {patientPageTitle}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/patient/notifications');
+              setUnreadNotificationsCount(0);
+            }}
+            aria-label={t('nav.notifications')}
+            title={t('nav.notifications')}
+            className="group relative rounded-lg p-2 transition-all duration-300 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50"
+          >
+            <Bell className="h-5 w-5 text-slate-600 transition-colors duration-300 group-hover:text-cyan-600" />
+            {unreadNotificationsCount > 0 ? (
+              <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+
+        {patientMenuOpen ? (
+          <div className="fixed inset-0 z-[70] lg:hidden" data-hide-chatbot>
+            <div className="absolute inset-0 bg-black/40" onClick={() => setPatientMenuOpen(false)} />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('nav.menu')}
+              data-testid="patient-mobile-menu"
+              className="absolute inset-y-0 start-0 flex w-[85%] max-w-xs flex-col bg-white shadow-xl"
+            >
+              <div className="flex items-center gap-2 border-b border-gray-200 p-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPatientMenuOpen(false);
+                    navigate('/patient/profile');
+                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-start"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 text-sm font-bold text-white">
+                    {getInitials(accountDisplayName)}
+                  </div>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-slate-800">{accountDisplayName}</span>
+                    <span className="block truncate text-xs text-slate-500">{t('header.patient')}</span>
                   </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </nav>
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setPatientMenuOpen(false)}
+                  aria-label={t('shared.close')}
+                  className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 py-3">
+                <nav className="space-y-1">{patientNavItems.map((item) => renderPatientMobileMenuRow(item))}</nav>
+                <div className="my-3 border-t border-gray-200" />
+                <nav className="space-y-1">
+                  {patientBottomItems
+                    .filter((item) => item.id === 'profile' || item.id === 'settings')
+                    .map((item) => renderPatientMobileMenuRow(item))}
+                </nav>
+              </div>
+
+              <div className="border-t border-gray-200 p-3">
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <span className="text-sm font-medium text-slate-700">{t('nav.language')}</span>
+                  <LanguageSwitcher dense />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPatientMenuOpen(false);
+                    setShowLogoutConfirm(true);
+                  }}
+                  className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <LogOut className="h-5 w-5 shrink-0" />
+                  <span>{t('nav.logOut')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex flex-1 overflow-hidden">
           <div
@@ -616,17 +746,22 @@ export const PortalShell = ({
           </div>
         )}
         {showLogoutConfirm ? (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
-              <h3 className="text-lg font-bold text-gray-900">Sign Out</h3>
-              <p className="mt-2 text-sm text-gray-500">Are you sure you want to sign out?</p>
+          <div
+            role="dialog"
+            aria-modal="true"
+            data-testid="logout-confirm"
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sheet-backdrop"
+          >
+            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6 sheet-panel">
+              <h3 className="text-lg font-bold text-gray-900">{t('nav.logOutConfirmTitle')}</h3>
+              <p className="mt-2 text-sm text-gray-500">{t('nav.logOutConfirmBody')}</p>
               <div className="mt-6 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowLogoutConfirm(false)}
                   className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="button"
@@ -636,7 +771,7 @@ export const PortalShell = ({
                   }}
                   className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
                 >
-                  Yes, Sign Out
+                  {t('nav.logOutConfirmYes')}
                 </button>
               </div>
             </div>

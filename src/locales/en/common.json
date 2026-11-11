@@ -13,7 +13,33 @@
     "actionRecordsLink": "Records reminder",
     "actionCareDefault": "Care action",
     "defaultCareSubject": "Care conversation",
-    "sendMessage": "Send message"
+    "sendMessage": "Send message",
+    "messageDeleted": "Message deleted",
+    "undo": "Undo",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "read": "Read",
+    "sent": "Sent",
+    "removeAttachment": "Remove attachment",
+    "attachFile": "Attach file",
+    "attach": "Attach",
+    "attachHint": "Images, PDF, Word, TXT",
+    "viewProfile": "View profile",
+    "profileTitle": "Profile Details",
+    "noEmail": "No email",
+    "email": "Email",
+    "notAvailable": "Not available",
+    "role": "Role",
+    "roleDoctor": "Doctor",
+    "rolePatient": "Patient",
+    "roleContact": "Contact",
+    "roleHealthcareProvider": "Healthcare Provider",
+    "messageButton": "Message",
+    "errDeleteMessage": "Unable to delete message.",
+    "errEditMessage": "Unable to edit message."
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -89,7 +115,13 @@
     "account": "Account",
     "goBack": "Go back",
     "goHome": "Home",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "openMenu": "Open menu",
+    "menu": "Menu",
+    "language": "Language",
+    "logOutConfirmTitle": "Log out",
+    "logOutConfirmBody": "Are you sure you want to log out?",
+    "logOutConfirmYes": "Yes, log out"
   },
   "language": {
     "enShort": "EN",
@@ -1135,7 +1167,8 @@
     "deleteButton": "Delete account",
     "deletingAccount": "Deleting account...",
     "errorTypeDelete": "Type DELETE to confirm account deletion.",
-    "confirmDeleteDialog": "Delete this account now? This cannot be undone. Accounts with clinical or shared care data cannot self-delete."
+    "confirmDeleteDialog": "Delete this account now? This cannot be undone. Accounts with clinical or shared care data cannot self-delete.",
+    "confirmDeleteButton": "Confirm permanent deletion"
   },
   "clinic": {
     "portalEyebrow": "Clinic Portal",

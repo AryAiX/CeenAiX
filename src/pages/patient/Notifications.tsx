@@ -5,7 +5,7 @@ import { Bell, CheckCheck, Loader2, RefreshCcw, Sparkles, X } from 'lucide-react
 import { Skeleton } from '../../components/Skeleton';
 import { usePatientNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
-import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
+import { appointmentPickerLabel, formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 export const PatientNotifications: React.FC = () => {
@@ -15,7 +15,7 @@ export const PatientNotifications: React.FC = () => {
   const { data, loading, error, refetch } = usePatientNotifications(user?.id);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'appointment' | 'medication' | 'message'>('all');
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'appointment' | 'medication' | 'lab_result'>('all');
   const [dismissingId, setDismissingId] = useState<string | null>(null);
 
   const filteredNotifications = useMemo(() => {
@@ -86,7 +86,7 @@ export const PatientNotifications: React.FC = () => {
     return (
       <>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t('patient.notifications.title')}</h1>
+          <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.notifications.title')}</h1>
           <p className="mt-1 text-sm text-slate-500">{t('patient.notifications.subtitle')}</p>
         </div>
         <div className="space-y-4">
@@ -105,7 +105,7 @@ export const PatientNotifications: React.FC = () => {
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">{t('patient.notifications.title')}</h1>
+        <h1 className="font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{t('patient.notifications.title')}</h1>
         <p className="mt-1 text-sm text-slate-500">{t('patient.notifications.subtitle')}</p>
       </div>
 
@@ -119,9 +119,9 @@ export const PatientNotifications: React.FC = () => {
             <button
               type="button"
               onClick={refetch}
-              className="ml-2 font-semibold underline"
+              className="ms-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -185,12 +185,14 @@ export const PatientNotifications: React.FC = () => {
                   key={notification.id}
                   type="button"
                   onClick={() => navigate(notification.actionUrl)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-teal-200 hover:bg-teal-50/40"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-semibold text-slate-900">{notification.title}</p>
                     <span className="text-xs font-semibold text-slate-500">
-                      {formatRelativeTime(t, notification.createdAt)}
+                      {notification.kind === 'upcoming_appointment'
+                        ? appointmentPickerLabel(i18n.language, notification.createdAt)
+                        : formatRelativeTime(t, notification.createdAt)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
@@ -213,7 +215,7 @@ export const PatientNotifications: React.FC = () => {
                 { value: 'unread', label: t('patient.notifications.filterUnread', { defaultValue: 'Unread' }) },
                 { value: 'appointment', label: t('patient.notifications.filterAppointment', { defaultValue: 'Appointments' }) },
                 { value: 'medication', label: t('patient.notifications.filterMedication', { defaultValue: 'Medications' }) },
-                { value: 'message', label: t('patient.notifications.filterMessage', { defaultValue: 'Messages' }) },
+                { value: 'lab_result', label: t('patient.notifications.filterLabResult', { defaultValue: 'Lab results' }) },
               ] as const
             ).map((option) => (
               <button
@@ -292,13 +294,14 @@ export const PatientNotifications: React.FC = () => {
                         disabled={dismissingId === notification.id}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-60"
                         title={t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}
+                        aria-label={t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}
                       >
                         {dismissingId === notification.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <X className="h-4 w-4" />
                         )}
-                        <span>{t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}</span>
+                        <span className="hidden sm:inline">{t('patient.notifications.dismiss', { defaultValue: 'Dismiss' })}</span>
                       </button>
                     </div>
                   </div>

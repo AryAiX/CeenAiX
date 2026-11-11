@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { Bell, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Bell, ChevronLeft, ChevronRight, Globe, HelpCircle, Lock, Pencil, Settings as SettingsIcon, ShieldCheck, User, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 
 type SettingsSection = 'account' | 'privacy' | 'notifications' | 'language' | 'security' | 'support';
+
+const SETTINGS_SECTIONS: SettingsSection[] = ['account', 'privacy', 'notifications', 'language', 'security', 'support'];
+
+const isSettingsSection = (value: string | null): value is SettingsSection =>
+  value !== null && SETTINGS_SECTIONS.some((section) => section === value);
 
 interface Preferences {
   email: boolean;
@@ -54,6 +60,32 @@ export const PatientSettings = () => {
   const { user, requestPasswordReset } = useAuth();
   const { data: profile, loading, error, refetch } = useUserProfile();
   const [section, setSection] = useState<SettingsSection>('account');
+  // The open section is kept in the address (?section=...) so the back button, iPhone swipe-back and Android back button all return to the list.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section');
+  const phoneSection = isSettingsSection(sectionParam) ? sectionParam : null;
+  const openedFromListRef = useRef(false);
+
+  useEffect(() => {
+    if (!phoneSection) return;
+    setSection(phoneSection);
+    document.querySelector('main')?.scrollTo({ top: 0 });
+  }, [phoneSection]);
+
+  const openPhoneSection = (id: SettingsSection) => {
+    openedFromListRef.current = true;
+    setSection(id);
+    setSearchParams({ section: id });
+  };
+
+  const backToSettingsList = () => {
+    if (openedFromListRef.current) {
+      openedFromListRef.current = false;
+      navigate(-1);
+      return;
+    }
+    setSearchParams({}, { replace: true });
+  };
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -63,7 +95,7 @@ export const PatientSettings = () => {
   const [passwordResetMessage, setPasswordResetMessage] = useState<
     { kind: 'success' | 'error'; text: string } | null
   >(null);
-  const [supportModal, setSupportModal] = useState<'email' | 'whatsapp' | 'bug' | 'help' | null>(null);
+  const [supportModal, setSupportModal] = useState<'email' | 'bug' | 'help' | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -133,32 +165,45 @@ export const PatientSettings = () => {
     );
   }
 
-  const renderToggle = (key: keyof Preferences, label: string, body: string) => (
+  const renderToggle = (
+    key: keyof Preferences,
+    label: string,
+    body: string,
+    options?: { comingSoon?: boolean },
+  ) => (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
       <div>
         <div className="font-bold text-slate-900">{label}</div>
         <p className="mt-1 text-sm text-slate-500">{body}</p>
       </div>
-      <button
-        type="button"
-        onClick={() => updatePref(key, !prefs[key] as Preferences[typeof key])}
-        className={`relative h-7 w-12 rounded-full transition ${prefs[key] ? 'bg-cyan-600' : 'bg-slate-300'}`}
-        aria-pressed={Boolean(prefs[key])}
-      >
-        <span
-          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-            prefs[key] ? 'start-6' : 'start-1'
-          }`}
-        />
-      </button>
+      {options?.comingSoon ? (
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">{t('patient.settings.comingSoon')}</span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => updatePref(key, !prefs[key] as Preferences[typeof key])}
+          className={`relative h-7 w-12 rounded-full transition ${prefs[key] ? 'bg-cyan-600' : 'bg-slate-300'}`}
+          aria-pressed={Boolean(prefs[key])}
+        >
+          <span
+            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+              prefs[key] ? 'start-6' : 'start-1'
+            }`}
+          />
+        </button>
+      )}
     </div>
+  );
+
+  const renderComingSoonNote = () => (
+    <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">{t('patient.settings.comingSoonNote')}</p>
   );
 
   const renderSection = () => {
     if (section === 'account') {
       return (
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="mb-4 text-lg font-bold text-slate-900">{t('patient.settings.accountSummary')}</h3>
             <dl className="grid gap-4 md:grid-cols-2">
               <div>
@@ -185,7 +230,7 @@ export const PatientSettings = () => {
               className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
             >
               <Pencil className="h-4 w-4" />
-              Edit Profile
+              {t('patient.settings.editProfile')}
             </button>
           </div>
         </div>
@@ -196,9 +241,10 @@ export const PatientSettings = () => {
     if (section === 'privacy') {
       return (
         <div className="space-y-4">
-          {renderToggle('shareWithDoctors', t('patient.settings.shareDoctors'), t('patient.settings.shareDoctorsBody'))}
-          {renderToggle('shareWithPharmacy', t('patient.settings.sharePharmacy'), t('patient.settings.sharePharmacyBody'))}
-          {renderToggle('shareWithInsurance', t('patient.settings.shareInsurance'), t('patient.settings.shareInsuranceBody'))}
+          {renderComingSoonNote()}
+          {renderToggle('shareWithDoctors', t('patient.settings.shareDoctors'), t('patient.settings.shareDoctorsBody'), { comingSoon: true })}
+          {renderToggle('shareWithPharmacy', t('patient.settings.sharePharmacy'), t('patient.settings.sharePharmacyBody'), { comingSoon: true })}
+          {renderToggle('shareWithInsurance', t('patient.settings.shareInsurance'), t('patient.settings.shareInsuranceBody'), { comingSoon: true })}
         </div>
       );
     }
@@ -206,9 +252,10 @@ export const PatientSettings = () => {
     if (section === 'notifications') {
       return (
         <div className="space-y-4">
-          {renderToggle('email', t('patient.settings.emailNotifications'), t('patient.settings.emailNotificationsBody'))}
-          {renderToggle('sms', t('patient.settings.smsNotifications'), t('patient.settings.smsNotificationsBody'))}
-          {renderToggle('push', t('patient.settings.pushNotifications'), t('patient.settings.pushNotificationsBody'))}
+          {renderComingSoonNote()}
+          {renderToggle('email', t('patient.settings.emailNotifications'), t('patient.settings.emailNotificationsBody'), { comingSoon: true })}
+          {renderToggle('sms', t('patient.settings.smsNotifications'), t('patient.settings.smsNotificationsBody'), { comingSoon: true })}
+          {renderToggle('push', t('patient.settings.pushNotifications'), t('patient.settings.pushNotificationsBody'), { comingSoon: true })}
         </div>
       );
     }
@@ -219,7 +266,7 @@ export const PatientSettings = () => {
           <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
             <label className="mb-2 block text-sm font-bold text-slate-900">{t('patient.settings.language')}</label>
             <select
-              value={prefs.language}
+              value={i18n.language.startsWith('ar') ? 'ar' : 'en'}
               onChange={(event) => {
                 updatePref('language', event.target.value);
                 void i18n.changeLanguage(event.target.value);
@@ -230,8 +277,8 @@ export const PatientSettings = () => {
               <option value="ar">العربية</option>
             </select>
           </div>
-          {renderToggle('largeText', t('patient.settings.largeText'), t('patient.settings.largeTextBody'))}
-          {renderToggle('highContrast', t('patient.settings.highContrast'), t('patient.settings.highContrastBody'))}
+          {renderToggle('largeText', t('patient.settings.largeText'), t('patient.settings.largeTextBody'), { comingSoon: true })}
+          {renderToggle('highContrast', t('patient.settings.highContrast'), t('patient.settings.highContrastBody'), { comingSoon: true })}
         </div>
       );
     }
@@ -260,7 +307,7 @@ export const PatientSettings = () => {
           kind: 'success',
           text: t('patient.settings.passwordResetSent', {
             defaultValue: 'We just emailed a password reset link to {{email}}.',
-            email: accountEmail,
+            email: `\u2066${accountEmail}\u2069`,
           }),
         });
       };
@@ -269,7 +316,7 @@ export const PatientSettings = () => {
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.securityTitle')}</h3>
-            <p className="mt-2 text-sm text-slate-500">{t('patient.settings.securityBody')}</p>
+            <p className="mt-2 text-sm text-slate-500">{t('patient.settings.securityIntro')}</p>
             <button
               type="button"
               onClick={() => void handleSendReset()}
@@ -304,73 +351,61 @@ export const PatientSettings = () => {
       <div className="space-y-4">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-4">
           <h3 className="text-lg font-bold text-slate-900">{t('patient.settings.supportTitle')}</h3>
-          <p className="text-sm text-slate-500">{t('patient.settings.supportBody')}</p>
+          <p className="text-sm text-slate-500">{t('patient.settings.supportIntro')}</p>
 
           <div className="grid gap-3 md:grid-cols-2">
             <button
               type="button"
               onClick={() => setSupportModal('email')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-cyan-200 hover:bg-cyan-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
               <div>
-                <div className="font-bold text-slate-900">Email Support</div>
+                <div className="font-bold text-slate-900">{t('patient.settings.emailSupport')}</div>
                 <div className="text-xs text-slate-500">support@ceenaix.com</div>
               </div>
             </button>
 
             <button
               type="button"
-              onClick={() => setSupportModal('whatsapp')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
-              <div>
-                <div className="font-bold text-slate-900">WhatsApp Support</div>
-                <div className="text-xs text-slate-500">Available 9AM – 6PM GST</div>
-              </div>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setSupportModal('bug')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-red-200 hover:bg-red-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-red-200 hover:bg-red-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
               <div>
-                <div className="font-bold text-slate-900">Report a Bug</div>
-                <div className="text-xs text-slate-500">Help us improve CeenAiX</div>
+                <div className="font-bold text-slate-900">{t('patient.settings.reportBug')}</div>
+                <div className="text-xs text-slate-500">{t('patient.settings.reportBugHint')}</div>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSupportModal('help')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50"
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-blue-200 hover:bg-blue-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
               <div>
-                <div className="font-bold text-slate-900">Help Center</div>
-                <div className="text-xs text-slate-500">Browse FAQs and guides</div>
+                <div className="font-bold text-slate-900">{t('patient.settings.helpCenter')}</div>
+                <div className="text-xs text-slate-500">{t('patient.settings.helpCenterHint')}</div>
               </div>
             </button>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900">App Information</h3>
+          <h3 className="text-base font-bold text-slate-900">{t('patient.settings.appInfo')}</h3>
           <div className="mt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Version</span>
+              <span className="text-slate-500">{t('patient.settings.version')}</span>
               <span className="font-semibold text-slate-900">1.0.0</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Platform</span>
-              <span className="font-semibold text-slate-900">CeenAiX Health Platform</span>
+              <span className="text-slate-500">{t('patient.settings.platform')}</span>
+              <span className="font-semibold text-slate-900">{t('patient.settings.platformName')}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Region</span>
-              <span className="font-semibold text-slate-900">UAE 🇦🇪</span>
+              <span className="text-slate-500">{t('patient.settings.region')}</span>
+              <span className="font-semibold text-slate-900">{t('patient.settings.regionUae')}</span>
             </div>
           </div>
         </div>
@@ -390,27 +425,54 @@ export const PatientSettings = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="ml-2 font-semibold underline"
+            className="ms-2 font-semibold underline"
           >
-            Retry
+            {t('shared.retry')}
           </button>
         </div>
       ) : null}
 
-      <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-8 text-white shadow-lg">
+      <div className={`rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-5 text-white shadow-lg sm:p-8${phoneSection ? ' hidden lg:block' : ''}`}>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
             <SettingsIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">{t('patient.settings.title')}</h1>
+            <h1 className="font-playfair text-3xl md:text-4xl font-bold tracking-tight">{t('patient.settings.title')}</h1>
             <p className="text-cyan-100">{t('patient.settings.subtitle')}</p>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="space-y-2 rounded-2xl bg-white p-3 shadow-sm">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+        {phoneSection === null ? (
+          <nav className="lg:hidden" aria-label={t('patient.settings.title')} data-testid="settings-phone-list">
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              {sections.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => openPhoneSection(item.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-start"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-slate-900">{item.title}</span>
+                        <span className="block truncate text-xs text-slate-500">{item.desc}</span>
+                      </span>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 rtl:rotate-180" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        ) : null}
+        <aside className="hidden lg:block lg:space-y-2 lg:rounded-2xl lg:bg-white lg:p-3 lg:shadow-sm">
           {sections.map((item) => {
             const Icon = item.icon;
             const active = section === item.id;
@@ -418,26 +480,37 @@ export const PatientSettings = () => {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setSection(item.id)}
-                className={`w-full rounded-xl p-4 text-left transition ${
-                  active ? 'bg-cyan-50 text-cyan-700' : 'text-slate-600 hover:bg-slate-50'
+                aria-pressed={active}
+                onClick={(event) => {
+                  setSection(item.id);
+                  event.currentTarget.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }}
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm transition lg:w-full lg:items-start lg:gap-3 lg:whitespace-normal lg:rounded-xl lg:border-0 lg:p-4 lg:text-start lg:text-base ${
+                  active ? 'border-cyan-200 bg-cyan-50 text-cyan-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <Icon className="mt-0.5 h-5 w-5" />
-                  <div>
-                    <div className="font-bold">{item.title}</div>
-                    <div className="mt-0.5 text-xs text-slate-400">{item.desc}</div>
-                  </div>
-                </div>
+                <Icon className="h-4 w-4 shrink-0 lg:mt-0.5 lg:h-5 lg:w-5" />
+                <span className="lg:block">
+                  <span className="font-bold lg:block">{item.title}</span>
+                  <span className="mt-0.5 hidden text-xs text-slate-400 lg:block">{item.desc}</span>
+                </span>
               </button>
             );
           })}
         </aside>
 
-        <main>
+        <section className={phoneSection ? '' : 'hidden lg:block'} data-testid="settings-section">
+          <button
+            type="button"
+            data-testid="settings-back"
+            onClick={backToSettingsList}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-cyan-700 lg:hidden"
+          >
+            <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+            {t('patient.settings.title')}
+          </button>
           <div className="mb-5">
-            <h2 className="text-2xl font-bold text-slate-900">{currentSection.title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">{currentSection.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{currentSection.desc}</p>
             <div className="mt-2 h-5 text-sm">
               {saving ? <span className="text-slate-500">{t('patient.settings.saving')}</span> : null}
@@ -450,16 +523,17 @@ export const PatientSettings = () => {
             </div>
           </div>
           {renderSection()}
-        </main>
+        </section>
       </div>
     </div>
-    {supportModal ? (
+    {/* QA-104: placed at the top level of the page, so an animated section can't trap the full-screen layer. */}
+    {supportModal ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sheet-backdrop"
           onClick={() => setSupportModal(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl sheet-panel"
             onClick={(e) => e.stopPropagation()}
           >
             {supportModal === 'email' ? (
@@ -468,87 +542,41 @@ export const PatientSettings = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-xl">✉️</div>
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Email Support</h2>
-                      <p className="text-xs text-slate-500">We typically reply within 24 hours</p>
+                      <h2 className="text-base font-bold text-slate-900">{t('patient.settings.emailSupport')}</h2>
+                      <p className="text-xs text-slate-500">{t('patient.settings.emailSupportSub')}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="rounded-xl bg-cyan-50 border border-cyan-100 p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Email</span>
+                      <span className="text-slate-500">{t('patient.settings.email')}</span>
                       <span className="font-bold text-slate-900">support@ceenaix.com</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Response Time</span>
-                      <span className="font-bold text-slate-900">Within 24 hours</span>
+                      <span className="text-slate-500">{t('patient.settings.responseTime')}</span>
+                      <span className="font-bold text-slate-900">{t('patient.settings.within24h')}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Hours</span>
-                      <span className="font-bold text-slate-900">Sunday – Thursday</span>
+                      <span className="text-slate-500">{t('patient.settings.hours')}</span>
+                      <span className="font-bold text-slate-900">{t('patient.settings.sundayToThursday')}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500">Include your account email and a description of your issue for faster resolution.</p>
+                  <p className="text-sm text-slate-500">{t('patient.settings.emailSupportTip')}</p>
                 </div>
                 <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Cancel
+                    {t('shared.cancel')}
                   </button>
                   <a
                     href={`mailto:support@ceenaix.com?subject=Support Request — ${profile?.email ?? ''}&body=Hi CeenAiX Support,%0D%0A%0D%0AAccount: ${profile?.email ?? ''}%0D%0A%0D%0AIssue description:%0D%0A`}
                     className="flex-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-cyan-700"
                     onClick={() => setSupportModal(null)}
                   >
-                    Open Email
-                  </a>
-                </div>
-              </>
-            ) : supportModal === 'whatsapp' ? (
-              <>
-                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">💬</div>
-                    <div>
-                      <h2 className="text-base font-bold text-slate-900">WhatsApp Support</h2>
-                      <p className="text-xs text-slate-500">Chat with our support team</p>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
-                  </button>
-                </div>
-                <div className="p-6 space-y-4">
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">WhatsApp Number</span>
-                      <span className="font-bold text-slate-900">+971 50 000 0000</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Available</span>
-                      <span className="font-bold text-slate-900">9AM – 6PM GST</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Days</span>
-                      <span className="font-bold text-slate-900">Sunday – Thursday</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-slate-500">Our support team will respond to your message during working hours.</p>
-                </div>
-                <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-                  <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Cancel
-                  </button>
-                  <a
-                    href="https://wa.me/971500000000?text=Hi%20CeenAiX%20Support%2C%20I%20need%20help%20with%20my%20account."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-emerald-700"
-                    onClick={() => setSupportModal(null)}
-                  >
-                    Open WhatsApp
+                    {t('patient.settings.openEmail')}
                   </a>
                 </div>
               </>
@@ -558,37 +586,37 @@ export const PatientSettings = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">🐛</div>
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Report a Bug</h2>
-                      <p className="text-xs text-slate-500">Help us improve CeenAiX</p>
+                      <h2 className="text-base font-bold text-slate-900">{t('patient.settings.reportBug')}</h2>
+                      <p className="text-xs text-slate-500">{t('patient.settings.reportBugHint')}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="rounded-xl bg-red-50 border border-red-100 p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Report To</span>
+                      <span className="text-slate-500">{t('patient.settings.reportTo')}</span>
                       <span className="font-bold text-slate-900">bugs@ceenaix.com</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Response Time</span>
-                      <span className="font-bold text-slate-900">Within 48 hours</span>
+                      <span className="text-slate-500">{t('patient.settings.responseTime')}</span>
+                      <span className="font-bold text-slate-900">{t('patient.settings.within48h')}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500">Please include steps to reproduce the bug, which page it occurred on, and any screenshots if possible.</p>
+                  <p className="text-sm text-slate-500">{t('patient.settings.bugTip')}</p>
                 </div>
                 <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Cancel
+                    {t('shared.cancel')}
                   </button>
                   <a
                     href={`mailto:bugs@ceenaix.com?subject=Bug Report — CeenAiX Patient Portal&body=Account: ${profile?.email ?? ''}%0D%0A%0D%0APage where bug occurred:%0D%0A%0D%0ASteps to reproduce:%0D%0A1. %0D%0A2. %0D%0A3. %0D%0A%0D%0AExpected behavior:%0D%0A%0D%0AActual behavior:%0D%0A`}
                     className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white text-center transition hover:bg-red-700"
                     onClick={() => setSupportModal(null)}
                   >
-                    Send Bug Report
+                    {t('patient.settings.sendBugReport')}
                   </a>
                 </div>
               </>
@@ -598,37 +626,32 @@ export const PatientSettings = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl">📖</div>
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Help Center</h2>
-                      <p className="text-xs text-slate-500">Browse FAQs and guides</p>
+                      <h2 className="text-base font-bold text-slate-900">{t('patient.settings.helpCenter')}</h2>
+                      <p className="text-xs text-slate-500">{t('patient.settings.helpCenterHint')}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
-                    <HelpCircle className="h-5 w-5" />
+                  <button type="button" onClick={() => setSupportModal(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label={t('shared.close')}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-3">
-                  {[
-                    { q: 'How do I book an appointment?', a: 'Go to Appointments → New Appointment and select your preferred doctor and time slot.' },
-                    { q: 'How do I request a prescription refill?', a: 'Go to Prescriptions → find your medication → click Request Refill to message your doctor.' },
-                    { q: 'How do I view my lab results?', a: 'Go to Lab Results to see all your test results, trends and upcoming tests.' },
-                    { q: 'How do I update my insurance?', a: 'Go to Profile → Insurance section to update your insurance details.' },
-                    { q: 'How do I change my password?', a: 'Go to Settings → Security → click Email me a password reset link.' },
-                  ].map((item, idx) => (
-                    <div key={idx} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                      <div className="text-sm font-bold text-slate-900">❓ {item.q}</div>
-                      <div className="mt-1 text-sm text-slate-500">{item.a}</div>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <div key={n} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="text-sm font-bold text-slate-900">❓ {t(`patient.settings.faq.q${n}`)}</div>
+                      <div className="mt-1 text-sm text-slate-500">{t(`patient.settings.faq.a${n}`)}</div>
                     </div>
                   ))}
                 </div>
                 <div className="border-t border-slate-100 px-6 py-4">
                   <button type="button" onClick={() => setSupportModal(null)} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    Close
+                    {t('shared.close')}
                   </button>
                 </div>
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );

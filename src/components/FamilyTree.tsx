@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, Heart } from 'lucide-react';
 
 interface FamilyMember {
@@ -19,6 +20,23 @@ interface FamilyTreeProps {
 }
 
 export const FamilyTree: React.FC<FamilyTreeProps> = ({ members, primaryUser }) => {
+  const { t } = useTranslation();
+  const relationshipLabel = (relationship: string) => {
+    switch (relationship) {
+      case 'Spouse':
+        return t('patient.profile.relSpouse');
+      case 'Child':
+        return t('patient.profile.relChild');
+      case 'Parent':
+        return t('patient.profile.relParent');
+      case 'Sibling':
+        return t('patient.profile.relSibling');
+      case 'Other':
+        return t('patient.profile.relOther');
+      default:
+        return relationship;
+    }
+  };
   const spouse = members.find(m => m.relationship === 'Spouse');
   const parents = members.filter(m => m.relationship === 'Parent');
   const children = members.filter(m => m.relationship === 'Child');
@@ -49,7 +67,7 @@ export const FamilyTree: React.FC<FamilyTreeProps> = ({ members, primaryUser }) 
       <div className="text-center">
         <p className={`${isPrimary ? 'font-bold text-base' : 'font-semibold text-sm'} text-gray-900`}>{member.name}</p>
         {'relationship' in member && member.relationship && (
-          <p className="text-xs text-gray-500 font-medium">{member.relationship}</p>
+          <p className="text-xs text-gray-500 font-medium">{relationshipLabel(member.relationship)}</p>
         )}
       </div>
     </div>
@@ -62,8 +80,8 @@ export const FamilyTree: React.FC<FamilyTreeProps> = ({ members, primaryUser }) 
           <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-amber-100 rounded-3xl flex items-center justify-center">
             <User className="w-10 h-10 text-orange-500" />
           </div>
-          <p className="text-lg font-semibold text-gray-700">No family members added yet</p>
-          <p className="text-sm text-gray-500 mt-2">Add your family members to see the family tree</p>
+          <p className="text-lg font-semibold text-gray-700">{t('patient.profile.familyEmptyTitle')}</p>
+          <p className="text-sm text-gray-500 mt-2">{t('patient.profile.familyEmptyBody')}</p>
         </div>
       ) : (
         <div className="flex flex-col items-center space-y-12">
@@ -123,7 +141,7 @@ export const FamilyTree: React.FC<FamilyTreeProps> = ({ members, primaryUser }) 
           {others.length > 0 && (
             <div className="flex flex-col items-center space-y-4 mt-8">
               <div className="h-8 w-0.5 bg-gradient-to-b from-gray-300 to-slate-300"></div>
-              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Other Relations</p>
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">{t('patient.profile.familyOtherRelations')}</p>
               <div className="flex justify-center gap-8 flex-wrap">
                 {others.map(other => (
                   <div key={other.id}>
