@@ -40,11 +40,12 @@ import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { createPdfReport, drawPdfFooters, drawPdfHeader } from '../../lib/pdf-report';
 import { savePdf } from '../../lib/save-file';
-import type { LabItemStatusCategory } from '../../types';
+import { labItemDisplayStatus, type LabDisplayStatus } from '../../lib/lab-report-item';
 
 // Lab result categories reuse the existing Lab Results status badge keys.
-const LAB_STATUS_KEY: Record<LabItemStatusCategory, string> = {
+const LAB_STATUS_KEY: Record<LabDisplayStatus, string> = {
   normal: 'patient.labResults.statusNormal',
+  abnormal: 'patient.labResults.statusAbnormal',
   borderline: 'patient.labResults.statusBorderline',
   high: 'patient.labResults.statusHigh',
   low: 'patient.labResults.statusLow',
@@ -1233,9 +1234,7 @@ export const PatientDocuments = () => {
                                         : t('patient.documents.viewPending')}
                                   </span>
                                   <span className={`rounded-full px-3 py-1 text-xs font-bold ${isAbnormal ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                    {LAB_STATUS_KEY[item.status_category]
-                                      ? t(LAB_STATUS_KEY[item.status_category])
-                                      : (item.status_label ?? item.status_category)}
+                                    {t(LAB_STATUS_KEY[labItemDisplayStatus(item)])}
                                   </span>
                                 </div>
                               </div>

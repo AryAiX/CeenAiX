@@ -31,15 +31,16 @@ import { usePatientLabResults } from '../../hooks';
 import type { PatientLabOrderRecord } from '../../hooks/use-patient-lab-results';
 import { useAuth } from '../../lib/auth-context';
 import { dateTimeFormatWithNumerals, formatLocaleDecimal, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
-import { summarizeLabItemForReport } from '../../lib/lab-report-item';
+import { labItemDisplayStatus, summarizeLabItemForReport, type LabDisplayStatus } from '../../lib/lab-report-item';
 import { createPdfReport, drawPdfFooters, drawPdfHeader } from '../../lib/pdf-report';
 import { savePdf, saveTextFile } from '../../lib/save-file';
-import type { LabItemStatusCategory, LabOrderItem } from '../../types';
+import type { LabOrderItem } from '../../types';
 
 type LabTab = 'recent' | 'trends' | 'history' | 'upcoming' | 'reports';
 
-const STATUS_COLOR: Record<LabItemStatusCategory, string> = {
+const STATUS_COLOR: Record<LabDisplayStatus, string> = {
   normal: '#059669',
+  abnormal: '#F59E0B',
   borderline: '#F59E0B',
   low: '#F59E0B',
   high: '#F59E0B',
@@ -137,8 +138,10 @@ function buildReportText(order: PatientLabOrderRecord, dateStr: string, t: TFunc
   return lines.join('\n');
 }
 
-function statusBadgeKey(category: LabItemStatusCategory): string {
+function statusBadgeKey(category: LabDisplayStatus): string {
   switch (category) {
+    case 'abnormal':
+      return 'statusAbnormal';
     case 'normal':
       return 'statusNormal';
     case 'borderline':
@@ -170,7 +173,7 @@ function getZonePosition(item: LabOrderItem): number | null {
 }
 
 function getItemColor(item: LabOrderItem): string {
-  return item.category_color ?? STATUS_COLOR[item.status_category];
+  return item.category_color ?? STATUS_COLOR[labItemDisplayStatus(item)];
 }
 
 function zoneAxisMax(zones: LabOrderItem['reference_zones']): number | null {
@@ -619,7 +622,7 @@ export const PatientLabResults: React.FC = () => {
             const markerPercent = zoneMarkerPercent(item);
             const pillLabel =
               item.status_label ??
-              t(`patient.labResults.${statusBadgeKey(item.status_category)}`);
+              t(`patient.labResults.${statusBadgeKey(labItemDisplayStatus(item))}`);
             return (
               <div
                 key={item.id}
@@ -639,7 +642,7 @@ export const PatientLabResults: React.FC = () => {
                           className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full"
                           style={{ backgroundColor: withAlpha(color, 0.18) }}
                         >
-                          {item.status_category === 'normal' ? (
+                          {labItemDisplayStatus(item) === 'normal' ? (
                             <CheckCircle className="h-6 w-6" style={{ color }} />
                           ) : (
                             <AlertTriangle className="h-6 w-6" style={{ color }} />
@@ -814,7 +817,7 @@ export const PatientLabResults: React.FC = () => {
                                   style={{ color: subColor }}
                                 >
                                   {sub.status_label ??
-                                    t(`patient.labResults.${statusBadgeKey(sub.status_category)}`)}
+                                    t(`patient.labResults.${statusBadgeKey(labItemDisplayStatus(sub))}`)}
                                 </div>
                               </div>
                             );
@@ -1192,7 +1195,7 @@ export const PatientLabResults: React.FC = () => {
               {isExpanded ? (
                 <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
                   {order.parentItems.map((item) => {
-                    const color = STATUS_COLOR[item.status_category];
+                    const color = STATUS_COLOR[labItemDisplayStatus(item)];
                     return (
                       // On a phone, name on the first line, value and status on the next.
                       <div
@@ -1230,7 +1233,7 @@ export const PatientLabResults: React.FC = () => {
                             className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold"
                             style={{ backgroundColor: withAlpha(color, 0.2), color }}
                           >
-                            {t(`patient.labResults.${statusBadgeKey(item.status_category)}`)}
+                            {t(`patient.labResults.${statusBadgeKey(labItemDisplayStatus(item))}`)}
                           </div>
                         </div>
                       </div>
@@ -2173,13 +2176,13 @@ export const PatientLabResults: React.FC = () => {
 
             <div className="space-y-2 p-6">
               {previewOrder.parentItems.map((item) => {
-                const color = item.category_color ?? STATUS_COLOR[item.status_category];
+                const color = item.category_color ?? STATUS_COLOR[labItemDisplayStatus(item)];
                 const value =
                   item.numeric_value != null
                     ? `${item.numeric_value}${item.result_unit ? ` ${item.result_unit}` : ''}`
                     : (item.result_value ?? '—');
                 const label =
-                  item.status_label ?? t(`patient.labResults.${statusBadgeKey(item.status_category)}`);
+                  item.status_label ?? t(`patient.labResults.${statusBadgeKey(labItemDisplayStatus(item))}`);
                 return (
                   <div
                     key={item.id}

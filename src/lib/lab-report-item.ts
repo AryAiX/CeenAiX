@@ -1,12 +1,12 @@
 import type { TFunction } from 'i18next';
-import type { LabOrderItem } from '../types';
+import type { LabItemStatusCategory, LabOrderItem } from '../types';
 
 /**
  * How one lab result is shown in the downloaded PDF and the "Copy text" summary (QA-069).
  *
- * A result with no value never gets a normal/abnormal verdict: the database marks every
- * result "normal" until the lab sets a category, so a test still waiting for its result
- * used to print as NORMAL in green.
+ * A result with no value never gets a normal/abnormal verdict: the database used to mark
+ * every result "normal" until the lab set a category, so a test still waiting for its result
+ * printed as NORMAL in green.
  */
 export type LabReportTone = 'normal' | 'abnormal' | 'pending' | 'none';
 
@@ -16,7 +16,7 @@ export interface LabReportItemSummary {
   tone: LabReportTone;
 }
 
-const ABNORMAL_CATEGORIES = new Set(['borderline', 'high', 'elevated', 'low', 'critical']);
+const ABNORMAL_CATEGORIES = new Set(['borderline', 'high', 'elevated', 'low', 'critical', 'abnormal']);
 
 const CATEGORY_KEYS: Record<string, string> = {
   normal: 'statusNormal',
@@ -25,10 +25,43 @@ const CATEGORY_KEYS: Record<string, string> = {
   elevated: 'statusHigh',
   low: 'statusLow',
   critical: 'statusCritical',
+  abnormal: 'statusAbnormal',
 };
 
 export function hasLabResultValue(item: Pick<LabOrderItem, 'numeric_value' | 'result_value'>): boolean {
   return item.numeric_value != null || (item.result_value != null && item.result_value.trim() !== '');
+}
+
+/** What the patient pages show for one result: a stored category, or "abnormal" when only the lab's flag is known. */
+export type LabDisplayStatus = LabItemStatusCategory | 'abnormal';
+
+const STORED_CATEGORIES: Record<string, LabItemStatusCategory> = {
+  normal: 'normal',
+  borderline: 'borderline',
+  high: 'high',
+  // The database allows "elevated"; the pages call the same thing "high".
+  elevated: 'high',
+  low: 'low',
+  critical: 'critical',
+  pending: 'pending',
+};
+
+/**
+ * The status to show for one lab result (QA-105).
+ *
+ * status_category is NULL until the lab or doctor sets it, and results saved from the lab
+ * portal never set it (so older ones still carry the old "normal" default). So: a stored
+ * category wins, except that "normal" never overrides the lab's abnormal flag; with no
+ * category, a test with no value is Pending and a test with a value follows is_abnormal.
+ */
+export function labItemDisplayStatus(
+  item: Pick<LabOrderItem, 'numeric_value' | 'result_value' | 'status_category' | 'is_abnormal'>
+): LabDisplayStatus {
+  const stored = item.status_category ? STORED_CATEGORIES[String(item.status_category)] : undefined;
+  if (stored === 'normal' && item.is_abnormal === true) return 'abnormal';
+  if (stored) return stored;
+  if (!hasLabResultValue(item)) return 'pending';
+  return item.is_abnormal === true ? 'abnormal' : 'normal';
 }
 
 export function summarizeLabItemForReport(
@@ -50,7 +83,7 @@ export function summarizeLabItemForReport(
 
   const raw = item.numeric_value != null ? String(item.numeric_value) : (item.result_value ?? '').trim();
   const value = item.result_unit ? `${raw} ${item.result_unit}` : raw;
-  const category = String(item.status_category);
+  const category = labItemDisplayStatus(item);
   if (category === 'pending') return { value, status: key('statusPending'), tone: 'pending' };
   const abnormal = item.is_abnormal === true || ABNORMAL_CATEGORIES.has(category);
   const translated = key(CATEGORY_KEYS[category] ?? (abnormal ? 'statusAbnormal' : 'statusNormal'));
