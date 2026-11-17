@@ -218,7 +218,8 @@ export function App(): React.ReactElement | null {
             setSupportMultipleWindows
             javaScriptCanOpenWindowsAutomatically
             contentInsetAdjustmentBehavior="never"
-            decelerationRate="normal"
+            // Only the iOS wrapper converts 'normal' to a number; Android's native prop is a Double.
+            decelerationRate={Platform.OS === 'ios' ? 'normal' : undefined}
             textInteractionEnabled
             webviewDebuggingEnabled={__DEV__}
           />
