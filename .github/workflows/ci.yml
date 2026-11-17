@@ -28,8 +28,14 @@ jobs:
       - name: Lint
         run: npx eslint . --max-warnings 0
 
-      - name: Typecheck
-        run: npx tsc --noEmit
+      - name: Typecheck (app)
+        run: npm run typecheck
+
+      - name: Typecheck (node config)
+        run: npx tsc --noEmit -p tsconfig.node.json
+
+      - name: Unit tests
+        run: npx vitest run src
 
       - name: Build
         run: npm run build
