@@ -24,7 +24,8 @@ export const ChatbotButton: React.FC = () => {
   return (
     <>
       {/* Floating chatbot button */}
-      <div className="chatbot-fab fixed bottom-6 right-6 z-50">
+      {/* Patients on phones reach the AI Assistant from the top bar, so the floating button cannot cover page buttons (QA-108). */}
+      <div className={`chatbot-fab fixed bottom-6 right-6 z-50${role === 'patient' ? ' hidden lg:block' : ''}`}>
         <div className="relative">
           {/* Tooltip */}
           {showTooltip && (

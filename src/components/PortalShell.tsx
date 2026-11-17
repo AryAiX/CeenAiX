@@ -534,6 +534,22 @@ export const PortalShell = ({
           >
             {patientPageTitle}
           </p>
+          {/* On phones the AI Assistant lives here instead of a floating button, which covered buttons such as Mark Taken (QA-108). */}
+          <button
+            type="button"
+            onClick={() => navigate('/patient/ai-chat')}
+            aria-label={t('nav.aiAssistant')}
+            title={t('nav.aiAssistant')}
+            data-testid="patient-ai-button"
+            aria-current={location.pathname === '/patient/ai-chat' ? 'page' : undefined}
+            className={`rounded-lg p-2 transition-colors ${
+              location.pathname === '/patient/ai-chat'
+                ? 'bg-cyan-50 text-cyan-600'
+                : 'text-slate-600 hover:bg-cyan-50 hover:text-cyan-600'
+            }`}
+          >
+            <Bot className="h-5 w-5" />
+          </button>
           <button
             type="button"
             onClick={() => {

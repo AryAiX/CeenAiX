@@ -582,15 +582,16 @@ export const PatientDashboard: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between">
-        <div>
+      {/* The greeting side may shrink and wrap so the date line never runs under the Collected card on a phone (QA-107). */}
+      <div className="flex items-start justify-between gap-3 sm:items-center">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-slate-500">{localCopy.greeting},</p>
-          <h1 className="mt-0.5 font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{displayName}</h1>
-          <p className="mt-1 text-xs text-slate-400">
+          <h1 className="mt-0.5 break-words font-playfair text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">{displayName}</h1>
+          <p className="mt-1 break-words text-xs text-slate-400">
             {todayLabel} · {profile?.city?.trim() || localCopy.dateLocation}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {SHOW_HEALTH_SCORE ? (
             <div className="rounded-xl border border-slate-100 bg-white px-5 py-3 text-center shadow-sm">
               <p className="text-xs font-medium tracking-wide text-slate-400">{localCopy.healthScore}</p>
