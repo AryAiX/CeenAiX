@@ -1237,17 +1237,17 @@ export const PortalShell = ({
         <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</main>
       </div>
       {showLogoutConfirm ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900">Sign Out</h3>
-            <p className="mt-2 text-sm text-gray-500">Are you sure you want to sign out?</p>
+            <h3 className="text-lg font-bold text-gray-900">{t('nav.logOutConfirmTitle')}</h3>
+            <p className="mt-2 text-sm text-gray-500">{t('nav.logOutConfirmBody')}</p>
             <div className="mt-6 flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
                 className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Cancel
+                {t('shared.cancel')}
               </button>
               <button
                 type="button"
@@ -1257,7 +1257,7 @@ export const PortalShell = ({
                 }}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
               >
-                Yes, Sign Out
+                {t('nav.logOutConfirmYes')}
               </button>
             </div>
           </div>
