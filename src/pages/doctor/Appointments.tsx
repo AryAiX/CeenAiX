@@ -5,6 +5,7 @@ import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ClipboardLis
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { noShowRatePercent, summarizeAppointments } from '../../lib/appointment-stats';
 import { supabase } from '../../lib/supabase';
 import {
   appointmentTypeLabel,
@@ -296,26 +297,23 @@ export const DoctorAppointments: React.FC = () => {
       }),
     [appointments, endOfMonth, startOfMonth]
   );
-  const monthNoShows = useMemo(
-    () => monthAppointments.filter((appointment) => ['no_show', 'cancelled'].includes(appointment.status)).length,
-    [monthAppointments]
-  );
-  const todayDone = todayAppointmentsForStats.filter((appointment) => appointment.status === 'completed').length;
-  // Canonical AppointmentStatus enum: scheduled / confirmed / in_progress /
-  // completed / cancelled / no_show. The previous list used 'checked_in'
-  // which is not in the enum; remove it and keep parity with the week-level
-  // 'remaining' metric below.
-  const todayActive = todayAppointmentsForStats.filter((appointment) => appointment.status === 'in_progress').length;
-  const todayUpcoming = todayAppointmentsForStats.filter((appointment) =>
-    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
-  ).length;
-  const weekDone = weekAppointments.filter((appointment) => appointment.status === 'completed').length;
-  const weekRemaining = weekAppointments.filter((appointment) =>
-    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
-  ).length;
+  // QA-115: one set of status rules for every KPI (see lib/appointment-stats). Cancelled
+  // appointments no longer count as booked, an in-progress visit is "active" only (it used
+  // to be counted again as "upcoming"), and no-shows no longer include cancellations.
+  const todaySummary = useMemo(() => summarizeAppointments(todayAppointmentsForStats), [todayAppointmentsForStats]);
+  const weekSummary = useMemo(() => summarizeAppointments(weekAppointments), [weekAppointments]);
+  const monthSummary = useMemo(() => summarizeAppointments(monthAppointments), [monthAppointments]);
+  const scheduledTodayCount = useMemo(() => summarizeAppointments(routeAppointments).booked, [routeAppointments]);
+  const monthNoShows = monthSummary.noShows;
+  const todayDone = todaySummary.done;
+  const todayActive = todaySummary.active;
+  const todayUpcoming = todaySummary.upcoming;
+  const weekDone = weekSummary.done;
+  const weekRemaining = weekSummary.active + weekSummary.upcoming;
   const consultationFee = doctorProfile?.consultation_fee ?? 0;
   const weekRevenue = weekDone * consultationFee;
-  const todayRemainingRevenue = todayUpcoming * consultationFee;
+  // Still to earn today: the visit in progress plus the ones not started yet.
+  const todayRemainingRevenue = (todayActive + todayUpcoming) * consultationFee;
   const weekDays = useMemo(
     () =>
       Array.from({ length: 7 }, (_, index) => {
@@ -540,7 +538,7 @@ export const DoctorAppointments: React.FC = () => {
               {
                 label: t('doctor.dashboard.todayAppts'),
                 action: 'today' as const,
-                value: todayAppointmentsForStats.length,
+                value: todaySummary.booked,
                 sub: t('doctor.appointments.kpiTodaySub', {
                   done: formatLocaleDigits(todayDone, uiLang),
                   active: formatLocaleDigits(todayActive, uiLang),
@@ -549,12 +547,12 @@ export const DoctorAppointments: React.FC = () => {
                 icon: CalendarCheck,
                 iconClass: 'bg-teal-100 text-teal-600',
                 valueClass: 'text-slate-900',
-                progress: todayAppointmentsForStats.length > 0 ? (todayDone / todayAppointmentsForStats.length) * 100 : 0,
+                progress: todaySummary.booked > 0 ? (todayDone / todaySummary.booked) * 100 : 0,
               },
               {
                 label: t('doctor.appointments.kpiWeek'),
                 action: 'week' as const,
-                value: weekAppointments.length,
+                value: weekSummary.booked,
                 sub: t('doctor.appointments.kpiWeekSub', {
                   done: formatLocaleDigits(weekDone, uiLang),
                   remaining: formatLocaleDigits(weekRemaining, uiLang),
@@ -578,10 +576,7 @@ export const DoctorAppointments: React.FC = () => {
                 action: 'analytics' as const,
                 value: monthNoShows,
                 sub: t('doctor.appointments.kpiNoShowsSub', {
-                  rate: formatLocaleDigits(
-                    monthAppointments.length > 0 ? Math.round((monthNoShows / monthAppointments.length) * 1000) / 10 : 0,
-                    uiLang
-                  ),
+                  rate: formatLocaleDigits(noShowRatePercent(monthSummary), uiLang),
                 }),
                 icon: UserX,
                 iconClass: 'bg-red-100 text-red-500',
@@ -644,7 +639,7 @@ export const DoctorAppointments: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.statScheduledToday')}</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatLocaleDigits(routeAppointments.length, uiLang)}</p>
+                  <p className="text-2xl font-bold text-slate-900">{formatLocaleDigits(scheduledTodayCount, uiLang)}</p>
                 </div>
               </div>
             </div>
