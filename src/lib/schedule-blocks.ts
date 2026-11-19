@@ -63,3 +63,46 @@ export const upcomingBlocksByWeekday = <Block extends BlockLike>(
   }
   return grouped;
 };
+
+/**
+ * QA-129: recurring windows on the same day must not overlap.
+ *
+ * Patient booking merges overlapping windows, but the schedule page let doctors save them
+ * without a warning and its slot totals counted the overlap twice. New and edited windows are
+ * now checked against every other window on that day (active or paused, so activating a paused
+ * window later can't create an overlap either), and slot totals count each bookable slot once.
+ */
+type TimeRangeLike = { day_of_week: number; start_time: string; end_time: string };
+
+export const findOverlappingWindow = <Window extends TimeRangeLike & { id: string }>(
+  windows: ReadonlyArray<Window>,
+  candidate: TimeRangeLike,
+  ignoreId?: string
+): Window | undefined =>
+  windows.find(
+    (window) =>
+      window.id !== ignoreId &&
+      window.day_of_week === candidate.day_of_week &&
+      toMinutes(window.start_time) < toMinutes(candidate.end_time) &&
+      toMinutes(candidate.start_time) < toMinutes(window.end_time)
+  );
+
+/** Slots patients can actually book on a weekday: active windows only, shared slots counted once. */
+export const bookableSlotsForDay = (windows: ReadonlyArray<WindowLike>, weekday: number): number => {
+  const starts = new Set<number>();
+  for (const window of windows) {
+    if (!window.is_active || window.day_of_week !== weekday || window.slot_duration_minutes <= 0) continue;
+    const windowEnd = toMinutes(window.end_time);
+    for (
+      let slotStart = toMinutes(window.start_time);
+      slotStart + window.slot_duration_minutes <= windowEnd;
+      slotStart += window.slot_duration_minutes
+    ) {
+      starts.add(slotStart);
+    }
+  }
+  return starts.size;
+};
+
+export const weeklyBookableSlots = (windows: ReadonlyArray<WindowLike>): number =>
+  [0, 1, 2, 3, 4, 5, 6].reduce((total, weekday) => total + bookableSlotsForDay(windows, weekday), 0);

@@ -1954,7 +1954,8 @@
       "blockedOnDay": "Blocked {{date}}, {{range}}",
       "slotsRemovedNone": "no bookable slots affected",
       "slotsRemoved_one": "{{count}} fewer slot that day",
-      "slotsRemoved_other": "{{count}} fewer slots that day"
+      "slotsRemoved_other": "{{count}} fewer slots that day",
+      "errOverlap": "This window overlaps the existing {{day}} window, {{range}}. Change the times or edit that window instead."
     },
     "patientDetail": {
       "titleFallback": "Patient detail",

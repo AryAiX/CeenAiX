@@ -2068,7 +2068,8 @@
       "slotsRemoved_two": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
       "slotsRemoved_few": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
       "slotsRemoved_many": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
-      "slotsRemoved_other": "عدد الفترات في ذلك اليوم أقل بـ {{count}}"
+      "slotsRemoved_other": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
+      "errOverlap": "تتداخل هذه النافذة مع نافذة {{day}} الحالية، {{range}}. غيّر الأوقات أو عدّل تلك النافذة بدلاً من ذلك."
     },
     "patientDetail": {
       "titleFallback": "تفاصيل المريض",

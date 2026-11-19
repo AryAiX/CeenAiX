@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { slotsRemovedByBlock, upcomingBlocksByWeekday, weekdayOfDateKey } from './schedule-blocks';
+import {
+  bookableSlotsForDay,
+  findOverlappingWindow,
+  slotsRemovedByBlock,
+  upcomingBlocksByWeekday,
+  weekdayOfDateKey,
+  weeklyBookableSlots,
+} from './schedule-blocks';
 
 // 21 Nov 2026 is a Saturday; 20 Nov 2026 is a Friday.
 const fridayWindow = { day_of_week: 5, start_time: '09:00:00', end_time: '17:00:00', slot_duration_minutes: 30, is_active: true };
@@ -58,5 +65,46 @@ describe('upcomingBlocksByWeekday', () => {
 
   it('keeps a block that is today', () => {
     expect(upcomingBlocksByWeekday(blocks, '2026-11-20').get(5)?.[0].id).toBe('this-fri');
+  });
+});
+
+describe('findOverlappingWindow (QA-129)', () => {
+  const windows = [
+    { id: 'mon-am', day_of_week: 1, start_time: '09:00:00', end_time: '12:00:00' },
+    { id: 'mon-pm', day_of_week: 1, start_time: '14:00:00', end_time: '17:00:00' },
+    { id: 'tue', day_of_week: 2, start_time: '09:00:00', end_time: '17:00:00' },
+  ];
+
+  it('finds a window that overlaps on the same day', () => {
+    expect(findOverlappingWindow(windows, { day_of_week: 1, start_time: '11:00', end_time: '14:00' })?.id).toBe('mon-am');
+  });
+
+  it('allows back-to-back windows and other days', () => {
+    expect(findOverlappingWindow(windows, { day_of_week: 1, start_time: '12:00', end_time: '14:00' })).toBeUndefined();
+    expect(findOverlappingWindow(windows, { day_of_week: 3, start_time: '09:00', end_time: '17:00' })).toBeUndefined();
+  });
+
+  it('ignores the window being edited', () => {
+    expect(findOverlappingWindow(windows, { day_of_week: 1, start_time: '08:00', end_time: '12:30' }, 'mon-am')).toBeUndefined();
+    expect(findOverlappingWindow(windows, { day_of_week: 1, start_time: '08:00', end_time: '14:30' }, 'mon-am')?.id).toBe('mon-pm');
+  });
+});
+
+describe('bookableSlotsForDay / weeklyBookableSlots (QA-129)', () => {
+  it('counts slots shared by overlapping windows once', () => {
+    const overlapping = [
+      { day_of_week: 1, start_time: '09:00', end_time: '12:00', slot_duration_minutes: 30, is_active: true },
+      { day_of_week: 1, start_time: '11:00', end_time: '14:00', slot_duration_minutes: 30, is_active: true },
+    ];
+    // 9:00..13:30 = 10 slots, not 6 + 6 = 12
+    expect(bookableSlotsForDay(overlapping, 1)).toBe(10);
+  });
+
+  it('does not count paused windows', () => {
+    expect(bookableSlotsForDay([{ ...fridayWindow, is_active: false }], 5)).toBe(0);
+  });
+
+  it('adds up the week', () => {
+    expect(weeklyBookableSlots([fridayWindow, { ...fridayWindow, day_of_week: 2, slot_duration_minutes: 60 }])).toBe(16 + 8);
   });
 });

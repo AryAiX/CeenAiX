@@ -18,7 +18,13 @@ import {
   formatLocaleDigits,
   resolveLocale,
 } from '../../lib/i18n-ui';
-import { slotsRemovedByBlock, upcomingBlocksByWeekday } from '../../lib/schedule-blocks';
+import {
+  bookableSlotsForDay,
+  findOverlappingWindow,
+  slotsRemovedByBlock,
+  upcomingBlocksByWeekday,
+  weeklyBookableSlots,
+} from '../../lib/schedule-blocks';
 import { supabase } from '../../lib/supabase';
 
 type FeedbackState =
@@ -83,6 +89,15 @@ export const DoctorSchedule: React.FC = () => {
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(i18n.language, options);
   // 7 Jan 2024 was a Sunday, so 7 + day_of_week gives that weekday's name in the current language.
   const dayLabel = (value: number) => new Date(2024, 0, 7 + value).toLocaleDateString(locale, dtOpts({ weekday: 'long' }));
+  // QA-129: message for a window that overlaps an existing one on the same day.
+  const overlapMessage = (window: { day_of_week: number; start_time: string; end_time: string }) =>
+    t('doctor.schedule.errOverlap', {
+      day: dayLabel(window.day_of_week),
+      range: t('doctor.schedule.timeRange', {
+        start: formatTimeLabel(window.start_time, i18n.language),
+        end: formatTimeLabel(window.end_time, i18n.language),
+      }),
+    });
   const { user } = useAuth();
   const { data, loading, error, refetch } = useDoctorSchedule(user?.id);
 
@@ -149,6 +164,16 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
+    const clash = findOverlappingWindow(availabilities, {
+      day_of_week: Number(availabilityForm.dayOfWeek),
+      start_time: availabilityForm.startTime,
+      end_time: availabilityForm.endTime,
+    });
+    if (clash) {
+      setError(overlapMessage(clash));
+      return;
+    }
+
     setIsSavingAvailability(true);
 
     const { error: insertError } = await supabase.from('doctor_availability').insert({
@@ -206,6 +231,18 @@ export const DoctorSchedule: React.FC = () => {
   const handleAvailabilityUpdate = async (availabilityId: string) => {
     if (editAvailabilityForm.startTime >= editAvailabilityForm.endTime) {
       setError(t('doctor.schedule.errEditEndAfterStart'));
+      return;
+    }
+    const editing = availabilities.find((availability) => availability.id === availabilityId);
+    const clash = editing
+      ? findOverlappingWindow(
+          availabilities,
+          { day_of_week: editing.day_of_week, start_time: editAvailabilityForm.startTime, end_time: editAvailabilityForm.endTime },
+          availabilityId
+        )
+      : undefined;
+    if (clash) {
+      setError(overlapMessage(clash));
       return;
     }
     setFeedback(null);
@@ -320,13 +357,8 @@ export const DoctorSchedule: React.FC = () => {
     return Math.floor(totalMinutes / slotDurationMinutes);
   };
 
-  const totalWeeklySlots = useMemo(() => {
-    return availabilities
-      .filter((availability) => availability.is_active)
-      .reduce((total, availability) => {
-        return total + calculateSlots(availability.start_time, availability.end_time, availability.slot_duration_minutes);
-      }, 0);
-  }, [availabilities]);
+  // QA-129: bookable slots only (active windows, overlap counted once), same rule as patient booking.
+  const totalWeeklySlots = useMemo(() => weeklyBookableSlots(availabilities), [availabilities]);
 
   return (
     <>
@@ -517,10 +549,7 @@ export const DoctorSchedule: React.FC = () => {
                           {day.entries.length === 0
                             ? t('doctor.schedule.dayUnavailable')
                             : `${t('doctor.schedule.windowsCount', { count: day.entries.length })} · ${t('doctor.schedule.slotsCount', {
-                                count: day.entries.reduce(
-                                  (total, entry) => total + calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes),
-                                  0
-                                ),
+                                count: bookableSlotsForDay(availabilities, day.value),
                               })}`}
                         </span>
                       </div>
