@@ -304,6 +304,12 @@ export const DoctorAppointments: React.FC = () => {
   const weekSummary = useMemo(() => summarizeAppointments(weekAppointments), [weekAppointments]);
   const monthSummary = useMemo(() => summarizeAppointments(monthAppointments), [monthAppointments]);
   const scheduledTodayCount = useMemo(() => summarizeAppointments(routeAppointments).booked, [routeAppointments]);
+  // Completion-rate denominator: appointments that actually had the chance to complete
+  // (cancelled and no-show rows excluded).
+  const completionEligible = useMemo(() => {
+    const summary = summarizeAppointments(routeAppointments);
+    return summary.booked - summary.noShows;
+  }, [routeAppointments]);
   const monthNoShows = monthSummary.noShows;
   const todayDone = todaySummary.done;
   const todayActive = todaySummary.active;
@@ -1200,33 +1206,18 @@ export const DoctorAppointments: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.completionRate')}</p>
                   <p className="mt-3 text-3xl font-bold text-slate-900">
-                    {/*
-                      Denominator is appointments that actually had the chance
-                      to complete. Cancelled / no-show rows are excluded so a
-                      busy clinic with frequent no-shows doesn't appear to be
-                      missing completions it never had.
-                    */}
-                    {(() => {
-                      const eligible = routeAppointments.filter(
-                        (appointment) =>
-                          appointment.status !== 'cancelled' &&
-                          appointment.status !== 'no_show'
-                      ).length;
-                      return eligible > 0
-                        ? `${formatLocaleDigits(Math.round((completedCount / eligible) * 100), uiLang)}%`
-                        : '0%';
-                    })()}
+                    {t('doctor.appointments.percentValue', {
+                      value: formatLocaleDigits(
+                        completionEligible > 0 ? Math.round((completedCount / completionEligible) * 100) : 0,
+                        uiLang
+                      ),
+                    })}
                   </p>
                   <p className="mt-2 text-sm text-slate-500">
-                    {formatLocaleDigits(completedCount, uiLang)} completed of{' '}
-                    {formatLocaleDigits(
-                      routeAppointments.filter(
-                        (appointment) =>
-                          appointment.status !== 'cancelled' &&
-                          appointment.status !== 'no_show'
-                      ).length,
-                      uiLang
-                    )}
+                    {t('doctor.appointments.completionRateBody', {
+                      done: formatLocaleDigits(completedCount, uiLang),
+                      eligible: formatLocaleDigits(completionEligible, uiLang),
+                    })}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -1955,6 +1955,8 @@
       "sortOldest": "الأقدم أولاً",
       "clear": "مسح",
       "completionRate": "معدل الإكمال",
+      "percentValue": "{{value}}٪",
+      "completionRateBody": "{{done}} مكتملة من أصل {{eligible}}",
       "pendingWorkload": "عبء العمل المعلّق",
       "pendingWorkloadBody": "مواعيد مجدولة أو مؤكدة لا تزال في قائمة الانتظار.",
       "noShowsCancellations": "عدم الحضور / الإلغاءات",

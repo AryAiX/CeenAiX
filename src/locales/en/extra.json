@@ -1861,6 +1861,8 @@
       "sortOldest": "Oldest first",
       "clear": "Clear",
       "completionRate": "Completion rate",
+      "percentValue": "{{value}}%",
+      "completionRateBody": "{{done}} completed of {{eligible}}",
       "pendingWorkload": "Pending workload",
       "pendingWorkloadBody": "Scheduled or confirmed appointments still in the queue.",
       "noShowsCancellations": "No-shows / cancellations",
