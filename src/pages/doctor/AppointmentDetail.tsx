@@ -32,6 +32,7 @@ import {
   dateTimeFormatWithNumerals,
   labOrderStatusLabel,
   prescriptionStatusLabel,
+  preVisitStatusLabel,
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { formatCanonicalValueForReview } from '../../lib/canonical-record-updates';
@@ -58,6 +59,13 @@ const toReviewValue = (value: unknown): Parameters<typeof formatCanonicalValueFo
   value && typeof value === 'object'
     ? (value as Parameters<typeof formatCanonicalValueForReview>[0])
     : { value: null };
+
+const PRE_VISIT_STATUS_ICON: Record<string, string> = {
+  completed: '✅',
+  reviewed: '👁️',
+  in_progress: '⏳',
+  not_started: '🔘',
+};
 
 type ConsultationNotePayload = {
   appointment_id: string;
@@ -333,7 +341,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       return;
     }
     setShowCancelModal(false);
-    setFeedback({ type: 'success', message: 'Appointment cancelled successfully.' });
+    setFeedback({ type: 'success', message: t('doctor.appointmentDetail.cancelSuccess') });
     refetch();
   };
 
@@ -462,8 +470,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
           onClick={() => navigate('/doctor/appointments')}
           className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Appointments
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+          {t('doctor.consultationWorkspace.actionBackAppointments')}
         </button>
         <h1 className="text-2xl font-bold text-slate-900">{t('doctor.appointmentDetail.title')}</h1>
         <p className="mt-1 text-sm text-slate-500">{patientName}</p>
@@ -574,7 +582,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                     className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
                   >
                     <Video className="h-4 w-4" />
-                    <span>Join video visit</span>
+                    <span>{t('doctor.appointmentDetail.joinVideoVisit')}</span>
                   </button>
                 ) : null}
                 <button
@@ -623,7 +631,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </p>
               </div>
               {data.appointment.status === 'in_progress' ? (
-                <p className="mt-1 text-[10px] font-medium text-teal-600">● Currently active</p>
+                <p className="mt-1 text-[10px] font-medium text-teal-600">● {t('doctor.appointmentDetail.currentlyActive')}</p>
               ) : null}
             </button>
             <button
@@ -647,7 +655,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </p>
               </div>
               {data.appointment.status === 'completed' ? (
-                <p className="mt-1 text-[10px] font-medium text-emerald-600">✓ Appointment done</p>
+                <p className="mt-1 text-[10px] font-medium text-emerald-600">✓ {t('doctor.appointmentDetail.appointmentDone')}</p>
               ) : null}
             </button>
             <button
@@ -667,11 +675,11 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <p className={`text-xs font-semibold uppercase tracking-wide ${
                   data.appointment.status === 'no_show' ? 'text-red-700' : 'text-slate-500'
                 }`}>
-                  No-Show
+                  {t('doctor.appointmentDetail.statusNoShow')}
                 </p>
               </div>
               {data.appointment.status === 'no_show' ? (
-                <p className="mt-1 text-[10px] font-medium text-red-600">✗ Patient did not attend</p>
+                <p className="mt-1 text-[10px] font-medium text-red-600">✗ {t('doctor.appointmentDetail.patientDidNotAttend')}</p>
               ) : null}
             </button>
             {actions.canCancel ? (
@@ -683,10 +691,10 @@ export const DoctorAppointmentDetail: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-red-600">
-                    Cancel Appointment
+                    {t('doctor.appointments.cancel')}
                   </p>
                 </div>
-                <p className="mt-1 text-[10px] font-medium text-red-500">Notify patient and cancel</p>
+                <p className="mt-1 text-[10px] font-medium text-red-500">{t('doctor.appointmentDetail.cancelCardBody')}</p>
               </button>
             ) : null}
             <div className="rounded-2xl bg-slate-50 p-4">
@@ -721,7 +729,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
                 >
                   <User className="h-4 w-4" />
-                  View Full Record ↗
+                  {t('doctor.appointmentDetail.viewFullRecord')}{' '}
+                  <span aria-hidden="true" className="inline-block rtl:-scale-x-100">↗</span>
                 </a>
               </div>
               <div className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
@@ -788,11 +797,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                         : data.preVisitAssessment.status === 'in_progress' ? 'text-amber-700'
                         : 'text-slate-500'
                       }`}>
-                        {data.preVisitAssessment.status === 'completed' ? '✅ Completed'
-                        : data.preVisitAssessment.status === 'reviewed' ? '👁️ Reviewed'
-                        : data.preVisitAssessment.status === 'in_progress' ? '⏳ In Progress'
-                        : data.preVisitAssessment.status === 'not_started' ? '🔘 Not Started'
-                        : data.preVisitAssessment.status}
+                        {`${PRE_VISIT_STATUS_ICON[data.preVisitAssessment.status] ?? ''} ${preVisitStatusLabel(t, data.preVisitAssessment.status)}`.trim()}
                       </span>
                     </p>
                     {data.preVisitSummary ? (
@@ -810,13 +815,13 @@ export const DoctorAppointmentDetail: React.FC = () => {
                       <div className="mt-3 space-y-3">
                         {data.preVisitAnswers.map((answer) => {
                           const badge = answer.question_type === 'boolean' ? (
-                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">Yes/No</span>
+                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{t('doctor.appointmentDetail.questionTypeBoolean')}</span>
                           ) : answer.question_type === 'multi_select' ? (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Multi-select</span>
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">{t('doctor.appointmentDetail.questionTypeMulti')}</span>
                           ) : answer.question_type === 'single_select' ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Single choice</span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{t('doctor.appointmentDetail.questionTypeSingle')}</span>
                           ) : answer.question_type === 'date' ? (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Date</span>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{t('doctor.appointmentDetail.questionTypeDate')}</span>
                           ) : null;
                           return (
                             <div key={answer.id} className="rounded-xl bg-white px-3 py-3">
@@ -878,7 +883,9 @@ export const DoctorAppointmentDetail: React.FC = () => {
                                   ? 'bg-emerald-100 text-emerald-700'
                                   : 'bg-amber-100 text-amber-700'
                               }`}>
-                                {item.review_status === 'reviewed' ? '✅ Reviewed' : '⏳ Pending Review'}
+                                {item.review_status === 'reviewed'
+                                  ? `✅ ${t('shared.labOrderItemStatus.reviewed')}`
+                                  : `⏳ ${t('doctor.appointmentDetail.pendingReview')}`}
                               </span>
                             </div>
                           </div>
@@ -935,7 +942,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                                 ))}
                               </div>
                             ) : (
-                              <p className="border-t border-slate-100 pt-2 text-xs text-slate-400">No medication details available</p>
+                              <p className="border-t border-slate-100 pt-2 text-xs text-slate-400">{t('doctor.appointmentDetail.noMedicationDetails')}</p>
                             )}
                           </div>
                         );
@@ -990,9 +997,9 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <h3 className="text-xl font-bold text-slate-900">{t('doctor.appointmentDetail.soapTitle')}</h3>
                 <p className="text-sm text-slate-600">
                   {autoSaveStatus === 'saving' ? (
-                    <span className="text-amber-600">⏳ Auto-saving...</span>
+                    <span className="text-amber-600">⏳ {t('doctor.appointmentDetail.autoSaving')}</span>
                   ) : autoSaveStatus === 'saved' ? (
-                    <span className="text-emerald-600">✓ Auto-saved</span>
+                    <span className="text-emerald-600">✓ {t('doctor.appointmentDetail.autoSaved')}</span>
                   ) : (
                     t('doctor.appointmentDetail.soapSub')
                   )}
@@ -1002,7 +1009,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 {noteSaved ? (
                   <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
                     <CheckCircle2 className="h-4 w-4" />
-                    Saved!
+                    {t('doctor.appointmentDetail.savedShort')}
                   </span>
                 ) : null}
                 <button
@@ -1112,7 +1119,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Cancel Appointment</h2>
+              <h2 className="text-lg font-bold text-slate-900">{t('doctor.appointments.cancel')}</h2>
               <button
                 type="button"
                 onClick={() => setShowCancelModal(false)}
@@ -1131,7 +1138,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </p>
               </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                ⚠️ Cancelling this appointment will notify the patient immediately. This action cannot be undone.
+                ⚠️ {t('doctor.appointmentDetail.cancelWarning')}
               </div>
             </div>
             <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
@@ -1140,7 +1147,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 onClick={() => setShowCancelModal(false)}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Keep Appointment
+                {t('doctor.appointmentDetail.keepAppointment')}
               </button>
               <button
                 type="button"
@@ -1148,7 +1155,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 onClick={handleCancelAppointment}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
               >
-                {cancellingAppointment ? 'Cancelling...' : 'Cancel Appointment'}
+                {cancellingAppointment ? t('doctor.appointments.cancelling') : t('doctor.appointments.cancel')}
               </button>
             </div>
           </div>

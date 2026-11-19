@@ -22,7 +22,6 @@ type Json = Record<string, unknown>;
 const PLURAL_SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_other'] as const;
 
 const KNOWN_MISSING = new Set<string>([
-  'doctor.appointmentDetail.preVisitNotCompleted',
   'doctor.earnings.estimateNote',
   'doctor.earnings.exportComingSoon',
   'doctor.earnings.exportTab',
