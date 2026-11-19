@@ -18,6 +18,7 @@ import {
   formatLocaleDigits,
   resolveLocale,
 } from '../../lib/i18n-ui';
+import { slotsRemovedByBlock, upcomingBlocksByWeekday } from '../../lib/schedule-blocks';
 import { supabase } from '../../lib/supabase';
 
 type FeedbackState =
@@ -122,6 +123,8 @@ export const DoctorSchedule: React.FC = () => {
   );
 
   const activeAvailabilityCount = availabilities.filter((availability) => availability.is_active).length;
+  // QA-128: upcoming one-off blocks, shown on their weekday in the weekly schedule.
+  const upcomingBlocks = useMemo(() => upcomingBlocksByWeekday(blockedSlots, getTodayDate()), [blockedSlots]);
 
   const setSuccess = (message: string) => setFeedback({ type: 'success', message });
   const setError = (message: string) => setFeedback({ type: 'error', message });
@@ -667,6 +670,40 @@ export const DoctorSchedule: React.FC = () => {
                           })}
                         </div>
                       )}
+
+                      {(upcomingBlocks.get(day.value) ?? []).length > 0 ? (
+                        <ul className="mt-3 space-y-1.5">
+                          {(upcomingBlocks.get(day.value) ?? []).map((block) => {
+                            const removed = slotsRemovedByBlock(availabilities, block);
+                            return (
+                              <li
+                                key={block.id}
+                                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-xs text-orange-800"
+                              >
+                                <Ban className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                <span className="font-semibold">
+                                  {t('doctor.schedule.blockedOnDay', {
+                                    date: new Date(`${block.blocked_date}T00:00:00`).toLocaleDateString(
+                                      locale,
+                                      dtOpts({ weekday: 'short', day: 'numeric', month: 'short' })
+                                    ),
+                                    range: t('doctor.schedule.timeRange', {
+                                      start: formatTimeLabel(block.start_time, i18n.language),
+                                      end: formatTimeLabel(block.end_time, i18n.language),
+                                    }),
+                                  })}
+                                </span>
+                                <span>
+                                  ·{' '}
+                                  {removed > 0
+                                    ? t('doctor.schedule.slotsRemoved', { count: removed })
+                                    : t('doctor.schedule.slotsRemovedNone')}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : null}
                     </div>
                   ))
                 )}

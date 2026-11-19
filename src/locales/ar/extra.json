@@ -2060,7 +2060,15 @@
       "weeklySlotsBody_two": "الفترات المتاحة عبر نوافذك الأسبوعية النشطة: {{count}}",
       "weeklySlotsBody_few": "الفترات المتاحة عبر نوافذك الأسبوعية النشطة: {{count}}",
       "weeklySlotsBody_many": "الفترات المتاحة عبر نوافذك الأسبوعية النشطة: {{count}}",
-      "weeklySlotsBody_other": "الفترات المتاحة عبر نوافذك الأسبوعية النشطة: {{count}}"
+      "weeklySlotsBody_other": "الفترات المتاحة عبر نوافذك الأسبوعية النشطة: {{count}}",
+      "blockedOnDay": "محجوب {{date}}، {{range}}",
+      "slotsRemovedNone": "لا تتأثر أي فترات قابلة للحجز",
+      "slotsRemoved_zero": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
+      "slotsRemoved_one": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
+      "slotsRemoved_two": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
+      "slotsRemoved_few": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
+      "slotsRemoved_many": "عدد الفترات في ذلك اليوم أقل بـ {{count}}",
+      "slotsRemoved_other": "عدد الفترات في ذلك اليوم أقل بـ {{count}}"
     },
     "patientDetail": {
       "titleFallback": "تفاصيل المريض",

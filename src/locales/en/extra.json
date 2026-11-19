@@ -1950,7 +1950,11 @@
       "slotsAvailable_one": "{{count}} slot available",
       "slotsAvailable_other": "{{count}} slots available",
       "weeklySlotsBody_one": "{{count}} appointment slot available across your active weekly windows.",
-      "weeklySlotsBody_other": "{{count}} appointment slots available across your active weekly windows."
+      "weeklySlotsBody_other": "{{count}} appointment slots available across your active weekly windows.",
+      "blockedOnDay": "Blocked {{date}}, {{range}}",
+      "slotsRemovedNone": "no bookable slots affected",
+      "slotsRemoved_one": "{{count}} fewer slot that day",
+      "slotsRemoved_other": "{{count}} fewer slots that day"
     },
     "patientDetail": {
       "titleFallback": "Patient detail",
