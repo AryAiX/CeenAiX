@@ -152,8 +152,8 @@ export const DoctorPatientDetail: React.FC = () => {
           onClick={() => navigate('/doctor/patients')}
           className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Patients
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+          {t('doctor.imaging.actionBackPatients')}
         </button>
         <h1 className="text-2xl font-bold text-slate-900">{patientName}</h1>
         <p className="mt-1 text-sm text-slate-500">{t('doctor.patientDetail.subtitle')}</p>
@@ -170,27 +170,27 @@ export const DoctorPatientDetail: React.FC = () => {
                 <h2 className="mt-2 text-3xl font-bold">{patientName}</h2>
                 <div className="mt-4 grid gap-3 text-sm text-white/85 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Email</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">{t('doctor.patientDetail.email')}</p>
                     <p className="mt-0.5">{patientEmail}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Phone</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">{t('doctor.patientDetail.phone')}</p>
                     <p className="mt-0.5">{patientPhone}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">City</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">{t('doctor.patientDetail.city')}</p>
                     <p className="mt-0.5">{patientCity}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Blood Type</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">{t('doctor.patients.bloodType')}</p>
                     <p className="mt-0.5">{formatNullableText(data.patientExtensionProfile?.blood_type, t('doctor.patients.notProvided'))}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">🚨 Emergency Contact</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">🚨 {t('doctor.patientDetail.emergencyContact')}</p>
                     <p className="mt-0.5">{formatNullableText(data.patientExtensionProfile?.emergency_contact_name, t('doctor.patients.notProvided'))}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">🚨 Emergency Phone</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">🚨 {t('doctor.patientDetail.emergencyPhone')}</p>
                     <p className="mt-0.5">{formatNullableText(data.patientExtensionProfile?.emergency_contact_phone, t('doctor.patients.notProvided'))}</p>
                   </div>
                 </div>
@@ -289,8 +289,8 @@ export const DoctorPatientDetail: React.FC = () => {
                 {appointments.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
                     <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-                    <p className="font-semibold text-slate-700">No appointments yet</p>
-                    <p className="mt-1 text-sm text-slate-500">This patient has no appointment history with you.</p>
+                    <p className="font-semibold text-slate-700">{t('doctor.patientDetail.noAppointmentsTitle')}</p>
+                    <p className="mt-1 text-sm text-slate-500">{t('doctor.patientDetail.noAppointmentsBody')}</p>
                   </div>
                 ) : null}
                 {(showAllAppointments ? appointments : appointments.slice(0, 6)).map((appointment) => (
@@ -298,7 +298,7 @@ export const DoctorPatientDetail: React.FC = () => {
                     key={appointment.id}
                     type="button"
                     onClick={() => navigate(`/doctor/appointments/${appointment.id}`)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/50"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-emerald-200 hover:bg-emerald-50/50"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
