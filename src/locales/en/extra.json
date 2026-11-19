@@ -1835,7 +1835,7 @@
       "amountAed": "AED {{value}}",
       "amountAedEmpty": "AED --",
       "kpiRevenueRemaining": "AED {{value}} remaining today",
-      "kpiRevenueSetFee": "Set consultation fee in profile",
+      "kpiRevenueSetFee": "Consultation fee not set",
       "statScheduledToday": "Scheduled today",
       "statActiveUpcoming": "Active / upcoming",
       "todayEmptyTitle": "No appointments today",

@@ -1929,7 +1929,7 @@
       "amountAed": "{{value}} د.إ",
       "amountAedEmpty": "-- د.إ",
       "kpiRevenueRemaining": "{{value}} د.إ متبقية اليوم",
-      "kpiRevenueSetFee": "حدّد رسوم الاستشارة في ملفك الشخصي",
+      "kpiRevenueSetFee": "لم تُحدَّد رسوم الاستشارة",
       "statScheduledToday": "المجدولة اليوم",
       "statActiveUpcoming": "الجارية / القادمة",
       "todayEmptyTitle": "لا مواعيد اليوم",

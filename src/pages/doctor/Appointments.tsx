@@ -407,7 +407,7 @@ export const DoctorAppointments: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleKpiCardAction = (action: 'today' | 'week' | 'pending' | 'analytics' | 'profile') => {
+  const handleKpiCardAction = (action: 'today' | 'week' | 'pending' | 'noShows' | 'revenue') => {
     if (action === 'today') {
       navigate('/doctor/today');
       return;
@@ -423,12 +423,16 @@ export const DoctorAppointments: React.FC = () => {
       setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
-    if (action === 'analytics') {
-      handleTabChange('analytics');
+    if (action === 'noShows') {
+      // Show the actual no-show appointments behind the number, newest first.
+      setListSearchQuery('');
+      setListStatusFilter('no_show');
+      setListSortOrder('desc');
+      handleTabChange('list');
       setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
-    navigate('/doctor/profile');
+    navigate('/doctor/earnings');
   };
 
   const handleMonthChange = (offset: number) => {
@@ -565,7 +569,7 @@ export const DoctorAppointments: React.FC = () => {
               },
               {
                 label: t('doctor.appointments.kpiNoShows'),
-                action: 'analytics' as const,
+                action: 'noShows' as const,
                 value: monthNoShows,
                 sub: t('doctor.appointments.kpiNoShowsSub', {
                   rate: formatLocaleDigits(noShowRatePercent(monthSummary), uiLang),
@@ -576,7 +580,7 @@ export const DoctorAppointments: React.FC = () => {
               },
               {
                 label: t('doctor.appointments.kpiRevenue'),
-                action: 'profile' as const,
+                action: 'revenue' as const,
                 value:
                   consultationFee > 0
                     ? t('doctor.appointments.amountAed', { value: formatLocaleDigits(weekRevenue, uiLang) })
