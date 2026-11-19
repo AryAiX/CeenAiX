@@ -22,6 +22,7 @@ import { AiScribePanel, LiveSessionPanel, RecordingControlBar } from '../../comp
 import type { AppliedSoap } from '../../components/consultation';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { useDoctorAppointmentDetail, useQuery } from '../../hooks';
+import { canDoctorSetStatus, getDoctorAppointmentActions } from '../../lib/appointment-actions';
 import { createNotePersister } from '../../lib/consultation-note-persister';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
@@ -285,8 +286,12 @@ export const DoctorAppointmentDetail: React.FC = () => {
     ).length;
   }, [data, noteDraft]);
 
-  const updateAppointmentStatus = async (status: string) => {
+  const updateAppointmentStatus = async (status: 'in_progress' | 'completed' | 'no_show') => {
     if (!data || !user?.id) {
+      return;
+    }
+    // QA-121: the buttons are disabled when a change isn't allowed; this is the backstop.
+    if (!canDoctorSetStatus(data.appointment, status)) {
       return;
     }
 
@@ -313,6 +318,10 @@ export const DoctorAppointmentDetail: React.FC = () => {
 
   const handleCancelAppointment = async () => {
     if (!data) return;
+    if (!getDoctorAppointmentActions(data.appointment).canCancel) {
+      setShowCancelModal(false);
+      return;
+    }
     setFeedback(null);
     setCancellingAppointment(true);
     const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment', {
@@ -426,6 +435,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
       </>
     );
   }
+
+  const actions = getDoctorAppointmentActions(data.appointment);
 
   const formatPreVisitAnswer = (answerText: string | null, answerJson: unknown): string => {
     if (Array.isArray(answerJson) && answerJson.length > 0) {
@@ -590,15 +601,15 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </div>
           </div>
 
-          <div className={`grid gap-4 p-6 ${['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
+          <div className={`grid gap-4 p-6 ${actions.canCancel ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || !actions.canStart}
               onClick={() => updateAppointmentStatus('in_progress')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'in_progress'
-                  ? 'border-teal-400 bg-teal-50 ring-2 ring-teal-400'
-                  : 'border-slate-200 bg-slate-50 hover:border-teal-200 hover:bg-teal-50'
+                  ? 'border-teal-400 bg-teal-50 ring-2 ring-teal-400 disabled:cursor-default disabled:opacity-100'
+                  : 'border-slate-200 bg-slate-50 hover:border-teal-200 hover:bg-teal-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -617,12 +628,12 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || !actions.canComplete}
               onClick={() => updateAppointmentStatus('completed')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'completed'
-                  ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400'
-                  : 'border-slate-200 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50'
+                  ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400 disabled:cursor-default disabled:opacity-100'
+                  : 'border-slate-200 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -641,12 +652,12 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || !actions.canMarkNoShow}
               onClick={() => updateAppointmentStatus('no_show')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'no_show'
-                  ? 'border-red-400 bg-red-50 ring-2 ring-red-400'
-                  : 'border-slate-200 bg-slate-50 hover:border-red-200 hover:bg-red-50'
+                  ? 'border-red-400 bg-red-50 ring-2 ring-red-400 disabled:cursor-default disabled:opacity-100'
+                  : 'border-slate-200 bg-slate-50 hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -663,7 +674,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <p className="mt-1 text-[10px] font-medium text-red-600">✗ Patient did not attend</p>
               ) : null}
             </button>
-            {['scheduled', 'confirmed'].includes(data.appointment.status) ? (
+            {actions.canCancel ? (
               <button
                 type="button"
                 onClick={() => setShowCancelModal(true)}
