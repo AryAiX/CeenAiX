@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
-import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
+import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 type FeedbackState =
@@ -35,15 +35,8 @@ interface BlockedSlotFormState {
   reason: string;
 }
 
-const DAY_OPTIONS = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-];
+// day_of_week values as stored (0 = Sunday). Names come from the locale at render time.
+const DAY_OPTIONS = [0, 1, 2, 3, 4, 5, 6].map((value) => ({ value }));
 
 const INITIAL_AVAILABILITY_FORM: AvailabilityFormState = {
   dayOfWeek: '1',
@@ -76,9 +69,11 @@ const formatTimeLabel = (value: string, language: string) => {
 };
 
 export const DoctorSchedule: React.FC = () => {
-  const { i18n } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const locale = resolveLocale(i18n.language);
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(i18n.language, options);
+  // 7 Jan 2024 was a Sunday, so 7 + day_of_week gives that weekday's name in the current language.
+  const dayLabel = (value: number) => new Date(2024, 0, 7 + value).toLocaleDateString(locale, dtOpts({ weekday: 'long' }));
   const { user } = useAuth();
   const { data, loading, error, refetch } = useDoctorSchedule(user?.id);
 
@@ -128,18 +123,18 @@ export const DoctorSchedule: React.FC = () => {
     setFeedback(null);
 
     if (!user) {
-      setError('You need to be signed in as a doctor to manage availability.');
+      setError(t('doctor.schedule.errAuthAvailability'));
       return;
     }
 
     if (availabilityForm.startTime >= availabilityForm.endTime) {
-      setError('Availability end time must be later than the start time.');
+      setError(t('doctor.schedule.errEndAfterStart'));
       return;
     }
 
     const slotDurationMinutes = Number(availabilityForm.slotDurationMinutes);
     if (!Number.isFinite(slotDurationMinutes) || slotDurationMinutes <= 0) {
-      setError('Choose a valid slot duration.');
+      setError(t('doctor.schedule.errSlotDuration'));
       return;
     }
 
@@ -163,7 +158,7 @@ export const DoctorSchedule: React.FC = () => {
     }
 
     setAvailabilityForm(INITIAL_AVAILABILITY_FORM);
-    setSuccess('Weekly availability window added.');
+    setSuccess(t('doctor.schedule.succAvailabilityAdded'));
     refetch();
   };
 
@@ -183,7 +178,7 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
-    setSuccess(nextIsActive ? 'Availability activated.' : 'Availability paused.');
+    setSuccess(nextIsActive ? t('doctor.schedule.succAvailabilityActivated') : t('doctor.schedule.succAvailabilityPaused'));
     refetch();
   };
 
@@ -199,7 +194,7 @@ export const DoctorSchedule: React.FC = () => {
 
   const handleAvailabilityUpdate = async (availabilityId: string) => {
     if (editAvailabilityForm.startTime >= editAvailabilityForm.endTime) {
-      setError('End time must be later than start time.');
+      setError(t('doctor.schedule.errEditEndAfterStart'));
       return;
     }
     setFeedback(null);
@@ -218,7 +213,7 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
     setEditingAvailabilityId(null);
-    setSuccess('Availability window updated.');
+    setSuccess(t('doctor.schedule.succAvailabilityUpdated'));
     refetch();
   };
 
@@ -242,7 +237,7 @@ export const DoctorSchedule: React.FC = () => {
       setError(deleteError.message);
       return;
     }
-    setSuccess('Availability window removed.');
+    setSuccess(t('doctor.schedule.succAvailabilityRemoved'));
     refetch();
   };
 
@@ -251,12 +246,12 @@ export const DoctorSchedule: React.FC = () => {
     setFeedback(null);
 
     if (!user) {
-      setError('You need to be signed in as a doctor to block time.');
+      setError(t('doctor.schedule.errAuthBlock'));
       return;
     }
 
     if (blockedSlotForm.startTime >= blockedSlotForm.endTime) {
-      setError('Blocked slot end time must be later than the start time.');
+      setError(t('doctor.schedule.errBlockEndAfterStart'));
       return;
     }
 
@@ -278,7 +273,7 @@ export const DoctorSchedule: React.FC = () => {
     }
 
     setBlockedSlotForm(INITIAL_BLOCKED_SLOT_FORM());
-    setSuccess('Blocked time added to your schedule.');
+    setSuccess(t('doctor.schedule.succBlockAdded'));
     refetch();
   };
 
@@ -302,7 +297,7 @@ export const DoctorSchedule: React.FC = () => {
       setError(deleteError.message);
       return;
     }
-    setSuccess('Blocked time removed.');
+    setSuccess(t('doctor.schedule.succBlockRemoved'));
     refetch();
   };
 
@@ -325,8 +320,8 @@ export const DoctorSchedule: React.FC = () => {
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Schedule</h1>
-        <p className="mt-1 text-sm text-slate-500">Manage the recurring availability and blocked time that patients can book against.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('doctor.schedule.title')}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t('doctor.schedule.subtitle')}</p>
       </div>
 
       <div>
@@ -347,48 +342,48 @@ export const DoctorSchedule: React.FC = () => {
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
             <p>{error}</p>
             <button type="button" onClick={() => void refetch()} className="mt-2 font-semibold text-amber-900 underline">
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
 
         <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">Active weekly windows</p>
-            {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{activeAvailabilityCount}</p>}
-            <p className="mt-2 text-sm text-gray-600">Patients can book only against active recurring hours.</p>
+            <p className="text-sm font-medium text-gray-500">{t('doctor.schedule.statActiveWindows')}</p>
+            {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{formatLocaleDigits(activeAvailabilityCount, i18n.language)}</p>}
+            <p className="mt-2 text-sm text-gray-600">{t('doctor.schedule.statActiveWindowsBody')}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">Upcoming blocked slots</p>
-            {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{blockedSlots.filter((slot) => slot.blocked_date >= getTodayDate()).length}</p>}
-            <p className="mt-2 text-sm text-gray-600">Use blocked slots for leave, meetings, and time away from clinic.</p>
+            <p className="text-sm font-medium text-gray-500">{t('doctor.schedule.statUpcomingBlocked')}</p>
+            {loading ? <Skeleton className="mt-3 h-8 w-12" /> : <p className="mt-3 text-3xl font-bold text-gray-900">{formatLocaleDigits(blockedSlots.filter((slot) => slot.blocked_date >= getTodayDate()).length, i18n.language)}</p>}
+            <p className="mt-2 text-sm text-gray-600">{t('doctor.schedule.statUpcomingBlockedBody')}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">Booking readiness</p>
+            <p className="text-sm font-medium text-gray-500">{t('doctor.schedule.statReadiness')}</p>
             {loading ? (
               <Skeleton className="mt-3 h-8 w-24" />
             ) : (
               <p className={`mt-3 text-3xl font-bold ${activeAvailabilityCount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                {activeAvailabilityCount > 0 ? 'Ready ✅' : 'Not yet ❌'}
+                {activeAvailabilityCount > 0 ? t('doctor.schedule.readinessReady') : t('doctor.schedule.readinessNotYet')}
               </p>
             )}
-            <p className="mt-2 text-sm text-gray-600">Add at least one active recurring window before patient booking is enabled.</p>
+            <p className="mt-2 text-sm text-gray-600">{t('doctor.schedule.statReadinessBody')}</p>
           </div>
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">Total slots per week</p>
+            <p className="text-sm font-medium text-gray-500">{t('doctor.schedule.statWeeklySlots')}</p>
             {loading ? (
               <Skeleton className="mt-3 h-8 w-12" />
             ) : (
               <p className={`mt-3 text-3xl font-bold ${totalWeeklySlots > 0 ? 'text-teal-600' : 'text-slate-400'}`}>
-                {totalWeeklySlots}
+                {formatLocaleDigits(totalWeeklySlots, i18n.language)}
               </p>
             )}
             <p className="mt-2 text-sm text-gray-600">
               {totalWeeklySlots > 0
-                ? `${totalWeeklySlots} appointment slots available across your active weekly windows.`
-                : 'No slots available yet. Add active availability windows to enable booking.'}
+                ? t('doctor.schedule.weeklySlotsBody', { count: totalWeeklySlots })
+                : t('doctor.schedule.weeklySlotsEmpty')}
             </p>
           </div>
         </div>
@@ -401,14 +396,14 @@ export const DoctorSchedule: React.FC = () => {
                   <CalendarDays className="h-5 w-5 text-teal-700" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Weekly Availability</h2>
-                  <p className="text-sm text-gray-600">Create the recurring hours patients should see when choosing a slot.</p>
+                  <h2 className="text-xl font-bold text-gray-900">{t('doctor.schedule.weeklyTitle')}</h2>
+                  <p className="text-sm text-gray-600">{t('doctor.schedule.weeklySubtitle')}</p>
                 </div>
               </div>
 
               <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleAvailabilitySubmit}>
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Day</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldDay')}</span>
                   <select
                     value={availabilityForm.dayOfWeek}
                     onChange={(event) =>
@@ -418,14 +413,14 @@ export const DoctorSchedule: React.FC = () => {
                   >
                     {DAY_OPTIONS.map((day) => (
                       <option key={day.value} value={day.value}>
-                        {day.label}
+                        {dayLabel(day.value)}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Start</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldStart')}</span>
                   <input
                     type="time"
                     value={availabilityForm.startTime}
@@ -438,7 +433,7 @@ export const DoctorSchedule: React.FC = () => {
                 </label>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">End</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldEnd')}</span>
                   <input
                     type="time"
                     value={availabilityForm.endTime}
@@ -451,7 +446,7 @@ export const DoctorSchedule: React.FC = () => {
                 </label>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Slot length</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldSlotLength')}</span>
                   <select
                     value={availabilityForm.slotDurationMinutes}
                     onChange={(event) =>
@@ -462,11 +457,11 @@ export const DoctorSchedule: React.FC = () => {
                     }
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
                   >
-                    <option value="15">15 min</option>
-                    <option value="20">20 min</option>
-                    <option value="30">30 min</option>
-                    <option value="45">45 min</option>
-                    <option value="60">60 min</option>
+                    <option value="15">{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(15, i18n.language) })}</option>
+                    <option value="20">{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(20, i18n.language) })}</option>
+                    <option value="30">{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(30, i18n.language) })}</option>
+                    <option value="45">{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(45, i18n.language) })}</option>
+                    <option value="60">{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(60, i18n.language) })}</option>
                   </select>
                 </label>
 
@@ -477,15 +472,15 @@ export const DoctorSchedule: React.FC = () => {
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-slate-900 to-emerald-800 px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>{isSavingAvailability ? 'Saving...' : 'Add recurring availability'}</span>
+                    <span>{isSavingAvailability ? t('doctor.schedule.saving') : t('doctor.schedule.addAvailability')}</span>
                   </button>
                 </div>
               </form>
             </section>
 
             <section className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900">Current Weekly Schedule</h2>
-              <p className="mt-1 text-sm text-gray-600">Pause or remove recurring windows as your practice hours change.</p>
+              <h2 className="text-xl font-bold text-gray-900">{t('doctor.schedule.currentTitle')}</h2>
+              <p className="mt-1 text-sm text-gray-600">{t('doctor.schedule.currentSubtitle')}</p>
 
               <div className="mt-6 space-y-4">
                 {loading ? (
@@ -497,25 +492,30 @@ export const DoctorSchedule: React.FC = () => {
                 ) : availabilities.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
                     <CalendarDays className="mx-auto mb-3 h-8 w-8 text-gray-400" />
-                    <p className="font-semibold text-gray-900">No recurring availability yet</p>
+                    <p className="font-semibold text-gray-900">{t('doctor.schedule.emptyAvailabilityTitle')}</p>
                     <p className="mt-1 text-sm text-gray-600">
-                      Add your weekly working hours here before patient booking goes live.
+                      {t('doctor.schedule.emptyAvailabilityBody')}
                     </p>
                   </div>
                 ) : (
                   groupedAvailability.map((day) => (
                     <div key={day.value} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                       <div className="mb-3 flex items-center justify-between">
-                        <h3 className="font-semibold text-gray-900">{day.label}</h3>
+                        <h3 className="font-semibold text-gray-900">{dayLabel(day.value)}</h3>
                         <span className="text-xs font-medium text-gray-500">
                           {day.entries.length === 0
-                            ? 'Unavailable'
-                            : `${day.entries.length} window${day.entries.length === 1 ? '' : 's'} · ${day.entries.reduce((total, entry) => total + calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes), 0)} slots`}
+                            ? t('doctor.schedule.dayUnavailable')
+                            : `${t('doctor.schedule.windowsCount', { count: day.entries.length })} · ${t('doctor.schedule.slotsCount', {
+                                count: day.entries.reduce(
+                                  (total, entry) => total + calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes),
+                                  0
+                                ),
+                              })}`}
                         </span>
                       </div>
 
                       {day.entries.length === 0 ? (
-                        <p className="text-sm text-gray-500">No active or paused recurring windows for this day.</p>
+                        <p className="text-sm text-gray-500">{t('doctor.schedule.dayNoWindows')}</p>
                       ) : (
                         <div className="space-y-3">
                           {day.entries.map((entry) => {
@@ -533,12 +533,17 @@ export const DoctorSchedule: React.FC = () => {
                                     </div>
                                     <div>
                                       <p className="font-semibold text-gray-900">
-                                        {formatTimeLabel(entry.start_time, i18n.language)} to {formatTimeLabel(entry.end_time, i18n.language)}
+                                        {t('doctor.schedule.timeRange', {
+                                          start: formatTimeLabel(entry.start_time, i18n.language),
+                                          end: formatTimeLabel(entry.end_time, i18n.language),
+                                        })}
                                       </p>
                                     <p className="mt-1 text-sm text-gray-600">
-                                      {entry.slot_duration_minutes} minute slots
-                                      <span className='ml-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700'>
-                                        {calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes)} slots available
+                                      {t('doctor.schedule.minuteSlots', { value: formatLocaleDigits(entry.slot_duration_minutes, i18n.language) })}
+                                      <span className='ms-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700'>
+                                        {t('doctor.schedule.slotsAvailable', {
+                                          count: calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes),
+                                        })}
                                       </span>
                                     </p>
                                     </div>
@@ -552,7 +557,7 @@ export const DoctorSchedule: React.FC = () => {
                                           : 'bg-gray-200 text-gray-700'
                                       }`}
                                     >
-                                      {entry.is_active ? 'Active' : 'Paused'}
+                                      {entry.is_active ? t('doctor.schedule.statusActive') : t('doctor.schedule.statusPaused')}
                                     </span>
                                     <button
                                       type="button"
@@ -560,7 +565,7 @@ export const DoctorSchedule: React.FC = () => {
                                       onClick={() => handleAvailabilityToggle(entry.id, !entry.is_active)}
                                       className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                      {entry.is_active ? 'Pause' : 'Activate'}
+                                      {entry.is_active ? t('doctor.schedule.pause') : t('doctor.schedule.activate')}
                                     </button>
                                     <button
                                       type='button'
@@ -568,7 +573,7 @@ export const DoctorSchedule: React.FC = () => {
                                       onClick={() => handleAvailabilityEdit(entry)}
                                       className='rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60'
                                     >
-                                      ✏️ Edit
+                                      ✏️ {t('doctor.schedule.edit')}
                                     </button>
                                     <button
                                       type="button"
@@ -577,7 +582,7 @@ export const DoctorSchedule: React.FC = () => {
                                       className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                       <Trash2 className="h-4 w-4" />
-                                      <span>Delete</span>
+                                      <span>{t('doctor.schedule.delete')}</span>
                                     </button>
                                   </div>
                                 </div>
@@ -585,18 +590,18 @@ export const DoctorSchedule: React.FC = () => {
                                 {editingAvailabilityId === entry.id ? (
                                   <div className='mt-2 rounded-xl border border-teal-200 bg-teal-50 p-5 space-y-4'>
                                     <div className='flex items-center justify-between'>
-                                      <p className='text-sm font-bold text-teal-800'>✏️ Edit Availability Window</p>
+                                      <p className='text-sm font-bold text-teal-800'>✏️ {t('doctor.schedule.editTitle')}</p>
                                       <button
                                         type='button'
                                         onClick={() => setEditingAvailabilityId(null)}
                                         className='text-slate-400 hover:text-slate-600 text-sm'
                                       >
-                                        ✕ Close
+                                        ✕ {t('doctor.schedule.close')}
                                       </button>
                                     </div>
                                     <div className='grid gap-4 sm:grid-cols-3'>
                                       <label className='block'>
-                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>Start Time</span>
+                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>{t('doctor.schedule.fieldStartTime')}</span>
                                         <input
                                           type='time'
                                           value={editAvailabilityForm.startTime}
@@ -605,7 +610,7 @@ export const DoctorSchedule: React.FC = () => {
                                         />
                                       </label>
                                       <label className='block'>
-                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>End Time</span>
+                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>{t('doctor.schedule.fieldEndTime')}</span>
                                         <input
                                           type='time'
                                           value={editAvailabilityForm.endTime}
@@ -614,17 +619,17 @@ export const DoctorSchedule: React.FC = () => {
                                         />
                                       </label>
                                       <label className='block'>
-                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>Slot Duration</span>
+                                        <span className='mb-2 block text-sm font-semibold text-slate-700'>{t('doctor.schedule.fieldSlotDuration')}</span>
                                         <select
                                           value={editAvailabilityForm.slotDurationMinutes}
                                           onChange={(e) => setEditAvailabilityForm((prev) => ({ ...prev, slotDurationMinutes: e.target.value }))}
                                           className='w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
                                         >
-                                          <option value='15'>15 min</option>
-                                          <option value='20'>20 min</option>
-                                          <option value='30'>30 min</option>
-                                          <option value='45'>45 min</option>
-                                          <option value='60'>60 min</option>
+                                          <option value='15'>{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(15, i18n.language) })}</option>
+                                          <option value='20'>{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(20, i18n.language) })}</option>
+                                          <option value='30'>{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(30, i18n.language) })}</option>
+                                          <option value='45'>{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(45, i18n.language) })}</option>
+                                          <option value='60'>{t('doctor.schedule.minutesOption', { value: formatLocaleDigits(60, i18n.language) })}</option>
                                         </select>
                                       </label>
                                     </div>
@@ -635,14 +640,14 @@ export const DoctorSchedule: React.FC = () => {
                                         disabled={busyAvailabilityId === entry.id}
                                         className='rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60'
                                       >
-                                        Save Changes
+                                        {t('doctor.schedule.saveChanges')}
                                       </button>
                                       <button
                                         type='button'
                                         onClick={() => setEditingAvailabilityId(null)}
                                         className='rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50'
                                       >
-                                        Cancel
+                                        {t('shared.cancel')}
                                       </button>
                                     </div>
                                   </div>
@@ -666,14 +671,14 @@ export const DoctorSchedule: React.FC = () => {
                   <Ban className="h-5 w-5 text-orange-700" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Block Time</h2>
-                  <p className="text-sm text-gray-600">Temporarily hide slots for leave, meetings, or time off.</p>
+                  <h2 className="text-xl font-bold text-gray-900">{t('doctor.schedule.blockTitle')}</h2>
+                  <p className="text-sm text-gray-600">{t('doctor.schedule.blockSubtitle')}</p>
                 </div>
               </div>
 
               <form className="space-y-4" onSubmit={handleBlockedSlotSubmit}>
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Date</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldDate')}</span>
                   <input
                     type="date"
                     min={getTodayDate()}
@@ -688,7 +693,7 @@ export const DoctorSchedule: React.FC = () => {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Start</span>
+                    <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldStart')}</span>
                     <input
                       type="time"
                       value={blockedSlotForm.startTime}
@@ -701,7 +706,7 @@ export const DoctorSchedule: React.FC = () => {
                   </label>
 
                   <label className="block space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">End</span>
+                    <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.fieldEnd')}</span>
                     <input
                       type="time"
                       value={blockedSlotForm.endTime}
@@ -715,7 +720,7 @@ export const DoctorSchedule: React.FC = () => {
                 </div>
 
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Reason</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('doctor.schedule.reasonLabel')}</span>
                   <textarea
                     value={blockedSlotForm.reason}
                     onChange={(event) =>
@@ -724,7 +729,7 @@ export const DoctorSchedule: React.FC = () => {
                     maxLength={500}
                     rows={3}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                    placeholder="Optional note for your own reference"
+                    placeholder={t('doctor.schedule.reasonPh')}
                   />
                 </label>
 
@@ -734,7 +739,7 @@ export const DoctorSchedule: React.FC = () => {
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>{isSavingBlockedSlot ? 'Saving...' : 'Add blocked time'}</span>
+                  <span>{isSavingBlockedSlot ? t('doctor.schedule.saving') : t('doctor.schedule.addBlock')}</span>
                 </button>
               </form>
             </section>
@@ -742,8 +747,8 @@ export const DoctorSchedule: React.FC = () => {
             <section className="rounded-2xl bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Upcoming Blocked Slots</h2>
-                  <p className="mt-1 text-sm text-gray-600">These one-off blocks override your recurring weekly availability.</p>
+                  <h2 className="text-xl font-bold text-gray-900">{t('doctor.schedule.upcomingBlockedTitle')}</h2>
+                  <p className="mt-1 text-sm text-gray-600">{t('doctor.schedule.upcomingBlockedSubtitle')}</p>
                 </div>
                 {pastBlockedSlotsCount > 0 ? (
                   <button
@@ -751,7 +756,9 @@ export const DoctorSchedule: React.FC = () => {
                     onClick={() => setShowBlockedSlotHistory((prev) => !prev)}
                     className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                   >
-                    {showBlockedSlotHistory ? 'Hide History' : `Show History (${pastBlockedSlotsCount})`}
+                    {showBlockedSlotHistory
+                      ? t('doctor.schedule.hideHistory')
+                      : t('doctor.schedule.showHistory', { value: formatLocaleDigits(pastBlockedSlotsCount, i18n.language) })}
                   </button>
                 ) : null}
               </div>
@@ -765,9 +772,9 @@ export const DoctorSchedule: React.FC = () => {
                 ) : visibleBlockedSlots.length === 0 && !showBlockedSlotHistory ? (
                   <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
                     <Ban className="mx-auto mb-3 h-8 w-8 text-gray-400" />
-                    <p className="font-semibold text-gray-900">No blocked time yet</p>
+                    <p className="font-semibold text-gray-900">{t('doctor.schedule.emptyBlockedTitle')}</p>
                     <p className="mt-1 text-sm text-gray-600">
-                      Add one-off blocks here when you need to close parts of your schedule.
+                      {t('doctor.schedule.emptyBlockedBody')}
                     </p>
                   </div>
                 ) : (
@@ -790,10 +797,12 @@ export const DoctorSchedule: React.FC = () => {
                               )}
                             </p>
                             <p className="mt-1 text-sm text-gray-700">
-                              {formatTimeLabel(slot.start_time, i18n.language)} to{' '}
-                              {formatTimeLabel(slot.end_time, i18n.language)}
+                              {t('doctor.schedule.timeRange', {
+                                start: formatTimeLabel(slot.start_time, i18n.language),
+                                end: formatTimeLabel(slot.end_time, i18n.language),
+                              })}
                             </p>
-                            <p className="mt-2 text-sm text-gray-600">{slot.reason ?? 'No reason added'}</p>
+                            <p className="mt-2 text-sm text-gray-600">{slot.reason ?? t('doctor.schedule.noReason')}</p>
                           </div>
 
                           <button
@@ -803,7 +812,7 @@ export const DoctorSchedule: React.FC = () => {
                             className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Trash2 className="h-4 w-4" />
-                            <span>Remove</span>
+                            <span>{t('doctor.schedule.remove')}</span>
                           </button>
                         </div>
                       </div>
@@ -821,16 +830,16 @@ export const DoctorSchedule: React.FC = () => {
           onClick={() => setShowDeleteAvailabilityModal(false)}>
           <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'
             onClick={(e) => e.stopPropagation()}>
-            <h3 className='text-lg font-bold text-slate-900'>Delete Availability Window</h3>
-            <p className='mt-2 text-sm text-slate-600'>Are you sure you want to delete this recurring availability window? This action cannot be undone.</p>
+            <h3 className='text-lg font-bold text-slate-900'>{t('doctor.schedule.deleteModalTitle')}</h3>
+            <p className='mt-2 text-sm text-slate-600'>{t('doctor.schedule.deleteModalBody')}</p>
             <div className='mt-5 flex gap-3'>
               <button type='button' onClick={() => setShowDeleteAvailabilityModal(false)}
                 className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
-                Cancel
+                {t('shared.cancel')}
               </button>
               <button type='button' onClick={confirmAvailabilityDelete}
                 className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
-                Delete
+                {t('doctor.schedule.delete')}
               </button>
             </div>
           </div>
@@ -843,16 +852,16 @@ export const DoctorSchedule: React.FC = () => {
           onClick={() => setShowDeleteBlockedSlotModal(false)}>
           <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'
             onClick={(e) => e.stopPropagation()}>
-            <h3 className='text-lg font-bold text-slate-900'>Remove Blocked Time</h3>
-            <p className='mt-2 text-sm text-slate-600'>Are you sure you want to remove this blocked time from your schedule?</p>
+            <h3 className='text-lg font-bold text-slate-900'>{t('doctor.schedule.removeModalTitle')}</h3>
+            <p className='mt-2 text-sm text-slate-600'>{t('doctor.schedule.removeModalBody')}</p>
             <div className='mt-5 flex gap-3'>
               <button type='button' onClick={() => setShowDeleteBlockedSlotModal(false)}
                 className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
-                Cancel
+                {t('shared.cancel')}
               </button>
               <button type='button' onClick={confirmBlockedSlotDelete}
                 className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
-                Remove
+                {t('doctor.schedule.remove')}
               </button>
             </div>
           </div>
