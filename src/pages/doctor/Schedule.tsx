@@ -11,7 +11,13 @@ import {
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
-import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import {
+  CLINIC_TIME_ZONE,
+  calendarDayKeyInTimeZone,
+  dateTimeFormatWithNumerals,
+  formatLocaleDigits,
+  resolveLocale,
+} from '../../lib/i18n-ui';
 import { supabase } from '../../lib/supabase';
 
 type FeedbackState =
@@ -45,7 +51,9 @@ const INITIAL_AVAILABILITY_FORM: AvailabilityFormState = {
   slotDurationMinutes: '30',
 };
 
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
+// QA-125: today's date in Dubai. toISOString() is UTC, which is still yesterday between
+// 00:00 and 03:59 Dubai time.
+const getTodayDate = () => calendarDayKeyInTimeZone(new Date(), CLINIC_TIME_ZONE);
 
 const INITIAL_BLOCKED_SLOT_FORM = (): BlockedSlotFormState => ({
   blockedDate: getTodayDate(),
