@@ -1960,7 +1960,7 @@
       "appointmentDone": "Appointment done",
       "statusNoShow": "Mark no-show",
       "patientDidNotAttend": "Patient did not attend",
-      "cancelCardBody": "This cannot be undone",
+      "cancelCardBody": "Notifies the patient",
       "viewFullRecord": "View full record",
       "questionTypeBoolean": "Yes/No",
       "questionTypeMulti": "Multi-select",
@@ -1971,7 +1971,7 @@
       "autoSaving": "Auto-saving...",
       "autoSaved": "Auto-saved",
       "savedShort": "Saved!",
-      "cancelWarning": "Cancelling this appointment cannot be undone.",
+      "cancelWarning": "The patient will be notified. Cancelling cannot be undone.",
       "keepAppointment": "Keep appointment"
     },
     "consultationScribe": {

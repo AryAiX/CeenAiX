@@ -2073,9 +2073,11 @@ const rpcPayload = (
       });
       return { ok: true };
     case 'cancel_doctor_appointment':
+    case 'cancel_doctor_appointment_with_reason':
       updateAppointment(state, (payload as JsonRecord | null)?.p_appointment_id, {
         status: 'cancelled',
         cancelled_at: now.toISOString(),
+        cancellation_reason: (payload as JsonRecord | null)?.p_reason ?? null,
       });
       return { ok: true };
     case 'reschedule_patient_appointment':

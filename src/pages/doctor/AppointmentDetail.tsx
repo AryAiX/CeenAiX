@@ -332,7 +332,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
     }
     setFeedback(null);
     setCancellingAppointment(true);
-    const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment', {
+    const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment_with_reason', {
       p_appointment_id: data.appointment.id,
     });
     setCancellingAppointment(false);

@@ -2054,7 +2054,7 @@
       "appointmentDone": "اكتمل الموعد",
       "statusNoShow": "تحديد كعدم حضور",
       "patientDidNotAttend": "لم يحضر المريض",
-      "cancelCardBody": "لا يمكن التراجع عن ذلك",
+      "cancelCardBody": "يتم إبلاغ المريض",
       "viewFullRecord": "عرض السجل الكامل",
       "questionTypeBoolean": "نعم/لا",
       "questionTypeMulti": "اختيار متعدد",
@@ -2065,7 +2065,7 @@
       "autoSaving": "جارٍ الحفظ التلقائي...",
       "autoSaved": "تم الحفظ تلقائياً",
       "savedShort": "تم الحفظ!",
-      "cancelWarning": "لا يمكن التراجع عن إلغاء هذا الموعد.",
+      "cancelWarning": "سيتم إبلاغ المريض. لا يمكن التراجع عن الإلغاء.",
       "keepAppointment": "الاحتفاظ بالموعد"
     },
     "createPrescription": {
