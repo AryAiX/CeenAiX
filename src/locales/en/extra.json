@@ -1821,7 +1821,6 @@
       "footerHint": "Patient detail flows will open from this list once the doctor patient detail route is wired.",
       "newAppointment": "New Appointment",
       "export": "Export",
-      "requestsButton": "Requests ({{value}})",
       "todaySubtitle": "Live worklist for completed, active, and upcoming visits today.",
       "requestsBanner": "{{value}} appointment requests need your review",
       "reviewAllRequests": "Review All Requests",

@@ -484,14 +484,6 @@ export const DoctorAppointments: React.FC = () => {
                 <Download className="h-4 w-4" />
                 {t('doctor.appointments.export')}
               </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange('pending')}
-                className="relative flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-amber-600"
-              >
-                <Bell className="h-4 w-4" />
-                {t('doctor.appointments.requestsButton', { value: formatLocaleDigits(pendingRequestCount, uiLang) })}
-              </button>
             </div>
           </div>
         </div>
