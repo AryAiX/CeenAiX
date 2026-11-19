@@ -530,8 +530,10 @@ export const DoctorSchedule: React.FC = () => {
                             const isBusy = busyAvailabilityId === entry.id;
                             return (
                               <React.Fragment key={entry.id}>
-                                <div className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
-                                  <div className="flex items-start gap-3">
+                                {/* QA-127: wrap by available space, not window width. When the row is too narrow (side menu
+                                    open, narrow column) the whole button group moves below the text as one unit. */}
+                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm">
+                                  <div className="flex min-w-[14rem] flex-1 items-start gap-3">
                                     <div
                                       className={`rounded-lg p-2 ${
                                         entry.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
@@ -546,9 +548,9 @@ export const DoctorSchedule: React.FC = () => {
                                           end: formatTimeLabel(entry.end_time, i18n.language),
                                         })}
                                       </p>
-                                    <p className="mt-1 text-sm text-gray-600">
+                                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600">
                                       {t('doctor.schedule.minuteSlots', { value: formatLocaleDigits(entry.slot_duration_minutes, i18n.language) })}
-                                      <span className='ms-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700'>
+                                      <span className='whitespace-nowrap rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700'>
                                         {t('doctor.schedule.slotsAvailable', {
                                           count: calculateSlots(entry.start_time, entry.end_time, entry.slot_duration_minutes),
                                         })}
