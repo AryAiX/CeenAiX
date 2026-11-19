@@ -2142,7 +2142,9 @@
       "emergencyContact": "جهة اتصال الطوارئ",
       "emergencyPhone": "هاتف الطوارئ",
       "noAppointmentsTitle": "لا توجد مواعيد بعد",
-      "noAppointmentsBody": "لا يوجد لهذا المريض سجل مواعيد معك."
+      "noAppointmentsBody": "لا يوجد لهذا المريض سجل مواعيد معك.",
+      "noAccessTitle": "سجل المريض غير متاح",
+      "noAccessBody": "يمكنك فتح سجلات المرضى الذين لديهم موعد معك فقط. تحقّق من الرابط أو عُد إلى قائمة المرضى."
     },
     "appointmentDetail": {
       "titleFallback": "تفاصيل الموعد",

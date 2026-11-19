@@ -2028,7 +2028,9 @@
       "emergencyContact": "Emergency contact",
       "emergencyPhone": "Emergency phone",
       "noAppointmentsTitle": "No appointments yet",
-      "noAppointmentsBody": "This patient has no appointment history with you."
+      "noAppointmentsBody": "This patient has no appointment history with you.",
+      "noAccessTitle": "Patient record not available",
+      "noAccessBody": "You can only open the records of patients who have an appointment with you. Check the link, or go back to your patient list."
     },
     "appointmentDetail": {
       "titleFallback": "Appointment detail",

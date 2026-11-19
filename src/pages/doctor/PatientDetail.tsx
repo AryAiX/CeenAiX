@@ -9,6 +9,7 @@ import {
   Loader2,
   MessageSquare,
   Pill,
+  ShieldAlert,
   TestTube2,
 } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
@@ -75,10 +76,42 @@ export const DoctorPatientDetail: React.FC = () => {
     );
   }
 
+  const backToPatients = (
+    <button
+      type="button"
+      onClick={() => navigate('/doctor/patients')}
+      className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+    >
+      <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+      {t('doctor.imaging.actionBackPatients')}
+    </button>
+  );
+
+  // QA-132: when the doctor may not read this patient (no appointment with them, a deleted
+  // appointment, or a wrong link), the database returns no profile and every list comes back
+  // empty. The page used to render that as a real but empty chart ("Patient", "Not provided",
+  // prescription and lab buttons enabled). Show a clear "not available" state instead.
+  if (!error && (!data || !data.patientProfile)) {
+    return (
+      <>
+        <div>
+          {backToPatients}
+          <h1 className="text-2xl font-bold text-slate-900">{t('doctor.patientDetail.titleFallback')}</h1>
+        </div>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center" role="status">
+          <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+          <p className="font-semibold text-slate-700">{t('doctor.patientDetail.noAccessTitle')}</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{t('doctor.patientDetail.noAccessBody')}</p>
+        </div>
+      </>
+    );
+  }
+
   if (error || !data) {
     return (
       <>
         <div>
+          {backToPatients}
           <h1 className="text-2xl font-bold text-slate-900">{t('doctor.patientDetail.titleFallback')}</h1>
           <p className="mt-1 text-sm text-slate-500">{t('doctor.patientDetail.loadError')}</p>
         </div>
@@ -147,14 +180,7 @@ export const DoctorPatientDetail: React.FC = () => {
   return (
     <>
       <div>
-        <button
-          type="button"
-          onClick={() => navigate('/doctor/patients')}
-          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-        >
-          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
-          {t('doctor.imaging.actionBackPatients')}
-        </button>
+        {backToPatients}
         <h1 className="text-2xl font-bold text-slate-900">{patientName}</h1>
         <p className="mt-1 text-sm text-slate-500">{t('doctor.patientDetail.subtitle')}</p>
       </div>
