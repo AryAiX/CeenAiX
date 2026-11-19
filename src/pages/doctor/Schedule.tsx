@@ -19,6 +19,7 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import {
+  appointmentsInBlock,
   bookableSlotsForDay,
   findOverlappingWindow,
   slotsRemovedByBlock,
@@ -115,6 +116,8 @@ export const DoctorSchedule: React.FC = () => {
   const [showBlockedSlotHistory, setShowBlockedSlotHistory] = useState(false);
   const [editingAvailabilityId, setEditingAvailabilityId] = useState<string | null>(null);
   const [editAvailabilityForm, setEditAvailabilityForm] = useState<AvailabilityFormState>(INITIAL_AVAILABILITY_FORM);
+  // QA-130: booked appointments inside the time being blocked, waiting for the doctor to confirm.
+  const [blockClashes, setBlockClashes] = useState<Array<{ id: string; scheduledAt: string; patientName: string }> | null>(null);
 
   const availabilities = useMemo(() => data?.availabilities ?? [], [data?.availabilities]);
   const blockedSlots = useMemo(() => data?.blockedSlots ?? [], [data?.blockedSlots]);
@@ -303,6 +306,51 @@ export const DoctorSchedule: React.FC = () => {
       return;
     }
 
+    // QA-130: blocking does not cancel appointments already booked in that time, so check first.
+    setIsSavingBlockedSlot(true);
+    const dayStart = new Date(`${blockedSlotForm.blockedDate}T00:00:00`).getTime();
+    const { data: booked, error: bookedError } = await supabase
+      .from('appointments')
+      .select('id, scheduled_at, duration_minutes, patient_id')
+      .eq('doctor_id', user.id)
+      .eq('is_deleted', false)
+      .in('status', ['scheduled', 'confirmed', 'in_progress'])
+      .gte('scheduled_at', new Date(dayStart - 24 * 60 * 60 * 1000).toISOString())
+      .lt('scheduled_at', new Date(dayStart + 2 * 24 * 60 * 60 * 1000).toISOString());
+
+    if (bookedError) {
+      setIsSavingBlockedSlot(false);
+      setError(bookedError.message);
+      return;
+    }
+
+    const clashes = appointmentsInBlock(booked ?? [], {
+      blocked_date: blockedSlotForm.blockedDate,
+      start_time: blockedSlotForm.startTime,
+      end_time: blockedSlotForm.endTime,
+    });
+
+    if (clashes.length > 0) {
+      const patientIds = [...new Set(clashes.map((appointment) => appointment.patient_id))];
+      const { data: people } = await supabase.from('user_profiles').select('user_id, full_name').in('user_id', patientIds);
+      const nameById = new Map((people ?? []).map((person) => [person.user_id, person.full_name]));
+      setIsSavingBlockedSlot(false);
+      setBlockClashes(
+        clashes.map((appointment) => ({
+          id: appointment.id,
+          scheduledAt: appointment.scheduled_at,
+          patientName: nameById.get(appointment.patient_id)?.trim() || t('shared.patient'),
+        }))
+      );
+      return;
+    }
+
+    await saveBlockedSlot();
+  };
+
+  const saveBlockedSlot = async () => {
+    if (!user) return;
+    setBlockClashes(null);
     setIsSavingBlockedSlot(true);
 
     const { error: insertError } = await supabase.from('blocked_slots').insert({
@@ -916,6 +964,38 @@ export const DoctorSchedule: React.FC = () => {
               <button type='button' onClick={confirmAvailabilityDelete}
                 className='flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700'>
                 {t('doctor.schedule.delete')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
+      {blockClashes ? createPortal(
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+          onClick={() => setBlockClashes(null)}>
+          <div role='dialog' aria-modal='true' className='w-full max-w-md rounded-2xl bg-white p-6 shadow-xl'
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className='text-lg font-bold text-slate-900'>⚠️ {t('doctor.schedule.clashTitle')}</h3>
+            <p className='mt-2 text-sm text-slate-600'>{t('doctor.schedule.clashBody')}</p>
+            <ul className='mt-3 space-y-1.5'>
+              {blockClashes.map((clash) => (
+                <li key={clash.id} className='rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900'>
+                  <span className='font-semibold'>{clash.patientName}</span>
+                  {' · '}
+                  {new Date(clash.scheduledAt).toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))}
+                </li>
+              ))}
+            </ul>
+            <p className='mt-3 text-xs text-slate-500'>{t('doctor.schedule.clashHint')}</p>
+            <div className='mt-5 flex gap-3'>
+              <button type='button' onClick={() => setBlockClashes(null)}
+                className='flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50'>
+                {t('doctor.schedule.clashGoBack')}
+              </button>
+              <button type='button' onClick={() => void saveBlockedSlot()} disabled={isSavingBlockedSlot}
+                className='flex-1 rounded-xl bg-orange-600 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60'>
+                {t('doctor.schedule.clashBlockAnyway')}
               </button>
             </div>
           </div>

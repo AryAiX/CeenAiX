@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appointmentsInBlock,
   bookableSlotsForDay,
   findOverlappingWindow,
   slotsRemovedByBlock,
@@ -106,5 +107,23 @@ describe('bookableSlotsForDay / weeklyBookableSlots (QA-129)', () => {
 
   it('adds up the week', () => {
     expect(weeklyBookableSlots([fridayWindow, { ...fridayWindow, day_of_week: 2, slot_duration_minutes: 60 }])).toBe(16 + 8);
+  });
+});
+
+describe('appointmentsInBlock (QA-130)', () => {
+  const at = (local: string, minutes = 30, id = local) => ({ id, scheduled_at: new Date(local).toISOString(), duration_minutes: minutes });
+  const block = { blocked_date: '2026-11-20', start_time: '09:00', end_time: '11:00' };
+
+  it('returns appointments that fall inside the block, earliest first', () => {
+    const found = appointmentsInBlock([at('2026-11-20T10:30:00'), at('2026-11-20T09:00:00'), at('2026-11-20T14:00:00')], block);
+    expect(found.map((appointment) => appointment.id)).toEqual(['2026-11-20T09:00:00', '2026-11-20T10:30:00']);
+  });
+
+  it('catches an appointment that starts before the block but runs into it', () => {
+    expect(appointmentsInBlock([at('2026-11-20T08:45:00', 30)], block)).toHaveLength(1);
+  });
+
+  it('ignores appointments that only touch the block edges, or are on another day', () => {
+    expect(appointmentsInBlock([at('2026-11-20T08:30:00', 30), at('2026-11-20T11:00:00'), at('2026-11-21T09:30:00')], block)).toEqual([]);
   });
 });

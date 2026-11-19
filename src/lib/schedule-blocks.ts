@@ -106,3 +106,30 @@ export const bookableSlotsForDay = (windows: ReadonlyArray<WindowLike>, weekday:
 
 export const weeklyBookableSlots = (windows: ReadonlyArray<WindowLike>): number =>
   [0, 1, 2, 3, 4, 5, 6].reduce((total, weekday) => total + bookableSlotsForDay(windows, weekday), 0);
+
+/**
+ * QA-130: booked appointments that fall inside a block.
+ *
+ * Blocking time hides it from new bookings but does not cancel appointments already booked
+ * there, so the doctor is warned first. Times are local, matching how patient booking builds
+ * slot times (buildDateTime in lib/appointment-booking).
+ */
+type BookedLike = { scheduled_at: string; duration_minutes: number };
+
+const blockBoundary = (dateKey: string, time: string) => new Date(`${dateKey}T${time.slice(0, 5)}:00`).getTime();
+
+export const appointmentsInBlock = <Appointment extends BookedLike>(
+  appointments: ReadonlyArray<Appointment>,
+  block: BlockLike
+): Appointment[] => {
+  const blockStart = blockBoundary(block.blocked_date, block.start_time);
+  const blockEnd = blockBoundary(block.blocked_date, block.end_time);
+  return appointments
+    .filter((appointment) => {
+      const start = new Date(appointment.scheduled_at).getTime();
+      const end = start + appointment.duration_minutes * 60000;
+      return start < blockEnd && blockStart < end;
+    })
+    .slice()
+    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+};
