@@ -22,6 +22,7 @@ import { AiScribePanel, LiveSessionPanel, RecordingControlBar } from '../../comp
 import type { AppliedSoap } from '../../components/consultation';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { useDoctorAppointmentDetail, useQuery } from '../../hooks';
+import { createNotePersister } from '../../lib/consultation-note-persister';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import {
@@ -57,12 +58,49 @@ const toReviewValue = (value: unknown): Parameters<typeof formatCanonicalValueFo
     ? (value as Parameters<typeof formatCanonicalValueForReview>[0])
     : { value: null };
 
+type ConsultationNotePayload = {
+  appointment_id: string;
+  doctor_id: string;
+  subjective: string | null;
+  objective: string | null;
+  assessment: string | null;
+  plan: string | null;
+  doctor_approved: boolean;
+  is_deleted: boolean;
+};
+
 export const DoctorAppointmentDetail: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const { appointmentId } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { data, loading, error, refetch } = useDoctorAppointmentDetail(user?.id, appointmentId);
+
+  // QA-120: one note per appointment. Fresh persister per appointment; it remembers the
+  // note id after the first insert and serialises saves (autosave, manual save, scribe).
+  const notePersister = useMemo(
+    () =>
+      createNotePersister<ConsultationNotePayload>({
+        insert: async (payload) => {
+          const { data: row, error: insertError } = await supabase
+            .from('consultation_notes')
+            .insert(payload)
+            .select('id')
+            .single();
+          return { id: row?.id ?? null, error: insertError };
+        },
+        update: async (id, payload) => {
+          const { error: updateError } = await supabase.from('consultation_notes').update(payload).eq('id', id);
+          return { error: updateError };
+        },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new persister per appointment is the point
+    [appointmentId]
+  );
+  const loadedNoteId = data?.consultationNote?.id;
+  useEffect(() => {
+    notePersister.adoptNoteId(loadedNoteId);
+  }, [notePersister, loadedNoteId]);
 
   const scribe = useConsultationScribeController({
     appointmentId,
@@ -145,7 +183,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const approveAndSaveFromScribe = useCallback(
     async (soap: AppliedSoap) => {
       if (!data || !user?.id) return;
-      const payload = {
+      const payload: ConsultationNotePayload = {
         appointment_id: data.appointment.id,
         doctor_id: user.id,
         subjective: soap.subjective.trim() || null,
@@ -155,10 +193,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
         doctor_approved: true,
         is_deleted: false,
       };
-      const operation = data.consultationNote
-        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-        : supabase.from('consultation_notes').insert(payload);
-      const { error: noteError } = await operation;
+      const noteError = await notePersister.save(payload);
       if (noteError) {
         setFeedback({ type: 'error', message: noteError.message });
         return;
@@ -174,7 +209,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       setFeedback({ type: 'success', message: t('doctor.consultationScribe.scribe.approvedSaved') });
       refetch();
     },
-    [data, user?.id, scribe, t, refetch]
+    [data, user?.id, scribe, t, refetch, notePersister]
   );
 
   useEffect(() => {
@@ -196,7 +231,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
     async (draft: ConsultationNoteDraft) => {
       if (!data || !user?.id) return;
       setAutoSaveStatus('saving');
-      const payload = {
+      const payload: ConsultationNotePayload = {
         appointment_id: data.appointment.id,
         doctor_id: user.id,
         subjective: draft.subjective.trim() || null,
@@ -206,10 +241,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
         doctor_approved: draft.doctorApproved,
         is_deleted: false,
       };
-      const operation = data.consultationNote
-        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-        : supabase.from('consultation_notes').insert(payload);
-      const { error: noteError } = await operation;
+      const noteError = await notePersister.save(payload);
       if (!noteError) {
         setAutoSaveStatus('saved');
         if (autoSaveIdleTimer.current) clearTimeout(autoSaveIdleTimer.current);
@@ -219,7 +251,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
         setFeedback({ type: 'error', message: noteError.message });
       }
     },
-    [data, user?.id]
+    [data, user?.id, notePersister]
   );
 
   useEffect(() => {
@@ -300,7 +332,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
     if (!data || !user?.id) return;
     setFeedback(null);
     setSavingNote(true);
-    const payload = {
+    const payload: ConsultationNotePayload = {
       appointment_id: data.appointment.id,
       doctor_id: user.id,
       subjective: noteDraft.subjective.trim() || null,
@@ -310,10 +342,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       doctor_approved: noteDraft.doctorApproved,
       is_deleted: false,
     };
-    const operation = data.consultationNote
-      ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-      : supabase.from('consultation_notes').insert(payload);
-    const { error: noteError } = await operation;
+    const noteError = await notePersister.save(payload);
     setSavingNote(false);
     if (noteError) {
       setFeedback({ type: 'error', message: noteError.message });
