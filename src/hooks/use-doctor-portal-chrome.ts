@@ -8,6 +8,7 @@ interface DoctorPortalChromeData {
   todayAppointmentsCount: number;
   completedTodayAppointmentsCount: number;
   unreadMessagesCount: number;
+  unreadNotificationsCount: number;
   criticalResultsCount: number;
   activeConsultationPatientId: string | null;
   activeConsultationPatientName: string | null;
@@ -28,16 +29,26 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
       return null;
     }
 
-    const [{ data: appointments, error: appointmentsError }, { data: conversations, error: conversationsError }] =
-      await Promise.all([
-        supabase
-          .from('appointments')
-          .select('patient_id, scheduled_at, status')
-          .eq('doctor_id', userId)
-          .eq('is_deleted', false)
-          .order('scheduled_at', { ascending: true }),
-        supabase.from('conversations').select('id'),
-      ]);
+    const [
+      { data: appointments, error: appointmentsError },
+      { data: conversations, error: conversationsError },
+      // QA-161: the bell shows unread notifications, not unread messages.
+      { count: unreadNotificationsCount, error: unreadNotificationsError },
+    ] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select('patient_id, scheduled_at, status')
+        .eq('doctor_id', userId)
+        .eq('is_deleted', false)
+        .order('scheduled_at', { ascending: true }),
+      supabase.from('conversations').select('id'),
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .eq('is_read', false),
+    ]);
 
     if (appointmentsError) {
       throw appointmentsError;
@@ -45,6 +56,10 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
 
     if (conversationsError) {
       throw conversationsError;
+    }
+
+    if (unreadNotificationsError) {
+      throw unreadNotificationsError;
     }
 
     const now = new Date();
@@ -84,6 +99,7 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
         .select('id', { count: 'exact', head: true })
         .in('conversation_id', conversationIds)
         .neq('sender_id', userId)
+        .eq('is_deleted', false)
         .is('read_at', null);
 
       if (unreadMessagesError) {
@@ -126,6 +142,7 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
       todayAppointmentsCount,
       completedTodayAppointmentsCount,
       unreadMessagesCount,
+      unreadNotificationsCount: unreadNotificationsCount ?? 0,
       criticalResultsCount,
       activeConsultationPatientId: activeConsultation?.patient_id ?? null,
       activeConsultationPatientName,

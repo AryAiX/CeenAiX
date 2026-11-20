@@ -38,6 +38,8 @@ import { useDoctorPortalChrome, useDoctorClinicMembership } from '../hooks';
 import { usePatientDashboardAlert } from '../hooks/use-patient-dashboard-alert';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { supabase } from '../lib/supabase';
+import { formatLocaleDigits } from '../lib/i18n-ui';
+import { NOTIFICATIONS_CHANGED_EVENT } from '../lib/notification-events';
 
 type PortalRole = 'patient' | 'doctor';
 
@@ -258,7 +260,17 @@ export const PortalShell = ({
   );
   const showPatientDashboardAlert =
     patientDashboardAlertEligible && (patientDashboardAlerts?.length ?? 0) > 0;
-  const { data: doctorChromeData } = useDoctorPortalChrome(role === 'doctor' ? user?.id : null);
+  const { data: doctorChromeData, refetch: refetchDoctorChrome } = useDoctorPortalChrome(
+    role === 'doctor' ? user?.id : null
+  );
+  const doctorUnreadNotifications = doctorChromeData?.unreadNotificationsCount ?? 0;
+
+  // QA-161: reload the bell count when a page marks notifications read.
+  useEffect(() => {
+    if (role !== 'doctor') return;
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refetchDoctorChrome);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refetchDoctorChrome);
+  }, [role, refetchDoctorChrome]);
   const { data: doctorClinicMembership } = useDoctorClinicMembership(role === 'doctor' ? user?.id : null);
 
   const handleSignOut = async () => {
@@ -1144,12 +1156,27 @@ export const PortalShell = ({
             <button
               type="button"
               onClick={() => navigate('/doctor/notifications')}
+              aria-label={
+                doctorUnreadNotifications > 0
+                  ? t('doctor.notifications.bellLabel', {
+                      count: doctorUnreadNotifications,
+                      value: formatLocaleDigits(doctorUnreadNotifications, i18n.language),
+                    })
+                  : t('nav.notifications')
+              }
+              title={t('nav.notifications')}
+              data-testid="doctor-notifications-bell"
               className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700"
             >
-              <Bell className="h-4 w-4" />
-              {(doctorChromeData?.unreadMessagesCount ?? 0) > 0 ? (
-                <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                  {doctorChromeData?.unreadMessagesCount}
+              <Bell className="h-4 w-4" aria-hidden="true" />
+              {doctorUnreadNotifications > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
+                >
+                  {doctorUnreadNotifications > 9
+                    ? `${formatLocaleDigits(9, i18n.language)}+`
+                    : formatLocaleDigits(doctorUnreadNotifications, i18n.language)}
                 </span>
               ) : null}
             </button>

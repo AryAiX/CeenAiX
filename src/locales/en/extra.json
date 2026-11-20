@@ -2514,6 +2514,8 @@
       "logTitle": "Notification log",
       "emptyLog": "No stored notifications yet.",
       "unreadBadge": "Unread",
+      "bellLabel_one": "Notifications, {{value}} unread",
+      "bellLabel_other": "Notifications, {{value}} unread",
       "open": "Open",
       "markRead": "Mark read",
       "newMessageFrom": "New message from {{name}}",

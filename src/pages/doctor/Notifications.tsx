@@ -6,6 +6,7 @@ import { Skeleton } from '../../components/Skeleton';
 import { useDoctorNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
+import { announceNotificationsChanged } from '../../lib/notification-events';
 import { supabase } from '../../lib/supabase';
 
 export const DoctorNotifications: React.FC = () => {
@@ -33,6 +34,7 @@ export const DoctorNotifications: React.FC = () => {
       setActionError(updateError.message);
       return;
     }
+    announceNotificationsChanged();
     refetch();
   };
 
@@ -51,6 +53,7 @@ export const DoctorNotifications: React.FC = () => {
       setActionError(updateError.message);
       return;
     }
+    announceNotificationsChanged();
     refetch();
   };
 
