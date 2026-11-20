@@ -34,24 +34,15 @@ function normalize(value: unknown): DoctorSettingsPrefs {
   };
 }
 
-async function notifyClinicStaff(facilityId: string, title: string, body: string, actionUrl = '/clinic/doctors') {
-  const { data: members } = await supabase
-    .from('clinic_portal_members')
-    .select('user_id')
-    .eq('facility_id', facilityId)
-    .eq('is_active', true);
-
-  if (!members || members.length === 0) return;
-
-  await supabase.from('notifications').insert(
-    members.map((m) => ({
-      user_id: m.user_id,
-      type: 'system' as const,
-      title,
-      body,
-      action_url: actionUrl,
-    }))
-  );
+// QA-175: tell the clinic's staff about this doctor's clinic link (join request / accepted /
+// declined). Done by a database function: a doctor can't read the clinic's staff list or create
+// notifications for other people, so the old client-side version silently did nothing. Best
+// effort: the doctor's own action has already succeeded, so a failed notification must not undo it.
+async function notifyClinicAboutLink(staffId: string) {
+  const { error } = await supabase.rpc('notify_clinic_about_doctor_link', { p_staff_id: staffId });
+  if (error) {
+    console.warn('Could not notify the clinic', error.message);
+  }
 }
 
 export const DoctorSettings = () => {
@@ -136,11 +127,7 @@ export const DoctorSettings = () => {
       });
       if (error) throw error;
 
-      await notifyClinicStaff(
-        myClinicRecord.facility_id,
-        '✅ Doctor Accepted Invitation',
-        `${profile?.full_name ?? 'A doctor'} has accepted your invitation and joined your clinic.`
-      );
+      await notifyClinicAboutLink(myClinicRecord.id);
 
       await fetchMyClinic();
     } catch (err) {
@@ -161,11 +148,7 @@ export const DoctorSettings = () => {
         .eq('id', myClinicRecord.id);
       if (error) throw error;
 
-      await notifyClinicStaff(
-        myClinicRecord.facility_id,
-        '❌ Doctor Declined Invitation',
-        `${profile?.full_name ?? 'A doctor'} has declined your invitation to join your clinic.`
-      );
+      await notifyClinicAboutLink(myClinicRecord.id);
 
       await fetchMyClinic();
     } catch (err) {
@@ -200,7 +183,7 @@ export const DoctorSettings = () => {
     setJoinLoading(true);
     setJoinError(null);
     try {
-      const { error } = await supabase
+      const { data: request, error } = await supabase
         .from('facility_staff')
         .insert({
           facility_id: facilityId,
@@ -208,14 +191,12 @@ export const DoctorSettings = () => {
           is_active: false,
           is_available: false,
           invitation_status: 'pending',
-        });
+        })
+        .select('id')
+        .single();
       if (error) throw error;
 
-      await notifyClinicStaff(
-        facilityId,
-        '🩺 New Doctor Join Request',
-        `${profile?.full_name ?? 'A doctor'} has requested to join your clinic. Review their request in Doctors.`
-      );
+      await notifyClinicAboutLink(request.id);
 
       setJoinSuccess(true);
       setClinicSearch('');
