@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorNotifications } from '../../hooks';
@@ -11,34 +11,56 @@ vi.mock('../../hooks', () => ({ useDoctorNotifications: vi.fn() }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 
 const updateResult = { error: null as { message: string } | null };
+const updates: Array<{ values: unknown; filters: Array<[string, unknown]> }> = [];
 vi.mock('../../lib/supabase', () => {
   const chain = {
-    update: () => chain,
-    eq: () => chain,
+    update: (values: unknown) => (updates.push({ values, filters: [] }), chain),
+    eq: (column: string, value: unknown) => (updates[updates.length - 1]?.filters.push([column, value]), chain),
     then: (resolve: (value: typeof updateResult) => unknown) => resolve(updateResult),
   };
   return { supabase: { from: () => chain } };
 });
 
 const refetch = vi.fn();
-const notification = (id: string, isRead: boolean) => ({
+const notification = (id: string, isRead: boolean, actionUrl: string | null = null) => ({
   id,
   user_id: 'doc-1',
   type: 'system',
   title: `Title ${id}`,
   body: null,
-  action_url: null,
+  action_url: actionUrl,
   is_read: isRead,
   is_deleted: false,
   created_at: '2026-11-20T10:00:00Z',
 });
 
+const CurrentPath = () => {
+  const location = useLocation();
+  return <p data-testid="current-path">{`${location.pathname}${location.search}`}</p>;
+};
+
 const renderPage = () =>
   render(
-    <MemoryRouter>
-      <DoctorNotifications />
+    <MemoryRouter initialEntries={['/doctor/notifications']}>
+      <Routes>
+        <Route path="/doctor/notifications" element={<DoctorNotifications />} />
+        <Route path="*" element={<CurrentPath />} />
+      </Routes>
     </MemoryRouter>
   );
+
+const withNotifications = (notifications: ReturnType<typeof notification>[]) =>
+  vi.mocked(useDoctorNotifications).mockReturnValue({
+    data: {
+      notifications,
+      totalCount: notifications.length,
+      unreadCount: notifications.filter((item) => !item.is_read).length,
+      derivedNotifications: [],
+    },
+    loading: false,
+    error: null,
+    refetch,
+  } as never);
 
 describe('DoctorNotifications', () => {
   const announced = vi.fn();
@@ -48,6 +70,7 @@ describe('DoctorNotifications', () => {
     refetch.mockClear();
     announced.mockClear();
     updateResult.error = null;
+    updates.length = 0;
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, announced);
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1' } } as never);
     vi.mocked(useDoctorNotifications).mockReturnValue({
@@ -114,5 +137,47 @@ describe('DoctorNotifications', () => {
     renderPage();
     expect(screen.getByRole('button', { name: 'All (2)' })).toBeInTheDocument();
     expect(screen.queryByTestId('notifications-latest-only')).not.toBeInTheDocument();
+  });
+
+  it('marks an unread notification read when it is opened, then goes to its page (QA-163)', async () => {
+    withNotifications([notification('n1', false, '/doctor/settings?section=my-clinic')]);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('current-path')).toHaveTextContent('/doctor/settings?section=my-clinic')
+    );
+    expect(updates).toEqual([
+      {
+        values: { is_read: true },
+        filters: [
+          ['id', 'n1'],
+          ['user_id', 'doc-1'],
+        ],
+      },
+    ]);
+    expect(announced).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a read notification without updating it (QA-163)', async () => {
+    withNotifications([notification('n2', true, '/doctor/imaging')]);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+
+    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/doctor/imaging'));
+    expect(updates).toEqual([]);
+  });
+
+  it('shows no Open button for links outside the doctor portal (QA-163)', () => {
+    withNotifications([
+      notification('n1', false, '/patient/lab-results'),
+      notification('n2', true, 'https://evil.example/doctor/imaging'),
+    ]);
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+    expect(screen.getByText('Title n1')).toBeInTheDocument();
   });
 });

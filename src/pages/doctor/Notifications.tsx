@@ -7,6 +7,7 @@ import { useDoctorNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
 import { announceNotificationsChanged } from '../../lib/notification-events';
+import { safePortalActionPath } from '../../lib/notification-links';
 import { supabase } from '../../lib/supabase';
 
 export const DoctorNotifications: React.FC = () => {
@@ -19,7 +20,7 @@ export const DoctorNotifications: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  const markRead = async (notificationId: string) => {
+  const markRead = async (notificationId: string): Promise<boolean> => {
     setBusyId(notificationId);
     setActionError(null);
     const { error: updateError } = await supabase
@@ -32,10 +33,19 @@ export const DoctorNotifications: React.FC = () => {
 
     if (updateError) {
       setActionError(updateError.message);
-      return;
+      return false;
     }
     announceNotificationsChanged();
     refetch();
+    return true;
+  };
+
+  // QA-163: opening an unread notification also marks it read, then goes to the page.
+  const openNotification = async (notificationId: string, path: string, isRead: boolean) => {
+    if (!isRead) {
+      await markRead(notificationId);
+    }
+    navigate(path);
   };
 
   const markAllRead = async () => {
@@ -218,61 +228,65 @@ export const DoctorNotifications: React.FC = () => {
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${
-                    notification.is_read
-                      ? 'border-slate-200 bg-slate-50'
-                      : 'border-emerald-200 bg-emerald-50/50'
-                  }`}
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-900">{notification.title}</p>
+              {filteredNotifications.map((notification) => {
+                const actionPath = safePortalActionPath('doctor', notification.action_url);
+                return (
+                  <div
+                    key={notification.id}
+                    className={`rounded-2xl border p-4 ${
+                      notification.is_read
+                        ? 'border-slate-200 bg-slate-50'
+                        : 'border-emerald-200 bg-emerald-50/50'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-slate-900">{notification.title}</p>
+                          {!notification.is_read ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                              {t('doctor.notifications.unreadBadge')}
+                            </span>
+                          ) : null}
+                        </div>
+                        {notification.body ? (
+                          <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
+                        ) : null}
+                        <p className="mt-2 text-xs font-semibold text-slate-500">
+                          {formatRelativeTime(t, notification.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {actionPath ? (
+                          <button
+                            type="button"
+                            onClick={() => void openNotification(notification.id, actionPath, notification.is_read)}
+                            disabled={busyId === notification.id}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                          >
+                            {t('doctor.notifications.open')}
+                          </button>
+                        ) : null}
                         {!notification.is_read ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                            {t('doctor.notifications.unreadBadge')}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => markRead(notification.id)}
+                            disabled={busyId === notification.id}
+                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {busyId === notification.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCheck className="h-4 w-4" />
+                            )}
+                            <span>{t('doctor.notifications.markRead')}</span>
+                          </button>
                         ) : null}
                       </div>
-                      {notification.body ? (
-                        <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                      <p className="mt-2 text-xs font-semibold text-slate-500">
-                        {formatRelativeTime(t, notification.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {notification.action_url ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(notification.action_url ?? '/doctor/dashboard')}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                        >
-                          {t('doctor.notifications.open')}
-                        </button>
-                      ) : null}
-                      {!notification.is_read ? (
-                        <button
-                          type="button"
-                          onClick={() => markRead(notification.id)}
-                          disabled={busyId === notification.id}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {busyId === notification.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCheck className="h-4 w-4" />
-                          )}
-                          <span>{t('doctor.notifications.markRead')}</span>
-                        </button>
-                      ) : null}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
