@@ -2811,6 +2811,34 @@
         "editingDraft": "You are editing a draft. Patients still get \"{{live}}\" until you publish this one.",
         "editingDraftNoLive": "You are editing a draft. It is not live yet, so patients get no intake form until you publish.",
         "savedAsDraftCopy": "Saved as a new draft. Your live template is unchanged and patients still get it."
+      },
+      "tabs": {
+        "label": "Profile sections",
+        "profile": "My profile",
+        "preview": "Public preview",
+        "compliance": "DHA & compliance"
+      },
+      "preview": {
+        "intro": "This is how your card looks to patients when they choose a doctor to book. It shows your saved profile, so save your changes first.",
+        "loading": "Loading your public card...",
+        "errLoad": "Couldn't load your public card.",
+        "notListed": "You don't appear in the patient booking list yet. Make sure your doctor profile is saved.",
+        "tipNoSlots": "You have no open time slots, so patients can't book you yet.",
+        "openSchedule": "Open Schedule",
+        "tipNoSpecialty": "No specialization is set, so patients see \"General practice\". Add your specialization under My profile.",
+        "tipAddressVisible": "Patients can see the address on your profile. Use your clinic address, not your home address.",
+        "tipNotShown": "Patients don't see your photo, bio or licence on this card yet."
+      },
+      "compliance": {
+        "licence": "DHA licence number",
+        "status": "Verification",
+        "verified": "Verified",
+        "pending": "Pending",
+        "verifiedOn": "Verified on",
+        "explainVerified": "Your DHA licence has been checked by the CeenAiX team.",
+        "explainPending": "Your DHA licence has not been checked yet. Only the CeenAiX team can verify it.",
+        "explainLicenceChange": "Changing your licence number removes the verification until the new number is checked.",
+        "howToVerify": "To get verified, send your DHA licence to"
       }
     }
   },

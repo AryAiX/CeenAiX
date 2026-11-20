@@ -55,6 +55,12 @@ import {
   withUniqueQuestionKeys,
 } from '../../lib/pre-visit-template-editor';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { ProfileCompliance } from './ProfileCompliance';
+import { ProfilePublicPreview } from './ProfilePublicPreview';
+
+// QA-173: the Profile tabs (QA-169 removed the placeholders; these are the real ones).
+const PROFILE_TABS = ['profile', 'preview', 'compliance'] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
 
 interface DoctorProfileFormState {
   fullName: string;
@@ -165,6 +171,7 @@ export const DoctorProfile: React.FC = () => {
   } = useDoctorPreVisitTemplates(user?.id);
   const preVisitTemplates = useMemo(() => preVisitTemplatesData ?? [], [preVisitTemplatesData]);
 
+  const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -723,10 +730,42 @@ export const DoctorProfile: React.FC = () => {
               </span>
             </div>
           </div>
+          <div role="tablist" aria-label={t('doctor.profile.tabs.label')} className="flex gap-2 overflow-x-auto">
+            {PROFILE_TABS.map((tab) => (
+              <button
+                key={tab}
+                id={`profile-tab-${tab}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab}
+                aria-controls={`profile-panel-${tab}`}
+                onClick={() => setActiveTab(tab)}
+                className={`whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  activeTab === tab
+                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-500/20'
+                    : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                {t(`doctor.profile.tabs.${tab}`)}
+              </button>
+            ))}
+          </div>
         </div>
+        {activeTab !== 'profile' ? (
+          <div id={`profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`profile-tab-${activeTab}`} className="p-5">
+            {activeTab === 'preview' && user ? <ProfilePublicPreview userId={user.id} /> : null}
+            {activeTab === 'compliance' ? (
+              <ProfileCompliance
+                licenseNumber={doctorProfile?.license_number ?? null}
+                verified={Boolean(doctorProfile?.dha_license_verified)}
+                verifiedAt={doctorProfile?.dha_verified_at ?? null}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      <div>
+      <div id="profile-panel-profile" role="tabpanel" aria-labelledby="profile-tab-profile" hidden={activeTab !== 'profile'}>
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <div className="overflow-hidden rounded-3xl bg-white shadow-md">
             <div className="bg-gradient-to-r from-slate-900 to-emerald-800 px-8 py-12">

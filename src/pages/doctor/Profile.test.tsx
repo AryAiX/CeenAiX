@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import {
+  useBookableDoctors,
   useDoctorClinicMembership,
   useDoctorPreVisitTemplates,
   useDoctorSpecializationIds,
@@ -15,6 +16,7 @@ import { removeAvatarFiles } from '../../lib/avatar-storage';
 import { DoctorProfile } from './Profile';
 
 vi.mock('../../hooks', () => ({
+  useBookableDoctors: vi.fn(),
   useDoctorClinicMembership: vi.fn(),
   useDoctorPreVisitTemplates: vi.fn(),
   useDoctorSpecializationIds: vi.fn(),
@@ -518,6 +520,131 @@ describe('DoctorProfile photo removal (QA-172)', () => {
     await waitFor(() => expect(screen.getByText('Profile picture updated.')).toBeInTheDocument());
     expect(upload).toHaveBeenCalledWith('doc-1/avatar.png', file, { upsert: true });
     expect(removeAvatarFiles).toHaveBeenCalledWith('doc-1', 'doc-1/avatar.png');
+  });
+});
+
+describe('DoctorProfile tabs (QA-173)', () => {
+  const auth = (doctorProfile: Record<string, unknown>) =>
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'doc-1', email: 'doc@test.com' },
+      profile: { full_name: 'Dr. Test Person' },
+      doctorProfile,
+      isLoading: false,
+      refreshProfile: vi.fn(),
+    } as never);
+
+  const bookable = (doctors: Array<Record<string, unknown>>) =>
+    vi.mocked(useBookableDoctors).mockReturnValue({
+      data: doctors,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    vi.mocked(useDoctorClinicMembership).mockReturnValue({ data: null } as never);
+    vi.mocked(useSpecializations).mockReturnValue({ data: [], loading: false, error: null } as never);
+    vi.mocked(useDoctorSpecializationIds).mockReturnValue({ data: [], loading: false, refetch: vi.fn() } as never);
+    withTemplates([]);
+    bookable([]);
+    auth({ license_number: 'DHA-1', dha_license_verified: false, dha_verified_at: null });
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('opens on My profile and switches between the three tabs', () => {
+    renderPage();
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['My profile', 'Public preview', 'DHA & compliance']);
+    expect(screen.getByRole('tab', { name: 'My profile' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: /Edit Profile/ })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'DHA & compliance' }));
+    expect(screen.getByRole('tab', { name: 'DHA & compliance' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('button', { name: /Edit Profile/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('This view is ready for the public preview')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'My profile' }));
+    expect(screen.getByRole('button', { name: /Edit Profile/ })).toBeVisible();
+  });
+
+  it('keeps unsaved profile edits when switching tabs', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
+    fireEvent.change(screen.getByPlaceholderText('Enter your full name'), { target: { value: 'Dr. Half Typed' } });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Public preview' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'My profile' }));
+
+    expect(screen.getByPlaceholderText('Enter your full name')).toHaveValue('Dr. Half Typed');
+  });
+
+  it('shows licence, pending status and how to get verified', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'DHA & compliance' }));
+
+    const panel = screen.getByRole('tabpanel');
+    expect(within(panel).getByTestId('compliance-licence')).toHaveTextContent('DHA-1');
+    expect(within(panel).getByTestId('compliance-status')).toHaveTextContent('Pending');
+    expect(within(panel).getByTestId('compliance-date')).toHaveTextContent('—');
+    expect(panel).toHaveTextContent('To get verified, send your DHA licence to support@ceenaix.com');
+  });
+
+  it('shows the verified status and date in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    auth({ license_number: 'DHA-1', dha_license_verified: true, dha_verified_at: '2026-03-05T10:00:00Z' });
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'هيئة الصحة والامتثال' }));
+
+    const panel = screen.getByRole('tabpanel');
+    expect(within(panel).getByTestId('compliance-status')).toHaveTextContent('موثّق');
+    expect(within(panel).getByTestId('compliance-date')).toHaveTextContent('٢٠٢٦');
+    expect(panel).not.toHaveTextContent('support@ceenaix.com');
+  });
+
+  it('shows the card patients see, with tips for what is missing', () => {
+    bookable([
+      { userId: 'other', fullName: 'Dr. Other', specialty: 'Cardiology', city: 'Dubai', address: null, activeAvailabilityCount: 3 },
+      { userId: 'doc-1', fullName: 'Dr. Test Person', specialty: null, city: 'Dubai', address: 'Villa 12, Jumeirah', activeAvailabilityCount: 0 },
+    ]);
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Public preview' }));
+
+    const card = screen.getByTestId('public-preview-card');
+    expect(card).toHaveTextContent('Dr. Test Person');
+    expect(card).toHaveTextContent('General practice');
+    expect(card).toHaveTextContent('Dubai • Villa 12, Jumeirah');
+    expect(card).toHaveTextContent('0 windows');
+    expect(card).not.toHaveTextContent('Dr. Other');
+
+    const tips = screen.getByTestId('public-preview-tips');
+    expect(tips).toHaveTextContent("You have no open time slots, so patients can't book you yet.");
+    expect(within(tips).getByRole('link', { name: 'Open Schedule' })).toHaveAttribute('href', '/doctor/schedule');
+    expect(tips).toHaveTextContent('No specialization is set');
+    expect(tips).toHaveTextContent('Use your clinic address, not your home address.');
+  });
+
+  it('shows only the general tip when the card is complete', () => {
+    bookable([
+      { userId: 'doc-1', fullName: 'Dr. Test Person', specialty: 'Cardiology', city: 'Dubai', address: null, activeAvailabilityCount: 2 },
+    ]);
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Public preview' }));
+
+    expect(screen.getByTestId('public-preview-card')).toHaveTextContent('2 windows');
+    const tips = screen.getByTestId('public-preview-tips');
+    expect(within(tips).getAllByRole('listitem')).toHaveLength(1);
+    expect(tips).toHaveTextContent("Patients don't see your photo, bio or licence on this card yet.");
+  });
+
+  it('says so when the doctor is not in the booking list', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Public preview' }));
+    expect(screen.getByTestId('preview-not-listed')).toHaveTextContent("You don't appear in the patient booking list yet.");
   });
 });
 
