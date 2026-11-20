@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertOctagon, CheckCircle2, ChevronDown, ChevronLeft, ClipboardList, Loader2, Pill, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { AlertOctagon, ChevronDown, ChevronLeft, ClipboardList, Loader2, Pill, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import {
   useDoctorPatients,
@@ -28,6 +28,8 @@ import { enrichMedicationCatalogEntry } from '../../lib/medication-enrichment';
 import { appointmentPickerLabel } from '../../lib/i18n-ui';
 import { resolveClinicalVocabLabel, type PrescriptionClinicalVocabRow } from '../../lib/prescription-vocab';
 import { supabase } from '../../lib/supabase';
+import type { DoctorPatientFlag } from '../../hooks/use-doctor-patients';
+import { allergySeverityLabel } from '../../lib/doctor-patient-flags';
 
 interface DraftPrescriptionItem {
   id: string;
@@ -888,6 +890,13 @@ export const CreatePrescription: React.FC = () => {
     () => patients.find((patient) => patient.id === patientId) ?? null,
     [patientId, patients]
   );
+  const selectedPatientAllergies = useMemo(
+    () =>
+      (selectedPatient?.flags ?? []).filter(
+        (flag): flag is Extract<DoctorPatientFlag, { kind: 'allergy' }> => flag.kind === 'allergy'
+      ),
+    [selectedPatient]
+  );
 
   useEffect(() => {
     if (!patientId && patients.length > 0) {
@@ -1301,35 +1310,43 @@ export const CreatePrescription: React.FC = () => {
               )}
               </div>
 
-              <div className="mb-5">
-                {selectedPatient?.allergies.length ? (
-                  <div className="rounded-xl border-2 border-red-200 border-l-4 border-l-red-600 bg-red-50 p-4">
-                    <div className="mb-3 flex items-center space-x-2">
-                      <AlertOctagon className="h-5 w-5 text-red-600" />
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-red-700">ALLERGY ALERT</div>
-                    </div>
-                    <div className="space-y-2">
-                      {selectedPatient.allergies.map((allergy) => (
-                        <div key={allergy} className="rounded-lg border border-red-200 bg-white p-3">
-                          <div className="mb-1 text-[13px] font-bold text-red-700">⚠️ {allergy}</div>
-                          <div className="text-[12px] text-red-600">Verify reaction details before prescribing related drug classes.</div>
+              {/* QA-135: only show allergy status once a patient is chosen, and never present
+                  "nothing on file" as "verified no known allergies". */}
+              {selectedPatient ? (
+                <div className="mb-5">
+                  {selectedPatientAllergies.length > 0 ? (
+                    <div className="rounded-xl border-2 border-red-200 border-s-4 border-s-red-600 bg-red-50 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <AlertOctagon className="h-5 w-5 text-red-600" />
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-red-700">
+                          {t('doctor.createPrescription.allergyAlert')}
                         </div>
-                      ))}
+                      </div>
+                      <div className="space-y-2">
+                        {selectedPatientAllergies.map((allergy, index) => (
+                          <div key={`${allergy.allergen}-${index}`} className="rounded-lg border border-red-200 bg-white p-3">
+                            <div className="mb-1 text-[13px] font-bold text-red-700">
+                              ⚠️ {allergy.severity ? `${allergy.allergen} (${allergySeverityLabel(t, allergy.severity)})` : allergy.allergen}
+                            </div>
+                            <div className="text-[12px] text-red-600">{t('doctor.createPrescription.allergyVerifyHint')}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 text-[10px] text-slate-500">{t('doctor.createPrescription.allergySource')}</div>
                     </div>
-                    <div className="mt-3 text-[10px] text-blue-600">✅ Allergies pulled from canonical patient records</div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
-                    <div className="mb-2 flex items-center space-x-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <div className="text-[12px] font-bold text-emerald-700">No Known Allergies</div>
+                  ) : (
+                    <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <AlertOctagon className="h-4 w-4 text-amber-600" />
+                        <div className="text-[12px] font-bold text-amber-800">
+                          {t('doctor.createPrescription.noAllergiesRecorded')}
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-amber-700">{t('doctor.createPrescription.noAllergiesRecordedHint')}</div>
                     </div>
-                    <div className="text-[10px] text-emerald-600">
-                      ✅ Verified from patient allergy records · {new Date().toLocaleDateString()}
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              ) : null}
 
               <div className="mb-5">
                 <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">

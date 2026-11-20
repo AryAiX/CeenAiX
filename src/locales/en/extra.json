@@ -2315,7 +2315,12 @@
       "instructions": "Instructions",
       "addItem": "Add medication",
       "saving": "Saving...",
-      "save": "Save prescription"
+      "save": "Save prescription",
+      "allergyAlert": "Allergy alert",
+      "allergyVerifyHint": "Verify reaction details before prescribing related drug classes.",
+      "allergySource": "From the patient's allergy records",
+      "noAllergiesRecorded": "No allergies recorded",
+      "noAllergiesRecordedHint": "Nothing is on file for this patient. This does not confirm the patient has no allergies, so ask before prescribing."
     },
     "labOrders": {
       "title": "Lab orders",
