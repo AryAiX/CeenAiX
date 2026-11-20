@@ -10,6 +10,7 @@ import { useDoctorLabOrders } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, labOrderStatusLabel, resolveLocale } from '../../lib/i18n-ui';
+import { isCriticalLabItem, labResultSeverity, labResultValueText, needsCriticalReview } from '../../lib/lab-severity';
 import { supabase } from '../../lib/supabase';
 
 export const DoctorLabOrders: React.FC = () => {
@@ -29,11 +30,9 @@ export const DoctorLabOrders: React.FC = () => {
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const hasCriticalResult = useCallback(
-    (labOrder: (typeof labOrders)[number]) =>
-      labOrder.items.some((item) => item.is_abnormal && item.status === 'resulted'),
-    []
-  );
+  // QA-142: only results the lab marked critical (or HH / LL) count, and only until the doctor
+  // marks the order reviewed. Other out-of-range results are shown as abnormal, not critical.
+  const hasCriticalResult = useCallback((labOrder: (typeof labOrders)[number]) => needsCriticalReview(labOrder), []);
 
   const tabLabOrders = useMemo(() => {
     switch (activeTab) {
@@ -93,7 +92,7 @@ export const DoctorLabOrders: React.FC = () => {
   );
   const firstCriticalOrder = useMemo(() => labOrders.find(hasCriticalResult) ?? null, [hasCriticalResult, labOrders]);
   const printLabOrder = labOrders.find((o) => o.id === printLabOrderId) ?? null;
-  const firstCriticalItem = firstCriticalOrder?.items.find((item) => item.is_abnormal && item.status === 'resulted') ?? null;
+  const firstCriticalItem = firstCriticalOrder?.items.find(isCriticalLabItem) ?? null;
   const labTabs = [
     { id: 'all' as const, label: 'All', count: labOrders.length, icon: TestTube2 },
     { id: 'critical' as const, label: 'Critical', count: criticalCount, icon: AlertTriangle },
@@ -310,7 +309,7 @@ export const DoctorLabOrders: React.FC = () => {
                     {firstCriticalOrder.patientName} — {firstCriticalItem.test_name}
                   </h2>
                   <p className="mt-2 font-mono text-3xl font-bold text-red-700">
-                    {[firstCriticalItem.result_value, firstCriticalItem.result_unit].filter(Boolean).join(' ') || 'Resulted'}
+                    {labResultValueText(firstCriticalItem) || 'Resulted'}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
                     Reference: {firstCriticalItem.reference_range ?? '-'} · Resulted{' '}
@@ -551,10 +550,18 @@ export const DoctorLabOrders: React.FC = () => {
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {labOrder.items.map((item) => (
+                    {labOrder.items.map((item) => {
+                      const severity = labResultSeverity(item);
+                      return (
                       <div
                         key={item.id}
-                        className={`rounded-2xl p-4 ${item.is_abnormal ? 'border border-red-100 bg-red-50' : 'bg-slate-50'}`}
+                        className={`rounded-2xl p-4 ${
+                          severity === 'critical'
+                            ? 'border border-red-200 bg-red-50'
+                            : severity === 'abnormal'
+                              ? 'border border-amber-200 bg-amber-50'
+                              : 'bg-slate-50'
+                        }`}
                       >
                         <LabTestNameDisplay
                           canonicalName={item.test_name}
@@ -564,9 +571,13 @@ export const DoctorLabOrders: React.FC = () => {
                           secondaryClassName="mt-0.5 text-xs text-slate-500"
                         />
                         <p className="mt-1 text-xs text-slate-500">{item.test_code ?? t('doctor.labOrders.noCode')}</p>
-                        {item.result_value || item.reference_range ? (
-                          <p className={`mt-2 font-mono text-sm font-bold ${item.is_abnormal ? 'text-red-700' : 'text-slate-700'}`}>
-                            {[item.result_value, item.result_unit].filter(Boolean).join(' ') || 'Resulted'}
+                        {labResultValueText(item) || item.reference_range ? (
+                          <p
+                            className={`mt-2 font-mono text-sm font-bold ${
+                              severity === 'critical' ? 'text-red-700' : severity === 'abnormal' ? 'text-amber-800' : 'text-slate-700'
+                            }`}
+                          >
+                            {labResultValueText(item) || 'Resulted'}
                             {item.reference_range ? <span className="ml-2 text-xs font-normal text-slate-500">Ref: {item.reference_range}</span> : null}
                           </p>
                         ) : null}
@@ -574,6 +585,17 @@ export const DoctorLabOrders: React.FC = () => {
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             {labOrderStatusLabel(t, item.status)}
                           </p>
+                          {severity === 'critical' || severity === 'abnormal' ? (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                severity === 'critical'
+                                  ? 'border border-red-200 bg-white text-red-700'
+                                  : 'border border-amber-200 bg-white text-amber-800'
+                              }`}
+                            >
+                              {t(severity === 'critical' ? 'patient.labResults.statusCritical' : 'patient.labResults.statusAbnormal')}
+                            </span>
+                          ) : null}
                           {item.lab_test_catalog_suggestion_id ? (
                             <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                               {t('doctor.createLabOrder.pendingBadge')}
@@ -581,7 +603,8 @@ export const DoctorLabOrders: React.FC = () => {
                           ) : null}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
