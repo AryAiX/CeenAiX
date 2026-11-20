@@ -26,7 +26,7 @@ const conversation = {
   counterpart: { id: 'other-1', name: 'Other Person', email: null },
 };
 
-const hub = (messages: Array<{ id: string; sender_id: string; body: string }>) => ({
+const hub = (messages: Array<{ id: string; sender_id: string; body: string; edited_at?: string | null }>) => ({
   conversations: [conversation],
   activeConversation: conversation,
   activeConversationId: 'conv-1',
@@ -197,5 +197,30 @@ describe('MessagesWorkspace new conversation for doctors (QA-155)', () => {
     await userEvent.click(screen.getByTestId('messages-new-conversation'));
     expect(screen.getByTestId('care-team-picker')).toBeInTheDocument();
     expect(screen.queryByTestId('patient-picker')).not.toBeInTheDocument();
+  });
+});
+
+describe('MessagesWorkspace edited label (QA-156)', () => {
+  it('shows "Edited" on changed messages, for the sender and the other person', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doctor-1' } } as never);
+    vi.mocked(useMessagingHub).mockReturnValue(
+      hub([
+        { id: 'mine', sender_id: 'doctor-1', body: 'Take 2 tablets', edited_at: '2026-11-19T09:05:00Z' },
+        { id: 'theirs', sender_id: 'other-1', body: 'OK, thanks', edited_at: '2026-11-19T09:06:00Z' },
+        { id: 'plain', sender_id: 'other-1', body: 'See you', edited_at: null },
+      ]) as never
+    );
+    renderAs('doctor', '/doctor/messages/conv-1');
+    expect(screen.getAllByText(i18n.t('messaging.edited'))).toHaveLength(2);
+  });
+
+  it('shows it in Arabic too', async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'patient-1' } } as never);
+    vi.mocked(useMessagingHub).mockReturnValue(
+      hub([{ id: 'm', sender_id: 'other-1', body: 'تم التعديل', edited_at: '2026-11-19T09:05:00Z' }]) as never
+    );
+    renderAs('patient', '/patient/messages/conv-1');
+    expect(screen.getByText('معدّلة')).toBeInTheDocument();
   });
 });

@@ -1042,6 +1042,18 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                     ) : (
                       <div className="mt-2">{renderMessageBody(message.body, isOwn)}</div>
                     )}
+                    {/* QA-156: both sides can see that a message was changed after it was sent. */}
+                    {message.edited_at && editingMessageId !== message.id ? (
+                      <p
+                        className={`mt-1 text-[10px] italic ${isOwn ? 'text-end text-white/70' : 'text-gray-400'}`}
+                        title={new Date(message.edited_at).toLocaleString(
+                          locale,
+                          dateTimeFormatWithNumerals(i18n.language, { dateStyle: 'medium', timeStyle: 'short' })
+                        )}
+                      >
+                        {t('messaging.edited')}
+                      </p>
+                    ) : null}
                     {isOwn && editingMessageId !== message.id ? (
                       <div className="mt-1 flex items-center justify-end gap-1">
                         {message.read_at ? (

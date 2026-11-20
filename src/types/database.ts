@@ -379,6 +379,8 @@ export interface Message {
   body: string;
   sent_at: string;
   read_at: string | null;
+  /** QA-156: set by the database when the text is changed. */
+  edited_at?: string | null;
 }
 
 // ---------------------------------------------------------------------------
