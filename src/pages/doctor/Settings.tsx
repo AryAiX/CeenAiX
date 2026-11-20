@@ -6,6 +6,9 @@ import { Skeleton } from '../../components/Skeleton';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
+import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
+import { isComingSoonSection, isSettingsSection } from '../../lib/doctor-settings-sections';
+import { SettingsComingSoon, SettingsGeneral, SettingsHelp, SettingsLanguage } from './SettingsSections';
 
 interface DoctorSettingsPrefs {
   email: boolean;
@@ -63,7 +66,7 @@ export const DoctorSettings = () => {
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState('notifications');
+  const [activeSection, setActiveSection] = useState('general');
   const [clinicSearch, setClinicSearch] = useState('');
   const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
   const [clinicSearching, setClinicSearching] = useState(false);
@@ -93,7 +96,7 @@ export const DoctorSettings = () => {
 
   useEffect(() => {
     const section = searchParams.get('section');
-    if (section) {
+    if (isSettingsSection(section)) {
       setActiveSection(section);
     }
   }, [searchParams]);
@@ -341,14 +344,23 @@ export const DoctorSettings = () => {
         </aside>
 
         <div className="space-y-6">
-          {activeSection !== 'notifications' && activeSection !== 'my-clinic' ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
-              {t('doctor.settings.placeholderSection', {
-                defaultValue:
-                  'This section is reserved for real profile, security, device, integration, and clinical workspace settings as those tables become available. Notifications below remain fully persisted.',
-              })}
-            </div>
+          {activeSection === 'general' ? (
+            <SettingsGeneral
+              fullName={profile?.full_name ?? null}
+              email={profile?.email ?? user?.email ?? null}
+              memberSince={profile?.created_at ?? null}
+              verified={Boolean(doctorProfile?.dha_license_verified)}
+              clinicName={
+                myClinicRecord && ['accepted', 'active'].includes(myClinicRecord.invitation_status)
+                  ? myClinicRecord.facilities?.name_en ?? myClinicRecord.facilities?.name ?? null
+                  : null
+              }
+            />
           ) : null}
+          {activeSection === 'security' ? <AccountSecurityPanel tone="doctor" /> : null}
+          {activeSection === 'language' ? <SettingsLanguage /> : null}
+          {activeSection === 'help' ? <SettingsHelp /> : null}
+          {isComingSoonSection(activeSection) ? <SettingsComingSoon section={activeSection} /> : null}
 
           {activeSection === 'my-clinic' ? (
             <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6">

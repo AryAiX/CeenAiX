@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorSchedule, useUserProfile } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -10,6 +10,9 @@ import { DoctorSettings } from './Settings';
 vi.mock('../../hooks', () => ({ useDoctorSchedule: vi.fn(), useUserProfile: vi.fn() }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
+vi.mock('../../components/AccountSecurityPanel', () => ({
+  AccountSecurityPanel: () => <div data-testid="account-security-panel">security panel</div>,
+}));
 
 type Call = { table: string; op: string; values?: unknown; filters: unknown[] };
 
@@ -42,9 +45,9 @@ const chainFor = (table: string) => {
   return chain;
 };
 
-const renderPage = () =>
+const renderPage = (path = '/doctor/settings?section=my-clinic') =>
   render(
-    <MemoryRouter initialEntries={['/doctor/settings?section=my-clinic']}>
+    <MemoryRouter initialEntries={[path]}>
       <DoctorSettings />
     </MemoryRouter>
   );
@@ -130,3 +133,107 @@ describe('DoctorSettings clinic notifications (QA-175)', () => {
     warn.mockRestore();
   });
 });
+
+describe('DoctorSettings sections (QA-177)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    calls = [];
+    myClinic = { id: 'staff-1', facility_id: 'clinic-a', invitation_status: 'active', facilities: { name: 'Clinic A', name_en: null } };
+    searchRows = [];
+    vi.mocked(supabase.from).mockReset().mockImplementation(chainFor as never);
+    vi.mocked(supabase.rpc).mockReset().mockResolvedValue({ data: null, error: null } as never);
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1', email: 'doc@test.com' }, doctorProfile: { dha_license_verified: false } } as never);
+    vi.mocked(useUserProfile).mockReturnValue({
+      data: { full_name: 'Dr. Sara Ali', email: 'sara@test.com', created_at: '2026-02-10T08:00:00Z', notification_preferences: {} },
+      loading: false,
+      refetch: vi.fn(),
+    } as never);
+    vi.mocked(useDoctorSchedule).mockReturnValue({ data: { availabilities: [] } } as never);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const open = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
+
+  it('opens on General with the account summary and links', async () => {
+    renderPage('/doctor/settings');
+
+    const general = await screen.findByTestId('settings-general');
+    expect(general).toHaveTextContent('Dr. Sara Ali');
+    expect(general).toHaveTextContent('sara@test.com');
+    expect(general).toHaveTextContent('Doctor');
+    expect(general).toHaveTextContent('Pending');
+    await waitFor(() => expect(general).toHaveTextContent('Clinic A'));
+    expect(general).toHaveTextContent('February 2026');
+    expect(screen.getByRole('link', { name: 'Edit profile' })).toHaveAttribute('href', '/doctor/profile');
+    expect(screen.getByRole('link', { name: 'Manage schedule' })).toHaveAttribute('href', '/doctor/schedule');
+  });
+
+  it('no section shows the old developer note any more', () => {
+    renderPage('/doctor/settings');
+    for (const name of ['General', 'My Clinic', 'Appearance', 'Notifications', 'Dashboard', 'Clinical tools', 'Labs & imaging', 'Privacy', 'Security', 'Language', 'Integrations', 'Help']) {
+      open(name);
+      expect(screen.queryByText(/reserved for real profile/)).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows a Coming soon card with what is planned for the 6 sections that need new features', () => {
+    renderPage('/doctor/settings');
+    const planned: Record<string, string> = {
+      Appearance: 'light or dark mode',
+      Dashboard: 'which cards appear on your dashboard',
+      'Clinical tools': 'default prescription and lab order settings',
+      'Labs & imaging': 'preferred labs and imaging centers',
+      Privacy: 'what patients see on your public card',
+      Integrations: 'connect your calendar',
+    };
+    for (const [name, text] of Object.entries(planned)) {
+      open(name);
+      const card = screen.getByTestId('settings-coming-soon');
+      expect(card).toHaveTextContent('Coming soon');
+      expect(card).toHaveTextContent(text);
+    }
+  });
+
+  it('Security shows the password and account panel', () => {
+    renderPage('/doctor/settings');
+    open('Security');
+    expect(screen.getByTestId('account-security-panel')).toBeInTheDocument();
+  });
+
+  it('Language switches the portal language', async () => {
+    renderPage('/doctor/settings');
+    open('Language');
+    expect(screen.getByText('Portal language')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^(AR|ع|العربية|Arabic)/i }));
+    await waitFor(() => expect(i18n.language).toBe('ar'));
+  });
+
+  it('Help shows the support email and the privacy policy', () => {
+    renderPage('/doctor/settings');
+    open('Help');
+    expect(screen.getByRole('link', { name: 'support@ceenaix.com' })).toHaveAttribute('href', 'mailto:support@ceenaix.com');
+    expect(screen.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute('href', '/privacy');
+  });
+
+  it('opens the section named in the link', () => {
+    renderPage('/doctor/settings?section=security');
+    expect(screen.getByTestId('account-security-panel')).toBeInTheDocument();
+  });
+
+  it('an unknown ?section= link falls back to General', async () => {
+    renderPage('/doctor/settings?section=nonsense');
+    expect(await screen.findByTestId('settings-general')).toBeInTheDocument();
+  });
+
+  it('shows the Coming soon card in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    renderPage('/doctor/settings?section=appearance');
+    const card = screen.getByTestId('settings-coming-soon');
+    expect(within(card).getByText('قريبًا')).toBeInTheDocument();
+    expect(card).toHaveTextContent('الوضع الفاتح أو الداكن');
+  });
+});
+

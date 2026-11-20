@@ -2585,6 +2585,40 @@
         "pushTitle": "Push notifications",
         "autoFollowTitle": "Auto-follow new appointments",
         "shareCalTitle": "Share calendar with team"
+      },
+      "general": {
+        "name": "Name",
+        "email": "Email",
+        "role": "Account type",
+        "roleDoctor": "Doctor",
+        "licence": "DHA licence",
+        "clinic": "Clinic",
+        "noClinic": "Not linked to a clinic",
+        "memberSince": "Member since",
+        "editProfile": "Edit profile",
+        "openSchedule": "Manage schedule"
+      },
+      "language": {
+        "portalLanguage": "Portal language",
+        "savedOnDevice": "Switch between English and Arabic. Your choice is saved on this device.",
+        "englishOnlyNote": "Some notifications sent by the system are still in English."
+      },
+      "help": {
+        "contactTitle": "Contact support",
+        "contactBody": "Email the CeenAiX team for help with your account, licence verification or anything in the portal.",
+        "reportTitle": "Report a problem",
+        "reportBody": "Tell us which page you were on, what you did and what happened. A screenshot helps.",
+        "privacyPolicy": "Privacy policy"
+      },
+      "comingSoon": {
+        "badge": "Coming soon",
+        "note": "This section is not available yet.",
+        "appearance": "Planned: choose light or dark mode and the text size of the portal.",
+        "dashboard": "Planned: choose which cards appear on your dashboard and in what order.",
+        "clinicalTools": "Planned: default prescription and lab order settings, and your favourite medicines and tests.",
+        "labImaging": "Planned: preferred labs and imaging centers, and how you are alerted about results.",
+        "privacy": "Planned: control what patients see on your public card, and download your data.",
+        "integrations": "Planned: connect your calendar and your clinic's systems."
       }
     },
     "imaging": {
