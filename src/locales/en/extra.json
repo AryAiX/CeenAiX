@@ -2512,7 +2512,14 @@
       "liveAttention": "Live attention items",
       "noLiveAttention": "No live attention items need review right now.",
       "logTitle": "Notification log",
+      "filters": {
+        "all": "All ({{value}})",
+        "unread": "Unread ({{value}})",
+        "read": "Read ({{value}})"
+      },
       "emptyLog": "No stored notifications yet.",
+      "emptyUnread": "No unread notifications.",
+      "emptyRead": "No read notifications.",
       "showingLatest": "Showing the latest {{shown}} of {{total}} notifications.",
       "unreadBadge": "Unread",
       "bellLabel_one": "Notifications, {{value}} unread",
@@ -2526,7 +2533,10 @@
       "preVisitCompleted": "{{name}} completed pre-visit intake",
       "preVisitBody": "Review the appointment detail to see the patient summary and intake answers.",
       "chartUpdated": "{{name}} updated chart information",
-      "chartUpdateBody": "Review {{label}} in the patient detail workspace."
+      "chartUpdateBody": "Review {{label}} in the patient detail workspace.",
+      "errLoad": "Couldn't load your notifications.",
+      "errUpdate": "Couldn't update the notification. Please try again.",
+      "recordFallback": "record"
     },
     "consultationWorkspace": {
       "title": "Consultation workspace",

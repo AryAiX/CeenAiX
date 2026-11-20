@@ -2451,7 +2451,14 @@
       "liveAttention": "عناصر تحتاج المتابعة",
       "noLiveAttention": "لا توجد عناصر حية تحتاج مراجعة الآن.",
       "logTitle": "سجل الإشعارات",
+      "filters": {
+        "all": "الكل ({{value}})",
+        "unread": "غير المقروءة ({{value}})",
+        "read": "المقروءة ({{value}})"
+      },
       "emptyLog": "لا توجد إشعارات محفوظة بعد.",
+      "emptyUnread": "لا توجد إشعارات غير مقروءة.",
+      "emptyRead": "لا توجد إشعارات مقروءة.",
       "showingLatest": "يتم عرض آخر {{shown}} فقط من الإشعارات (الإجمالي: {{total}}).",
       "unreadBadge": "غير مقروء",
       "bellLabel_zero": "الإشعارات، لا توجد إشعارات غير مقروءة",
@@ -2473,7 +2480,10 @@
       "preVisitCompleted": "أكمل {{name}} استبيان ما قبل الزيارة",
       "preVisitBody": "راجع تفاصيل الموعد لعرض ملخص المريض وإجاباته.",
       "chartUpdated": "حدّث {{name}} معلومات السجل الصحي",
-      "chartUpdateBody": "راجع {{label}} في مساحة المريض."
+      "chartUpdateBody": "راجع {{label}} في مساحة المريض.",
+      "errLoad": "تعذّر تحميل الإشعارات.",
+      "errUpdate": "تعذّر تحديث الإشعار. يرجى المحاولة مرة أخرى.",
+      "recordFallback": "السجل"
     },
     "consultationWorkspace": {
       "title": "مساحة الاستشارة",

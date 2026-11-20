@@ -168,4 +168,29 @@ describe('useDoctorNotifications log counts (QA-162)', () => {
       ],
     ]);
   });
+
+  it('keeps the chart label as stored in Arabic and uses a translated fallback (QA-164)', async () => {
+    await i18n.changeLanguage('ar');
+    results.appointments = [{ id: 'apt-1', patient_id: 'pat-1', status: 'scheduled' }];
+    results.user_profiles = [{ user_id: 'pat-1', full_name: 'Sara Ali' }];
+    results.patient_canonical_update_requests = [
+      { id: 'u1', patient_id: 'pat-1', display_label: 'Allergies', created_at: '2026-11-20T10:00:00Z', updated_at: null },
+      { id: 'u2', patient_id: 'pat-1', display_label: null, created_at: '2026-11-20T09:00:00Z', updated_at: null },
+    ];
+
+    const data = await load();
+    const bodies = data.derivedNotifications.filter((item) => item.kind === 'patient_update').map((item) => item.body);
+    expect(bodies).toEqual(['راجع Allergies في مساحة المريض.', 'راجع السجل في مساحة المريض.']);
+  });
+
+  it('lower-cases the stored label inside the English sentence (QA-164)', async () => {
+    results.appointments = [{ id: 'apt-1', patient_id: 'pat-1', status: 'scheduled' }];
+    results.user_profiles = [{ user_id: 'pat-1', full_name: 'Sara Ali' }];
+    results.patient_canonical_update_requests = [
+      { id: 'u1', patient_id: 'pat-1', display_label: 'Allergies', created_at: '2026-11-20T10:00:00Z', updated_at: null },
+    ];
+
+    const data = await load();
+    expect(data.derivedNotifications[0].body).toBe('Review allergies in the patient detail workspace.');
+  });
 });

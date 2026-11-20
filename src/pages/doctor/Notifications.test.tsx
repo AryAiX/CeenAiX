@@ -180,4 +180,47 @@ describe('DoctorNotifications', () => {
     expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
     expect(screen.getByText('Title n1')).toBeInTheDocument();
   });
+
+  it('translates the filter tabs and empty states in Arabic (QA-164)', async () => {
+    await i18n.changeLanguage('ar');
+    withNotifications([notification('n2', true)]);
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'الكل (١)' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'غير المقروءة (٠)' }));
+    expect(screen.getByText('لا توجد إشعارات غير مقروءة.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'غير المقروءة (٠)' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'المقروءة (١)' }));
+    expect(screen.getByText('Title n2')).toBeInTheDocument();
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows a translated load error with a translated Retry (QA-164)', async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(useDoctorNotifications).mockReturnValue({
+      data: null,
+      loading: false,
+      error: 'JWT expired',
+      refetch,
+    } as never);
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('تعذّر تحميل الإشعارات.');
+    expect(alert).not.toHaveTextContent('JWT expired');
+    fireEvent.click(screen.getByRole('button', { name: 'إعادة المحاولة' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows a translated message instead of the raw database error (QA-164)', async () => {
+    updateResult.error = { message: 'new row violates row-level security policy' };
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark read' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Couldn\'t update the notification. Please try again.')
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('row-level security');
+  });
 });

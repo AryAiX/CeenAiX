@@ -32,7 +32,7 @@ export const DoctorNotifications: React.FC = () => {
     setBusyId(null);
 
     if (updateError) {
-      setActionError(updateError.message);
+      setActionError(t('doctor.notifications.errUpdate'));
       return false;
     }
     announceNotificationsChanged();
@@ -60,7 +60,7 @@ export const DoctorNotifications: React.FC = () => {
     setBusyId(null);
 
     if (updateError) {
-      setActionError(updateError.message);
+      setActionError(t('doctor.notifications.errUpdate'));
       return;
     }
     announceNotificationsChanged();
@@ -110,13 +110,13 @@ export const DoctorNotifications: React.FC = () => {
             role="alert"
             className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700"
           >
-            {error}
+            {t('doctor.notifications.errLoad')}
             <button
               type="button"
               onClick={refetch}
-              className="ml-2 font-semibold underline"
+              className="ms-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -170,7 +170,7 @@ export const DoctorNotifications: React.FC = () => {
                   key={notification.id}
                   type="button"
                   onClick={() => navigate(notification.actionUrl)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-teal-200 hover:bg-teal-50/40"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-semibold text-slate-900">{notification.title}</p>
@@ -197,15 +197,19 @@ export const DoctorNotifications: React.FC = () => {
                   key={filter}
                   type="button"
                   onClick={() => setNotificationFilter(filter)}
+                  aria-pressed={notificationFilter === filter}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                     notificationFilter === filter
                       ? 'bg-emerald-600 text-white'
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {filter === 'all' ? `All (${formatLocaleDigits(totalCount, uiLang)})`
-                    : filter === 'unread' ? `Unread (${formatLocaleDigits(unreadCount, uiLang)})`
-                    : `Read (${formatLocaleDigits(readCount, uiLang)})`}
+                  {t(`doctor.notifications.filters.${filter}`, {
+                    value: formatLocaleDigits(
+                      filter === 'all' ? totalCount : filter === 'unread' ? unreadCount : readCount,
+                      uiLang
+                    ),
+                  })}
                 </button>
               ))}
             </div>
@@ -222,9 +226,11 @@ export const DoctorNotifications: React.FC = () => {
 
           {filteredNotifications.length === 0 ? (
             <p className="text-sm text-slate-600">
-              {notificationFilter === 'unread' ? 'No unread notifications.'
-                : notificationFilter === 'read' ? 'No read notifications.'
-                : t('doctor.notifications.emptyLog')}
+              {notificationFilter === 'unread'
+                ? t('doctor.notifications.emptyUnread')
+                : notificationFilter === 'read'
+                  ? t('doctor.notifications.emptyRead')
+                  : t('doctor.notifications.emptyLog')}
             </p>
           ) : (
             <div className="space-y-3">

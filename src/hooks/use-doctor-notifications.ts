@@ -34,6 +34,13 @@ const chartUpdateTitle = (name: string) =>
     name,
     defaultValue: '{{name}} updated chart information',
   });
+const recordFallback = () => i18n.t('doctor.notifications.recordFallback');
+// QA-164: display_label is stored in English; lower-case it only inside the English sentence.
+const chartLabel = (label: string | null | undefined) => {
+  const trimmed = label?.trim();
+  if (!trimmed) return recordFallback();
+  return (i18n.language ?? 'en').startsWith('en') ? trimmed.toLowerCase() : trimmed;
+};
 const chartUpdateBody = (label: string) =>
   i18n.t('doctor.notifications.chartUpdateBody', {
     label,
@@ -269,9 +276,9 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         id: `patient-update-${update.id}`,
         kind: 'patient_update',
         title: chartUpdateTitle(reviewPatientNameById.get(update.patient_id) ?? patientFallback()),
-        // display_label is nullable in the canonical schema; coalesce so a
-        // stray null row doesn't crash the entire notifications hook.
-        body: chartUpdateBody((update.display_label ?? 'record').toLowerCase()),
+        // display_label is nullable in the canonical schema; chartLabel() falls back to a
+        // translated word so a stray null row doesn't crash the entire notifications hook.
+        body: chartUpdateBody(chartLabel(update.display_label)),
         createdAt: update.updated_at ?? update.created_at,
         actionUrl: `/doctor/patients/${update.patient_id}`,
       });
