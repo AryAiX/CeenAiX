@@ -75,6 +75,7 @@ export const DoctorLabOrders: React.FC = () => {
           labOrder.patientName,
           labOrder.patientEmail,
           labOrder.status,
+          labOrderStatusLabel(t, labOrder.status),
           ...labOrder.items.map((item) => `${item.test_name} ${item.test_name_ar ?? ''} ${item.test_code ?? ''}`),
         ]
           .filter(Boolean)
@@ -83,7 +84,7 @@ export const DoctorLabOrders: React.FC = () => {
 
         return haystack.includes(searchValue);
       }),
-    [searchQuery, statusFilter, tabLabOrders]
+    [searchQuery, statusFilter, tabLabOrders, t]
   );
 
 
@@ -106,11 +107,11 @@ export const DoctorLabOrders: React.FC = () => {
   const printLabOrder = labOrders.find((o) => o.id === printLabOrderId) ?? null;
   const firstCriticalItem = firstCriticalOrder?.items.find(isCriticalLabItem) ?? null;
   const labTabs = [
-    { id: 'all' as const, label: 'All', count: labOrders.length, icon: TestTube2 },
-    { id: 'critical' as const, label: 'Critical', count: criticalCount, icon: AlertTriangle },
-    { id: 'pending' as const, label: 'Pending', count: pendingResults, icon: Clock },
-    { id: 'results' as const, label: 'Results', count: resultedCount, icon: CheckCircle2 },
-    { id: 'scheduled' as const, label: 'Scheduled', count: scheduledCount, icon: CalendarCheck },
+    { id: 'all' as const, label: t('doctor.labOrders.tabAll'), count: labOrders.length, icon: TestTube2 },
+    { id: 'critical' as const, label: t('doctor.labOrders.tabCritical'), count: criticalCount, icon: AlertTriangle },
+    { id: 'pending' as const, label: t('doctor.labOrders.tabPending'), count: pendingResults, icon: Clock },
+    { id: 'results' as const, label: t('doctor.labOrders.tabResults'), count: resultedCount, icon: CheckCircle2 },
+    { id: 'scheduled' as const, label: t('doctor.labOrders.tabScheduled'), count: scheduledCount, icon: CalendarCheck },
   ];
 
   useEffect(() => {
@@ -133,16 +134,14 @@ export const DoctorLabOrders: React.FC = () => {
       }
       setActionFeedback({
         type: 'success',
-        message: t('doctor.labOrders.reviewedSuccess', { defaultValue: 'Lab order marked as reviewed.' }),
+        message: t('doctor.labOrders.reviewedSuccess'),
       });
       await refetch();
-    } catch (reviewFailure) {
+    } catch {
       setActionFeedback({
         type: 'error',
-        message:
-          reviewFailure instanceof Error
-            ? reviewFailure.message
-            : t('doctor.labOrders.reviewError', { defaultValue: 'Could not mark lab order reviewed.' }),
+        // The database message is English and technical; show the translated message instead.
+        message: t('doctor.labOrders.reviewError'),
       });
     } finally {
       setReviewBusyId(null);
@@ -271,7 +270,7 @@ export const DoctorLabOrders: React.FC = () => {
               onClick={() => void refetch()}
               className="mt-2 font-semibold text-amber-900 underline"
             >
-              {t('shared.retry', { defaultValue: 'Retry' })}
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -295,18 +294,23 @@ export const DoctorLabOrders: React.FC = () => {
               <div className="flex min-w-0 gap-4">
                 <AlertTriangle className="h-8 w-8 shrink-0 animate-pulse text-red-600" />
                 <div className="min-w-0">
-                  <p className="text-sm font-bold uppercase tracking-wide text-red-700">Critical result</p>
+                  <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('doctor.labOrders.criticalResultTitle')}</p>
                   <h2 className="mt-2 text-lg font-bold text-red-950">
                     {firstCriticalOrder.patientName} — {firstCriticalItem.test_name}
                   </h2>
                   <p className="mt-2 font-mono text-3xl font-bold text-red-700">
-                    {labResultValueText(firstCriticalItem) || 'Resulted'}
+                    {labResultValueText(firstCriticalItem) || t('doctor.labOrders.resultedFallback')}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    Reference: {firstCriticalItem.reference_range ?? '-'} · Resulted{' '}
+                    {t('doctor.labOrders.referenceShort')}: <bdi>{firstCriticalItem.reference_range ?? '-'}</bdi> ·{' '}
                     {firstCriticalItem.resulted_at
-                      ? new Date(firstCriticalItem.resulted_at).toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }))
-                      : 'recently'}
+                      ? t('doctor.labOrders.resultedAt', {
+                          time: new Date(firstCriticalItem.resulted_at).toLocaleTimeString(
+                            locale,
+                            dtOpts({ hour: 'numeric', minute: '2-digit' })
+                          ),
+                        })
+                      : t('doctor.labOrders.resultedRecently')}
                   </p>
                 </div>
               </div>
@@ -315,7 +319,7 @@ export const DoctorLabOrders: React.FC = () => {
                 onClick={() => setActiveTab('critical')}
                 className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700"
               >
-                Review critical result
+                {t('doctor.labOrders.reviewCritical')}
               </button>
             </div>
           </div>
@@ -325,38 +329,34 @@ export const DoctorLabOrders: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('critical')}
-            className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-red-300 text-left w-full"
+            className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-red-300 text-start w-full"
           >
-            <p className="text-sm font-medium text-slate-500">Critical results</p>
+            <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.criticalResults')}</p>
             <p className="mt-2 text-2xl font-bold text-red-600">{formatLocaleDigits(criticalCount, uiLang)}</p>
-            <p className="mt-1 text-xs text-red-400">Click to review</p>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('all')}
-            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-teal-200 text-left w-full"
+            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-teal-200 text-start w-full"
           >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.totalOrders')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(labOrders.length, uiLang)}</p>
-            <p className="mt-1 text-xs text-teal-400">Click to view all</p>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('pending')}
-            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-amber-200 text-left w-full"
+            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-amber-200 text-start w-full"
           >
             <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.pendingResults')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(pendingResults, uiLang)}</p>
-            <p className="mt-1 text-xs text-amber-400">Click to view pending</p>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('scheduled')}
-            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-blue-200 text-left w-full"
+            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm cursor-pointer transition hover:shadow-md hover:border-blue-200 text-start w-full"
           >
-            <p className="text-sm font-medium text-slate-500">Scheduled</p>
+            <p className="text-sm font-medium text-slate-500">{t('doctor.labOrders.scheduled')}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">{formatLocaleDigits(scheduledCount, uiLang)}</p>
-            <p className="mt-1 text-xs text-blue-400">Click to view scheduled</p>
           </button>
         </div>
 
@@ -380,9 +380,9 @@ export const DoctorLabOrders: React.FC = () => {
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
-                  <Icon className="mr-2 h-4 w-4" />
+                  <Icon className="me-2 h-4 w-4" />
                   {tab.label}
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`ms-2 rounded-full px-2 py-0.5 text-[10px] ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
                     {formatLocaleDigits(tab.count, uiLang)}
                   </span>
                 </button>
@@ -420,7 +420,7 @@ export const DoctorLabOrders: React.FC = () => {
             </div>
 
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {formatLocaleDigits(filteredLabOrders.length, uiLang)} shown
+              {t('doctor.labOrders.shownCount', { n: formatLocaleDigits(filteredLabOrders.length, uiLang) })}
             </p>
           </div>
         </div>
@@ -439,7 +439,7 @@ export const DoctorLabOrders: React.FC = () => {
               <div
                 key={labOrder.id}
                 className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${
-                  critical ? 'border-red-200 border-l-4 border-l-red-600' : 'border-slate-200'
+                  critical ? 'border-red-200 border-s-4 border-s-red-600' : 'border-slate-200'
                 }`}
               >
                 <div className={`${critical ? 'bg-gradient-to-r from-red-700 to-red-600' : 'bg-gradient-to-r from-slate-900 to-cyan-800'} p-5 text-white`}>
@@ -473,7 +473,7 @@ export const DoctorLabOrders: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                       >
                         <Users className="h-4 w-4" />
-                        <span>View Patient</span>
+                        <span>{t('doctor.prescriptions.viewPatient')}</span>
                       </button>
                       <button
                         type="button"
@@ -517,29 +517,27 @@ export const DoctorLabOrders: React.FC = () => {
                           className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          <span>{t('doctor.labOrders.markReviewed', { defaultValue: 'Mark reviewed' })}</span>
+                          <span>{t('doctor.labOrders.markReviewed')}</span>
                         </button>
                       ) : labOrder.status === 'reviewed' ? (
                         <button
                           type="button"
                           disabled
-                          title={t('doctor.labOrders.alreadyReviewed', { defaultValue: 'Already reviewed' })}
+                          title={t('doctor.labOrders.alreadyReviewed')}
                           className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          <span>{t('doctor.labOrders.markReviewed', { defaultValue: 'Mark reviewed' })}</span>
+                          <span>{t('doctor.labOrders.markReviewed')}</span>
                         </button>
                       ) : (
                         <button
                           type="button"
                           disabled
-                          title={t('doctor.labOrders.markReviewedUnavailable', {
-                            defaultValue: 'Mark reviewed — available when results are released',
-                          })}
+                          title={t('doctor.labOrders.markReviewedUnavailable')}
                           className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-400 opacity-70"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          <span>{t('doctor.labOrders.markReviewed', { defaultValue: 'Mark reviewed' })}</span>
+                          <span>{t('doctor.labOrders.markReviewed')}</span>
                         </button>
                       )}
                     </div>
@@ -573,8 +571,12 @@ export const DoctorLabOrders: React.FC = () => {
                               severity === 'critical' ? 'text-red-700' : severity === 'abnormal' ? 'text-amber-800' : 'text-slate-700'
                             }`}
                           >
-                            {labResultValueText(item) || 'Resulted'}
-                            {item.reference_range ? <span className="ml-2 text-xs font-normal text-slate-500">Ref: {item.reference_range}</span> : null}
+                            {labResultValueText(item) || t('doctor.labOrders.resultedFallback')}
+                            {item.reference_range ? (
+                              <span className="ms-2 text-xs font-normal text-slate-500">
+                                {t('doctor.labOrders.referenceShort')}: <bdi>{item.reference_range}</bdi>
+                              </span>
+                            ) : null}
                           </p>
                         ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -175,3 +175,35 @@ describe('DoctorLabOrders print and PDF (QA-145)', () => {
     expect(content.items[0].detail).toContain('حرج');
   });
 });
+
+describe('DoctorLabOrders in Arabic (QA-146)', () => {
+  it('shows no English labels on the list', async () => {
+    await i18n.changeLanguage('ar');
+    const { container } = renderWith([
+      order('a1', 'Critical Patient', 'resulted', [
+        labItem('k', 'Potassium', { flag: 'HH', reference_range: '3.5-5.1', resulted_at: '2026-11-19T09:30:00Z' }),
+      ]),
+      order('a2', 'Waiting Patient', 'ordered', [labItem('w', 'TSH', { status: 'ordered', result_value: null })]),
+    ]);
+    const text = container.textContent ?? '';
+    for (const english of [
+      'Critical result',
+      'Review critical result',
+      'Critical results',
+      'Scheduled',
+      'Click to',
+      ' shown',
+      'View Patient',
+      'Mark reviewed',
+      'Ref:',
+      'Reference:',
+      'Resulted',
+    ]) {
+      expect(text).not.toContain(english);
+    }
+    for (const tab of ['الكل', 'حرجة', 'معلّقة', 'النتائج', 'مجدولة']) {
+      expect(screen.getAllByRole('button', { name: new RegExp(`^${tab}`) }).length).toBeGreaterThan(0);
+    }
+    expect(screen.getByText('نتيجة حرجة')).toBeInTheDocument();
+  });
+});

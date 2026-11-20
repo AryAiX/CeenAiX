@@ -2360,7 +2360,26 @@
         "abnormal": "غير طبيعي",
         "normal": "طبيعي",
         "docDisclaimer": "هذه النتائج للاستخدام السريري فقط. تحقّق دائماً مع الطبيب الطالب. أُنشئت بواسطة منصة CeenAiX الصحية."
-      }
+      },
+      "tabAll": "الكل",
+      "tabCritical": "حرجة",
+      "tabPending": "معلّقة",
+      "tabResults": "النتائج",
+      "tabScheduled": "مجدولة",
+      "criticalResultTitle": "نتيجة حرجة",
+      "resultedFallback": "صدرت النتيجة",
+      "referenceShort": "المرجع",
+      "resultedAt": "صدرت {{time}}",
+      "resultedRecently": "صدرت مؤخراً",
+      "reviewCritical": "مراجعة النتيجة الحرجة",
+      "criticalResults": "نتائج حرجة",
+      "scheduled": "مجدولة",
+      "shownCount": "{{n}} معروضة",
+      "markReviewed": "تحديد كمُراجَع",
+      "alreadyReviewed": "تمت المراجعة",
+      "markReviewedUnavailable": "تحديد كمُراجَع — متاح عند صدور النتائج",
+      "reviewError": "تعذّر تحديد طلب الفحص كمُراجَع.",
+      "reviewedSuccess": "تم تحديد طلب الفحص كمُراجَع."
     },
     "createLabOrder": {
       "title": "إنشاء طلب مختبر",
