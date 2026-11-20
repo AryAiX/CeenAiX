@@ -52,7 +52,7 @@ const Probe = () => {
   return null;
 };
 
-const renderAs = (role: 'patient' | 'doctor', path: string) =>
+const renderAs = (role: 'patient' | 'doctor' | 'pharmacy' | 'clinic', path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -222,5 +222,17 @@ describe('MessagesWorkspace edited label (QA-156)', () => {
     );
     renderAs('patient', '/patient/messages/conv-1');
     expect(screen.getByText('معدّلة')).toBeInTheDocument();
+  });
+});
+
+describe('MessagesWorkspace labels for pharmacy and clinic (QA-157)', () => {
+  it.each(['pharmacy', 'clinic'] as const)('shows real %s text in Arabic, not label names', async (role) => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(useAuth).mockReturnValue({ user: { id: `${role}-1` } } as never);
+    vi.mocked(useMessagingHub).mockReturnValue(hub([{ id: 'm1', sender_id: 'other-1', body: 'مرحبا' }]) as never);
+    const { container } = renderAs(role, `/${role}/messages/conv-1`);
+    expect(container.textContent ?? '').not.toMatch(/\b(pharmacy|clinic)\.messages\./);
+    expect(screen.getByPlaceholderText(i18n.t(`${role}.messages.searchPlaceholder`))).toBeInTheDocument();
+    expect(i18n.t(`${role}.messages.searchPlaceholder`)).not.toContain(`${role}.messages`);
   });
 });
