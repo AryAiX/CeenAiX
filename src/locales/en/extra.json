@@ -2643,7 +2643,10 @@
       "pendingReviews": "Pending reviews",
       "consultationFee": "Consultation fee",
       "todayEventsHeading": "Today's revenue events",
-      "noAppointmentsToday": "No appointments today yet."
+      "noAppointmentsToday": "No appointments today yet.",
+      "subtitleEstimate": "Estimated consultation earnings from your appointments today.",
+      "appointmentsToday": "Appointments today (completed / scheduled)",
+      "estimateNote": "These figures are estimates: completed appointments today multiplied by your consultation fee. Insurance claims, payouts and statements are not shown here yet."
     },
     "portal": {
       "title": "Doctor portal hub",

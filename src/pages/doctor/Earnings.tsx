@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Banknote, Calendar, FileSpreadsheet, Receipt, Wallet } from 'lucide-react';
+import { Banknote, Calendar, CalendarCheck, Receipt, Wallet } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorDashboard } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -18,10 +17,7 @@ export const DoctorEarnings = () => {
   const scheduledToday = data?.todayAppointments ?? 0;
   const estimatedToday = completedToday * fee;
   const projectedToday = scheduledToday * fee;
-  const pendingClinicalReviews = data?.pendingReviews ?? 0;
   const currency = 'AED';
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'claims' | 'payouts' | 'analytics'>('overview');
-  const tabs = ['overview', 'transactions', 'claims', 'payouts', 'analytics'] as const;
 
   if (loading) {
     return (
@@ -59,7 +55,7 @@ export const DoctorEarnings = () => {
               {t('doctor.earnings.title')}
             </div>
             <h1 className="text-3xl font-bold">{currency} {formatLocaleDigits(estimatedToday, uiLang)}</h1>
-            <p className="mt-2 text-emerald-100">{t('doctor.earnings.subtitle')}</p>
+            <p className="mt-2 text-emerald-100">{t('doctor.earnings.subtitleEstimate')}</p>
           </div>
           <button
             type="button"
@@ -95,9 +91,10 @@ export const DoctorEarnings = () => {
             bg: 'bg-blue-100',
           },
           {
-            label: t('doctor.earnings.pendingReviews', { defaultValue: 'Pending reviews' }),
-            value: formatLocaleDigits(pendingClinicalReviews, uiLang),
-            icon: FileSpreadsheet,
+            // QA-158: was "Pending reviews" (clinical notes and forms), which has nothing to do with earnings.
+            label: t('doctor.earnings.appointmentsToday'),
+            value: `${formatLocaleDigits(completedToday, uiLang)} / ${formatLocaleDigits(scheduledToday, uiLang)}`,
+            icon: CalendarCheck,
             color: 'text-amber-600',
             bg: 'bg-amber-100',
           },
@@ -115,44 +112,8 @@ export const DoctorEarnings = () => {
         })}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex gap-2 overflow-x-auto border-b border-slate-100 px-4 py-3">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold capitalize transition ${
-                activeTab === tab ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {t(`doctor.earnings.tab.${tab}`, { defaultValue: tab[0].toUpperCase() + tab.slice(1) })}
-            </button>
-          ))}
-        </div>
-        {activeTab !== 'overview' ? (
-          <div className="p-6">
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-              {t(`doctor.earnings.placeholder.${activeTab}`, {
-                defaultValue: `${activeTab[0].toUpperCase() + activeTab.slice(1)} will use the billing, claims, and payout tables once that data model is available. Current revenue values stay bound to live appointments and doctor profile fees.`,
-              })}
-            </div>
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                disabled
-                title={t('doctor.earnings.exportComingSoon', {
-                  defaultValue: 'Billing exports arrive with the dedicated revenue model.',
-                })}
-                className="cursor-not-allowed rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-400 opacity-80"
-              >
-                {t('doctor.earnings.exportTab', { defaultValue: 'Export tab data' })}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
+      {/* QA-158: the Transactions / Claims / Payouts / Analytics tabs only showed an internal developer note
+          and a disabled "Export tab data" button, so they were removed. Real billing is a feature request. */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-slate-900">
           {t('doctor.earnings.todayEventsHeading', { defaultValue: "Today's revenue events" })}
@@ -184,10 +145,7 @@ export const DoctorEarnings = () => {
       </div>
 
       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-        {t('doctor.earnings.estimateNote', {
-          defaultValue:
-            'Earnings are estimated from completed appointments and the doctor profile consultation fee. Claims, payouts, VAT, and remittance reports need a dedicated billing model.',
-        })}
+        {t('doctor.earnings.estimateNote')}
       </div>
     </div>
   );
