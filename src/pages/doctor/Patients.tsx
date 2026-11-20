@@ -470,18 +470,6 @@ export const DoctorPatients: React.FC = () => {
                                     event.stopPropagation();
                                     setOpenMenuPatientId(null);
                                     setMenuPosition(null);
-                                    navigate(`/doctor/schedule`);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm text-slate-700 transition hover:bg-slate-50"
-                                >
-                                  📅 <span>{t('doctor.patients.actionBookAppointment')}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setOpenMenuPatientId(null);
-                                    setMenuPosition(null);
                                     navigate(`/doctor/prescriptions/new?patient=${patient.id}`);
                                   }}
                                   className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm text-slate-700 transition hover:bg-slate-50"
@@ -610,18 +598,6 @@ export const DoctorPatients: React.FC = () => {
                                 className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm text-slate-700 transition hover:bg-slate-50"
                               >
                                 👁️ <span>{t('doctor.patients.actionViewRecord')}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenMenuPatientId(null);
-                                  setMenuPosition(null);
-                                  navigate(`/doctor/schedule`);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm text-slate-700 transition hover:bg-slate-50"
-                              >
-                                📅 <span>{t('doctor.patients.actionBookAppointment')}</span>
                               </button>
                               <button
                                 type="button"
