@@ -419,3 +419,56 @@ describe('DoctorSettings My Clinic statuses and Arabic (QA-179)', () => {
   });
 });
 
+describe('DoctorSettings notification switches (QA-176)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    calls = [];
+    myClinic = null;
+    searchRows = [];
+    extraLinks = [];
+    searchResult = null;
+    vi.mocked(supabase.from).mockReset().mockImplementation(chainFor as never);
+    vi.mocked(supabase.rpc).mockReset().mockResolvedValue({ data: null, error: null } as never);
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1' }, doctorProfile: null } as never);
+    vi.mocked(useUserProfile).mockReturnValue({
+      data: { full_name: 'Dr. Sara Ali', notification_preferences: { email: true, shareCalendar: true } },
+      loading: false,
+      refetch: vi.fn(),
+    } as never);
+    vi.mocked(useDoctorSchedule).mockReturnValue({ data: { availabilities: [] } } as never);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the 5 switches off, disabled and named, each marked Coming soon', () => {
+    renderPage('/doctor/settings?section=notifications');
+
+    expect(screen.getByText(/These options are not active yet/)).toBeInTheDocument();
+    expect(screen.getAllByRole('switch')).toHaveLength(5);
+    for (const name of ['Email notifications', 'SMS alerts', 'Portal notifications', 'Auto-confirm follow-ups', 'Share calendar availability']) {
+      const toggle = screen.getByRole('switch', { name });
+      expect(toggle).toBeDisabled();
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
+    }
+    expect(within(screen.getByTestId('notification-switches')).getAllByText('Coming soon')).toHaveLength(5);
+    expect(screen.getByRole('switch', { name: 'Share calendar availability' })).toHaveAccessibleDescription(
+      /Today patients can always book your open slots/
+    );
+  });
+
+  it('clicking a switch saves nothing', () => {
+    renderPage('/doctor/settings?section=notifications');
+    fireEvent.click(screen.getByRole('switch', { name: 'Share calendar availability' }));
+    expect(calls.filter((call) => call.table === 'user_profiles')).toEqual([]);
+  });
+
+  it('shows the switches in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    renderPage('/doctor/settings?section=notifications');
+    expect(screen.getByRole('switch', { name: 'مشاركة أوقات التوفر' })).toBeDisabled();
+    expect(within(screen.getByTestId('notification-switches')).getAllByText('قريبًا')).toHaveLength(5);
+  });
+});
+

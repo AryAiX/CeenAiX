@@ -12,33 +12,6 @@ import { ilikeAnyFilter } from '../../lib/postgrest-search';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { SettingsComingSoon, SettingsGeneral, SettingsHelp, SettingsLanguage } from './SettingsSections';
 
-interface DoctorSettingsPrefs {
-  email: boolean;
-  sms: boolean;
-  push: boolean;
-  autoConfirmFollowUps: boolean;
-  shareCalendar: boolean;
-}
-
-const DEFAULT_PREFS: DoctorSettingsPrefs = {
-  email: true,
-  sms: true,
-  push: true,
-  autoConfirmFollowUps: false,
-  shareCalendar: true,
-};
-
-function normalize(value: unknown): DoctorSettingsPrefs {
-  const raw = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-  return {
-    email: typeof raw.email === 'boolean' ? raw.email : DEFAULT_PREFS.email,
-    sms: typeof raw.sms === 'boolean' ? raw.sms : DEFAULT_PREFS.sms,
-    push: typeof raw.push === 'boolean' ? raw.push : DEFAULT_PREFS.push,
-    autoConfirmFollowUps: typeof raw.autoConfirmFollowUps === 'boolean' ? raw.autoConfirmFollowUps : DEFAULT_PREFS.autoConfirmFollowUps,
-    shareCalendar: typeof raw.shareCalendar === 'boolean' ? raw.shareCalendar : DEFAULT_PREFS.shareCalendar,
-  };
-}
-
 // QA-175: tell the clinic's staff about this doctor's clinic link (join request / accepted /
 // declined). Done by a database function: a doctor can't read the clinic's staff list or create
 // notifications for other people, so the old client-side version silently did nothing. Best
@@ -71,6 +44,36 @@ const clinicLinkView = (status: string): ClinicLinkView => {
   }
 };
 
+// QA-176: the notification preferences shown in Settings. None of them is used by the app yet.
+const NOTIFICATION_SWITCHES = ['email', 'sms', 'portal', 'autoConfirmFollowUps', 'shareCalendar'] as const;
+
+const ComingSoonSwitchRow = ({ id, title, body, badge }: { id: string; title: string; body: string; badge: string }) => (
+  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 p-5">
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span id={`${id}-title`} className="font-bold text-slate-700">
+          {title}
+        </span>
+        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">{badge}</span>
+      </div>
+      <p id={`${id}-body`} className="mt-1 text-sm text-slate-500">
+        {body}
+      </p>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={false}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-body`}
+      disabled
+      className="relative h-7 w-12 cursor-not-allowed rounded-full bg-slate-200 opacity-60"
+    >
+      <span className="absolute start-1 top-1 h-5 w-5 rounded-full bg-white shadow" />
+    </button>
+  </div>
+);
+
 // QA-178: which label to show for a clinic the doctor already has a link with.
 const linkStatusLabelKey = (status: string) => {
   if (status === 'pending') return 'pending';
@@ -86,7 +89,7 @@ export const DoctorSettings = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, doctorProfile } = useAuth();
-  const { data: profile, loading, refetch } = useUserProfile();
+  const { data: profile, loading } = useUserProfile();
   const { data: schedule } = useDoctorSchedule(user?.id);
   const [myClinicRecord, setMyClinicRecord] = useState<{
     id: string;
@@ -97,9 +100,6 @@ export const DoctorSettings = () => {
   const [clinicActionLoading, setClinicActionLoading] = useState(false);
   const currentLinkView = myClinicRecord ? clinicLinkView(myClinicRecord.invitation_status) : null;
   const [clinicActionError, setClinicActionError] = useState<string | null>(null);
-  const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('general');
   const [clinicSearch, setClinicSearch] = useState('');
   const [clinicResults, setClinicResults] = useState<{ id: string; name: string; city: string; type: string }[]>([]);
@@ -126,12 +126,6 @@ export const DoctorSettings = () => {
     { key: 'integrations', label: t('doctor.settings.sections.integrations', { defaultValue: 'Integrations' }) },
     { key: 'help', label: t('doctor.settings.sections.help', { defaultValue: 'Help' }) },
   ];
-
-  useEffect(() => {
-    if (profile) {
-      setPrefs(normalize(profile.notification_preferences));
-    }
-  }, [profile]);
 
   useEffect(() => {
     const section = searchParams.get('section');
@@ -268,29 +262,6 @@ export const DoctorSettings = () => {
     }
   };
 
-  const save = async (nextPrefs: DoctorSettingsPrefs) => {
-    if (!user?.id) return;
-    setSaving(true);
-    setSaveError(null);
-    const { error: saveError } = await supabase
-      .from('user_profiles')
-      .update({ notification_preferences: nextPrefs })
-      .eq('user_id', user.id);
-    setSaving(false);
-    if (saveError) {
-      // QA-179: a translated message instead of the raw database error.
-      setSaveError(t('doctor.settings.clinic.errPrefs'));
-      return;
-    }
-    refetch();
-  };
-
-  const toggle = (key: keyof DoctorSettingsPrefs) => {
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
-    void save(next);
-  };
-
   if (loading) {
     return (
       <div className="space-y-5">
@@ -300,33 +271,8 @@ export const DoctorSettings = () => {
     );
   }
 
-  const ToggleRow = ({ prefKey, title, body }: { prefKey: keyof DoctorSettingsPrefs; title: string; body: string }) => (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div>
-        <div className="font-bold text-slate-900">{title}</div>
-        <p className="mt-1 text-sm text-slate-500">{body}</p>
-      </div>
-      <button
-        type="button"
-        onClick={() => toggle(prefKey)}
-        className={`relative h-7 w-12 rounded-full transition ${prefs[prefKey] ? 'bg-cyan-600' : 'bg-slate-300'}`}
-        aria-pressed={prefs[prefKey]}
-      >
-        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${prefs[prefKey] ? 'start-6' : 'start-1'}`} />
-      </button>
-    </div>
-  );
-
   return (
     <div className="animate-fadeIn space-y-6">
-      {saveError ? (
-        <div
-          role="alert"
-          className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-        >
-          {saveError}
-        </div>
-      ) : null}
       <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-8 text-white shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -572,52 +518,25 @@ export const DoctorSettings = () => {
           {activeSection === 'notifications' ? (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
-              <Bell className="h-6 w-6 text-cyan-600" />
+              <Bell className="h-6 w-6 text-cyan-600" aria-hidden="true" />
               <div>
-                <h2 className="text-lg font-bold text-slate-900">{t('doctor.settings.featureNotificationsTitle')}</h2>
-                <p className="text-sm text-slate-500">
-                  {saving
-                    ? t('doctor.settings.saving', { defaultValue: 'Saving…' })
-                    : t('doctor.settings.featureNotificationsBody')}
-                </p>
+                <h2 className="text-lg font-bold text-slate-900">{t('doctor.settings.notificationSwitches.title')}</h2>
+                <p className="text-sm text-slate-500">{t('doctor.settings.notificationSwitches.intro')}</p>
               </div>
             </div>
-            <div className="space-y-4">
-              <ToggleRow
-                prefKey="email"
-                title={t('doctor.settings.toggles.emailTitle', { defaultValue: 'Email notifications' })}
-                body={t('doctor.settings.toggles.emailBody', {
-                  defaultValue: 'Appointment, lab, and patient message updates.',
-                })}
-              />
-              <ToggleRow
-                prefKey="sms"
-                title={t('doctor.settings.toggles.smsTitle', { defaultValue: 'SMS alerts' })}
-                body={t('doctor.settings.toggles.smsBody', {
-                  defaultValue: 'Urgent schedule changes and critical-result notifications.',
-                })}
-              />
-              <ToggleRow
-                prefKey="push"
-                title={t('doctor.settings.toggles.pushTitle', { defaultValue: 'Portal notifications' })}
-                body={t('doctor.settings.toggles.pushBody', {
-                  defaultValue: 'In-app updates while you are using CeenAiX.',
-                })}
-              />
-              <ToggleRow
-                prefKey="autoConfirmFollowUps"
-                title={t('doctor.settings.toggles.autoFollowTitle', { defaultValue: 'Auto-confirm follow-ups' })}
-                body={t('doctor.settings.toggles.autoFollowBody', {
-                  defaultValue: 'Reserve follow-up workflow preference for future scheduling automation.',
-                })}
-              />
-              <ToggleRow
-                prefKey="shareCalendar"
-                title={t('doctor.settings.toggles.shareCalTitle', { defaultValue: 'Share calendar availability' })}
-                body={t('doctor.settings.toggles.shareCalBody', {
-                  defaultValue: 'Expose active availability slots to patient booking surfaces.',
-                })}
-              />
+            {/* QA-176: these preferences are not used anywhere yet (no email / SMS sending, no
+                automation, booking ignores 'share calendar'), so they are shown switched off and
+                disabled with a "Coming soon" label instead of looking like they work. */}
+            <div className="space-y-4" data-testid="notification-switches">
+              {NOTIFICATION_SWITCHES.map((key) => (
+                <ComingSoonSwitchRow
+                  key={key}
+                  id={`notification-switch-${key}`}
+                  title={t(`doctor.settings.notificationSwitches.items.${key}.title`)}
+                  body={t(`doctor.settings.notificationSwitches.items.${key}.body`)}
+                  badge={t('doctor.settings.comingSoon.badge')}
+                />
+              ))}
             </div>
           </div>
           ) : null}

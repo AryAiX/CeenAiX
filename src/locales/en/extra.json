@@ -2670,8 +2670,33 @@
         "requestJoin": "Request to Join",
         "noResults": "No clinics found for \"{{query}}\"",
         "errAccept": "Couldn't accept the invitation. Please try again.",
-        "errDecline": "Couldn't decline the invitation. Please try again.",
-        "errPrefs": "Couldn't save your preferences. Please try again."
+        "errDecline": "Couldn't decline the invitation. Please try again."
+      },
+      "notificationSwitches": {
+        "title": "Notification preferences",
+        "intro": "These options are not active yet. Today you get every alert inside the portal, and no emails or text messages are sent.",
+        "items": {
+          "email": {
+            "title": "Email notifications",
+            "body": "Appointment, lab and patient message updates by email."
+          },
+          "sms": {
+            "title": "SMS alerts",
+            "body": "Urgent schedule changes and critical results by text message."
+          },
+          "portal": {
+            "title": "Portal notifications",
+            "body": "Choose which updates appear in the portal while you use CeenAiX."
+          },
+          "autoConfirmFollowUps": {
+            "title": "Auto-confirm follow-ups",
+            "body": "Confirm follow-up appointments automatically."
+          },
+          "shareCalendar": {
+            "title": "Share calendar availability",
+            "body": "Choose whether patients can see your open slots and book you. Today patients can always book your open slots."
+          }
+        }
       }
     },
     "imaging": {
