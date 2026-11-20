@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { DoctorPreVisitTemplateRecord } from './pre-visit';
-import { liveTemplate, pickEditorTemplate, templateQuestionsPayload } from './pre-visit-template-editor';
+import {
+  liveTemplate,
+  nextFreeQuestionKey,
+  pickEditorTemplate,
+  templateQuestionsPayload,
+  withUniqueQuestionKeys,
+} from './pre-visit-template-editor';
 
 const template = (
   id: string,
@@ -81,3 +87,51 @@ describe('pre-visit template editor (QA-166)', () => {
     ]);
   });
 });
+
+describe('question keys (QA-170)', () => {
+  const draft = (key: string, label = key) => ({
+    key,
+    label,
+    helpText: null,
+    type: 'short_text' as const,
+    required: false,
+    options: [],
+    displayOrder: 0,
+    autofillSource: null,
+    memoryKey: null,
+    aiInstructions: null,
+  });
+
+  it('keeps the first key and gives later duplicates the next free suffix', () => {
+    const result = withUniqueQuestionKeys([
+      draft('symptoms'),
+      draft('question_3'),
+      draft('symptoms', 'Symptoms again'),
+      draft('symptoms_2'),
+      draft('question_3', 'New question'),
+    ]);
+    expect(result.map((question) => question.key)).toEqual([
+      'symptoms',
+      'question_3',
+      'symptoms_2',
+      'symptoms_2_2',
+      'question_3_2',
+    ]);
+    expect(result[2].label).toBe('Symptoms again');
+  });
+
+  it('returns the same question objects when keys are already unique', () => {
+    const questions = [draft('a'), draft('b')];
+    const result = withUniqueQuestionKeys(questions);
+    expect(result[0]).toBe(questions[0]);
+    expect(result[1]).toBe(questions[1]);
+  });
+
+  it('picks a new-question key that is not used yet', () => {
+    // Added 3 questions, removed the 2nd: question_1, question_3 are left.
+    expect(nextFreeQuestionKey([{ key: 'question_1' }, { key: 'question_3' }])).toBe('question_4');
+    expect(nextFreeQuestionKey([{ key: 'question_1' }, { key: 'question_2' }])).toBe('question_3');
+    expect(nextFreeQuestionKey([])).toBe('question_1');
+  });
+});
+

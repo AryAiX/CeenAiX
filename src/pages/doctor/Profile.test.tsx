@@ -174,6 +174,28 @@ describe('DoctorProfile pre-visit template (QA-166)', () => {
     expect(screen.getByTestId('template-editing-status')).toHaveTextContent('It is not live yet');
   });
 
+  it('saves with unique question keys after a question is removed and another added (QA-170)', async () => {
+    withTemplates([template('live-1', 'Live intake', 'published', true)]);
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: { template_id: 'live-1', saved_as_copy: false },
+      error: null,
+    } as never);
+    renderPage();
+
+    // symptoms + question_2 + question_3, remove question_2, add one more.
+    fireEvent.click(screen.getByRole('button', { name: /Add question/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Add question/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Remove/ })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /Add question/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Publish active template' }));
+
+    await waitFor(() => expect(supabase.rpc).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(supabase.rpc).mock.calls[0][1] as { p_questions: Array<{ question_key: string }> };
+    const keys = payload.p_questions.map((question) => question.question_key);
+    expect(keys).toEqual(['symptoms', 'question_3', 'question_4']);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
   it('shows the error and no success message when the save fails', async () => {
     withTemplates([template('live-1', 'Live intake', 'published', true)]);
     vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: new Error('boom') } as never);

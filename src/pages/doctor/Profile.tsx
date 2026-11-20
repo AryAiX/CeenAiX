@@ -41,7 +41,13 @@ import {
   type PreVisitTemplateQuestionDraft,
 } from '../../lib/pre-visit';
 import { supabase } from '../../lib/supabase';
-import { liveTemplate, pickEditorTemplate, templateQuestionsPayload } from '../../lib/pre-visit-template-editor';
+import {
+  liveTemplate,
+  nextFreeQuestionKey,
+  pickEditorTemplate,
+  templateQuestionsPayload,
+  withUniqueQuestionKeys,
+} from '../../lib/pre-visit-template-editor';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 interface DoctorProfileFormState {
@@ -85,10 +91,10 @@ const splitFullName = (fullName: string) => {
   };
 };
 
-const createEmptyQuestion = (index: number): PreVisitTemplateQuestionDraft =>
+const createEmptyQuestion = (index: number, key = `question_${index + 1}`): PreVisitTemplateQuestionDraft =>
   normalizeTemplateQuestion(
     {
-      key: `question_${index + 1}`,
+      key,
       label: '',
       helpText: null,
       type: 'short_text',
@@ -301,7 +307,11 @@ export const DoctorProfile: React.FC = () => {
   const handleAddTemplateQuestion = () => {
     setTemplateDraft((currentDraft) => ({
       ...currentDraft,
-      questions: [...currentDraft.questions, createEmptyQuestion(currentDraft.questions.length)],
+      questions: [
+        ...currentDraft.questions,
+        // QA-170: never reuse a key that is still in the list (e.g. after removing a question).
+        createEmptyQuestion(currentDraft.questions.length, nextFreeQuestionKey(currentDraft.questions)),
+      ],
     }));
     setTemplateDirty(true);
     setTemplateErrorMessage(null);
@@ -579,8 +589,9 @@ export const DoctorProfile: React.FC = () => {
       return;
     }
 
-    const normalizedQuestions = templateDraft.questions.map((question, index) =>
-      normalizeTemplateQuestion(question, index)
+    // QA-170: keys must be unique, or the database refuses the whole save.
+    const normalizedQuestions = withUniqueQuestionKeys(
+      templateDraft.questions.map((question, index) => normalizeTemplateQuestion(question, index))
     );
 
     if (!templateDraft.title.trim()) {
