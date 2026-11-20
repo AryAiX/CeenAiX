@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Bot,
@@ -29,6 +29,7 @@ import {
   formatLocaleCurrency,
   formatLocaleDigits,
   formatRelativeTime,
+  CLINIC_TIME_ZONE,
   isSameCalendarDayInTimeZone,
   resolveLocale,
   usesArabicEasternNumerals,
@@ -41,6 +42,15 @@ const getDisplayName = (fullName: string | null | undefined, firstName: string |
   return '';
 };
 
+// QA-185: which page each number card opens (cards without a target are not clickable).
+const CARD_TARGETS: Record<string, string | undefined> = {
+  'appointments-today': '/doctor/today',
+  'prescriptions-today': '/doctor/prescriptions',
+  'lab-orders-today': '/doctor/lab-orders',
+  'unread-messages': '/doctor/messages',
+  'revenue-today': '/doctor/earnings',
+};
+
 export const DoctorDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('common');
@@ -51,111 +61,15 @@ export const DoctorDashboard: React.FC = () => {
   const { data, loading, error, refetch } = useDoctorDashboard(user?.id);
 
   const displayName = getDisplayName(profile?.full_name, profile?.first_name) || t('shared.doctor');
-  const doctorName = /^dr\.?/i.test(displayName) ? displayName : uiLang.startsWith('ar') ? `د. ${displayName}` : `Dr. ${displayName}`;
+  const doctorName = /^(dr\.?|د\.)\s/i.test(displayName) ? displayName : t('doctor.dashboard.ui.doctorName', { name: displayName });
   // QA-184: the header shows the doctor's city, never the personal address from the profile.
   const doctorCity = profile?.city?.trim() || '';
-  const doctorLicense = doctorProfile?.license_number?.trim() || (uiLang.startsWith('ar') ? 'الترخيص قيد الإضافة' : 'License pending');
-  const isArabic = uiLang.startsWith('ar');
-  const hour = new Date().getHours();
-  const greetingEn = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const greetingAr = hour < 12 ? 'صباح الخير' : 'مساء الخير';
-  const localCopy = useMemo(
-    () =>
-      isArabic
-        ? {
-            criticalTitle: 'نتيجة حرجة',
-            unacknowledged: 'غير معتمد',
-            criticalHigh: 'حرج جداً',
-            noCriticalStatus: 'كل النتائج الحرجة تمت مراجعتها',
-            noCriticalBody: 'لا توجد نتائج مختبر حرجة غير معتمدة لهذا الطبيب حالياً.',
-            reference: 'المرجع',
-            openLabResults: 'فتح طلبات المختبر',
-            acknowledgeResult: 'اعتماد النتيجة',
-            unavailable: 'غير متاح حالياً',
-            greeting: greetingAr,
-            daySummary: 'تم إنجاز {{done}} من {{total}} مواعيد',
-            finishEstimate: 'الانتهاء المتوقع: {{time}}',
-            activeConsultation: 'استشارة جارية',
-            nextPatient: 'المريض التالي',
-            openWorkspace: 'فتح مساحة الاستشارة',
-            soapNotes: 'ملاحظات SOAP',
-            prescribe: 'وصفة',
-            orderLab: 'طلب مختبر',
-            totalPatients: 'إجمالي المرضى',
-            todayAppts: 'مواعيد اليوم',
-            pendingReviews: 'مراجعات معلقة',
-            unreadMessages: 'رسائل غير مقروءة',
-            criticalLabs: 'نتائج حرجة',
-            dhaStatus: 'حالة ترخيص DHA',
-            completed: 'مكتمل',
-            remaining: 'متبقٍ',
-            inProgress: 'قيد التنفيذ',
-            todaySchedule: 'مواعيد اليوم',
-            todayScheduleSub: 'المواعيد المكتملة والجارية والقادمة لهذا اليوم.',
-            viewFullSchedule: 'عرض الجدول الكامل',
-            openAppointment: 'فتح الموعد',
-            noTodaySchedule: 'ستظهر مواعيد اليوم هنا عند دخول الحجوزات في جدول الطبيب.',
-            recentLabs: 'نتائج المختبر',
-            viewAllLabs: 'عرض كل النتائج',
-            noLabs: 'لا توجد نتائج مختبر حديثة لهذا الطبيب بعد.',
-            recentMessages: 'الرسائل',
-            viewAllMessages: 'عرض الكل',
-            noMessages: 'لا توجد رسائل حديثة بعد.',
-            aiTitle: 'رؤى سريرية بالذكاء الاصطناعي',
-            aiBody: 'سيتم تفعيل الرؤى السريرية للطبيب بعد اكتمال مساحة الذكاء الاصطناعي الطبية.',
-            comingSoon: 'قريباً',
-            noChiefComplaint: 'استشارة مجدولة',
-            statusOk: 'صالح',
-            statusPending: 'قيد المراجعة',
-          }
-        : {
-            criticalTitle: 'CRITICAL RESULT',
-            unacknowledged: 'Unacknowledged',
-            criticalHigh: 'Critical high',
-            noCriticalStatus: 'All critical results reviewed',
-            noCriticalBody: 'There are no unacknowledged critical lab results for this doctor right now.',
-            reference: 'Reference',
-            openLabResults: 'Open lab orders',
-            acknowledgeResult: 'Acknowledge result',
-            unavailable: 'Not available yet',
-            greeting: greetingEn,
-            daySummary: '{{done}} of {{total}} appointments done',
-            finishEstimate: 'Finish est.: {{time}}',
-            activeConsultation: 'Live Consultation',
-            nextPatient: 'Next Patient',
-            openWorkspace: 'Open Consultation Workspace',
-            soapNotes: 'SOAP Notes',
-            prescribe: 'Prescribe',
-            orderLab: 'Order Lab',
-            totalPatients: 'Total Patients',
-            todayAppts: "Today's Appointments",
-            pendingReviews: 'Pending Reviews',
-            unreadMessages: 'Unread Messages',
-            criticalLabs: 'Critical Labs',
-            dhaStatus: 'DHA License Status',
-            completed: 'completed',
-            remaining: 'remaining',
-            inProgress: 'in progress',
-            todaySchedule: "Today's Appointments",
-            todayScheduleSub: 'Completed, active, and upcoming visits for today.',
-            viewFullSchedule: 'View full schedule',
-            openAppointment: 'Open',
-            noTodaySchedule: "Today's schedule will appear here once bookings land on the doctor's calendar.",
-            recentLabs: 'Lab Results',
-            viewAllLabs: 'View all lab results',
-            noLabs: 'No recent lab results for this doctor yet.',
-            recentMessages: 'Messages',
-            viewAllMessages: 'View all',
-            noMessages: 'No recent messages yet.',
-            aiTitle: 'AI Clinical Insights',
-            aiBody: 'Doctor-facing clinical AI insights will be enabled after the clinical workspace is finalized.',
-            comingSoon: 'Coming soon',
-            noChiefComplaint: 'Scheduled consultation',
-            statusOk: 'Valid',
-            statusPending: 'Pending',
-          },
-    [isArabic, greetingAr, greetingEn]
+  const doctorLicense = doctorProfile?.license_number?.trim() || t('doctor.dashboard.ui.licencePending');
+  // QA-185: greeting by the clinic's clock (Dubai), not the device's.
+  const clinicHour = Number(
+    new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: CLINIC_TIME_ZONE }).format(new Date())
   );
+  const greeting = t(`doctor.dashboard.ui.greeting.${clinicHour < 12 ? 'morning' : clinicHour < 18 ? 'afternoon' : 'evening'}`);
   const completedTodayAppointments = data?.completedTodayAppointments ?? 0;
   const todayAppointments = data?.todayAppointments ?? 0;
   const remainingTodayAppointments = data?.remainingTodayAppointments ?? 0;
@@ -182,35 +96,42 @@ export const DoctorDashboard: React.FC = () => {
     {
       id: 'appointments-today',
       icon: CalendarCheck,
-      label: 'Appointments Today',
+      label: t('doctor.dashboard.ui.cards.appointmentsToday'),
       value: formatLocaleDigits(todayAppointments, uiLang),
-      sub: `${formatLocaleDigits(completedTodayAppointments, uiLang)} done · ${formatLocaleDigits(inProgressAppointments, uiLang)} in progress · ${formatLocaleDigits(remainingTodayAppointments, uiLang)} remaining`,
+      sub: t('doctor.dashboard.ui.cards.appointmentsSub', {
+        done: formatLocaleDigits(completedTodayAppointments, uiLang),
+        inProgress: formatLocaleDigits(inProgressAppointments, uiLang),
+        remaining: formatLocaleDigits(remainingTodayAppointments, uiLang),
+      }),
       color: 'teal',
       progress: appointmentProgress,
     },
     {
       id: 'prescriptions-today',
       icon: PenLine,
-      label: 'Prescriptions Written',
+      label: t('doctor.dashboard.ui.cards.prescriptionsWritten'),
       value: formatLocaleDigits(data?.prescriptionsToday ?? 0, uiLang),
-      sub: 'Today · live from prescriptions',
+      sub: t('doctor.dashboard.ui.cards.today'),
       color: 'purple',
     },
     {
       id: 'lab-orders-today',
       icon: FlaskConical,
-      label: 'Lab Orders Today',
+      label: t('doctor.dashboard.ui.cards.labOrdersToday'),
       value: formatLocaleDigits(data?.labOrdersToday ?? 0, uiLang),
-      sub: `${formatLocaleDigits(data?.criticalResults.length ?? 0, uiLang)} critical pending · ${formatLocaleDigits(recentLabResults.length, uiLang)} recent results`,
+      sub: t('doctor.dashboard.labs.counts', {
+        critical: formatLocaleDigits(criticalCount, uiLang),
+        recent: formatLocaleDigits(recentLabResults.length, uiLang),
+      }),
       color: 'indigo',
-      critical: (data?.criticalResults.length ?? 0) > 0,
+      critical: criticalCount > 0,
     },
     {
       id: 'unread-messages',
       icon: MessageSquare,
-      label: 'Unread Messages',
+      label: t('doctor.dashboard.ui.cards.unreadMessages'),
       value: formatLocaleDigits(data?.unreadMessages ?? 0, uiLang),
-      sub: `${formatLocaleDigits(recentMessages.length, uiLang)} recent patient threads`,
+      sub: t('doctor.dashboard.ui.cards.messagesToday', { value: formatLocaleDigits(recentMessages.length, uiLang) }),
       color: 'blue',
     },
     {
@@ -232,23 +153,23 @@ export const DoctorDashboard: React.FC = () => {
     {
       id: 'dha-status',
       icon: Users,
-      label: localCopy.dhaStatus,
-      value: doctorProfile?.dha_license_verified ? localCopy.statusOk : localCopy.statusPending,
+      label: t('doctor.dashboard.ui.cards.dhaStatus'),
+      value: doctorProfile?.dha_license_verified ? t('doctor.settings.verified') : t('doctor.settings.pending'),
       sub: doctorLicense,
       color: doctorProfile?.dha_license_verified ? 'emerald' : 'slate',
-      extraSub: doctorProfile?.dha_license_verified ? 'Verified provider profile' : 'Verification pending',
+      extraSub: doctorProfile?.dha_license_verified ? t('doctor.dashboard.ui.cards.verifiedSub') : t('doctor.dashboard.ui.cards.pendingSub'),
     },
   ];
   const quickActions = [
-    { icon: ClipboardList, label: 'Write Prescription', color: 'purple', onClick: () => navigate('/doctor/prescribe') },
+    { icon: ClipboardList, label: t('doctor.dashboard.ui.quick.writePrescription'), color: 'purple', onClick: () => navigate('/doctor/prescribe') },
     // QA-184: opens a new lab order (it used to open the lab list); critical results have their own banner.
-    { icon: TestTube, label: 'Order Lab Test', color: 'indigo', onClick: () => navigate('/doctor/lab-orders/new') },
-    { icon: Calendar, label: 'Block Time Off', color: 'slate', onClick: () => navigate('/doctor/schedule') },
-    { icon: Send, label: 'Message Patient', color: 'teal', onClick: () => navigate('/doctor/messages') },
-    { icon: FileText, label: 'Patient Records', color: 'blue', onClick: () => navigate('/doctor/patients') },
+    { icon: TestTube, label: t('doctor.dashboard.ui.quick.orderLabTest'), color: 'indigo', onClick: () => navigate('/doctor/lab-orders/new') },
+    { icon: Calendar, label: t('doctor.dashboard.ui.quick.blockTime'), color: 'slate', onClick: () => navigate('/doctor/schedule') },
+    { icon: Send, label: t('doctor.dashboard.ui.quick.messagePatient'), color: 'teal', onClick: () => navigate('/doctor/messages') },
+    { icon: FileText, label: t('doctor.dashboard.ui.quick.patientRecords'), color: 'blue', onClick: () => navigate('/doctor/patients') },
     {
       icon: Bot,
-      label: 'Open Consultation',
+      label: t('doctor.dashboard.ui.quick.openConsultation'),
       color: 'indigo',
       onClick: () =>
         featuredAppointment
@@ -314,7 +235,7 @@ export const DoctorDashboard: React.FC = () => {
   const lastTodayAppointment = todaySchedule.length > 0 ? todaySchedule[todaySchedule.length - 1] : null;
   // Avoid the hard-coded "~4:00 PM" fallback that misled doctors when their
   // schedule was empty for the day. Render an em-dash instead.
-  const finishEstimate = lastTodayAppointment ? `~${formatDoctorTime(lastTodayAppointment.scheduledAt)}` : '—';
+  const finishEstimate = lastTodayAppointment ? formatDoctorTime(lastTodayAppointment.scheduledAt) : '—';
   const cardColorClasses = {
     teal: { bg: 'bg-teal-100', icon: 'text-teal-600', text: 'text-teal-600', bar: 'bg-teal-600' },
     purple: { bg: 'bg-purple-100', icon: 'text-purple-600', text: 'text-purple-600', bar: 'bg-purple-600' },
@@ -335,7 +256,6 @@ export const DoctorDashboard: React.FC = () => {
       {error ? (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
           <p>{t('doctor.dashboard.loadError')}</p>
-          <p className="mt-1 text-xs text-amber-900/80">{error}</p>
           <button
             type="button"
             onClick={() => void refetch()}
@@ -413,7 +333,7 @@ export const DoctorDashboard: React.FC = () => {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="mb-1 text-[28px] font-bold text-slate-900">
-            {localCopy.greeting}, {doctorName}. 🏥
+            {t('doctor.dashboard.ui.greetingLine', { greeting, name: doctorName })}
           </h1>
           <p className="text-sm text-slate-400">
             {[
@@ -428,18 +348,21 @@ export const DoctorDashboard: React.FC = () => {
           {loading ? (
             <Skeleton className="h-12 w-52" />
           ) : (
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center gap-6">
               <div>
                 <p className="font-mono text-xl font-bold text-teal-600">
-                  {formatLocaleDigits(completedTodayAppointments, uiLang)} of {formatLocaleDigits(todayAppointments, uiLang)}
+                  {t('doctor.dashboard.ui.doneOfTotal', {
+                    done: formatLocaleDigits(completedTodayAppointments, uiLang),
+                    total: formatLocaleDigits(todayAppointments, uiLang),
+                  })}
                 </p>
-                <p className="text-xs text-slate-500">appointments done</p>
+                <p className="text-xs text-slate-500">{t('doctor.dashboard.ui.appointmentsDone')}</p>
               </div>
               <div className="w-32">
                 <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full bg-teal-600 transition-all duration-600" style={{ width: `${appointmentProgress}%` }} />
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400">{localCopy.finishEstimate.replace('{{time}}', finishEstimate)}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{t('doctor.dashboard.ui.finishEstimate', { time: finishEstimate })}</p>
               </div>
             </div>
           )}
@@ -455,7 +378,7 @@ export const DoctorDashboard: React.FC = () => {
         ) : featuredAppointment ? (
           <div className="relative flex items-center justify-between gap-6">
             <div className="flex-1">
-              <div className="mb-3 flex items-center space-x-2">
+              <div className="mb-3 flex items-center gap-2">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                   ● {activeConsultation ? t('doctor.dashboard.hero.live') : t('doctor.dashboard.hero.next')}
@@ -464,14 +387,14 @@ export const DoctorDashboard: React.FC = () => {
               <h2 className="mb-2 text-[22px] font-bold text-white">
                 {featuredAppointment.patientName}
               </h2>
-              <div className="mb-3 flex items-center space-x-4 text-[13px] text-white/70">
+              <div className="mb-3 flex flex-wrap items-center gap-4 text-[13px] text-white/70">
                 <span>
                   {[featuredAppointment.patientAgeGender, featuredAppointment.bloodType, featuredAppointment.insuranceName]
                     .filter(Boolean)
                     .join(' · ') || appointmentTypeLabel(t, featuredAppointment.type)}
                 </span>
                 <span className="text-teal-300">
-                  ❤️ {featuredAppointment.conditions[0] ?? renderComplaint(featuredAppointment.chiefComplaint, localCopy.noChiefComplaint)}
+                  ❤️ {featuredAppointment.conditions[0] ?? renderComplaint(featuredAppointment.chiefComplaint, t('doctor.dashboard.ui.noChiefComplaint'))}
                 </span>
               </div>
               <div className="mb-3 flex flex-wrap gap-2">
@@ -481,10 +404,20 @@ export const DoctorDashboard: React.FC = () => {
                   </span>
                 ))}
                 <span className="rounded bg-blue-800/50 px-2 py-1 text-[10px] font-bold text-blue-300">
-                  💊 {formatLocaleDigits(featuredAppointment.medications.length, uiLang)} active medications
+                  💊{' '}
+                  {t('doctor.dashboard.ui.activeMedications', {
+                    count: featuredAppointment.medications.length,
+                    value: formatLocaleDigits(featuredAppointment.medications.length, uiLang),
+                  })}
                 </span>
                 <span className="rounded bg-slate-600 px-2 py-1 text-[10px] text-white/60">
-                  📋 {featuredAppointment.lastVisitAt ? `Last visit: ${formatRelativeTime(t, featuredAppointment.lastVisitAt)}` : `${formatLocaleDigits(featuredAppointment.visitCount, uiLang)} total visits`}
+                  📋{' '}
+                  {featuredAppointment.lastVisitAt
+                    ? t('doctor.dashboard.ui.lastVisit', { time: formatRelativeTime(t, featuredAppointment.lastVisitAt) })
+                    : t('doctor.dashboard.ui.totalVisits', {
+                        count: featuredAppointment.visitCount,
+                        value: formatLocaleDigits(featuredAppointment.visitCount, uiLang),
+                      })}
                 </span>
               </div>
               <div className="text-white">
@@ -497,36 +430,36 @@ export const DoctorDashboard: React.FC = () => {
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-col space-y-3">
+            <div className="flex flex-col gap-3">
               <button
                 type="button"
                 onClick={() => navigate(`/doctor/appointments/${featuredAppointment.id}`)}
-                className="flex items-center justify-center space-x-2 rounded-2xl bg-white px-6 py-4 text-[15px] font-bold text-[#0A1628] shadow-xl transition-all hover:scale-105 hover:bg-slate-50"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-[15px] font-bold text-[#0A1628] shadow-xl transition-all hover:scale-105 hover:bg-slate-50"
               >
-                <PlayCircle className="h-5 w-5" />
-                <span>{localCopy.openWorkspace}</span>
+                <PlayCircle className="h-5 w-5" aria-hidden="true" />
+                <span>{t('doctor.dashboard.ui.openWorkspace')}</span>
               </button>
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => navigate(`/doctor/appointments/${featuredAppointment.id}`)}
                   className="flex-1 rounded-lg bg-white/20 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-white/30"
                 >
-                  📋 {localCopy.soapNotes}
+                  📋 {t('doctor.dashboard.ui.soapNotes')}
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate(`/doctor/prescribe?patient=${featuredAppointment.patientId}&appointment=${featuredAppointment.id}`)}
                   className="flex-1 rounded-lg bg-white/20 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-white/30"
                 >
-                  💊 {localCopy.prescribe}
+                  💊 {t('doctor.dashboard.ui.prescribe')}
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate(`/doctor/lab-orders/new?patient=${featuredAppointment.patientId}&appointment=${featuredAppointment.id}`)}
                   className="flex-1 rounded-lg bg-white/20 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-white/30"
                 >
-                  🔬 {localCopy.orderLab}
+                  🔬 {t('doctor.dashboard.ui.orderLab')}
                 </button>
               </div>
             </div>
@@ -545,59 +478,39 @@ export const DoctorDashboard: React.FC = () => {
           const Icon = card.icon;
           const color = cardColorClasses[card.color as keyof typeof cardColorClasses];
 
+          const cardTarget = CARD_TARGETS[card.id];
+          // QA-185: cards that open a page are real buttons (keyboard and screen readers).
+          const CardElement = cardTarget ? 'button' : 'div';
           return (
-          <div
+          <CardElement
             key={card.id}
-            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-md transition-all ${
+            {...(cardTarget ? { type: 'button' as const, onClick: () => navigate(cardTarget) } : {})}
+            data-testid={`metric-${card.id}`}
+            className={`w-full rounded-2xl border border-slate-200 bg-white p-5 text-start shadow-md transition-all ${
               card.critical ? 'animate-pulse ring-2 ring-red-500' : ''
-            } ${
-              card.id === 'dha-status'
-                ? ''
-                : 'cursor-pointer hover:scale-[1.015] hover:shadow-xl'
-            }`}
-            onClick={() => {
-              if (card.id === 'appointments-today') {
-                navigate('/doctor/today');
-                return;
-              }
-              if (card.id === 'prescriptions-today') {
-                navigate('/doctor/prescriptions');
-                return;
-              }
-              if (card.id === 'lab-orders-today') {
-                navigate('/doctor/lab-orders');
-                return;
-              }
-              if (card.id === 'unread-messages') {
-                navigate('/doctor/messages');
-                return;
-              }
-              if (card.id === 'revenue-today') {
-                navigate('/doctor/earnings');
-              }
-            }}
+            } ${cardTarget ? 'cursor-pointer hover:scale-[1.015] hover:shadow-xl' : ''}`}
           >
-            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${color.bg}`}>
-              <Icon className={`h-6 w-6 ${color.icon}`} />
-            </div>
+            <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${color.bg}`}>
+              <Icon className={`h-6 w-6 ${color.icon}`} aria-hidden="true" />
+            </span>
             {loading ? (
               <Skeleton className="mt-4 h-8 w-24" />
             ) : (
               <>
-                <h3 className={`mb-1 font-mono text-2xl font-bold ${color.text}`}>{card.value}</h3>
-                <p className="mb-1 text-[11px] font-semibold uppercase text-slate-400">{card.label}</p>
-                <p className="text-[11px] text-slate-500">{card.sub}</p>
+                <span className={`mb-1 block font-mono text-2xl font-bold ${color.text}`}>{card.value}</span>
+                <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-400">{card.label}</span>
+                <span className="block text-[11px] text-slate-500">{card.sub}</span>
                 {'progress' in card && card.progress !== undefined ? (
-                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full ${color.bar} transition-all duration-600`} style={{ width: `${card.progress}%` }} />
-                  </div>
+                  <span className="mt-2 block h-1 overflow-hidden rounded-full bg-slate-100">
+                    <span className={`block h-full rounded-full ${color.bar} transition-all duration-600`} style={{ width: `${card.progress}%` }} />
+                  </span>
                 ) : null}
                 {'extraSub' in card && card.extraSub ? (
-                  <p className="mt-1 text-[11px] font-medium text-emerald-600">{card.extraSub}</p>
+                  <span className="mt-1 block text-[11px] font-medium text-emerald-600">{card.extraSub}</span>
                 ) : null}
               </>
             )}
-          </div>
+          </CardElement>
           );
         })}
       </div>
@@ -605,17 +518,20 @@ export const DoctorDashboard: React.FC = () => {
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-md">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-[17px] font-bold text-slate-900">{localCopy.todaySchedule}</h2>
+            <h2 className="text-[17px] font-bold text-slate-900">{t('doctor.dashboard.ui.schedule.title')}</h2>
             <p className="text-[13px] text-slate-400">
               {new Date().toLocaleDateString(locale, dtOpts({ weekday: 'long', day: 'numeric', month: 'long' }))}
             </p>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <span className="font-mono text-[13px] font-bold text-teal-600">
-              {formatLocaleDigits(completedTodayAppointments, uiLang)}/{formatLocaleDigits(todayAppointments, uiLang)} complete
+              {t('doctor.dashboard.ui.schedule.complete', {
+                done: formatLocaleDigits(completedTodayAppointments, uiLang),
+                total: formatLocaleDigits(todayAppointments, uiLang),
+              })}
             </span>
             <button type="button" onClick={() => navigate('/doctor/today')} className="text-xs font-medium text-teal-600 hover:underline">
-              View Full Schedule →
+              {t('doctor.dashboard.ui.schedule.viewFull')}
             </button>
           </div>
         </div>
@@ -629,21 +545,33 @@ export const DoctorDashboard: React.FC = () => {
             todaySchedule.map((appointment) => (
               <div
                 key={appointment.id}
+                // QA-185: the row opens the appointment; reachable with the keyboard too.
+                role="link"
+                tabIndex={0}
+                aria-label={t('doctor.dashboard.ui.schedule.openAppointment', { name: appointment.patientName })}
                 onClick={() => navigate(`/doctor/appointments/${appointment.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(`/doctor/appointments/${appointment.id}`);
+                  }
+                }}
                 className={`group cursor-pointer px-5 py-4 transition-colors hover:bg-slate-50 ${
                   appointment.status === 'in_progress' ? 'bg-teal-50' : criticalResult?.patientId === appointment.patientId ? 'bg-red-50' : ''
                 }`}
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex min-w-0 flex-1 items-center space-x-4 lg:space-x-6">
-                    <div className="w-20 shrink-0 text-right">
+                  <div className="flex min-w-0 flex-1 items-center gap-4 lg:gap-6">
+                    <div className="w-20 shrink-0 text-end">
                       <p className="font-mono text-[13px] font-bold text-slate-700">{formatDoctorTime(appointment.scheduledAt)}</p>
                       <p className="font-mono text-[10px] text-slate-400">
-                        {appointment.durationMinutes ? `${formatLocaleDigits(appointment.durationMinutes, uiLang)} min` : formatShortDate(appointment.scheduledAt)}
+                        {appointment.durationMinutes
+                          ? t('doctor.dashboard.ui.schedule.minutes', { value: formatLocaleDigits(appointment.durationMinutes, uiLang) })
+                          : formatShortDate(appointment.scheduledAt)}
                       </p>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-bold text-slate-900">{appointment.patientName}</h3>
+                      <p className="truncate text-sm font-bold text-slate-900">{appointment.patientName}</p>
                       <p className="truncate text-xs text-slate-400">
                         {renderComplaint(appointment.chiefComplaint, appointmentTypeLabel(t, appointment.type))}
                       </p>
@@ -659,15 +587,15 @@ export const DoctorDashboard: React.FC = () => {
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex items-center justify-end space-x-3">
+                  <div className="flex items-center justify-end gap-3">
                     {appointment.status === 'completed' ? (
-                      <span className="rounded-lg bg-emerald-100 px-3 py-1.5 text-[10px] font-semibold text-emerald-700">✅ Completed</span>
+                      <span className="rounded-lg bg-emerald-100 px-3 py-1.5 text-[10px] font-semibold text-emerald-700">✅ {t('doctor.dashboard.ui.schedule.status.completed')}</span>
                     ) : null}
                     {appointment.status === 'in_progress' ? (
                       <>
-                        <span className="flex items-center space-x-1 rounded-lg bg-teal-100 px-3 py-1.5 text-[10px] font-semibold text-teal-700">
+                        <span className="flex items-center gap-1 rounded-lg bg-teal-100 px-3 py-1.5 text-[10px] font-semibold text-teal-700">
                           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600" />
-                          <span>In Progress</span>
+                          <span>{t('doctor.dashboard.ui.schedule.status.inProgress')}</span>
                         </span>
                         <button
                           type="button"
@@ -677,17 +605,17 @@ export const DoctorDashboard: React.FC = () => {
                           }}
                           className="rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
                         >
-                          ▶ Open
+                          {t('doctor.dashboard.ui.schedule.open')}
                         </button>
                       </>
                     ) : null}
                     {['scheduled', 'confirmed'].includes(appointment.status) ? (
-                      <span className="rounded-lg bg-blue-100 px-3 py-1.5 text-[10px] font-semibold text-blue-700">⏰ Upcoming</span>
+                      <span className="rounded-lg bg-blue-100 px-3 py-1.5 text-[10px] font-semibold text-blue-700">⏰ {t('doctor.dashboard.ui.schedule.status.upcoming')}</span>
                     ) : null}
                     {criticalResult?.patientId === appointment.patientId ? (
-                      <span className="rounded-lg bg-red-100 px-3 py-1.5 text-[10px] font-semibold text-red-700">🔴 Critical</span>
+                      <span className="rounded-lg bg-red-100 px-3 py-1.5 text-[10px] font-semibold text-red-700">🔴 {t('doctor.dashboard.labs.severity.critical')}</span>
                     ) : null}
-                    <ChevronRight className="h-5 w-5 text-slate-400 transition-colors group-hover:text-teal-600" />
+                    <ChevronRight className="h-5 w-5 text-slate-400 transition-colors group-hover:text-teal-600 rtl:rotate-180" aria-hidden="true" />
                   </div>
                 </div>
               </div>
@@ -695,23 +623,23 @@ export const DoctorDashboard: React.FC = () => {
           ) : (
             <div className="p-10 text-center">
               <Users className="mx-auto mb-3 h-8 w-8 text-gray-400" />
-              <p className="font-semibold text-gray-900">{localCopy.todaySchedule}</p>
-              <p className="mt-2 text-sm text-gray-600">{localCopy.noTodaySchedule}</p>
+              <p className="font-semibold text-gray-900">{t('doctor.dashboard.ui.schedule.title')}</p>
+              <p className="mt-2 text-sm text-gray-600">{t('doctor.dashboard.ui.schedule.empty')}</p>
             </div>
           )}
         </div>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 border-l-4 border-l-red-600 bg-white shadow-md">
+        <div className="rounded-2xl border border-slate-200 border-s-4 border-s-red-600 bg-white shadow-md">
           <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100">
                 <FlaskConical className="h-3 w-3 text-red-500" />
               </div>
-              <h3 className="text-sm font-bold">{localCopy.recentLabs}</h3>
+              <h3 className="text-sm font-bold">{t('doctor.dashboard.ui.labsTitle')}</h3>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
               <span className="text-xs font-bold text-red-500">
                 {t('doctor.dashboard.labs.counts', {
@@ -782,7 +710,7 @@ export const DoctorDashboard: React.FC = () => {
                 );
               })
             ) : (
-              <div className="px-4 py-5 text-sm text-slate-500">{localCopy.noLabs}</div>
+              <div className="px-4 py-5 text-sm text-slate-500">{t('doctor.dashboard.ui.labsEmpty')}</div>
             )}
           </div>
           <div className="border-t border-slate-200 px-6 py-3">
@@ -794,14 +722,16 @@ export const DoctorDashboard: React.FC = () => {
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-md">
           <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="h-5 w-5 text-blue-600" />
-              <h3 className="text-sm font-bold">{localCopy.recentMessages}</h3>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-blue-600" aria-hidden="true" />
+              <h3 className="text-sm font-bold">{t('doctor.dashboard.ui.messages.title')}</h3>
             </div>
-            <div className="flex items-center space-x-3">
-              <span className="text-xs font-bold text-blue-500">{formatLocaleDigits(data?.unreadMessages ?? 0, uiLang)} unread</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-blue-500">
+                {t('doctor.dashboard.ui.messages.unread', { value: formatLocaleDigits(data?.unreadMessages ?? 0, uiLang) })}
+              </span>
               <button type="button" onClick={() => navigate('/doctor/messages')} className="text-xs font-medium text-teal-600 hover:underline">
-                View All →
+                {t('doctor.dashboard.ui.messages.viewAll')}
               </button>
             </div>
           </div>
@@ -817,9 +747,9 @@ export const DoctorDashboard: React.FC = () => {
                   key={message.id}
                   type="button"
                   onClick={() => navigate(`/doctor/messages/${message.conversationId}`)}
-                  className="w-full cursor-pointer px-4 py-3.5 text-left transition-colors hover:bg-blue-50/30"
+                  className="w-full cursor-pointer px-4 py-3.5 text-start transition-colors hover:bg-blue-50/30"
                 >
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="relative shrink-0">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-xs font-bold text-white">
                         {message.patientName
@@ -828,19 +758,19 @@ export const DoctorDashboard: React.FC = () => {
                           .join('')
                           .slice(0, 2)}
                       </div>
-                      {!message.readAt ? <div className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-white bg-blue-500" /> : null}
+                      {!message.readAt ? <div className="absolute -end-0.5 -top-0.5 h-2 w-2 rounded-full border border-white bg-blue-500" /> : null}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="mb-0.5 text-[13px] font-bold text-slate-900">{message.patientName}</p>
                       <p className="mb-1 truncate text-xs text-slate-500">{message.body}</p>
                       <p className="font-mono text-[10px] text-slate-400">{formatRelativeTime(t, message.sentAt)}</p>
                     </div>
-                    <span className="rounded bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white">Reply</span>
+                    <span className="rounded bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white">{t('doctor.dashboard.ui.messages.reply')}</span>
                   </div>
                 </button>
               ))
             ) : (
-              <div className="px-4 py-5 text-sm text-slate-500">{localCopy.noMessages}</div>
+              <div className="px-4 py-5 text-sm text-slate-500">{t('doctor.dashboard.ui.messages.empty')}</div>
             )}
           </div>
         </div>
@@ -871,7 +801,7 @@ export const DoctorDashboard: React.FC = () => {
       </div>
 
       <div className="mb-6">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">QUICK ACTIONS</p>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{t('doctor.dashboard.ui.quick.title')}</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           {quickActions.map((action) => {
             const Icon = action.icon;
@@ -881,11 +811,11 @@ export const DoctorDashboard: React.FC = () => {
                 key={action.label}
                 type="button"
                 onClick={action.onClick}
-                className={`flex flex-col items-center justify-center space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:scale-105 hover:shadow-md ${
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:scale-105 hover:shadow-md ${
                   quickActionColors[action.color as keyof typeof quickActionColors]
                 }`}
               >
-                <Icon className={`h-6 w-6 ${color.icon}`} />
+                <Icon className={`h-6 w-6 ${color.icon}`} aria-hidden="true" />
                 <span className="text-center text-xs font-bold text-slate-700">{action.label}</span>
               </button>
             );

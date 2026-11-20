@@ -1841,6 +1841,81 @@
       },
       "cards": {
         "projectedToday": "المتوقع لليوم: {{value}}"
+      },
+      "ui": {
+        "doctorName": "د. {{name}}",
+        "licencePending": "الترخيص قيد الإضافة",
+        "greeting": {
+          "morning": "صباح الخير",
+          "afternoon": "مساء الخير",
+          "evening": "مساء الخير"
+        },
+        "greetingLine": "{{greeting}}، {{name}}.",
+        "doneOfTotal": "{{done}} من {{total}}",
+        "appointmentsDone": "مواعيد مكتملة",
+        "finishEstimate": "آخر موعد: {{time}}",
+        "noChiefComplaint": "استشارة مجدولة",
+        "activeMedications_zero": "لا توجد أدوية حالية",
+        "activeMedications_one": "دواء حالي واحد",
+        "activeMedications_two": "دواءان حاليان",
+        "activeMedications_few": "{{value}} أدوية حالية",
+        "activeMedications_many": "{{value}} دواءً حاليًا",
+        "activeMedications_other": "{{value}} دواء حالي",
+        "lastVisit": "آخر زيارة: {{time}}",
+        "totalVisits_zero": "لا توجد زيارات سابقة",
+        "totalVisits_one": "زيارة واحدة حتى الآن",
+        "totalVisits_two": "زيارتان حتى الآن",
+        "totalVisits_few": "{{value}} زيارات حتى الآن",
+        "totalVisits_many": "{{value}} زيارة حتى الآن",
+        "totalVisits_other": "{{value}} زيارة حتى الآن",
+        "openWorkspace": "فتح مساحة الاستشارة",
+        "soapNotes": "ملاحظات SOAP",
+        "prescribe": "وصفة",
+        "orderLab": "طلب مختبر",
+        "cards": {
+          "appointmentsToday": "مواعيد اليوم",
+          "appointmentsSub": "{{done}} مكتملة · {{inProgress}} جارية · {{remaining}} متبقية",
+          "prescriptionsWritten": "الوصفات المكتوبة",
+          "today": "اليوم",
+          "labOrdersToday": "طلبات المختبر اليوم",
+          "unreadMessages": "رسائل غير مقروءة",
+          "messagesToday": "{{value}} رسائل اليوم",
+          "dhaStatus": "ترخيص هيئة الصحة بدبي",
+          "verifiedSub": "ملف مقدم خدمة موثّق",
+          "pendingSub": "التوثيق قيد المراجعة"
+        },
+        "schedule": {
+          "title": "مواعيد اليوم",
+          "complete": "{{done}}/{{total}} مكتملة",
+          "viewFull": "عرض الجدول الكامل",
+          "openAppointment": "فتح موعد {{name}}",
+          "minutes": "{{value}} دقيقة",
+          "open": "فتح",
+          "empty": "ستظهر مواعيد اليوم هنا عندما يحجز المرضى معك.",
+          "status": {
+            "completed": "مكتمل",
+            "inProgress": "قيد التنفيذ",
+            "upcoming": "قادم"
+          }
+        },
+        "labsTitle": "نتائج المختبر",
+        "labsEmpty": "لا توجد نتائج مختبر خارج النطاق لمرضاك بعد.",
+        "messages": {
+          "title": "الرسائل",
+          "unread": "{{value}} غير مقروءة",
+          "viewAll": "عرض الكل",
+          "reply": "رد",
+          "empty": "لا توجد رسائل اليوم."
+        },
+        "quick": {
+          "title": "إجراءات سريعة",
+          "writePrescription": "كتابة وصفة",
+          "orderLabTest": "طلب فحص مختبر",
+          "blockTime": "حجز وقت راحة",
+          "messagePatient": "مراسلة مريض",
+          "patientRecords": "سجلات المرضى",
+          "openConsultation": "فتح الاستشارة"
+        }
       }
     },
     "patients": {

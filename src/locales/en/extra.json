@@ -1759,6 +1759,73 @@
       },
       "cards": {
         "projectedToday": "Projected for today: {{value}}"
+      },
+      "ui": {
+        "doctorName": "Dr. {{name}}",
+        "licencePending": "Licence pending",
+        "greeting": {
+          "morning": "Good morning",
+          "afternoon": "Good afternoon",
+          "evening": "Good evening"
+        },
+        "greetingLine": "{{greeting}}, {{name}}.",
+        "doneOfTotal": "{{done}} of {{total}}",
+        "appointmentsDone": "appointments done",
+        "finishEstimate": "Last appointment: {{time}}",
+        "noChiefComplaint": "Scheduled consultation",
+        "activeMedications_one": "{{value}} active medication",
+        "activeMedications_other": "{{value}} active medications",
+        "lastVisit": "Last visit: {{time}}",
+        "totalVisits_one": "{{value}} visit so far",
+        "totalVisits_other": "{{value}} visits so far",
+        "openWorkspace": "Open consultation workspace",
+        "soapNotes": "SOAP notes",
+        "prescribe": "Prescribe",
+        "orderLab": "Order lab",
+        "cards": {
+          "appointmentsToday": "Appointments today",
+          "appointmentsSub": "{{done}} done · {{inProgress}} in progress · {{remaining}} remaining",
+          "prescriptionsWritten": "Prescriptions Written",
+          "today": "Today",
+          "labOrdersToday": "Lab orders today",
+          "unreadMessages": "Unread messages",
+          "messagesToday": "{{value}} messages today",
+          "dhaStatus": "DHA licence",
+          "verifiedSub": "Verified provider profile",
+          "pendingSub": "Verification pending"
+        },
+        "schedule": {
+          "title": "Today's appointments",
+          "complete": "{{done}}/{{total}} complete",
+          "viewFull": "View full schedule",
+          "openAppointment": "Open appointment with {{name}}",
+          "minutes": "{{value}} min",
+          "open": "Open",
+          "empty": "Today's appointments will appear here once patients book with you.",
+          "status": {
+            "completed": "Completed",
+            "inProgress": "In progress",
+            "upcoming": "Upcoming"
+          }
+        },
+        "labsTitle": "Lab results",
+        "labsEmpty": "No out-of-range lab results for your patients yet.",
+        "messages": {
+          "title": "Messages",
+          "unread": "{{value}} unread",
+          "viewAll": "View all",
+          "reply": "Reply",
+          "empty": "No messages today."
+        },
+        "quick": {
+          "title": "Quick actions",
+          "writePrescription": "Write Prescription",
+          "orderLabTest": "Order Lab Test",
+          "blockTime": "Block Time Off",
+          "messagePatient": "Message Patient",
+          "patientRecords": "Patient Records",
+          "openConsultation": "Open Consultation"
+        }
       }
     },
     "patients": {

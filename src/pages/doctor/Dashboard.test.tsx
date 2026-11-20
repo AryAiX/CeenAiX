@@ -244,7 +244,7 @@ describe('DoctorDashboard cards and links (QA-184)', () => {
     withAuth(300);
     renderWith(dashboard({ todayAppointments: 4, completedTodayAppointments: 1 }));
 
-    const card = screen.getByText('Earned today (estimate)').closest('div') as HTMLElement;
+    const card = screen.getByTestId('metric-revenue-today');
     expect(plain(card.textContent)).toContain('AED 300');
     expect(plain(card.textContent)).toContain('Projected for today: AED 1,200');
     expect(screen.queryByText('Revenue Today')).not.toBeInTheDocument();
@@ -263,7 +263,7 @@ describe('DoctorDashboard cards and links (QA-184)', () => {
   it('no longer shows a "Review" badge on Prescriptions written for unrelated reviews', () => {
     withAuth(300);
     renderWith(dashboard({ pendingReviews: 5 }));
-    const card = screen.getByText('Prescriptions Written').closest('div') as HTMLElement;
+    const card = screen.getByTestId('metric-prescriptions-today');
     expect(card).not.toHaveTextContent('Review');
   });
 
@@ -279,6 +279,89 @@ describe('DoctorDashboard cards and links (QA-184)', () => {
     renderWith(dashboard());
     expect(screen.queryByText(/Villa 12, Jumeirah/)).not.toBeInTheDocument();
     expect(screen.getByText(/· Dubai$/)).toBeInTheDocument();
+  });
+});
+
+describe('DoctorDashboard translations, RTL and keyboard (QA-185)', () => {
+  const live = {
+    id: 'appt-1',
+    patientId: 'p1',
+    patientName: 'Sara Ali',
+    scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
+    durationMinutes: 30,
+    type: 'in_person',
+    status: 'scheduled',
+    chiefComplaint: null,
+    patientAgeGender: null,
+    bloodType: null,
+    insuranceName: null,
+    conditions: [],
+    allergies: [],
+    medications: ['Metformin 500 mg', 'Aspirin 81 mg'],
+    flags: [],
+    lastVisitAt: null,
+    visitCount: 2,
+  } as never;
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('number cards that open a page are buttons you can reach with the keyboard', () => {
+    renderWith(dashboard());
+    expect(screen.getByTestId('metric-appointments-today').tagName).toBe('BUTTON');
+    expect(screen.getByTestId('metric-dha-status').tagName).toBe('DIV');
+    fireEvent.click(screen.getByTestId('metric-unread-messages'));
+    expect(screen.getByTestId('where')).toHaveTextContent('/doctor/messages');
+  });
+
+  it('a schedule row opens the appointment with Enter', () => {
+    renderWith(
+      dashboard({
+        todaySchedule: [
+          {
+            id: 'appt-9',
+            patientId: 'p9',
+            patientName: 'Omar Said',
+            scheduledAt: new Date().toISOString(),
+            durationMinutes: 20,
+            type: 'in_person',
+            status: 'scheduled',
+            chiefComplaint: null,
+            insuranceName: null,
+            flags: [],
+          } as never,
+        ],
+      })
+    );
+    const row = screen.getByRole('link', { name: 'Open appointment with Omar Said' });
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(screen.getByTestId('where')).toHaveTextContent('/doctor/appointments/appt-9');
+  });
+
+  it('does not show the raw error text', () => {
+    vi.mocked(useDoctorDashboard).mockReturnValue({ data: null, loading: false, error: 'JWT expired', refetch: vi.fn() } as never);
+    render(
+      <MemoryRouter>
+        <DoctorDashboard />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('JWT expired');
+  });
+
+  it('shows the page in Arabic with Arabic plurals and no English left', async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1' }, profile: { full_name: 'Sara' }, doctorProfile: null } as never);
+    renderWith(dashboard({ nextAppointment: live, todayAppointments: 3, completedTodayAppointments: 1 }));
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('د. Sara');
+    expect(screen.getByText('دواءان حاليان', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('زيارتان حتى الآن', { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'كتابة وصفة' })).toBeInTheDocument();
+    expect(screen.getByText('١ من ٣')).toBeInTheDocument();
+    for (const english of ['QUICK ACTIONS', 'Write Prescription', 'active medications', 'appointments done', 'View All', 'Reply', 'Lab Orders Today']) {
+      expect(screen.queryByText(english, { exact: false })).not.toBeInTheDocument();
+    }
   });
 });
 
