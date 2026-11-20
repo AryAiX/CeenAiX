@@ -41,6 +41,7 @@ import {
   type PreVisitTemplateQuestionDraft,
 } from '../../lib/pre-visit';
 import { supabase } from '../../lib/supabase';
+import { liveTemplate, pickEditorTemplate, templateQuestionsPayload } from '../../lib/pre-visit-template-editor';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
 interface DoctorProfileFormState {
@@ -153,6 +154,8 @@ export const DoctorProfile: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [templateDraft, setTemplateDraft] = useState<PreVisitTemplateEditorState>(createEmptyTemplateDraft);
   const [templateDirty, setTemplateDirty] = useState(false);
+  // QA-166: the template open in the editor (may be a draft while another one is live).
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateExtracting, setTemplateExtracting] = useState(false);
   const [templateErrorMessage, setTemplateErrorMessage] = useState<string | null>(null);
@@ -181,8 +184,13 @@ export const DoctorProfile: React.FC = () => {
     () => new Map(specializationOptions.map((specialization) => [specialization.id, specialization.name])),
     [specializationOptions]
   );
-  const activePreVisitTemplate =
-    preVisitTemplates.find((template) => template.isActive) ?? preVisitTemplates[0] ?? null;
+  // QA-166: the live template patients get, and the one open in the editor (can differ).
+  const activePreVisitTemplate = useMemo(() => liveTemplate(preVisitTemplates), [preVisitTemplates]);
+  const editorTemplate = useMemo(
+    () => pickEditorTemplate(preVisitTemplates, editingTemplateId),
+    [editingTemplateId, preVisitTemplates]
+  );
+  const editingLiveTemplate = Boolean(templateDraft.id && templateDraft.id === activePreVisitTemplate?.id);
   const profileCompleteness = useMemo(() => {
     const fields = [
       formData.fullName,
@@ -219,23 +227,23 @@ export const DoctorProfile: React.FC = () => {
       return;
     }
 
-    if (activePreVisitTemplate) {
+    if (editorTemplate) {
       setTemplateDraft({
-        id: activePreVisitTemplate.id,
-        title: activePreVisitTemplate.title,
-        description: activePreVisitTemplate.description ?? '',
+        id: editorTemplate.id,
+        title: editorTemplate.title,
+        description: editorTemplate.description ?? '',
         specializationId:
-          activePreVisitTemplate.specializationId ?? formData.selectedSpecializationIds[0] ?? null,
-        sourceBucket: activePreVisitTemplate.sourceBucket,
-        sourcePath: activePreVisitTemplate.sourcePath,
-        sourceFileName: activePreVisitTemplate.sourceFileName,
+          editorTemplate.specializationId ?? formData.selectedSpecializationIds[0] ?? null,
+        sourceBucket: editorTemplate.sourceBucket,
+        sourcePath: editorTemplate.sourcePath,
+        sourceFileName: editorTemplate.sourceFileName,
         extractionNotes:
-          Array.isArray(activePreVisitTemplate.extractionMetadata.extractionNotes)
-            ? (activePreVisitTemplate.extractionMetadata.extractionNotes as string[])
+          Array.isArray(editorTemplate.extractionMetadata.extractionNotes)
+            ? (editorTemplate.extractionMetadata.extractionNotes as string[])
             : [],
         questions:
-          activePreVisitTemplate.questions.length > 0
-            ? activePreVisitTemplate.questions
+          editorTemplate.questions.length > 0
+            ? editorTemplate.questions
             : [createEmptyQuestion(0)],
       });
       return;
@@ -249,7 +257,7 @@ export const DoctorProfile: React.FC = () => {
             specializationId: formData.selectedSpecializationIds[0] ?? null,
           }
     );
-  }, [activePreVisitTemplate, formData.selectedSpecializationIds, templateDirty]);
+  }, [editorTemplate, formData.selectedSpecializationIds, templateDirty]);
 
   useEffect(() => {
     setAvatarUrl(profile?.avatar_url ?? null);
@@ -319,23 +327,23 @@ export const DoctorProfile: React.FC = () => {
     setTemplateErrorMessage(null);
     setTemplateSuccessMessage(null);
 
-    if (activePreVisitTemplate) {
+    if (editorTemplate) {
       setTemplateDraft({
-        id: activePreVisitTemplate.id,
-        title: activePreVisitTemplate.title,
-        description: activePreVisitTemplate.description ?? '',
+        id: editorTemplate.id,
+        title: editorTemplate.title,
+        description: editorTemplate.description ?? '',
         specializationId:
-          activePreVisitTemplate.specializationId ?? formData.selectedSpecializationIds[0] ?? null,
-        sourceBucket: activePreVisitTemplate.sourceBucket,
-        sourcePath: activePreVisitTemplate.sourcePath,
-        sourceFileName: activePreVisitTemplate.sourceFileName,
+          editorTemplate.specializationId ?? formData.selectedSpecializationIds[0] ?? null,
+        sourceBucket: editorTemplate.sourceBucket,
+        sourcePath: editorTemplate.sourcePath,
+        sourceFileName: editorTemplate.sourceFileName,
         extractionNotes:
-          Array.isArray(activePreVisitTemplate.extractionMetadata.extractionNotes)
-            ? (activePreVisitTemplate.extractionMetadata.extractionNotes as string[])
+          Array.isArray(editorTemplate.extractionMetadata.extractionNotes)
+            ? (editorTemplate.extractionMetadata.extractionNotes as string[])
             : [],
         questions:
-          activePreVisitTemplate.questions.length > 0
-            ? activePreVisitTemplate.questions
+          editorTemplate.questions.length > 0
+            ? editorTemplate.questions
             : [createEmptyQuestion(0)],
       });
       return;
@@ -582,94 +590,44 @@ export const DoctorProfile: React.FC = () => {
     setTemplateSuccessMessage(null);
 
     try {
-      if (publish) {
-        const { error: deactivateError } = await supabase
-          .from('pre_visit_templates')
-          .update({ is_active: false })
-          .eq('doctor_user_id', user.id)
-          .eq('is_active', true);
+      // QA-166: one database call saves the template and its questions (all or nothing).
+      // "Save draft" on the live template keeps it live and saves the changes as a new draft.
+      const { data: saveResult, error: saveError } = await supabase.rpc('save_doctor_pre_visit_template', {
+        p_template_id: templateDraft.id,
+        p_publish: publish,
+        p_title: templateDraft.title.trim(),
+        p_description: templateDraft.description.trim() || null,
+        p_specialization_id: templateDraft.specializationId ?? formData.selectedSpecializationIds[0] ?? null,
+        p_source_bucket: templateDraft.sourceBucket,
+        p_source_path: templateDraft.sourcePath,
+        p_source_file_name: templateDraft.sourceFileName,
+        p_extraction_notes: templateDraft.extractionNotes,
+        p_questions: templateQuestionsPayload(normalizedQuestions),
+      });
 
-        if (deactivateError) {
-          throw deactivateError;
-        }
+      if (saveError) {
+        throw saveError;
       }
 
-      const templatePayload = {
-        doctor_user_id: user.id,
-        specialization_id: templateDraft.specializationId ?? formData.selectedSpecializationIds[0] ?? null,
-        title: templateDraft.title.trim(),
-        description: templateDraft.description.trim() || null,
-        status: publish ? 'published' : 'draft',
-        is_active: publish,
-        source_bucket: templateDraft.sourceBucket,
-        source_path: templateDraft.sourcePath,
-        source_file_name: templateDraft.sourceFileName,
-        extraction_metadata: {
-          extractionNotes: templateDraft.extractionNotes,
-          lastSavedAt: new Date().toISOString(),
-        },
-        published_at: publish ? new Date().toISOString() : null,
-        is_deleted: false,
-        deleted_at: null,
-      };
+      const result = (saveResult ?? {}) as { template_id?: string; saved_as_copy?: boolean };
+      const nextTemplateId = result.template_id ?? templateDraft.id;
 
-      const templateMutation = templateDraft.id
-        ? await supabase
-            .from('pre_visit_templates')
-            .update(templatePayload)
-            .eq('id', templateDraft.id)
-            .eq('doctor_user_id', user.id)
-            .select('id')
-            .single()
-        : await supabase.from('pre_visit_templates').insert(templatePayload).select('id').single();
-
-      if (templateMutation.error) {
-        throw templateMutation.error;
-      }
-
-      const nextTemplateId = templateMutation.data.id;
-
-      const { error: deleteQuestionsError } = await supabase
-        .from('pre_visit_template_questions')
-        .delete()
-        .eq('template_id', nextTemplateId);
-
-      if (deleteQuestionsError) {
-        throw deleteQuestionsError;
-      }
-
-      const { error: insertQuestionsError } = await supabase.from('pre_visit_template_questions').insert(
-        normalizedQuestions.map((question, index) => ({
-          template_id: nextTemplateId,
-          question_key: question.key,
-          label: question.label,
-          help_text: question.helpText,
-          question_type: question.type,
-          display_order: index,
-          is_required: question.required,
-          options: question.options,
-          autofill_source: question.autofillSource,
-          memory_key: question.memoryKey,
-          ai_instructions: question.aiInstructions,
-        }))
-      );
-
-      if (insertQuestionsError) {
-        throw insertQuestionsError;
-      }
-
+      setEditingTemplateId(nextTemplateId);
       setTemplateDraft((currentDraft) => ({
         ...currentDraft,
         id: nextTemplateId,
         questions: normalizedQuestions,
       }));
+      // Reload first, then let the editor follow the saved template (no flash of the old one).
+      await refetchPreVisitTemplates();
       setTemplateDirty(false);
       setTemplateSuccessMessage(
         publish
           ? 'Pre-visit template published. New bookings will receive this intake.'
-          : 'Pre-visit draft saved.'
+          : result.saved_as_copy
+            ? t('doctor.profile.template.savedAsDraftCopy')
+            : 'Pre-visit draft saved.'
       );
-      await refetchPreVisitTemplates();
     } catch (error) {
       setTemplateErrorMessage(
         error instanceof Error ? error.message : 'Unable to save the pre-visit template.'
@@ -1157,6 +1115,15 @@ export const DoctorProfile: React.FC = () => {
                   </div>
                 )}
               </div>
+              {templateDraft.id ? (
+                <p className="mt-3 text-sm text-gray-600" data-testid="template-editing-status">
+                  {editingLiveTemplate
+                    ? t('doctor.profile.template.editingLive')
+                    : activePreVisitTemplate
+                      ? t('doctor.profile.template.editingDraft', { live: activePreVisitTemplate.title })
+                      : t('doctor.profile.template.editingDraftNoLive')}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-6 px-8 py-6">

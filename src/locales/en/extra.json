@@ -2675,6 +2675,14 @@
       "featureReportingTitle": "Unified reporting",
       "featureReportingBody": "Patient volume, earnings, and satisfaction across clinics.",
       "actionOpenDashboard": "Open clinical dashboard"
+    },
+    "profile": {
+      "template": {
+        "editingLive": "You are editing the live template. \"Save draft\" keeps it live and saves your changes as a new draft.",
+        "editingDraft": "You are editing a draft. Patients still get \"{{live}}\" until you publish this one.",
+        "editingDraftNoLive": "You are editing a draft. It is not live yet, so patients get no intake form until you publish.",
+        "savedAsDraftCopy": "Saved as a new draft. Your live template is unchanged and patients still get it."
+      }
     }
   },
   "public": {
