@@ -26,6 +26,7 @@ vi.mock('../../lib/auth-context', () => ({
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }));
 
@@ -80,6 +81,9 @@ describe('CreateLabOrder metadata persistence', () => {
   const useQueryMock = vi.mocked(useQuery);
   const useAuthMock = vi.mocked(useAuth);
   const fromMock = vi.mocked(supabase.from);
+  const rpcMock = vi.mocked(supabase.rpc);
+  /** The tests sent to create_doctor_lab_order (QA-143: one call saves the order and its tests). */
+  const savedItems = () => (rpcMock.mock.calls[0]?.[1] as { p_items: unknown[] } | undefined)?.p_items;
 
   const labOrderBuilder = createSupabaseQueryBuilder({
     data: { id: 'lab-order-1' },
@@ -96,6 +100,7 @@ describe('CreateLabOrder metadata persistence', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    rpcMock.mockResolvedValue({ data: 'lab-order-1', error: null } as never);
     useAuthMock.mockReturnValue({ user: { id: 'doctor-1' } } as never);
     useDoctorPatientsMock.mockReturnValue({
       data: [{ id: 'patient-1', name: 'Patient One' }],
@@ -162,7 +167,7 @@ describe('CreateLabOrder metadata persistence', () => {
 
   const saveOrder = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(screen.getByRole('button', { name: /save lab order/i }));
-    await waitFor(() => expect(labOrderItemsBuilder.insert).toHaveBeenCalled());
+    await waitFor(() => expect(rpcMock).toHaveBeenCalled());
   };
 
   it('writes an authoritative LOINC code and specimen from a LOINC catalog selection', async () => {
@@ -181,7 +186,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: '58410-2',
         loinc_code: '58410-2',
@@ -206,7 +211,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Custom Metabolic Panel/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: 'CUSTOM-CMP-1',
         loinc_code: null,
@@ -237,7 +242,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Novel Marker/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: 'SUGGESTED-42',
         loinc_code: null,
@@ -262,7 +267,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Respiratory Pathogen Test/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: '94500-6',
         loinc_code: '94500-6',
@@ -298,7 +303,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(customOptions[customOptions.length - 1]);
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_name: 'Complete Blood Count',
         test_code: '58410-2',
@@ -312,5 +317,29 @@ describe('CreateLabOrder metadata persistence', () => {
         specimen_type: 'Serum',
       }),
     ]);
+  });
+
+  it('saves the order and its tests in one call, never row by row (QA-143)', async () => {
+    const loinc = makeCatalog({
+      id: 'catalog-loinc',
+      source: 'loinc',
+      source_code: '58410-2',
+      display_name_en: 'Complete Blood Count',
+      specimen: 'Blood',
+    });
+    renderWithMatches([loinc]);
+    const user = userEvent.setup();
+
+    await selectPatient(user);
+    await user.type(screen.getByPlaceholderText(/search by test name/i), 'Complete');
+    await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
+    await saveOrder(user);
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      'create_doctor_lab_order',
+      expect.objectContaining({ p_patient_id: 'patient-1', p_appointment_id: null })
+    );
+    expect(fromMock).not.toHaveBeenCalledWith('lab_orders');
+    expect(fromMock).not.toHaveBeenCalledWith('lab_order_items');
   });
 });

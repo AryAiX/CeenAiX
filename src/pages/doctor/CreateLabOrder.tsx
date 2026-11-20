@@ -767,39 +767,24 @@ export const CreateLabOrder: React.FC = () => {
     setSaving(true);
     setFeedback(null);
 
-    const { data: insertedLabOrder, error: labOrderError } = await supabase
-      .from('lab_orders')
-      .insert({
-        patient_id: patientId,
-        doctor_id: user.id,
-        appointment_id: appointmentId || null,
-        status: 'ordered',
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (labOrderError || !insertedLabOrder) {
-      setSaving(false);
-      setFeedback({ type: 'error', message: labOrderError?.message ?? t('doctor.createLabOrder.saveError') });
-      return;
-    }
-
-    const { error: itemsError } = await supabase.from('lab_order_items').insert(
-      normalizedItems.map((item) => ({
-        lab_order_id: insertedLabOrder.id,
+    // QA-143: save the lab order and its tests in one database transaction, so a failure
+    // can no longer leave an empty lab order behind.
+    const { data: insertedLabOrderId, error: labOrderError } = await supabase.rpc('create_doctor_lab_order', {
+      p_patient_id: patientId,
+      p_appointment_id: appointmentId || null,
+      p_items: normalizedItems.map((item) => ({
         lab_test_catalog_id: item.labTestCatalogId,
         lab_test_catalog_suggestion_id: item.labTestCatalogSuggestionId,
         test_name: item.testName,
         test_code: item.testCode || null,
         loinc_code: item.loincCode || null,
         specimen_type: item.specimen || null,
-        status: 'ordered',
-      }))
-    );
+      })),
+    });
 
-    if (itemsError) {
+    if (labOrderError || typeof insertedLabOrderId !== 'string') {
       setSaving(false);
-      setFeedback({ type: 'error', message: itemsError.message });
+      setFeedback({ type: 'error', message: labOrderError?.message ?? t('doctor.createLabOrder.saveError') });
       return;
     }
 
