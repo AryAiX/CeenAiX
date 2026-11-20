@@ -39,7 +39,8 @@ const hub = (messages: Array<{ id: string; sender_id: string; body: string }>) =
   actionError: null,
   ensureDirectConversation: vi.fn(),
   sendMessage: vi.fn(),
-  deleteMessage: vi.fn(),
+  deleteMessage: vi.fn().mockResolvedValue(true),
+  restoreMessage: vi.fn().mockResolvedValue(true),
   updateMessage: vi.fn(),
   refresh: vi.fn(),
 });
@@ -99,5 +100,42 @@ describe('MessagesWorkspace attachments (QA-153)', () => {
     expect(screen.queryByRole('button', { name: i18n.t('messaging.attach') })).not.toBeInTheDocument();
     expect(screen.queryByTitle(i18n.t('messaging.attachFile'))).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).toBeNull();
+  });
+});
+
+describe('MessagesWorkspace delete and undo (QA-154)', () => {
+  const ownMessage = () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doctor-1' } } as never);
+    const state = hub([{ id: 'mine', sender_id: 'doctor-1', body: 'Please ignore this' }]);
+    vi.mocked(useMessagingHub).mockReturnValue(state as never);
+    return state;
+  };
+
+  it('deletes straight away, so leaving the page cannot cancel it', async () => {
+    const state = ownMessage();
+    const { unmount } = renderAs('doctor', '/doctor/messages/conv-1');
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('messaging.delete') }));
+    expect(state.deleteMessage).toHaveBeenCalledWith('mine');
+    expect(screen.getByRole('status')).toHaveTextContent(i18n.t('messaging.messageDeleted'));
+    unmount();
+    expect(state.restoreMessage).not.toHaveBeenCalled();
+  });
+
+  it('puts the message back with Undo', async () => {
+    const state = ownMessage();
+    renderAs('doctor', '/doctor/messages/conv-1');
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('messaging.delete') }));
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('messaging.undo') }));
+    expect(state.restoreMessage).toHaveBeenCalledWith('mine');
+    expect(screen.getByText('Please ignore this')).toBeInTheDocument();
+  });
+
+  it('shows the message again if the delete failed', async () => {
+    const state = ownMessage();
+    state.deleteMessage.mockResolvedValue(false);
+    renderAs('doctor', '/doctor/messages/conv-1');
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('messaging.delete') }));
+    expect(await screen.findByText('Please ignore this')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

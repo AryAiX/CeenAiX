@@ -40,7 +40,8 @@
     "roleHealthcareProvider": "Healthcare Provider",
     "messageButton": "Message",
     "errDeleteMessage": "Unable to delete message.",
-    "errEditMessage": "Unable to edit message."
+    "errEditMessage": "Unable to edit message.",
+    "errRestoreMessage": "Unable to restore the message."
   },
   "errorBoundary": {
     "title": "Something went wrong",

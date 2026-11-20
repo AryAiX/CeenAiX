@@ -114,6 +114,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     ensureDirectConversation,
     sendMessage,
     deleteMessage,
+    restoreMessage,
     updateMessage,
   } = useMessagingHub(user?.id, conversationId ?? null);
 
@@ -197,7 +198,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     }
   }, [draftParam, activeConversationId, role]);
 
-  // Cancel any pending delete timers on unmount to prevent stale Supabase calls
+  // Only hides the Undo banner: the delete itself already happened (QA-154).
   useEffect(() => {
     const timers = undoTimers.current;
     return () => {
@@ -543,28 +544,45 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     setEditingMessageText('');
   };
 
-  const handleDeleteMessage = (messageId: string) => {
+  // QA-154: the message is deleted straight away, and Undo (for 5 seconds) puts it back. It used to
+  // wait 5 seconds before deleting, and leaving the page in that time silently cancelled the delete:
+  // the message had vanished for the sender but the other person still saw it.
+  const handleDeleteMessage = async (messageId: string) => {
     setDeletedMessageIds((prev) => new Set([...prev, messageId]));
     setUndoMessageId(messageId);
-
-    const timer = setTimeout(async () => {
-      setUndoMessageId(null);
-      await deleteMessage(messageId);
+    if (undoTimers.current[messageId]) clearTimeout(undoTimers.current[messageId]);
+    undoTimers.current[messageId] = setTimeout(() => {
+      setUndoMessageId((current) => (current === messageId ? null : current));
+      delete undoTimers.current[messageId];
     }, 5000);
 
-    undoTimers.current[messageId] = timer;
+    const deleted = await deleteMessage(messageId);
+    if (!deleted) {
+      // Nothing was deleted, so show the message again (the error banner explains).
+      clearTimeout(undoTimers.current[messageId]);
+      delete undoTimers.current[messageId];
+      setUndoMessageId((current) => (current === messageId ? null : current));
+      setDeletedMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
   };
 
-  const handleUndoDelete = (messageId: string) => {
-    setDeletedMessageIds((prev) => {
-      const next = new Set(prev);
-      next.delete(messageId);
-      return next;
-    });
-    setUndoMessageId(null);
+  const handleUndoDelete = async (messageId: string) => {
     if (undoTimers.current[messageId]) {
       clearTimeout(undoTimers.current[messageId]);
       delete undoTimers.current[messageId];
+    }
+    setUndoMessageId(null);
+    const restored = await restoreMessage(messageId);
+    if (restored) {
+      setDeletedMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
     }
   };
   const renderInlineText = (text: string, isOwn: boolean) => {
@@ -924,22 +942,9 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   {messages.map((message) => {
                     const isOwn = message.sender_id === user?.id;
 
-              // Skip deleted messages (show undo banner instead)
+              // Deleted messages are hidden; the Undo banner is shown below the list (QA-154).
               if (deletedMessageIds.has(message.id)) {
-                return undoMessageId === message.id ? (
-                  <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                      <span className="text-sm text-amber-700">{t('messaging.messageDeleted')}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleUndoDelete(message.id)}
-                        className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900"
-                      >
-                        {t('messaging.undo')}
-                      </button>
-                    </div>
-                  </div>
-                ) : null;
+                return null;
               }
 
               return (
@@ -968,7 +973,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteMessage(message.id)}
+                              onClick={() => void handleDeleteMessage(message.id)}
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white/70 transition hover:bg-white/20 hover:text-white"
                             >
                               {t('messaging.delete')}
@@ -1023,6 +1028,21 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   <div ref={messagesEndRef} />
                 </div>
               )}
+                  {undoMessageId ? (
+                    <div className="mt-4 flex justify-end" role="status">
+                      <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                        <span className="text-sm text-amber-700">{t('messaging.messageDeleted')}</span>
+                        <button
+                          type="button"
+                          onClick={() => void handleUndoDelete(undoMessageId)}
+                          disabled={working}
+                          className="text-sm font-bold text-amber-700 underline transition hover:text-amber-900 disabled:opacity-60"
+                        >
+                          {t('messaging.undo')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
             </div>
 
             {/* relative anchors the sr-only "Message draft" label to this form; without it the label is positioned against the whole page, sits below a long conversation and makes the document scroll into empty white space. */}

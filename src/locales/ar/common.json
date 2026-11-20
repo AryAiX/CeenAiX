@@ -40,7 +40,8 @@
     "roleHealthcareProvider": "مقدم رعاية صحية",
     "messageButton": "مراسلة",
     "errDeleteMessage": "تعذّر حذف الرسالة.",
-    "errEditMessage": "تعذّر تعديل الرسالة."
+    "errEditMessage": "تعذّر تعديل الرسالة.",
+    "errRestoreMessage": "تعذّرت استعادة الرسالة."
   },
   "errorBoundary": {
     "title": "حدث خطأ",
