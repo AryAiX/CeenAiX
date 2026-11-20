@@ -22,6 +22,14 @@ import {
 } from '../../lib/prescription-print';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 
+/** Lets keyboard users open the summary cards with Enter or Space, like a button. */
+const activateOnKey = (event: React.KeyboardEvent, action: () => void) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    action();
+  }
+};
+
 export const DoctorPrescriptions: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
@@ -64,6 +72,7 @@ export const DoctorPrescriptions: React.FC = () => {
         prescription.patientName,
         prescription.patientEmail,
         prescription.status,
+        prescriptionStatusLabel(t, prescription.status),
         ...prescription.items.flatMap((item) => [
           item.medication_name,
           item.medication_name_ar,
@@ -87,7 +96,7 @@ export const DoctorPrescriptions: React.FC = () => {
     });
 
     return result;
-  }, [prescriptions, searchQuery, statusFilter, sortOrder]);
+  }, [prescriptions, searchQuery, statusFilter, sortOrder, t]);
 
   const activePrescriptions = useMemo(
     () => filteredPrescriptions.filter((prescription) => prescription.status === 'active'),
@@ -158,13 +167,33 @@ export const DoctorPrescriptions: React.FC = () => {
       emptyFallback: t('doctor.prescriptions.noMedicationDetail'),
     }) || t('doctor.prescriptions.noMedicationDetail');
 
+  /** "Dr. Name" in the current language, without doubling a "Dr." the name already has. */
+  const rawDoctorName = (profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? '').trim();
+  const signedDoctorName = /^(dr\.?\s|د\.\s?)/i.test(rawDoctorName)
+    ? rawDoctorName
+    : t('doctor.prescriptions.print.doctorName', { name: rawDoctorName });
+
+  // QA-138: the message draft follows the app language and uses the same translated medicine lines as the page.
+  const openMessageDraft = (prescription: DoctorPrescriptionRecord) => {
+    const medications = prescription.items
+      .map((item) => {
+        const { name, secondaryName } = printItemNames(item);
+        const label = secondaryName ? `${name} (${secondaryName})` : name;
+        return `• ${label} — ${itemDetailLine(item)}`;
+      })
+      .join('\n');
+    const draft = t('doctor.prescriptions.messageDraft', {
+      patient: prescription.patientName,
+      date: formatDate(prescription.prescribed_at),
+      medications,
+      doctor: signedDoctorName,
+    });
+    navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
+  };
+
   // QA-137: one translated layout for both printing and the PDF.
   const buildPrintContent = (prescription: DoctorPrescriptionRecord): PrescriptionPrintContent => {
     const printKey = (name: string, options?: Record<string, unknown>) => t(`doctor.prescriptions.print.${name}`, options);
-    const rawDoctorName = (profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? '').trim();
-    const doctorName = /^(dr\.?\s|د\.\s?)/i.test(rawDoctorName)
-      ? rawDoctorName
-      : printKey('doctorName', { name: rawDoctorName });
     const shortId = prescription.id.slice(0, 8);
     return {
       language: uiLang,
@@ -173,7 +202,7 @@ export const DoctorPrescriptions: React.FC = () => {
       details: [
         { label: printKey('patient'), value: prescription.patientName },
         { label: printKey('prescribedOn'), value: formatDate(prescription.prescribed_at) },
-        ...(rawDoctorName ? [{ label: printKey('doctor'), value: doctorName }] : []),
+        ...(rawDoctorName ? [{ label: printKey('doctor'), value: signedDoctorName }] : []),
         ...(doctorProfile?.license_number ? [{ label: printKey('licence'), value: doctorProfile.license_number }] : []),
         { label: printKey('status'), value: prescriptionStatusLabel(t, prescription.status) },
         { label: printKey('prescriptionId'), value: shortId },
@@ -240,9 +269,9 @@ export const DoctorPrescriptions: React.FC = () => {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="ml-2 font-semibold underline"
+              className="ms-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -251,6 +280,7 @@ export const DoctorPrescriptions: React.FC = () => {
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-emerald-200 hover:shadow-md"
             onClick={() => setStatusFilter('active')}
+            onKeyDown={(event) => activateOnKey(event, () => setStatusFilter('active'))}
             role="button"
             tabIndex={0}
           >
@@ -260,7 +290,7 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(activePrescriptionCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-emerald-600">Click to filter</p>
+                <p className="mt-1 text-xs text-emerald-600">{t('doctor.prescriptions.clickToFilter')}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                 <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -270,6 +300,7 @@ export const DoctorPrescriptions: React.FC = () => {
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-teal-200 hover:shadow-md"
             onClick={() => setStatusFilter('active')}
+            onKeyDown={(event) => activateOnKey(event, () => setStatusFilter('active'))}
             role="button"
             tabIndex={0}
           >
@@ -279,7 +310,7 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(pendingDispenseCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-teal-600">Click to view active</p>
+                <p className="mt-1 text-xs text-teal-600">{t('doctor.prescriptions.clickToViewActive')}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
                 <Pill className="h-5 w-5 text-teal-600" />
@@ -289,6 +320,7 @@ export const DoctorPrescriptions: React.FC = () => {
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
             onClick={() => setStatusFilter('all')}
+            onKeyDown={(event) => activateOnKey(event, () => setStatusFilter('all'))}
             role="button"
             tabIndex={0}
           >
@@ -298,7 +330,7 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(uniquePatientsCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-blue-600">Click to view all</p>
+                <p className="mt-1 text-xs text-blue-600">{t('doctor.prescriptions.clickToViewAll')}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
                 <Users className="h-5 w-5 text-blue-600" />
@@ -334,8 +366,8 @@ export const DoctorPrescriptions: React.FC = () => {
               onChange={(event) => setSortOrder(event.target.value as 'desc' | 'asc')}
               className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 md:w-auto"
             >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
+              <option value="desc">{t('doctor.prescriptions.sortNewest')}</option>
+              <option value="asc">{t('doctor.prescriptions.sortOldest')}</option>
             </select>
           </div>
         </div>
@@ -388,23 +420,11 @@ export const DoctorPrescriptions: React.FC = () => {
                             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
                           >
                             <Users className="h-4 w-4" />
-                            <span>View Patient</span>
+                            <span>{t('doctor.prescriptions.viewPatient')}</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              const medicationLines = prescription.items
-                                .map((item) => {
-                                  const details = [item.dosage, item.frequency, item.duration]
-                                    .filter(Boolean)
-                                    .join(' — ');
-                                  return `• ${item.medication_name}${details ? ` — ${details}` : ''}`;
-                                })
-                                .join('\n');
-                              const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Your Doctor';
-                              const draft = `Hi ${prescription.patientName},\n\nYour prescription has been issued on ${formatDate(prescription.prescribed_at)}.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed and complete the full course. If you experience any side effects or have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
-                              navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
-                            }}
+                            onClick={() => openMessageDraft(prescription)}
                             className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
                           >
                             <MessageSquare className="h-4 w-4" />
@@ -559,23 +579,11 @@ export const DoctorPrescriptions: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
                       >
                         <Users className="h-4 w-4" />
-                        <span>View Patient</span>
+                        <span>{t('doctor.prescriptions.viewPatient')}</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          const medicationLines = prescription.items
-                            .map((item) => {
-                              const details = [item.dosage, item.frequency, item.duration]
-                                .filter(Boolean)
-                                .join(' — ');
-                              return `• ${item.medication_name}${details ? ` — ${details}` : ''}`;
-                            })
-                            .join('\n');
-                          const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Your Doctor';
-                          const draft = `Hi ${prescription.patientName},\n\nYour prescription has been issued on ${formatDate(prescription.prescribed_at)}.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed and complete the full course. If you experience any side effects or have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
-                          navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
-                        }}
+                        onClick={() => openMessageDraft(prescription)}
                         className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
                       >
                         <MessageSquare className="h-4 w-4" />

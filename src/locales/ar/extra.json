@@ -1920,7 +1920,14 @@
         "quantity": "الكمية",
         "instructions": "التعليمات",
         "docDisclaimer": "أُنشئت هذه الوصفة بواسطة منصة CeenAiX الصحية. تحقّق دائماً مع الطبيب الواصف."
-      }
+      },
+      "clickToFilter": "انقر للتصفية",
+      "clickToViewActive": "انقر لعرض النشطة",
+      "clickToViewAll": "انقر لعرض الكل",
+      "sortNewest": "الأحدث أولاً",
+      "sortOldest": "الأقدم أولاً",
+      "viewPatient": "عرض المريض",
+      "messageDraft": "مرحباً {{patient}}،\n\nصدرت وصفتك الطبية بتاريخ {{date}}.\n\nالأدوية:\n{{medications}}\n\nيُرجى تناول الأدوية كما هو موصوف وإكمال الجرعة كاملة. إذا ظهرت أي آثار جانبية أو كانت لديك أسئلة، راسلني هنا.\n\n{{doctor}}"
     },
     "appointments": {
       "title": "المواعيد",
