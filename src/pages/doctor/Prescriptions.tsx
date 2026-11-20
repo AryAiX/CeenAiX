@@ -321,7 +321,6 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(activePrescriptionCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-emerald-600">{t('doctor.prescriptions.clickToFilter')}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                 <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -341,7 +340,6 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(pendingDispenseCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-teal-600">{t('doctor.prescriptions.clickToViewActive')}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
                 <Pill className="h-5 w-5 text-teal-600" />
@@ -361,7 +359,6 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(uniquePatientsCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-blue-600">{t('doctor.prescriptions.clickToViewAll')}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
                 <Users className="h-5 w-5 text-blue-600" />
