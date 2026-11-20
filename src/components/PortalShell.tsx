@@ -38,7 +38,7 @@ import { useDoctorPortalChrome, useDoctorClinicMembership } from '../hooks';
 import { usePatientDashboardAlert } from '../hooks/use-patient-dashboard-alert';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { supabase } from '../lib/supabase';
-import { formatLocaleDigits } from '../lib/i18n-ui';
+import { formatLocaleCurrency, formatLocaleDigits } from '../lib/i18n-ui';
 import { NOTIFICATIONS_CHANGED_EVENT } from '../lib/notification-events';
 
 type PortalRole = 'patient' | 'doctor';
@@ -828,7 +828,8 @@ export const PortalShell = ({
       id: 'clinic',
       title: 'CLINIC',
       items: [
-        { href: '/doctor/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, badge: doctorChromeData?.todayAppointmentsCount ?? undefined, badgeTone: 'red' },
+        // QA-187: no red (alarm) count on Dashboard; today's count is on "Today's Appointments".
+        { href: '/doctor/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
         { href: '/doctor/today', label: "Today's Appointments", icon: CalendarCheck, badge: doctorChromeData?.todayAppointmentsCount ?? undefined, badgeTone: 'amber' },
         { href: '/doctor/appointments', label: t('nav.appointments'), icon: CalendarDays },
         { href: '/doctor/schedule', label: 'Schedule', icon: Calendar },
@@ -888,18 +889,22 @@ export const PortalShell = ({
     minute: '2-digit',
   });
   const doctorSpecialty = doctorProfile?.specialization?.trim() || t('shared.doctor');
-  const doctorLocation = profile?.city?.trim() || 'Dubai Healthcare City';
+  // QA-187: the clinic the doctor works at, else the city. Never the personal address from the
+  // profile, and no made-up place ("Dubai Healthcare City") when nothing is set.
   const doctorFacility =
     doctorClinicMembership?.facilities?.name_en ??
     doctorClinicMembership?.facilities?.name ??
-    profile?.address?.trim() ??
-    doctorLocation;
+    (profile?.city?.trim() || null);
   const doctorLicense = doctorProfile?.license_number?.trim() || 'License pending';
   const todayAppointmentsCount = doctorChromeData?.todayAppointmentsCount ?? 0;
   const completedTodayAppointmentsCount = doctorChromeData?.completedTodayAppointmentsCount ?? 0;
   const doctorPageTitle =
     [
       { prefix: '/doctor/today', label: "Today's Appointments" },
+      // QA-187: these pages used to show "Dashboard" as their title.
+      { prefix: '/doctor/schedule', label: 'Schedule' },
+      { prefix: '/doctor/notifications', label: t('nav.notifications') },
+      { prefix: '/doctor/telemedicine', label: 'Video visit' },
       { prefix: '/doctor/appointments', label: t('nav.appointments') },
       { prefix: '/doctor/patients', label: 'Patient Records' },
       { prefix: '/doctor/prescribe', label: 'Write Prescription' },
@@ -914,10 +919,9 @@ export const PortalShell = ({
       { prefix: '/doctor/settings', label: t('nav.settings') },
     ].find((item) => location.pathname === item.prefix || location.pathname.startsWith(`${item.prefix}/`))
       ?.label ?? t('nav.dashboard');
-  const estimatedRevenueToday =
-    doctorProfile?.consultation_fee && todayAppointmentsCount > 0
-      ? doctorProfile.consultation_fee * todayAppointmentsCount
-      : null;
+  // QA-187: same estimate as Earnings and the Dashboard (QA-158 / QA-184): completed visits x fee.
+  const doctorFee = doctorProfile?.consultation_fee ?? 0;
+  const earnedTodayEstimate = doctorFee > 0 ? completedTodayAppointmentsCount * doctorFee : null;
 
   const doctorBadgeToneClass = (tone: DoctorNavItem['badgeTone']) => {
     switch (tone) {
@@ -1034,7 +1038,11 @@ export const PortalShell = ({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-bold text-white">{accountDisplayName}</p>
                 <p className="truncate text-[11px] text-teal-300">{doctorSpecialty}</p>
-                <p className="mt-0.5 truncate text-[11px] text-slate-400">{doctorFacility}</p>
+                {doctorFacility ? (
+                  <p className="mt-0.5 truncate text-[11px] text-slate-400" data-testid="doctor-sidebar-facility">
+                    {doctorFacility}
+                  </p>
+                ) : null}
                 <div
                   className={`mt-1.5 inline-flex items-center rounded px-2 py-0.5 text-[9px] font-medium ${
                     doctorProfile?.dha_license_verified
@@ -1065,12 +1073,6 @@ export const PortalShell = ({
         </nav>
 
         {!doctorSidebarCollapsed ? (
-          <div className="px-3 pb-2 border-t border-white/[0.06] pt-2 mt-1">
-            {renderDoctorNavItem({ href: '/doctor/settings', label: t('nav.settings'), icon: Settings }, 'doctor-settings')}
-          </div>
-        ) : null}
-
-        {!doctorSidebarCollapsed ? (
         <div className="border-t border-white/[0.06] p-3.5 space-y-2.5">
           <p className="px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500">TODAY</p>
           <div className="space-y-2 text-[12px]">
@@ -1086,12 +1088,10 @@ export const PortalShell = ({
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2 text-slate-400">
                 <Banknote className="h-3.5 w-3.5" />
-                <span>Revenue today</span>
+                <span>{t('doctor.earnings.earnedTodayEstimate')}</span>
               </div>
-              <span className="font-mono text-[12px] font-semibold text-emerald-400">
-                {estimatedRevenueToday !== null
-                  ? `AED ${estimatedRevenueToday.toLocaleString(i18n.language)}`
-                  : 'AED --'}
+              <span className="font-mono text-[12px] font-semibold text-emerald-400" data-testid="doctor-sidebar-earned">
+                {earnedTodayEstimate !== null ? formatLocaleCurrency(earnedTodayEstimate, i18n.language) : '—'}
               </span>
             </div>
             <div className="flex items-center justify-between px-2">
@@ -1135,7 +1135,9 @@ export const PortalShell = ({
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-900">{doctorPageTitle}</p>
+              <p className="truncate text-base font-semibold text-slate-900" data-testid="doctor-page-title">
+                {doctorPageTitle}
+              </p>
               <p className="hidden text-xs text-slate-500 sm:block">{formatDoctorNow}</p>
             </div>
           </div>
