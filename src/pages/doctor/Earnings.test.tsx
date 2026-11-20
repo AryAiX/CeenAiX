@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorDashboard } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import { DoctorEarnings } from './Earnings';
 
 vi.mock('../../hooks', () => ({ useDoctorDashboard: vi.fn() }));
@@ -58,5 +59,38 @@ describe('DoctorEarnings (QA-158)', () => {
     renderEarnings();
     expect(screen.getByText(i18n.t('doctor.earnings.subtitleEstimate'))).toBeInTheDocument();
     expect(screen.getByText(i18n.t('doctor.earnings.estimateNote'))).toBeInTheDocument();
+  });
+});
+
+/** Intl puts a non-breaking space between the currency and the amount, so they never wrap apart. */
+const plain = (value: string) => value.replace(/\u00a0/g, ' ');
+
+describe('money formatting (QA-159)', () => {
+  it('formats AED for each language', () => {
+    expect(plain(formatLocaleCurrency(300, 'en'))).toBe('AED 300');
+    expect(plain(formatLocaleCurrency(1250.5, 'en'))).toBe('AED 1,250.50');
+    expect(formatLocaleCurrency(300, 'ar')).toContain('٣٠٠');
+    expect(formatLocaleCurrency(300, 'ar')).toContain('د.إ');
+    expect(formatLocaleCurrency(300, 'ar')).not.toContain('AED');
+  });
+});
+
+describe('DoctorEarnings language and labels (QA-159)', () => {
+  it('labels the big number and shows money in Arabic format', async () => {
+    await i18n.changeLanguage('ar');
+    const { container } = renderEarnings();
+    const text = container.textContent ?? '';
+    expect(screen.getByText(i18n.t('doctor.earnings.earnedTodayEstimate'))).toBeInTheDocument();
+    expect(plain(text)).toContain(plain(formatLocaleCurrency(600, 'ar')));
+    expect(plain(text)).toContain(plain(formatLocaleCurrency(1500, 'ar')));
+    for (const english of ['AED', 'Retry', 'Completed today', "Today's projection", 'Consultation fee', 'completed']) {
+      expect(text).not.toContain(english);
+    }
+  });
+
+  it('says the fee is not set instead of showing zero earnings', () => {
+    renderEarnings({}, null);
+    expect(screen.getByText(i18n.t('doctor.earnings.feeMissing'))).toBeInTheDocument();
+    expect(screen.queryByText(/AED 0/)).not.toBeInTheDocument();
   });
 });

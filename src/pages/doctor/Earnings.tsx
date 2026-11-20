@@ -4,7 +4,7 @@ import { Banknote, Calendar, CalendarCheck, Receipt, Wallet } from 'lucide-react
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorDashboard } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { appointmentStatusLabel, formatLocaleCurrency, formatLocaleDigits } from '../../lib/i18n-ui';
 
 export const DoctorEarnings = () => {
   const { t, i18n } = useTranslation('common');
@@ -17,7 +17,9 @@ export const DoctorEarnings = () => {
   const scheduledToday = data?.todayAppointments ?? 0;
   const estimatedToday = completedToday * fee;
   const projectedToday = scheduledToday * fee;
-  const currency = 'AED';
+  // QA-159: money in the UI language ("AED 300" / "٣٠٠ د.إ.‏"); a dash while the fee is not set.
+  const hasFee = fee > 0;
+  const money = (value: number) => (hasFee ? formatLocaleCurrency(value, uiLang) : '—');
 
   if (loading) {
     return (
@@ -40,9 +42,9 @@ export const DoctorEarnings = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="ml-2 font-semibold underline"
+            className="ms-2 font-semibold underline"
           >
-            Retry
+            {t('shared.retry')}
           </button>
         </div>
       ) : null}
@@ -54,8 +56,11 @@ export const DoctorEarnings = () => {
               <Banknote className="h-4 w-4" />
               {t('doctor.earnings.title')}
             </div>
-            <h1 className="text-3xl font-bold">{currency} {formatLocaleDigits(estimatedToday, uiLang)}</h1>
-            <p className="mt-2 text-emerald-100">{t('doctor.earnings.subtitleEstimate')}</p>
+            <p className="text-sm font-semibold text-emerald-100">{t('doctor.earnings.earnedTodayEstimate')}</p>
+            <h1 className="text-3xl font-bold">{money(estimatedToday)}</h1>
+            <p className="mt-2 text-emerald-100">
+              {hasFee ? t('doctor.earnings.subtitleEstimate') : t('doctor.earnings.feeMissing')}
+            </p>
           </div>
           <button
             type="button"
@@ -70,22 +75,22 @@ export const DoctorEarnings = () => {
       <div className="grid gap-4 md:grid-cols-4">
         {[
           {
-            label: t('doctor.earnings.completedToday', { defaultValue: 'Completed today' }),
-            value: `${currency} ${formatLocaleDigits(estimatedToday, uiLang)}`,
+            label: t('doctor.earnings.completedToday'),
+            value: money(estimatedToday),
             icon: Wallet,
             color: 'text-emerald-600',
             bg: 'bg-emerald-100',
           },
           {
-            label: t('doctor.earnings.todayProjection', { defaultValue: "Today's projection" }),
-            value: `${currency} ${formatLocaleDigits(projectedToday, uiLang)}`,
+            label: t('doctor.earnings.todayProjection'),
+            value: money(projectedToday),
             icon: Calendar,
             color: 'text-teal-600',
             bg: 'bg-teal-100',
           },
           {
-            label: t('doctor.earnings.consultationFee', { defaultValue: 'Consultation fee' }),
-            value: fee > 0 ? `${currency} ${formatLocaleDigits(fee, uiLang)}` : '—',
+            label: t('doctor.earnings.consultationFee'),
+            value: money(fee),
             icon: Receipt,
             color: 'text-blue-600',
             bg: 'bg-blue-100',
@@ -116,11 +121,11 @@ export const DoctorEarnings = () => {
           and a disabled "Export tab data" button, so they were removed. Real billing is a feature request. */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-slate-900">
-          {t('doctor.earnings.todayEventsHeading', { defaultValue: "Today's revenue events" })}
+          {t('doctor.earnings.todayEventsHeading')}
         </h2>
         {(data?.todaySchedule ?? []).length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-            {t('doctor.earnings.noAppointmentsToday', { defaultValue: "No appointments on today's schedule." })}
+            {t('doctor.earnings.noAppointmentsToday')}
           </div>
         ) : (
           <div className="space-y-3">
@@ -130,13 +135,11 @@ export const DoctorEarnings = () => {
                   <div className="font-bold text-slate-900">{appointment.patientName}</div>
                   <div className="text-sm text-slate-500">{appointment.chiefComplaint ?? appointment.type}</div>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <div className="font-mono font-bold text-slate-900">
-                    {appointment.status === 'completed' && fee > 0 ? `${currency} ${formatLocaleDigits(fee, uiLang)}` : '—'}
+                    {appointment.status === 'completed' ? money(fee) : '—'}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {t(`shared.appointmentStatus.${appointment.status}`, { defaultValue: appointment.status })}
-                  </div>
+                  <div className="text-xs text-slate-400">{appointmentStatusLabel(t, appointment.status)}</div>
                 </div>
               </div>
             ))}

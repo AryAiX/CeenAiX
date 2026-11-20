@@ -136,6 +136,25 @@ export const formatLocaleDigits = (value: number, language: string): string => {
   }
 };
 
+/**
+ * QA-159: money in the UI language, e.g. "AED 300" in English and "٣٠٠ د.إ.‏" in Arabic.
+ * Whole amounts have no decimals; anything else shows two.
+ */
+export const formatLocaleCurrency = (value: number, language: string, currency = 'AED'): string => {
+  const fractionDigits = Number.isInteger(value) ? 0 : 2;
+  try {
+    return new Intl.NumberFormat(resolveLocale(language), {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+      ...(usesArabicEasternNumerals(language) ? { numberingSystem: 'arab' } : {}),
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(fractionDigits)}`;
+  }
+};
+
 /** Format decimals (e.g. star ratings) with locale-appropriate digits and separator */
 export const formatLocaleDecimal = (
   value: number,
