@@ -37,7 +37,6 @@ const dashboard = (overrides: Partial<DoctorDashboardData> = {}): DoctorDashboar
   pendingReviews: 0,
   prescriptionsToday: 0,
   labOrdersToday: 0,
-  estimatedRevenueToday: null,
   activeConsultation: null,
   nextAppointment: null,
   todaySchedule: [],
@@ -225,6 +224,61 @@ describe('DoctorDashboard patient card timing (QA-183)', () => {
     const live = appointment('2026-11-20T05:53:00Z', 'in_progress');
     renderWith(dashboard({ activeConsultation: live, nextAppointment: live }));
     expect(screen.getByTestId('hero-timing')).toHaveTextContent('٠٧:٠٠');
+  });
+});
+
+describe('DoctorDashboard cards and links (QA-184)', () => {
+  const withAuth = (fee: number | null, extra: Record<string, unknown> = {}) =>
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'doc-1' },
+      profile: { full_name: 'Dr. Test', city: 'Dubai', address: 'Villa 12, Jumeirah', ...extra },
+      doctorProfile: { consultation_fee: fee },
+    } as never);
+  const plain = (text: string | null) => (text ?? '').replace(/\u00a0/g, ' ').replace(/[\u200e\u200f]/g, '');
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows earnings as an estimate from completed visits, with the projection, like the Earnings page', () => {
+    withAuth(300);
+    renderWith(dashboard({ todayAppointments: 4, completedTodayAppointments: 1 }));
+
+    const card = screen.getByText('Earned today (estimate)').closest('div') as HTMLElement;
+    expect(plain(card.textContent)).toContain('AED 300');
+    expect(plain(card.textContent)).toContain('Projected for today: AED 1,200');
+    expect(screen.queryByText('Revenue Today')).not.toBeInTheDocument();
+
+    fireEvent.click(card);
+    expect(screen.getByTestId('where')).toHaveTextContent('/doctor/earnings');
+  });
+
+  it('says the fee is missing instead of "AED --"', () => {
+    withAuth(null);
+    renderWith(dashboard({ todayAppointments: 2 }));
+    expect(screen.getByText("Your consultation fee isn't set, so earnings can't be estimated yet.")).toBeInTheDocument();
+    expect(screen.queryByText('AED --')).not.toBeInTheDocument();
+  });
+
+  it('no longer shows a "Review" badge on Prescriptions written for unrelated reviews', () => {
+    withAuth(300);
+    renderWith(dashboard({ pendingReviews: 5 }));
+    const card = screen.getByText('Prescriptions Written').closest('div') as HTMLElement;
+    expect(card).not.toHaveTextContent('Review');
+  });
+
+  it('"Order Lab Test" opens a new lab order', () => {
+    withAuth(300);
+    renderWith(dashboard({ criticalResults: [lab('1')] }));
+    fireEvent.click(screen.getByRole('button', { name: 'Order Lab Test' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/doctor/lab-orders/new');
+  });
+
+  it('the header shows the city, never the personal address', () => {
+    withAuth(300);
+    renderWith(dashboard());
+    expect(screen.queryByText(/Villa 12, Jumeirah/)).not.toBeInTheDocument();
+    expect(screen.getByText(/· Dubai$/)).toBeInTheDocument();
   });
 });
 

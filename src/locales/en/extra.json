@@ -1756,6 +1756,9 @@
         "late": "{{value}} min late",
         "inProgress": "In progress",
         "elapsedNote": "Time since the scheduled start."
+      },
+      "cards": {
+        "projectedToday": "Projected for today: {{value}}"
       }
     },
     "patients": {

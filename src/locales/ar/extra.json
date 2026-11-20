@@ -1838,6 +1838,9 @@
         "late": "متأخر {{value}} دقيقة",
         "inProgress": "قيد التنفيذ",
         "elapsedNote": "الوقت منذ موعد البدء المحدد."
+      },
+      "cards": {
+        "projectedToday": "المتوقع لليوم: {{value}}"
       }
     },
     "patients": {

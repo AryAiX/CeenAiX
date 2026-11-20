@@ -71,7 +71,6 @@ export interface DoctorDashboardData {
   pendingReviews: number;
   prescriptionsToday: number;
   labOrdersToday: number;
-  estimatedRevenueToday: number | null;
   activeConsultation: DoctorNextAppointment | null;
   nextAppointment: DoctorNextAppointment | null;
   todaySchedule: DoctorQueueAppointment[];
@@ -138,10 +137,6 @@ interface PrescriptionRow {
   status: string;
   prescribed_at: string;
   prescription_items?: PrescriptionMedicationRow[] | null;
-}
-
-interface DoctorProfileFeeRow {
-  consultation_fee: number | null;
 }
 
 interface ConversationRow {
@@ -285,7 +280,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       { data: conditionRows, error: conditionsError },
       { data: allergyRows, error: allergiesError },
       { data: prescriptionRows, error: prescriptionsError },
-      { data: doctorProfileRows, error: doctorProfileError },
       { count: prescriptionsTodayCount, error: prescriptionsTodayError },
       { count: labOrdersTodayCount, error: labOrdersTodayError },
       { data: preVisitAssessments, error: preVisitAssessmentsError },
@@ -326,7 +320,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
             .eq('doctor_id', userId)
             .eq('is_deleted', false)
         : Promise.resolve({ data: [], error: null }),
-      supabase.from('doctor_profiles').select('consultation_fee').eq('user_id', userId).maybeSingle(),
       supabase
         .from('prescriptions')
         .select('id', { count: 'exact', head: true })
@@ -355,7 +348,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     if (conditionsError) throw conditionsError;
     if (allergiesError) throw allergiesError;
     if (prescriptionsError) throw prescriptionsError;
-    if (doctorProfileError) throw doctorProfileError;
     if (prescriptionsTodayError) throw prescriptionsTodayError;
     if (labOrdersTodayError) throw labOrdersTodayError;
     if (preVisitAssessmentsError) throw preVisitAssessmentsError;
@@ -417,7 +409,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       pushMapValue(appointmentsByPatientId, appointment.patient_id, appointment);
     });
 
-    const consultationFee = ((doctorProfileRows as DoctorProfileFeeRow | null) ?? null)?.consultation_fee ?? null;
 
     const buildAppointment = (appointment: AppointmentRow): DoctorNextAppointment => {
       const patientProfile = patientProfileById.get(appointment.patient_id);
@@ -642,8 +633,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       pendingReviews: (pendingNotesCount ?? 0) + preVisitReviewCount + (patientUpdateReviewCount ?? 0),
       prescriptionsToday: prescriptionsTodayCount ?? 0,
       labOrdersToday: labOrdersTodayCount ?? 0,
-      estimatedRevenueToday:
-        consultationFee !== null && todayAppointments > 0 ? consultationFee * todayAppointments : null,
       activeConsultation: activeConsultationSource ? buildAppointment(activeConsultationSource) : null,
       nextAppointment: nextAppointmentSource ? buildAppointment(nextAppointmentSource) : null,
       todaySchedule,

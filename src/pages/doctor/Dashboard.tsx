@@ -26,6 +26,7 @@ import { useAuth } from '../../lib/auth-context';
 import {
   appointmentTypeLabel,
   dateTimeFormatWithNumerals,
+  formatLocaleCurrency,
   formatLocaleDigits,
   formatRelativeTime,
   isSameCalendarDayInTimeZone,
@@ -51,8 +52,8 @@ export const DoctorDashboard: React.FC = () => {
 
   const displayName = getDisplayName(profile?.full_name, profile?.first_name) || t('shared.doctor');
   const doctorName = /^dr\.?/i.test(displayName) ? displayName : uiLang.startsWith('ar') ? `د. ${displayName}` : `Dr. ${displayName}`;
-  const doctorLocation = profile?.city?.trim() || (uiLang.startsWith('ar') ? 'دبي، الإمارات' : 'Dubai, UAE');
-  const doctorFacility = profile?.address?.trim() || doctorLocation;
+  // QA-184: the header shows the doctor's city, never the personal address from the profile.
+  const doctorCity = profile?.city?.trim() || '';
   const doctorLicense = doctorProfile?.license_number?.trim() || (uiLang.startsWith('ar') ? 'الترخيص قيد الإضافة' : 'License pending');
   const isArabic = uiLang.startsWith('ar');
   const hour = new Date().getHours();
@@ -175,6 +176,7 @@ export const DoctorDashboard: React.FC = () => {
   const openLabOrder = (labOrderId: string) => navigate('/doctor/lab-orders', { state: { focusLabOrderId: labOrderId } });
   const recentLabResults = data?.recentLabResults ?? [];
   const recentMessages = data?.recentMessages ?? [];
+  const consultationFee = doctorProfile?.consultation_fee ?? 0;
   const appointmentProgress = todayAppointments > 0 ? Math.round((completedTodayAppointments / todayAppointments) * 100) : 0;
   const metricCards = [
     {
@@ -193,7 +195,6 @@ export const DoctorDashboard: React.FC = () => {
       value: formatLocaleDigits(data?.prescriptionsToday ?? 0, uiLang),
       sub: 'Today · live from prescriptions',
       color: 'purple',
-      badge: (data?.pendingReviews ?? 0) > 0 ? 'Review' : undefined,
     },
     {
       id: 'lab-orders-today',
@@ -215,13 +216,16 @@ export const DoctorDashboard: React.FC = () => {
     {
       id: 'revenue-today',
       icon: CircleDollarSign,
-      label: 'Revenue Today',
-      value: data?.estimatedRevenueToday !== null && data?.estimatedRevenueToday !== undefined
-        ? `AED ${formatLocaleDigits(data.estimatedRevenueToday, uiLang)}`
-        : 'AED --',
-      sub: doctorProfile?.consultation_fee
-        ? `AED ${formatLocaleDigits(doctorProfile.consultation_fee, uiLang)} per booked visit`
-        : 'Add consultation fee to estimate',
+      // QA-184: same estimate as the Earnings page (QA-158 / QA-159): completed visits x fee,
+      // labelled as an estimate, in the UI money format; booked visits give the projection.
+      label: t('doctor.earnings.earnedTodayEstimate'),
+      value: consultationFee > 0 ? formatLocaleCurrency(completedTodayAppointments * consultationFee, uiLang) : '—',
+      sub:
+        consultationFee > 0
+          ? t('doctor.dashboard.cards.projectedToday', {
+              value: formatLocaleCurrency(todayAppointments * consultationFee, uiLang),
+            })
+          : t('doctor.earnings.feeMissing'),
       color: 'emerald',
       progress: appointmentProgress,
     },
@@ -237,7 +241,8 @@ export const DoctorDashboard: React.FC = () => {
   ];
   const quickActions = [
     { icon: ClipboardList, label: 'Write Prescription', color: 'purple', onClick: () => navigate('/doctor/prescribe') },
-    { icon: TestTube, label: 'Order Lab Test', color: 'indigo', badge: (data?.criticalResults.length ?? 0) > 0 ? `${data?.criticalResults.length} critical` : undefined, onClick: () => navigate('/doctor/labs') },
+    // QA-184: opens a new lab order (it used to open the lab list); critical results have their own banner.
+    { icon: TestTube, label: 'Order Lab Test', color: 'indigo', onClick: () => navigate('/doctor/lab-orders/new') },
     { icon: Calendar, label: 'Block Time Off', color: 'slate', onClick: () => navigate('/doctor/schedule') },
     { icon: Send, label: 'Message Patient', color: 'teal', onClick: () => navigate('/doctor/messages') },
     { icon: FileText, label: 'Patient Records', color: 'blue', onClick: () => navigate('/doctor/patients') },
@@ -411,7 +416,12 @@ export const DoctorDashboard: React.FC = () => {
             {localCopy.greeting}, {doctorName}. 🏥
           </h1>
           <p className="text-sm text-slate-400">
-            {new Date().toLocaleDateString(locale, dtOpts({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))} · {doctorFacility}
+            {[
+              new Date().toLocaleDateString(locale, dtOpts({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })),
+              doctorCity,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
@@ -541,7 +551,7 @@ export const DoctorDashboard: React.FC = () => {
             className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-md transition-all ${
               card.critical ? 'animate-pulse ring-2 ring-red-500' : ''
             } ${
-              card.id === 'revenue-today' || card.id === 'dha-status'
+              card.id === 'dha-status'
                 ? ''
                 : 'cursor-pointer hover:scale-[1.015] hover:shadow-xl'
             }`}
@@ -560,6 +570,10 @@ export const DoctorDashboard: React.FC = () => {
               }
               if (card.id === 'unread-messages') {
                 navigate('/doctor/messages');
+                return;
+              }
+              if (card.id === 'revenue-today') {
+                navigate('/doctor/earnings');
               }
             }}
           >
@@ -581,7 +595,6 @@ export const DoctorDashboard: React.FC = () => {
                 {'extraSub' in card && card.extraSub ? (
                   <p className="mt-1 text-[11px] font-medium text-emerald-600">{card.extraSub}</p>
                 ) : null}
-                {'badge' in card && card.badge ? <p className="mt-1 text-[11px] font-medium text-amber-600">{card.badge}</p> : null}
               </>
             )}
           </div>
@@ -874,11 +887,6 @@ export const DoctorDashboard: React.FC = () => {
               >
                 <Icon className={`h-6 w-6 ${color.icon}`} />
                 <span className="text-center text-xs font-bold text-slate-700">{action.label}</span>
-                {action.badge ? (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9px] font-bold text-red-600">
-                    {action.badge}
-                  </span>
-                ) : null}
               </button>
             );
           })}
