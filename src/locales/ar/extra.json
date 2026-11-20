@@ -1760,7 +1760,18 @@
       "unreadCount_two": "{{count}} غير مقروءة",
       "unreadCount_few": "{{count}} غير مقروءة",
       "unreadCount_many": "{{count}} غير مقروءة",
-      "unreadCount_other": "{{count}} غير مقروءة"
+      "unreadCount_other": "{{count}} غير مقروءة",
+      "newMessage": "رسالة جديدة",
+      "pickerTitle": "مراسلة مريض",
+      "pickerSubtitle": "اختر أحد مرضاك لفتح محادثة أو بدء محادثة جديدة.",
+      "pickerSearch": "ابحث في مرضاك…",
+      "pickerEmptyTitle": "لا يوجد مرضى بعد",
+      "pickerEmptyBody": "يظهر المرضى هنا بعد أن يكون لديهم موعد معك.",
+      "pickerNoMatch": "لا يوجد مرضى يطابقون بحثك.",
+      "pickerLoadError": "تعذّر تحميل مرضاك. حاول مرة أخرى.",
+      "startError": "تعذّر فتح المحادثة. حاول مرة أخرى.",
+      "openExisting": "فتح المحادثة",
+      "opening": "جارٍ الفتح…"
     },
     "dashboard": {
       "welcome": "مرحباً، د. {{name}}",

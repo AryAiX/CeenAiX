@@ -1682,7 +1682,18 @@
         "appointmentsLink": "Open appointments",
         "recordsLink": "Open records"
       },
-      "removeAction": "Remove action"
+      "removeAction": "Remove action",
+      "newMessage": "New message",
+      "pickerTitle": "Message a patient",
+      "pickerSubtitle": "Choose one of your patients to open or start a conversation.",
+      "pickerSearch": "Search your patients…",
+      "pickerEmptyTitle": "No patients yet",
+      "pickerEmptyBody": "Patients appear here once they have an appointment with you.",
+      "pickerNoMatch": "No patients match your search.",
+      "pickerLoadError": "Your patients could not be loaded. Please try again.",
+      "startError": "The conversation could not be opened. Please try again.",
+      "openExisting": "Open conversation",
+      "opening": "Opening…"
     },
     "dashboard": {
       "welcome": "Welcome, Dr. {{name}}",
