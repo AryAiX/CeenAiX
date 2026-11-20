@@ -2577,7 +2577,8 @@
         "integrations": "Integrations",
         "clinicalTools": "Clinical tools",
         "dashboard": "Dashboard",
-        "help": "Help"
+        "help": "Help",
+        "myClinic": "My Clinic"
       },
       "toggles": {
         "emailTitle": "Email alerts",
@@ -2630,7 +2631,47 @@
           "rejected": "Request declined by clinic",
           "declined": "You declined",
           "unavailable": "Not available"
-        }
+        },
+        "subtitle": "Your clinic, invitations and join requests.",
+        "unnamedClinic": "Clinic",
+        "uae": "UAE",
+        "facilityTypes": {
+          "clinic": "Clinic",
+          "hospital": "Hospital",
+          "pharmacy": "Pharmacy",
+          "lab": "Laboratory",
+          "imaging": "Imaging center"
+        },
+        "badge": {
+          "pendingApproval": "Pending approval",
+          "approved": "Approved",
+          "invited": "Invitation received",
+          "rejected": "Rejected",
+          "declined": "Declined",
+          "ended": "Ended"
+        },
+        "message": {
+          "pending": "Your request has been sent. Please wait for the clinic to approve it.",
+          "member": "You are an active member of this clinic. Your appointments are linked automatically.",
+          "invited": "This clinic has invited you to join their staff. Accepting will link your appointments to this clinic automatically.",
+          "rejected": "Your request was rejected. You can search and request to join another clinic below.",
+          "declined": "You declined this invitation. You can search and request to join another clinic below.",
+          "ended": "Your link with this clinic has ended. You can search and request to join another clinic below."
+        },
+        "decline": "Decline",
+        "accept": "Accept Invitation",
+        "processing": "Processing…",
+        "searchTitle": "Search for a clinic",
+        "searchPlaceholder": "Type clinic name…",
+        "clearSearch": "Clear search",
+        "joinSent": "Join request sent successfully!",
+        "searching": "Searching…",
+        "sending": "Sending…",
+        "requestJoin": "Request to Join",
+        "noResults": "No clinics found for \"{{query}}\"",
+        "errAccept": "Couldn't accept the invitation. Please try again.",
+        "errDecline": "Couldn't decline the invitation. Please try again.",
+        "errPrefs": "Couldn't save your preferences. Please try again."
       }
     },
     "imaging": {

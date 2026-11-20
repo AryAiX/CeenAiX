@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
 import { isComingSoonSection, isSettingsSection } from '../../lib/doctor-settings-sections';
 import { ilikeAnyFilter } from '../../lib/postgrest-search';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { SettingsComingSoon, SettingsGeneral, SettingsHelp, SettingsLanguage } from './SettingsSections';
 
 interface DoctorSettingsPrefs {
@@ -49,6 +50,27 @@ async function notifyClinicAboutLink(staffId: string) {
   }
 }
 
+// QA-179: how the doctor's current clinic link is shown. Covers every status on dev, including
+// 'active' (set by the clinic invite), 'cancelled' and 'removed', which used to show nothing.
+type ClinicLinkView = { badge: string; tone: string; message: string | null; canSearch: boolean };
+const clinicLinkView = (status: string): ClinicLinkView => {
+  switch (status) {
+    case 'pending':
+      return { badge: 'pendingApproval', tone: 'bg-amber-50 text-amber-700 border-amber-200', message: 'pending', canSearch: false };
+    case 'accepted':
+    case 'active':
+      return { badge: 'approved', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200', message: 'member', canSearch: false };
+    case 'invited':
+      return { badge: 'invited', tone: 'bg-blue-50 text-blue-700 border-blue-200', message: 'invited', canSearch: false };
+    case 'rejected':
+      return { badge: 'rejected', tone: 'bg-red-50 text-red-600 border-red-200', message: 'rejected', canSearch: true };
+    case 'declined':
+      return { badge: 'declined', tone: 'bg-slate-100 text-slate-500 border-slate-200', message: 'declined', canSearch: true };
+    default:
+      return { badge: 'ended', tone: 'bg-slate-100 text-slate-500 border-slate-200', message: 'ended', canSearch: true };
+  }
+};
+
 // QA-178: which label to show for a clinic the doctor already has a link with.
 const linkStatusLabelKey = (status: string) => {
   if (status === 'pending') return 'pending';
@@ -60,7 +82,7 @@ const linkStatusLabelKey = (status: string) => {
 };
 
 export const DoctorSettings = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, doctorProfile } = useAuth();
@@ -73,6 +95,7 @@ export const DoctorSettings = () => {
     facilities: { name: string | null; name_en: string | null; city: string | null } | null;
   } | null>(null);
   const [clinicActionLoading, setClinicActionLoading] = useState(false);
+  const currentLinkView = myClinicRecord ? clinicLinkView(myClinicRecord.invitation_status) : null;
   const [clinicActionError, setClinicActionError] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<DoctorSettingsPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
@@ -91,7 +114,7 @@ export const DoctorSettings = () => {
   const latestSearchRef = useRef(0);
   const settingsSections: Array<{ key: string; label: string }> = [
     { key: 'general', label: t('doctor.settings.sections.general', { defaultValue: 'General' }) },
-    { key: 'my-clinic', label: 'My Clinic' },
+    { key: 'my-clinic', label: t('doctor.settings.sections.myClinic') },
     { key: 'appearance', label: t('doctor.settings.sections.appearance', { defaultValue: 'Appearance' }) },
     { key: 'notifications', label: t('doctor.settings.sections.notifications', { defaultValue: 'Notifications' }) },
     { key: 'dashboard', label: t('doctor.settings.sections.dashboard', { defaultValue: 'Dashboard' }) },
@@ -149,8 +172,8 @@ export const DoctorSettings = () => {
       await notifyClinicAboutLink(myClinicRecord.id);
 
       await fetchMyClinic();
-    } catch (err) {
-      setClinicActionError(err instanceof Error ? err.message : 'Failed to accept invitation.');
+    } catch {
+      setClinicActionError(t('doctor.settings.clinic.errAccept'));
     } finally {
       setClinicActionLoading(false);
     }
@@ -170,8 +193,8 @@ export const DoctorSettings = () => {
       await notifyClinicAboutLink(myClinicRecord.id);
 
       await fetchMyClinic();
-    } catch (err) {
-      setClinicActionError(err instanceof Error ? err.message : 'Failed to decline invitation.');
+    } catch {
+      setClinicActionError(t('doctor.settings.clinic.errDecline'));
     } finally {
       setClinicActionLoading(false);
     }
@@ -205,9 +228,11 @@ export const DoctorSettings = () => {
     }
     setClinicResults((data ?? []).map(f => ({
       id: f.id,
-      name: (f.name as string | null) ?? 'Unknown Clinic',
-      city: (f.city as string | null) ?? 'UAE',
-      type: (f.facility_type as string | null) ?? 'Clinic',
+      name: (f.name as string | null) ?? t('doctor.settings.clinic.unnamedClinic'),
+      city: (f.city as string | null) ?? t('doctor.settings.clinic.uae'),
+      type: f.facility_type
+        ? t(`doctor.settings.clinic.facilityTypes.${f.facility_type as string}`, { defaultValue: f.facility_type as string })
+        : '',
     })));
   };
 
@@ -253,7 +278,8 @@ export const DoctorSettings = () => {
       .eq('user_id', user.id);
     setSaving(false);
     if (saveError) {
-      setSaveError(saveError.message);
+      // QA-179: a translated message instead of the raw database error.
+      setSaveError(t('doctor.settings.clinic.errPrefs'));
       return;
     }
     refetch();
@@ -298,10 +324,7 @@ export const DoctorSettings = () => {
           role="alert"
           className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
         >
-          {t('doctor.settings.saveError', {
-            defaultValue: 'Could not save your preferences: {{message}}',
-            message: saveError,
-          })}
+          {saveError}
         </div>
       ) : null}
       <div className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-8 text-white shadow-lg">
@@ -327,7 +350,9 @@ export const DoctorSettings = () => {
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <CalendarRange className="mb-3 h-7 w-7 text-cyan-600" />
-          <div className="text-2xl font-bold text-slate-900">{schedule?.availabilities.length ?? 0}</div>
+          <div className="text-2xl font-bold text-slate-900">
+            {formatLocaleDigits(schedule?.availabilities.length ?? 0, i18n.language)}
+          </div>
           <div className="text-sm text-slate-500">
             {t('doctor.settings.availabilityWindows', { defaultValue: 'Availability windows' })}
           </div>
@@ -363,7 +388,7 @@ export const DoctorSettings = () => {
                   type="button"
                   onClick={() => setActiveSection(section.key)}
                   aria-current={active ? 'page' : undefined}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                  className={`w-full rounded-xl px-4 py-3 text-start text-sm font-semibold transition ${
                     active ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -398,13 +423,13 @@ export const DoctorSettings = () => {
               <div className="flex items-center gap-3">
                 <Building2 className="h-6 w-6 text-cyan-600" />
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">My Clinic</h2>
-                  <p className="text-sm text-slate-500">Search and request to join a clinic</p>
+                  <h2 className="text-lg font-bold text-slate-900">{t('doctor.settings.sections.myClinic')}</h2>
+                  <p className="text-sm text-slate-500">{t('doctor.settings.clinic.subtitle')}</p>
                 </div>
               </div>
 
               {clinicActionError && (
-                <p className="text-xs text-red-500">{clinicActionError}</p>
+                <p role="alert" className="text-xs text-red-500">{clinicActionError}</p>
               )}
 
               {myClinicRecord ? (
@@ -415,77 +440,44 @@ export const DoctorSettings = () => {
                     </div>
                     <div className="flex-1">
                       <div className="font-bold text-slate-900 text-sm">
-                        {myClinicRecord.facilities?.name_en ?? myClinicRecord.facilities?.name ?? 'Clinic'}
+                        {myClinicRecord.facilities?.name_en ?? myClinicRecord.facilities?.name ?? t('doctor.settings.clinic.unnamedClinic')}
                       </div>
-                      <div className="text-xs text-slate-400">{myClinicRecord.facilities?.city ?? 'UAE'}</div>
+                      <div className="text-xs text-slate-400">{myClinicRecord.facilities?.city ?? t('doctor.settings.clinic.uae')}</div>
                     </div>
-                    {myClinicRecord.invitation_status === 'pending' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-medium border border-amber-200">
-                        <Clock size={11} /> Pending Approval
-                      </span>
-                    )}
-                    {myClinicRecord.invitation_status === 'accepted' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200">
-                        <CheckCircle size={11} /> Approved
-                      </span>
-                    )}
-                    {myClinicRecord.invitation_status === 'rejected' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium border border-red-200">
-                        <XCircle size={11} /> Rejected
-                      </span>
-                    )}
-                    {myClinicRecord.invitation_status === 'invited' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
-                        <Building2 size={11} /> Invitation Received
-                      </span>
-                    )}
-                    {myClinicRecord.invitation_status === 'declined' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium border border-slate-200">
-                        Declined
-                      </span>
-                    )}
+                    <span
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${currentLinkView?.tone ?? ''}`}
+                      data-testid="clinic-link-badge"
+                    >
+                      {currentLinkView?.badge === 'pendingApproval' ? <Clock size={11} aria-hidden="true" /> : null}
+                      {currentLinkView?.badge === 'approved' ? <CheckCircle size={11} aria-hidden="true" /> : null}
+                      {currentLinkView?.badge === 'rejected' ? <XCircle size={11} aria-hidden="true" /> : null}
+                      {currentLinkView?.badge === 'invited' ? <Building2 size={11} aria-hidden="true" /> : null}
+                      {t(`doctor.settings.clinic.badge.${currentLinkView?.badge ?? 'ended'}`)}
+                    </span>
                   </div>
 
-                  {myClinicRecord.invitation_status === 'pending' && (
-                    <p className="text-xs text-slate-400">
-                      Your request has been sent. Please wait for the clinic to approve your request.
+                  {currentLinkView?.message ? (
+                    <p className="text-xs text-slate-500" data-testid="clinic-link-message">
+                      {t(`doctor.settings.clinic.message.${currentLinkView.message}`)}
                     </p>
-                  )}
-                  {myClinicRecord.invitation_status === 'accepted' && (
-                    <p className="text-xs text-slate-400">
-                      You are an active member of this clinic. Your appointments are linked automatically.
-                    </p>
-                  )}
-                  {myClinicRecord.invitation_status === 'rejected' && (
-                    <p className="text-xs text-slate-400">
-                      Your request was rejected. You can search and request to join another clinic below.
-                    </p>
-                  )}
-                  {myClinicRecord.invitation_status === 'declined' && (
-                    <p className="text-xs text-slate-400">
-                      You declined this invitation. You can search and request to join another clinic below.
-                    </p>
-                  )}
+                  ) : null}
 
                   {myClinicRecord.invitation_status === 'invited' && (
                     <>
-                      <p className="text-xs text-slate-500">
-                        This clinic has invited you to join their staff. Accepting will link your appointments to this clinic automatically.
-                      </p>
                       <div className="flex gap-3">
                         <button
                           onClick={() => void handleDeclineInvite()}
                           disabled={clinicActionLoading}
                           className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                         >
-                          Decline
+                          {t('doctor.settings.clinic.decline')}
                         </button>
                         <button
                           onClick={() => void handleAcceptInvite()}
                           disabled={clinicActionLoading}
                           className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
                         >
-                          {clinicActionLoading ? 'Processing…' : 'Accept Invitation'}
+                          {clinicActionLoading ? t('doctor.settings.clinic.processing') : t('doctor.settings.clinic.accept')}
                         </button>
                       </div>
                     </>
@@ -493,32 +485,38 @@ export const DoctorSettings = () => {
                 </div>
               ) : null}
 
-              {(!myClinicRecord || myClinicRecord.invitation_status === 'rejected' || myClinicRecord.invitation_status === 'declined') && (
+              {(!myClinicRecord || currentLinkView?.canSearch) && (
                 <div className="space-y-3">
-                  <div className="text-xs font-semibold text-slate-600">Search for a Clinic</div>
+                  <div className="text-xs font-semibold text-slate-600">{t('doctor.settings.clinic.searchTitle')}</div>
                   <div className="relative">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                     <input
                       type="text"
                       value={clinicSearch}
                       onChange={e => void searchClinics(e.target.value)}
-                      placeholder="Type clinic name…"
-                      className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder={t('doctor.settings.clinic.searchPlaceholder')}
+                      aria-label={t('doctor.settings.clinic.searchTitle')}
+                      className="w-full ps-9 pe-9 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                     {clinicSearch && (
-                      <button onClick={() => { setClinicSearch(''); setClinicResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <button
+                        type="button"
+                        onClick={() => void searchClinics('')}
+                        aria-label={t('doctor.settings.clinic.clearSearch')}
+                        className="absolute end-3 top-1/2 -translate-y-1/2"
+                      >
                         <X size={14} className="text-slate-400" />
                       </button>
                     )}
                   </div>
 
                   {joinError && (
-                    <p className="text-xs text-red-500">{joinError}</p>
+                    <p role="alert" className="text-xs text-red-500">{joinError}</p>
                   )}
 
                   {joinSuccess && (
                     <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl text-sm text-emerald-700 font-medium">
-                      <CheckCircle size={15} /> Join request sent successfully!
+                      <CheckCircle size={15} aria-hidden="true" /> {t('doctor.settings.clinic.joinSent')}
                     </div>
                   )}
 
@@ -527,7 +525,7 @@ export const DoctorSettings = () => {
                   )}
 
                   {clinicSearching && (
-                    <p className="text-xs text-slate-400 px-1">Searching…</p>
+                    <p className="text-xs text-slate-400 px-1">{t('doctor.settings.clinic.searching')}</p>
                   )}
 
                   {clinicResults.length > 0 && (
@@ -540,7 +538,7 @@ export const DoctorSettings = () => {
                             </div>
                             <div>
                               <div className="text-sm font-semibold text-slate-800">{c.name}</div>
-                              <div className="text-xs text-slate-400">{c.city} · {c.type}</div>
+                              <div className="text-xs text-slate-400">{[c.city, c.type].filter(Boolean).join(' · ')}</div>
                             </div>
                           </div>
                           {linkStatusByFacility.has(c.id) ? (
@@ -553,7 +551,7 @@ export const DoctorSettings = () => {
                               disabled={joinLoading}
                               className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                             >
-                              {joinLoading ? 'Sending…' : 'Request to Join'}
+                              {joinLoading ? t('doctor.settings.clinic.sending') : t('doctor.settings.clinic.requestJoin')}
                             </button>
                           )}
                         </div>
@@ -562,7 +560,9 @@ export const DoctorSettings = () => {
                   )}
 
                   {clinicSearch.trim().length >= 2 && !clinicSearching && !clinicSearchError && clinicResults.length === 0 && (
-                    <p className="text-xs text-slate-400 px-1">No clinics found for "{clinicSearch}"</p>
+                    <p className="text-xs text-slate-400 px-1">
+                      {t('doctor.settings.clinic.noResults', { query: clinicSearch.trim() })}
+                    </p>
                   )}
                 </div>
               )}

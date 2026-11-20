@@ -343,3 +343,79 @@ describe('DoctorSettings clinic search (QA-178)', () => {
   });
 });
 
+describe('DoctorSettings My Clinic statuses and Arabic (QA-179)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    calls = [];
+    myClinic = null;
+    searchRows = [];
+    extraLinks = [];
+    searchResult = null;
+    vi.mocked(supabase.from).mockReset().mockImplementation(chainFor as never);
+    vi.mocked(supabase.rpc).mockReset().mockResolvedValue({ data: 1, error: null } as never);
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1' }, doctorProfile: null } as never);
+    vi.mocked(useUserProfile).mockReturnValue({
+      data: { full_name: 'Dr. Sara Ali', notification_preferences: {} },
+      loading: false,
+      refetch: vi.fn(),
+    } as never);
+    vi.mocked(useDoctorSchedule).mockReturnValue({ data: { availabilities: [{}, {}, {}] } } as never);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it("shows 'active' links (set by the clinic invite) as an approved membership", async () => {
+    myClinic = { id: 's1', facility_id: 'c1', invitation_status: 'active', facilities: { name: 'Clinic One' } };
+    renderPage();
+
+    expect(await screen.findByTestId('clinic-link-badge')).toHaveTextContent('Approved');
+    expect(screen.getByTestId('clinic-link-message')).toHaveTextContent('You are an active member of this clinic.');
+    expect(screen.queryByPlaceholderText('Type clinic name…')).not.toBeInTheDocument();
+  });
+
+  it.each(['cancelled', 'removed'])("shows a '%s' link as ended and lets the doctor search again", async (status) => {
+    myClinic = { id: 's1', facility_id: 'c1', invitation_status: status, facilities: { name: 'Clinic One' } };
+    renderPage();
+
+    expect(await screen.findByTestId('clinic-link-badge')).toHaveTextContent('Ended');
+    expect(screen.getByTestId('clinic-link-message')).toHaveTextContent('Your link with this clinic has ended.');
+    expect(screen.getByPlaceholderText('Type clinic name…')).toBeInTheDocument();
+  });
+
+  it('shows a clear message when accepting fails', async () => {
+    myClinic = { id: 's1', facility_id: 'c1', invitation_status: 'invited', facilities: { name: 'Clinic One' } };
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: { message: 'Not authorized to approve this clinic doctor link.' } } as never);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Invitation' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't accept the invitation. Please try again.");
+    expect(screen.queryByText(/Not authorized/)).not.toBeInTheDocument();
+  });
+
+  it('shows the My Clinic section in Arabic with Arabic digits', async () => {
+    await i18n.changeLanguage('ar');
+    myClinic = { id: 's1', facility_id: 'c1', invitation_status: 'invited', facilities: { name: 'Clinic One' } };
+    renderPage();
+
+    expect(await screen.findByTestId('clinic-link-badge')).toHaveTextContent('دعوة مستلمة');
+    expect(screen.getByRole('heading', { name: 'عيادتي' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'قبول الدعوة' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'رفض' })).toBeInTheDocument();
+    expect(screen.getByText('٣')).toBeInTheDocument();
+    expect(screen.queryByText('Accept Invitation')).not.toBeInTheDocument();
+  });
+
+  it('translates the search and its results in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    searchRows = [{ id: 'c2', name: 'Clinic Two', city: null, facility_type: 'clinic' }];
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText('اكتب اسم العيادة…'), { target: { value: 'Clinic' } });
+    expect(await screen.findByText('الإمارات · عيادة')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'طلب الانضمام' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'مسح البحث' })).toBeInTheDocument();
+  });
+});
+
