@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorDashboard } from '../../hooks';
 import type { DoctorDashboardData } from '../../hooks/use-doctor-dashboard';
@@ -153,6 +153,78 @@ describe('DoctorDashboard AI insights card (QA-182)', () => {
     expect(card).not.toHaveTextContent('Penicillin');
     expect(card).not.toHaveTextContent('Prepare plan for');
     expect(within(card).queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
+describe('DoctorDashboard patient card timing (QA-183)', () => {
+  const appointment = (scheduledAt: string, status: string) =>
+    ({
+      id: 'appt-1',
+      patientId: 'p1',
+      patientName: 'Sara Ali',
+      scheduledAt,
+      durationMinutes: 30,
+      type: 'in_person',
+      status,
+      chiefComplaint: 'Headache',
+      patientAgeGender: null,
+      bloodType: null,
+      insuranceName: null,
+      conditions: [],
+      allergies: [],
+      medications: [],
+      flags: [],
+      lastVisitAt: null,
+      visitCount: 0,
+    }) as never;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-20T06:00:00Z')); // 10:00 in Dubai
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  it('next patient: says when it starts and how long until then, not "Session started" / "Duration"', () => {
+    renderWith(dashboard({ nextAppointment: appointment('2026-11-20T06:25:00Z', 'scheduled') }));
+
+    expect(screen.getByTestId('hero-start')).toHaveTextContent(/^Starts at /);
+    expect(screen.getByTestId('hero-timing')).toHaveTextContent('In 25 min');
+    expect(screen.queryByText(/Session started/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Duration/)).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(10 * 60 * 1000);
+    });
+    expect(screen.getByTestId('hero-timing')).toHaveTextContent('In 15 min');
+  });
+
+  it('next patient whose time has passed shows how late it is', () => {
+    renderWith(dashboard({ nextAppointment: appointment('2026-11-20T05:48:00Z', 'confirmed') }));
+    expect(screen.getByTestId('hero-timing')).toHaveTextContent('12 min late');
+  });
+
+  it('live visit: the timer ticks every second', () => {
+    const live = appointment('2026-11-20T05:53:00Z', 'in_progress');
+    renderWith(dashboard({ activeConsultation: live, nextAppointment: live }));
+
+    expect(screen.getByText('Live consultation', { exact: false })).toBeInTheDocument();
+    expect(screen.getByTestId('hero-start')).toHaveTextContent(/^Scheduled start: /);
+    expect(screen.getByTestId('hero-timing')).toHaveTextContent('07:00');
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.getByTestId('hero-timing')).toHaveTextContent('07:05');
+  });
+
+  it('uses Arabic digits for the timer in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    const live = appointment('2026-11-20T05:53:00Z', 'in_progress');
+    renderWith(dashboard({ activeConsultation: live, nextAppointment: live }));
+    expect(screen.getByTestId('hero-timing')).toHaveTextContent('٠٧:٠٠');
   });
 });
 

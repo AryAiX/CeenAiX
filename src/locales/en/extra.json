@@ -1743,6 +1743,19 @@
         "title": "AI clinical insights",
         "badge": "Coming soon",
         "body": "Planned: AI summaries of trends, possible drug interactions and suggested next steps for your patients. Not available yet, so nothing here is a clinical warning."
+      },
+      "hero": {
+        "live": "Live consultation",
+        "next": "Next patient",
+        "scheduledStart": "Scheduled start: {{time}}",
+        "startsAt": "Starts at {{time}}",
+        "startsOn": "Starts {{date}} at {{time}}",
+        "inMinutes": "In {{value}} min",
+        "inHoursMinutes": "In {{hours}} h {{minutes}} min",
+        "dueNow": "Due now",
+        "late": "{{value}} min late",
+        "inProgress": "In progress",
+        "elapsedNote": "Time since the scheduled start."
       }
     },
     "patients": {

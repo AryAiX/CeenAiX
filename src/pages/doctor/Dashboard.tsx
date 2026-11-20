@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Bot,
@@ -28,8 +28,11 @@ import {
   dateTimeFormatWithNumerals,
   formatLocaleDigits,
   formatRelativeTime,
+  isSameCalendarDayInTimeZone,
   resolveLocale,
+  usesArabicEasternNumerals,
 } from '../../lib/i18n-ui';
+import { formatElapsed, splitMinutes, visitTiming } from '../../lib/doctor-visit-timing';
 
 const getDisplayName = (fullName: string | null | undefined, firstName: string | null | undefined) => {
   if (fullName?.trim()) return fullName.trim();
@@ -159,6 +162,12 @@ export const DoctorDashboard: React.FC = () => {
   const activeConsultation = data?.activeConsultation ?? null;
   const nextAppointment = data?.nextAppointment ?? null;
   const featuredAppointment = activeConsultation ?? nextAppointment;
+  // QA-183: a clock for the patient card: every second during a live visit, otherwise every 30 s.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), activeConsultation ? 1000 : 30000);
+    return () => window.clearInterval(timer);
+  }, [activeConsultation]);
   const todaySchedule = data?.todaySchedule ?? [];
   const criticalResult = data?.criticalResults[0] ?? null;
   const criticalCount = data?.criticalResults.length ?? 0;
@@ -261,24 +270,42 @@ export const DoctorDashboard: React.FC = () => {
     new Date(value).toLocaleTimeString(locale, dtOpts({ hour: 'numeric', minute: '2-digit' }));
   const formatShortDate = (value: string) =>
     new Date(value).toLocaleDateString(locale, dtOpts({ day: 'numeric', month: 'short' }));
-  const formatDurationFromStart = (value: string, fallbackMinutes: number | null) => {
-    const startDate = new Date(value);
-    const startedAt = startDate.getTime();
-    const now = new Date();
-    const isSameLocalDay =
-      startDate.getFullYear() === now.getFullYear() &&
-      startDate.getMonth() === now.getMonth() &&
-      startDate.getDate() === now.getDate();
-
-    if (!Number.isNaN(startedAt) && Date.now() >= startedAt && isSameLocalDay) {
-      const totalSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  // QA-183: what the big patient card says about time (see doctor-visit-timing.ts).
+  const toLocaleDigitString = (value: string) =>
+    usesArabicEasternNumerals(uiLang) ? value.replace(/[0-9]/g, (digit) => '٠١٢٣٤٥٦٧٨٩'[Number(digit)]) : value;
+  const featuredTiming = featuredAppointment
+    ? visitTiming(featuredAppointment.scheduledAt, now, Boolean(activeConsultation))
+    : null;
+  const featuredStartLine = (() => {
+    if (!featuredAppointment) return '';
+    const time = formatDoctorTime(featuredAppointment.scheduledAt);
+    if (activeConsultation) return t('doctor.dashboard.hero.scheduledStart', { time });
+    return isSameCalendarDayInTimeZone(featuredAppointment.scheduledAt, new Date(now))
+      ? t('doctor.dashboard.hero.startsAt', { time })
+      : t('doctor.dashboard.hero.startsOn', { date: formatShortDate(featuredAppointment.scheduledAt), time });
+  })();
+  const featuredTimingText = (() => {
+    if (!featuredTiming) return '';
+    switch (featuredTiming.kind) {
+      case 'elapsed':
+        return toLocaleDigitString(formatElapsed(featuredTiming.seconds));
+      case 'inProgress':
+        return t('doctor.dashboard.hero.inProgress');
+      case 'startsIn': {
+        const { hours, minutes } = splitMinutes(featuredTiming.minutes);
+        return hours > 0
+          ? t('doctor.dashboard.hero.inHoursMinutes', {
+              hours: formatLocaleDigits(hours, uiLang),
+              minutes: formatLocaleDigits(minutes, uiLang),
+            })
+          : t('doctor.dashboard.hero.inMinutes', { value: formatLocaleDigits(minutes, uiLang) });
+      }
+      case 'late':
+        return featuredTiming.minutes === 0
+          ? t('doctor.dashboard.hero.dueNow')
+          : t('doctor.dashboard.hero.late', { value: formatLocaleDigits(featuredTiming.minutes, uiLang) });
     }
-
-    return fallbackMinutes ? `${fallbackMinutes} min` : '--';
-  };
+  })();
   const lastTodayAppointment = todaySchedule.length > 0 ? todaySchedule[todaySchedule.length - 1] : null;
   // Avoid the hard-coded "~4:00 PM" fallback that misled doctors when their
   // schedule was empty for the day. Render an em-dash instead.
@@ -421,7 +448,7 @@ export const DoctorDashboard: React.FC = () => {
               <div className="mb-3 flex items-center space-x-2">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                  ● {activeConsultation ? 'LIVE CONSULTATION' : 'NEXT PATIENT'}
+                  ● {activeConsultation ? t('doctor.dashboard.hero.live') : t('doctor.dashboard.hero.next')}
                 </span>
               </div>
               <h2 className="mb-2 text-[22px] font-bold text-white">
@@ -451,10 +478,13 @@ export const DoctorDashboard: React.FC = () => {
                 </span>
               </div>
               <div className="text-white">
-                <p className="mb-1 text-xs text-white/40">Session started: {formatDoctorTime(featuredAppointment.scheduledAt)}</p>
-                <p className="font-mono text-2xl font-bold">
-                  Duration: {formatDurationFromStart(featuredAppointment.scheduledAt, featuredAppointment.durationMinutes)}
+                <p className="mb-1 text-xs text-white/60" data-testid="hero-start">{featuredStartLine}</p>
+                <p className="font-mono text-2xl font-bold" data-testid="hero-timing" aria-live="off">
+                  {featuredTimingText}
                 </p>
+                {activeConsultation && featuredTiming?.kind === 'elapsed' ? (
+                  <p className="mt-1 text-[11px] text-white/50">{t('doctor.dashboard.hero.elapsedNote')}</p>
+                ) : null}
               </div>
             </div>
             <div className="flex flex-col space-y-3">
