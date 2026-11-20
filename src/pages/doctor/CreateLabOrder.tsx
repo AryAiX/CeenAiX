@@ -352,7 +352,7 @@ const LabOrderItemEditor: React.FC<LabOrderItemEditorProps> = ({
             />
           </div>
           {showErrors && !item.testName ? (
-            <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ Please search and select a lab test</p>
+            <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ {t('doctor.createLabOrder.validationSelectTest')}</p>
           ) : null}
         </label>
 
@@ -805,13 +805,14 @@ export const CreateLabOrder: React.FC = () => {
       type: 'system',
       title: 'New lab order created',
       body: 'Your doctor added a new lab order to your care plan.',
-      action_url: appointmentId ? `/patient/appointments/${appointmentId}` : '/patient/appointments',
+      // QA-147: patients find lab orders and results on Lab Results, not Appointments.
+      action_url: '/patient/lab-results',
     });
 
     setSaving(false);
     setShowValidationErrors(false);
-    setFeedback({ type: 'success', message: t('doctor.createLabOrder.saveSuccess') });
-    navigate('/doctor/lab-orders');
+    // QA-147: the success message used to be set and then lost when the page left; the list shows it now.
+    navigate('/doctor/lab-orders', { state: { labOrderSaved: true } });
   };
 
   return (
@@ -822,8 +823,8 @@ export const CreateLabOrder: React.FC = () => {
               onClick={() => handleNavigateAway('/doctor/lab-orders')}
               className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
             >
-              <ChevronLeft className="h-4 w-4" />
-              Back to Lab Orders
+              <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+              {t('doctor.createLabOrder.backToList')}
             </button>
           <h1 className="text-2xl font-bold text-slate-900">{t('doctor.createLabOrder.title')}</h1>
           <p className="mt-1 text-sm text-slate-500">{t('doctor.createLabOrder.subtitle')}</p>
@@ -869,7 +870,7 @@ export const CreateLabOrder: React.FC = () => {
                 ))}
               </select>
               {showValidationErrors && !patientId ? (
-                <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ Please select a patient</p>
+                <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ {t('doctor.createLabOrder.validationSelectPatient')}</p>
               ) : null}
             </label>
 
@@ -947,9 +948,9 @@ export const CreateLabOrder: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
             <div className="px-6 py-5">
-              <h3 className="text-lg font-bold text-slate-900">Leave without saving?</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('doctor.createLabOrder.leaveTitle')}</h3>
               <p className="mt-2 text-sm text-slate-500">
-                You have unsaved lab order changes. If you leave now all your work will be lost.
+                {t('doctor.createLabOrder.leaveBody')}
               </p>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
@@ -961,7 +962,7 @@ export const CreateLabOrder: React.FC = () => {
                 }}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Keep Editing
+                {t('doctor.createLabOrder.keepEditing')}
               </button>
               <button
                 type="button"
@@ -971,7 +972,7 @@ export const CreateLabOrder: React.FC = () => {
                 }}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
               >
-                Leave Anyway
+                {t('doctor.createLabOrder.leaveAnyway')}
               </button>
             </div>
           </div>

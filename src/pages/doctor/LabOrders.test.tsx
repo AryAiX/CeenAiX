@@ -207,3 +207,28 @@ describe('DoctorLabOrders in Arabic (QA-146)', () => {
     expect(screen.getByText('نتيجة حرجة')).toBeInTheDocument();
   });
 });
+
+describe('DoctorLabOrders saved message (QA-147)', () => {
+  const renderAt = (state?: unknown) => {
+    vi.mocked(useDoctorLabOrders).mockReturnValue({ data: [], loading: false, error: null, refetch: vi.fn() } as never);
+    return render(
+      <MemoryRouter initialEntries={[{ pathname: '/doctor/lab-orders', state }]}>
+        <Routes>
+          <Route path="/doctor/lab-orders" element={<DoctorLabOrders />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  };
+
+  it('confirms a new lab order after New Lab Order sends the doctor here', async () => {
+    renderAt({ labOrderSaved: true });
+    expect(screen.getByRole('status')).toHaveTextContent(i18n.t('doctor.createLabOrder.saveSuccess'));
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.prescriptions.print.close') }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('shows no saved message on a normal visit', () => {
+    renderAt();
+    expect(screen.queryByText(i18n.t('doctor.createLabOrder.saveSuccess'))).not.toBeInTheDocument();
+  });
+});

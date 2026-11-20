@@ -2483,7 +2483,14 @@
       "isPanel": "This is a panel or grouped order",
       "addItem": "Add test",
       "saving": "Saving...",
-      "save": "Save lab order"
+      "save": "Save lab order",
+      "backToList": "Back to lab orders",
+      "validationSelectTest": "Please search for and select a lab test",
+      "validationSelectPatient": "Please select a patient",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "You have unsaved lab order changes. If you leave now, your work will be lost.",
+      "keepEditing": "Keep editing",
+      "leaveAnyway": "Leave anyway"
     },
     "notifications": {
       "title": "Notifications",

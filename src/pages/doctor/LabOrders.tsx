@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, MessageSquare, Plus, Printer, Search, TestTube2, Users, X } from 'lucide-react';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
@@ -24,8 +24,20 @@ const PENDING_STATUSES: string[] = ['ordered', 'collected', 'processing'];
 export const DoctorLabOrders: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set by New Lab Order after a successful save (QA-147).
+  const [showSavedNotice, setShowSavedNotice] = useState(
+    () => Boolean((location.state as { labOrderSaved?: boolean } | null)?.labOrderSaved)
+  );
   const { user, profile, doctorProfile } = useAuth();
   const { data, loading, error, refetch } = useDoctorLabOrders(user?.id);
+
+  // Clear the flag from history so the message doesn't come back on refresh or Back.
+  useEffect(() => {
+    if ((location.state as { labOrderSaved?: boolean } | null)?.labOrderSaved) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
   const labOrders = useMemo(() => data ?? [], [data]);
   const locale = resolveLocale(i18n.language);
   const uiLang = i18n.language ?? 'en';
@@ -262,6 +274,25 @@ export const DoctorLabOrders: React.FC = () => {
       </div>
 
       <div className="space-y-6">
+        {showSavedNotice ? (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+          >
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              {t('doctor.createLabOrder.saveSuccess')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowSavedNotice(false)}
+              aria-label={t('doctor.prescriptions.print.close')}
+              className="rounded-lg p-1 text-emerald-600 transition hover:bg-emerald-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
         {error ? (
           <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700" role="alert">
             <p>{error}</p>

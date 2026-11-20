@@ -1,12 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   useDoctorPatients,
   useLabTestCatalogSearch,
   useQuery,
 } from '../../hooks';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -387,5 +388,61 @@ describe('CreateLabOrder metadata persistence', () => {
         specimen_type: 'Blood',
       }),
     ]);
+  });
+
+  it('goes back to the list with a saved flag and points the patient to Lab Results (QA-147)', async () => {
+    let landed: { path: string; state: unknown } | null = null;
+    const ListProbe = () => {
+      const location = useLocation();
+      landed = { path: location.pathname, state: location.state };
+      return null;
+    };
+    const loinc = makeCatalog({ id: 'catalog-loinc', source: 'loinc', source_code: '58410-2', display_name_en: 'Complete Blood Count' });
+    useLabTestCatalogSearchMock.mockReturnValue({
+      data: { catalogMatches: [{ ...loinc, displayNameEn: loinc.display_name_en, displayNameAr: null }], pendingSuggestionMatches: [] },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/doctor/lab-orders/new']}>
+        <Routes>
+          <Route path="/doctor/lab-orders/new" element={<CreateLabOrder />} />
+          <Route path="/doctor/lab-orders" element={<ListProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await selectPatient(user);
+    await user.type(screen.getByPlaceholderText(/search by test name/i), 'Complete');
+    await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
+    await saveOrder(user);
+    await waitFor(() => expect(landed).toEqual({ path: '/doctor/lab-orders', state: { labOrderSaved: true } }));
+    expect(notificationsBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({ action_url: '/patient/lab-results' }));
+  });
+
+  it('shows no English labels in Arabic (QA-147)', async () => {
+    await i18n.changeLanguage('ar');
+    try {
+      const user = userEvent.setup();
+      renderWithMatches([]);
+      await user.click(screen.getByRole('button', { name: i18n.t('doctor.createLabOrder.save') }));
+      await user.type(screen.getByPlaceholderText(i18n.t('doctor.createLabOrder.searchTestPlaceholder')), 'x');
+      await user.click(screen.getByRole('button', { name: i18n.t('doctor.createLabOrder.backToList') }));
+      const text = document.body.textContent ?? '';
+      for (const english of [
+        'Back to Lab Orders',
+        'Please select a patient',
+        'Please search and select a lab test',
+        'Leave without saving?',
+        'Keep Editing',
+        'Leave Anyway',
+      ]) {
+        expect(text).not.toContain(english);
+      }
+      expect(screen.getByText(i18n.t('doctor.createLabOrder.leaveTitle'))).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage('en');
+    }
   });
 });
