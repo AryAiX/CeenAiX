@@ -25,6 +25,7 @@ import {
   type MessageActionKind,
   type MessageActionPayload,
   MESSAGE_DRAFT_MAX_LENGTH,
+  buildMessageActionPath,
   parseMessageBodyParts,
   serializeMessageBodyParts,
   trimMessageDraft,
@@ -273,10 +274,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       return [];
     }
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const bookingLink = origin
-      ? `${origin}/patient/appointments/book?doctor=${encodeURIComponent(user.id)}&source=message`
-      : `/patient/appointments/book?doctor=${encodeURIComponent(user.id)}&source=message`;
+    // QA-152: chips store a path inside the app, never this browser's web address.
+    const bookingLink = buildMessageActionPath('booking_link', user.id);
 
     return [
       {
@@ -294,7 +293,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         icon: ClipboardList,
         action: {
           kind: 'appointments_link' as const,
-          href: origin ? `${origin}/patient/appointments` : '/patient/appointments',
+          href: buildMessageActionPath('appointments_link'),
         },
       },
       {
@@ -303,7 +302,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         icon: FileText,
         action: {
           kind: 'records_link' as const,
-          href: origin ? `${origin}/patient/records` : '/patient/records',
+          href: buildMessageActionPath('records_link'),
         },
       },
     ];
@@ -718,8 +717,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       <a
         key={`${action.kind}-${action.href}`}
         href={action.href}
-        target="_blank"
-        rel="noreferrer"
+        onClick={(event) => {
+          // QA-152: chips only open pages inside the app (checked in parseMessageBodyParts), in the same tab.
+          event.preventDefault();
+          navigate(action.href);
+        }}
         className={`${spacingClassName} inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${actionClassName}`}
       >
         {content}

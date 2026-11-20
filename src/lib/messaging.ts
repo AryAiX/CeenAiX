@@ -49,19 +49,73 @@ export const trimMessageDraft = (value: string) => value.replace(/\r\n/g, '\n').
 const getMessageActionToken = (action: MessageActionPayload) =>
   `${MESSAGE_ACTION_PREFIX}${encodeURIComponent(JSON.stringify(action))}${MESSAGE_ACTION_SUFFIX}`;
 
+/**
+ * QA-152: the only page each message chip may open, as a path inside the app.
+ *
+ * Chips show a trusted label ("Book appointment", "View records") and any participant can write
+ * the text behind one, so the link used to be anything: another website, a fake sign-in page or a
+ * javascript: link. They also stored the sender's full web address, so a doctor working on a local
+ * copy sent patients links to their own computer.
+ */
+const MESSAGE_ACTION_PATHS: Record<MessageActionKind, string> = {
+  booking_link: '/patient/appointments/book',
+  appointments_link: '/patient/appointments',
+  records_link: '/patient/records',
+};
+
+/** Booking links may only keep these query parameters (which doctor, and where the link came from). */
+const BOOKING_LINK_PARAMS = ['doctor', 'source'] as const;
+
+/**
+ * The in-app path a chip may open, or null when the link is not one of the allowed pages.
+ * Old chips saved with a full address keep working: only their path is used, never their website.
+ */
+export const safeMessageActionPath = (kind: MessageActionKind, href: string): string | null => {
+  const raw = href.trim();
+  if (!raw) return null;
+
+  let url: URL;
+  try {
+    if (raw.startsWith('/') && !raw.startsWith('//')) {
+      url = new URL(raw, 'https://app.invalid');
+    } else {
+      url = new URL(raw);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    }
+  } catch {
+    return null;
+  }
+
+  const path = url.pathname.replace(/\/+$/, '') || '/';
+  if (path !== MESSAGE_ACTION_PATHS[kind]) return null;
+  if (kind !== 'booking_link') return path;
+
+  const params = new URLSearchParams();
+  for (const name of BOOKING_LINK_PARAMS) {
+    const value = url.searchParams.get(name);
+    if (value) params.set(name, value);
+  }
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+};
+
+/** Path for a chip the doctor adds now (no website address, so it works on every copy of the app). */
+export const buildMessageActionPath = (kind: MessageActionKind, doctorId?: string): string =>
+  kind === 'booking_link' && doctorId
+    ? `${MESSAGE_ACTION_PATHS.booking_link}?doctor=${encodeURIComponent(doctorId)}&source=message`
+    : MESSAGE_ACTION_PATHS[kind];
+
 const parseMessageActionToken = (encodedValue: string): MessageActionPayload | null => {
   try {
     const parsed = JSON.parse(decodeURIComponent(encodedValue)) as Partial<MessageActionPayload>;
     if (
       typeof parsed.kind === 'string' &&
       typeof parsed.href === 'string' &&
-      parsed.href.trim().length > 0 &&
       ['booking_link', 'appointments_link', 'records_link'].includes(parsed.kind)
     ) {
-      return {
-        kind: parsed.kind as MessageActionKind,
-        href: parsed.href.trim(),
-      };
+      const kind = parsed.kind as MessageActionKind;
+      const href = safeMessageActionPath(kind, parsed.href);
+      return href ? { kind, href } : null;
     }
   } catch {
     return null;
@@ -125,7 +179,8 @@ export const parseMessageBodyParts = (body: string): MessageBodyPart[] => {
     if (parsedAction) {
       parts.push({ type: 'action', action: parsedAction });
     } else {
-      parts.push({ type: 'text', value: fullMatch });
+      // QA-152: a chip that does not open an allowed page is never made clickable.
+      parts.push({ type: 'text', value: i18n.t('messaging.linkRemoved', { defaultValue: '[Link removed]' }) });
     }
 
     lastIndex = matchIndex + fullMatch.length;

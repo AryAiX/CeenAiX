@@ -26,6 +26,7 @@
     "removeAttachment": "Remove attachment",
     "attachFile": "Attach file",
     "attach": "Attach",
+    "linkRemoved": "[Link removed]",
     "attachHint": "Images, PDF, Word, TXT",
     "viewProfile": "View profile",
     "profileTitle": "Profile Details",
