@@ -1107,28 +1107,9 @@ export const CreatePrescription: React.FC = () => {
     setSaving(true);
     setFeedback(null);
 
-    const { data: insertedPrescription, error: prescriptionError } = await supabase
-      .from('prescriptions')
-      .insert({
-        patient_id: patientId,
-        doctor_id: user.id,
-        appointment_id: appointmentId || null,
-        status,
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (prescriptionError || !insertedPrescription) {
-      setSaving(false);
-      setFeedback({
-        type: 'error',
-        message: prescriptionError?.message ?? t('doctor.createPrescription.saveError'),
-      });
-      return;
-    }
-
+    // QA-136: save the prescription and its items in one database transaction, so a failure
+    // can no longer leave an empty "active" prescription behind.
     const itemPayload = normalizedItems.map((item) => ({
-      prescription_id: insertedPrescription.id,
       medication_catalog_id: item.medicationCatalogId,
       medication_catalog_suggestion_id: item.medicationCatalogSuggestionId,
       medication_name: item.medicationName,
@@ -1142,14 +1123,24 @@ export const CreatePrescription: React.FC = () => {
         resolveClinicalVocabLabel(vocabRows, 'duration', item.durationCode || null, null, 'en') ?? null,
       quantity: item.quantity ? Number.parseInt(item.quantity, 10) || null : null,
       instructions: item.instructions || null,
-      is_dispensed: false,
     }));
 
-    const { error: itemsError } = await supabase.from('prescription_items').insert(itemPayload);
+    const { data: insertedPrescriptionId, error: prescriptionError } = await supabase.rpc(
+      'create_doctor_prescription',
+      {
+        p_patient_id: patientId,
+        p_appointment_id: appointmentId || null,
+        p_status: status,
+        p_items: itemPayload,
+      }
+    );
 
-    if (itemsError) {
+    if (prescriptionError || typeof insertedPrescriptionId !== 'string') {
       setSaving(false);
-      setFeedback({ type: 'error', message: itemsError.message });
+      setFeedback({
+        type: 'error',
+        message: prescriptionError?.message ?? t('doctor.createPrescription.saveError'),
+      });
       return;
     }
 
@@ -1163,7 +1154,7 @@ export const CreatePrescription: React.FC = () => {
 
     setSaving(false);
     setShowValidationErrors(false);
-    setSavedPrescriptionId(insertedPrescription.id);
+    setSavedPrescriptionId(insertedPrescriptionId);
     setFeedback({ type: 'success', message: t('doctor.createPrescription.saveSuccess') });
   };
 
