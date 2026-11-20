@@ -190,6 +190,11 @@ export const DoctorProfile: React.FC = () => {
     () => pickEditorTemplate(preVisitTemplates, editingTemplateId),
     [editingTemplateId, preVisitTemplates]
   );
+  // QA-168: changing the licence number turns DHA verification off until an admin checks it again.
+  const licenceChangeLosesVerification = Boolean(
+    doctorProfile?.dha_license_verified &&
+      formData.licenseNumber.trim() !== (doctorProfile.license_number ?? '').trim()
+  );
   const editingLiveTemplate = Boolean(templateDraft.id && templateDraft.id === activePreVisitTemplate?.id);
   const profileCompleteness = useMemo(() => {
     const fields = [
@@ -910,7 +915,17 @@ export const DoctorProfile: React.FC = () => {
                       }
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       placeholder="Enter your medical license number"
+                      aria-describedby={licenceChangeLosesVerification ? 'licence-change-warning' : undefined}
                     />
+                    {licenceChangeLosesVerification ? (
+                      <p
+                        id="licence-change-warning"
+                        className="mt-1 text-xs text-amber-700"
+                        data-testid="licence-change-warning"
+                      >
+                        {t('doctor.profile.licenceChangeWarning')}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div>

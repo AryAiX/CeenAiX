@@ -311,5 +311,36 @@ describe('DoctorProfile save (QA-167)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Your profile could not be found.');
     expect(writes.map(({ table }) => table)).toEqual(['user_profiles']);
   });
+
+  it('warns that changing the licence number removes DHA verification (QA-168)', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
+
+    const licence = screen.getByPlaceholderText('Enter your medical license number');
+    expect(screen.queryByTestId('licence-change-warning')).not.toBeInTheDocument();
+
+    fireEvent.change(licence, { target: { value: 'DHA-2' } });
+    expect(screen.getByTestId('licence-change-warning')).toHaveTextContent(
+      'Changing your licence number removes your DHA verification until an admin checks the new number.'
+    );
+    expect(licence).toHaveAttribute('aria-describedby', 'licence-change-warning');
+
+    fireEvent.change(licence, { target: { value: ' DHA-1 ' } });
+    expect(screen.queryByTestId('licence-change-warning')).not.toBeInTheDocument();
+  });
+
+  it('shows no licence warning for a doctor who is not verified yet (QA-168)', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'doc-1', email: 'doc@test.com' },
+      profile: { full_name: 'Dr. Test Person' },
+      doctorProfile: { license_number: 'DHA-1', dha_license_verified: false },
+      isLoading: false,
+      refreshProfile,
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
+    fireEvent.change(screen.getByPlaceholderText('Enter your medical license number'), { target: { value: 'DHA-2' } });
+    expect(screen.queryByTestId('licence-change-warning')).not.toBeInTheDocument();
+  });
 });
 

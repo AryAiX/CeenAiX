@@ -2679,6 +2679,7 @@
     "profile": {
       "errNameRequired": "Enter your full name before saving.",
       "errProfileMissing": "Your profile could not be found. Please sign out and sign in again.",
+      "licenceChangeWarning": "Changing your licence number removes your DHA verification until an admin checks the new number.",
       "template": {
         "editingLive": "You are editing the live template. \"Save draft\" keeps it live and saves your changes as a new draft.",
         "editingDraft": "You are editing a draft. Patients still get \"{{live}}\" until you publish this one.",
