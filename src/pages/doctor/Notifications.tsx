@@ -80,7 +80,11 @@ export const DoctorNotifications: React.FC = () => {
   }
 
   const storedNotifications = data?.notifications ?? [];
-  const unreadCount = storedNotifications.filter((notification) => !notification.is_read).length;
+  // QA-162: real totals from the database, not just the newest rows that were loaded.
+  const totalCount = data?.totalCount ?? storedNotifications.length;
+  const unreadCount = data?.unreadCount ?? storedNotifications.filter((notification) => !notification.is_read).length;
+  const readCount = Math.max(0, totalCount - unreadCount);
+  const showingLatestOnly = totalCount > storedNotifications.length;
   const liveAttentionItems = data?.derivedNotifications ?? [];
 
   return (
@@ -189,13 +193,22 @@ export const DoctorNotifications: React.FC = () => {
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {filter === 'all' ? `All (${formatLocaleDigits(storedNotifications.length, uiLang)})`
+                  {filter === 'all' ? `All (${formatLocaleDigits(totalCount, uiLang)})`
                     : filter === 'unread' ? `Unread (${formatLocaleDigits(unreadCount, uiLang)})`
-                    : `Read (${formatLocaleDigits(storedNotifications.length - unreadCount, uiLang)})`}
+                    : `Read (${formatLocaleDigits(readCount, uiLang)})`}
                 </button>
               ))}
             </div>
           </div>
+
+          {showingLatestOnly ? (
+            <p className="mb-3 text-xs text-slate-500" data-testid="notifications-latest-only">
+              {t('doctor.notifications.showingLatest', {
+                shown: formatLocaleDigits(storedNotifications.length, uiLang),
+                total: formatLocaleDigits(totalCount, uiLang),
+              })}
+            </p>
+          ) : null}
 
           {filteredNotifications.length === 0 ? (
             <p className="text-sm text-slate-600">

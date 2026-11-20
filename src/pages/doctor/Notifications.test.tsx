@@ -51,7 +51,12 @@ describe('DoctorNotifications', () => {
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, announced);
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1' } } as never);
     vi.mocked(useDoctorNotifications).mockReturnValue({
-      data: { notifications: [notification('n1', false), notification('n2', true)], derivedNotifications: [] },
+      data: {
+        notifications: [notification('n1', false), notification('n2', true)],
+        totalCount: 2,
+        unreadCount: 1,
+        derivedNotifications: [],
+      },
       loading: false,
       error: null,
       refetch,
@@ -80,5 +85,34 @@ describe('DoctorNotifications', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(announced).not.toHaveBeenCalled();
+  });
+
+  it('shows the real totals when more notifications exist than were loaded (QA-162)', () => {
+    vi.mocked(useDoctorNotifications).mockReturnValue({
+      data: {
+        notifications: [notification('n1', false), notification('n2', true)],
+        totalCount: 40,
+        unreadCount: 30,
+        derivedNotifications: [],
+      },
+      loading: false,
+      error: null,
+      refetch,
+    } as never);
+    renderPage();
+
+    expect(screen.getByText('30')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All (40)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unread (30)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Read (10)' })).toBeInTheDocument();
+    expect(screen.getByTestId('notifications-latest-only')).toHaveTextContent(
+      'Showing the latest 2 of 40 notifications.'
+    );
+  });
+
+  it('hides the "latest only" note when everything is loaded (QA-162)', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: 'All (2)' })).toBeInTheDocument();
+    expect(screen.queryByTestId('notifications-latest-only')).not.toBeInTheDocument();
   });
 });

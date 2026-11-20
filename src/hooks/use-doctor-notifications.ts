@@ -49,8 +49,13 @@ export interface DoctorDerivedNotification {
   actionUrl: string;
 }
 
+// QA-162: the log shows the newest NOTIFICATION_LOG_LIMIT rows; the counts come from the database.
+export const NOTIFICATION_LOG_LIMIT = 25;
+
 export interface DoctorNotificationsData {
   notifications: Notification[];
+  totalCount: number;
+  unreadCount: number;
   derivedNotifications: DoctorDerivedNotification[];
 }
 
@@ -80,6 +85,8 @@ export function useDoctorNotifications(userId: string | null | undefined) {
       { data: conversations, error: conversationsError },
       { data: completedAssessments, error: completedAssessmentsError },
       { data: doctorReviewUpdates, error: doctorReviewUpdatesError },
+      { count: totalCount, error: totalCountError },
+      { count: unreadCount, error: unreadCountError },
     ] = await Promise.all([
       supabase
         .from('notifications')
@@ -87,7 +94,7 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         .eq('user_id', userId)
         .eq('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(25),
+        .limit(NOTIFICATION_LOG_LIMIT),
       supabase.from('conversations').select('id').filter('participant_ids', 'cs', `["${userId}"]`),
       supabase
         .from('appointment_pre_visit_assessments')
@@ -104,12 +111,25 @@ export function useDoctorNotifications(userId: string | null | undefined) {
         .eq('status', 'pending')
         .order('updated_at', { ascending: false })
         .limit(12),
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_deleted', false),
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .eq('is_read', false),
     ]);
 
     if (notificationsError) throw notificationsError;
     if (conversationsError) throw conversationsError;
     if (completedAssessmentsError) throw completedAssessmentsError;
     if (doctorReviewUpdatesError) throw doctorReviewUpdatesError;
+    if (totalCountError) throw totalCountError;
+    if (unreadCountError) throw unreadCountError;
 
     const derivedNotifications: DoctorDerivedNotification[] = [];
 
@@ -261,8 +281,12 @@ export function useDoctorNotifications(userId: string | null | undefined) {
       (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
 
+    const loadedNotifications = (notifications ?? []) as Notification[];
+
     return {
-      notifications: (notifications ?? []) as Notification[],
+      notifications: loadedNotifications,
+      totalCount: totalCount ?? loadedNotifications.length,
+      unreadCount: unreadCount ?? loadedNotifications.filter((notification) => !notification.is_read).length,
       derivedNotifications: derivedNotifications.slice(0, 25),
     };
   }, [userId ?? '']);

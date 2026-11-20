@@ -2513,6 +2513,7 @@
       "noLiveAttention": "No live attention items need review right now.",
       "logTitle": "Notification log",
       "emptyLog": "No stored notifications yet.",
+      "showingLatest": "Showing the latest {{shown}} of {{total}} notifications.",
       "unreadBadge": "Unread",
       "bellLabel_one": "Notifications, {{value}} unread",
       "bellLabel_other": "Notifications, {{value}} unread",

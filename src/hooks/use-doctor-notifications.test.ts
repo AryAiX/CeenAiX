@@ -5,18 +5,22 @@ import i18n from '../i18n';
 type Filter = [string, string, unknown];
 
 const results: Record<string, unknown[]> = {};
-const calls: Array<{ table: string; filters: Filter[] }> = [];
+const counts = { total: null as number | null, unread: null as number | null };
+const calls: Array<{ table: string; filters: Filter[]; head: boolean }> = [];
 
 vi.mock('../lib/supabase', () => {
   const builder = (table: string) => {
-    const entry = { table, filters: [] as Filter[] };
+    const entry = { table, filters: [] as Filter[], head: false };
     calls.push(entry);
     const record = (op: string) => (column: string, value: unknown) => {
       entry.filters.push([op, column, value]);
       return chain;
     };
     const chain = {
-      select: () => chain,
+      select: (_columns?: string, options?: { head?: boolean }) => {
+        entry.head = Boolean(options?.head);
+        return chain;
+      },
       eq: record('eq'),
       neq: record('neq'),
       is: record('is'),
@@ -24,8 +28,13 @@ vi.mock('../lib/supabase', () => {
       filter: (column: string, _op: string, value: unknown) => record('filter')(column, value),
       order: () => chain,
       limit: (value: number) => record('limit')('', value),
-      then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
-        resolve({ data: results[table] ?? [], error: null }),
+      then: (resolve: (value: { data: unknown[]; count: number | null; error: null }) => unknown) => {
+        if (entry.head) {
+          const unreadOnly = entry.filters.some(([, column]) => column === 'is_read');
+          return resolve({ data: [], count: unreadOnly ? counts.unread : counts.total, error: null });
+        }
+        return resolve({ data: results[table] ?? [], count: null, error: null });
+      },
     };
     return chain;
   };
@@ -46,6 +55,8 @@ describe('useDoctorNotifications live attention (QA-160)', () => {
     await i18n.changeLanguage('en');
     calls.length = 0;
     for (const key of Object.keys(results)) delete results[key];
+    counts.total = null;
+    counts.unread = null;
     results.conversations = [{ id: 'conv-1' }, { id: 'conv-2' }];
     results.user_profiles = [
       { user_id: 'pat-1', full_name: 'Sara Ali' },
@@ -118,6 +129,43 @@ describe('useDoctorNotifications live attention (QA-160)', () => {
         body: 'Headache',
         actionUrl: '/doctor/appointments/apt-ok',
       }),
+    ]);
+  });
+});
+
+describe('useDoctorNotifications log counts (QA-162)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    calls.length = 0;
+    for (const key of Object.keys(results)) delete results[key];
+    counts.total = null;
+    counts.unread = null;
+  });
+
+  it('takes the total and unread counts from the database, not from the 25 loaded rows', async () => {
+    results.notifications = [
+      { id: 'n1', is_read: false },
+      { id: 'n2', is_read: true },
+    ];
+    counts.total = 40;
+    counts.unread = 30;
+
+    const data = await load();
+    expect(data.notifications).toHaveLength(2);
+    expect(data.totalCount).toBe(40);
+    expect(data.unreadCount).toBe(30);
+
+    const countCalls = calls.filter((call) => call.table === 'notifications' && call.head);
+    expect(countCalls.map((call) => call.filters)).toEqual([
+      [
+        ['eq', 'user_id', 'doc-1'],
+        ['eq', 'is_deleted', false],
+      ],
+      [
+        ['eq', 'user_id', 'doc-1'],
+        ['eq', 'is_deleted', false],
+        ['eq', 'is_read', false],
+      ],
     ]);
   });
 });
