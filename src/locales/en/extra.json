@@ -2619,6 +2619,18 @@
         "labImaging": "Planned: preferred labs and imaging centers, and how you are alerted about results.",
         "privacy": "Planned: control what patients see on your public card, and download your data.",
         "integrations": "Planned: connect your calendar and your clinic's systems."
+      },
+      "clinic": {
+        "errSearch": "Couldn't search clinics. Please try again.",
+        "errJoin": "Couldn't send the join request. Please try again.",
+        "linkStatus": {
+          "pending": "Request sent",
+          "invited": "Invitation waiting",
+          "member": "Already a member",
+          "rejected": "Request declined by clinic",
+          "declined": "You declined",
+          "unavailable": "Not available"
+        }
       }
     },
     "imaging": {

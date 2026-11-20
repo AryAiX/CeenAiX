@@ -19,13 +19,15 @@ type Call = { table: string; op: string; values?: unknown; filters: unknown[] };
 let calls: Call[];
 let myClinic: Record<string, unknown> | null;
 let searchRows: Array<Record<string, unknown>>;
+let extraLinks: Array<Record<string, unknown>>;
+let searchResult: (() => Promise<unknown>) | null;
 let insertedId: string;
 
 const chainFor = (table: string) => {
   const call: Call = { table, op: 'select', filters: [] };
   calls.push(call);
   const result = () => {
-    if (table === 'facility_staff' && call.op === 'select') return { data: myClinic, error: null };
+    if (table === 'facility_staff' && call.op === 'select') return { data: [...(myClinic ? [myClinic] : []), ...extraLinks], error: null };
     if (table === 'facility_staff' && call.op === 'insert') return { data: { id: insertedId }, error: null };
     if (table === 'facilities') return { data: searchRows, error: null };
     return { data: null, error: null };
@@ -40,7 +42,8 @@ const chainFor = (table: string) => {
     limit: () => chain,
     single: () => Promise.resolve(result()),
     maybeSingle: () => Promise.resolve(result()),
-    then: (resolve: (value: unknown) => unknown) => resolve(result()),
+    then: (resolve: (value: unknown) => unknown) =>
+      table === 'facilities' && searchResult ? searchResult().then(resolve) : resolve(result()),
   };
   return chain;
 };
@@ -61,6 +64,8 @@ describe('DoctorSettings clinic notifications (QA-175)', () => {
     calls = [];
     myClinic = null;
     searchRows = [];
+    extraLinks = [];
+    searchResult = null;
     insertedId = 'staff-new';
     vi.mocked(supabase.from).mockReset().mockImplementation(chainFor as never);
     vi.mocked(supabase.rpc).mockReset().mockResolvedValue({ data: 2, error: null } as never);
@@ -140,6 +145,8 @@ describe('DoctorSettings sections (QA-177)', () => {
     calls = [];
     myClinic = { id: 'staff-1', facility_id: 'clinic-a', invitation_status: 'active', facilities: { name: 'Clinic A', name_en: null } };
     searchRows = [];
+    extraLinks = [];
+    searchResult = null;
     vi.mocked(supabase.from).mockReset().mockImplementation(chainFor as never);
     vi.mocked(supabase.rpc).mockReset().mockResolvedValue({ data: null, error: null } as never);
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1', email: 'doc@test.com' }, doctorProfile: { dha_license_verified: false } } as never);
@@ -234,6 +241,105 @@ describe('DoctorSettings sections (QA-177)', () => {
     const card = screen.getByTestId('settings-coming-soon');
     expect(within(card).getByText('قريبًا')).toBeInTheDocument();
     expect(card).toHaveTextContent('الوضع الفاتح أو الداكن');
+  });
+});
+
+describe('DoctorSettings clinic search (QA-178)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    calls = [];
+    myClinic = null;
+    searchRows = [];
+    extraLinks = [];
+    searchResult = null;
+    insertedId = 'staff-new';
+    vi.mocked(supabase.from).mockReset().mockImplementation(chainFor as never);
+    vi.mocked(supabase.rpc).mockReset().mockResolvedValue({ data: 1, error: null } as never);
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doc-1' }, doctorProfile: null } as never);
+    vi.mocked(useUserProfile).mockReturnValue({
+      data: { full_name: 'Dr. Sara Ali', notification_preferences: {} },
+      loading: false,
+      refetch: vi.fn(),
+    } as never);
+    vi.mocked(useDoctorSchedule).mockReturnValue({ data: { availabilities: [] } } as never);
+  });
+
+  const type = (value: string) =>
+    fireEvent.change(screen.getByPlaceholderText('Type clinic name…'), { target: { value } });
+
+  it('puts commas and brackets inside a quoted filter instead of breaking it', async () => {
+    searchRows = [{ id: 'c1', name: "St. Mary's (Dubai), Main", city: 'Dubai', facility_type: 'clinic' }];
+    renderPage();
+    type("St. Mary's (Dubai), M");
+
+    expect(await screen.findByText("St. Mary's (Dubai), Main")).toBeInTheDocument();
+    const filter = (calls.find((call) => call.table === 'facilities')?.filters as unknown[][]).find(([op]) => op === 'or');
+    expect(filter).toEqual(['or', `name.ilike."%St. Mary's (Dubai), M%",name_en.ilike."%St. Mary's (Dubai), M%"`]);
+  });
+
+  it('shows only the newest search when an older answer arrives late', async () => {
+    let releaseFirst: (value: unknown) => void = () => undefined;
+    const answers = [
+      () => new Promise((resolve) => (releaseFirst = resolve)),
+      () => Promise.resolve({ data: [{ id: 'c2', name: 'Clinic Beta', city: 'Dubai', facility_type: 'clinic' }], error: null }),
+    ];
+    let index = 0;
+    searchResult = () => answers[index++]();
+    renderPage();
+
+    type('Cl');
+    type('Clinic B');
+    expect(await screen.findByText('Clinic Beta')).toBeInTheDocument();
+
+    releaseFirst({ data: [{ id: 'c1', name: 'Old Clinic Alpha', city: 'Dubai', facility_type: 'clinic' }], error: null });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText('Old Clinic Alpha')).not.toBeInTheDocument();
+    expect(screen.getByText('Clinic Beta')).toBeInTheDocument();
+  });
+
+  it('says so when the search fails instead of "no clinics found"', async () => {
+    searchResult = () => Promise.resolve({ data: null, error: { message: 'boom' } });
+    renderPage();
+    type('Clinic');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't search clinics. Please try again.");
+    expect(screen.queryByText(/No clinics found/)).not.toBeInTheDocument();
+  });
+
+  it('shows the existing status for a clinic the doctor already has a link with', async () => {
+    myClinic = { id: 'staff-1', facility_id: 'c1', invitation_status: 'rejected', facilities: { name: 'Clinic One' } };
+    extraLinks = [{ id: 'staff-0', facility_id: 'c3', invitation_status: 'declined', facilities: { name: 'Clinic Three' } }];
+    searchRows = [
+      { id: 'c1', name: 'Clinic One', city: 'Dubai', facility_type: 'clinic' },
+      { id: 'c2', name: 'Clinic Two', city: 'Dubai', facility_type: 'clinic' },
+      { id: 'c3', name: 'Clinic Three', city: 'Dubai', facility_type: 'clinic' },
+    ];
+    renderPage();
+    type('Clinic');
+
+    await screen.findByText('Clinic Two');
+    const statuses = screen.getAllByTestId('clinic-link-status').map((item) => item.textContent);
+    expect(statuses).toEqual(['Request declined by clinic', 'You declined']);
+    expect(screen.getAllByRole('button', { name: 'Request to Join' })).toHaveLength(1);
+  });
+
+  it('shows a clear message when the join request fails', async () => {
+    searchRows = [{ id: 'c2', name: 'Clinic Two', city: 'Dubai', facility_type: 'clinic' }];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const chain = chainFor(table) as Record<string, unknown>;
+      return {
+        ...chain,
+        insert: () => ({
+          select: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'duplicate key value violates unique constraint' } }) }),
+        }),
+      };
+    }) as never);
+    renderPage();
+    type('Clinic');
+    fireEvent.click(await screen.findByRole('button', { name: 'Request to Join' }));
+
+    expect(await screen.findByText("Couldn't send the join request. Please try again.")).toBeInTheDocument();
+    expect(screen.queryByText(/duplicate key/)).not.toBeInTheDocument();
   });
 });
 

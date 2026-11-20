@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Bell, Building2, CalendarRange, CheckCircle, Clock, Search, Settings as SettingsIcon, ShieldCheck, Stethoscope, X, XCircle } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { AccountSecurityPanel } from '../../components/AccountSecurityPanel';
 import { isComingSoonSection, isSettingsSection } from '../../lib/doctor-settings-sections';
+import { ilikeAnyFilter } from '../../lib/postgrest-search';
 import { SettingsComingSoon, SettingsGeneral, SettingsHelp, SettingsLanguage } from './SettingsSections';
 
 interface DoctorSettingsPrefs {
@@ -48,6 +49,16 @@ async function notifyClinicAboutLink(staffId: string) {
   }
 }
 
+// QA-178: which label to show for a clinic the doctor already has a link with.
+const linkStatusLabelKey = (status: string) => {
+  if (status === 'pending') return 'pending';
+  if (status === 'invited') return 'invited';
+  if (status === 'accepted' || status === 'active') return 'member';
+  if (status === 'rejected') return 'rejected';
+  if (status === 'declined') return 'declined';
+  return 'unavailable';
+};
+
 export const DoctorSettings = () => {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
@@ -73,6 +84,11 @@ export const DoctorSettings = () => {
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinSuccess, setJoinSuccess] = useState(false);
+  // QA-178: the doctor's existing link per clinic (pending, rejected, declined...), so a clinic
+  // they already have a link with shows its status instead of a "Request to Join" that would fail.
+  const [linkStatusByFacility, setLinkStatusByFacility] = useState<Map<string, string>>(new Map());
+  const [clinicSearchError, setClinicSearchError] = useState(false);
+  const latestSearchRef = useRef(0);
   const settingsSections: Array<{ key: string; label: string }> = [
     { key: 'general', label: t('doctor.settings.sections.general', { defaultValue: 'General' }) },
     { key: 'my-clinic', label: 'My Clinic' },
@@ -107,10 +123,10 @@ export const DoctorSettings = () => {
       .from('facility_staff')
       .select('id, facility_id, invitation_status, facilities(name, name_en, city)')
       .eq('doctor_user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setMyClinicRecord(data as typeof myClinicRecord);
+      .order('created_at', { ascending: false });
+    const links = (data ?? []) as unknown as NonNullable<typeof myClinicRecord>[];
+    setMyClinicRecord(links[0] ?? null);
+    setLinkStatusByFacility(new Map(links.map((link) => [link.facility_id, link.invitation_status])));
   };
 
   useEffect(() => {
@@ -163,22 +179,36 @@ export const DoctorSettings = () => {
 
   const searchClinics = async (query: string) => {
     setClinicSearch(query);
-    if (query.length < 2) { setClinicResults([]); return; }
+    setClinicSearchError(false);
+    // QA-178: only the newest search may update the list (older answers can arrive later).
+    const searchId = latestSearchRef.current + 1;
+    latestSearchRef.current = searchId;
+    if (query.trim().length < 2) {
+      setClinicResults([]);
+      setClinicSearching(false);
+      return;
+    }
     setClinicSearching(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('facilities')
       .select('id, name, city, facility_type')
-      .or(`name.ilike.%${query}%,name_en.ilike.%${query}%`)
+      .or(ilikeAnyFilter(['name', 'name_en'], query))
       .eq('is_active', true)
       .eq('is_deleted', false)
       .limit(6);
+    if (searchId !== latestSearchRef.current) return;
+    setClinicSearching(false);
+    if (error) {
+      setClinicResults([]);
+      setClinicSearchError(true);
+      return;
+    }
     setClinicResults((data ?? []).map(f => ({
       id: f.id,
       name: (f.name as string | null) ?? 'Unknown Clinic',
       city: (f.city as string | null) ?? 'UAE',
       type: (f.facility_type as string | null) ?? 'Clinic',
     })));
-    setClinicSearching(false);
   };
 
   const handleJoinRequest = async (facilityId: string) => {
@@ -205,8 +235,9 @@ export const DoctorSettings = () => {
       setClinicSearch('');
       setClinicResults([]);
       void fetchMyClinic();
-    } catch (err) {
-      setJoinError(err instanceof Error ? err.message : 'Failed to send join request.');
+    } catch {
+      // QA-178: a clear message instead of the raw database error.
+      setJoinError(t('doctor.settings.clinic.errJoin'));
     } finally {
       setJoinLoading(false);
     }
@@ -491,6 +522,10 @@ export const DoctorSettings = () => {
                     </div>
                   )}
 
+                  {clinicSearchError && (
+                    <p role="alert" className="text-xs text-red-500">{t('doctor.settings.clinic.errSearch')}</p>
+                  )}
+
                   {clinicSearching && (
                     <p className="text-xs text-slate-400 px-1">Searching…</p>
                   )}
@@ -508,19 +543,25 @@ export const DoctorSettings = () => {
                               <div className="text-xs text-slate-400">{c.city} · {c.type}</div>
                             </div>
                           </div>
-                          <button
-                            onClick={() => void handleJoinRequest(c.id)}
-                            disabled={joinLoading}
-                            className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                          >
-                            {joinLoading ? 'Sending…' : 'Request to Join'}
-                          </button>
+                          {linkStatusByFacility.has(c.id) ? (
+                            <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600" data-testid="clinic-link-status">
+                              {t(`doctor.settings.clinic.linkStatus.${linkStatusLabelKey(linkStatusByFacility.get(c.id) ?? '')}`)}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => void handleJoinRequest(c.id)}
+                              disabled={joinLoading}
+                              className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                            >
+                              {joinLoading ? 'Sending…' : 'Request to Join'}
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {clinicSearch.length >= 2 && !clinicSearching && clinicResults.length === 0 && (
+                  {clinicSearch.trim().length >= 2 && !clinicSearching && !clinicSearchError && clinicResults.length === 0 && (
                     <p className="text-xs text-slate-400 px-1">No clinics found for "{clinicSearch}"</p>
                   )}
                 </div>
