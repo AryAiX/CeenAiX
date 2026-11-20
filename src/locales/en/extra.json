@@ -2594,7 +2594,28 @@
       "impression": "Impression",
       "recommendations": "Recommendations",
       "alerts": "Alerts",
-      "notRecorded": "Not recorded"
+      "notRecorded": "Not recorded",
+      "emptyState": "No imaging studies yet. Scans you order through Lab Referrals appear here once they are sent to an imaging centre.",
+      "footerNote": "Studies appear here when a scan you ordered through Lab Referrals is sent to an imaging centre. Reports are shown once the imaging centre releases them.",
+      "markReviewed": "Mark reviewed",
+      "reviewing": "Reviewing…",
+      "reviewError": "Could not mark the study as reviewed.",
+      "searchPh": "Search patient, scan type or study…",
+      "status": {
+        "ordered": "Ordered",
+        "scheduled": "Scheduled",
+        "scanning": "Scanning",
+        "report_pending": "Report being written",
+        "reported": "Reported, not released",
+        "released": "Released",
+        "rejected": "Rejected"
+      },
+      "modality": {
+        "X-Ray": "X-Ray",
+        "Ultrasound": "Ultrasound",
+        "Echo": "Echo",
+        "Radiology": "Radiology"
+      }
     },
     "earnings": {
       "title": "Earnings",

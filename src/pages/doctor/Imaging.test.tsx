@@ -118,3 +118,34 @@ describe('DoctorImaging full report (QA-150)', () => {
     expect(screen.queryByRole('button', { name: /Mark reviewed/ })).not.toBeInTheDocument();
   });
 });
+
+describe('DoctorImaging in Arabic (QA-151)', () => {
+  it('shows translated statuses, scan types and labels, never raw codes', async () => {
+    await i18n.changeLanguage('ar');
+    const { container } = renderImaging([
+      imagingStudy('a', { status: 'report_pending', modality: 'Ultrasound' }),
+      imagingStudy('b', { status: 'scanning', modality: 'X-Ray' }),
+      imagingStudy('c', { status: 'released', modality: 'CT', impression: 'سليم' }),
+      imagingStudy('d', { status: 'rejected', modality: 'Echo' }),
+    ]);
+    const text = container.textContent ?? '';
+    for (const raw of ['report_pending', 'scanning', 'released', 'rejected', 'Retry', 'Mark reviewed', 'canonical', 'DICOM', 'Ultrasound', 'X-Ray']) {
+      expect(text).not.toContain(raw);
+    }
+    expect(screen.getByText('جارٍ كتابة التقرير')).toBeInTheDocument();
+    expect(screen.getAllByText('موجات فوق صوتية').length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText(i18n.t('doctor.imaging.searchPh'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'تحديد كمُراجَع' })).toBeInTheDocument();
+  });
+
+  it('finds a study by its translated status', async () => {
+    await i18n.changeLanguage('ar');
+    renderImaging([
+      imagingStudy('a', { status: 'rejected', patientName: 'Rejected Patient' }),
+      imagingStudy('b', { status: 'released', patientName: 'Released Patient', impression: 'سليم' }),
+    ]);
+    await userEvent.type(screen.getByPlaceholderText(i18n.t('doctor.imaging.searchPh')), 'مرفوضة');
+    expect(screen.getByText('Rejected Patient')).toBeInTheDocument();
+    expect(screen.queryByText('Released Patient')).not.toBeInTheDocument();
+  });
+});

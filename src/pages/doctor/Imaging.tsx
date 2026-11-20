@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle, ChevronDown, Clock, Layers, ListChecks, Scan, Search, Workflow } from 'lucide-react';
@@ -29,6 +29,16 @@ export const DoctorImaging = () => {
           dateTimeFormatWithNumerals(uiLang, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
         )
       : t('doctor.imaging.notRecorded');
+  // QA-151: scan statuses used to look up lab-test labels that don't exist, so raw codes such as
+  // "report_pending" showed in both languages. Scan types other than CT / MRI are translated too.
+  const imagingStatusLabel = useCallback(
+    (status: string) => t(`doctor.imaging.status.${status}`, { defaultValue: status }),
+    [t]
+  );
+  const modalityLabel = useCallback(
+    (modality: string) => t(`doctor.imaging.modality.${modality}`, { defaultValue: modality }),
+    [t]
+  );
   const studies = useMemo(
     () => data ?? [],
     [data]
@@ -45,18 +55,28 @@ export const DoctorImaging = () => {
       if (activeStatus === 'abnormal' && study.alerts.length === 0) return false;
       if (modalityFilter !== 'all' && study.modality !== modalityFilter) return false;
       if (!search) return true;
-      return [study.patientName, study.studyName, study.modality, study.status].join(' ').toLowerCase().includes(search);
+      return [
+        study.patientName,
+        study.studyName,
+        study.modality,
+        modalityLabel(study.modality),
+        study.status,
+        imagingStatusLabel(study.status),
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(search);
     });
-  }, [activeStatus, modalityFilter, searchQuery, studies]);
+  }, [activeStatus, imagingStatusLabel, modalityFilter, modalityLabel, searchQuery, studies]);
   const imagingTabs = [
-    { id: 'all' as const, label: t('doctor.imaging.tabAll', { defaultValue: 'All studies' }), count: studies.length },
-    { id: 'pending' as const, label: t('doctor.imaging.tabPending', { defaultValue: 'Pending' }), count: pending },
+    { id: 'all' as const, label: t('doctor.imaging.tabAll'), count: studies.length },
+    { id: 'pending' as const, label: t('doctor.imaging.tabPending'), count: pending },
     {
       id: 'reported' as const,
-      label: t('doctor.imaging.tabReported', { defaultValue: 'Reported' }),
+      label: t('doctor.imaging.tabReported'),
       count: reported,
     },
-    { id: 'abnormal' as const, label: t('doctor.imaging.tabAbnormal', { defaultValue: 'Abnormal' }), count: abnormal },
+    { id: 'abnormal' as const, label: t('doctor.imaging.tabAbnormal'), count: abnormal },
   ];
 
   const handleMarkReviewed = async (studyId: string) => {
@@ -65,8 +85,9 @@ export const DoctorImaging = () => {
     try {
       await markDoctorImagingStudyReviewed(studyId);
       await refetch();
-    } catch (err) {
-      setReviewError(err instanceof Error ? err.message : t('doctor.imaging.reviewError', { defaultValue: 'Unable to mark study reviewed.' }));
+    } catch {
+      // The database message is English and technical; show the translated message instead.
+      setReviewError(t('doctor.imaging.reviewError'));
     } finally {
       setReviewBusyId(null);
     }
@@ -92,9 +113,9 @@ export const DoctorImaging = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="ml-2 font-semibold underline"
+            className="ms-2 font-semibold underline"
           >
-            Retry
+            {t('shared.retry')}
           </button>
         </div>
       ) : null}
@@ -122,7 +143,7 @@ export const DoctorImaging = () => {
             onClick={() => navigate('/doctor/lab-orders')}
             className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
           >
-            {t('doctor.imaging.openLabOrders', { defaultValue: 'Open lab orders' })}
+            {t('doctor.imaging.openLabOrders')}
           </button>
         </div>
       </div>
@@ -130,28 +151,28 @@ export const DoctorImaging = () => {
       <div className="grid gap-4 md:grid-cols-4">
         {[
           {
-            label: t('doctor.imaging.cardStudies', { defaultValue: 'Studies' }),
+            label: t('doctor.imaging.cardStudies'),
             value: studies.length,
             icon: ListChecks,
             color: 'text-violet-600',
             bg: 'bg-violet-100',
           },
           {
-            label: t('doctor.imaging.tabPending', { defaultValue: 'Pending' }),
+            label: t('doctor.imaging.tabPending'),
             value: pending,
             icon: Clock,
             color: 'text-amber-600',
             bg: 'bg-amber-100',
           },
           {
-            label: t('doctor.imaging.tabReported', { defaultValue: 'Reported' }),
+            label: t('doctor.imaging.tabReported'),
             value: reported,
             icon: CheckCircle,
             color: 'text-emerald-600',
             bg: 'bg-emerald-100',
           },
           {
-            label: t('doctor.imaging.tabAbnormal', { defaultValue: 'Abnormal' }),
+            label: t('doctor.imaging.tabAbnormal'),
             value: abnormal,
             icon: Workflow,
             color: 'text-red-600',
@@ -176,7 +197,7 @@ export const DoctorImaging = () => {
           <div className="flex items-center gap-3">
             <Layers className="h-6 w-6 text-violet-600" />
             <h2 className="text-lg font-bold text-slate-900">
-              {t('doctor.imaging.worklist', { defaultValue: 'Imaging worklist' })}
+              {t('doctor.imaging.worklist')}
             </h2>
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -186,10 +207,8 @@ export const DoctorImaging = () => {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 maxLength={FORM_FIELD_LIMITS.searchQuery}
-                placeholder={t('doctor.imaging.searchPh', {
-                  defaultValue: 'Search patient, modality, study...',
-                })}
-                className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                placeholder={t('doctor.imaging.searchPh')}
+                className="w-full rounded-xl border border-slate-200 py-2.5 ps-9 pe-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
             <select
@@ -197,10 +216,10 @@ export const DoctorImaging = () => {
               onChange={(event) => setModalityFilter(event.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             >
-              <option value="all">{t('doctor.imaging.allModalities', { defaultValue: 'All modalities' })}</option>
+              <option value="all">{t('doctor.imaging.allModalities')}</option>
               {modalities.map((modality) => (
                 <option key={modality} value={modality}>
-                  {modality}
+                  {modalityLabel(modality)}
                 </option>
               ))}
             </select>
@@ -217,7 +236,7 @@ export const DoctorImaging = () => {
               }`}
             >
               {tab.label}
-              <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] ${activeStatus === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+              <span className={`ms-2 rounded-full px-2 py-0.5 text-[10px] ${activeStatus === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
                 {formatLocaleDigits(tab.count, uiLang)}
               </span>
             </button>
@@ -225,9 +244,7 @@ export const DoctorImaging = () => {
         </div>
         {filteredStudies.length === 0 ? (
           <div className="m-5 rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500">
-            {t('doctor.imaging.emptyState', {
-              defaultValue: 'No radiology-style orders are assigned to you yet.',
-            })}
+            {t('doctor.imaging.emptyState')}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -237,7 +254,7 @@ export const DoctorImaging = () => {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-700">
-                      {study.modality}
+                      {modalityLabel(study.modality)}
                     </span>
                     <span className="font-bold text-slate-900">{study.studyName}</span>
                   </div>
@@ -264,7 +281,7 @@ export const DoctorImaging = () => {
                     );
                   })()}
                   <div className="text-xs text-slate-400">
-                    {t(`shared.labOrderItemStatus.${study.status}`, { defaultValue: study.status })}
+                    {imagingStatusLabel(study.status)}
                   </div>
                   {study.reviewedAt ? (
                     <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
@@ -280,8 +297,8 @@ export const DoctorImaging = () => {
                       className="mt-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {reviewBusyId === study.id
-                        ? t('doctor.imaging.reviewing', { defaultValue: 'Reviewing...' })
-                        : t('doctor.imaging.markReviewed', { defaultValue: 'Mark reviewed' })}
+                        ? t('doctor.imaging.reviewing')
+                        : t('doctor.imaging.markReviewed')}
                     </button>
                   ) : null}
                 </div>
@@ -361,10 +378,7 @@ export const DoctorImaging = () => {
       </div>
 
       <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
-        {t('doctor.imaging.footerNote', {
-          defaultValue:
-            'Doctor Imaging is backed by canonical radiology studies linked from assigned lab orders. Full DICOM viewer parity remains a future integration.',
-        })}
+        {t('doctor.imaging.footerNote')}
       </div>
     </div>
   );
