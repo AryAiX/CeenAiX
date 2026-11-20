@@ -1,4 +1,4 @@
-import { createPdfReport, drawPdfFooters, drawPdfHeader } from './pdf-report';
+import { createPdfReport, drawPdfFooters, drawPdfHeader, hasArabicLetters, type PdfReport } from './pdf-report';
 import { savePdf } from './save-file';
 
 /**
@@ -10,6 +10,8 @@ import { savePdf } from './save-file';
  *   page when the medicines don't fit, instead of running into the footer.
  *
  * All text arrives already translated, so this file has no language logic of its own.
+ * QA-145: the lab order print/PDF on Lab Referrals uses the same layout, with an optional tone that
+ * colours a critical or abnormal test.
  */
 
 export interface PrescriptionPrintItem {
@@ -21,6 +23,8 @@ export interface PrescriptionPrintItem {
   detail: string;
   quantity?: string | null;
   instructions?: string | null;
+  /** Colours the box: red for a critical lab result, amber for an abnormal one. */
+  tone?: 'critical' | 'abnormal' | null;
 }
 
 export interface PrescriptionPrintContent {
@@ -70,7 +74,8 @@ export function prescriptionPrintHtml(content: PrescriptionPrintContent): string
           ? `<div class="detail">${escapeHtml(content.instructionsLabel)}: <bdi>${escapeHtml(item.instructions)}</bdi></div>`
           : '',
       ];
-      return `<li class="item">${lines.join('')}</li>`;
+      const toneClass = item.tone ? ` ${item.tone}` : '';
+      return `<li class="item${toneClass}">${lines.join('')}</li>`;
     })
     .join('');
 
@@ -89,6 +94,10 @@ export function prescriptionPrintHtml(content: PrescriptionPrintContent): string
   h2 { font-size: 14px; margin: 18px 0 8px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
   ol { list-style: none; padding: 0; margin: 0; }
   .item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; break-inside: avoid; }
+  .item.critical { background: #fef2f2; border-color: #fecaca; }
+  .item.abnormal { background: #fffbeb; border-color: #fde68a; }
+  .item.critical .name { color: #b91c1c; }
+  .item.abnormal .name { color: #92400e; }
   .name { font-weight: 700; font-size: 14px; }
   .secondary { font-size: 12px; color: #64748b; }
   .detail { font-size: 12px; color: #475569; margin-top: 3px; overflow-wrap: anywhere; }
@@ -148,6 +157,26 @@ const LINE_HEIGHT = 5;
 const FOOTER_SPACE = 18;
 const TOP_AFTER_HEADER = 24;
 
+/**
+ * A "Label: value" line. When the value has no Arabic letters (a code, a range, a quantity) it is drawn
+ * in its own text() call, as pdf-report asks, so an Arabic label can't flip it ("3.5-5.1" stayed
+ * "5.1-3.5" when drawn as one Arabic line). Values with Arabic letters keep the combined line.
+ */
+interface LabeledLines {
+  label: string | null;
+  labelWidth: number;
+  lines: string[];
+}
+
+function layoutLabeledValue(report: PdfReport, label: string, value: string, maxWidth: number): LabeledLines {
+  if (hasArabicLetters(value)) {
+    return { label: null, labelWidth: 0, lines: report.splitLines(`${label}: ${value}`, maxWidth) };
+  }
+  const labelText = `${label}:`;
+  const labelWidth = report.textWidth(labelText) + 1.5;
+  return { label: labelText, labelWidth, lines: report.splitLines(value, maxWidth - labelWidth) };
+}
+
 /** Builds and saves the prescription PDF, wrapping long text and adding pages when needed. */
 export async function downloadPrescriptionPdf(content: PrescriptionPrintContent): Promise<void> {
   const report = await createPdfReport(content.language);
@@ -203,33 +232,44 @@ export async function downloadPrescriptionPdf(content: PrescriptionPrintContent)
     report.setWeight('normal');
     const secondaryLines = item.secondaryName ? report.splitLines(item.secondaryName, textWidth) : [];
     const detailLines = report.splitLines(item.detail, textWidth);
-    const quantityLines = item.quantity ? report.splitLines(`${content.quantityLabel}: ${item.quantity}`, textWidth) : [];
-    const instructionLines = item.instructions
-      ? report.splitLines(`${content.instructionsLabel}: ${item.instructions}`, textWidth)
-      : [];
-    const bodyLines = secondaryLines.length + detailLines.length + quantityLines.length + instructionLines.length;
+    const quantity = item.quantity ? layoutLabeledValue(report, content.quantityLabel, item.quantity, textWidth) : null;
+    const instructions = item.instructions
+      ? layoutLabeledValue(report, content.instructionsLabel, item.instructions, textWidth)
+      : null;
+    const bodyLines =
+      secondaryLines.length + detailLines.length + (quantity?.lines.length ?? 0) + (instructions?.lines.length ?? 0);
     const boxHeight = ITEM_PADDING * 2 + nameLines.length * 5.5 + bodyLines * LINE_HEIGHT;
 
     y = ensureSpace(y, boxHeight + 4);
 
-    doc.setFillColor(248, 250, 252);
+    if (item.tone === 'critical') doc.setFillColor(254, 242, 242);
+    else if (item.tone === 'abnormal') doc.setFillColor(255, 251, 235);
+    else doc.setFillColor(248, 250, 252);
     report.roundedRect(margin, y, contentWidth, boxHeight, 2);
 
     let lineY = y + ITEM_PADDING + 4;
     doc.setFontSize(11);
     report.setWeight('bold');
-    doc.setTextColor(15, 23, 42);
+    if (item.tone === 'critical') doc.setTextColor(185, 28, 28);
+    else if (item.tone === 'abnormal') doc.setTextColor(146, 64, 14);
+    else doc.setTextColor(15, 23, 42);
     report.text(nameLines, margin + ITEM_PADDING, lineY, { lineHeight: 5.5 });
     lineY += nameLines.length * 5.5;
 
     doc.setFontSize(9);
     report.setWeight('normal');
     doc.setTextColor(100, 116, 139);
-    for (const lines of [secondaryLines, detailLines, quantityLines, instructionLines]) {
+    for (const lines of [secondaryLines, detailLines]) {
       if (lines.length === 0) continue;
       report.text(lines, margin + ITEM_PADDING, lineY, { lineHeight: LINE_HEIGHT });
       lineY += lines.length * LINE_HEIGHT;
       doc.setTextColor(71, 85, 105);
+    }
+    for (const block of [quantity, instructions]) {
+      if (!block) continue;
+      if (block.label) report.text(block.label, margin + ITEM_PADDING, lineY);
+      report.text(block.lines, margin + ITEM_PADDING + block.labelWidth, lineY, { lineHeight: LINE_HEIGHT });
+      lineY += block.lines.length * LINE_HEIGHT;
     }
 
     y += boxHeight + 4;

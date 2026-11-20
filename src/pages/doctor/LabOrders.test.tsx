@@ -5,11 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorLabOrders } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { downloadPrescriptionPdf, printPrescription } from '../../lib/prescription-print';
 import { DoctorLabOrders } from './LabOrders';
 
 vi.mock('../../hooks', () => ({ useDoctorLabOrders: vi.fn() }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { rpc: vi.fn() } }));
+vi.mock('../../lib/prescription-print', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/prescription-print')>()),
+  printPrescription: vi.fn(),
+  downloadPrescriptionPdf: vi.fn().mockResolvedValue(undefined),
+}));
 
 const labItem = (id: string, testName: string, overrides: Record<string, unknown> = {}) => ({
   id,
@@ -129,5 +135,43 @@ describe('DoctorLabOrders pending count and reorder (QA-144)', () => {
         ],
       },
     });
+  });
+});
+
+describe('DoctorLabOrders print and PDF (QA-145)', () => {
+  const resulted = order('x1', 'عبد الله', 'resulted', [
+    labItem('k', 'Potassium', { test_name_ar: 'البوتاسيوم', result_value: '6.9', result_unit: 'mmol/L', reference_range: '3.5-5.1', flag: 'HH', test_code: '2823-3' }),
+    labItem('c', 'Cholesterol', { result_value: '230', result_unit: 'mg/dL', is_abnormal: true, flag: 'H' }),
+    labItem('t', 'TSH', { status: 'processing', result_value: null }),
+  ]);
+
+  it('prints only the lab order and builds a translated, colour-coded PDF', async () => {
+    await i18n.changeLanguage('ar');
+    const pagePrint = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    // The order has a critical result, so it is on the default Critical tab.
+    renderWith([resulted]);
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.prescriptions.print.button') }));
+
+    const modalText = document.body.textContent ?? '';
+    for (const english of ['Print or Download Lab Order', 'Print Now', 'Download PDF', 'Ordered:', 'Close']) {
+      expect(modalText).not.toContain(english);
+    }
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.prescriptions.print.printNow') }));
+    expect(printPrescription).toHaveBeenCalledTimes(1);
+    expect(pagePrint).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.prescriptions.print.downloadPdf') }));
+    const content = vi.mocked(downloadPrescriptionPdf).mock.calls[0][0];
+    expect(content.language).toBe('ar');
+    expect(content.title).toBe('طلب فحص مخبري');
+    expect(content.fileName).toBe('lab-order-x1');
+    expect(content.items).toEqual([
+      expect.objectContaining({ name: 'البوتاسيوم', secondaryName: 'Potassium', tone: 'critical', quantity: '2823-3', instructions: '3.5-5.1' }),
+      expect.objectContaining({ name: 'Cholesterol', tone: 'abnormal' }),
+      expect.objectContaining({ name: 'TSH', tone: null }),
+    ]);
+    expect(content.items[0].detail).toContain('6.9 mmol/L');
+    expect(content.items[0].detail).toContain('حرج');
   });
 });

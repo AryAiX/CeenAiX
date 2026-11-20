@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import jsPDF from 'jspdf';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -7,10 +6,16 @@ import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, MessageSquare, Plus,
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { Skeleton } from '../../components/Skeleton';
 import { useDoctorLabOrders } from '../../hooks';
+import type { DoctorLabOrderRecord } from '../../hooks/use-doctor-lab-orders';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, labOrderStatusLabel, resolveLocale } from '../../lib/i18n-ui';
 import { reorderItemsFrom } from '../../lib/lab-reorder';
+import {
+  downloadPrescriptionPdf as downloadClinicalPdf,
+  printPrescription as openClinicalPrint,
+  type PrescriptionPrintContent,
+} from '../../lib/prescription-print';
 import { isCriticalLabItem, labResultSeverity, labResultValueText, needsCriticalReview } from '../../lib/lab-severity';
 import { supabase } from '../../lib/supabase';
 
@@ -19,7 +24,7 @@ const PENDING_STATUSES: string[] = ['ordered', 'collected', 'processing'];
 export const DoctorLabOrders: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile, doctorProfile } = useAuth();
   const { data, loading, error, refetch } = useDoctorLabOrders(user?.id);
   const labOrders = useMemo(() => data ?? [], [data]);
   const locale = resolveLocale(i18n.language);
@@ -32,6 +37,8 @@ export const DoctorLabOrders: React.FC = () => {
   const [printLabOrderId, setPrintLabOrderId] = useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // QA-142: only results the lab marked critical (or HH / LL) count, and only until the doctor
   // marks the order reviewed. Other out-of-range results are shown as abnormal, not critical.
@@ -158,105 +165,84 @@ export const DoctorLabOrders: React.FC = () => {
     );
   }
 
-  const handleDownloadPdf = () => {
+  const closePrintModal = () => {
+    setShowPrintModal(false);
+    setPrintLabOrderId(null);
+    setPdfError(null);
+  };
+
+  const formatOrderDate = (value: string) =>
+    new Date(value).toLocaleDateString(locale, dtOpts({ year: 'numeric', month: 'short', day: 'numeric' }));
+
+  // QA-145: the same translated print/PDF layout as prescriptions (QA-137), with critical and
+  // abnormal results coloured like the page (QA-142).
+  const buildLabPrintContent = (labOrder: DoctorLabOrderRecord): PrescriptionPrintContent => {
+    const labKey = (name: string) => t(`doctor.labOrders.print.${name}`);
+    const sharedKey = (name: string, options?: Record<string, unknown>) => t(`doctor.prescriptions.print.${name}`, options);
+    const rawDoctorName = (profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? '').trim();
+    const doctorName = /^(dr\.?\s|د\.\s?)/i.test(rawDoctorName) ? rawDoctorName : sharedKey('doctorName', { name: rawDoctorName });
+    const isEnglishUi = uiLang.toLowerCase().startsWith('en');
+    const shortId = labOrder.id.slice(0, 8);
+    return {
+      language: uiLang,
+      brand: t('shared.pdf.brand'),
+      title: labKey('docTitle'),
+      details: [
+        { label: sharedKey('patient'), value: labOrder.patientName },
+        { label: labKey('orderedOn'), value: formatOrderDate(labOrder.ordered_at) },
+        ...(rawDoctorName ? [{ label: labKey('doctor'), value: doctorName }] : []),
+        ...(doctorProfile?.license_number ? [{ label: sharedKey('licence'), value: doctorProfile.license_number }] : []),
+        { label: sharedKey('status'), value: labOrderStatusLabel(t, labOrder.status) },
+        { label: labKey('orderId'), value: shortId },
+      ],
+      medicationsHeading: labKey('tests'),
+      quantityLabel: labKey('code'),
+      instructionsLabel: labKey('referenceRange'),
+      items: labOrder.items
+        .filter((item) => !item.parent_item_id)
+        .map((item) => {
+          const localized = item.test_name_ar?.trim() ?? '';
+          const canonical = item.test_name.trim();
+          const useLocalized = !isEnglishUi && localized && localized.toLowerCase() !== canonical.toLowerCase();
+          const severity = labResultSeverity(item);
+          const value = labResultValueText(item);
+          const severityLabel =
+            severity === 'critical' || severity === 'abnormal' || severity === 'normal' ? labKey(severity) : null;
+          return {
+            name: useLocalized ? localized : canonical,
+            secondaryName: useLocalized ? canonical : null,
+            detail: value
+              ? [`${labKey('result')}: ${value}`, severityLabel].filter(Boolean).join(' · ')
+              : labOrderStatusLabel(t, item.status),
+            quantity: item.test_code,
+            instructions: item.reference_range,
+            tone: severity === 'critical' || severity === 'abnormal' ? severity : null,
+          };
+        }),
+      disclaimer: labKey('docDisclaimer'),
+      footerNote: t('shared.pdf.footerNote'),
+      pageLabel: (page, total) =>
+        t('shared.pdf.pageOf', { page: formatLocaleDigits(page, uiLang), total: formatLocaleDigits(total, uiLang) }),
+      fileName: `lab-order-${shortId}`,
+    };
+  };
+
+  const handlePrint = () => {
     if (!printLabOrder) return;
-    const doc = new jsPDF();
-    const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Unknown';
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 20;
+    openClinicalPrint(buildLabPrintContent(printLabOrder));
+  };
 
-    // Header
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CeenAiX', 14, 18);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Healthcare Platform — Lab Order', 14, 28);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 28, { align: 'right' });
-
-    y = 55;
-
-    // Patient info
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PATIENT INFORMATION', 14, y);
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Patient Name: ${printLabOrder.patientName}`, 14, y);
-    y += 7;
-    doc.text(`Ordered Date: ${new Date(printLabOrder.ordered_at).toLocaleDateString()}`, 14, y);
-    y += 7;
-    doc.text(`Ordering Doctor: Dr. ${doctorName}`, 14, y);
-    y += 7;
-    doc.text(`Status: ${printLabOrder.status.charAt(0).toUpperCase() + printLabOrder.status.slice(1)}`, 14, y);
-    y += 15;
-
-    // Divider
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, y, pageWidth - 14, y);
-    y += 10;
-
-    // Tests
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ORDERED TESTS', 14, y);
-    y += 10;
-
-    printLabOrder.items.forEach((item, index) => {
-      doc.setFillColor(item.is_abnormal ? 254 : 248, item.is_abnormal ? 242 : 250, item.is_abnormal ? 242 : 252);
-      doc.roundedRect(14, y - 5, pageWidth - 28, 30, 3, 3, 'F');
-
-      doc.setTextColor(item.is_abnormal ? 185 : 15, item.is_abnormal ? 28 : 23, item.is_abnormal ? 28 : 42);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${index + 1}. ${item.test_name}${item.test_code ? ` (${item.test_code})` : ''}`, 20, y + 2);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(71, 85, 105);
-
-      if (item.result_value) {
-        doc.text(`Result: ${[item.result_value, item.result_unit].filter(Boolean).join(' ')}${item.reference_range ? `   Ref: ${item.reference_range}` : ''}${item.is_abnormal ? '   ⚠ ABNORMAL' : ''}`, 20, y + 2);
-        y += 8;
-      } else {
-        doc.text(`Status: ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`, 20, y + 2);
-        y += 8;
-      }
-
-      y += 8;
-    });
-
-    // Divider
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, y, pageWidth - 14, y);
-    y += 10;
-
-    // Disclaimer
-    doc.setFontSize(8);
-    doc.setTextColor(148, 163, 184);
-    doc.setFont('helvetica', 'italic');
-    doc.text('These results are for clinical use only. Always verify with the ordering physician.', 14, y, {
-      maxWidth: pageWidth - 28,
-    });
-
-    // Footer
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 280, pageWidth, 17, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text('CeenAiX Healthcare Platform — UAE', 14, 290);
-    doc.text(`Lab Order ID: ${printLabOrder.id.slice(0, 8)}`, pageWidth - 14, 290, { align: 'right' });
-
-    doc.save(`lab-order-${printLabOrder.id.slice(0, 8)}.pdf`);
+  const handleDownloadPdf = async () => {
+    if (!printLabOrder || pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      await downloadClinicalPdf(buildLabPrintContent(printLabOrder));
+    } catch {
+      setPdfError(t('doctor.prescriptions.print.pdfError'));
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   return (
@@ -521,7 +507,7 @@ export const DoctorLabOrders: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         <Printer className="h-4 w-4" />
-                        <span>Print / PDF</span>
+                        <span>{t('doctor.prescriptions.print.button')}</span>
                       </button>
                       {labOrder.status === 'resulted' ? (
                         <button
@@ -628,79 +614,88 @@ export const DoctorLabOrders: React.FC = () => {
         ? createPortal(
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
               <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
-                {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                   <div className="flex items-center gap-3">
                     <Printer className="h-5 w-5 text-slate-600" />
-                    <h2 className="text-base font-bold text-slate-900">Print or Download Lab Order</h2>
+                    <h2 className="text-base font-bold text-slate-900">{t('doctor.labOrders.print.modalTitle')}</h2>
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setShowPrintModal(false); setPrintLabOrderId(null); }}
+                    onClick={closePrintModal}
+                    aria-label={t('doctor.prescriptions.print.close')}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
-                {/* Summary */}
                 <div className="border-b border-slate-100 px-6 py-4">
                   <p className="text-sm font-bold text-slate-900">{printLabOrder.patientName}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Ordered:{' '}
-                    {new Date(printLabOrder.ordered_at).toLocaleDateString(locale, dtOpts({ year: 'numeric', month: 'short', day: 'numeric' }))}
+                    {t('doctor.labOrders.print.orderedOn')}: {formatOrderDate(printLabOrder.ordered_at)}
                   </p>
                   <span className="mt-2 inline-block rounded-full bg-slate-100 px-3 py-0.5 text-xs font-semibold text-slate-700">
                     {labOrderStatusLabel(t, printLabOrder.status)}
                   </span>
                   <ul className="mt-3 space-y-1">
-                    {printLabOrder.items.map((item) => (
-                      <li key={item.id} className="text-xs text-slate-600">
-                        · {item.test_name}{item.test_code ? ` (${item.test_code})` : ''}
-                      </li>
-                    ))}
+                    {printLabOrder.items
+                      .filter((item) => !item.parent_item_id)
+                      .map((item) => (
+                        <li key={item.id} className="text-xs text-slate-600">
+                          <LabTestNameDisplay
+                            canonicalName={item.test_name}
+                            localizedName={item.test_name_ar}
+                            language={uiLang}
+                            variant="compact"
+                            primaryClassName="text-slate-700"
+                          />
+                          {item.test_code ? <span dir="ltr"> ({item.test_code})</span> : null}
+                        </li>
+                      ))}
                   </ul>
                 </div>
 
-                {/* Action cards */}
                 <div className="grid grid-cols-2 gap-4 px-6 py-5">
                   <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                     <span className="mb-2 text-2xl">🖨️</span>
-                    <p className="text-sm font-bold text-slate-900">Print Lab Order</p>
-                    <p className="mt-1 text-xs text-slate-500">Open your browser print dialog to print this lab order</p>
+                    <p className="text-sm font-bold text-slate-900">{t('doctor.labOrders.print.printTitle')}</p>
+                    <p className="mt-1 text-xs text-slate-500">{t('doctor.labOrders.print.printBody')}</p>
                     <button
                       type="button"
-                      onClick={() => window.print()}
-                      className="mt-4 w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+                      onClick={handlePrint}
+                      className="mt-auto w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
                     >
-                      Print Now
+                      {t('doctor.prescriptions.print.printNow')}
                     </button>
                   </div>
                   <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                     <span className="mb-2 text-2xl">📑</span>
-                    <p className="text-sm font-bold text-slate-900">Download as PDF</p>
-                    <p className="mt-1 text-xs text-slate-500">Download a professional PDF version of this lab order</p>
+                    <p className="text-sm font-bold text-slate-900">{t('doctor.prescriptions.print.pdfTitle')}</p>
+                    <p className="mt-1 text-xs text-slate-500">{t('doctor.labOrders.print.pdfBody')}</p>
                     <button
                       type="button"
-                      onClick={handleDownloadPdf}
-                      className="mt-4 w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
+                      onClick={() => void handleDownloadPdf()}
+                      disabled={pdfBusy}
+                      className="mt-auto w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-wait disabled:opacity-60"
                     >
-                      Download PDF
+                      {pdfBusy ? t('doctor.prescriptions.print.preparingPdf') : t('doctor.prescriptions.print.downloadPdf')}
                     </button>
                   </div>
                 </div>
 
-                {/* Disclaimer + close */}
                 <div className="border-t border-slate-100 px-6 py-4">
-                  <p className="text-xs text-amber-600">
-                    ⚠️ These results are for clinical use only. Always verify with the ordering physician.
-                  </p>
+                  {pdfError ? (
+                    <p role="alert" className="mb-3 text-xs font-semibold text-red-600">
+                      {pdfError}
+                    </p>
+                  ) : null}
+                  <p className="text-xs text-amber-600">⚠️ {t('doctor.labOrders.print.modalDisclaimer')}</p>
                   <button
                     type="button"
-                    onClick={() => { setShowPrintModal(false); setPrintLabOrderId(null); }}
+                    onClick={closePrintModal}
                     className="mt-3 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    Close
+                    {t('doctor.prescriptions.print.close')}
                   </button>
                 </div>
               </div>
