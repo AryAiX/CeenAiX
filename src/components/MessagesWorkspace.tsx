@@ -10,7 +10,6 @@ import {
   FileText,
   MessageSquare,
   MessageSquarePlus,
-  Paperclip,
   Search,
   Send,
   UserCircle2,
@@ -34,12 +33,6 @@ import { Skeleton } from './Skeleton';
 
 interface MessagesWorkspaceProps {
   role: 'patient' | 'doctor' | 'pharmacy' | 'clinic';
-}
-
-interface AttachmentPreview {
-  file: File;
-  previewUrl: string;
-  type: 'image' | 'pdf' | 'other';
 }
 
 const AVATAR_GRADIENTS: readonly string[] = [
@@ -71,12 +64,6 @@ function avatarGradient(key: string): string {
   return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const navigate = useNavigate();
   const { conversationId } = useParams<{ conversationId?: string }>();
@@ -100,8 +87,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const [draft, setDraft] = useState('');
   const [doctorComposerBody, setDoctorComposerBody] = useState('');
   const [doctorComposerFocused, setDoctorComposerFocused] = useState(false);
-  const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
-  const [sentAttachments, setSentAttachments] = useState<Record<string, AttachmentPreview>>({});
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
@@ -114,7 +99,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   const draftPrefillRef = useRef<string | null>(null);
   const doctorComposerRef = useRef<HTMLDivElement | null>(null);
   const doctorComposerSelectionRef = useRef<Range | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const locale = resolveLocale(i18n.language);
   const {
     conversations,
@@ -213,36 +197,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     }
   }, [draftParam, activeConversationId, role]);
 
-  useEffect(() => {
-    setSentAttachments((prev) => {
-      const tempKeys = Object.keys(prev).filter((key) => key.startsWith('temp-'));
-      if (tempKeys.length === 0) return prev;
-      const ownMessages = messages.filter((m) => m.sender_id === user?.id);
-      if (ownMessages.length === 0) return prev;
-      const updated = { ...prev };
-      tempKeys.forEach((tempKey) => {
-        const tempTimestamp = parseInt(tempKey.replace('temp-', ''), 10);
-        const closest = ownMessages.reduce((best, m) => {
-          const diff = Math.abs(new Date(m.sent_at).getTime() - tempTimestamp);
-          const bestDiff = Math.abs(new Date(best.sent_at).getTime() - tempTimestamp);
-          return diff < bestDiff ? m : best;
-        });
-        if (closest) {
-          updated[closest.id] = updated[tempKey];
-          delete updated[tempKey];
-        }
-      });
-      return updated;
-    });
-  }, [messages, user?.id]);
-
-  // Cleanup attachment preview URLs on unmount
-  useEffect(() => {
-    return () => {
-      if (attachment) URL.revokeObjectURL(attachment.previewUrl);
-    };
-  }, [attachment]);
-
   // Cancel any pending delete timers on unmount to prevent stale Supabase calls
   useEffect(() => {
     const timers = undoTimers.current;
@@ -334,49 +288,18 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
   const getCurrentComposerBody = () => (role === 'doctor' ? doctorComposerBody : draft);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Revoke previous preview URL
-    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
-
-    const previewUrl = URL.createObjectURL(file);
-    const type = file.type.startsWith('image/')
-      ? 'image'
-      : file.type === 'application/pdf'
-      ? 'pdf'
-      : 'other';
-
-    setAttachment({ file, previewUrl, type });
-
-    // Reset file input so same file can be re-selected
-    event.target.value = '';
-  };
-
-  const removeAttachment = () => {
-    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
-    setAttachment(null);
-  };
-
   const submitCurrentComposer = async () => {
     const composerBody = getCurrentComposerBody();
 
-    if (!trimMessageDraft(composerBody) && !attachment) {
+    if (!trimMessageDraft(composerBody)) {
       return false;
     }
 
-    const bodyToSend = trimMessageDraft(composerBody) ? composerBody : `📎 ${attachment!.file.name}`;
-    const didSend = await sendMessage(bodyToSend);
+    const didSend = await sendMessage(composerBody);
 
     if (didSend) {
-      if (attachment) {
-        const tempKey = `temp-${Date.now()}`;
-        setSentAttachments((prev) => ({ ...prev, [tempKey]: attachment }));
-      }
       setDraft('');
       setDoctorComposerBody('');
-      setAttachment(null);
       doctorComposerSelectionRef.current = null;
       if (doctorComposerRef.current) {
         doctorComposerRef.current.innerHTML = '';
@@ -553,7 +476,7 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
 
     event.preventDefault();
 
-    if (!trimMessageDraft(draft) && !attachment) {
+    if (!trimMessageDraft(draft)) {
       return;
     }
 
@@ -743,40 +666,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
         )}
       </div>
     ) : null;
-  };
-
-  // Render attachment preview inside a sent message bubble
-  const renderSentAttachment = (att: AttachmentPreview, isOwn: boolean) => {
-    if (att.type === 'image') {
-      return (
-        <div className="mb-2 overflow-hidden rounded-xl">
-          <img
-            src={att.previewUrl}
-            alt={att.file.name}
-            className="max-h-48 max-w-full rounded-xl object-cover"
-          />
-          <div className={`mt-1 text-xs ${isOwn ? 'text-white/70' : 'text-gray-400'}`}>
-            {att.file.name} · {formatFileSize(att.file.size)}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className={`mb-2 flex items-center gap-3 rounded-xl border p-3 ${isOwn ? 'border-white/20 bg-white/10' : 'border-gray-200 bg-gray-50'}`}>
-        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${isOwn ? 'bg-white/20' : 'bg-red-50'}`}>
-          <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-red-500'}`} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={`truncate text-xs font-semibold ${isOwn ? 'text-white' : 'text-gray-800'}`}>
-            {att.file.name}
-          </p>
-          <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-gray-400'}`}>
-            {formatFileSize(att.file.size)}
-          </p>
-        </div>
-      </div>
-    );
   };
 
   const theme =
@@ -1032,15 +921,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message, msgIndex) => {
+                  {messages.map((message) => {
                     const isOwn = message.sender_id === user?.id;
-                    const attachmentForMessage = isOwn
-                      ? sentAttachments[message.id] ?? (
-                          msgIndex === messages.length - 1 && Object.keys(sentAttachments).length > 0
-                            ? sentAttachments[Object.keys(sentAttachments)[Object.keys(sentAttachments).length - 1]]
-                            : null
-                        )
-                      : null;
 
               // Skip deleted messages (show undo banner instead)
               if (deletedMessageIds.has(message.id)) {
@@ -1095,11 +977,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                         ) : null}
                       </div>
                     </div>
-                    {attachmentForMessage ? (
-                      <div className="mt-2">
-                        {renderSentAttachment(attachmentForMessage, isOwn)}
-                      </div>
-                    ) : null}
                     {editingMessageId === message.id ? (
                       <div className="mt-2">
                         <textarea
@@ -1171,35 +1048,6 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
               ) : null}
 
-              {/* Attachment Preview */}
-              {attachment ? (
-                <div className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                  {attachment.type === 'image' ? (
-                    <img
-                      src={attachment.previewUrl}
-                      alt={attachment.file.name}
-                      className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-red-50">
-                      <FileText className="h-7 w-7 text-red-500" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-800">{attachment.file.name}</p>
-                    <p className="text-xs text-gray-400">{formatFileSize(attachment.file.size)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={removeAttachment}
-                    className="flex-shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-                    aria-label={t('messaging.removeAttachment')}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : null}
-
               <label className="sr-only" htmlFor={`${role}-message-draft`}>
                 {t(`${namespace}.composerLabel`)}
               </label>
@@ -1257,31 +1105,14 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                 </div>
               )}
 
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf,.doc,.docx,.txt"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-
               <div className="mt-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
-                    title={t('messaging.attachFile')}
-                  >
-                    <Paperclip className="h-4 w-4" />
-                    <span>{t('messaging.attach')}</span>
-                  </button>
-                  <p className="text-xs text-gray-400">{t('messaging.attachHint')}</p>
-                </div>
+                {/* QA-153: no attach button. Files were never uploaded: the other person only got
+                    "📎 file name" and the preview lived in the sender's browser. Real file sharing
+                    (secure storage + access rules) is logged for Tooraj. */}
+                <span />
                 <button
                   type="submit"
-                  disabled={working || (!trimMessageDraft(getCurrentComposerBody()) && !attachment)}
+                  disabled={working || !trimMessageDraft(getCurrentComposerBody())}
                   className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${theme.composerButton}`}
                 >
                   <Send className="h-4 w-4" />

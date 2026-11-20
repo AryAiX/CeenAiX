@@ -90,3 +90,14 @@ describe('MessagesWorkspace chip links (QA-152)', () => {
     expect(landedAt).toBe('/patient/records');
   });
 });
+
+describe('MessagesWorkspace attachments (QA-153)', () => {
+  it.each(['doctor', 'patient'] as const)('offers no attach button to the %s, since files were never sent', (role) => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: `${role}-1` } } as never);
+    vi.mocked(useMessagingHub).mockReturnValue(hub([{ id: 'm1', sender_id: 'other-1', body: 'Hello' }]) as never);
+    renderAs(role, `/${role}/messages/conv-1`);
+    expect(screen.queryByRole('button', { name: i18n.t('messaging.attach') })).not.toBeInTheDocument();
+    expect(screen.queryByTitle(i18n.t('messaging.attachFile'))).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+  });
+});
