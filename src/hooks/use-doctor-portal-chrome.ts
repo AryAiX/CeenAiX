@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
+import { isCriticalLabItem } from '../lib/lab-severity';
 import { CLINIC_TIME_ZONE, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
 import type { AppointmentStatus } from '../types';
 import { useQuery } from './use-query';
@@ -109,33 +110,40 @@ export function useDoctorPortalChrome(userId: string | null | undefined) {
       unreadMessagesCount = count ?? 0;
     }
 
-    const { data: resultedLabOrders, error: resultedLabOrdersError } = await supabase
+    // QA-186: the red "critical" count in the sidebar / top bar follows the same rule as Lab
+    // Referrals and the Dashboard (QA-142 / QA-180): lab orders that are not reviewed yet and have at
+    // least one critical result (HH / LL, or marked critical by the lab). It used to count every
+    // abnormal item, including orders the doctor had already reviewed, so it was almost always red.
+    const { data: openLabOrders, error: openLabOrdersError } = await supabase
       .from('lab_orders')
-      .select('id')
+      .select('id, status')
       .eq('doctor_id', userId)
       .eq('is_deleted', false)
-      .in('status', ['resulted', 'reviewed']);
+      .in('status', ['ordered', 'collected', 'processing', 'resulted']);
 
-    if (resultedLabOrdersError) {
-      throw resultedLabOrdersError;
+    if (openLabOrdersError) {
+      throw openLabOrdersError;
     }
 
-    const resultedLabOrderIds = (resultedLabOrders ?? []).map((labOrder) => labOrder.id);
+    const openLabOrderIds = (openLabOrders ?? []).map((labOrder) => labOrder.id);
     let criticalResultsCount = 0;
 
-    if (resultedLabOrderIds.length > 0) {
-      const { count, error: criticalResultsError } = await supabase
+    if (openLabOrderIds.length > 0) {
+      const { data: resultItems, error: criticalResultsError } = await supabase
         .from('lab_order_items')
-        .select('id', { count: 'exact', head: true })
-        .in('lab_order_id', resultedLabOrderIds)
-        .in('status', ['resulted', 'reviewed'])
-        .eq('is_abnormal', true);
+        .select('lab_order_id, numeric_value, result_value, status_category, is_abnormal, flag')
+        .in('lab_order_id', openLabOrderIds)
+        .in('status', ['resulted', 'reviewed']);
 
       if (criticalResultsError) {
         throw criticalResultsError;
       }
 
-      criticalResultsCount = count ?? 0;
+      criticalResultsCount = new Set(
+        ((resultItems ?? []) as Array<Parameters<typeof isCriticalLabItem>[0] & { lab_order_id: string }>)
+          .filter((item) => isCriticalLabItem(item))
+          .map((item) => item.lab_order_id)
+      ).size;
     }
 
     return {

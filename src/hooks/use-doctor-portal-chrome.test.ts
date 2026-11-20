@@ -65,3 +65,54 @@ describe('useDoctorPortalChrome counts (QA-161)', () => {
     expect(calls.find((call) => call.table === 'messages')?.filters).toContainEqual(['eq', 'is_deleted', false]);
   });
 });
+
+describe('useDoctorPortalChrome critical count (QA-186)', () => {
+  beforeEach(() => {
+    calls.length = 0;
+    for (const key of Object.keys(results)) delete results[key];
+  });
+
+  const item = (orderId: string, flag: string | null, extra: Record<string, unknown> = {}) => ({
+    lab_order_id: orderId,
+    numeric_value: null,
+    result_value: '5.0',
+    status_category: null,
+    is_abnormal: flag !== null,
+    flag,
+    ...extra,
+  });
+
+  it('counts lab orders not reviewed yet that have a critical result, not every abnormal value', async () => {
+    results.lab_orders = { data: [{ id: 'o1', status: 'resulted' }, { id: 'o2', status: 'resulted' }, { id: 'o3', status: 'processing' }] };
+    results.lab_order_items = {
+      data: [
+        item('o1', 'HH'),
+        item('o1', 'LL'), // same order: still one
+        item('o2', 'H'), // abnormal only: not counted
+        item('o3', null, { status_category: 'critical' }), // marked critical by the lab
+      ],
+    };
+
+    const { result } = renderHook(() => useDoctorPortalChrome('doc-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.data?.criticalResultsCount).toBe(2);
+    // Reviewed (and any other closed) orders are not even loaded.
+    expect(calls.find((call) => call.table === 'lab_orders')?.filters).toContainEqual([
+      'in',
+      'status',
+      ['ordered', 'collected', 'processing', 'resulted'],
+    ]);
+  });
+
+  it('is 0 when there are only abnormal results', async () => {
+    results.lab_orders = { data: [{ id: 'o1', status: 'resulted' }] };
+    results.lab_order_items = { data: [item('o1', 'H'), item('o1', 'L')] };
+
+    const { result } = renderHook(() => useDoctorPortalChrome('doc-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data?.criticalResultsCount).toBe(0);
+  });
+});
+
