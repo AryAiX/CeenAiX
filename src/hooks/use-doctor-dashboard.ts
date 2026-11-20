@@ -547,16 +547,19 @@ export function useDoctorDashboard(userId: string | null | undefined) {
         { count, error: unreadMessagesError },
         { data: recentMessageRows, error: recentMessagesError },
       ] = await Promise.all([
+        // QA-181: skip deleted messages (QA-154), like Notifications (QA-160) and the sidebar badge (QA-161).
         supabase
           .from('messages')
           .select('id', { count: 'exact', head: true })
           .in('conversation_id', conversationIds)
+          .eq('is_deleted', false)
           .is('read_at', null)
           .neq('sender_id', userId),
         supabase
           .from('messages')
           .select('id, conversation_id, sender_id, body, sent_at, read_at')
           .in('conversation_id', conversationIds)
+          .eq('is_deleted', false)
           .neq('sender_id', userId)
           .gte('sent_at', startOfTodayIso)
           .lte('sent_at', endOfTodayIso)
