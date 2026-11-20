@@ -10,8 +10,11 @@ import { useDoctorLabOrders } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, labOrderStatusLabel, resolveLocale } from '../../lib/i18n-ui';
+import { reorderItemsFrom } from '../../lib/lab-reorder';
 import { isCriticalLabItem, labResultSeverity, labResultValueText, needsCriticalReview } from '../../lib/lab-severity';
 import { supabase } from '../../lib/supabase';
+
+const PENDING_STATUSES: string[] = ['ordered', 'collected', 'processing'];
 
 export const DoctorLabOrders: React.FC = () => {
   const { t, i18n } = useTranslation('common');
@@ -39,7 +42,7 @@ export const DoctorLabOrders: React.FC = () => {
       case 'critical':
         return labOrders.filter(hasCriticalResult);
       case 'pending':
-        return labOrders.filter((labOrder) => ['ordered', 'collected', 'processing'].includes(labOrder.status));
+        return labOrders.filter((labOrder) => PENDING_STATUSES.includes(labOrder.status));
       case 'results':
         return labOrders.filter((labOrder) => ['resulted', 'reviewed'].includes(labOrder.status));
       case 'scheduled':
@@ -77,8 +80,10 @@ export const DoctorLabOrders: React.FC = () => {
   );
 
 
+  // QA-144: same rule as the Pending tab (still waiting for the lab). Results waiting for the
+  // doctor's review are under Results, so they no longer inflate this number.
   const pendingResults = useMemo(
-    () => labOrders.filter((labOrder) => labOrder.status !== 'reviewed').length,
+    () => labOrders.filter((labOrder) => PENDING_STATUSES.includes(labOrder.status)).length,
     [labOrders]
   );
   const criticalCount = useMemo(() => labOrders.filter(hasCriticalResult).length, [hasCriticalResult, labOrders]);
@@ -495,7 +500,12 @@ export const DoctorLabOrders: React.FC = () => {
                       {['resulted', 'reviewed'].includes(labOrder.status) ? (
                         <button
                           type="button"
-                          onClick={() => navigate(`/doctor/lab-orders/new?patient=${labOrder.patient_id}&appointment=${labOrder.appointment_id ?? ''}`)}
+                          onClick={() =>
+                            navigate(
+                              `/doctor/lab-orders/new?patient=${labOrder.patient_id}&appointment=${labOrder.appointment_id ?? ''}`,
+                              { state: { reorderItems: reorderItemsFrom(labOrder.items) } }
+                            )
+                          }
                           className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100"
                         >
                           <Plus className="h-4 w-4" />

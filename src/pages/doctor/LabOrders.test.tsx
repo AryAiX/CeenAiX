@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorLabOrders } from '../../hooks';
@@ -73,5 +73,61 @@ describe('DoctorLabOrders critical results (QA-142)', () => {
   it('stops the alarm once the doctor has reviewed the order', () => {
     renderWith([order('3', 'Reviewed Patient', 'reviewed', [labItem('c', 'Potassium', { is_abnormal: true, flag: 'LL' })])]);
     expect(criticalBanner()).not.toBeInTheDocument();
+  });
+});
+
+describe('DoctorLabOrders pending count and reorder (QA-144)', () => {
+  const orders = [
+    order('p1', 'Waiting Patient', 'ordered', [labItem('w1', 'HbA1c', { status: 'ordered', result_value: null })]),
+    order('p2', 'Results Patient', 'resulted', [
+      labItem('r1', 'Lipid Panel', { lab_test_catalog_id: 'cat-lipid', test_code: '57698-3', loinc_code: '57698-3', specimen_type: 'Serum' }),
+      labItem('r2', 'Cholesterol', { parent_item_id: 'r1' }),
+    ]),
+    order('p3', 'Reviewed Patient', 'reviewed', [labItem('v1', 'TSH')]),
+  ];
+
+  it('counts only orders still waiting for the lab, like the Pending tab', async () => {
+    renderWith(orders);
+    const card = screen.getByText(i18n.t('doctor.labOrders.pendingResults')).closest('button');
+    expect(card).toHaveTextContent('1');
+    await userEvent.click(card as HTMLElement);
+    expect(screen.getByText('Waiting Patient')).toBeInTheDocument();
+    expect(screen.queryByText('Results Patient')).not.toBeInTheDocument();
+  });
+
+  it('copies the original tests when reordering', async () => {
+    let landed: { path: string; state: unknown } | null = null;
+    const Probe = () => {
+      const location = useLocation();
+      landed = { path: `${location.pathname}${location.search}`, state: location.state };
+      return null;
+    };
+    vi.mocked(useDoctorLabOrders).mockReturnValue({ data: orders, loading: false, error: null, refetch: vi.fn() } as never);
+    render(
+      <MemoryRouter initialEntries={['/doctor/lab-orders']}>
+        <Routes>
+          <Route path="/doctor/lab-orders" element={<DoctorLabOrders />} />
+          <Route path="/doctor/lab-orders/new" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^All/ }));
+    await userEvent.click(screen.getAllByRole('button', { name: i18n.t('doctor.labOrders.reorder') })[0]);
+    expect(landed).toEqual({
+      path: '/doctor/lab-orders/new?patient=patient-p2&appointment=',
+      state: {
+        reorderItems: [
+          {
+            labTestCatalogId: 'cat-lipid',
+            labTestCatalogSuggestionId: null,
+            testName: 'Lipid Panel',
+            testNameAr: '',
+            testCode: '57698-3',
+            loincCode: '57698-3',
+            specimen: 'Serum',
+          },
+        ],
+      },
+    });
   });
 });

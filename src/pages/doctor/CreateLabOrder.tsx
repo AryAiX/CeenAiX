@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import type { ReorderLabItem } from '../../lib/lab-reorder';
 import { ChevronLeft, Loader2, Plus, Search, TestTube2, Trash2 } from 'lucide-react';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import {
@@ -675,11 +676,22 @@ export const CreateLabOrder: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { data: patientsData } = useDoctorPatients(user?.id);
   const patients = useMemo(() => patientsData ?? [], [patientsData]);
   const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
   const [appointmentId, setAppointmentId] = useState(searchParams.get('appointment') ?? '');
   const [items, setItems] = useState<DraftLabOrderItem[]>(() => {
+    // QA-144: Reorder copies the original tests instead of starting from an empty form.
+    const reorderItems = (location.state as { reorderItems?: ReorderLabItem[] } | null)?.reorderItems ?? [];
+    if (reorderItems.length > 0) {
+      return reorderItems.map((reorderItem) => ({
+        ...createDraftLabOrderItem(),
+        ...reorderItem,
+        catalogSearch: reorderItem.testName,
+        selectedCatalogDisplayNameEn: reorderItem.testName,
+      }));
+    }
     const first = createDraftLabOrderItem();
     const prefillTest = searchParams.get('test')?.trim();
     return [prefillTest ? { ...first, testName: prefillTest } : first];

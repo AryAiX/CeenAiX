@@ -342,4 +342,50 @@ describe('CreateLabOrder metadata persistence', () => {
     expect(fromMock).not.toHaveBeenCalledWith('lab_orders');
     expect(fromMock).not.toHaveBeenCalledWith('lab_order_items');
   });
+
+  it('starts from the original tests when opened by Reorder (QA-144)', async () => {
+    useLabTestCatalogSearchMock.mockReturnValue({
+      data: { catalogMatches: [], pendingSuggestionMatches: [] },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/doctor/lab-orders/new',
+            search: '?patient=patient-1',
+            state: {
+              reorderItems: [
+                {
+                  labTestCatalogId: 'catalog-loinc',
+                  labTestCatalogSuggestionId: null,
+                  testName: 'Complete Blood Count',
+                  testNameAr: '',
+                  testCode: '58410-2',
+                  loincCode: '58410-2',
+                  specimen: 'Blood',
+                },
+              ],
+            },
+          },
+        ]}
+      >
+        <CreateLabOrder />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByDisplayValue('Complete Blood Count')).toBeInTheDocument();
+    await saveOrder(user);
+    expect(savedItems()).toEqual([
+      expect.objectContaining({
+        lab_test_catalog_id: 'catalog-loinc',
+        test_name: 'Complete Blood Count',
+        loinc_code: '58410-2',
+        specimen_type: 'Blood',
+      }),
+    ]);
+  });
 });
