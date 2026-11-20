@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import {
   useDoctorClinicMembership,
@@ -204,7 +204,9 @@ describe('DoctorProfile pre-visit template (QA-166)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
 
     const alert = await screen.findByRole('alert');
-    expect(within(alert).getByText('boom')).toBeInTheDocument();
+    // QA-171: a translated message instead of the raw database error.
+    expect(within(alert).getByText("Couldn't save the intake template. Please try again.")).toBeInTheDocument();
+    expect(alert).not.toHaveTextContent('boom');
     expect(refetchTemplates).not.toHaveBeenCalled();
   });
 });
@@ -363,6 +365,71 @@ describe('DoctorProfile save (QA-167)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
     fireEvent.change(screen.getByPlaceholderText('Enter your medical license number'), { target: { value: 'DHA-2' } });
     expect(screen.queryByTestId('licence-change-warning')).not.toBeInTheDocument();
+  });
+});
+
+describe('DoctorProfile in Arabic (QA-171)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(supabase.rpc).mockReset();
+    vi.mocked(supabase.from).mockReset();
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'doc-1', email: 'doc@test.com' },
+      profile: { full_name: 'Dr. Test Person', gender: 'female', phone: '+971500000000' },
+      doctorProfile: { license_number: 'DHA-1', bio: null },
+      isLoading: false,
+      refreshProfile: vi.fn(),
+    } as never);
+    vi.mocked(useDoctorClinicMembership).mockReturnValue({
+      data: {
+        consultation_fee: 300,
+        telemedicine_fee: 250.5,
+        follow_up_fee: null,
+        facilities: { name: 'Clinic One' },
+      },
+    } as never);
+    vi.mocked(useSpecializations).mockReturnValue({ data: [], loading: false, error: null } as never);
+    vi.mocked(useDoctorSpecializationIds).mockReturnValue({ data: [], loading: false, refetch: vi.fn() } as never);
+    withTemplates([template('live-1', 'Live intake', 'published', true)]);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the profile in Arabic with Arabic digits, money and gender', () => {
+    renderPage();
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('الملف الشخصي للطبيب');
+    expect(screen.getByText('المعلومات المهنية')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /تعديل الملف الشخصي/ })).toBeInTheDocument();
+    // Stored 'female' is shown translated, not as the raw value.
+    expect(screen.getByText('أنثى')).toBeInTheDocument();
+    expect(screen.queryByText(/female/i)).not.toBeInTheDocument();
+    // Clinic fees in the Arabic money format, '—' when missing.
+    // Ignore no-break spaces and invisible direction marks the money format adds.
+    const plain = (text: string | null) => (text ?? '').replace(/\u00a0/g, ' ').replace(/[\u200e\u200f]/g, '');
+    const fees = screen.getAllByRole('definition').map((item) => plain(item.textContent));
+    expect(fees.slice(0, 3)).toEqual(['٣٠٠ د.إ.', '٢٥٠٫٥٠ د.إ.', '—']);
+    expect(fees.join(' ')).not.toContain('AED');
+    // Completeness uses Arabic digits and the Arabic percent sign.
+    expect(screen.getByText(/٪$/)).toBeInTheDocument();
+    // Missing values say "not provided" in Arabic.
+    expect(screen.getAllByText('غير متوفر').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Not provided')).not.toBeInTheDocument();
+  });
+
+  it('shows the intake editor in Arabic', () => {
+    renderPage();
+
+    expect(screen.getByText('نموذج استبيان ما قبل الزيارة')).toBeInTheDocument();
+    expect(screen.getByText('السؤال ١')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /حفظ كمسودة/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /نشر كنموذج نشط/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'نص قصير' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'الحساسية' })).toBeInTheDocument();
+    expect(screen.queryByText('Save draft')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add question')).not.toBeInTheDocument();
   });
 });
 

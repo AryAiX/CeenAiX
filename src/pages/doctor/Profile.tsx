@@ -27,7 +27,12 @@ import {
   useDoctorSpecializationIds,
   useSpecializations,
 } from '../../hooks';
-import { dateTimeFormatWithNumerals, resolveLocale } from '../../lib/i18n-ui';
+import {
+  dateTimeFormatWithNumerals,
+  formatLocaleCurrency,
+  formatLocaleDigits,
+  resolveLocale,
+} from '../../lib/i18n-ui';
 import { useAuth } from '../../lib/auth-context';
 import { extractPreVisitQuestionnaire, uploadPreVisitTemplateSource } from '../../lib/ai';
 import {
@@ -124,6 +129,13 @@ export const DoctorProfile: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const locale = resolveLocale(i18n.language);
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(i18n.language, options);
+  const uiLang = i18n.language;
+  // QA-171: translated labels for stored values.
+  const genderLabel = (value: string) =>
+    ['male', 'female', 'other'].includes(value) ? t(`doctor.profile.gender.${value}`) : value;
+  const autofillLabel = (value: string, fallback: string) =>
+    t(`doctor.profile.template.autofill.${value.replace(/\./g, '_')}`, { defaultValue: fallback });
+  const fee = (value: number | null | undefined) => (value != null ? formatLocaleCurrency(value, uiLang) : '—');
   const { doctorProfile, isLoading, profile, refreshProfile, user } = useAuth();
   const { data: clinicMembership } = useDoctorClinicMembership(user?.id);
   const isPhoneManagedByOtp = Boolean(user?.phone && !user?.email);
@@ -184,7 +196,7 @@ export const DoctorProfile: React.FC = () => {
   const specializationSummary =
     selectedSpecializations.length > 0
       ? selectedSpecializations.map((specialization) => specialization.name).join(', ')
-      : 'Add your specialization to complete your clinician profile';
+      : t('doctor.profile.specializationMissing');
   const specializationNameById = useMemo(
     () => new Map(specializationOptions.map((specialization) => [specialization.id, specialization.name])),
     [specializationOptions]
@@ -404,11 +416,9 @@ export const DoctorProfile: React.FC = () => {
             : [createEmptyQuestion(0)],
       });
       setTemplateDirty(true);
-      setTemplateSuccessMessage('AI converted the PDF into an editable draft. Review it before publishing.');
-    } catch (error) {
-      setTemplateErrorMessage(
-        error instanceof Error ? error.message : 'Unable to extract a questionnaire from this PDF.'
-      );
+      setTemplateSuccessMessage(t('doctor.profile.template.extracted'));
+    } catch {
+      setTemplateErrorMessage(t('doctor.profile.template.errExtract'));
     } finally {
       setTemplateExtracting(false);
     }
@@ -421,12 +431,12 @@ export const DoctorProfile: React.FC = () => {
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      setErrorMessage('Only JPG, PNG or WebP images are allowed.');
+      setErrorMessage(t('doctor.profile.errPhotoType'));
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setErrorMessage('Image must be smaller than 2MB.');
+      setErrorMessage(t('doctor.profile.errPhotoSize'));
       return;
     }
 
@@ -441,7 +451,7 @@ export const DoctorProfile: React.FC = () => {
       .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
-      setErrorMessage(uploadError.message);
+      setErrorMessage(t('doctor.profile.errPhoto'));
       setUploadingAvatar(false);
       return;
     }
@@ -458,7 +468,7 @@ export const DoctorProfile: React.FC = () => {
       .eq('user_id', user.id);
 
     if (profileError) {
-      setErrorMessage(profileError.message);
+      setErrorMessage(t('doctor.profile.errPhoto'));
       setUploadingAvatar(false);
       return;
     }
@@ -466,7 +476,7 @@ export const DoctorProfile: React.FC = () => {
     setAvatarUrl(publicUrl);
     await refreshProfile();
     setUploadingAvatar(false);
-    setSuccessMessage('Profile picture updated successfully!');
+    setSuccessMessage(t('doctor.profile.photoUpdated'));
   };
 
   const handleAvatarDelete = async () => {
@@ -481,7 +491,7 @@ export const DoctorProfile: React.FC = () => {
       .eq('user_id', user.id);
 
     if (profileError) {
-      setErrorMessage(profileError.message);
+      setErrorMessage(t('doctor.profile.errPhoto'));
       setUploadingAvatar(false);
       return;
     }
@@ -489,12 +499,12 @@ export const DoctorProfile: React.FC = () => {
     setAvatarUrl(null);
     await refreshProfile();
     setUploadingAvatar(false);
-    setSuccessMessage('Profile picture removed.');
+    setSuccessMessage(t('doctor.profile.photoRemoved'));
   };
 
   const handleSave = async () => {
     if (!user) {
-      setErrorMessage('You must be signed in to update your doctor profile.');
+      setErrorMessage(t('doctor.profile.errSignedOut'));
       return;
     }
 
@@ -511,7 +521,7 @@ export const DoctorProfile: React.FC = () => {
     }
 
     if (formData.selectedSpecializationIds.length === 0) {
-      setErrorMessage('Select at least one specialization before saving your doctor profile.');
+      setErrorMessage(t('doctor.profile.errSpecializationRequired'));
       setSaving(false);
       return;
     }
@@ -541,7 +551,7 @@ export const DoctorProfile: React.FC = () => {
       .select('user_id');
 
     if (userProfileError) {
-      setErrorMessage(userProfileError.message);
+      setErrorMessage(t('doctor.profile.errSave'));
       setSaving(false);
       return;
     }
@@ -564,15 +574,15 @@ export const DoctorProfile: React.FC = () => {
     );
 
     if (doctorProfileError) {
-      setErrorMessage(doctorProfileError.message);
+      setErrorMessage(t('doctor.profile.errSave'));
       setSaving(false);
       return;
     }
 
     try {
       await syncDoctorSpecializations(user.id, formData.selectedSpecializationIds);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to save doctor specializations.');
+    } catch {
+      setErrorMessage(t('doctor.profile.errSave'));
       setSaving(false);
       return;
     }
@@ -580,12 +590,12 @@ export const DoctorProfile: React.FC = () => {
     await Promise.all([refreshProfile(), refetchDoctorSpecializationIds()]);
     setSaving(false);
     setIsEditing(false);
-    setSuccessMessage('Doctor profile updated.');
+    setSuccessMessage(t('doctor.profile.saved'));
   };
 
   const handleSavePreVisitTemplate = async (publish: boolean) => {
     if (!user) {
-      setTemplateErrorMessage('You must be signed in to manage pre-visit templates.');
+      setTemplateErrorMessage(t('doctor.profile.errSignedOut'));
       return;
     }
 
@@ -595,12 +605,12 @@ export const DoctorProfile: React.FC = () => {
     );
 
     if (!templateDraft.title.trim()) {
-      setTemplateErrorMessage('Add a template title before saving.');
+      setTemplateErrorMessage(t('doctor.profile.template.errTitleRequired'));
       return;
     }
 
     if (normalizedQuestions.length === 0 || normalizedQuestions.every((question) => !question.label.trim())) {
-      setTemplateErrorMessage('Add at least one questionnaire item before saving.');
+      setTemplateErrorMessage(t('doctor.profile.template.errQuestionRequired'));
       return;
     }
 
@@ -642,15 +652,13 @@ export const DoctorProfile: React.FC = () => {
       setTemplateDirty(false);
       setTemplateSuccessMessage(
         publish
-          ? 'Pre-visit template published. New bookings will receive this intake.'
+          ? t('doctor.profile.template.published')
           : result.saved_as_copy
             ? t('doctor.profile.template.savedAsDraftCopy')
-            : 'Pre-visit draft saved.'
+            : t('doctor.profile.template.draftSaved')
       );
-    } catch (error) {
-      setTemplateErrorMessage(
-        error instanceof Error ? error.message : 'Unable to save the pre-visit template.'
-      );
+    } catch {
+      setTemplateErrorMessage(t('doctor.profile.template.errSave'));
     } finally {
       setTemplateSaving(false);
     }
@@ -674,20 +682,22 @@ export const DoctorProfile: React.FC = () => {
     <>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Doctor Profile</h1>
-          <p className="mt-1 text-sm text-slate-500">Review and update the profile information patients will rely on.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('doctor.profile.title')}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t('doctor.profile.subtitle')}</p>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Profile completeness</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('doctor.profile.completeness')}</p>
             <div className="mt-2 flex items-center gap-3">
               <div className="h-2 w-48 overflow-hidden rounded-full bg-slate-100">
                 <div className="h-full rounded-full bg-teal-600" style={{ width: `${profileCompleteness}%` }} />
               </div>
-              <span className="font-mono text-sm font-bold text-teal-700">{profileCompleteness}%</span>
+              <span className="font-mono text-sm font-bold text-teal-700">
+                {t('doctor.profile.completenessValue', { value: formatLocaleDigits(profileCompleteness, uiLang) })}
+              </span>
             </div>
           </div>
         </div>
@@ -697,13 +707,13 @@ export const DoctorProfile: React.FC = () => {
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <div className="overflow-hidden rounded-3xl bg-white shadow-md">
             <div className="bg-gradient-to-r from-slate-900 to-emerald-800 px-8 py-12">
-              <div className="flex items-center space-x-6">
+              <div className="flex items-center gap-6">
                 <div className="relative">
                   <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white shadow-lg">
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
-                        alt="Profile"
+                        alt={t('doctor.profile.photoAlt')}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -714,8 +724,9 @@ export const DoctorProfile: React.FC = () => {
                     type="button"
                     onClick={() => avatarFileInputRef.current?.click()}
                     disabled={uploadingAvatar}
-                    className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-white shadow-md transition hover:bg-teal-700 disabled:opacity-60"
-                    title="Upload profile picture"
+                    className="absolute bottom-0 end-0 flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-white shadow-md transition hover:bg-teal-700 disabled:opacity-60"
+                    title={t('doctor.profile.uploadPhoto')}
+                    aria-label={t('doctor.profile.uploadPhoto')}
                   >
                     {uploadingAvatar ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -728,8 +739,9 @@ export const DoctorProfile: React.FC = () => {
                       type="button"
                       onClick={handleAvatarDelete}
                       disabled={uploadingAvatar}
-                      className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md transition hover:bg-red-600 disabled:opacity-60"
-                      title="Remove profile picture"
+                      className="absolute -top-1 -end-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md transition hover:bg-red-600 disabled:opacity-60"
+                      title={t('doctor.profile.removePhoto')}
+                      aria-label={t('doctor.profile.removePhoto')}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -743,7 +755,7 @@ export const DoctorProfile: React.FC = () => {
                   />
                 </div>
                 <div className="text-white">
-                  <h2 className="text-3xl font-bold">{formData.fullName || 'Doctor profile'}</h2>
+                  <h2 className="text-3xl font-bold">{formData.fullName || t('doctor.profile.nameFallback')}</h2>
                   <p className="mt-1 text-emerald-100">
                     {specializationSummary}
                   </p>
@@ -801,23 +813,19 @@ export const DoctorProfile: React.FC = () => {
                     <div>
                       <dt className="text-sm font-medium text-slate-500">{t('clinic.doctors.fieldConsultFee')}</dt>
                       <dd className="mt-1 font-mono text-base text-slate-900">
-                        {clinicMembership.consultation_fee != null
-                          ? `AED ${clinicMembership.consultation_fee}`
-                          : '—'}
+                        {fee(clinicMembership.consultation_fee)}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-slate-500">{t('clinic.doctors.fieldTeleFee')}</dt>
                       <dd className="mt-1 font-mono text-base text-slate-900">
-                        {clinicMembership.telemedicine_fee != null
-                          ? `AED ${clinicMembership.telemedicine_fee}`
-                          : '—'}
+                        {fee(clinicMembership.telemedicine_fee)}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-slate-500">{t('clinic.doctors.fieldFollowUpFee')}</dt>
                       <dd className="mt-1 font-mono text-base text-slate-900">
-                        {clinicMembership.follow_up_fee != null ? `AED ${clinicMembership.follow_up_fee}` : '—'}
+                        {fee(clinicMembership.follow_up_fee)}
                       </dd>
                     </div>
                   </dl>
@@ -825,7 +833,7 @@ export const DoctorProfile: React.FC = () => {
               ) : null}
 
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-gray-900">Professional Information</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{t('doctor.profile.professionalInfo')}</h3>
                 {!isEditing ? (
                   <button
                     type="button"
@@ -833,7 +841,7 @@ export const DoctorProfile: React.FC = () => {
                     className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
                   >
                     <Edit2 className="h-3.5 w-3.5" />
-                    Edit Profile
+                    {t('doctor.profile.edit')}
                   </button>
                 ) : null}
               </div>
@@ -841,19 +849,19 @@ export const DoctorProfile: React.FC = () => {
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Full Name</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.fullName')}</label>
                     <input
                       type="text"
                       value={formData.fullName}
                       maxLength={FORM_FIELD_LIMITS.personName}
                       onChange={(event) => setFormData({ ...formData, fullName: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                      placeholder="Enter your full name"
+                      placeholder={t('doctor.profile.placeholders.fullName')}
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.email')}</label>
                     <input
                       type="email"
                       value={formData.email}
@@ -864,33 +872,34 @@ export const DoctorProfile: React.FC = () => {
 
                   {!isPhoneManagedByOtp ? (
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.phone')}</label>
                       <input
                         type="tel"
                         value={formData.phone}
                         maxLength={FORM_FIELD_LIMITS.phone}
                         onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                        placeholder="Enter your phone number"
+                        placeholder={t('doctor.profile.placeholders.phone')}
                       />
                     </div>
                   ) : null}
 
                   <SpecializationMultiSelect
-                    label="Specialization"
+                    label={t('doctor.profile.fields.specialization')}
+                    placeholder={t('doctor.profile.placeholders.specializationSearch')}
                     options={specializationOptions}
                     selectedIds={formData.selectedSpecializationIds}
                     onChange={(value) => setFormData({ ...formData, selectedSpecializationIds: value })}
                     loading={specializationsLoading || doctorSpecializationIdsLoading}
                     helperText={
                       specializationsError
-                        ? 'Specializations could not be loaded yet.'
-                        : 'Search and select one or more specialties. Selected items appear as chips.'
+                        ? t('doctor.profile.specializationLoadError')
+                        : t('doctor.profile.specializationHelp')
                     }
                   />
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">License Number</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.licenseNumber')}</label>
                     <input
                       type="text"
                       value={formData.licenseNumber}
@@ -899,7 +908,7 @@ export const DoctorProfile: React.FC = () => {
                         setFormData({ ...formData, licenseNumber: event.target.value })
                       }
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                      placeholder="Enter your medical license number"
+                      placeholder={t('doctor.profile.placeholders.licenseNumber')}
                       aria-describedby={licenceChangeLosesVerification ? 'licence-change-warning' : undefined}
                     />
                     {licenceChangeLosesVerification ? (
@@ -914,7 +923,7 @@ export const DoctorProfile: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Date of Birth</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.dateOfBirth')}</label>
                     <input
                       type="date"
                       value={formData.dateOfBirth}
@@ -926,40 +935,40 @@ export const DoctorProfile: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Gender</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.gender')}</label>
                     <select
                       value={formData.gender}
                       onChange={(event) => setFormData({ ...formData, gender: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                     >
-                      <option value="">Select gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
+                      <option value="">{t('doctor.profile.gender.select')}</option>
+                      <option value="male">{t('doctor.profile.gender.male')}</option>
+                      <option value="female">{t('doctor.profile.gender.female')}</option>
+                      <option value="other">{t('doctor.profile.gender.other')}</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Address</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.address')}</label>
                     <textarea
                       value={formData.address}
                       maxLength={FORM_FIELD_LIMITS.address}
                       onChange={(event) => setFormData({ ...formData, address: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       rows={3}
-                      placeholder="Enter your address"
+                      placeholder={t('doctor.profile.placeholders.address')}
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Professional Bio</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.bio')}</label>
                     <textarea
                       value={formData.bio}
                       maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       onChange={(event) => setFormData({ ...formData, bio: event.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       rows={4}
-                      placeholder="Summarize your expertise and care approach"
+                      placeholder={t('doctor.profile.placeholders.bio')}
                     />
                   </div>
 
@@ -971,7 +980,7 @@ export const DoctorProfile: React.FC = () => {
                       className="flex items-center gap-2 rounded-lg bg-teal-600 px-6 py-2 text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
                     >
                       <Save className="w-4 h-4" />
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      {saving ? t('doctor.profile.saving') : t('doctor.profile.save')}
                     </button>
                     <button
                       type="button"
@@ -980,40 +989,44 @@ export const DoctorProfile: React.FC = () => {
                       className="flex items-center gap-2 rounded-lg border border-gray-300 px-6 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
                     >
                       <X className="w-4 h-4" />
-                      Cancel
+                      {t('doctor.profile.cancel')}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="mt-1">
                       <Mail className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Email</p>
-                      <p className="mt-1 text-base text-gray-900">{formData.email || 'Not provided'}</p>
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.email')}</p>
+                      <p className="mt-1 text-base text-gray-900">
+                        {formData.email ? <bdi>{formData.email}</bdi> : t('doctor.profile.notProvided')}
+                      </p>
                     </div>
                   </div>
 
                   {!isPhoneManagedByOtp ? (
-                    <div className="flex items-start space-x-3">
+                    <div className="flex items-start gap-3">
                       <div className="mt-1">
                         <Phone className="w-5 h-5 text-gray-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Phone</p>
-                        <p className="mt-1 text-base text-gray-900">{formData.phone || 'Not provided'}</p>
+                        <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.phone')}</p>
+                        <p className="mt-1 text-base text-gray-900">
+                          {formData.phone ? <bdi dir="ltr">{formData.phone}</bdi> : t('doctor.profile.notProvided')}
+                        </p>
                       </div>
                     </div>
                   ) : null}
 
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="mt-1">
                       <Stethoscope className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Specialization</p>
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.specialization')}</p>
                       {selectedSpecializations.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {selectedSpecializations.map((specialization) => (
@@ -1027,70 +1040,71 @@ export const DoctorProfile: React.FC = () => {
                         </div>
                       ) : (
                         <p className="mt-1 text-base text-gray-900">
-                          Not provided
+                          {t('doctor.profile.notProvided')}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="mt-1">
                       <FileText className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">License Number</p>
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.licenseNumber')}</p>
                       <p className="mt-1 text-base text-gray-900">
-                        {formData.licenseNumber || 'Not provided'}
+                        {formData.licenseNumber ? <bdi>{formData.licenseNumber}</bdi> : t('doctor.profile.notProvided')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="mt-1">
                       <Calendar className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Date of Birth</p>
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.dateOfBirth')}</p>
                       <p className="mt-1 text-base text-gray-900">
                         {formData.dateOfBirth
                           ? new Date(formData.dateOfBirth).toLocaleDateString(
                               locale,
-                              dtOpts({ year: 'numeric', month: 'short', day: 'numeric' })
+                              // The date has no time; read it as UTC so no time zone moves it a day.
+                              dtOpts({ year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })
                             )
-                          : 'Not provided'}
+                          : t('doctor.profile.notProvided')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="mt-1">
                       <UserCircle className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Gender</p>
-                      <p className="mt-1 text-base capitalize text-gray-900">
-                        {formData.gender || 'Not provided'}
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.gender')}</p>
+                      <p className="mt-1 text-base text-gray-900">
+                        {formData.gender ? genderLabel(formData.gender) : t('doctor.profile.notProvided')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3 md:col-span-2">
+                  <div className="flex items-start gap-3 md:col-span-2">
                     <div className="mt-1">
                       <MapPin className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Address</p>
-                      <p className="mt-1 text-base text-gray-900">{formData.address || 'Not provided'}</p>
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.address')}</p>
+                      <p className="mt-1 text-base text-gray-900">{formData.address || t('doctor.profile.notProvided')}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3 md:col-span-2">
+                  <div className="flex items-start gap-3 md:col-span-2">
                     <div className="mt-1">
                       <FileText className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Bio</p>
-                      <p className="mt-1 text-base text-gray-900">{formData.bio || 'Not provided'}</p>
+                      <p className="text-sm font-medium text-gray-500">{t('doctor.profile.fields.bioShort')}</p>
+                      <p className="mt-1 text-base text-gray-900">{formData.bio || t('doctor.profile.notProvided')}</p>
                     </div>
                   </div>
                 </div>
@@ -1102,20 +1116,18 @@ export const DoctorProfile: React.FC = () => {
             <div className="border-b border-gray-100 px-8 py-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Pre-Visit Intake Template</h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Upload a doctor questionnaire PDF, let AI convert it into structured questions, then review and publish the intake patients complete after booking.
-                  </p>
+                  <h3 className="text-xl font-semibold text-gray-900">{t('doctor.profile.template.title')}</h3>
+                  <p className="mt-1 text-sm text-gray-600">{t('doctor.profile.template.intro')}</p>
                 </div>
                 {activePreVisitTemplate ? (
                   <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
-                    Active template:
+                    {t('doctor.profile.template.activeLabel')}
                     {' '}
                     <span className="font-semibold">{activePreVisitTemplate.title}</span>
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-600">
-                    No published template yet
+                    {t('doctor.profile.template.noneLive')}
                   </div>
                 )}
               </div>
@@ -1151,13 +1163,13 @@ export const DoctorProfile: React.FC = () => {
                   role="alert"
                   className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
                 >
-                  {preVisitTemplatesError}
+                  {t('doctor.profile.template.errLoad')}
                   <button
                     type="button"
                     onClick={() => void refetchPreVisitTemplates()}
-                    className="ml-2 font-semibold underline"
+                    className="ms-2 font-semibold underline"
                   >
-                    Retry
+                    {t('shared.retry')}
                   </button>
                 </div>
               ) : null}
@@ -1184,7 +1196,7 @@ export const DoctorProfile: React.FC = () => {
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      Upload PDF and draft
+                      {t('doctor.profile.template.uploadPdf')}
                     </button>
                     <button
                       type="button"
@@ -1193,7 +1205,7 @@ export const DoctorProfile: React.FC = () => {
                       className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Plus className="h-4 w-4" />
-                      Add question
+                      {t('doctor.profile.template.addQuestion')}
                     </button>
                     <button
                       type="button"
@@ -1202,25 +1214,25 @@ export const DoctorProfile: React.FC = () => {
                       className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <X className="h-4 w-4" />
-                      Reset
+                      {t('doctor.profile.template.reset')}
                     </button>
                   </div>
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-gray-700">Template title</span>
+                      <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.fieldTitle')}</span>
                       <input
                         type="text"
                         value={templateDraft.title}
                         maxLength={FORM_FIELD_LIMITS.shortText}
                         onChange={(event) => updateTemplateDraft({ title: event.target.value })}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                        placeholder="Cardiology pre-visit intake"
+                        placeholder={t('doctor.profile.template.titlePlaceholder')}
                       />
                     </label>
 
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-gray-700">Specialization</span>
+                      <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.fields.specialization')}</span>
                       <select
                         value={templateDraft.specializationId ?? ''}
                         onChange={(event) =>
@@ -1228,7 +1240,7 @@ export const DoctorProfile: React.FC = () => {
                         }
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                       >
-                        <option value="">Use doctor primary specialty</option>
+                        <option value="">{t('doctor.profile.template.specializationDefault')}</option>
                         {specializationOptions.map((specialization) => (
                           <option key={specialization.id} value={specialization.id}>
                             {specialization.name}
@@ -1239,14 +1251,14 @@ export const DoctorProfile: React.FC = () => {
                   </div>
 
                   <label className="mt-4 block">
-                    <span className="mb-1 block text-sm font-medium text-gray-700">Description</span>
+                    <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.fieldDescription')}</span>
                     <textarea
                       value={templateDraft.description}
                       maxLength={FORM_FIELD_LIMITS.clinicalNotes}
                       onChange={(event) => updateTemplateDraft({ description: event.target.value })}
                       rows={3}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                      placeholder="Short note shown in the patient pre-visit flow."
+                      placeholder={t('doctor.profile.template.descriptionPlaceholder')}
                     />
                   </label>
 
@@ -1254,20 +1266,22 @@ export const DoctorProfile: React.FC = () => {
                     {templateDraft.questions.map((question, index) => (
                       <div key={`${question.key}-${index}`} className="rounded-2xl border border-gray-200 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-semibold text-gray-900">Question {index + 1}</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {t('doctor.profile.template.questionNumber', { value: formatLocaleDigits(index + 1, uiLang) })}
+                          </p>
                           <button
                             type="button"
                             onClick={() => handleRemoveTemplateQuestion(index)}
                             className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            Remove
+                            {t('doctor.profile.template.remove')}
                           </button>
                         </div>
 
                         <div className="mt-4 grid gap-4 md:grid-cols-2">
                           <label className="block md:col-span-2">
-                            <span className="mb-1 block text-sm font-medium text-gray-700">Prompt</span>
+                            <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.prompt')}</span>
                             <input
                               type="text"
                               value={question.label}
@@ -1276,12 +1290,12 @@ export const DoctorProfile: React.FC = () => {
                                 handleTemplateQuestionChange(index, { label: event.target.value })
                               }
                               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                              placeholder="Describe your current symptoms"
+                              placeholder={t('doctor.profile.template.promptPlaceholder')}
                             />
                           </label>
 
                           <label className="block">
-                            <span className="mb-1 block text-sm font-medium text-gray-700">Question type</span>
+                            <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.questionType')}</span>
                             <select
                               value={question.type}
                               onChange={(event) =>
@@ -1291,18 +1305,18 @@ export const DoctorProfile: React.FC = () => {
                               }
                               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                             >
-                              <option value="short_text">Short text</option>
-                              <option value="long_text">Long text</option>
-                              <option value="single_select">Single select</option>
-                              <option value="multi_select">Multi select</option>
-                              <option value="boolean">Yes / No</option>
-                              <option value="number">Number</option>
-                              <option value="date">Date</option>
+                              <option value="short_text">{t('doctor.profile.template.types.short_text')}</option>
+                              <option value="long_text">{t('doctor.profile.template.types.long_text')}</option>
+                              <option value="single_select">{t('doctor.profile.template.types.single_select')}</option>
+                              <option value="multi_select">{t('doctor.profile.template.types.multi_select')}</option>
+                              <option value="boolean">{t('doctor.profile.template.types.boolean')}</option>
+                              <option value="number">{t('doctor.profile.template.types.number')}</option>
+                              <option value="date">{t('doctor.profile.template.types.date')}</option>
                             </select>
                           </label>
 
                           <label className="block">
-                            <span className="mb-1 block text-sm font-medium text-gray-700">Autofill source</span>
+                            <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.autofillSource')}</span>
                             <select
                               value={question.autofillSource ?? ''}
                               onChange={(event) =>
@@ -1312,17 +1326,17 @@ export const DoctorProfile: React.FC = () => {
                               }
                               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
                             >
-                              <option value="">No autofill</option>
+                              <option value="">{t('doctor.profile.template.noAutofill')}</option>
                               {PRE_VISIT_AUTOFILL_SOURCE_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
-                                  {option.label}
+                                  {autofillLabel(option.value, option.label)}
                                 </option>
                               ))}
                             </select>
                           </label>
 
                           <label className="block">
-                            <span className="mb-1 block text-sm font-medium text-gray-700">Memory key</span>
+                            <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.memoryKey')}</span>
                             <input
                               type="text"
                               value={question.memoryKey ?? ''}
@@ -1336,12 +1350,12 @@ export const DoctorProfile: React.FC = () => {
                               placeholder="symptom_duration"
                             />
                             <p className="mt-1 text-xs text-gray-500">
-                              Use the same key for semantically equivalent questions across templates.
+                              {t('doctor.profile.template.memoryKeyHelp')}
                             </p>
                           </label>
 
                           <label className="block md:col-span-2">
-                            <span className="mb-1 block text-sm font-medium text-gray-700">Help text</span>
+                            <span className="mb-1 block text-sm font-medium text-gray-700">{t('doctor.profile.template.helpText')}</span>
                             <textarea
                               value={question.helpText ?? ''}
                               maxLength={FORM_FIELD_LIMITS.clinicalNotes}
@@ -1350,14 +1364,14 @@ export const DoctorProfile: React.FC = () => {
                               }
                               rows={2}
                               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                              placeholder="Explain what the patient should include."
+                              placeholder={t('doctor.profile.template.helpTextPlaceholder')}
                             />
                           </label>
 
                           {question.type === 'single_select' || question.type === 'multi_select' ? (
                             <label className="block md:col-span-2">
                               <span className="mb-1 block text-sm font-medium text-gray-700">
-                                Options
+                                {t('doctor.profile.template.options')}
                               </span>
                               <textarea
                                 value={question.options.map((option) => option.label).join('\n')}
@@ -1373,7 +1387,7 @@ export const DoctorProfile: React.FC = () => {
                                 }
                                 rows={3}
                                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-teal-500"
-                                placeholder={'Chest pain\nShortness of breath\nPalpitations'}
+                                placeholder={t('doctor.profile.template.optionsPlaceholder')}
                               />
                             </label>
                           ) : null}
@@ -1387,7 +1401,7 @@ export const DoctorProfile: React.FC = () => {
                               }
                               className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                             />
-                            Required question
+                            {t('doctor.profile.template.required')}
                           </label>
                         </div>
                       </div>
@@ -1402,36 +1416,39 @@ export const DoctorProfile: React.FC = () => {
                         <ClipboardList className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">Template summary</p>
-                        <p className="text-sm text-gray-600">
-                          Patients will be asked to complete this right after booking.
-                        </p>
+                        <p className="font-semibold text-gray-900">{t('doctor.profile.template.summaryTitle')}</p>
+                        <p className="text-sm text-gray-600">{t('doctor.profile.template.summaryHint')}</p>
                       </div>
                     </div>
 
                     <dl className="mt-5 space-y-3 text-sm">
                       <div className="flex items-start justify-between gap-3">
-                        <dt className="text-gray-500">Questions</dt>
-                        <dd className="font-medium text-gray-900">{templateDraft.questions.length}</dd>
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <dt className="text-gray-500">Required</dt>
+                        <dt className="text-gray-500">{t('doctor.profile.template.summaryQuestions')}</dt>
                         <dd className="font-medium text-gray-900">
-                          {templateDraft.questions.filter((question) => question.required).length}
+                          {formatLocaleDigits(templateDraft.questions.length, uiLang)}
                         </dd>
                       </div>
                       <div className="flex items-start justify-between gap-3">
-                        <dt className="text-gray-500">Specialization</dt>
-                        <dd className="text-right font-medium text-gray-900">
+                        <dt className="text-gray-500">{t('doctor.profile.template.summaryRequired')}</dt>
+                        <dd className="font-medium text-gray-900">
+                          {formatLocaleDigits(
+                            templateDraft.questions.filter((question) => question.required).length,
+                            uiLang
+                          )}
+                        </dd>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <dt className="text-gray-500">{t('doctor.profile.fields.specialization')}</dt>
+                        <dd className="text-end font-medium text-gray-900">
                           {templateDraft.specializationId
-                            ? specializationNameById.get(templateDraft.specializationId) ?? 'Selected'
-                            : 'Doctor primary specialty'}
+                            ? specializationNameById.get(templateDraft.specializationId) ?? t('doctor.profile.template.summarySelected')
+                            : t('doctor.profile.template.summaryPrimary')}
                         </dd>
                       </div>
                       <div className="flex items-start justify-between gap-3">
-                        <dt className="text-gray-500">Source PDF</dt>
-                        <dd className="text-right font-medium text-gray-900">
-                          {templateDraft.sourceFileName ?? 'Structured draft only'}
+                        <dt className="text-gray-500">{t('doctor.profile.template.sourcePdf')}</dt>
+                        <dd className="text-end font-medium text-gray-900">
+                          {templateDraft.sourceFileName ? <bdi>{templateDraft.sourceFileName}</bdi> : t('doctor.profile.template.noSourcePdf')}
                         </dd>
                       </div>
                     </dl>
@@ -1448,7 +1465,7 @@ export const DoctorProfile: React.FC = () => {
                         ) : (
                           <Save className="h-4 w-4" />
                         )}
-                        Save draft
+                        {t('doctor.profile.template.saveDraft')}
                       </button>
                       <button
                         type="button"
@@ -1461,17 +1478,17 @@ export const DoctorProfile: React.FC = () => {
                         ) : (
                           <Sparkles className="h-4 w-4" />
                         )}
-                        Publish active template
+                        {t('doctor.profile.template.publish')}
                       </button>
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-gray-200 p-5">
-                    <h4 className="font-semibold text-gray-900">Extraction notes</h4>
+                    <h4 className="font-semibold text-gray-900">{t('doctor.profile.template.notesTitle')}</h4>
                     {templateExtracting || preVisitTemplatesLoading ? (
                       <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Preparing pre-visit template data...
+                        {t('doctor.profile.template.preparing')}
                       </div>
                     ) : templateDraft.extractionNotes.length > 0 ? (
                       <ul className="mt-3 space-y-2 text-sm text-gray-700">
@@ -1483,7 +1500,7 @@ export const DoctorProfile: React.FC = () => {
                       </ul>
                     ) : (
                       <p className="mt-3 text-sm text-gray-600">
-                        Upload a PDF to receive AI extraction notes and a structured draft questionnaire.
+                        {t('doctor.profile.template.notesEmpty')}
                       </p>
                     )}
                   </div>
