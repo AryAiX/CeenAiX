@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -887,11 +887,9 @@ export const CreatePrescription: React.FC = () => {
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [patientAutoSelected, setPatientAutoSelected] = useState(false);
-  const [savedPrescriptionId, setSavedPrescriptionId] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
   const [renewSearchQuery, setRenewSearchQuery] = useState('');
-  const navigateAfterSaveTimer = useRef<number | null>(null);
   const selectedPatient = useMemo(
     () => patients.find((patient) => patient.id === patientId) ?? null,
     [patientId, patients]
@@ -910,13 +908,6 @@ export const CreatePrescription: React.FC = () => {
       setPatientAutoSelected(true);
     }
   }, [patientId, patients]);
-
-  useEffect(() => {
-    const timer = navigateAfterSaveTimer;
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
 
   const { data: vocabData } = useQuery<PrescriptionClinicalVocabRow[]>(
     async () => {
@@ -1052,12 +1043,10 @@ export const CreatePrescription: React.FC = () => {
     );
   }, [activeMedications, renewSearchQuery]);
 
-  const hasUnsavedChanges = useMemo(() => {
-    if (savedPrescriptionId) return false;
-    return items.some(
-      (item) => item.medicationName.trim() || item.dosage.trim() || item.instructions.trim()
-    );
-  }, [items, savedPrescriptionId]);
+  const hasUnsavedChanges = useMemo(
+    () => items.some((item) => item.medicationName.trim() || item.dosage.trim() || item.instructions.trim()),
+    [items]
+  );
 
   const handleNavigateAway = (to: string) => {
     if (hasUnsavedChanges) {
@@ -1160,8 +1149,8 @@ export const CreatePrescription: React.FC = () => {
 
     setSaving(false);
     setShowValidationErrors(false);
-    setSavedPrescriptionId(insertedPrescriptionId);
-    setFeedback({ type: 'success', message: t('doctor.createPrescription.saveSuccess') });
+    // Go straight back to the list, which shows the "saved" message (no next-steps panel here).
+    navigate('/doctor/prescriptions', { state: { prescriptionSaved: true } });
   };
 
   return (
@@ -1187,67 +1176,6 @@ export const CreatePrescription: React.FC = () => {
             }`}
           >
             {feedback.message}
-          </div>
-        ) : null}
-
-        {savedPrescriptionId && feedback?.type === 'success' ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <p className="mb-3 text-sm font-semibold text-emerald-800">
-              {t('doctor.createPrescription.nextStepsTitle')}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  // QA-139: same translated draft as the Prescriptions list (QA-138).
-                  const rawDoctorName = (profile?.full_name ?? user?.email ?? '').trim();
-                  const signedDoctorName = /^(dr\.?\s|د\.\s?)/i.test(rawDoctorName)
-                    ? rawDoctorName
-                    : t('doctor.prescriptions.print.doctorName', { name: rawDoctorName });
-                  const medications = items
-                    .filter((item) => item.medicationName.trim())
-                    .map((item) => {
-                      const frequency = item.frequencyCode
-                        ? resolveClinicalVocabLabel(vocabRows, 'frequency', item.frequencyCode, null, i18n.language)
-                        : null;
-                      return `• ${[item.medicationName, item.dosage, frequency].filter(Boolean).join(' — ')}`;
-                    })
-                    .join('\n');
-                  const draft = t('doctor.prescriptions.messageDraft', {
-                    patient: selectedPatient?.name ?? '',
-                    date: new Date().toLocaleDateString(
-                      resolveLocale(i18n.language),
-                      dateTimeFormatWithNumerals(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })
-                    ),
-                    medications,
-                    doctor: signedDoctorName,
-                  });
-                  navigate(`/doctor/messages?patient=${patientId}&draft=${encodeURIComponent(draft)}`);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
-              >
-                💬 {t('doctor.messages.messagePatient')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSavedPrescriptionId(null);
-                  setFeedback(null);
-                  setItems([createDraftPrescriptionItem()]);
-                  setAppointmentId('');
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                ➕ {t('doctor.createPrescription.newPrescription')}
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/doctor/prescriptions')}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                📋 {t('doctor.createPrescription.backToList')}
-              </button>
-            </div>
           </div>
         ) : null}
 

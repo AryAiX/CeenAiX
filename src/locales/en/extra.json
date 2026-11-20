@@ -2359,8 +2359,6 @@
       "medicationFallback": "Medication",
       "currentCareTeam": "Current care team",
       "backToList": "Back to prescriptions",
-      "nextStepsTitle": "What would you like to do next?",
-      "newPrescription": "New prescription",
       "prescribingFor": "Prescribing for",
       "autoSelectedWarning": "Patient selected automatically. Please check before saving.",
       "dismissWarning": "Dismiss warning",

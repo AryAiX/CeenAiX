@@ -1,11 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useDoctorPatients, useMedicationCatalogSearch, useQuery } from '../../hooks';
 import type { DoctorPatientFlag } from '../../hooks/use-doctor-patients';
 import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase';
 import { CreatePrescription } from './CreatePrescription';
 
 vi.mock('../../hooks', () => ({
@@ -14,7 +15,7 @@ vi.mock('../../hooks', () => ({
   useQuery: vi.fn(),
 }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
-vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn() } }));
+vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 
 const patient = (id: string, name: string, flags: DoctorPatientFlag[]) => ({
   id,
@@ -100,5 +101,71 @@ describe('CreatePrescription in Arabic (QA-139)', () => {
       expect(text).not.toContain(english);
     }
     expect(screen.getByText('سجل الوصفات')).toBeInTheDocument();
+  });
+});
+
+describe('CreatePrescription after saving', () => {
+  it('goes straight to the Prescriptions list with a saved flag, with no next-steps panel', async () => {
+    let landed: { path: string; state: unknown } | null = null;
+    const ListProbe = () => {
+      const location = useLocation();
+      landed = { path: location.pathname, state: location.state };
+      return null;
+    };
+    vi.mocked(useDoctorPatients).mockReturnValue({
+      data: [patient('patient-1', 'Patient One', [])],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    vi.mocked(useMedicationCatalogSearch).mockReturnValue({
+      data: {
+        catalogMatches: [
+          {
+            id: 'catalog-1',
+            source: 'custom',
+            generic_name_en: 'amoxicillin',
+            brand_name_en: null,
+            display_name_ar: null,
+            strength: null,
+            enrichment_status: 'enriched',
+            displayNameEn: 'amoxicillin',
+            displayNameAr: null,
+          },
+        ],
+        pendingSuggestionMatches: [],
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'rx-1', error: null } as never);
+    vi.mocked(supabase.from).mockReturnValue({ insert: vi.fn().mockResolvedValue({ error: null }) } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/doctor/prescriptions/new?patient=patient-1']}>
+        <Routes>
+          <Route path="/doctor/prescriptions/new" element={<CreatePrescription />} />
+          <Route path="/doctor/prescriptions" element={<ListProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.type(
+      screen.getByPlaceholderText(i18n.t('doctor.createPrescription.searchMedicationPlaceholder')),
+      'amox'
+    );
+    await userEvent.click(screen.getByRole('button', { name: /amoxicillin/i }));
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.createPrescription.save') }));
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_doctor_prescription',
+      expect.objectContaining({
+        p_patient_id: 'patient-1',
+        p_items: [expect.objectContaining({ medication_name: 'amoxicillin', medication_catalog_id: 'catalog-1' })],
+      })
+    );
+    expect(landed).toEqual({ path: '/doctor/prescriptions', state: { prescriptionSaved: true } });
+    expect(screen.queryByText(/What would you like to do next/i)).not.toBeInTheDocument();
   });
 });

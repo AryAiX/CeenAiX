@@ -51,9 +51,9 @@ const LocationProbe = () => {
   return null;
 };
 
-const renderPage = () =>
+const renderPage = (state?: unknown) =>
   render(
-    <MemoryRouter initialEntries={['/doctor/prescriptions']}>
+    <MemoryRouter initialEntries={[{ pathname: '/doctor/prescriptions', state }]}>
       <Routes>
         <Route path="/doctor/prescriptions" element={<DoctorPrescriptions />} />
         <Route path="*" element={<LocationProbe />} />
@@ -119,5 +119,19 @@ describe('DoctorPrescriptions (QA-138)', () => {
     await userEvent.type(screen.getByPlaceholderText(i18n.t('doctor.prescriptions.searchPlaceholder')), completed);
     expect(screen.getByText('Old Patient')).toBeInTheDocument();
     expect(screen.queryByText('Demo Patient')).not.toBeInTheDocument();
+  });
+});
+
+describe('DoctorPrescriptions saved message', () => {
+  it('confirms a new prescription after New Prescription sends the doctor here', async () => {
+    renderPage({ prescriptionSaved: true });
+    expect(screen.getByRole('status')).toHaveTextContent(i18n.t('doctor.createPrescription.saveSuccess'));
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.prescriptions.print.close') }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('shows no saved message on a normal visit', () => {
+    renderPage();
+    expect(screen.queryByText(i18n.t('doctor.createPrescription.saveSuccess'))).not.toBeInTheDocument();
   });
 });

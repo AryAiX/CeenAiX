@@ -2298,8 +2298,6 @@
       "medicationFallback": "دواء",
       "currentCareTeam": "فريق الرعاية الحالي",
       "backToList": "العودة إلى الوصفات",
-      "nextStepsTitle": "ماذا تريد أن تفعل بعد ذلك؟",
-      "newPrescription": "وصفة جديدة",
       "prescribingFor": "الوصفة لـ",
       "autoSelectedWarning": "تم اختيار المريض تلقائياً. يُرجى التحقق قبل الحفظ.",
       "dismissWarning": "إخفاء التنبيه",

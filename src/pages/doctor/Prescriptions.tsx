@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle, MessageSquare, Pill, Printer, Search, Users, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
@@ -33,6 +33,11 @@ const activateOnKey = (event: React.KeyboardEvent, action: () => void) => {
 export const DoctorPrescriptions: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set by New Prescription after a successful save (it returns here instead of showing a next-steps panel).
+  const [showSavedNotice, setShowSavedNotice] = useState(
+    () => Boolean((location.state as { prescriptionSaved?: boolean } | null)?.prescriptionSaved)
+  );
   const { user, profile, doctorProfile } = useAuth();
   const locale = resolveLocale(i18n.language);
   const uiLang = i18n.language ?? 'en';
@@ -44,6 +49,13 @@ export const DoctorPrescriptions: React.FC = () => {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const { data, loading, error, refetch } = useDoctorPrescriptions(user?.id);
+
+  // Clear the flag from history so the message doesn't come back on refresh or Back.
+  useEffect(() => {
+    if ((location.state as { prescriptionSaved?: boolean } | null)?.prescriptionSaved) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
   const prescriptions = useMemo(() => data ?? [], [data]);
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString(
@@ -260,6 +272,25 @@ export const DoctorPrescriptions: React.FC = () => {
       </div>
 
       <div>
+        {showSavedNotice ? (
+          <div
+            role="status"
+            className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+          >
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              {t('doctor.createPrescription.saveSuccess')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowSavedNotice(false)}
+              aria-label={t('doctor.prescriptions.print.close')}
+              className="rounded-lg p-1 text-emerald-600 transition hover:bg-emerald-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
         {error ? (
           <div
             role="alert"
