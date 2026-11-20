@@ -2518,7 +2518,11 @@
       "tabReported": "مكتمل التقرير",
       "tabAbnormal": "غير طبيعي",
       "allModalities": "جميع الطرائق",
-      "loadError": "تعذّر تحميل دراسات الأشعة حالياً."
+      "loadError": "تعذّر تحميل دراسات الأشعة حالياً.",
+      "reportNotReleased": "لم يُصدر التقرير بعد",
+      "noReportYet": "لا يوجد تقرير بعد",
+      "studyRejected": "رفض مركز الأشعة الدراسة",
+      "noReportText": "صدر دون نص تقرير"
     },
     "earnings": {
       "title": "الأرباح",

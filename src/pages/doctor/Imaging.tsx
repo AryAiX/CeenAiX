@@ -7,6 +7,7 @@ import { markDoctorImagingStudyReviewed, useImagingStudies } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { imagingReportState, releasedReportText } from '../../lib/imaging-report';
 
 export const DoctorImaging = () => {
   const { t, i18n } = useTranslation('common');
@@ -233,9 +234,25 @@ export const DoctorImaging = () => {
                   <div className="mt-1 text-sm text-slate-500">{study.patientName}</div>
                 </div>
                 <div className="text-right text-sm">
-                  <div className={study.alerts.length > 0 ? 'font-bold text-red-600' : 'font-bold text-slate-700'}>
-                    {study.impression ?? study.findings ?? t('shared.labOrderItemStatus.pending', { defaultValue: 'Pending' })}
-                  </div>
+                  {(() => {
+                    // QA-149: only a released report's text is shown; drafts and rejections say so.
+                    const reportState = imagingReportState(study.status);
+                    if (reportState === 'released') {
+                      return (
+                        <div className={study.alerts.length > 0 ? 'font-bold text-red-600' : 'font-bold text-slate-700'}>
+                          {releasedReportText(study) ?? t('doctor.imaging.noReportText')}
+                        </div>
+                      );
+                    }
+                    if (reportState === 'rejected') {
+                      return <div className="font-bold text-red-700">{t('doctor.imaging.studyRejected')}</div>;
+                    }
+                    return (
+                      <div className="font-semibold italic text-amber-700">
+                        {reportState === 'notReleased' ? t('doctor.imaging.reportNotReleased') : t('doctor.imaging.noReportYet')}
+                      </div>
+                    );
+                  })()}
                   <div className="text-xs text-slate-400">
                     {t(`shared.labOrderItemStatus.${study.status}`, { defaultValue: study.status })}
                   </div>

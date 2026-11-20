@@ -2579,7 +2579,11 @@
       "tabReported": "Reported",
       "tabAbnormal": "Abnormal",
       "allModalities": "All modalities",
-      "loadError": "Imaging studies could not be loaded right now."
+      "loadError": "Imaging studies could not be loaded right now.",
+      "reportNotReleased": "Report not released yet",
+      "noReportYet": "No report yet",
+      "studyRejected": "Study rejected by the imaging centre",
+      "noReportText": "Released without report text"
     },
     "earnings": {
       "title": "Earnings",
