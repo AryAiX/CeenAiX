@@ -29,6 +29,10 @@ export const DoctorLabOrders: React.FC = () => {
   const [showSavedNotice, setShowSavedNotice] = useState(
     () => Boolean((location.state as { labOrderSaved?: boolean } | null)?.labOrderSaved)
   );
+  // QA-180: the dashboard opens a specific lab order: show it under "All" and highlight it.
+  const [focusLabOrderId] = useState<string | null>(
+    () => (location.state as { focusLabOrderId?: string } | null)?.focusLabOrderId ?? null
+  );
   const { user, profile, doctorProfile } = useAuth();
   const { data, loading, error, refetch } = useDoctorLabOrders(user?.id);
 
@@ -44,7 +48,13 @@ export const DoctorLabOrders: React.FC = () => {
   const dtOpts = (options: Intl.DateTimeFormatOptions) => dateTimeFormatWithNumerals(uiLang, options);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'pending' | 'results' | 'scheduled'>('critical');
+  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'pending' | 'results' | 'scheduled'>(() =>
+    focusLabOrderId ? 'all' : 'critical'
+  );
+  useEffect(() => {
+    if (!focusLabOrderId || loading) return;
+    document.getElementById(`lab-order-${focusLabOrderId}`)?.scrollIntoView?.({ block: 'center' });
+  }, [focusLabOrderId, loading]);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printLabOrderId, setPrintLabOrderId] = useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
@@ -469,9 +479,11 @@ export const DoctorLabOrders: React.FC = () => {
               return (
               <div
                 key={labOrder.id}
+                id={`lab-order-${labOrder.id}`}
+                data-focused={focusLabOrderId === labOrder.id ? 'true' : undefined}
                 className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${
                   critical ? 'border-red-200 border-s-4 border-s-red-600' : 'border-slate-200'
-                }`}
+                } ${focusLabOrderId === labOrder.id ? 'ring-4 ring-cyan-300' : ''}`}
               >
                 <div className={`${critical ? 'bg-gradient-to-r from-red-700 to-red-600' : 'bg-gradient-to-r from-slate-900 to-cyan-800'} p-5 text-white`}>
                   <div className="flex flex-wrap items-start justify-between gap-4">

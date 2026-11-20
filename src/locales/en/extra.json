@@ -1714,7 +1714,31 @@
       "preVisitLabel": "Pre-visit",
       "noChiefComplaint": "Scheduled consultation",
       "noQueueTitle": "No active queue for today",
-      "noQueueBody": "Once today's bookings move into your schedule, they will appear here in visit order."
+      "noQueueBody": "Once today's bookings move into your schedule, they will appear here in visit order.",
+      "critical": {
+        "title": "Critical result",
+        "notReviewed": "Not reviewed yet · {{time}}",
+        "reference": "Reference",
+        "direction": {
+          "high": "Critically high ↑↑",
+          "low": "Critically low ↓↓",
+          "none": "Critical"
+        },
+        "resultedAt": "Resulted at {{time}}",
+        "more_one": "+{{value}} more critical result",
+        "more_other": "+{{value}} more critical results",
+        "open": "Open lab order",
+        "howToClear": "Open the lab order, review the result and mark the order reviewed to clear this alert."
+      },
+      "labs": {
+        "severity": {
+          "critical": "Critical",
+          "abnormal": "Abnormal"
+        },
+        "review": "Review",
+        "counts": "{{critical}} critical · {{recent}} recent",
+        "viewAll": "View all lab results"
+      }
     },
     "patients": {
       "title": "Patients",

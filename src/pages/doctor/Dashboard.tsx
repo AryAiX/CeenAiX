@@ -164,6 +164,9 @@ export const DoctorDashboard: React.FC = () => {
   const featuredAppointment = activeConsultation ?? nextAppointment;
   const todaySchedule = data?.todaySchedule ?? [];
   const criticalResult = data?.criticalResults[0] ?? null;
+  const criticalCount = data?.criticalResults.length ?? 0;
+  // QA-180: open the exact lab order (Lab Referrals highlights it).
+  const openLabOrder = (labOrderId: string) => navigate('/doctor/lab-orders', { state: { focusLabOrderId: labOrderId } });
   const recentLabResults = data?.recentLabResults ?? [];
   const recentMessages = data?.recentMessages ?? [];
   const appointmentProgress = todayAppointments > 0 ? Math.round((completedTodayAppointments / todayAppointments) * 100) : 0;
@@ -315,62 +318,65 @@ export const DoctorDashboard: React.FC = () => {
       ) : null}
 
       {criticalResult ? (
-        <div className="mb-6 w-full animate-pulse-ring rounded-xl border-2 border-red-600 bg-red-50 p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start space-x-4">
+        // QA-180: only results that are really critical (QA-142 rule) and not reviewed yet.
+        <div
+          className="mb-6 w-full animate-pulse-ring rounded-xl border-2 border-red-600 bg-red-50 p-4"
+          role="alert"
+          data-testid="critical-result-banner"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
               <div className="shrink-0">
-                <AlertTriangle className="h-8 w-8 animate-pulse text-red-600" />
+                <AlertTriangle className="h-8 w-8 animate-pulse text-red-600" aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <div className="mb-2">
-                  <h3 className="mb-1 text-sm font-bold text-red-700">🔴 {localCopy.criticalTitle}</h3>
+                  <h3 className="mb-1 text-sm font-bold uppercase text-red-700">{t('doctor.dashboard.critical.title')}</h3>
                   <p className="font-mono text-xs text-red-500">
-                    {localCopy.unacknowledged}: {formatRelativeTime(t, criticalResult.resultedAt)}
+                    {t('doctor.dashboard.critical.notReviewed', { time: formatRelativeTime(t, criticalResult.resultedAt) })}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <h4 className="text-base font-bold text-red-900">
                     {criticalResult.patientName} — {criticalResult.testName}
                   </h4>
-                  <div className="flex items-baseline space-x-3">
+                  <div className="flex flex-wrap items-baseline gap-3">
                     <span className="font-mono text-3xl font-bold text-red-700">
-                      {[criticalResult.resultValue, criticalResult.resultUnit].filter(Boolean).join(' ')}
+                      <bdi>{[criticalResult.resultValue, criticalResult.resultUnit].filter(Boolean).join(' ')}</bdi>
                     </span>
                     <span className="text-xs text-slate-600">
-                      {localCopy.reference}: {criticalResult.referenceRange ?? '-'}
+                      {t('doctor.dashboard.critical.reference')}: <bdi>{criticalResult.referenceRange ?? '—'}</bdi>
                     </span>
-                    <span className="rounded bg-red-600 px-2 py-1 text-[11px] font-bold text-white">
-                      CRITICAL HIGH ↑↑
+                    <span className="rounded bg-red-600 px-2 py-1 text-[11px] font-bold text-white" data-testid="critical-direction">
+                      {t(`doctor.dashboard.critical.direction.${criticalResult.direction ?? 'none'}`)}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    Resulted {formatDoctorTime(criticalResult.resultedAt)}
+                    {t('doctor.dashboard.critical.resultedAt', { time: formatDoctorTime(criticalResult.resultedAt) })}
                   </p>
+                  {criticalCount > 1 ? (
+                    <p className="text-xs font-semibold text-red-700">
+                      {t('doctor.dashboard.critical.more', {
+                        count: criticalCount - 1,
+                        value: formatLocaleDigits(criticalCount - 1, uiLang),
+                      })}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
-            <div className="flex shrink-0 flex-col space-y-2">
+            <div className="flex shrink-0 flex-col gap-2">
               <button
                 type="button"
-                onClick={() => navigate('/doctor/labs')}
+                onClick={() => openLabOrder(criticalResult.labOrderId)}
                 className="whitespace-nowrap rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700"
               >
-                🏥 View Lab Result
-              </button>
-              <button
-                type="button"
-                disabled
-                title={localCopy.unavailable}
-                className="whitespace-nowrap rounded-lg bg-red-100 px-4 py-2.5 text-sm font-semibold text-red-700 opacity-60"
-              >
-                ✅ {localCopy.acknowledgeResult}
+                {t('doctor.dashboard.critical.open')}
               </button>
             </div>
           </div>
           <div className="mt-3 border-t border-red-200 pt-3">
-            <p className="text-[11px] italic text-red-500">
-              ⚠️ UAE DHA requires acknowledgment of critical lab values within 1 hour.
-            </p>
+            <p className="text-[11px] text-red-600">{t('doctor.dashboard.critical.howToClear')}</p>
           </div>
         </div>
       ) : null}
@@ -668,7 +674,10 @@ export const DoctorDashboard: React.FC = () => {
             <div className="flex items-center space-x-2">
               <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
               <span className="text-xs font-bold text-red-500">
-                {formatLocaleDigits(data?.criticalResults.length ?? 0, uiLang)} critical · {formatLocaleDigits(recentLabResults.length, uiLang)} recent
+                {t('doctor.dashboard.labs.counts', {
+                  critical: formatLocaleDigits(criticalCount, uiLang),
+                  recent: formatLocaleDigits(recentLabResults.length, uiLang),
+                })}
               </span>
             </div>
           </div>
@@ -679,55 +688,66 @@ export const DoctorDashboard: React.FC = () => {
                 <Skeleton className="h-20 w-full" />
               </>
             ) : recentLabResults.length > 0 ? (
-              recentLabResults.map((result) => (
-                <div
-                  key={result.id}
-                  className={`px-4 py-3.5 transition-colors hover:bg-slate-50 ${
-                    result.labOrderStatus === 'resulted' ? 'bg-red-50' : ''
-                  }`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="mt-0.5 shrink-0">
-                      {result.labOrderStatus === 'resulted' ? (
-                        <AlertTriangle className="h-4 w-4 animate-pulse text-red-600" />
+              recentLabResults.map((result) => {
+                const needsReview = result.labOrderStatus !== 'reviewed';
+                const urgent = result.severity === 'critical' && needsReview;
+                return (
+                  <div
+                    key={result.id}
+                    className={`px-4 py-3.5 transition-colors hover:bg-slate-50 ${urgent ? 'bg-red-50' : ''}`}
+                    data-testid="dashboard-lab-result"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 shrink-0">
+                        {result.severity === 'critical' ? (
+                          <AlertTriangle className={`h-4 w-4 text-red-600 ${urgent ? 'animate-pulse' : ''}`} aria-hidden="true" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`mb-0.5 text-sm font-bold ${urgent ? 'text-red-900' : 'text-slate-900'}`}>{result.patientName}</p>
+                        <p className={`mb-0.5 font-mono text-[13px] font-bold ${result.severity === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
+                          {result.testName} — <bdi>{[result.resultValue, result.resultUnit].filter(Boolean).join(' ')}</bdi>
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          <span
+                            className={`me-2 rounded px-1.5 py-0.5 font-semibold ${
+                              result.severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {t(`doctor.dashboard.labs.severity.${result.severity}`)}
+                          </span>
+                          {t('doctor.dashboard.critical.reference')}: <bdi>{result.referenceRange ?? '—'}</bdi> ·{' '}
+                          {formatRelativeTime(t, result.resultedAt)}
+                        </p>
+                      </div>
+                      {needsReview ? (
+                        <button
+                          type="button"
+                          onClick={() => openLabOrder(result.labOrderId)}
+                          className={`rounded px-3 py-1.5 text-[11px] font-bold text-white transition-colors ${
+                            urgent ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-700 hover:bg-slate-800'
+                          }`}
+                        >
+                          {t('doctor.dashboard.labs.review')}
+                        </button>
                       ) : (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        <span className="rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-700">
+                          {t('shared.labOrderStatus.reviewed', { defaultValue: 'Reviewed' })}
+                        </span>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`mb-0.5 text-sm font-bold ${result.labOrderStatus === 'resulted' ? 'text-red-900' : 'text-slate-900'}`}>
-                        {result.patientName}
-                      </p>
-                      <p className={`mb-0.5 font-mono text-[13px] font-bold ${result.labOrderStatus === 'resulted' ? 'text-red-700' : 'text-slate-600'}`}>
-                        {result.testName} — {[result.resultValue, result.resultUnit].filter(Boolean).join(' ')}
-                      </p>
-                      <p className={`text-[11px] ${result.labOrderStatus === 'resulted' ? 'text-red-500' : 'text-emerald-600'}`}>
-                        Ref: {result.referenceRange ?? '-'} · {formatRelativeTime(t, result.resultedAt)}
-                      </p>
-                    </div>
-                    {result.labOrderStatus === 'resulted' ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/doctor/labs')}
-                        className="rounded bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-red-700"
-                      >
-                        {t('doctor.patients.acknowledge', { defaultValue: 'Acknowledge' })}
-                      </button>
-                    ) : (
-                      <span className="rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-700">
-                        ✅ {t('shared.labOrderStatus.reviewed', { defaultValue: 'Reviewed' })}
-                      </span>
-                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="px-4 py-5 text-sm text-slate-500">{localCopy.noLabs}</div>
             )}
           </div>
           <div className="border-t border-slate-200 px-6 py-3">
-            <button type="button" onClick={() => navigate('/doctor/labs')} className="text-xs font-medium text-teal-600 hover:underline">
-              View All Lab Results →
+            <button type="button" onClick={() => navigate('/doctor/lab-orders')} className="text-xs font-medium text-teal-600 hover:underline">
+              {t('doctor.dashboard.labs.viewAll')}
             </button>
           </div>
         </div>

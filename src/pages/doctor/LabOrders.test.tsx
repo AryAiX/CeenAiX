@@ -232,3 +232,31 @@ describe('DoctorLabOrders saved message (QA-147)', () => {
     expect(screen.queryByText(i18n.t('doctor.createLabOrder.saveSuccess'))).not.toBeInTheDocument();
   });
 });
+
+describe('DoctorLabOrders opened from the dashboard (QA-180)', () => {
+  it('shows the order under All and highlights it', () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    vi.mocked(useDoctorLabOrders).mockReturnValue({
+      data: [
+        order('x1', 'Other Patient', 'resulted', [labItem('o', 'Sodium', { is_abnormal: true, flag: 'HH' })]),
+        order('x2', 'Abnormal Patient', 'resulted', [labItem('h', 'Cholesterol', { is_abnormal: true, flag: 'H' })]),
+      ],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    const { container } = render(
+      <MemoryRouter initialEntries={[{ pathname: '/doctor/lab-orders', state: { focusLabOrderId: 'x2' } }]}>
+        <DoctorLabOrders />
+      </MemoryRouter>
+    );
+
+    // The abnormal (not critical) order is visible because the page opened on "All".
+    expect(screen.getByText('Abnormal Patient')).toBeInTheDocument();
+    expect(container.querySelector('#lab-order-x2')).toHaveAttribute('data-focused', 'true');
+    expect(container.querySelector('#lab-order-x1')).not.toHaveAttribute('data-focused');
+    expect(scroll).toHaveBeenCalled();
+  });
+});
+

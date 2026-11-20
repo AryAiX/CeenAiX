@@ -1,5 +1,11 @@
 import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
+import {
+  pickCriticalResults,
+  toDashboardLabResults,
+  type DashboardLabItemRow,
+  type DashboardLabResult,
+} from '../lib/doctor-dashboard-labs';
 import { CLINIC_TIME_ZONE, clinicDayUtcBounds, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
 import { getMessagePreviewText } from '../lib/messaging';
 import type { AppointmentStatus, AppointmentType, LabOrderStatus, PreVisitAssessmentStatus } from '../types';
@@ -38,18 +44,8 @@ export interface DoctorDashboardMessagePreview {
   readAt: string | null;
 }
 
-export interface DoctorCriticalResult {
-  id: string;
-  labOrderId: string;
-  patientId: string;
-  patientName: string;
-  testName: string;
-  resultValue: string | null;
-  resultUnit: string | null;
-  referenceRange: string | null;
-  resultedAt: string;
-  labOrderStatus: LabOrderStatus;
-}
+// QA-180: shape and rules live in ../lib/doctor-dashboard-labs.
+export type DoctorCriticalResult = DashboardLabResult;
 
 export interface DoctorQueueAppointment {
   id: string;
@@ -169,16 +165,7 @@ interface LabOrderRow {
   status: LabOrderStatus;
 }
 
-interface LabOrderItemRow {
-  id: string;
-  lab_order_id: string;
-  test_name: string;
-  result_value: string | null;
-  result_unit: string | null;
-  reference_range: string | null;
-  is_abnormal: boolean | null;
-  resulted_at: string | null;
-}
+type LabOrderItemRow = DashboardLabItemRow;
 
 const UPCOMING_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 'in_progress']);
 const TODAY_ACTIVE_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 'in_progress', 'completed']);
@@ -620,7 +607,9 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     if (labOrderIds.length > 0) {
       const { data: labOrderItems, error: labOrderItemsError } = await supabase
         .from('lab_order_items')
-        .select('id, lab_order_id, test_name, result_value, result_unit, reference_range, is_abnormal, resulted_at')
+        .select(
+          'id, lab_order_id, test_name, result_value, result_unit, reference_range, is_abnormal, resulted_at, numeric_value, flag, status_category'
+        )
         .in('lab_order_id', labOrderIds)
         .in('status', ['resulted', 'reviewed'])
         .not('resulted_at', 'is', null)
@@ -631,61 +620,13 @@ export function useDoctorDashboard(userId: string | null | undefined) {
 
       const labOrderById = new Map(safeLabOrders.map((labOrder) => [labOrder.id, labOrder]));
 
-      const normalizedLabResults = ((labOrderItems ?? []) as LabOrderItemRow[])
-        .filter((item) => item.resulted_at)
-        .map((item) => {
-          const labOrder = labOrderById.get(item.lab_order_id);
-          const patientId = labOrder?.patient_id ?? '';
-
-          return {
-            id: item.id,
-            labOrderId: item.lab_order_id,
-            patientId,
-            patientName: patientNameById.get(patientId) ?? patientFallback(),
-            testName: item.test_name,
-            resultValue: item.result_value,
-            resultUnit: item.result_unit,
-            referenceRange: item.reference_range,
-            resultedAt: item.resulted_at as string,
-            labOrderStatus: labOrder?.status ?? 'reviewed',
-            isAbnormal: item.is_abnormal === true,
-          };
-        });
-
-      criticalResults = normalizedLabResults
-        .filter(
-          (item) =>
-            item.isAbnormal && (item.labOrderStatus === 'resulted' || item.labOrderStatus === 'reviewed')
-        )
-        .slice(0, 3)
-        .map((item) => ({
-          id: item.id,
-          labOrderId: item.labOrderId,
-          patientId: item.patientId,
-          patientName: item.patientName,
-          testName: item.testName,
-          resultValue: item.resultValue,
-          resultUnit: item.resultUnit,
-          referenceRange: item.referenceRange,
-          resultedAt: item.resultedAt,
-          labOrderStatus: item.labOrderStatus,
-        }));
-
-      recentLabResults = normalizedLabResults
-        .filter((item) => item.isAbnormal)
-        .slice(0, 4)
-        .map((item) => ({
-          id: item.id,
-          labOrderId: item.labOrderId,
-          patientId: item.patientId,
-          patientName: item.patientName,
-          testName: item.testName,
-          resultValue: item.resultValue,
-          resultUnit: item.resultUnit,
-          referenceRange: item.referenceRange,
-          resultedAt: item.resultedAt,
-          labOrderStatus: item.labOrderStatus,
-        }));
+      const normalizedLabResults = toDashboardLabResults(
+        (labOrderItems ?? []) as LabOrderItemRow[],
+        labOrderById,
+        (patientId) => patientNameById.get(patientId) ?? patientFallback()
+      );
+      criticalResults = pickCriticalResults(normalizedLabResults);
+      recentLabResults = normalizedLabResults.slice(0, 4);
     }
 
     return {
