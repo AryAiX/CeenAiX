@@ -46,6 +46,7 @@ import {
   type PreVisitTemplateQuestionDraft,
 } from '../../lib/pre-visit';
 import { supabase } from '../../lib/supabase';
+import { removeAvatarFiles } from '../../lib/avatar-storage';
 import {
   liveTemplate,
   nextFreeQuestionKey,
@@ -168,6 +169,8 @@ export const DoctorProfile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  // QA-172: ask before removing the profile picture.
+  const [confirmingPhotoRemoval, setConfirmingPhotoRemoval] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [templateDraft, setTemplateDraft] = useState<PreVisitTemplateEditorState>(createEmptyTemplateDraft);
@@ -473,6 +476,14 @@ export const DoctorProfile: React.FC = () => {
       return;
     }
 
+    // QA-172: delete older pictures (e.g. avatar.jpg after uploading avatar.png). Best effort:
+    // the new picture is already saved, so a failure here should not block the doctor.
+    try {
+      await removeAvatarFiles(user.id, filePath);
+    } catch {
+      // Left for the next upload or removal to clean up.
+    }
+
     setAvatarUrl(publicUrl);
     await refreshProfile();
     setUploadingAvatar(false);
@@ -482,8 +493,20 @@ export const DoctorProfile: React.FC = () => {
   const handleAvatarDelete = async () => {
     if (!user || !avatarUrl) return;
 
+    setConfirmingPhotoRemoval(false);
     setUploadingAvatar(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
+
+    // QA-172: delete the image file first, so it is no longer reachable by its public link.
+    // If that fails nothing has changed yet and the doctor can try again.
+    try {
+      await removeAvatarFiles(user.id);
+    } catch {
+      setErrorMessage(t('doctor.profile.errPhoto'));
+      setUploadingAvatar(false);
+      return;
+    }
 
     const { error: profileError } = await supabase
       .from('user_profiles')
@@ -737,7 +760,7 @@ export const DoctorProfile: React.FC = () => {
                   {avatarUrl ? (
                     <button
                       type="button"
-                      onClick={handleAvatarDelete}
+                      onClick={() => setConfirmingPhotoRemoval(true)}
                       disabled={uploadingAvatar}
                       className="absolute -top-1 -end-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md transition hover:bg-red-600 disabled:opacity-60"
                       title={t('doctor.profile.removePhoto')}
@@ -764,6 +787,32 @@ export const DoctorProfile: React.FC = () => {
             </div>
 
             <div className="px-8 py-6">
+              {confirmingPhotoRemoval && avatarUrl ? (
+                <div
+                  role="alertdialog"
+                  aria-labelledby="remove-photo-question"
+                  className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                >
+                  <p id="remove-photo-question">{t('doctor.profile.removePhotoConfirm')}</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleAvatarDelete()}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white transition hover:bg-red-700"
+                    >
+                      {t('doctor.profile.removePhotoYes')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingPhotoRemoval(false)}
+                      className="rounded-lg border border-red-200 bg-white px-3 py-1.5 font-semibold text-red-700 transition hover:bg-red-100"
+                    >
+                      {t('doctor.profile.removePhotoNo')}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {errorMessage ? (
                 <div
                   role="alert"

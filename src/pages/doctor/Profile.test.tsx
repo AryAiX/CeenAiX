@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../../lib/auth-context';
 import type { DoctorPreVisitTemplateRecord } from '../../lib/pre-visit';
 import { supabase } from '../../lib/supabase';
+import { removeAvatarFiles } from '../../lib/avatar-storage';
 import { DoctorProfile } from './Profile';
 
 vi.mock('../../hooks', () => ({
@@ -25,7 +26,8 @@ vi.mock('../../lib/ai', () => ({
   uploadPreVisitTemplateSource: vi.fn(),
 }));
 vi.mock('../../components/AccountSecurityPanel', () => ({ AccountSecurityPanel: () => null }));
-vi.mock('../../lib/supabase', () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
+vi.mock('../../lib/supabase', () => ({ supabase: { rpc: vi.fn(), from: vi.fn(), storage: { from: vi.fn() } } }));
+vi.mock('../../lib/avatar-storage', () => ({ removeAvatarFiles: vi.fn() }));
 vi.mock('../../lib/doctor-specializations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/doctor-specializations')>()),
   syncDoctorSpecializations: vi.fn().mockResolvedValue(undefined),
@@ -430,6 +432,92 @@ describe('DoctorProfile in Arabic (QA-171)', () => {
     expect(screen.getByRole('option', { name: 'الحساسية' })).toBeInTheDocument();
     expect(screen.queryByText('Save draft')).not.toBeInTheDocument();
     expect(screen.queryByText('Add question')).not.toBeInTheDocument();
+  });
+});
+
+describe('DoctorProfile photo removal (QA-172)', () => {
+  const refreshProfile = vi.fn();
+  let profileUpdates: Array<Record<string, unknown>>;
+
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    profileUpdates = [];
+    refreshProfile.mockReset().mockResolvedValue(undefined);
+    vi.mocked(removeAvatarFiles).mockReset().mockResolvedValue(undefined);
+    vi.mocked(supabase.from).mockReset().mockImplementation((() => ({
+      update: (values: Record<string, unknown>) => {
+        profileUpdates.push(values);
+        return { eq: () => Promise.resolve({ error: null }) };
+      },
+    })) as never);
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'doc-1', email: 'doc@test.com' },
+      profile: { full_name: 'Dr. Test', avatar_url: 'https://cdn.test/avatars/doc-1/avatar.jpg' },
+      doctorProfile: null,
+      isLoading: false,
+      refreshProfile,
+    } as never);
+    vi.mocked(useDoctorClinicMembership).mockReturnValue({ data: null } as never);
+    vi.mocked(useSpecializations).mockReturnValue({ data: [], loading: false, error: null } as never);
+    vi.mocked(useDoctorSpecializationIds).mockReturnValue({ data: [], loading: false, refetch: vi.fn() } as never);
+    withTemplates([]);
+  });
+
+  it('asks first, then deletes the file and clears the picture', async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove profile picture' }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(
+      'Remove your profile picture? Patients will no longer see it.'
+    );
+    expect(removeAvatarFiles).not.toHaveBeenCalled();
+
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(screen.getByText('Profile picture removed.')).toBeInTheDocument());
+    expect(removeAvatarFiles).toHaveBeenCalledWith('doc-1');
+    expect(profileUpdates).toEqual([{ avatar_url: null }]);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('"Keep" closes the question and removes nothing', () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove profile picture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(removeAvatarFiles).not.toHaveBeenCalled();
+    expect(profileUpdates).toEqual([]);
+  });
+
+  it('changes nothing when the file cannot be deleted, so the doctor can try again', async () => {
+    vi.mocked(removeAvatarFiles).mockRejectedValue(new Error('storage down'));
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove profile picture' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't update your profile picture.");
+    expect(profileUpdates).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Remove profile picture' })).toBeInTheDocument();
+  });
+
+  it('after uploading a new picture, deletes the older files but keeps the new one', async () => {
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      upload,
+      getPublicUrl: () => ({ data: { publicUrl: 'https://cdn.test/avatars/doc-1/avatar.png' } }),
+    } as never);
+    const { container } = renderPage();
+
+    const input = container.querySelector('input[type="file"][accept^="image/"]') as HTMLInputElement;
+    const file = new File(['x'], 'me.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText('Profile picture updated.')).toBeInTheDocument());
+    expect(upload).toHaveBeenCalledWith('doc-1/avatar.png', file, { upsert: true });
+    expect(removeAvatarFiles).toHaveBeenCalledWith('doc-1', 'doc-1/avatar.png');
   });
 });
 
