@@ -25,7 +25,13 @@ import {
   normalizeMedicationDosageValue,
 } from '../../lib/medication-display';
 import { enrichMedicationCatalogEntry } from '../../lib/medication-enrichment';
-import { appointmentPickerLabel } from '../../lib/i18n-ui';
+import {
+  appointmentPickerLabel,
+  dateTimeFormatWithNumerals,
+  formatLocaleDigits,
+  prescriptionStatusLabel,
+  resolveLocale,
+} from '../../lib/i18n-ui';
 import { resolveClinicalVocabLabel, type PrescriptionClinicalVocabRow } from '../../lib/prescription-vocab';
 import { supabase } from '../../lib/supabase';
 import type { DoctorPatientFlag } from '../../hooks/use-doctor-patients';
@@ -450,7 +456,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
           </div>
           {showErrors && !item.medicationName ? (
             <p className="mt-1.5 text-xs font-medium text-red-600">
-              ⚠️ Please search and select a medication
+              ⚠️ {t('doctor.createPrescription.validationSelectMedication')}
             </p>
           ) : null}
         </label>
@@ -821,7 +827,7 @@ const MedicationItemEditor: React.FC<MedicationItemEditorProps> = ({
             ))}
           </select>
           {showErrors && !item.frequencyCode ? (
-            <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ Please select a frequency</p>
+            <p className="mt-1.5 text-xs font-medium text-red-600">⚠️ {t('doctor.createPrescription.validationSelectFrequency')}</p>
           ) : null}
         </label>
 
@@ -976,10 +982,10 @@ export const CreatePrescription: React.FC = () => {
           .filter((item) => item.medication_name?.trim())
           .map((item) => ({
             id: item.id,
-            medicationName: item.medication_name ?? 'Medication',
+            medicationName: item.medication_name ?? t('doctor.createPrescription.medicationFallback'),
             dose: item.dosage,
             frequency: item.frequency ?? item.frequency_code,
-            prescriber: 'Current care team',
+            prescriber: t('doctor.createPrescription.currentCareTeam'),
           }))
       );
     },
@@ -1167,8 +1173,8 @@ export const CreatePrescription: React.FC = () => {
           onClick={() => handleNavigateAway('/doctor/prescriptions')}
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Prescriptions
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+          {t('doctor.createPrescription.backToList')}
         </button>
         </div>
         {feedback ? (
@@ -1187,22 +1193,40 @@ export const CreatePrescription: React.FC = () => {
         {savedPrescriptionId && feedback?.type === 'success' ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="mb-3 text-sm font-semibold text-emerald-800">
-              What would you like to do next?
+              {t('doctor.createPrescription.nextStepsTitle')}
             </p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  const doctorName = profile?.full_name ?? user?.email ?? 'Your Doctor';
-                  const medicationLines = items
-                    .map((item) => `• ${item.medicationName}${item.dosage ? ` — ${item.dosage}` : ''}${item.frequencyCode ? ` — ${resolveClinicalVocabLabel(vocabRows, 'frequency', item.frequencyCode, null, 'en')}` : ''}`)
+                  // QA-139: same translated draft as the Prescriptions list (QA-138).
+                  const rawDoctorName = (profile?.full_name ?? user?.email ?? '').trim();
+                  const signedDoctorName = /^(dr\.?\s|د\.\s?)/i.test(rawDoctorName)
+                    ? rawDoctorName
+                    : t('doctor.prescriptions.print.doctorName', { name: rawDoctorName });
+                  const medications = items
+                    .filter((item) => item.medicationName.trim())
+                    .map((item) => {
+                      const frequency = item.frequencyCode
+                        ? resolveClinicalVocabLabel(vocabRows, 'frequency', item.frequencyCode, null, i18n.language)
+                        : null;
+                      return `• ${[item.medicationName, item.dosage, frequency].filter(Boolean).join(' — ')}`;
+                    })
                     .join('\n');
-                  const draft = `Hi ${selectedPatient?.name ?? 'there'},\n\nYour prescription has been issued.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed. If you have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
+                  const draft = t('doctor.prescriptions.messageDraft', {
+                    patient: selectedPatient?.name ?? '',
+                    date: new Date().toLocaleDateString(
+                      resolveLocale(i18n.language),
+                      dateTimeFormatWithNumerals(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })
+                    ),
+                    medications,
+                    doctor: signedDoctorName,
+                  });
                   navigate(`/doctor/messages?patient=${patientId}&draft=${encodeURIComponent(draft)}`);
                 }}
                 className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
               >
-                💬 Message Patient
+                💬 {t('doctor.messages.messagePatient')}
               </button>
               <button
                 type="button"
@@ -1214,14 +1238,14 @@ export const CreatePrescription: React.FC = () => {
                 }}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                ➕ New Prescription
+                ➕ {t('doctor.createPrescription.newPrescription')}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/doctor/prescriptions')}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                📋 Back to Prescriptions
+                📋 {t('doctor.createPrescription.backToList')}
               </button>
             </div>
           </div>
@@ -1232,7 +1256,7 @@ export const CreatePrescription: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:h-full xl:overflow-y-auto">
               <div className="mb-5">
                 <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  PRESCRIBING FOR
+                  {t('doctor.createPrescription.prescribingFor')}
                 </div>
               {patientAutoSelected && selectedPatient ? (
                 <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
@@ -1240,14 +1264,14 @@ export const CreatePrescription: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="text-base">⚠️</span>
                       <p className="text-xs font-semibold text-amber-800">
-                        Patient auto-selected — please verify before saving!
+                        {t('doctor.createPrescription.autoSelectedWarning')}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setPatientAutoSelected(false)}
                       className="rounded-full p-0.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800"
-                      aria-label="Dismiss warning"
+                      aria-label={t('doctor.createPrescription.dismissWarning')}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -1256,7 +1280,7 @@ export const CreatePrescription: React.FC = () => {
               ) : null}
               {selectedPatient ? (
                 <div className="mb-3 rounded-xl border-2 border-teal-200 bg-teal-50 p-4">
-                  <div className="mb-3 flex items-center space-x-3">
+                  <div className="mb-3 flex items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 font-bold text-white">
                       {patientInitials(selectedPatient.name)}
                     </div>
@@ -1264,20 +1288,20 @@ export const CreatePrescription: React.FC = () => {
                       <div className="truncate text-[15px] font-bold text-slate-900">{selectedPatient.name}</div>
                       <div className="font-mono text-[11px] text-slate-500">
                         {selectedPatient.id.slice(0, 8)} · {patientAgeGender(selectedPatient.dateOfBirth, selectedPatient.gender)} ·{' '}
-                        {selectedPatient.bloodType ?? 'Unknown'}
+                        {selectedPatient.bloodType ?? t('doctor.patients.unknown')}
                       </div>
                       <div className="mt-1 text-[10px] text-slate-500">
-                        {selectedPatient.insuranceName ?? 'No insurance on file'}
+                        {selectedPatient.insuranceName ?? t('doctor.patients.noInsurance')}
                       </div>
                     </div>
                   </div>
                   <div className="relative">
-                    <div className="flex w-full items-center justify-center space-x-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
-                      <span>Change Patient</span>
+                    <div className="flex w-full items-center justify-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                      <span>{t('doctor.createPrescription.changePatient')}</span>
                       <ChevronDown className="h-3 w-3" />
                     </div>
                     <select
-                      aria-label="Change patient"
+                      aria-label={t('doctor.createPrescription.changePatient')}
                       value={patientId}
                       onChange={(event) => {
                         setPatientId(event.target.value);
@@ -1296,7 +1320,7 @@ export const CreatePrescription: React.FC = () => {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Select a patient to surface clinical context, appointment notes, and medication safety checks.
+                  {t('doctor.createPrescription.selectPatientHint')}
                 </div>
               )}
               </div>
@@ -1341,12 +1365,12 @@ export const CreatePrescription: React.FC = () => {
 
               <div className="mb-5">
                 <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  CURRENT MEDICATIONS
+                  {t('doctor.createPrescription.currentMedications')}
                 </div>
                 <div className="space-y-2">
                   {activeMedications.length > 0 ? (
                     activeMedications.slice(0, 8).map((medication) => (
-                      <div key={medication.id} className="flex items-start space-x-2 text-[12px]">
+                      <div key={medication.id} className="flex items-start gap-2 text-[12px]">
                         <Pill className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-500" />
                         <div className="flex-1">
                           <div className="font-medium text-slate-700">
@@ -1358,27 +1382,32 @@ export const CreatePrescription: React.FC = () => {
                     ))
                   ) : (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-[12px] text-slate-500">
-                      No active medications found in prescriptions.
+                      {t('doctor.createPrescription.noActiveMedications')}
                     </div>
                   )}
                 </div>
                 <button
                   type="button"
-                  onClick={() => selectedPatient && navigate(`/doctor/patients/${selectedPatient.id}`)}
+                  onClick={() => selectedPatient && handleNavigateAway(`/doctor/patients/${selectedPatient.id}`)}
                   className="mt-3 text-[11px] font-medium text-teal-600 hover:text-teal-700"
                 >
-                  View Full Record →
+                  {t('doctor.createPrescription.viewFullRecord')} <span className="inline-block rtl:rotate-180">→</span>
                 </button>
               </div>
 
               <div className="border-t border-slate-200 pt-5">
-                <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">PRESCRIBER</div>
+                <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('doctor.createPrescription.prescriber')}</div>
                 <div className="space-y-1 text-[12px] text-slate-700">
-                  <div className="font-bold">{profile?.full_name ?? 'Doctor'}</div>
-                  <div>{doctorProfile?.specialization ?? 'Clinician'}</div>
+                  <div className="font-bold">{profile?.full_name ?? t('doctor.createPrescription.prescriberFallbackName')}</div>
+                  <div>{doctorProfile?.specialization ?? t('doctor.createPrescription.prescriberFallbackSpecialty')}</div>
                   <div>CeenAiX Clinic</div>
-                  <div className="font-mono text-[10px] text-slate-500">{doctorProfile?.license_number ?? 'DHA license pending'}</div>
-                  <div className="font-mono text-[10px] text-slate-500">{new Date().toLocaleDateString()}</div>
+                  <div className="font-mono text-[10px] text-slate-500">{doctorProfile?.license_number ?? t('doctor.createPrescription.licencePending')}</div>
+                  <div className="font-mono text-[10px] text-slate-500">
+                    {new Date().toLocaleDateString(
+                      resolveLocale(i18n.language),
+                      dateTimeFormatWithNumerals(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1387,25 +1416,25 @@ export const CreatePrescription: React.FC = () => {
           <div className="space-y-6 xl:min-h-0 xl:overflow-y-auto">
             <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-[16px] font-bold text-slate-900">Add Medications</h2>
-                <p className="text-[12px] text-slate-400">UAE medication catalog · canonical ePrescription</p>
+                <h2 className="text-[16px] font-bold text-slate-900">{t('doctor.createPrescription.addMedications')}</h2>
+                <p className="text-[12px] text-slate-400">{t('doctor.createPrescription.catalogHint')}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowRenewModal(true)}
-                  className="flex items-center space-x-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                  className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  <span>Renew Existing</span>
+                  <span>{t('doctor.createPrescription.renewExisting')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowHistoryModal(true)}
-                  className="flex items-center space-x-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                  className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
                 >
                   <ClipboardList className="h-4 w-4" />
-                  <span>History</span>
+                  <span>{t('doctor.createPrescription.history')}</span>
                 </button>
               </div>
             </div>
@@ -1413,8 +1442,8 @@ export const CreatePrescription: React.FC = () => {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Prescription details</p>
-              <p className="text-[12px] text-slate-500">Optional appointment link and prescription lifecycle status.</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('doctor.createPrescription.detailsTitle')}</p>
+              <p className="text-[12px] text-slate-500">{t('doctor.createPrescription.detailsHint')}</p>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -1524,7 +1553,7 @@ export const CreatePrescription: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                   <div className="flex items-center gap-3">
                     <RefreshCw className="h-5 w-5 text-emerald-600" />
-                    <h2 className="text-lg font-bold text-slate-900">Renew Existing Prescription</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{t('doctor.createPrescription.renewTitle')}</h2>
                   </div>
                   <button
                     type="button"
@@ -1532,6 +1561,7 @@ export const CreatePrescription: React.FC = () => {
                       setShowRenewModal(false);
                       setRenewSearchQuery('');
                     }}
+                    aria-label={t('doctor.createPrescription.close')}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
                   >
                     <X className="h-5 w-5" />
@@ -1539,29 +1569,32 @@ export const CreatePrescription: React.FC = () => {
                 </div>
                 <div className="border-b border-slate-100 px-6 py-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="search"
                       value={renewSearchQuery}
                       onChange={(e) => setRenewSearchQuery(e.target.value)}
-                      placeholder="Search medications..."
-                      className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+                      placeholder={t('doctor.createPrescription.renewSearchPlaceholder')}
+                      className="w-full rounded-xl border border-slate-200 py-2 ps-10 pe-4 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
                     />
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-4 px-6 py-5">
                   {activeMedications.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                      No active medications found for this patient to renew.
+                      {t('doctor.createPrescription.renewEmpty')}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-slate-600">
-                        {filteredRenewMedications.length} of {activeMedications.length} medications
+                        {t('doctor.createPrescription.renewCount', {
+                          shown: formatLocaleDigits(filteredRenewMedications.length, i18n.language),
+                          total: formatLocaleDigits(activeMedications.length, i18n.language),
+                        })}
                       </p>
                       {filteredRenewMedications.length === 0 ? (
                         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                          No medications match your search.
+                          {t('doctor.createPrescription.renewNoMatch')}
                         </div>
                       ) : null}
                       {filteredRenewMedications.map((medication) => (
@@ -1580,7 +1613,7 @@ export const CreatePrescription: React.FC = () => {
                             ]);
                             setShowRenewModal(false);
                           }}
-                          className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50"
+                          className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-emerald-300 hover:bg-emerald-50"
                         >
                           <Pill className="h-5 w-5 shrink-0 text-emerald-600" />
                           <div>
@@ -1603,7 +1636,7 @@ export const CreatePrescription: React.FC = () => {
                     }}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    Cancel
+                    {t('doctor.createPrescription.cancel')}
                   </button>
                 </div>
               </div>
@@ -1624,11 +1657,12 @@ export const CreatePrescription: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                   <div className="flex items-center gap-3">
                     <ClipboardList className="h-5 w-5 text-emerald-600" />
-                    <h2 className="text-lg font-bold text-slate-900">Prescription History</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{t('doctor.createPrescription.historyTitle')}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowHistoryModal(false)}
+                    aria-label={t('doctor.createPrescription.close')}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
                   >
                     <X className="h-5 w-5" />
@@ -1637,12 +1671,14 @@ export const CreatePrescription: React.FC = () => {
                 <div className="max-h-[60vh] space-y-3 overflow-y-auto px-6 py-5">
                   {prescriptionHistory.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                      No prescription history found for this patient.
+                      {t('doctor.createPrescription.historyEmpty')}
                     </div>
                   ) : (
                     <>
                       <p className="text-sm text-slate-600">
-                        Showing last {prescriptionHistory.length} prescriptions for this patient:
+                        {t('doctor.createPrescription.historyShowing', {
+                          n: formatLocaleDigits(prescriptionHistory.length, i18n.language),
+                        })}
                       </p>
                       {prescriptionHistory.map((prescription) => (
                         <div
@@ -1651,7 +1687,10 @@ export const CreatePrescription: React.FC = () => {
                         >
                           <div className="mb-2 flex items-center justify-between gap-3">
                             <p className="text-xs font-semibold text-slate-500">
-                              {new Date(prescription.prescribed_at).toLocaleDateString()}
+                              {new Date(prescription.prescribed_at).toLocaleDateString(
+                                resolveLocale(i18n.language),
+                                dateTimeFormatWithNumerals(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })
+                              )}
                             </p>
                             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                               prescription.status === 'active'
@@ -1660,7 +1699,7 @@ export const CreatePrescription: React.FC = () => {
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'bg-slate-100 text-slate-600'
                             }`}>
-                              {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
+                              {prescriptionStatusLabel(t, prescription.status)}
                             </span>
                           </div>
                           <div className="space-y-1">
@@ -1684,17 +1723,20 @@ export const CreatePrescription: React.FC = () => {
                 <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
                   <button
                     type="button"
-                    onClick={() => navigate('/doctor/prescriptions')}
+                    onClick={() => {
+                      setShowHistoryModal(false);
+                      handleNavigateAway('/doctor/prescriptions');
+                    }}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    View All Prescriptions
+                    {t('doctor.createPrescription.viewAllPrescriptions')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowHistoryModal(false)}
                     className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
                   >
-                    Close
+                    {t('doctor.createPrescription.close')}
                   </button>
                 </div>
               </div>
@@ -1706,9 +1748,9 @@ export const CreatePrescription: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
             <div className="px-6 py-5">
-              <h3 className="text-lg font-bold text-slate-900">Leave without saving?</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('doctor.createPrescription.leaveTitle')}</h3>
               <p className="mt-2 text-sm text-slate-500">
-                You have unsaved prescription changes. If you leave now all your work will be lost.
+                {t('doctor.createPrescription.leaveBody')}
               </p>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
@@ -1720,7 +1762,7 @@ export const CreatePrescription: React.FC = () => {
                 }}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Keep Editing
+                {t('doctor.createPrescription.keepEditing')}
               </button>
               <button
                 type="button"
@@ -1730,7 +1772,7 @@ export const CreatePrescription: React.FC = () => {
                 }}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
               >
-                Leave Anyway
+                {t('doctor.createPrescription.leaveAnyway')}
               </button>
             </div>
           </div>
