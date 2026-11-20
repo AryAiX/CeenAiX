@@ -488,43 +488,52 @@ export const DoctorProfile: React.FC = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    // QA-167: a doctor profile needs a name; saving an empty one used to store "Doctor".
+    const fullName = formData.fullName.trim();
+    if (!fullName) {
+      setErrorMessage(t('doctor.profile.errNameRequired'));
+      setSaving(false);
+      return;
+    }
+
     if (formData.selectedSpecializationIds.length === 0) {
       setErrorMessage('Select at least one specialization before saving your doctor profile.');
       setSaving(false);
       return;
     }
 
-    const parsedName = splitFullName(formData.fullName);
+    const parsedName = splitFullName(fullName);
     const { primarySpecialization, secondarySpecialization } = getPrimaryAndSecondarySpecializations(
       formData.selectedSpecializationIds,
       specializationOptions
     );
-    const persistedPhone = isPhoneManagedByOtp ? user?.phone ?? profile?.phone ?? null : formData.phone.trim() || null;
 
-    const { error: userProfileError } = await supabase.from('user_profiles').upsert(
-      {
-        user_id: user.id,
-        role: 'doctor',
-        full_name: formData.fullName.trim() || 'Doctor',
+    // QA-167: save only the fields on this form. The old upsert also wrote back role, email,
+    // terms_accepted (defaulting to true), notification settings, city, photo, fee, languages
+    // (defaulting to English) and the DHA verification flag, from values that could be missing
+    // or out of date.
+    const { data: updatedProfiles, error: userProfileError } = await supabase
+      .from('user_profiles')
+      .update({
+        full_name: fullName,
         first_name: parsedName.firstName,
         last_name: parsedName.lastName,
-        phone: persistedPhone,
-        email: user.email ?? (formData.email.trim() || null),
+        ...(isPhoneManagedByOtp ? {} : { phone: formData.phone.trim() || null }),
         address: formData.address.trim() || null,
         date_of_birth: formData.dateOfBirth || null,
         gender: formData.gender || null,
-        profile_completed: profile?.profile_completed ?? false,
-        terms_accepted: profile?.terms_accepted ?? true,
-        notification_preferences: profile?.notification_preferences ?? {},
-        city: profile?.city ?? null,
-        avatar_url: profile?.avatar_url ?? null,
-        emirates_id: profile?.emirates_id ?? null,
-      },
-      { onConflict: 'user_id' }
-    );
+      })
+      .eq('user_id', user.id)
+      .select('user_id');
 
     if (userProfileError) {
       setErrorMessage(userProfileError.message);
+      setSaving(false);
+      return;
+    }
+
+    if (!updatedProfiles || updatedProfiles.length === 0) {
+      setErrorMessage(t('doctor.profile.errProfileMissing'));
       setSaving(false);
       return;
     }
@@ -533,14 +542,9 @@ export const DoctorProfile: React.FC = () => {
       {
         user_id: user.id,
         specialization: primarySpecialization,
+        sub_specialization: secondarySpecialization,
         license_number: formData.licenseNumber.trim() || null,
         bio: formData.bio.trim() || null,
-        sub_specialization: secondarySpecialization,
-        years_of_experience: doctorProfile?.years_of_experience ?? null,
-        consultation_fee: doctorProfile?.consultation_fee ?? null,
-        languages_spoken: doctorProfile?.languages_spoken ?? ['English'],
-        dha_license_verified: doctorProfile?.dha_license_verified ?? false,
-        dha_verified_at: doctorProfile?.dha_verified_at ?? null,
       },
       { onConflict: 'user_id' }
     );

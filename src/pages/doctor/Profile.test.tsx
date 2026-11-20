@@ -26,6 +26,10 @@ vi.mock('../../lib/ai', () => ({
 }));
 vi.mock('../../components/AccountSecurityPanel', () => ({ AccountSecurityPanel: () => null }));
 vi.mock('../../lib/supabase', () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
+vi.mock('../../lib/doctor-specializations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/doctor-specializations')>()),
+  syncDoctorSpecializations: vi.fn().mockResolvedValue(undefined),
+}));
 
 const refetchTemplates = vi.fn();
 
@@ -84,6 +88,7 @@ describe('DoctorProfile pre-visit template (QA-166)', () => {
     await i18n.changeLanguage('en');
     refetchTemplates.mockReset().mockResolvedValue(undefined);
     vi.mocked(supabase.rpc).mockReset();
+    vi.mocked(supabase.from).mockReset();
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'doc-1', email: 'doc@test.com' },
       profile: { full_name: 'Dr. Test' },
@@ -181,3 +186,130 @@ describe('DoctorProfile pre-visit template (QA-166)', () => {
     expect(refetchTemplates).not.toHaveBeenCalled();
   });
 });
+
+describe('DoctorProfile save (QA-167)', () => {
+  const refreshProfile = vi.fn();
+  let writes: Array<{ table: string; op: string; values: Record<string, unknown>; filters: unknown[] }>;
+  let updatedRows: Array<{ user_id: string }>;
+
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+    writes = [];
+    updatedRows = [{ user_id: 'doc-1' }];
+    refreshProfile.mockReset().mockResolvedValue(undefined);
+    vi.mocked(supabase.rpc).mockReset();
+    vi.mocked(supabase.from).mockReset().mockImplementation(((table: string) => ({
+      update: (values: Record<string, unknown>) => {
+        const write = { table, op: 'update', values, filters: [] as unknown[] };
+        writes.push(write);
+        const chain = {
+          eq: (column: string, value: unknown) => (write.filters.push([column, value]), chain),
+          select: () => Promise.resolve({ data: updatedRows, error: null }),
+        };
+        return chain;
+      },
+      upsert: (values: Record<string, unknown>, options: unknown) => {
+        writes.push({ table, op: 'upsert', values, filters: [options] });
+        return Promise.resolve({ error: null });
+      },
+    })) as never);
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'doc-1', email: 'doc@test.com' },
+      profile: {
+        full_name: 'Dr. Test Person',
+        phone: '+971500000000',
+        terms_accepted: null,
+        notification_preferences: null,
+        city: 'Dubai',
+      },
+      doctorProfile: {
+        license_number: 'DHA-1',
+        bio: 'Old bio',
+        consultation_fee: 300,
+        languages_spoken: ['English', 'Arabic'],
+        dha_license_verified: true,
+      },
+      isLoading: false,
+      refreshProfile,
+    } as never);
+    vi.mocked(useDoctorClinicMembership).mockReturnValue({ data: null } as never);
+    vi.mocked(useSpecializations).mockReturnValue({
+      data: [{ id: 'spec-1', name: 'Cardiology' }],
+      loading: false,
+      error: null,
+    } as never);
+    vi.mocked(useDoctorSpecializationIds).mockReturnValue({
+      data: ['spec-1'],
+      loading: false,
+      refetch: vi.fn().mockResolvedValue(undefined),
+    } as never);
+    withTemplates([]);
+  });
+
+  const editAndSave = (changes: Record<string, string> = {}) => {
+    fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
+    for (const [placeholder, value] of Object.entries(changes)) {
+      fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+  };
+
+  it('saves only the fields on the form', async () => {
+    renderPage();
+    editAndSave({ 'Enter your full name': '  Dr. New Name  ', 'Summarize your expertise and care approach': 'New bio' });
+
+    await waitFor(() => expect(screen.getByText('Doctor profile updated.')).toBeInTheDocument());
+
+    expect(writes.map(({ table, op }) => `${table}:${op}`)).toEqual(['user_profiles:update', 'doctor_profiles:upsert']);
+    expect(writes[0].values).toEqual({
+      full_name: 'Dr. New Name',
+      first_name: 'Dr.',
+      last_name: 'New Name',
+      phone: '+971500000000',
+      address: null,
+      date_of_birth: null,
+      gender: null,
+    });
+    expect(writes[0].filters).toEqual([['user_id', 'doc-1']]);
+    expect(writes[1].values).toEqual({
+      user_id: 'doc-1',
+      specialization: 'Cardiology',
+      sub_specialization: null,
+      license_number: 'DHA-1',
+      bio: 'New bio',
+    });
+    // Nothing outside the form is written back (consent, languages, fee, verification, role...).
+    for (const key of [
+      'role',
+      'email',
+      'terms_accepted',
+      'notification_preferences',
+      'city',
+      'avatar_url',
+      'languages_spoken',
+      'consultation_fee',
+      'dha_license_verified',
+      'dha_verified_at',
+    ]) {
+      expect(Object.keys({ ...writes[0].values, ...writes[1].values })).not.toContain(key);
+    }
+  });
+
+  it('does not save an empty name', async () => {
+    renderPage();
+    editAndSave({ 'Enter your full name': '   ' });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your full name before saving.');
+    expect(writes).toEqual([]);
+  });
+
+  it('stops with a clear message when no profile row was updated', async () => {
+    updatedRows = [];
+    renderPage();
+    editAndSave();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your profile could not be found.');
+    expect(writes.map(({ table }) => table)).toEqual(['user_profiles']);
+  });
+});
+
