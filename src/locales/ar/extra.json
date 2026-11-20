@@ -2522,7 +2522,18 @@
       "reportNotReleased": "لم يُصدر التقرير بعد",
       "noReportYet": "لا يوجد تقرير بعد",
       "studyRejected": "رفض مركز الأشعة الدراسة",
-      "noReportText": "صدر دون نص تقرير"
+      "noReportText": "صدر دون نص تقرير",
+      "viewReport": "عرض التقرير",
+      "hideReport": "إخفاء التقرير",
+      "accession": "رقم الدراسة",
+      "scheduledAt": "الموعد",
+      "releasedAt": "تاريخ الإصدار",
+      "reviewedOn": "تمت المراجعة {{date}}",
+      "findings": "النتائج",
+      "impression": "الانطباع",
+      "recommendations": "التوصيات",
+      "alerts": "تنبيهات",
+      "notRecorded": "غير مسجّل"
     },
     "earnings": {
       "title": "الأرباح",

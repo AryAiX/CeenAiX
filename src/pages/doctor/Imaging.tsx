@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Clock, Layers, ListChecks, Scan, Search, Workflow } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, Clock, Layers, ListChecks, Scan, Search, Workflow } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { markDoctorImagingStudyReviewed, useImagingStudies } from '../../hooks';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { useAuth } from '../../lib/auth-context';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { imagingReportState, releasedReportText } from '../../lib/imaging-report';
 
 export const DoctorImaging = () => {
@@ -20,6 +20,15 @@ export const DoctorImaging = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [openStudyId, setOpenStudyId] = useState<string | null>(null);
+  const locale = resolveLocale(uiLang);
+  const formatDateTime = (value: string | null) =>
+    value
+      ? new Date(value).toLocaleString(
+          locale,
+          dateTimeFormatWithNumerals(uiLang, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        )
+      : t('doctor.imaging.notRecorded');
   const studies = useMemo(
     () => data ?? [],
     [data]
@@ -223,7 +232,8 @@ export const DoctorImaging = () => {
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredStudies.map((study) => (
-              <div key={study.id} className={`flex flex-col gap-4 p-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:justify-between ${study.alerts.length > 0 ? 'border-l-4 border-l-red-500 bg-red-50' : ''}`}>
+              <div key={study.id} className={`p-4 transition hover:bg-slate-50 ${study.alerts.length > 0 ? 'border-s-4 border-s-red-500 bg-red-50' : ''}`}>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-700">
@@ -233,7 +243,7 @@ export const DoctorImaging = () => {
                   </div>
                   <div className="mt-1 text-sm text-slate-500">{study.patientName}</div>
                 </div>
-                <div className="text-right text-sm">
+                <div className="text-end text-sm">
                   {(() => {
                     // QA-149: only a released report's text is shown; drafts and rejections say so.
                     const reportState = imagingReportState(study.status);
@@ -256,6 +266,12 @@ export const DoctorImaging = () => {
                   <div className="text-xs text-slate-400">
                     {t(`shared.labOrderItemStatus.${study.status}`, { defaultValue: study.status })}
                   </div>
+                  {study.reviewedAt ? (
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      {t('doctor.imaging.reviewedOn', { date: formatDateTime(study.reviewedAt) })}
+                    </span>
+                  ) : null}
                   {study.status === 'released' && !study.reviewedAt ? (
                     <button
                       type="button"
@@ -269,6 +285,75 @@ export const DoctorImaging = () => {
                     </button>
                   ) : null}
                 </div>
+              </div>
+              {/* QA-150: the full report (and its details) can now be opened from the worklist. */}
+              <button
+                type="button"
+                onClick={() => setOpenStudyId((current) => (current === study.id ? null : study.id))}
+                aria-expanded={openStudyId === study.id}
+                aria-controls={`imaging-report-${study.id}`}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:text-violet-900"
+              >
+                <ChevronDown className={`h-4 w-4 transition ${openStudyId === study.id ? 'rotate-180' : ''}`} />
+                {openStudyId === study.id ? t('doctor.imaging.hideReport') : t('doctor.imaging.viewReport')}
+              </button>
+              {openStudyId === study.id ? (
+                <div id={`imaging-report-${study.id}`} className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                  <dl className="grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+                    <div>
+                      <dt className="font-semibold text-slate-700">{t('doctor.imaging.accession')}</dt>
+                      <dd dir="ltr" className="text-start">{study.accession}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-700">{t('doctor.imaging.scheduledAt')}</dt>
+                      <dd>{formatDateTime(study.scheduledAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-700">{t('doctor.imaging.releasedAt')}</dt>
+                      <dd>{formatDateTime(study.releasedAt)}</dd>
+                    </div>
+                  </dl>
+                  {study.alerts.length > 0 ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                      <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-red-700">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {t('doctor.imaging.alerts')}
+                      </p>
+                      <ul className="list-disc space-y-0.5 ps-5 text-red-700">
+                        {study.alerts.map((alert, index) => (
+                          <li key={`${study.id}-alert-${index}`} dir="auto">
+                            {alert}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {study.status === 'released' ? (
+                    (
+                      [
+                        ['findings', study.findings],
+                        ['impression', study.impression],
+                        ['recommendations', study.recommendations],
+                      ] as const
+                    ).map(([key, value]) => (
+                      <div key={key}>
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t(`doctor.imaging.${key}`)}</p>
+                        <p className="mt-0.5 whitespace-pre-line text-slate-800" dir="auto">
+                          {value?.trim() || t('doctor.imaging.notRecorded')}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="italic text-amber-700">
+                      {study.status === 'rejected'
+                        ? t('doctor.imaging.studyRejected')
+                        : imagingReportState(study.status) === 'notReleased'
+                          ? t('doctor.imaging.reportNotReleased')
+                          : t('doctor.imaging.noReportYet')}
+                    </p>
+                  )}
+                </div>
+              ) : null}
               </div>
             ))}
           </div>

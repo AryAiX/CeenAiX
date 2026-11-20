@@ -2583,7 +2583,18 @@
       "reportNotReleased": "Report not released yet",
       "noReportYet": "No report yet",
       "studyRejected": "Study rejected by the imaging centre",
-      "noReportText": "Released without report text"
+      "noReportText": "Released without report text",
+      "viewReport": "View report",
+      "hideReport": "Hide report",
+      "accession": "Accession",
+      "scheduledAt": "Scheduled",
+      "releasedAt": "Released",
+      "reviewedOn": "Reviewed {{date}}",
+      "findings": "Findings",
+      "impression": "Impression",
+      "recommendations": "Recommendations",
+      "alerts": "Alerts",
+      "notRecorded": "Not recorded"
     },
     "earnings": {
       "title": "Earnings",

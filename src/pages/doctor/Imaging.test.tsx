@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
@@ -71,5 +72,49 @@ describe('DoctorImaging report text (QA-149)', () => {
   it('says there is no report yet before the scan is reported', () => {
     renderImaging([imagingStudy('scheduled', { status: 'scheduled' })]);
     expect(screen.getByText(i18n.t('doctor.imaging.noReportYet'))).toBeInTheDocument();
+  });
+});
+
+describe('DoctorImaging full report (QA-150)', () => {
+  it('opens the full released report with recommendations and alerts', async () => {
+    renderImaging([
+      imagingStudy('chest', {
+        status: 'released',
+        accession: 'ACC-2026-001',
+        findings: 'Small right pleural effusion.',
+        impression: 'Effusion, likely reactive.',
+        recommendations: 'Repeat chest X-ray in 6 weeks.',
+        alerts: ['Follow-up required'],
+        releasedAt: '2026-11-19T10:00:00Z',
+      }),
+    ]);
+    expect(screen.queryByText('Repeat chest X-ray in 6 weeks.')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: i18n.t('doctor.imaging.viewReport') });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const panel = document.getElementById('imaging-report-chest') as HTMLElement;
+    expect(within(panel).getByText('ACC-2026-001')).toBeInTheDocument();
+    expect(within(panel).getByText('Small right pleural effusion.')).toBeInTheDocument();
+    expect(within(panel).getByText('Effusion, likely reactive.')).toBeInTheDocument();
+    expect(within(panel).getByText('Repeat chest X-ray in 6 weeks.')).toBeInTheDocument();
+    expect(within(panel).getByText('Follow-up required')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.imaging.hideReport') }));
+    expect(document.getElementById('imaging-report-chest')).toBeNull();
+  });
+
+  it('never shows draft text in the opened report', async () => {
+    renderImaging([imagingStudy('draft', { status: 'reported', findings: 'Draft findings', recommendations: 'Draft advice' })]);
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('doctor.imaging.viewReport') }));
+    const panel = document.getElementById('imaging-report-draft') as HTMLElement;
+    expect(within(panel).queryByText('Draft findings')).not.toBeInTheDocument();
+    expect(within(panel).queryByText('Draft advice')).not.toBeInTheDocument();
+    expect(within(panel).getByText(i18n.t('doctor.imaging.reportNotReleased'))).toBeInTheDocument();
+  });
+
+  it('shows when a study was reviewed instead of the button', () => {
+    renderImaging([imagingStudy('done', { status: 'released', impression: 'Normal.', reviewedAt: '2026-11-19T12:00:00Z' })]);
+    expect(screen.getByText(/^Reviewed /)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mark reviewed/ })).not.toBeInTheDocument();
   });
 });
