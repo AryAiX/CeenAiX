@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
 import {
-  Activity,
   AlertTriangle,
   Bot,
   Calendar,
   CalendarCheck,
-  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
@@ -18,7 +16,6 @@ import {
   Send,
   Sparkles,
   TestTube,
-  TrendingUp,
   Users,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -806,56 +803,28 @@ export const DoctorDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-slate-200 border-l-4 border-l-indigo-600 bg-white p-6 shadow-md">
-            <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50">
-                <Sparkles className="h-4 w-4 text-violet-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-slate-900">{localCopy.aiTitle}</p>
-                <p className="mt-2 text-sm text-slate-600">{localCopy.aiBody}</p>
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-3">
-                    <TrendingUp className="mb-2 h-4 w-4 text-indigo-600" />
-                    <p className="text-[11px] font-bold text-slate-900">Pattern</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
-                      {recentLabResults[0]?.testName ?? 'Live lab trends'} ready for review.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-3">
-                    <Activity className="mb-2 h-4 w-4 text-amber-500" />
-                    <p className="text-[11px] font-bold text-amber-900">Interaction</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-amber-700">
-                      {featuredAppointment?.allergies[0] ?? 'No active allergy warning'}.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3">
-                    <CheckCircle2 className="mb-2 h-4 w-4 text-emerald-500" />
-                    <p className="text-[11px] font-bold text-emerald-900">Next Step</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-emerald-700">
-                      {featuredAppointment ? `Prepare plan for ${featuredAppointment.patientName}.` : 'Select a patient.'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={!featuredAppointment}
-                  title={featuredAppointment ? localCopy.openAppointment : localCopy.unavailable}
-                  onClick={() => {
-                    if (featuredAppointment) {
-                      navigate(`/doctor/appointments/${featuredAppointment.id}`);
-                    }
-                  }}
-                  className={`mt-4 rounded-xl px-4 py-2 text-sm font-semibold ${
-                    featuredAppointment
-                      ? 'bg-violet-600 text-white hover:bg-violet-700'
-                      : 'cursor-not-allowed bg-violet-100 text-violet-700 opacity-60'
-                  }`}
-                >
-                  {featuredAppointment ? localCopy.openAppointment : localCopy.comingSoon}
-                </button>
-              </div>
+      {/* QA-182: this card used to show three fixed sentences dressed up as AI insights
+          ("Pattern", "Interaction: <first allergy>", "Next step: prepare plan for ...") with no AI
+          behind them. A doctor could read an allergy as a drug interaction warning, so it is now
+          an honest "Coming soon" card. */}
+      <div
+        className="mb-6 rounded-2xl border border-slate-200 border-s-4 border-s-indigo-600 bg-white p-6 shadow-md"
+        data-testid="ai-insights-coming-soon"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50">
+            <Sparkles className="h-4 w-4 text-violet-600" aria-hidden="true" />
+          </div>
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-slate-900">{t('doctor.dashboard.aiInsights.title')}</p>
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                {t('doctor.dashboard.aiInsights.badge')}
+              </span>
             </div>
+            <p className="mt-2 text-sm text-slate-600">{t('doctor.dashboard.aiInsights.body')}</p>
+          </div>
+        </div>
       </div>
 
       <div className="mb-6">

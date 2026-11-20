@@ -1738,6 +1738,11 @@
         "review": "Review",
         "counts": "{{critical}} critical · {{recent}} recent",
         "viewAll": "View all lab results"
+      },
+      "aiInsights": {
+        "title": "AI clinical insights",
+        "badge": "Coming soon",
+        "body": "Planned: AI summaries of trends, possible drug interactions and suggested next steps for your patients. Not available yet, so nothing here is a clinical warning."
       }
     },
     "patients": {

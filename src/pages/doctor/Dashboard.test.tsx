@@ -119,3 +119,40 @@ describe('DoctorDashboard lab results box (QA-180)', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('{"focusLabOrderId":"order-a"}');
   });
 });
+
+describe('DoctorDashboard AI insights card (QA-182)', () => {
+  it('is an honest Coming soon card, with no made-up pattern, interaction or next step', () => {
+    renderWith(
+      dashboard({
+        nextAppointment: {
+          id: 'appt-1',
+          patientId: 'p1',
+          patientName: 'Sara Ali',
+          scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
+          durationMinutes: 30,
+          type: 'in_person',
+          status: 'scheduled',
+          chiefComplaint: 'Headache',
+          patientAgeGender: null,
+          bloodType: null,
+          insuranceName: null,
+          conditions: [],
+          allergies: ['Penicillin'],
+          medications: [],
+          lastVisitAt: null,
+          visitCount: 0,
+        } as never,
+        recentLabResults: [lab('a', { severity: 'abnormal' })],
+      })
+    );
+
+    const card = screen.getByTestId('ai-insights-coming-soon');
+    expect(card).toHaveTextContent('Coming soon');
+    expect(card).toHaveTextContent('nothing here is a clinical warning');
+    expect(card).not.toHaveTextContent('Interaction');
+    expect(card).not.toHaveTextContent('Penicillin');
+    expect(card).not.toHaveTextContent('Prepare plan for');
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
