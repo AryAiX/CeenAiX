@@ -218,3 +218,38 @@ describe('ClinicPatients privacy (QA-208)', () => {
     }
   });
 });
+
+describe('ClinicPatients last visit and counts (QA-209)', () => {
+  it('shows the last completed visit, the next visit and completed counts — not future or cancelled bookings', async () => {
+    vi.setSystemTime(new Date('2026-11-23T08:00:00Z'));
+    rpcPatients = [{ user_id: 'patient-1', full_name: 'Visit Patient', phone: '+971500000001', email: null, date_of_birth: null }];
+    const visits = [
+      { id: 'a1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-01T05:00:00Z', status: 'completed' },
+      { id: 'a2', patient_id: 'patient-1', doctor_id: 'doctor-2', scheduled_at: '2026-11-20T05:00:00Z', status: 'cancelled' },
+      { id: 'a3', patient_id: 'patient-1', doctor_id: 'doctor-2', scheduled_at: '2026-12-01T05:00:00Z', status: 'scheduled' },
+    ];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'appointments' ? visits
+        : table === 'user_profiles' ? [{ user_id: 'doctor-1', full_name: 'First Doctor' }, { user_id: 'doctor-2', full_name: 'Second Doctor' }]
+        : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+
+    const row = (await screen.findByText('Visit Patient')).closest('tr') as HTMLElement;
+    const cells = row.querySelectorAll('td');
+    expect(cells[3].textContent).toBe('Dr. First Doctor'); // doctor of the completed visit
+    expect(cells[4].textContent).toBe('Nov 1, 2026'); // last COMPLETED visit
+    expect(cells[5].textContent).toBe('Dec 1, 2026'); // next visit
+    expect(cells[6].textContent).toBe('1'); // completed visits only
+
+    expect(screen.getByText('Upcoming Visits').previousElementSibling?.textContent).toBe('1');
+    expect(screen.getByText('Visited This Month').previousElementSibling?.textContent).toBe('1');
+  });
+});

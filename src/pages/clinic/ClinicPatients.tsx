@@ -7,6 +7,8 @@ import ClinicBookAppointmentModal, { type ClinicBookingDoctor } from './ClinicBo
 import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
+import { countUpcomingVisits, isInCurrentClinicMonth, summarisePatientVisits } from '../../lib/clinic-patient-summary';
+import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
 
 interface Patient {
@@ -16,9 +18,12 @@ interface Patient {
   email: string;
   dob: string;
   lastVisit: string;
+  /** QA-209: latest COMPLETED visit (not a future or cancelled booking) */
   lastVisitDate: string | null;
+  nextVisit: string;
   doctorId: string | null;
   doctor: string;
+  /** QA-209: completed visits only */
   totalVisits: number;
 }
 
@@ -82,6 +87,9 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <Calendar size={14} className="text-slate-400" /> Last Visit: {patient.lastVisit}
               </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Clock size={14} className="text-slate-400" /> Next Visit: {patient.nextVisit}
+              </div>
             </div>
           </div>
 
@@ -91,7 +99,7 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{patient.totalVisits}</div>
-                <div className="text-xs text-slate-500 mt-0.5">Total Visits</div>
+                <div className="text-xs text-slate-500 mt-0.5">Completed Visits</div>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 text-center">
                 <div className="text-sm font-semibold text-slate-700">{patient.doctor}</div>
@@ -261,17 +269,12 @@ export default function ClinicPatients() {
       const rows: Patient[] = patientIds.map(pid => {
         const profile = (patientProfiles ?? []).find(p => p.user_id === pid);
         const patientApptList = (apptData ?? []).filter(a => a.patient_id === pid);
-        const sorted = [...patientApptList].sort((a, b) =>
-          new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
-        );
-        const lastAppt = sorted[0];
-        const primaryDoctorId = lastAppt?.doctor_id;
-        const dob = profile?.date_of_birth
-          ? new Date(profile.date_of_birth).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '—';
-        const lastVisit = lastAppt?.scheduled_at
-          ? new Date(lastAppt.scheduled_at).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '—';
+        // QA-209: last = latest completed visit, next = earliest upcoming open visit (clinic time)
+        const summary = summarisePatientVisits(patientApptList);
+        const primaryDoctorId = summary.primaryDoctorId ?? undefined;
+        const dob = profile?.date_of_birth ? formatClinicDate(profile.date_of_birth.slice(0, 10), 'en') : '—';
+        const lastVisit = summary.lastVisitAt ? formatClinicDate(summary.lastVisitAt, 'en') : '—';
+        const nextVisit = summary.nextVisitAt ? formatClinicDate(summary.nextVisitAt, 'en') : '—';
 
         return {
           id: pid,
@@ -280,10 +283,11 @@ export default function ClinicPatients() {
           email: profile?.email ?? '—',
           dob,
           lastVisit,
-          lastVisitDate: lastAppt?.scheduled_at ?? null,
-          doctorId: doctorMap.get(primaryDoctorId) ? primaryDoctorId : null,
-          doctor: doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
-          totalVisits: patientApptList.length,
+          lastVisitDate: summary.lastVisitAt,
+          nextVisit,
+          doctorId: primaryDoctorId && doctorMap.get(primaryDoctorId) ? primaryDoctorId : null,
+          doctor: primaryDoctorId && doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
+          totalVisits: summary.completedVisits,
         };
       });
 
@@ -311,12 +315,9 @@ export default function ClinicPatients() {
     setSelectedPatient(patient);
   };
 
-  const now = new Date();
-  const visitedThisMonth = patients.filter(p => {
-    if (!p.lastVisitDate) return false;
-    const d = new Date(p.lastVisitDate);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
+  // QA-209: a completed visit in the current clinic (Dubai) month
+  const visitedThisMonth = patients.filter(p => isInCurrentClinicMonth(p.lastVisitDate)).length;
+  const upcomingVisits = countUpcomingVisits(rawAppts);
 
   const doctorList = doctorFilterOptions(
     patients.flatMap(p => (p.doctorId ? [{ id: p.doctorId, name: p.doctor }] : []))
@@ -361,7 +362,7 @@ export default function ClinicPatients() {
         {[
           { label: 'Total Patients', value: patients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
           { label: 'Visited This Month', value: visitedThisMonth, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Booked Visits', value: rawAppts.length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Upcoming Visits', value: upcomingVisits, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
@@ -398,7 +399,7 @@ export default function ClinicPatients() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
-              {['Patient', 'Contact', 'Date of Birth', 'Doctor', 'Last Visit', 'Visits', ''].map(h => (
+              {['Patient', 'Contact', 'Date of Birth', 'Doctor', 'Last Visit', 'Next Visit', 'Completed Visits', ''].map(h => (
                 <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3">{h}</th>
               ))}
             </tr>
@@ -423,6 +424,7 @@ export default function ClinicPatients() {
                   <td className="px-5 py-4 text-sm text-slate-600">{p.dob}</td>
                   <td className="px-5 py-4 text-sm text-slate-600">{p.doctor}</td>
                   <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{p.lastVisit}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{p.nextVisit}</td>
                   <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{p.totalVisits}</td>
                   <td className="px-5 py-4">
                     <ChevronRight size={16} className="text-slate-300" />
@@ -432,7 +434,7 @@ export default function ClinicPatients() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-16 text-slate-400">
+                <td colSpan={8} className="text-center py-16 text-slate-400">
                   <div className="flex flex-col items-center gap-2">
                     <Users size={32} className="opacity-30" />
                     <p className="text-sm">No patients found.</p>
