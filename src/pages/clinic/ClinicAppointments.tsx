@@ -4,6 +4,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
 import { Plus, Search, Calendar, Clock, X, Save, Check, DollarSign, Phone } from 'lucide-react';
+import {
+  buildClinicBookingSlots,
+  clinicDateKey,
+  clinicDayOfWeek,
+  clinicDayRangeUtc,
+  clinicTimeOfDay,
+  clinicTodayKey,
+  clinicWallTimeToUtcIso,
+} from '../../lib/clinic-booking-time';
 
 interface Appointment {
   id: string;
@@ -22,17 +31,6 @@ interface Appointment {
 
 const apptTypes = ['Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
 
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(mins: number): string {
-  const h = Math.floor(mins / 60).toString().padStart(2, '0');
-  const m = (mins % 60).toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
 
 const TELEMEDICINE_TYPES = new Set(['Telemedicine']);
 
@@ -83,7 +81,7 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose
     setSlotsLoading(true);
     setSlotsError(null);
     try {
-      const dayOfWeek = new Date(`${dateStr}T00:00:00`).getDay();
+      const dayOfWeek = clinicDayOfWeek(dateStr);
 
       const { data: availability } = await supabase
         .from('doctor_availability')
@@ -98,42 +96,21 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose
         .eq('doctor_id', doctorId)
         .eq('blocked_date', dateStr);
 
-      const dayStart = `${dateStr}T00:00:00`;
-      const dayEnd = `${dateStr}T23:59:59`;
+      const { startIso, endIso } = clinicDayRangeUtc(dateStr);
       const { data: existingAppts } = await supabase
         .from('appointments')
         .select('scheduled_at, duration_minutes')
         .eq('doctor_id', doctorId)
-        .gte('scheduled_at', dayStart)
-        .lte('scheduled_at', dayEnd)
+        .gte('scheduled_at', startIso)
+        .lte('scheduled_at', endIso)
         .eq('is_deleted', false)
         .not('status', 'in', '("cancelled","no_show")');
 
-      const slots: string[] = [];
-      (availability ?? []).forEach(window => {
-        const duration = window.slot_duration_minutes || 30;
-        let cursor = timeToMinutes(window.start_time);
-        const end = timeToMinutes(window.end_time);
-        while (cursor + duration <= end) {
-          const slotEnd = cursor + duration;
-
-          const isBlocked = (blocked ?? []).some(b => {
-            const bStart = timeToMinutes(b.start_time);
-            const bEnd = timeToMinutes(b.end_time);
-            return cursor < bEnd && slotEnd > bStart;
-          });
-
-          const isBooked = (existingAppts ?? []).some(a => {
-            const aStart = timeToMinutes(new Date(a.scheduled_at).toTimeString().slice(0, 5));
-            const aEnd = aStart + (a.duration_minutes || 30);
-            return cursor < aEnd && slotEnd > aStart;
-          });
-
-          if (!isBlocked && !isBooked) {
-            slots.push(minutesToTime(cursor));
-          }
-          cursor += duration;
-        }
+      const slots = buildClinicBookingSlots({
+        dateKey: dateStr,
+        availability: availability ?? [],
+        blocked: blocked ?? [],
+        booked: existingAppts ?? [],
       });
 
       setAvailableSlots(slots);
@@ -240,7 +217,7 @@ function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose
             <input
               type="date"
               value={form.date}
-              min={new Date().toISOString().split('T')[0]}
+              min={clinicTodayKey()}
               onChange={set('date')}
               className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
@@ -316,7 +293,7 @@ export default function ClinicAppointments() {
   const [filterDate, setFilterDate] = useState('today');
   const [showBook, setShowBook] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = clinicTodayKey();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -386,7 +363,6 @@ export default function ClinicAppointments() {
       const apptRows: Appointment[] = (apptData ?? []).map(a => {
         const patient = profileMap.get(a.patient_id);
         const doctor = profileMap.get(a.doctor_id);
-        const scheduledAt = new Date(a.scheduled_at);
         const createdAt = new Date(a.created_at).getTime();
         const updatedAt = new Date(a.updated_at).getTime();
         const wasRescheduled = updatedAt - createdAt > 60000; // more than 1 minute apart
@@ -397,8 +373,8 @@ export default function ClinicAppointments() {
           doctor: doctor?.full_name ?? 'Unknown Doctor',
           specialty: specMap.get(a.doctor_id) ?? 'General Practice',
           type: a.chief_complaint ?? a.type ?? 'Consultation',
-          date: scheduledAt.toISOString().split('T')[0],
-          time: scheduledAt.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          date: clinicDateKey(a.scheduled_at),
+          time: clinicTimeOfDay(a.scheduled_at),
           status: a.status as Appointment['status'],
           price: feeMap.get(a.doctor_id) ?? 0,
           notes: a.notes ?? '',
@@ -455,7 +431,8 @@ export default function ClinicAppointments() {
       const selectedDoctor = doctorOptions.find(d => d.userId === data.doctor);
       if (!selectedDoctor) throw new Error('Please select a valid doctor.');
 
-      const scheduledAt = `${data.date}T${data.time}:00`;
+      if (!data.date || !data.time) throw new Error('Please select a date and time.');
+      const scheduledAt = clinicWallTimeToUtcIso(data.date, data.time);
 
       const apptType = data.type && TELEMEDICINE_TYPES.has(data.type) ? 'virtual' : 'in_person';
 

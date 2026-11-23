@@ -11,6 +11,9 @@ export interface MockSupabaseQueryBuilder<T> extends PromiseLike<MockSupabaseRes
   eq: ReturnType<typeof vi.fn>;
   neq: ReturnType<typeof vi.fn>;
   gte: ReturnType<typeof vi.fn>;
+  lt: ReturnType<typeof vi.fn>;
+  lte: ReturnType<typeof vi.fn>;
+  ilike: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
   is: ReturnType<typeof vi.fn>;
   not: ReturnType<typeof vi.fn>;
@@ -32,6 +35,9 @@ export const createSupabaseQueryBuilder = <T>(
   builder.eq = vi.fn(() => builder);
   builder.neq = vi.fn(() => builder);
   builder.gte = vi.fn(() => builder);
+  builder.lt = vi.fn(() => builder);
+  builder.lte = vi.fn(() => builder);
+  builder.ilike = vi.fn(() => builder);
   builder.in = vi.fn(() => builder);
   builder.is = vi.fn(() => builder);
   builder.not = vi.fn(() => builder);
