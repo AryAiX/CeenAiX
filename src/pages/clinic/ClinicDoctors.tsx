@@ -251,8 +251,10 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
               <div className="p-4 bg-slate-50 rounded-xl">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">DHA License</div>
                 <div className="font-mono text-sm text-slate-800">{doctor.dhaLicense}</div>
-                <div className={`mt-2 inline-flex items-center gap-1 text-xs font-medium ${doctor.status === 'active' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  <CheckCircle size={12} /> {doctor.status === 'active' ? 'Verified & Active' : 'Pending Verification'}
+                {/* QA-201: the real DHA verification, not the clinic link status */}
+                <div className={`mt-2 inline-flex items-center gap-1 text-xs font-medium ${doctor.dhaVerified ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {doctor.dhaVerified ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                  {doctor.dhaVerified ? 'Verified by CeenAiX' : 'Not verified yet'}
                 </div>
               </div>
 
@@ -774,7 +776,7 @@ export default function ClinicDoctors() {
           <AlertCircle size={18} className="text-amber-600 shrink-0" />
           <div className="flex-1">
             <span className="font-semibold text-amber-800 text-sm">{counts.pending} doctor{counts.pending > 1 ? 's' : ''} pending approval</span>
-            <span className="text-amber-700 text-sm"> — Review their DHA licenses before activating.</span>
+            <span className="text-amber-700 text-sm"> — Check each doctor&apos;s DHA licence status before approving.</span>
           </div>
         </div>
       )}
@@ -804,7 +806,12 @@ export default function ClinicDoctors() {
                   </div>
                 </td>
                 <td className="px-5 py-4 text-sm text-slate-600">{d.specialty}</td>
-                <td className="px-5 py-4 font-mono text-xs text-slate-600">{d.dhaLicense}</td>
+                <td className="px-5 py-4">
+                  <div className="font-mono text-xs text-slate-600">{d.dhaLicense}</div>
+                  <div className={`text-[11px] font-medium ${d.dhaVerified ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {d.dhaVerified ? 'Verified' : 'Not verified'}
+                  </div>
+                </td>
                 <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{d.todayAppts}</td>
                 <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{d.totalAppts}</td>
                 <td className="px-5 py-4 font-bold text-sm text-teal-700" style={{ fontFamily: 'DM Mono, monospace' }}>{d.consultationFee}</td>

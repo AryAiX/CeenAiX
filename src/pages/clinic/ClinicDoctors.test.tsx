@@ -31,13 +31,14 @@ const PEOPLE = [
   { user_id: 'doc-new', full_name: 'Dr New Person', phone: null, email: 'new@example.test' },
 ];
 
-const setup = () => {
+const setup = (doctorProfiles: unknown[] = []) => {
   const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
     const data =
       table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
       : table === 'facility_staff' ? LINKS
       : table === 'user_profiles' ? PEOPLE
+      : table === 'doctor_profiles' ? doctorProfiles
       : [];
     const builder = createSupabaseQueryBuilder({ data, error: null });
     (calls[table] ??= []).push(builder);
@@ -162,5 +163,30 @@ describe('ClinicDoctors approve (QA-200)', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('This clinic link cannot be approved in its current state.')).not.toBeInTheDocument();
     await waitFor(() => expect(calls.facility_staff.length).toBeGreaterThan(loadsBefore));
+  });
+});
+
+describe('ClinicDoctors DHA licence status (QA-201)', () => {
+  const profiles = [
+    { user_id: 'doc-active', specialization: 'Cardiology', license_number: 'DHA-111', dha_license_verified: false, consultation_fee: null },
+    { user_id: 'doc-pending', specialization: 'Dermatology', license_number: 'DHA-222', dha_license_verified: true, consultation_fee: null },
+  ];
+
+  it('does not call an active doctor "Verified" when the licence is not verified', async () => {
+    setup(profiles);
+    const row = await rowOf('Dr Active Person');
+    expect(within(row).getByText('Not verified')).toBeInTheDocument();
+    fireEvent.click(within(row).getByTitle('View profile'));
+    expect(screen.getByText('Not verified yet')).toBeInTheDocument();
+    expect(screen.queryByText(/Verified & Active/)).not.toBeInTheDocument();
+  });
+
+  it('shows a verified licence as verified, whatever the clinic link status', async () => {
+    setup(profiles);
+    const row = await rowOf('Dr Pending Person');
+    expect(within(row).getByText('Verified')).toBeInTheDocument();
+    fireEvent.click(within(row).getByTitle('View profile'));
+    expect(screen.getByText('Verified by CeenAiX')).toBeInTheDocument();
+    expect(screen.queryByText(/Pending Verification/)).not.toBeInTheDocument();
   });
 });
