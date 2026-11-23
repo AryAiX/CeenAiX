@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
 import { Plus, Search, Calendar, Clock, Check, DollarSign, Phone } from 'lucide-react';
 import { clinicDateKey, clinicTimeOfDay, clinicTodayKey } from '../../lib/clinic-booking-time';
 import ClinicBookAppointmentModal, { type ClinicBookedAppointment, type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
-import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
+import { appointmentTypeForReason, doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
+import { estimatedVisitFee, sumEstimatedFees, type ClinicFeeLink } from '../../lib/clinic-visit-fee';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import { getClinicAppointmentActions, type ClinicAppointmentStatusChange } from '../../lib/appointment-actions';
 import type { AppointmentStatus } from '../../types/enums';
 
@@ -20,7 +23,8 @@ interface Appointment {
   date: string;
   time: string;
   status: AppointmentStatus;
-  price: number;
+  /** 'in_person' | 'virtual' (QA-195: telemedicine visits use the telemedicine fee) */
+  visitType: string;
   notes: string;
   wasRescheduled: boolean;
   /** Stored start time (UTC ISO); used for the QA-190 status rules. */
@@ -145,6 +149,8 @@ const statusOptions = [
 
 export default function ClinicAppointments() {
   const { user } = useAuth();
+  const { i18n } = useTranslation();
+  const [feeLinks, setFeeLinks] = useState<Map<string, ClinicFeeLink>>(new Map());
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,13 +220,11 @@ export default function ClinicAppointments() {
 
       const { data: staffData } = await supabase
         .from('facility_staff')
-        .select('doctor_user_id, consultation_fee, invitation_status, is_active')
-        .eq('facility_id', fId)
-        .eq('is_active', true);
+        .select('doctor_user_id, consultation_fee, telemedicine_fee, follow_up_fee, invitation_status, is_active')
+        .eq('facility_id', fId);
 
-      const feeMap = new Map(
-        (staffData ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0])
-      );
+      // QA-195: all links (also doctors who left), so past visits keep their estimated price
+      setFeeLinks(new Map((staffData ?? []).map(s => [s.doctor_user_id, s as ClinicFeeLink])));
 
       // Build appointments
       const apptRows: Appointment[] = (apptData ?? []).map(a => {
@@ -240,7 +244,7 @@ export default function ClinicAppointments() {
           date: clinicDateKey(a.scheduled_at),
           time: clinicTimeOfDay(a.scheduled_at),
           status: a.status as Appointment['status'],
-          price: feeMap.get(a.doctor_id) ?? 0,
+          visitType: a.type ?? 'in_person',
           notes: a.notes ?? '',
           wasRescheduled,
           scheduledAt: a.scheduled_at,
@@ -288,9 +292,10 @@ export default function ClinicAppointments() {
     return matchSearch && matchStatus && matchDoctor && matchDate;
   });
 
-  const todayRevenue = appts
-    .filter(a => a.date === today && a.status === 'completed')
-    .reduce((s, a) => s + a.price, 0);
+  /** QA-195: estimate only (current fee list; nothing is billed from this page). */
+  const feeFor = (a: Appointment) => estimatedVisitFee(feeLinks.get(a.doctorId), { visitType: a.visitType, reason: a.type });
+  const money = (value: number | null) => (value === null ? '—' : formatLocaleCurrency(value, i18n.language));
+  const todayRevenue = sumEstimatedFees(appts.filter(a => a.date === today && a.status === 'completed').map(feeFor));
 
   /** QA-191: the popup books through clinic_book_appointment; here we only show the new row. */
   const handleBooked = (booked: ClinicBookedAppointment) => {
@@ -305,7 +310,7 @@ export default function ClinicAppointments() {
       date: booked.date,
       time: booked.time,
       status: 'scheduled',
-      price: booked.doctor.consultationFee,
+      visitType: appointmentTypeForReason(booked.reason),
       notes: booked.notes,
       wasRescheduled: false,
       scheduledAt: booked.scheduledAt,
@@ -379,7 +384,7 @@ export default function ClinicAppointments() {
           { label: "Today's Total", value: appts.filter(a => a.date === today).length, icon: Calendar, color: 'text-teal-600', bg: 'bg-teal-50' },
           { label: 'Completed Today', value: appts.filter(a => a.date === today && a.status === 'completed').length, icon: Check, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Upcoming', value: appts.filter(a => a.date >= today && ['scheduled', 'confirmed'].includes(a.status)).length, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: "Today's Revenue", value: `AED ${todayRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Est. revenue today (completed)', value: money(todayRevenue), icon: DollarSign, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
@@ -418,12 +423,16 @@ export default function ClinicAppointments() {
         </select>
       </div>
 
+      <p className="text-xs text-slate-500">
+        Prices and revenue are estimates from the clinic&apos;s current fee list. Nothing is billed from this page.
+      </p>
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
-              {['Date & Time', 'Patient', 'Doctor', 'Type', 'Price', 'Status', 'Actions'].map(h => (
+              {['Date & Time', 'Patient', 'Doctor', 'Type', 'Est. price', 'Status', 'Actions'].map(h => (
                 <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3">{h}</th>
               ))}
             </tr>
@@ -451,7 +460,7 @@ export default function ClinicAppointments() {
                     <div className="text-xs text-slate-400">{a.specialty}</div>
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-600">{a.type}</td>
-                  <td className="px-5 py-4 font-bold text-sm text-teal-700" style={{ fontFamily: 'DM Mono, monospace' }}>AED {a.price}</td>
+                  <td className="px-5 py-4 font-bold text-sm text-teal-700" style={{ fontFamily: 'DM Mono, monospace' }}>{money(feeFor(a))}</td>
                   <td className="px-5 py-4">
                     <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border w-fit ${s.color}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />{s.label}

@@ -302,3 +302,70 @@ describe('ClinicAppointments doctor lists (QA-194)', () => {
     expect(screen.getByText('Visit two')).toBeInTheDocument();
   });
 });
+
+describe('ClinicAppointments estimated prices (QA-195)', () => {
+  const visit = (id: string, doctorId: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    patient_id: 'patient-1',
+    doctor_id: doctorId,
+    scheduled_at: '2026-11-24T03:00:00Z', // 07:00 Dubai, today
+    status: 'completed',
+    type: 'in_person',
+    chief_complaint: 'Consultation',
+    notes: null,
+    duration_minutes: 30,
+    created_at: '2026-11-20T10:00:00Z',
+    updated_at: '2026-11-20T10:00:00Z',
+    ...extra,
+  });
+  const plain = (value: string | null | undefined) => (value ?? '').replace(/\u00a0/g, ' ');
+  const priceCell = async (id: string) => {
+    const row = (await screen.findByText(`Patient ${id}`)).closest('tr') as HTMLElement;
+    return plain(row.querySelectorAll('td')[4].textContent);
+  };
+
+  it('uses the fee for the kind of visit, keeps fees of doctors who left, and shows — when none is set', async () => {
+    vi.setSystemTime(new Date('2026-11-24T08:00:00Z')); // 12:00 Dubai
+    setupSupabase({
+      listAppointments: [
+        visit('consult', 'doctor-1', { patient_id: 'p-consult' }),
+        visit('tele', 'doctor-1', { patient_id: 'p-tele', type: 'virtual', chief_complaint: 'Telemedicine' }),
+        visit('follow', 'doctor-1', { patient_id: 'p-follow', chief_complaint: 'Follow-up Visit', status: 'scheduled' }),
+        visit('left', 'doctor-left', { patient_id: 'p-left' }),
+        visit('nofee', 'doctor-nofee', { patient_id: 'p-nofee' }),
+      ],
+      staff: [
+        { doctor_user_id: 'doctor-1', consultation_fee: 300, telemedicine_fee: 250, follow_up_fee: 150, invitation_status: 'accepted', is_active: true },
+        { doctor_user_id: 'doctor-left', consultation_fee: 400, invitation_status: 'removed', is_active: false },
+        { doctor_user_id: 'doctor-nofee', consultation_fee: null, invitation_status: 'accepted', is_active: true },
+      ],
+      profiles: ['consult', 'tele', 'follow', 'left', 'nofee'].map((id) => ({ user_id: `p-${id}`, full_name: `Patient ${id}`, phone: null })),
+    });
+    render(<ClinicAppointments />);
+
+    expect(await priceCell('consult')).toBe('AED 300');
+    expect(await priceCell('tele')).toBe('AED 250');
+    expect(await priceCell('follow')).toBe('AED 150');
+    expect(await priceCell('left')).toBe('AED 400');
+    expect(await priceCell('nofee')).toBe('—');
+  });
+
+  it('labels revenue as an estimate of completed visits today', async () => {
+    vi.setSystemTime(new Date('2026-11-24T08:00:00Z'));
+    setupSupabase({
+      listAppointments: [
+        visit('a', 'doctor-1', { patient_id: 'p-a' }),
+        visit('b', 'doctor-1', { patient_id: 'p-b', type: 'virtual', chief_complaint: 'Telemedicine' }),
+        visit('c', 'doctor-1', { patient_id: 'p-c', status: 'scheduled' }),
+      ],
+      staff: [{ doctor_user_id: 'doctor-1', consultation_fee: 300, telemedicine_fee: 250, invitation_status: 'accepted', is_active: true }],
+      profiles: ['a', 'b', 'c'].map((id) => ({ user_id: `p-${id}`, full_name: `Patient ${id}`, phone: null })),
+    });
+    render(<ClinicAppointments />);
+
+    const label = await screen.findByText('Est. revenue today (completed)');
+    expect(plain(label.previousElementSibling?.textContent)).toBe('AED 550');
+    expect(screen.getByText(/Prices and revenue are estimates from the clinic.s current fee list/)).toBeInTheDocument();
+    expect(screen.getByText('Est. price')).toBeInTheDocument();
+  });
+});

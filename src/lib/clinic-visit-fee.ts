@@ -1,0 +1,41 @@
+/**
+ * QA-195: estimated price of a clinic visit.
+ *
+ * No price is stored on an appointment and nothing is billed yet, so the clinic portal can only
+ * estimate it from the clinic's CURRENT fee list for that doctor (facility_staff):
+ *   * telemedicine (virtual) visit -> telemedicine_fee, else consultation_fee;
+ *   * "Follow-up Visit"            -> follow_up_fee, else consultation_fee;
+ *   * anything else                -> consultation_fee.
+ * Returns null when no fee is set (shown as "—", never as AED 0). Links that are no longer active
+ * still count, so past visits of a doctor who left keep their estimate.
+ */
+export interface ClinicFeeLink {
+  doctor_user_id: string;
+  consultation_fee: number | string | null;
+  telemedicine_fee?: number | string | null;
+  follow_up_fee?: number | string | null;
+}
+
+const toFee = (value: number | string | null | undefined): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const fee = Number(value);
+  return Number.isFinite(fee) && fee >= 0 ? fee : null;
+};
+
+export const estimatedVisitFee = (
+  link: ClinicFeeLink | undefined,
+  visit: { visitType: string; reason: string }
+): number | null => {
+  if (!link) return null;
+  const consultation = toFee(link.consultation_fee);
+  if (visit.visitType === 'virtual') return toFee(link.telemedicine_fee) ?? consultation;
+  if (visit.reason === 'Follow-up Visit') return toFee(link.follow_up_fee) ?? consultation;
+  return consultation;
+};
+
+/** Sum of the known estimates; null when none of the visits has a fee set. */
+export const sumEstimatedFees = (fees: (number | null)[]): number | null => {
+  const known = fees.filter((fee): fee is number => fee !== null);
+  if (fees.length > 0 && known.length === 0) return null;
+  return known.reduce((total, fee) => total + fee, 0);
+};
