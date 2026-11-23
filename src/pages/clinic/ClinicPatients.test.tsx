@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
+import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
 import ClinicPatients from './ClinicPatients';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
@@ -120,4 +121,49 @@ describe('ClinicPatients doctor filter (QA-194)', () => {
     expect(screen.queryByText('First Patient')).not.toBeInTheDocument();
     expect(screen.getByText('Second Patient')).toBeInTheDocument();
   });
+});
+
+describe('ClinicPatients long lists (QA-197)', () => {
+  it('lists patients whose visits are past the first 1,000 rows, with real names', async () => {
+    // 1,200 visits by 300 patients; patients 250-299 only appear after row 1,000
+    const visits = Array.from({ length: 1200 }, (_, i) => ({
+      id: `a-${String(i).padStart(4, '0')}`,
+      patient_id: `patient-${i < 1000 ? i % 250 : 250 + (i % 50)}`,
+      doctor_id: 'doctor-1',
+      scheduled_at: '2026-11-01T05:00:00Z',
+      status: 'completed',
+    }));
+    const people = [
+      { user_id: 'doctor-1', full_name: 'Dr Test Doctor' },
+      ...Array.from({ length: 300 }, (_, i) => ({
+        user_id: `patient-${i}`,
+        full_name: `Patient Number ${i}`,
+        phone: `+97150${String(i).padStart(7, '0')}`,
+        email: null,
+        date_of_birth: null,
+      })),
+    ];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'facility-1' }, error: null });
+      if (table === 'appointments') return createServerLikeBuilder(visits);
+      if (table === 'user_profiles') return createServerLikeBuilder(people);
+      if (table === 'facility_staff') {
+        return createSupabaseQueryBuilder({
+          data: [{ doctor_user_id: 'doctor-1', consultation_fee: 300, invitation_status: 'accepted', is_active: true }],
+          error: null,
+        });
+      }
+      return createServerLikeBuilder([]);
+    }) as never);
+
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Patient Number 299')).toBeInTheDocument();
+    expect(screen.getByText('Patient Number 0')).toBeInTheDocument();
+    expect(screen.queryByText('Unknown Patient')).not.toBeInTheDocument();
+  }, 20000);
 });

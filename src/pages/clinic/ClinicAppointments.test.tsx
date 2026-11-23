@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
+import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
 import ClinicAppointments from './ClinicAppointments';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
@@ -394,4 +395,47 @@ describe('ClinicAppointments rescheduled badge (QA-196)', () => {
     await screen.findByText('Test Patient');
     expect(screen.queryByText(/Rescheduled/)).not.toBeInTheDocument();
   });
+});
+
+describe('ClinicAppointments long lists (QA-197)', () => {
+  it('shows all 1,200 visits of today with real names (no silent 1,000-row cut, no failed name lookup)', async () => {
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    const visits = Array.from({ length: 1200 }, (_, i) => ({
+      id: `appt-${String(i).padStart(4, '0')}`,
+      patient_id: `patient-${i % 300}`,
+      doctor_id: 'doctor-1',
+      scheduled_at: '2026-11-24T05:00:00Z',
+      status: 'scheduled',
+      type: 'in_person',
+      chief_complaint: 'Consultation',
+      notes: null,
+      duration_minutes: 30,
+      created_at: '2026-11-20T10:00:00Z',
+      updated_at: '2026-11-20T10:00:00Z',
+    }));
+    const people = [
+      { user_id: 'doctor-1', full_name: 'Dr Test Doctor', phone: null },
+      ...Array.from({ length: 300 }, (_, i) => ({ user_id: `patient-${i}`, full_name: `Patient Number ${i}`, phone: null })),
+    ];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'facility-1' }, error: null });
+      if (table === 'appointments') return createServerLikeBuilder(visits);
+      if (table === 'user_profiles') return createServerLikeBuilder(people);
+      if (table === 'facility_staff') {
+        return createSupabaseQueryBuilder({
+          data: [{ doctor_user_id: 'doctor-1', consultation_fee: 300, invitation_status: 'accepted', is_active: true }],
+          error: null,
+        });
+      }
+      return createServerLikeBuilder([]);
+    }) as never);
+
+    render(<ClinicAppointments />);
+
+    const totalLabel = await screen.findByText("Today's Total");
+    expect(totalLabel.previousElementSibling?.textContent).toBe('1200');
+    expect(screen.queryByText('Unknown Patient')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Patient Number 299').length).toBe(4);
+    expect(screen.queryByText('Showing the most recent 20,000 appointments.')).not.toBeInTheDocument();
+  }, 20000);
 });

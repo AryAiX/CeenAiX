@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import ClinicBookAppointmentModal, { type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
 import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
+import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
 
 interface Patient {
@@ -172,6 +173,7 @@ export default function ClinicPatients() {
   const [showBook, setShowBook] = useState(false);
   const [bookingPatient, setBookingPatient] = useState<{ userId: string; fullName: string; phone: string } | null>(null);
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
+  const [listTruncated, setListTruncated] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -195,13 +197,18 @@ export default function ClinicPatients() {
 
       const facilityId = memberData.facility_id;
 
-      const { data: apptData, error: apptError } = await supabase
-        .from('appointments')
-        .select('id, patient_id, doctor_id, scheduled_at, status')
-        .eq('facility_id', facilityId)
-        .eq('is_deleted', false);
-
-      if (apptError) throw apptError;
+      // QA-197: read every visit in pages (the API stops at 1,000 rows without saying so)
+      const { rows: apptData, truncated } = await fetchAllPages((from, to) =>
+        supabase
+          .from('appointments')
+          .select('id, patient_id, doctor_id, scheduled_at, status')
+          .eq('facility_id', facilityId)
+          .eq('is_deleted', false)
+          .order('scheduled_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      setListTruncated(truncated);
 
       const { data: staffData } = await supabase
         .from('facility_staff')
@@ -241,17 +248,15 @@ export default function ClinicPatients() {
 
       const doctorIds = [...new Set((apptData ?? []).map(a => a.doctor_id))];
 
-      const { data: patientProfiles } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name, phone, email, date_of_birth')
-        .in('user_id', patientIds);
+      // QA-197: look names up in small batches (hundreds of ids in one address fail)
+      const patientProfiles = await fetchByIdChunks(patientIds, (ids) =>
+        supabase.from('user_profiles').select('user_id, full_name, phone, email, date_of_birth').in('user_id', ids)
+      );
+      const doctorProfiles = await fetchByIdChunks(doctorIds, (ids) =>
+        supabase.from('user_profiles').select('user_id, full_name').in('user_id', ids)
+      );
 
-      const { data: doctorProfiles } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name')
-        .in('user_id', doctorIds);
-
-      const doctorMap = new Map((doctorProfiles ?? []).map(d => [d.user_id, d.full_name]));
+      const doctorMap = new Map(doctorProfiles.map(d => [d.user_id, d.full_name]));
 
       const rows: Patient[] = patientIds.map(pid => {
         const profile = (patientProfiles ?? []).find(p => p.user_id === pid);
@@ -371,6 +376,9 @@ export default function ClinicPatients() {
         })}
       </div>
 
+      {listTruncated && (
+        <p role="status" className="text-xs text-amber-700">Based on the most recent 20,000 appointments.</p>
+      )}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

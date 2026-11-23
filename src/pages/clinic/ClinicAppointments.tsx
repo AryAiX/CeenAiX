@@ -9,6 +9,7 @@ import ClinicBookAppointmentModal, { type ClinicBookedAppointment, type ClinicBo
 import { appointmentTypeForReason, doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
 import { estimatedVisitFee, sumEstimatedFees, type ClinicFeeLink } from '../../lib/clinic-visit-fee';
 import { formatLocaleCurrency } from '../../lib/i18n-ui';
+import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { getClinicAppointmentActions, type ClinicAppointmentStatusChange } from '../../lib/appointment-actions';
 import type { AppointmentStatus } from '../../types/enums';
 
@@ -150,6 +151,7 @@ export default function ClinicAppointments() {
   const { user } = useAuth();
   const { i18n } = useTranslation();
   const [feeLinks, setFeeLinks] = useState<Map<string, ClinicFeeLink>>(new Map());
+  const [listTruncated, setListTruncated] = useState(false);
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,35 +189,34 @@ export default function ClinicAppointments() {
 
       const fId = memberData.facility_id;
 
-      // Fetch appointments
-      const { data: apptData, error: apptError } = await supabase
-        .from('appointments')
-        .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint, notes, duration_minutes, created_at, updated_at')
-        .eq('facility_id', fId)
-        .eq('is_deleted', false)
-        .order('scheduled_at', { ascending: false });
-
-      if (apptError) throw apptError;
+      // QA-197: read the whole list in pages (the API stops at 1,000 rows without saying so)
+      const { rows: apptData, truncated } = await fetchAllPages((from, to) =>
+        supabase
+          .from('appointments')
+          .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint, notes, duration_minutes, created_at, updated_at')
+          .eq('facility_id', fId)
+          .eq('is_deleted', false)
+          .order('scheduled_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      setListTruncated(truncated);
 
       // Get all unique user IDs
-      const patientIds = [...new Set((apptData ?? []).map(a => a.patient_id))];
-      const doctorIds = [...new Set((apptData ?? []).map(a => a.doctor_id))];
+      const patientIds = [...new Set(apptData.map(a => a.patient_id))];
+      const doctorIds = [...new Set(apptData.map(a => a.doctor_id))];
       const allIds = [...new Set([...patientIds, ...doctorIds])];
 
-      // Fetch profiles
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name, phone')
-        .in('user_id', allIds);
+      // QA-197: look names up in small batches (hundreds of ids in one address fail)
+      const profileData = await fetchByIdChunks(allIds, (ids) =>
+        supabase.from('user_profiles').select('user_id, full_name, phone').in('user_id', ids)
+      );
+      const doctorProfileData = await fetchByIdChunks(doctorIds, (ids) =>
+        supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', ids)
+      );
 
-      // Fetch doctor specializations
-      const { data: doctorProfileData } = await supabase
-        .from('doctor_profiles')
-        .select('user_id, specialization')
-        .in('user_id', doctorIds);
-
-      const profileMap = new Map((profileData ?? []).map(p => [p.user_id, p]));
-      const specMap = new Map((doctorProfileData ?? []).map(d => [d.user_id, d.specialization]));
+      const profileMap = new Map(profileData.map(p => [p.user_id, p]));
+      const specMap = new Map(doctorProfileData.map(d => [d.user_id, d.specialization]));
 
       const { data: staffData } = await supabase
         .from('facility_staff')
@@ -226,7 +227,7 @@ export default function ClinicAppointments() {
       setFeeLinks(new Map((staffData ?? []).map(s => [s.doctor_user_id, s as ClinicFeeLink])));
 
       // Build appointments
-      const apptRows: Appointment[] = (apptData ?? []).map(a => {
+      const apptRows: Appointment[] = apptData.map(a => {
         const patient = profileMap.get(a.patient_id);
         const doctor = profileMap.get(a.doctor_id);
         return {
@@ -417,6 +418,9 @@ export default function ClinicAppointments() {
         </select>
       </div>
 
+      {listTruncated && (
+        <p role="status" className="text-xs text-amber-700">Showing the most recent 20,000 appointments.</p>
+      )}
       <p className="text-xs text-slate-500">
         Prices and revenue are estimates from the clinic&apos;s current fee list. Nothing is billed from this page.
       </p>
