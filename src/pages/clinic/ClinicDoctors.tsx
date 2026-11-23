@@ -44,10 +44,29 @@ const statusConfig = {
   suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700 border-red-200' },
 };
 
+/** QA-199: every clinic change to a doctor's link goes through clinic_doctor_link_action. */
+export type ClinicDoctorLinkAction = 'invite' | 'cancel_invite' | 'reject' | 'suspend' | 'reactivate' | 'remove';
 
-function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
+const runDoctorLinkAction = async (doctorUserId: string, action: ClinicDoctorLinkAction): Promise<string> => {
+  const { data, error } = await supabase.rpc('clinic_doctor_link_action', {
+    p_doctor_user_id: doctorUserId,
+    p_action: action,
+  });
+  if (error) throw error;
+  return data as string;
+};
+
+/** Plain message for a refused doctor-link change (never the raw database text). */
+const doctorLinkErrorMessage = (err: unknown): string => {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === '22023') return 'This change is no longer possible for this doctor. The list has been refreshed.';
+  if (code === '42501') return 'Only clinic admins and managers can change clinic doctors.';
+  if (code === 'P0002') return 'This doctor could not be found.';
+  return 'Could not update the doctor. Please try again.';
+};
+
+function AddDoctorModal({ onClose, existingDoctorIds, onInvited }: {
   onClose: () => void;
-  facilityId: string;
   existingDoctorIds: string[];
   onInvited: (doctorName: string) => void;
 }) {
@@ -89,58 +108,12 @@ function AddDoctorModal({ onClose, facilityId, existingDoctorIds, onInvited }: {
     setInvitingId(doctorUserId);
     setInviteError(null);
     try {
-      // Check if a facility_staff row already exists for this doctor at this clinic
-      const { data: existing } = await supabase
-        .from('facility_staff')
-        .select('id')
-        .eq('facility_id', facilityId)
-        .eq('doctor_user_id', doctorUserId)
-        .maybeSingle();
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('facility_staff')
-          .update({
-            invitation_status: 'invited',
-            is_active: false,
-            is_available: false,
-          })
-          .eq('id', existing.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('facility_staff')
-          .insert({
-            facility_id: facilityId,
-            doctor_user_id: doctorUserId,
-            invitation_status: 'invited',
-            is_active: false,
-            is_available: false,
-          });
-        if (insertError) throw insertError;
-      }
-
+      // QA-199: one database call creates / re-opens the invitation and notifies the doctor
+      await runDoctorLinkAction(doctorUserId, 'invite');
       const invitedDoc = results.find(r => r.userId === doctorUserId);
-
-      // Fetch clinic name for the notification
-      const { data: facilityData } = await supabase
-        .from('facilities')
-        .select('name, name_en')
-        .eq('id', facilityId)
-        .maybeSingle();
-      const clinicName = facilityData?.name_en ?? facilityData?.name ?? 'A clinic';
-
-      await supabase.from('notifications').insert({
-        user_id: doctorUserId,
-        type: 'system',
-        title: '🏥 Clinic Invitation',
-        body: `${clinicName} has invited you to join their staff. Review and respond in Settings → My Clinic.`,
-        action_url: '/doctor/settings?section=my-clinic',
-      });
-
       onInvited(invitedDoc?.name ?? 'the doctor');
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'Failed to send invitation.');
+      setInviteError(doctorLinkErrorMessage(err));
     } finally {
       setInvitingId(null);
     }
@@ -408,7 +381,7 @@ export default function ClinicDoctors() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
-  const [editForm, setEditForm] = useState({ consultationFee: 0, status: '' });
+  const [editForm, setEditForm] = useState({ consultationFee: 0 });
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -665,79 +638,35 @@ export default function ClinicDoctors() {
     }
   };
 
-  const handleReject = async (id: string) => {
+  /** QA-199: reject / cancel invite / suspend / remove through clinic_doctor_link_action. */
+  const runAction = async (id: string, action: ClinicDoctorLinkAction) => {
+    const doctor = doctors.find(d => d.id === id);
+    if (!doctor) return;
     try {
-      const { error: updateError } = await supabase
-        .from('facility_staff')
-        .update({
-          is_active: false,
-          is_available: false,
-          invitation_status: 'rejected',
-        })
-        .eq('id', id);
-      if (updateError) throw updateError;
-      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'inactive' } : d));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reject doctor.');
-    }
-  };
-
-  const handleCancelInvite = async (id: string) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('facility_staff')
-        .update({ invitation_status: 'cancelled', is_active: false, is_available: false })
-        .eq('id', id);
-      if (updateError) throw updateError;
-      setDoctors(prev => prev.filter(d => d.id !== id));
-      setMenuOpen(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel invitation.');
-    }
-  };
-
-  const handleSuspend = async (id: string) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('facility_staff')
-        .update({
-          is_active: false,
-          is_available: false,
-          invitation_status: 'suspended',
-        })
-        .eq('id', id);
-      if (updateError) throw updateError;
-      setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: 'suspended' } : d));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to suspend doctor.');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const { error: deleteError } = await supabase
-        .from('facility_staff')
-        .update({
-          is_active: false,
-          is_available: false,
-          invitation_status: 'removed',
-        })
-        .eq('id', id);
-      if (deleteError) throw deleteError;
-      setDoctors(prev => prev.filter(d => d.id !== id));
+      await runDoctorLinkAction(doctor.doctorUserId, action);
+      if (action === 'cancel_invite' || action === 'remove') {
+        setDoctors(prev => prev.filter(d => d.id !== id));
+      } else {
+        setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: action === 'suspend' ? 'suspended' : 'inactive' } : d));
+      }
       setMenuOpen(null);
       setConfirmDelete(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove doctor.');
+      setMenuOpen(null);
+      setConfirmDelete(null);
+      if ((err as { code?: string } | null)?.code === '22023') await fetchDoctors();
+      setError(doctorLinkErrorMessage(err));
     }
   };
 
+  const handleReject = (id: string) => runAction(id, 'reject');
+  const handleCancelInvite = (id: string) => runAction(id, 'cancel_invite');
+  const handleSuspend = (id: string) => runAction(id, 'suspend');
+  const handleDelete = (id: string) => runAction(id, 'remove');
+
   const handleStartEdit = (doctor: Doctor) => {
     setEditingDoctor(doctor);
-    setEditForm({
-      consultationFee: doctor.consultationFee,
-      status: doctor.status,
-    });
+    setEditForm({ consultationFee: doctor.consultationFee });
     setMenuOpen(null);
   };
 
@@ -747,21 +676,19 @@ export default function ClinicDoctors() {
     try {
       const { error: updateError } = await supabase
         .from('facility_staff')
-        .update({
-          consultation_fee: editForm.consultationFee,
-          is_active: editForm.status === 'active',
-          is_available: editForm.status === 'active',
-        })
+        // QA-199: the edit popup only changes the fee; status changes use the doctor actions
+        .update({ consultation_fee: editForm.consultationFee })
         .eq('id', editingDoctor.id);
       if (updateError) throw updateError;
       setDoctors(prev => prev.map(d => d.id === editingDoctor.id ? {
         ...d,
         consultationFee: editForm.consultationFee,
-        status: editForm.status as Doctor['status'],
       } : d));
       setEditingDoctor(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save changes.');
+      setError((err as { code?: string } | null)?.code === '42501'
+        ? 'Only clinic admins and managers can change clinic doctors.'
+        : 'Could not save the changes. Please try again.');
     } finally {
       setSavingEdit(false);
     }
@@ -933,7 +860,6 @@ export default function ClinicDoctors() {
       {showAdd && facilityId && (
         <AddDoctorModal
           onClose={() => setShowAdd(false)}
-          facilityId={facilityId}
           existingDoctorIds={doctors.map(d => d.doctorUserId)}
           onInvited={(doctorName) => {
             setShowAdd(false);
@@ -974,21 +900,6 @@ export default function ClinicDoctors() {
                   onChange={e => setEditForm(prev => ({ ...prev, consultationFee: Number(e.target.value) }))}
                   className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Status</label>
-                <select
-                  value={editForm.status}
-                  onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                >
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="suspended">Suspended</option>
-                </select>
               </div>
 
               {/* Availability */}

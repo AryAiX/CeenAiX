@@ -1,0 +1,142 @@
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase';
+import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
+import ClinicDoctors from './ClinicDoctors';
+
+vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
+vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
+
+const link = (id: string, doctor: string, invitation_status: string, is_active: boolean) => ({
+  id,
+  doctor_user_id: doctor,
+  is_available: is_active,
+  is_active,
+  invitation_status,
+  consultation_fee: 300,
+  created_at: '2026-10-01T10:00:00Z',
+});
+
+const LINKS = [
+  link('s-active', 'doc-active', 'accepted', true),
+  link('s-pending', 'doc-pending', 'pending', false),
+  link('s-invited', 'doc-invited', 'invited', false),
+];
+const PEOPLE = [
+  { user_id: 'doc-active', full_name: 'Dr Active Person', phone: null, email: null },
+  { user_id: 'doc-pending', full_name: 'Dr Pending Person', phone: null, email: null },
+  { user_id: 'doc-invited', full_name: 'Dr Invited Person', phone: null, email: null },
+  { user_id: 'doc-new', full_name: 'Dr New Person', phone: null, email: 'new@example.test' },
+];
+
+const setup = () => {
+  const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
+  vi.mocked(supabase.from).mockImplementation(((table: string) => {
+    const data =
+      table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+      : table === 'facility_staff' ? LINKS
+      : table === 'user_profiles' ? PEOPLE
+      : [];
+    const builder = createSupabaseQueryBuilder({ data, error: null });
+    (calls[table] ??= []).push(builder);
+    return builder;
+  }) as never);
+  vi.mocked(supabase.rpc).mockResolvedValue({ data: 'ok', error: null } as never);
+  render(
+    <MemoryRouter>
+      <ClinicDoctors />
+    </MemoryRouter>
+  );
+  return calls;
+};
+
+const rowOf = async (name: string) => (await screen.findByText(name)).closest('tr') as HTMLElement;
+const openMenu = (row: HTMLElement) => fireEvent.click(within(row).getAllByRole('button')[1]);
+const directLinkWrites = (calls: Record<string, MockSupabaseQueryBuilder<unknown>[]>) =>
+  (calls.facility_staff ?? []).filter((b) => b.insert.mock.calls.length > 0 || b.update.mock.calls.length > 0);
+const expectAction = (doctor: string, action: string) =>
+  expect(supabase.rpc).toHaveBeenCalledWith('clinic_doctor_link_action', { p_doctor_user_id: doctor, p_action: action });
+
+beforeEach(() => {
+  vi.mocked(useAuth).mockReturnValue({ user: { id: 'clinic-user-1' } } as never);
+});
+afterEach(() => {
+  vi.mocked(supabase.from).mockReset();
+  vi.mocked(supabase.rpc).mockReset();
+});
+
+describe('ClinicDoctors link actions (QA-199)', () => {
+  it('rejects a join request through clinic_doctor_link_action, not a direct update', async () => {
+    const calls = setup();
+    fireEvent.click(within(await rowOf('Dr Pending Person')).getByTitle('View profile'));
+    fireEvent.click(screen.getByRole('button', { name: /Reject Request/ }));
+    await waitFor(() => expectAction('doc-pending', 'reject'));
+    expect(directLinkWrites(calls)).toEqual([]);
+  });
+
+  it('suspends an active doctor through the database function', async () => {
+    const calls = setup();
+    fireEvent.click(within(await rowOf('Dr Active Person')).getByTitle('View profile'));
+    fireEvent.click(screen.getByRole('button', { name: /Suspend Doctor/ }));
+    await waitFor(() => expectAction('doc-active', 'suspend'));
+    expect(directLinkWrites(calls)).toEqual([]);
+  });
+
+  it('cancels an invitation and removes a doctor through the database function', async () => {
+    const calls = setup();
+    openMenu(await rowOf('Dr Invited Person'));
+    fireEvent.click(screen.getByRole('button', { name: /Cancel Invite/ }));
+    await waitFor(() => expectAction('doc-invited', 'cancel_invite'));
+
+    openMenu(await rowOf('Dr Active Person'));
+    fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, Remove' }));
+    await waitFor(() => expectAction('doc-active', 'remove'));
+    expect(directLinkWrites(calls)).toEqual([]);
+  });
+
+  it('invites a doctor in one database call (no direct insert, no browser-side notification)', async () => {
+    const calls = setup();
+    await screen.findByText('Dr Active Person');
+    fireEvent.click(screen.getByRole('button', { name: /Add Doctor/ }));
+    fireEvent.change(screen.getByPlaceholderText('Search doctor by name…'), { target: { value: 'New' } });
+    const result = (await screen.findAllByText('Dr New Person'))[0].closest('div.flex.items-center.justify-between') as HTMLElement;
+    fireEvent.click(within(result).getByRole('button', { name: 'Invite' }));
+
+    await waitFor(() => expectAction('doc-new', 'invite'));
+    expect(directLinkWrites(calls)).toEqual([]);
+    expect(calls.notifications).toBeUndefined();
+  });
+
+  it('the edit popup only changes the fee (no Status field that could skip approval)', async () => {
+    const calls = setup();
+    openMenu(await rowOf('Dr Pending Person'));
+    fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
+
+    const editPopup = screen.getByText('Edit Doctor').closest('div.rounded-2xl') as HTMLElement;
+    expect(within(editPopup).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(editPopup).queryByText('Status')).not.toBeInTheDocument();
+    fireEvent.change(within(editPopup).getByRole('spinbutton'), { target: { value: '450' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+
+    await waitFor(() => expect(directLinkWrites(calls)).toHaveLength(1));
+    expect(directLinkWrites(calls)[0].update).toHaveBeenCalledWith({ consultation_fee: 450 });
+  });
+
+  it('shows a plain message (not the database text) when a change is refused', async () => {
+    setup();
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: null,
+      error: { code: '22023', message: 'This change is not allowed for this doctor.' },
+    } as never);
+    fireEvent.click(within(await rowOf('Dr Pending Person')).getByTitle('View profile'));
+    fireEvent.click(screen.getByRole('button', { name: /Reject Request/ }));
+
+    expect(
+      await screen.findByText(/This change is no longer possible for this doctor. The list has been refreshed./)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('This change is not allowed for this doctor.')).not.toBeInTheDocument();
+  });
+});
