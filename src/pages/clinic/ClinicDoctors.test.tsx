@@ -379,3 +379,47 @@ describe('ClinicDoctors fee edit (QA-205)', () => {
     expect(directLinkWrites(calls)).toEqual([]);
   });
 });
+
+describe('ClinicDoctors counts (QA-206)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('uses the Dubai day for "Today", exact totals (not cut at 1,000) and leaves cancelled visits out', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-23T21:00:00Z')); // 01:00 Dubai, 24 Nov
+    const appointmentQueries: MockSupabaseQueryBuilder<unknown>[] = [];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'appointments') {
+        const builder = createSupabaseQueryBuilder({ data: [{ doctor_id: 'doc-active' }], error: null, count: 1500 });
+        appointmentQueries.push(builder);
+        return builder;
+      }
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'facility_staff' ? [link('s-active', 'doc-active', 'accepted', true)]
+        : table === 'user_profiles' ? PEOPLE
+        : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicDoctors />
+      </MemoryRouter>
+    );
+
+    const row = await rowOf('Dr Active Person');
+    const cells = row.querySelectorAll('td');
+    expect(cells[3].textContent).toBe('1'); // today
+    expect(cells[4].textContent).toBe('1500'); // total, from the exact count
+
+    const todayQuery = appointmentQueries.find((q) => q.gte.mock.calls.length > 0)!;
+    expect(todayQuery.gte).toHaveBeenCalledWith('scheduled_at', '2026-11-23T20:00:00.000Z');
+    expect(todayQuery.lte).toHaveBeenCalledWith('scheduled_at', '2026-11-24T19:59:59.999Z');
+    for (const query of appointmentQueries) {
+      expect(query.neq).toHaveBeenCalledWith('status', 'cancelled');
+    }
+    expect(screen.getByText('With visits today')).toBeInTheDocument();
+    expect(screen.queryByText('Today on Duty')).not.toBeInTheDocument();
+  });
+});

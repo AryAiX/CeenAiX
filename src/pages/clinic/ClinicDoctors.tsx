@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
-import { formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
+import { clinicDayRangeUtc, clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { clinicDoctorActions, clinicDoctorStatus } from '../../lib/clinic-doctor-status';
 import { parseFeeInput } from '../../lib/clinic-visit-fee';
@@ -528,10 +528,9 @@ export default function ClinicDoctors() {
       const fId = memberData.facility_id;
       setFacilityId(fId);
 
-      // Get today's date range
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      // QA-206: today is the clinic (Dubai) day, not the browser's
+      const todayKey = clinicTodayKey();
+      const { startIso: todayStart, endIso: todayEnd } = clinicDayRangeUtc(todayKey);
 
       // Fetch facility staff (exclude terminal statuses)
       const { data: staffData, error: staffError } = await supabase
@@ -550,86 +549,83 @@ export default function ClinicDoctors() {
         return;
       }
 
-      // Fetch user profiles
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name, phone, email')
-        .in('user_id', doctorUserIds);
+      // QA-206: lookups in small batches (QA-197)
+      const profileData = await fetchByIdChunks(doctorUserIds, ids =>
+        supabase.from('user_profiles').select('user_id, full_name, phone, email').in('user_id', ids)
+      );
+      const doctorProfileData = await fetchByIdChunks(doctorUserIds, ids =>
+        supabase.from('doctor_profiles').select('user_id, specialization, license_number, dha_license_verified, consultation_fee').in('user_id', ids)
+      );
+      const ratingsData = await fetchByIdChunks(doctorUserIds, ids =>
+        supabase.from('doctor_ratings_summary').select('doctor_id, average_rating, total_reviews').in('doctor_id', ids)
+      );
 
-      // Fetch doctor profiles
-      const { data: doctorProfileData } = await supabase
-        .from('doctor_profiles')
-        .select('user_id, specialization, license_number, dha_license_verified, consultation_fee')
-        .in('user_id', doctorUserIds);
-
-      // Fetch ratings
-      const { data: ratingsData } = await supabase
-        .from('doctor_ratings_summary')
-        .select('doctor_id, average_rating, total_reviews')
-        .in('doctor_id', doctorUserIds);
-
-      // Fetch today's appointments
+      // QA-206: today's visits in clinic time; cancelled visits are not counted
       const { data: todayApptData } = await supabase
         .from('appointments')
         .select('doctor_id')
         .eq('facility_id', fId)
         .gte('scheduled_at', todayStart)
-        .lt('scheduled_at', todayEnd)
-        .eq('is_deleted', false);
+        .lte('scheduled_at', todayEnd)
+        .eq('is_deleted', false)
+        .neq('status', 'cancelled');
 
-      // Fetch total appointments
-      const { data: totalApptData } = await supabase
-        .from('appointments')
-        .select('doctor_id')
-        .eq('facility_id', fId)
-        .eq('is_deleted', false);
+      // QA-206: exact total per doctor (reading every row stopped at 1,000)
+      const totalCounts = await Promise.all(
+        doctorUserIds.map(async doctorId => {
+          const { count, error: countError } = await supabase
+            .from('appointments')
+            .select('id', { count: 'exact', head: true })
+            .eq('facility_id', fId)
+            .eq('doctor_id', doctorId)
+            .eq('is_deleted', false)
+            .neq('status', 'cancelled');
+          if (countError) throw countError;
+          return [doctorId, count ?? 0] as const;
+        })
+      );
 
-      // Fetch weekly availability
-      const { data: availabilityData } = await supabase
-        .from('doctor_availability')
-        .select('doctor_id, day_of_week, start_time, end_time')
-        .in('doctor_id', doctorUserIds)
-        .eq('is_active', true);
+      const availabilityData = await fetchByIdChunks(doctorUserIds, ids =>
+        supabase.from('doctor_availability').select('doctor_id, day_of_week, start_time, end_time').in('doctor_id', ids).eq('is_active', true)
+      );
 
-      // Fetch upcoming blocked slots
-      const todayDate = new Date().toISOString().slice(0, 10);
-      const { data: blockedData } = await supabase
-        .from('blocked_slots')
-        .select('doctor_id, blocked_date, start_time, end_time, reason')
-        .in('doctor_id', doctorUserIds)
-        .gte('blocked_date', todayDate)
-        .order('blocked_date', { ascending: true });
+      // Upcoming blocked time, from today (clinic day)
+      const blockedData = (await fetchByIdChunks(doctorUserIds, ids =>
+        supabase
+          .from('blocked_slots')
+          .select('doctor_id, blocked_date, start_time, end_time, reason')
+          .in('doctor_id', ids)
+          .gte('blocked_date', todayKey)
+          .order('blocked_date', { ascending: true })
+      )).sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
 
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
       const availabilityMap = new Map<string, { day: string; start: string; end: string }[]>();
-      (availabilityData ?? []).forEach(a => {
+      availabilityData.forEach(a => {
         const list = availabilityMap.get(a.doctor_id) ?? [];
         list.push({ day: dayNames[a.day_of_week], start: a.start_time, end: a.end_time });
         availabilityMap.set(a.doctor_id, list);
       });
 
       const blockedMap = new Map<string, { date: string; start: string; end: string; reason: string | null }[]>();
-      (blockedData ?? []).forEach(b => {
+      blockedData.forEach(b => {
         const list = blockedMap.get(b.doctor_id) ?? [];
         list.push({ date: b.blocked_date, start: b.start_time, end: b.end_time, reason: b.reason });
         blockedMap.set(b.doctor_id, list);
       });
 
       // Build maps
-      const profileMap = new Map((profileData ?? []).map(p => [p.user_id, p]));
-      const doctorProfileMap = new Map((doctorProfileData ?? []).map(d => [d.user_id, d]));
-      const ratingsMap = new Map((ratingsData ?? []).map(r => [r.doctor_id, r]));
+      const profileMap = new Map(profileData.map(p => [p.user_id, p]));
+      const doctorProfileMap = new Map(doctorProfileData.map(d => [d.user_id, d]));
+      const ratingsMap = new Map(ratingsData.map(r => [r.doctor_id, r]));
 
       const todayApptCount = new Map<string, number>();
       (todayApptData ?? []).forEach(a => {
         todayApptCount.set(a.doctor_id, (todayApptCount.get(a.doctor_id) ?? 0) + 1);
       });
 
-      const totalApptCount = new Map<string, number>();
-      (totalApptData ?? []).forEach(a => {
-        totalApptCount.set(a.doctor_id, (totalApptCount.get(a.doctor_id) ?? 0) + 1);
-      });
+      const totalApptCount = new Map<string, number>(totalCounts);
 
       // Build doctor rows
       const doctorRows: Doctor[] = (staffData ?? []).map((staff, idx) => {
@@ -883,7 +879,7 @@ export default function ClinicDoctors() {
           { label: 'Total Doctors', value: doctors.length, icon: Stethoscope, color: 'text-teal-600', bg: 'bg-teal-50' },
           { label: 'Active', value: counts.active, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Pending Approval', value: counts.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Today on Duty', value: doctors.filter(d => d.todayAppts > 0).length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'With visits today', value: doctors.filter(d => d.todayAppts > 0).length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
