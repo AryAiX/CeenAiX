@@ -1,18 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
-import { Plus, Search, Calendar, Clock, X, Save, Check, DollarSign, Phone } from 'lucide-react';
-import {
-  buildClinicBookingSlots,
-  clinicDateKey,
-  clinicDayOfWeek,
-  clinicDayRangeUtc,
-  clinicTimeOfDay,
-  clinicTodayKey,
-  clinicWallTimeToUtcIso,
-} from '../../lib/clinic-booking-time';
+import { Plus, Search, Calendar, Clock, Check, DollarSign, Phone } from 'lucide-react';
+import { clinicDateKey, clinicTimeOfDay, clinicTodayKey } from '../../lib/clinic-booking-time';
+import ClinicBookAppointmentModal, { type ClinicBookedAppointment, type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
 import { getClinicAppointmentActions, type ClinicAppointmentStatusChange } from '../../lib/appointment-actions';
 import type { AppointmentStatus } from '../../types/enums';
 
@@ -123,17 +115,10 @@ function CancelAppointmentDialog({
   );
 }
 
-const apptTypes = ['Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
 
 
-const TELEMEDICINE_TYPES = new Set(['Telemedicine']);
 
-interface DoctorOption {
-  userId: string;
-  name: string;
-  specialty: string;
-  consultationFee: number;
-}
+type DoctorOption = ClinicBookingDoctor;
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
   scheduled:    { label: 'Scheduled',   color: 'bg-slate-100 text-slate-600 border-slate-200',      dot: 'bg-slate-400' },
@@ -155,224 +140,6 @@ const statusOptions = [
   { value: 'no_show',     label: 'No Show' },
 ];
 
-function BookModal({ onClose, onBook, doctors: doctorList, supabase }: { onClose: () => void; onBook: (a: Partial<Appointment> & { patientId: string }) => void; doctors: DoctorOption[]; supabase: SupabaseClient }) {
-  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: doctorList[0]?.userId ?? '', type: apptTypes[0], date: '', time: '', notes: '' });
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
-
-  const [patientSearch, setPatientSearch] = useState('');
-  const [patientResults, setPatientResults] = useState<{ userId: string; fullName: string; phone: string }[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<{ userId: string; fullName: string; phone: string } | null>(null);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [slotsError, setSlotsError] = useState<string | null>(null);
-
-  const loadSlots = async (doctorId: string, dateStr: string) => {
-    if (!doctorId || !dateStr) { setAvailableSlots([]); return; }
-    setSlotsLoading(true);
-    setSlotsError(null);
-    try {
-      const dayOfWeek = clinicDayOfWeek(dateStr);
-
-      const { data: availability } = await supabase
-        .from('doctor_availability')
-        .select('start_time, end_time, slot_duration_minutes')
-        .eq('doctor_id', doctorId)
-        .eq('day_of_week', dayOfWeek)
-        .eq('is_active', true);
-
-      const { data: blocked } = await supabase
-        .from('blocked_slots')
-        .select('start_time, end_time')
-        .eq('doctor_id', doctorId)
-        .eq('blocked_date', dateStr);
-
-      const { startIso, endIso } = clinicDayRangeUtc(dateStr);
-      const { data: existingAppts } = await supabase
-        .from('appointments')
-        .select('scheduled_at, duration_minutes')
-        .eq('doctor_id', doctorId)
-        .gte('scheduled_at', startIso)
-        .lte('scheduled_at', endIso)
-        .eq('is_deleted', false)
-        .not('status', 'in', '("cancelled","no_show")');
-
-      const slots = buildClinicBookingSlots({
-        dateKey: dateStr,
-        availability: availability ?? [],
-        blocked: blocked ?? [],
-        booked: existingAppts ?? [],
-      });
-
-      setAvailableSlots(slots);
-      if (slots.length === 0) {
-        setSlotsError('This doctor has no available slots on this day.');
-      }
-    } catch (err) {
-      setSlotsError(err instanceof Error ? err.message : 'Failed to load availability.');
-    } finally {
-      setSlotsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (form.doctor && form.date) {
-      void loadSlots(form.doctor, form.date);
-      setForm(f => ({ ...f, time: '' }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.doctor, form.date]);
-
-  const searchPatients = async (query: string) => {
-    setPatientSearch(query);
-    setSelectedPatient(null);
-    setSearchError(null);
-    if (query.length < 2) { setPatientResults([]); setShowDropdown(false); return; }
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('user_id, full_name, phone')
-      .eq('role', 'patient')
-      .ilike('full_name', `%${query}%`)
-      .limit(8);
-    setPatientResults((data ?? []).map(p => ({ userId: p.user_id, fullName: p.full_name ?? 'Unknown', phone: p.phone ?? '—' })));
-    setShowDropdown(true);
-  };
-
-  return createPortal(
-    <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center"><Calendar size={18} className="text-teal-600" /></div>
-            <h3 className="font-bold text-slate-900">Book Appointment</h3>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} className="text-slate-400" /></button>
-        </div>
-        <div className="p-6 grid grid-cols-2 gap-4">
-          <div className="col-span-2 relative">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Patient Name</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={patientSearch}
-                onChange={e => void searchPatients(e.target.value)}
-                placeholder="Search patient by name…"
-                className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              {selectedPatient && (
-                <Check size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-500" />
-              )}
-            </div>
-            {showDropdown && patientResults.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                {patientResults.map(p => (
-                  <div
-                    key={p.userId}
-                    onClick={() => {
-                      setSelectedPatient(p);
-                      setPatientSearch(p.fullName);
-                      setForm(f => ({ ...f, patientName: p.fullName, patientPhone: p.phone }));
-                      setShowDropdown(false);
-                    }}
-                    className="px-3 py-2 hover:bg-teal-50 cursor-pointer text-sm"
-                  >
-                    <div className="font-medium text-slate-800">{p.fullName}</div>
-                    <div className="text-xs text-slate-400">{p.phone}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {patientSearch.length >= 2 && showDropdown && patientResults.length === 0 && !selectedPatient && (
-              <p className="text-xs text-slate-400 mt-1">No patients found.</p>
-            )}
-            {searchError && <p className="text-xs text-red-500 mt-1">{searchError}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Patient Phone</label>
-            <input type="text" value={form.patientPhone} onChange={set('patientPhone')} placeholder="+971 XX XXX XXXX" className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
-            <select value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              {doctorList.map(d => <option key={d.userId} value={d.userId}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Appointment Type</label>
-            <select value={form.type} onChange={set('type')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              {apptTypes.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Date</label>
-            <input
-              type="date"
-              value={form.date}
-              min={clinicTodayKey()}
-              onChange={set('date')}
-              className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Available Time Slots</label>
-            {!form.date ? (
-              <p className="text-xs text-slate-400">Select a date to see available slots.</p>
-            ) : slotsLoading ? (
-              <p className="text-xs text-slate-400">Loading availability…</p>
-            ) : slotsError ? (
-              <p className="text-xs text-amber-600">{slotsError}</p>
-            ) : (
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {availableSlots.map(slot => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, time: slot }))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      form.time === slot
-                        ? 'bg-teal-600 text-white border-teal-600'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
-            <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder="Optional notes…" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
-          </div>
-        </div>
-        <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors">Cancel</button>
-          <button
-            onClick={() => {
-              if (!selectedPatient) {
-                setSearchError('Please search and select a patient from the list.');
-                return;
-              }
-              if (!form.time) {
-                setSearchError('Please select an available time slot.');
-                return;
-              }
-              onBook({ ...form, patientId: selectedPatient.userId });
-              onClose();
-            }}
-            className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-          >
-            <Save size={15} /> Book Appointment
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
 
 export default function ClinicAppointments() {
   const { user } = useAuth();
@@ -380,7 +147,6 @@ export default function ClinicAppointments() {
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [facilityId, setFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDoctor, setFilterDoctor] = useState('All Doctors');
@@ -413,7 +179,6 @@ export default function ClinicAppointments() {
       if (!memberData?.facility_id) throw new Error('No clinic facility found.');
 
       const fId = memberData.facility_id;
-      setFacilityId(fId);
 
       // Fetch appointments
       const { data: apptData, error: apptError } = await supabase
@@ -522,62 +287,25 @@ export default function ClinicAppointments() {
     .filter(a => a.date === today && a.status === 'completed')
     .reduce((s, a) => s + a.price, 0);
 
-  const handleBook = async (data: Partial<Appointment> & { patientId: string; doctor?: string }) => {
-    if (!facilityId) return;
-    try {
-      const selectedDoctor = doctorOptions.find(d => d.userId === data.doctor);
-      if (!selectedDoctor) throw new Error('Please select a valid doctor.');
-
-      if (!data.date || !data.time) throw new Error('Please select a date and time.');
-      const scheduledAt = clinicWallTimeToUtcIso(data.date, data.time);
-
-      const apptType = data.type && TELEMEDICINE_TYPES.has(data.type) ? 'virtual' : 'in_person';
-
-      const { data: inserted, error: insertError } = await supabase
-        .from('appointments')
-        .insert({
-          facility_id: facilityId,
-          doctor_id: selectedDoctor.userId,
-          patient_id: data.patientId,
-          type: apptType,
-          status: 'scheduled',
-          scheduled_at: scheduledAt,
-          duration_minutes: 30,
-          chief_complaint: data.type || 'Consultation',
-          notes: data.notes || null,
-        })
-        .select('id')
-        .single();
-
-      if (insertError) throw insertError;
-
-      await supabase.from('notifications').insert({
-        user_id: data.patientId,
-        type: 'appointment',
-        title: '📅 New Appointment Scheduled',
-        body: `${selectedDoctor.name} has scheduled an appointment with you on ${data.date} at ${data.time}.`,
-        action_url: '/patient/appointments',
-      });
-
-      const newAppt: Appointment = {
-        id: inserted.id,
-        patientName: data.patientName || '',
-        patientPhone: data.patientPhone || '',
-          doctor: selectedDoctor.name,
-          specialty: selectedDoctor.specialty,
-        type: data.type || 'Consultation',
-        date: data.date || today,
-        time: data.time || '09:00',
-        status: 'scheduled',
-        price: selectedDoctor.consultationFee,
-        notes: data.notes || '',
-        wasRescheduled: false,
-        scheduledAt,
-      };
-      setAppts(prev => [newAppt, ...prev]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to book appointment.');
-    }
+  /** QA-191: the popup books through clinic_book_appointment; here we only show the new row. */
+  const handleBooked = (booked: ClinicBookedAppointment) => {
+    const newAppt: Appointment = {
+      id: booked.id,
+      patientName: booked.patient.fullName,
+      patientPhone: booked.patient.phone,
+      doctor: booked.doctor.name,
+      specialty: booked.doctor.specialty,
+      type: booked.reason,
+      date: booked.date,
+      time: booked.time,
+      status: 'scheduled',
+      price: booked.doctor.consultationFee,
+      notes: booked.notes,
+      wasRescheduled: false,
+      scheduledAt: booked.scheduledAt,
+    };
+    setAppts(prev => [newAppt, ...prev]);
+    setShowBook(false);
   };
 
   /** QA-190: status changes go through clinic_set_appointment_status, which enforces the rules. */
@@ -770,7 +498,9 @@ export default function ClinicAppointments() {
           onConfirm={(reason) => void changeStatus(cancelTarget.id, 'cancelled', reason)}
         />
       )}
-      {showBook && <BookModal onClose={() => setShowBook(false)} onBook={handleBook} doctors={doctorOptions} supabase={supabase} />}
+      {showBook && (
+        <ClinicBookAppointmentModal doctors={doctorOptions} onClose={() => setShowBook(false)} onBooked={handleBooked} />
+      )}
     </div>
   );
 }

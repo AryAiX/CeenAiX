@@ -96,6 +96,7 @@ describe('ClinicAppointments clinic time (QA-189)', () => {
 
   it('saves a 09:00 booking as 05:00 UTC and checks booked visits in clinic time', async () => {
     vi.setSystemTime(new Date('2026-11-23T20:30:00Z')); // 00:30 Dubai, 24 Nov
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'new-appt', error: null } as never);
     const calls = setupSupabase({
       // 09:30 Dubai is already booked
       bookedThatDay: [{ scheduled_at: '2026-11-24T05:30:00Z', duration_minutes: 30 }],
@@ -114,9 +115,12 @@ describe('ClinicAppointments clinic time (QA-189)', () => {
     const bookButtons = screen.getAllByRole('button', { name: /Book Appointment/ });
     fireEvent.click(bookButtons[bookButtons.length - 1]);
 
-    await waitFor(() => expect(calls.appointments[2]?.insert).toHaveBeenCalled());
-    expect(calls.appointments[2].insert).toHaveBeenCalledWith(
-      expect.objectContaining({ scheduled_at: '2026-11-24T05:00:00.000Z', doctor_id: 'doctor-1', patient_id: 'patient-1' })
+    // QA-191: booked through clinic_book_appointment (one transaction), not a direct insert
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'clinic_book_appointment',
+        expect.objectContaining({ p_scheduled_at: '2026-11-24T05:00:00.000Z', p_doctor_id: 'doctor-1', p_patient_id: 'patient-1' })
+      )
     );
   });
 
