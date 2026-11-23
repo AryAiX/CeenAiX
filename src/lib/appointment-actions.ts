@@ -52,3 +52,34 @@ export const canDoctorSetStatus = (
   if (next === 'completed') return actions.canComplete;
   return actions.canMarkNoShow;
 };
+
+/**
+ * QA-190: what clinic staff (admin / manager) may do from the clinic Appointments page.
+ * Must match public.clinic_set_appointment_status (20261123000001), which enforces the same rules.
+ *
+ * - Confirm: scheduled, before the start time.
+ * - Cancel: scheduled or confirmed, before the start time (patient and doctor are notified).
+ * - No-show: scheduled or confirmed, once the start time has passed.
+ * - In progress / Completed are the doctor's (they record that the visit happened).
+ * - Completed, cancelled and no-show are final.
+ */
+export interface ClinicAppointmentActions {
+  canConfirm: boolean;
+  canCancel: boolean;
+  canMarkNoShow: boolean;
+}
+
+export type ClinicAppointmentStatusChange = 'confirmed' | 'cancelled' | 'no_show';
+
+export const getClinicAppointmentActions = (
+  appointment: { status: string; scheduled_at: string },
+  now: Date = new Date()
+): ClinicAppointmentActions => {
+  const isOpen = appointment.status === 'scheduled' || appointment.status === 'confirmed';
+  const hasStarted = new Date(appointment.scheduled_at).getTime() <= now.getTime();
+  return {
+    canConfirm: appointment.status === 'scheduled' && !hasStarted,
+    canCancel: isOpen && !hasStarted,
+    canMarkNoShow: isOpen && hasStarted,
+  };
+};

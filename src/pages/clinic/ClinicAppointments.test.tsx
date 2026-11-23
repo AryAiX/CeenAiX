@@ -65,6 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.mocked(supabase.from).mockReset();
+  vi.mocked(supabase.rpc).mockReset();
 });
 
 describe('ClinicAppointments clinic time (QA-189)', () => {
@@ -125,5 +126,109 @@ describe('ClinicAppointments clinic time (QA-189)', () => {
     await openBookingForDate('2026-11-24');
     expect(await screen.findByRole('button', { name: '09:30' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '09:00' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicAppointments status rules (QA-190)', () => {
+  const visit = (id: string, scheduled_at: string, status: string) => ({
+    id,
+    patient_id: 'patient-1',
+    doctor_id: 'doctor-1',
+    scheduled_at,
+    status,
+    type: 'in_person',
+    chief_complaint: `Visit ${id}`,
+    notes: null,
+    duration_minutes: 30,
+    created_at: '2026-11-20T10:00:00Z',
+    updated_at: '2026-11-20T10:00:00Z',
+  });
+
+  // 08:00 Dubai on 24 Nov; all three visits are today (Dubai).
+  const setupToday = () => {
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    return setupSupabase({
+      listAppointments: [
+        visit('future', '2026-11-24T05:00:00Z', 'scheduled'), // 09:00, not started
+        visit('started', '2026-11-24T03:00:00Z', 'confirmed'), // 07:00, start time passed
+        visit('done', '2026-11-24T02:00:00Z', 'completed'), // 06:00, final
+      ],
+    });
+  };
+  const rowFor = async (id: string) => (await screen.findByText(`Visit ${id}`)).closest('tr') as HTMLElement;
+
+  it('only offers the allowed actions and never Completed / In Progress', async () => {
+    setupToday();
+    render(<ClinicAppointments />);
+
+    const future = await rowFor('future');
+    expect(within(future).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(future).getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    expect(within(future).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(within(future).queryByRole('button', { name: 'No-show' })).not.toBeInTheDocument();
+
+    const started = await rowFor('started');
+    expect(within(started).getByRole('button', { name: 'No-show' })).toBeInTheDocument();
+    expect(within(started).queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(within(started).queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+
+    const done = await rowFor('done');
+    expect(within(done).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(done).queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('confirms through the database function, not a direct update', async () => {
+    const calls = setupToday();
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'confirmed', error: null } as never);
+    render(<ClinicAppointments />);
+
+    fireEvent.click(within(await rowFor('future')).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith('clinic_set_appointment_status', {
+        p_appointment_id: 'future',
+        p_status: 'confirmed',
+        p_reason: null,
+      })
+    );
+    expect(calls.appointments.some((builder) => builder.update.mock.calls.length > 0)).toBe(false);
+    await waitFor(() => expect(within(screen.getByText('Visit future').closest('tr') as HTMLElement).getAllByText('Confirmed').length).toBeGreaterThan(0));
+  });
+
+  it('cancels with a reason and says the patient and doctor will be notified', async () => {
+    setupToday();
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'cancelled', error: null } as never);
+    render(<ClinicAppointments />);
+
+    fireEvent.click(within(await rowFor('future')).getByRole('button', { name: 'Cancel' }));
+    const dialog = screen.getByRole('dialog', { name: 'Cancel appointment' });
+    expect(within(dialog).getByText('The patient and the doctor will be notified.')).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText('Reason (optional)'), { target: { value: '  Doctor on leave  ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel appointment' }));
+
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith('clinic_set_appointment_status', {
+        p_appointment_id: 'future',
+        p_status: 'cancelled',
+        p_reason: 'Doctor on leave',
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('shows a plain message (not the database text) when the change is refused', async () => {
+    setupToday();
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: null,
+      error: { code: '22023', message: 'This status change is not allowed.' },
+    } as never);
+    render(<ClinicAppointments />);
+
+    fireEvent.click(within(await rowFor('started')).getByRole('button', { name: 'No-show' }));
+
+    expect(
+      await screen.findByText('This change is no longer possible for this appointment. The list has been refreshed.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('This status change is not allowed.')).not.toBeInTheDocument();
   });
 });

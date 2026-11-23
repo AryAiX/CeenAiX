@@ -134,20 +134,11 @@ export const useClinicPortalActions = () => {
     [logPricingFieldChange],
   );
 
-  const updateAppointmentStatus = useCallback(async (appointmentId: string, status: string, notes?: string) => {
-    const { error } = await supabase
-      .from('appointments')
-      .update({ status, notes: notes ?? null })
-      .eq('id', appointmentId);
-    if (error) throw error;
-  }, []);
-
   return {
     inviteDoctor,
     updateFacility,
     upsertService,
     updateStaffPricing,
-    updateAppointmentStatus,
   };
 };
 

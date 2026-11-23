@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '../../lib/auth-context';
@@ -13,6 +13,8 @@ import {
   clinicTodayKey,
   clinicWallTimeToUtcIso,
 } from '../../lib/clinic-booking-time';
+import { getClinicAppointmentActions, type ClinicAppointmentStatusChange } from '../../lib/appointment-actions';
+import type { AppointmentStatus } from '../../types/enums';
 
 interface Appointment {
   id: string;
@@ -23,10 +25,102 @@ interface Appointment {
   type: string;
   date: string;
   time: string;
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: AppointmentStatus;
   price: number;
   notes: string;
   wasRescheduled: boolean;
+  /** Stored start time (UTC ISO); used for the QA-190 status rules. */
+  scheduledAt: string;
+}
+
+/** QA-190: friendly message for a refused status change (never the raw database text). */
+const statusChangeErrorMessage = (err: unknown): string => {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === '22023' || code === 'P0002') {
+    return 'This change is no longer possible for this appointment. The list has been refreshed.';
+  }
+  if (code === '42501') {
+    return 'Only clinic admins and managers can change appointments.';
+  }
+  return 'Could not update the appointment. Please try again.';
+};
+
+function CancelAppointmentDialog({
+  appointment,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  appointment: Appointment;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    reasonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [busy, onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clinic-cancel-appointment-title"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h3 id="clinic-cancel-appointment-title" className="font-bold text-slate-900">Cancel appointment</h3>
+        </div>
+        <div className="p-6 space-y-3">
+          <p className="text-sm text-slate-600">
+            {appointment.patientName} with {appointment.doctor} on {appointment.date} at {appointment.time}.
+          </p>
+          <p className="text-sm text-slate-600">The patient and the doctor will be notified.</p>
+          <div>
+            <label htmlFor="clinic-cancel-reason" className="block text-xs font-semibold text-slate-600 mb-1">
+              Reason (optional)
+            </label>
+            <textarea
+              id="clinic-cancel-reason"
+              ref={reasonRef}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={500}
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 pb-6">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-60"
+          >
+            Keep appointment
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(reason)}
+            disabled={busy}
+            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+          >
+            Cancel appointment
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 const apptTypes = ['Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
@@ -292,6 +386,8 @@ export default function ClinicAppointments() {
   const [filterDoctor, setFilterDoctor] = useState('All Doctors');
   const [filterDate, setFilterDate] = useState('today');
   const [showBook, setShowBook] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const today = clinicTodayKey();
 
@@ -379,6 +475,7 @@ export default function ClinicAppointments() {
           price: feeMap.get(a.doctor_id) ?? 0,
           notes: a.notes ?? '',
           wasRescheduled,
+          scheduledAt: a.scheduled_at,
         };
       });
 
@@ -475,6 +572,7 @@ export default function ClinicAppointments() {
         price: selectedDoctor.consultationFee,
         notes: data.notes || '',
         wasRescheduled: false,
+        scheduledAt,
       };
       setAppts(prev => [newAppt, ...prev]);
     } catch (err) {
@@ -482,17 +580,29 @@ export default function ClinicAppointments() {
     }
   };
 
-  const changeStatus = async (id: string, status: Appointment['status']) => {
+  /** QA-190: status changes go through clinic_set_appointment_status, which enforces the rules. */
+  const changeStatus = async (id: string, status: ClinicAppointmentStatusChange, reason?: string) => {
+    setBusyId(id);
+    setError(null);
     try {
-      const { error: updateError } = await supabase
-        .from('appointments')
-        .update({ status })
-        .eq('id', id);
-      if (updateError) throw updateError;
+      const { error: rpcError } = await supabase.rpc('clinic_set_appointment_status', {
+        p_appointment_id: id,
+        p_status: status,
+        p_reason: reason?.trim() ? reason.trim() : null,
+      });
+      if (rpcError) throw rpcError;
 
       setAppts(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+      setCancelTarget(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update status.');
+      const code = (err as { code?: string } | null)?.code;
+      setCancelTarget(null);
+      if (code === '22023' || code === 'P0002') {
+        await fetchData();
+      }
+      setError(statusChangeErrorMessage(err));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -611,13 +721,33 @@ export default function ClinicAppointments() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <select
-                      value={a.status}
-                      onChange={e => changeStatus(a.id, e.target.value as Appointment['status'])}
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                    >
-                      {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
+                    {(() => {
+                      const actions = getClinicAppointmentActions({ status: a.status, scheduled_at: a.scheduledAt });
+                      const busy = busyId === a.id;
+                      if (!actions.canConfirm && !actions.canCancel && !actions.canMarkNoShow) {
+                        return <span className="text-xs text-slate-400">—</span>;
+                      }
+                      const base = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-60';
+                      return (
+                        <div className="flex flex-wrap gap-1.5">
+                          {actions.canConfirm && (
+                            <button type="button" disabled={busy} onClick={() => void changeStatus(a.id, 'confirmed')} className={`${base} bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100`}>
+                              Confirm
+                            </button>
+                          )}
+                          {actions.canCancel && (
+                            <button type="button" disabled={busy} onClick={() => setCancelTarget(a)} className={`${base} bg-white text-red-600 border-red-200 hover:bg-red-50`}>
+                              Cancel
+                            </button>
+                          )}
+                          {actions.canMarkNoShow && (
+                            <button type="button" disabled={busy} onClick={() => void changeStatus(a.id, 'no_show')} className={`${base} bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100`}>
+                              No-show
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               );
@@ -632,6 +762,14 @@ export default function ClinicAppointments() {
         )}
       </div>
 
+      {cancelTarget && (
+        <CancelAppointmentDialog
+          appointment={cancelTarget}
+          busy={busyId === cancelTarget.id}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={(reason) => void changeStatus(cancelTarget.id, 'cancelled', reason)}
+        />
+      )}
       {showBook && <BookModal onClose={() => setShowBook(false)} onBook={handleBook} doctors={doctorOptions} supabase={supabase} />}
     </div>
   );
