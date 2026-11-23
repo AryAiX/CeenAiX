@@ -40,6 +40,26 @@ export const doctorFilterOptions = (doctors: { id: string; name: string }[]) => 
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 };
 
+/**
+ * QA-198: the reason is stored in English (it also picks the follow-up fee, QA-195), so it is
+ * only translated for display. Unknown / older values are shown as stored.
+ */
+const REASON_KEYS: Record<string, string> = {
+  Consultation: 'clinic.visitReasons.consultation',
+  'Follow-up Visit': 'clinic.visitReasons.followUp',
+  'General Checkup': 'clinic.visitReasons.generalCheckup',
+  'Diabetes Management': 'clinic.visitReasons.diabetes',
+  'Lab Results Review': 'clinic.visitReasons.labReview',
+  'Radiology Review': 'clinic.visitReasons.radiologyReview',
+  'Specialist Referral': 'clinic.visitReasons.referral',
+  Telemedicine: 'clinic.visitReasons.telemedicine',
+};
+
+export const visitReasonLabel = (t: (key: string) => string, reason: string): string => {
+  const key = REASON_KEYS[reason];
+  return key ? t(key) : reason;
+};
+
 export const appointmentTypeForReason = (reason: string): 'in_person' | 'virtual' =>
   reason === 'Telemedicine' ? 'virtual' : 'in_person';
 
@@ -76,18 +96,18 @@ export const isClinicSlotUnavailable = (err: unknown) => {
   return code === '23P01' || code === '22023';
 };
 
-/** Plain message for a refused booking (never the raw database text). */
-export const clinicBookingErrorMessage = (err: unknown): string => {
+/** Plain message key (clinic.booking.errors.*) for a refused booking — never the raw database text. */
+export const clinicBookingErrorKey = (err: unknown): string => {
   switch (errorCode(err)) {
     case '23P01':
-      return 'This time was just booked. The free slots have been refreshed; please choose another.';
+      return 'clinic.booking.errors.slotTaken';
     case '22023':
-      return 'This time is no longer available. The free slots have been refreshed; please choose another.';
+      return 'clinic.booking.errors.slotUnavailable';
     case 'P0002':
-      return 'This doctor or patient can no longer be booked at this clinic.';
+      return 'clinic.booking.errors.notBookable';
     case '42501':
-      return 'Only clinic admins and managers can book appointments.';
+      return 'clinic.booking.errors.notAllowed';
     default:
-      return 'Could not book the appointment. Please try again.';
+      return 'clinic.booking.errors.generic';
   }
 };

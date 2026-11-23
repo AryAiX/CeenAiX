@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import i18n from '../i18n';
 import {
   appointmentTypeForReason,
   doctorFilterOptions,
   isBookableClinicDoctor,
   bookClinicAppointment,
-  clinicBookingErrorMessage,
+  clinicBookingErrorKey,
   isClinicSlotUnavailable,
 } from './clinic-booking';
 
@@ -47,12 +48,13 @@ describe('clinic booking helper (QA-191)', () => {
   });
 
   it('gives plain messages and knows when to reload the slots', () => {
-    expect(clinicBookingErrorMessage({ code: '23P01', message: 'This time slot is already booked.' })).toBe(
+    const message = (err: unknown) => i18n.t(clinicBookingErrorKey(err), { lng: 'en' });
+    expect(message({ code: '23P01', message: 'This time slot is already booked.' })).toBe(
       'This time was just booked. The free slots have been refreshed; please choose another.'
     );
-    expect(clinicBookingErrorMessage({ code: '42501' })).toBe('Only clinic admins and managers can book appointments.');
-    expect(clinicBookingErrorMessage({ code: 'P0002' })).toBe('This doctor or patient can no longer be booked at this clinic.');
-    expect(clinicBookingErrorMessage(new Error('boom'))).toBe('Could not book the appointment. Please try again.');
+    expect(message({ code: '42501' })).toBe('Only clinic admins and managers can book appointments.');
+    expect(message({ code: 'P0002' })).toBe('This doctor or patient can no longer be booked at this clinic.');
+    expect(message(new Error('boom'))).toBe('Could not book the appointment. Please try again.');
     expect(isClinicSlotUnavailable({ code: '23P01' })).toBe(true);
     expect(isClinicSlotUnavailable({ code: '22023' })).toBe(true);
     expect(isClinicSlotUnavailable({ code: '42501' })).toBe(false);

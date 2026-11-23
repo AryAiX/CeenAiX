@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -94,7 +95,7 @@ describe('ClinicAppointments clinic time (QA-189)', () => {
     render(<ClinicAppointments />);
     const row = (await screen.findByText('Test Patient')).closest('tr') as HTMLElement;
     expect(within(row).getByText('09:00')).toBeInTheDocument();
-    expect(within(row).getByText('2026-11-24')).toBeInTheDocument();
+    expect(within(row).getByText('Nov 24, 2026')).toBeInTheDocument();
   });
 
   it('saves a 09:00 booking as 05:00 UTC and checks booked visits in clinic time', async () => {
@@ -297,7 +298,7 @@ describe('ClinicAppointments doctor lists (QA-194)', () => {
     await screen.findByText('Visit one');
     expect(screen.getByText('Visit two')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByDisplayValue('All Doctors'), { target: { value: 'doctor-2' } });
+    fireEvent.change(screen.getByDisplayValue('All doctors'), { target: { value: 'doctor-2' } });
 
     expect(screen.queryByText('Visit one')).not.toBeInTheDocument();
     expect(screen.getByText('Visit two')).toBeInTheDocument();
@@ -438,4 +439,85 @@ describe('ClinicAppointments long lists (QA-197)', () => {
     expect(screen.getAllByText('Patient Number 299').length).toBe(4);
     expect(screen.queryByText('Showing the most recent 20,000 appointments.')).not.toBeInTheDocument();
   }, 20000);
+});
+
+describe('ClinicAppointments in Arabic (QA-198)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const followUp = {
+    id: 'ar-visit',
+    patient_id: 'patient-1',
+    doctor_id: 'doctor-1',
+    scheduled_at: '2026-11-24T05:00:00Z', // 09:00 Dubai
+    status: 'confirmed',
+    type: 'in_person',
+    chief_complaint: 'Follow-up Visit',
+    notes: null,
+    duration_minutes: 30,
+    created_at: '2026-11-20T10:00:00Z',
+    updated_at: '2026-11-20T10:00:00Z',
+  };
+
+  it('shows the page, table and actions in Arabic with Arabic digits', async () => {
+    await i18n.changeLanguage('ar');
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z')); // 08:00 Dubai
+    setupSupabase({ listAppointments: [followUp] });
+    render(<ClinicAppointments />);
+
+    expect(await screen.findByRole('heading', { name: 'المواعيد' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'حجز موعد' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'التاريخ والوقت' })).toBeInTheDocument();
+    expect(screen.getByText('إجمالي اليوم').previousElementSibling?.textContent).toBe('١');
+
+    const row = screen.getByText('Test Patient').closest('tr') as HTMLElement;
+    expect(within(row).getByText('٠٩:٠٠')).toBeInTheDocument();
+    expect(within(row).getByText('زيارة متابعة')).toBeInTheDocument();
+    expect(within(row).getByText('مؤكد')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'إلغاء' })).toBeInTheDocument();
+    expect(row.querySelectorAll('td')[4].textContent).toContain('٣٠٠');
+
+    const english = ['Appointments', 'Book Appointment', 'Date & Time', "Today's Total", 'Confirmed', 'Follow-up Visit', 'Cancel', 'All'];
+    for (const text of english) {
+      expect(screen.queryByText(text)).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows a plain Arabic message, not the database text, when loading fails', async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(supabase.from).mockImplementation(((table: string) =>
+      table === 'clinic_portal_members'
+        ? createSupabaseQueryBuilder({ data: null, error: { code: '42P01', message: 'relation "x" does not exist' } })
+        : createSupabaseQueryBuilder({ data: [], error: null })) as never);
+    render(<ClinicAppointments />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('تعذّر تحميل المواعيد. يُرجى المحاولة مرة أخرى.');
+    expect(screen.queryByText(/relation/)).not.toBeInTheDocument();
+  });
+
+  it('books in Arabic: right-to-left popup, Arabic slot times, same saved time', async () => {
+    await i18n.changeLanguage('ar');
+    vi.setSystemTime(new Date('2026-11-23T08:00:00Z'));
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'new-appt', error: null } as never);
+    setupSupabase();
+    render(<ClinicAppointments />);
+    fireEvent.click(await screen.findByRole('button', { name: 'حجز موعد' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'حجز موعد' });
+    expect(dialog).toHaveAttribute('dir', 'rtl');
+    fireEvent.change(within(dialog).getByLabelText('اسم المريض'), { target: { value: 'Test' } });
+    fireEvent.click(await within(dialog).findByRole('button', { name: /Test Patient/ }));
+    fireEvent.change(within(dialog).getByLabelText('التاريخ'), { target: { value: '2026-11-24' } });
+    fireEvent.click(await within(dialog).findByRole('button', { name: '٠٩:٠٠' }));
+    const bookButtons = within(dialog).getAllByRole('button', { name: 'حجز موعد' });
+    fireEvent.click(bookButtons[bookButtons.length - 1]);
+
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'clinic_book_appointment',
+        expect.objectContaining({ p_scheduled_at: '2026-11-24T05:00:00.000Z', p_chief_complaint: 'Consultation' })
+      )
+    );
+  });
 });

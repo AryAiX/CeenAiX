@@ -1,4 +1,4 @@
-import { CLINIC_TIME_ZONE, calendarDayKeyInTimeZone } from './i18n-ui';
+import { CLINIC_TIME_ZONE, calendarDayKeyInTimeZone, dateTimeFormatWithNumerals, resolveLocale } from './i18n-ui';
 
 /**
  * QA-189: clinic booking times are clinic (Dubai) wall-clock times.
@@ -121,3 +121,23 @@ export const buildClinicBookingSlots = ({
   }
   return [...slots].sort();
 };
+
+/** QA-198: clinic (Dubai) date for display, e.g. "Nov 24, 2026" / "٢٤ نوفمبر ٢٠٢٦". Accepts a stored timestamp or YYYY-MM-DD. */
+export const formatClinicDate = (value: string, language: string): string => {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00${CLINIC_UTC_OFFSET}`) : new Date(value);
+  return new Intl.DateTimeFormat(resolveLocale(language), {
+    ...dateTimeFormatWithNumerals(language, { day: 'numeric', month: 'short', year: 'numeric' }),
+    timeZone: CLINIC_TIME_ZONE,
+  }).format(date);
+};
+
+/** QA-198: clinic (Dubai) 24-hour time for display, e.g. "09:00" / "٠٩:٠٠". */
+export const formatClinicTime = (value: string, language: string): string =>
+  new Intl.DateTimeFormat(resolveLocale(language), {
+    ...dateTimeFormatWithNumerals(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
+    timeZone: CLINIC_TIME_ZONE,
+  }).format(new Date(value));
+
+/** QA-198: label for a free slot ("09:00" clinic time on dateKey) in the UI language. */
+export const formatClinicSlot = (dateKey: string, time: string, language: string): string =>
+  formatClinicTime(clinicWallTimeToUtcIso(dateKey, time), language);
