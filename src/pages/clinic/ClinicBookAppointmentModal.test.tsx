@@ -1,15 +1,29 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { supabase } from '../../lib/supabase';
+import { installClinicRpc, type PatientFixture } from '../../test/clinic-rpc-mock';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
 import ClinicBookAppointmentModal from './ClinicBookAppointmentModal';
 
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 
+// QA-208: patient functions answered from rpcPatients; other functions return rpcResult
+let rpcPatients: PatientFixture[] = [];
+let rpcResult: unknown = { data: null, error: null };
+const setRpcResult = (value: unknown) => {
+  rpcResult = value;
+};
+beforeEach(() => {
+  rpcPatients = [];
+  rpcResult = { data: null, error: null };
+  installClinicRpc(vi.mocked(supabase.rpc), () => rpcPatients, () => rpcResult);
+});
+
 const DOCTORS = [{ userId: 'doctor-1', name: 'Dr Test Doctor', specialty: 'Cardiology', consultationFee: 300 }];
 const PATIENT = { userId: 'patient-1', fullName: 'Test Patient', phone: '+971500000000' };
 
 const setupSupabase = () => {
+  rpcPatients = [{ user_id: PATIENT.userId, full_name: PATIENT.fullName, phone: PATIENT.phone }];
   const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
     const data =
@@ -46,7 +60,7 @@ describe('ClinicBookAppointmentModal (QA-191)', () => {
   it('books in one database call, stays open while saving, then reports the new appointment', async () => {
     const calls = setupSupabase();
     let finish: (value: unknown) => void = () => {};
-    vi.mocked(supabase.rpc).mockReturnValue(new Promise((resolve) => { finish = resolve; }) as never);
+    setRpcResult(new Promise((resolve) => { finish = resolve; }) as never);
     const onBooked = vi.fn();
     const onClose = vi.fn();
     render(<ClinicBookAppointmentModal doctors={DOCTORS} fixedPatient={PATIENT} onClose={onClose} onBooked={onBooked} />);
@@ -86,7 +100,7 @@ describe('ClinicBookAppointmentModal (QA-191)', () => {
 
   it('when the slot was just taken: stays open, explains, and reloads the free slots', async () => {
     const calls = setupSupabase();
-    vi.mocked(supabase.rpc).mockResolvedValue({
+    setRpcResult({
       data: null,
       error: { code: '23P01', message: 'This time slot is already booked.' },
     } as never);
@@ -111,20 +125,21 @@ describe('ClinicBookAppointmentModal (QA-191)', () => {
 
   it('lets staff search for a patient when none is fixed', async () => {
     setupSupabase();
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'appt-new', error: null } as never);
+    setRpcResult({ data: 'appt-new', error: null } as never);
     const onBooked = vi.fn();
     render(<ClinicBookAppointmentModal doctors={DOCTORS} onClose={vi.fn()} onBooked={onBooked} />);
 
     fireEvent.click(bookButton());
     expect(await screen.findByRole('alert')).toHaveTextContent('Please search and select a patient from the list.');
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith('clinic_book_appointment', expect.anything());
 
     fireEvent.change(screen.getByLabelText('Patient Name'), { target: { value: 'Test' } });
     fireEvent.click(await screen.findByText('Test Patient', { selector: 'div' }));
     await pickSlot('09:00');
     fireEvent.click(bookButton());
     await waitFor(() => expect(onBooked).toHaveBeenCalled());
-    expect(vi.mocked(supabase.rpc).mock.calls[0][1]).toMatchObject({ p_patient_id: 'patient-1', p_scheduled_at: '2026-11-24T05:00:00.000Z' });
+    const booking = vi.mocked(supabase.rpc).mock.calls.find(([name]) => name === 'clinic_book_appointment')!;
+    expect(booking[1]).toMatchObject({ p_patient_id: 'patient-1', p_scheduled_at: '2026-11-24T05:00:00.000Z' });
   });
 });
 
@@ -157,5 +172,17 @@ describe('ClinicBookAppointmentModal with no bookable doctors (QA-194)', () => {
       'No doctors can be booked yet. Doctors appear here once they have joined the clinic.'
     );
     expect(bookButton()).toBeDisabled();
+  });
+});
+
+describe('ClinicBookAppointmentModal patient search privacy (QA-208)', () => {
+  it('searches through clinic_search_patients, not user_profiles', async () => {
+    const calls = setupSupabase();
+    render(<ClinicBookAppointmentModal doctors={DOCTORS} onClose={vi.fn()} onBooked={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Patient Name'), { target: { value: 'Test' } });
+
+    expect(await screen.findByText('Test Patient', { selector: 'div' })).toBeInTheDocument();
+    expect(supabase.rpc).toHaveBeenCalledWith('clinic_search_patients', { p_query: 'Test' });
+    expect(calls.user_profiles).toBeUndefined();
   });
 });

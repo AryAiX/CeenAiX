@@ -16,6 +16,7 @@ import { appointmentTypeForReason, doctorFilterOptions, isBookableClinicDoctor, 
 import { estimatedVisitFee, sumEstimatedFees, type ClinicFeeLink } from '../../lib/clinic-visit-fee';
 import { appointmentStatusLabel, formatLocaleCurrency, formatLocaleDigits, formatLocalePhoneDisplay } from '../../lib/i18n-ui';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
+import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { getClinicAppointmentActions, type ClinicAppointmentStatusChange } from '../../lib/appointment-actions';
 import type { AppointmentStatus } from '../../types/enums';
 
@@ -209,12 +210,14 @@ export default function ClinicAppointments() {
       // Get all unique user IDs
       const patientIds = [...new Set(apptData.map(a => a.patient_id))];
       const doctorIds = [...new Set(apptData.map(a => a.doctor_id))];
-      const allIds = [...new Set([...patientIds, ...doctorIds])];
 
       // QA-197: look names up in small batches (hundreds of ids in one address fail)
-      const profileData = await fetchByIdChunks(allIds, (ids) =>
+      // QA-208: patients only through clinic_patient_profiles (no identity / insurance data)
+      const patientProfiles = await fetchClinicPatientProfiles(supabase, patientIds);
+      const doctorNames = await fetchByIdChunks(doctorIds, (ids) =>
         supabase.from('user_profiles').select('user_id, full_name, phone').in('user_id', ids)
       );
+      const profileData = [...patientProfiles, ...doctorNames];
       const doctorProfileData = await fetchByIdChunks(doctorIds, (ids) =>
         supabase.from('doctor_profiles').select('user_id, specialization').in('user_id', ids)
       );

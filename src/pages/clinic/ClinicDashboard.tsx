@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, ArrowRight, Stethoscope, Activity } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { useAuth } from '../../lib/auth-context';
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
@@ -124,17 +125,15 @@ export default function ClinicDashboard() {
       const patientIds = [...new Set((appts ?? []).map(a => a.patient_id))];
       const doctorIds = [...new Set((appts ?? []).map(a => a.doctor_id))];
 
-      const { data: patientProfiles } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name')
-        .in('user_id', patientIds);
+      // QA-208: patients only through clinic_patient_profiles (no identity / insurance data)
+      const patientProfiles = await fetchClinicPatientProfiles(supabase, patientIds);
 
       const { data: doctorProfiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name')
         .in('user_id', doctorIds);
 
-      const patientMap = new Map((patientProfiles ?? []).map(p => [p.user_id, p.full_name]));
+      const patientMap = new Map(patientProfiles.map(p => [p.user_id, p.full_name]));
       const doctorMap = new Map((doctorProfiles ?? []).map(d => [d.user_id, d.full_name]));
 
       // Build today's schedule

@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth-context';
 import ClinicBookAppointmentModal, { type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
 import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
+import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
 
 interface Patient {
@@ -249,9 +250,8 @@ export default function ClinicPatients() {
       const doctorIds = [...new Set((apptData ?? []).map(a => a.doctor_id))];
 
       // QA-197: look names up in small batches (hundreds of ids in one address fail)
-      const patientProfiles = await fetchByIdChunks(patientIds, (ids) =>
-        supabase.from('user_profiles').select('user_id, full_name, phone, email, date_of_birth').in('user_id', ids)
-      );
+      // QA-208: patients only through clinic_patient_profiles (no identity / insurance data)
+      const patientProfiles = await fetchClinicPatientProfiles(supabase, patientIds);
       const doctorProfiles = await fetchByIdChunks(doctorIds, (ids) =>
         supabase.from('user_profiles').select('user_id, full_name').in('user_id', ids)
       );

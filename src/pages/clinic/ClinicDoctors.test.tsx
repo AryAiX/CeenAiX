@@ -271,7 +271,7 @@ describe('ClinicDoctors upcoming visits on suspend / remove (QA-203)', () => {
     let dialog = await screen.findByRole('dialog', { name: 'Suspend Doctor' });
     await within(dialog).findByText(/2 upcoming visits are still booked/);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Back' }));
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith('clinic_end_doctor_link', expect.anything());
 
     fireEvent.click(within(await rowOf('Dr Active Person')).getByTitle('View profile'));
     fireEvent.click(screen.getByRole('button', { name: /Suspend Doctor/ }));

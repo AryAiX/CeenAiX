@@ -17,6 +17,7 @@ import {
   isClinicSlotUnavailable,
   visitReasonLabel,
 } from '../../lib/clinic-booking';
+import { searchClinicPatients } from '../../lib/clinic-patients';
 
 export interface ClinicBookingDoctor {
   userId: string;
@@ -152,13 +153,14 @@ export default function ClinicBookAppointmentModal({
       setShowDropdown(false);
       return;
     }
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('user_id, full_name, phone')
-      .eq('role', 'patient')
-      .ilike('full_name', `%${query}%`)
-      .limit(8);
-    setPatientResults((data ?? []).map((p) => ({ userId: p.user_id, fullName: p.full_name ?? t('clinic.appointments.unknownPatient'), phone: p.phone ?? '—' })));
+    // QA-208: name and phone of this clinic's patients only
+    let data: Awaited<ReturnType<typeof searchClinicPatients>> = [];
+    try {
+      data = await searchClinicPatients(supabase, query);
+    } catch {
+      data = [];
+    }
+    setPatientResults(data.map((p) => ({ userId: p.user_id, fullName: p.full_name ?? t('clinic.appointments.unknownPatient'), phone: p.phone ?? '—' })));
     setShowDropdown(true);
   };
 

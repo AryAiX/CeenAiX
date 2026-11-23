@@ -3,12 +3,25 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
+import { installClinicRpc, type PatientFixture } from '../../test/clinic-rpc-mock';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
 import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
 import ClinicPatients from './ClinicPatients';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
+
+// QA-208: patient functions answered from rpcPatients; other functions return rpcResult
+let rpcPatients: PatientFixture[] = [];
+let rpcResult: unknown = { data: null, error: null };
+const setRpcResult = (value: unknown) => {
+  rpcResult = value;
+};
+beforeEach(() => {
+  rpcPatients = [];
+  rpcResult = { data: null, error: null };
+  installClinicRpc(vi.mocked(supabase.rpc), () => rpcPatients, () => rpcResult);
+});
 
 beforeEach(() => {
   vi.mocked(useAuth).mockReturnValue({ user: { id: 'clinic-user-1' } } as never);
@@ -25,6 +38,7 @@ afterEach(() => {
 describe('ClinicPatients booking (QA-191, and the QA-189 time bug on this page)', () => {
   it('books from the patient card in Dubai time through clinic_book_appointment', async () => {
     const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
+    rpcPatients = [{ user_id: 'patient-1', full_name: 'Test Patient', phone: '+971500000000', email: null, date_of_birth: null }];
     vi.mocked(supabase.from).mockImplementation(((table: string) => {
       const data =
         table === 'clinic_portal_members'
@@ -51,7 +65,7 @@ describe('ClinicPatients booking (QA-191, and the QA-189 time bug on this page)'
       (calls[table] ??= []).push(builder);
       return builder;
     }) as never);
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'appt-new', error: null } as never);
+    setRpcResult({ data: 'appt-new', error: null } as never);
 
     render(
       <MemoryRouter>
@@ -83,6 +97,10 @@ describe('ClinicPatients booking (QA-191, and the QA-189 time bug on this page)'
 
 describe('ClinicPatients doctor filter (QA-194)', () => {
   it('filters by doctor id, so two doctors with the same name are not mixed up', async () => {
+    rpcPatients = [
+      { user_id: 'patient-1', full_name: 'First Patient', phone: '+971500000001', email: null, date_of_birth: null },
+      { user_id: 'patient-2', full_name: 'Second Patient', phone: '+971500000002', email: null, date_of_birth: null },
+    ];
     vi.mocked(supabase.from).mockImplementation(((table: string) => {
       const data =
         table === 'clinic_portal_members'
@@ -143,6 +161,7 @@ describe('ClinicPatients long lists (QA-197)', () => {
         date_of_birth: null,
       })),
     ];
+    rpcPatients = people.filter((p) => p.user_id.startsWith('patient-'));
     vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'facility-1' }, error: null });
       if (table === 'appointments') return createServerLikeBuilder(visits);
@@ -166,4 +185,36 @@ describe('ClinicPatients long lists (QA-197)', () => {
     expect(screen.getByText('Patient Number 0')).toBeInTheDocument();
     expect(screen.queryByText('Unknown Patient')).not.toBeInTheDocument();
   }, 20000);
+});
+
+describe('ClinicPatients privacy (QA-208)', () => {
+  it('loads patient details through clinic_patient_profiles, never user_profiles', async () => {
+    rpcPatients = [{ user_id: 'patient-1', full_name: 'Private Patient', phone: '+971500000009', email: 'p@example.test', date_of_birth: '1990-01-01' }];
+    const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'appointments' ? [{ id: 'a1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-01T05:00:00Z', status: 'completed' }]
+        : table === 'user_profiles' ? [{ user_id: 'doctor-1', full_name: 'Dr Test Doctor' }]
+        : [];
+      const builder = createSupabaseQueryBuilder({ data, error: null });
+      (calls[table] ??= []).push(builder);
+      return builder;
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Private Patient')).toBeInTheDocument();
+    expect(supabase.rpc).toHaveBeenCalledWith('clinic_patient_profiles', { p_patient_ids: ['patient-1'] });
+    const askedIds = (calls.user_profiles ?? []).flatMap((b) => b.in.mock.calls.flatMap(([, ids]) => ids as string[]));
+    expect(askedIds).not.toContain('patient-1');
+    for (const builder of calls.user_profiles ?? []) {
+      for (const [columns] of builder.select.mock.calls) {
+        expect(String(columns)).not.toMatch(/date_of_birth|email|emirates|insurance|address/);
+      }
+    }
+  });
 });

@@ -3,12 +3,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
+import { installClinicRpc, type PatientFixture } from '../../test/clinic-rpc-mock';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
 import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
 import ClinicAppointments from './ClinicAppointments';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
+
+// QA-208: patient functions answered from rpcPatients; other functions return rpcResult
+let rpcPatients: PatientFixture[] = [];
+let rpcResult: unknown = { data: null, error: null };
+const setRpcResult = (value: unknown) => {
+  rpcResult = value;
+};
+beforeEach(() => {
+  rpcPatients = [];
+  rpcResult = { data: null, error: null };
+  installClinicRpc(vi.mocked(supabase.rpc), () => rpcPatients, () => rpcResult);
+});
 
 const DOCTOR = { user_id: 'doctor-1', full_name: 'Dr Test Doctor', phone: null };
 const PATIENT = { user_id: 'patient-1', full_name: 'Test Patient', phone: '+971500000000' };
@@ -24,6 +37,7 @@ const setupSupabase = ({
   profiles = [DOCTOR, PATIENT] as unknown[],
 } = {}) => {
   const calls: Record<string, Builder[]> = {};
+  rpcPatients = profiles as PatientFixture[];
   let appointmentCalls = 0;
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
     let builder: Builder;
@@ -100,7 +114,7 @@ describe('ClinicAppointments clinic time (QA-189)', () => {
 
   it('saves a 09:00 booking as 05:00 UTC and checks booked visits in clinic time', async () => {
     vi.setSystemTime(new Date('2026-11-23T20:30:00Z')); // 00:30 Dubai, 24 Nov
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'new-appt', error: null } as never);
+    setRpcResult({ data: 'new-appt', error: null } as never);
     const calls = setupSupabase({
       // 09:30 Dubai is already booked
       bookedThatDay: [{ scheduled_at: '2026-11-24T05:30:00Z', duration_minutes: 30 }],
@@ -187,7 +201,7 @@ describe('ClinicAppointments status rules (QA-190)', () => {
 
   it('confirms through the database function, not a direct update', async () => {
     const calls = setupToday();
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'confirmed', error: null } as never);
+    setRpcResult({ data: 'confirmed', error: null } as never);
     render(<ClinicAppointments />);
 
     fireEvent.click(within(await rowFor('future')).getByRole('button', { name: 'Confirm' }));
@@ -205,7 +219,7 @@ describe('ClinicAppointments status rules (QA-190)', () => {
 
   it('cancels with a reason and says the patient and doctor will be notified', async () => {
     setupToday();
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'cancelled', error: null } as never);
+    setRpcResult({ data: 'cancelled', error: null } as never);
     render(<ClinicAppointments />);
 
     fireEvent.click(within(await rowFor('future')).getByRole('button', { name: 'Cancel' }));
@@ -226,7 +240,7 @@ describe('ClinicAppointments status rules (QA-190)', () => {
 
   it('shows a plain message (not the database text) when the change is refused', async () => {
     setupToday();
-    vi.mocked(supabase.rpc).mockResolvedValue({
+    setRpcResult({
       data: null,
       error: { code: '22023', message: 'This status change is not allowed.' },
     } as never);
@@ -418,6 +432,7 @@ describe('ClinicAppointments long lists (QA-197)', () => {
       { user_id: 'doctor-1', full_name: 'Dr Test Doctor', phone: null },
       ...Array.from({ length: 300 }, (_, i) => ({ user_id: `patient-${i}`, full_name: `Patient Number ${i}`, phone: null })),
     ];
+    rpcPatients = people;
     vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'facility-1' }, error: null });
       if (table === 'appointments') return createServerLikeBuilder(visits);
@@ -499,7 +514,7 @@ describe('ClinicAppointments in Arabic (QA-198)', () => {
   it('books in Arabic: right-to-left popup, Arabic slot times, same saved time', async () => {
     await i18n.changeLanguage('ar');
     vi.setSystemTime(new Date('2026-11-23T08:00:00Z'));
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'new-appt', error: null } as never);
+    setRpcResult({ data: 'new-appt', error: null } as never);
     setupSupabase();
     render(<ClinicAppointments />);
     fireEvent.click(await screen.findByRole('button', { name: 'حجز موعد' }));
@@ -519,5 +534,26 @@ describe('ClinicAppointments in Arabic (QA-198)', () => {
         expect.objectContaining({ p_scheduled_at: '2026-11-24T05:00:00.000Z', p_chief_complaint: 'Consultation' })
       )
     );
+  });
+});
+
+describe('ClinicAppointments patient privacy (QA-208)', () => {
+  it('reads patient names through clinic_patient_profiles, never from user_profiles directly', async () => {
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    const calls = setupSupabase({
+      listAppointments: [
+        {
+          id: 'p-visit', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-24T05:00:00Z', status: 'scheduled',
+          type: 'in_person', chief_complaint: 'Consultation', notes: null, duration_minutes: 30,
+          created_at: '2026-11-20T10:00:00Z', updated_at: '2026-11-20T10:00:00Z',
+        },
+      ],
+    });
+    render(<ClinicAppointments />);
+    await screen.findByText('Test Patient');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('clinic_patient_profiles', { p_patient_ids: ['patient-1'] });
+    const askedProfileIds = (calls.user_profiles ?? []).flatMap((b) => b.in.mock.calls.flatMap(([, ids]) => ids as string[]));
+    expect(askedProfileIds).not.toContain('patient-1');
   });
 });

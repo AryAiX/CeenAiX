@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
 import { clinicDayRangeUtc, clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
+import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { clinicDoctorActions, clinicDoctorStatus } from '../../lib/clinic-doctor-status';
 import { parseFeeInput } from '../../lib/clinic-visit-fee';
 import { formatLocaleCurrency, formatLocaleDecimal, formatLocaleDigits, formatLocalePhoneDisplay, resolveLocale } from '../../lib/i18n-ui';
@@ -421,9 +422,7 @@ function EndDoctorLinkDialog({
             .order('id', { ascending: true })
             .range(from, to)
         );
-        const people = await fetchByIdChunks(rows.map(r => r.patient_id), ids =>
-          supabase.from('user_profiles').select('user_id, full_name').in('user_id', ids)
-        );
+        const people = await fetchClinicPatientProfiles(supabase, rows.map(r => r.patient_id));
         const names = new Map(people.map(p => [p.user_id, p.full_name]));
         if (!cancelled) {
           setVisits(rows.map(r => ({ id: r.id, scheduledAt: r.scheduled_at, patientName: names.get(r.patient_id) ?? t('clinic.appointments.unknownPatient') })));
