@@ -38,6 +38,7 @@ const sources = import.meta.glob<string>(
     '../pages/clinic/ClinicBookAppointmentModal.tsx',
     '../lib/clinic-booking.ts',
     '../pages/clinic/ClinicDoctors.tsx',
+    '../pages/clinic/ClinicPatients.tsx',
   ],
   { query: '?raw', import: 'default', eager: true }
 );

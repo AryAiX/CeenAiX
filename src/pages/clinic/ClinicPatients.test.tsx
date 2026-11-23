@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
+import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { supabase } from '../../lib/supabase';
 import { installClinicRpc, type PatientFixture } from '../../test/clinic-rpc-mock';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -134,7 +137,7 @@ describe('ClinicPatients doctor filter (QA-194)', () => {
     await screen.findByText('First Patient');
     expect(screen.getByText('Second Patient')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByDisplayValue('All Doctors'), { target: { value: 'doctor-2' } });
+    fireEvent.change(screen.getByDisplayValue('All doctors'), { target: { value: 'doctor-2' } });
 
     expect(screen.queryByText('First Patient')).not.toBeInTheDocument();
     expect(screen.getByText('Second Patient')).toBeInTheDocument();
@@ -274,7 +277,7 @@ describe('ClinicPatients patient card (QA-210)', () => {
     );
 
     const patientName = await screen.findByText('Card Patient');
-    expect(screen.getByText(/patients with visits at this clinic/)).toBeInTheDocument();
+    expect(screen.getByText('1 patient with visits at this clinic')).toBeInTheDocument();
     fireEvent.click(patientName);
 
     // 21:30 UTC on 1 Nov is 01:30 Dubai on 2 Nov
@@ -285,5 +288,103 @@ describe('ClinicPatients patient card (QA-210)', () => {
     expect(screen.getByText('Visit Summary')).toBeInTheDocument();
     expect(screen.queryByText('Clinical Summary')).not.toBeInTheDocument();
     expect(screen.queryByText(/registered patients/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicPatients in Arabic and from the keyboard (QA-211)', () => {
+  const mockCardData = () => {
+    rpcPatients = [{ user_id: 'patient-1', full_name: 'Card Patient', phone: '+971500000001', email: 'card@example.test', date_of_birth: '1990-03-15' }];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'appointments'
+          ? [
+              { id: 'a1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-01T21:30:00Z', status: 'completed', chief_complaint: 'Follow-up Visit' },
+              { id: 'a2', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-12-01T05:00:00Z', status: 'scheduled', chief_complaint: 'Consultation' },
+            ]
+          : table === 'user_profiles' ? [{ user_id: 'doctor-1', full_name: 'First Doctor' }]
+          : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+  };
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the page, table and counts in Arabic with Arabic digits and dates', async () => {
+    await i18n.changeLanguage('ar');
+    mockCardData();
+
+    expect(await screen.findByRole('heading', { name: 'المرضى' })).toBeInTheDocument();
+    expect(screen.getByText('مريض واحد لديه زيارات في هذه العيادة')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'تاريخ الميلاد' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'البحث عن المرضى' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'التصفية حسب الطبيب' })).toBeInTheDocument();
+
+    const row = screen.getByRole('button', { name: 'فتح ملف Card Patient' }).closest('tr') as HTMLElement;
+    const cells = row.querySelectorAll('td');
+    expect(cells[2].textContent).toBe(formatClinicDate('1990-03-15', 'ar'));
+    expect(cells[3].textContent).toBe('د. First Doctor');
+    expect(cells[4].textContent).toBe(formatClinicDate('2026-11-01T21:30:00Z', 'ar'));
+    expect(cells[4].textContent).toMatch(/[٠-٩]/);
+    expect(cells[6].textContent).toBe('١');
+    expect(within(cells[1]).getByText('card@example.test')).toHaveAttribute('dir', 'ltr');
+
+    for (const english of ['Patients', 'Total Patients', 'Upcoming Visits', 'Date of Birth', 'Dr. First Doctor']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows the patient card in Arabic, right to left, with translated statuses and reasons', async () => {
+    await i18n.changeLanguage('ar');
+    mockCardData();
+    fireEvent.click(await screen.findByRole('button', { name: 'فتح ملف Card Patient' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Card Patient' });
+    expect(dialog).toHaveAttribute('dir', 'rtl');
+    expect(within(dialog).getByText('ملخص الزيارات')).toBeInTheDocument();
+    expect(within(dialog).getByText('سجل المواعيد')).toBeInTheDocument();
+    expect(within(dialog).getByText('د. First Doctor · زيارة متابعة')).toBeInTheDocument();
+    expect(within(dialog).getByText('٠١:٣٠')).toBeInTheDocument();
+    expect(within(dialog).getByText(i18n.t('shared.appointmentStatus.completed'))).toBeInTheDocument();
+    for (const english of ['Patient Profile', 'Appointment History', 'Completed', 'Send Message', 'Book Appointment']) {
+      expect(within(dialog).queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('opens a patient with the keyboard and closes the card with Escape', async () => {
+    const user = userEvent.setup();
+    mockCardData();
+    const open = await screen.findByRole('button', { name: 'Open Card Patient' });
+
+    open.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('dialog', { name: 'Card Patient' })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('shows a plain Arabic message, not the database text, when loading fails', async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(supabase.from).mockImplementation(((table: string) =>
+      table === 'clinic_portal_members'
+        ? createSupabaseQueryBuilder({ data: null, error: { code: '42P01', message: 'relation "x" does not exist' } })
+        : createSupabaseQueryBuilder({ data: [], error: null })) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('تعذّر تحميل المرضى. يُرجى المحاولة مرة أخرى.');
+    expect(within(alert).getByRole('button', { name: i18n.t('clinic.actions.retry') })).toBeInTheDocument();
+    expect(screen.queryByText(/relation/)).not.toBeInTheDocument();
   });
 });

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import ClinicBookAppointmentModal, { type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
-import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
+import { doctorFilterOptions, isBookableClinicDoctor, visitReasonLabel } from '../../lib/clinic-booking';
+import { appointmentStatusLabel, formatLocaleDigits, formatLocalePhoneDisplay } from '../../lib/i18n-ui';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { countUpcomingVisits, isInCurrentClinicMonth, summarisePatientVisits } from '../../lib/clinic-patient-summary';
@@ -14,28 +16,27 @@ import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen,
 interface Patient {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  dob: string;
-  lastVisit: string;
+  phone: string | null;
+  email: string | null;
+  /** YYYY-MM-DD */
+  dateOfBirth: string | null;
   /** QA-209: latest COMPLETED visit (not a future or cancelled booking) */
   lastVisitDate: string | null;
-  nextVisit: string;
+  nextVisitDate: string | null;
   doctorId: string | null;
-  doctor: string;
+  /** primary doctor's name (shown as "Dr. …" in the UI language), null when unknown */
+  doctor: string | null;
   /** QA-209: completed visits only */
   totalVisits: number;
 }
 
-const apptStatusConfig: Record<string, { label: string; color: string }> = {
-  scheduled:     { label: 'Scheduled',   color: 'bg-slate-100 text-slate-600' },
-  confirmed:     { label: 'Confirmed',   color: 'bg-teal-50 text-teal-700' },
-  'in-progress': { label: 'In Progress', color: 'bg-blue-50 text-blue-700' },
-  in_progress:   { label: 'In Progress', color: 'bg-blue-50 text-blue-700' },
-  completed:     { label: 'Completed',   color: 'bg-emerald-50 text-emerald-700' },
-  cancelled:     { label: 'Cancelled',   color: 'bg-red-50 text-red-600' },
-  'no-show':     { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
-  no_show:       { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
+const apptStatusColor: Record<string, string> = {
+  scheduled:   'bg-slate-100 text-slate-600',
+  confirmed:   'bg-teal-50 text-teal-700',
+  in_progress: 'bg-blue-50 text-blue-700',
+  completed:   'bg-emerald-50 text-emerald-700',
+  cancelled:   'bg-red-50 text-red-600',
+  no_show:     'bg-amber-50 text-amber-700',
 };
 
 type DoctorOption = ClinicBookingDoctor;
@@ -45,7 +46,9 @@ interface PatientVisit {
   id?: string;
   scheduled_at: string;
   status: string;
-  doctorName: string;
+  /** null when the doctor's name is not known */
+  doctorName: string | null;
+  /** stored reason (English); translated for display */
   reason: string;
 }
 
@@ -56,11 +59,25 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
   onBook: () => void;
   onMessage: () => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const C = 'clinic.patientsPage.card';
   const initials = patient.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const date = (iso: string | null) => (iso ? formatClinicDate(iso, lang) : '—');
+  const doctorLabel = (name: string | null) =>
+    name ? t('clinic.patientsPage.doctorName', { name }) : t('clinic.appointments.unknownDoctor');
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div role="dialog" aria-modal="true" aria-labelledby="patient-card-title" dir={i18n.dir()} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -69,12 +86,12 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
               {initials}
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">{patient.name}</h3>
-              <p className="text-xs text-slate-400">Patient Profile</p>
+              <h3 id="patient-card-title" className="font-bold text-slate-900">{patient.name}</h3>
+              <p className="text-xs text-slate-400">{t(`${C}.subtitle`)}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg">
-            <X size={18} className="text-slate-400" />
+          <button type="button" onClick={onClose} aria-label={t(`${C}.close`)} className="p-1 hover:bg-slate-100 rounded-lg">
+            <X size={18} className="text-slate-400" aria-hidden="true" />
           </button>
         </div>
 
@@ -82,69 +99,73 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
 
           {/* Patient Info */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Patient Info</p>
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{t(`${C}.info`)}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Phone size={14} className="text-slate-400" /> {patient.phone}
+                <Phone size={14} className="text-slate-400" aria-hidden="true" />
+                <span className="sr-only">{t(`${C}.phone`)}: </span>
+                <span dir="ltr">{patient.phone ? formatLocalePhoneDisplay(patient.phone, lang) : '—'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Mail size={14} className="text-slate-400" /> {patient.email}
+                <Mail size={14} className="text-slate-400" aria-hidden="true" />
+                <span className="sr-only">{t(`${C}.email`)}: </span>
+                <span dir="ltr">{patient.email ?? '—'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <User size={14} className="text-slate-400" /> DOB: {patient.dob}
+                <User size={14} className="text-slate-400" aria-hidden="true" /> {t(`${C}.dob`, { value: date(patient.dateOfBirth) })}
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Calendar size={14} className="text-slate-400" /> Last Visit: {patient.lastVisit}
+                <Calendar size={14} className="text-slate-400" aria-hidden="true" /> {t(`${C}.lastVisit`, { value: date(patient.lastVisitDate) })}
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Clock size={14} className="text-slate-400" /> Next Visit: {patient.nextVisit}
+                <Clock size={14} className="text-slate-400" aria-hidden="true" /> {t(`${C}.nextVisit`, { value: date(patient.nextVisitDate) })}
               </div>
             </div>
           </div>
 
           {/* Visit summary (QA-210: counts only, no clinical data) */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Visit Summary</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{t(`${C}.summary`)}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{patient.totalVisits}</div>
-                <div className="text-xs text-slate-500 mt-0.5">Completed Visits</div>
+                <div className="text-xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{formatLocaleDigits(patient.totalVisits, lang)}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t(`${C}.completed`)}</div>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 text-center">
-                <div className="text-sm font-semibold text-slate-700">{patient.doctor}</div>
-                <div className="text-xs text-slate-500 mt-0.5">Primary Doctor</div>
+                <div className="text-sm font-semibold text-slate-700">{patient.doctor ? doctorLabel(patient.doctor) : '—'}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t(`${C}.primaryDoctor`)}</div>
               </div>
             </div>
           </div>
 
           {/* Appointment History */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Appointment History</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{t(`${C}.history`)}</p>
             {appts.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
-                <Calendar size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No appointments found.</p>
+                <Calendar size={28} className="mx-auto mb-2 opacity-30" aria-hidden="true" />
+                <p className="text-sm">{t(`${C}.noHistory`)}</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {appts.map((a, idx) => {
-                  const s = apptStatusConfig[a.status] ?? apptStatusConfig.scheduled;
+                  const color = apptStatusColor[a.status] ?? apptStatusColor.scheduled;
                   return (
                     <div key={a.id ?? idx} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-xl">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center">
-                          <Calendar size={13} className="text-teal-600" />
+                          <Calendar size={13} className="text-teal-600" aria-hidden="true" />
                         </div>
                         <div>
                           <div className="text-sm font-medium text-slate-800">
-                            {formatClinicDate(a.scheduled_at, 'en')}
-                            <span className="ms-2 text-xs font-normal text-slate-400">{formatClinicTime(a.scheduled_at, 'en')}</span>
+                            {formatClinicDate(a.scheduled_at, lang)}
+                            <span className="ms-2 text-xs font-normal text-slate-400">{formatClinicTime(a.scheduled_at, lang)}</span>
                           </div>
-                          <div className="text-xs text-slate-500">{a.doctorName} · {a.reason}</div>
+                          <div className="text-xs text-slate-500">{doctorLabel(a.doctorName)} · {visitReasonLabel(t, a.reason)}</div>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${s.color}`}>
-                        {s.label}
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${color}`}>
+                        {appointmentStatusLabel(t, a.status)}
                       </span>
                     </div>
                   );
@@ -157,16 +178,18 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
         {/* Quick Actions */}
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
           <button
+            type="button"
             onClick={onMessage}
             className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
-            <MessageSquare size={15} /> Send Message
+            <MessageSquare size={15} aria-hidden="true" /> {t(`${C}.sendMessage`)}
           </button>
           <button
+            type="button"
             onClick={onBook}
             className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
           >
-            <BookOpen size={15} /> Book Appointment
+            <BookOpen size={15} aria-hidden="true" /> {t(`${C}.book`)}
           </button>
         </div>
       </div>
@@ -177,6 +200,8 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
 
 export default function ClinicPatients() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [rawAppts, setRawAppts] = useState<{ id?: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string; chief_complaint?: string | null }[]>([]);
@@ -252,8 +277,8 @@ export default function ClinicPatients() {
         const profile = (staffProfiles ?? []).find(p => p.user_id === s.doctor_user_id);
         return {
           userId: s.doctor_user_id,
-          name: profile?.full_name ?? 'Unknown Doctor',
-          specialty: specMap.get(s.doctor_user_id) ?? 'General Practice',
+          name: profile?.full_name ?? t('clinic.appointments.unknownDoctor'),
+          specialty: specMap.get(s.doctor_user_id) ?? t('clinic.appointments.generalPractice'),
           consultationFee: Number(s.consultation_fee) || 0,
         };
       });
@@ -281,21 +306,17 @@ export default function ClinicPatients() {
         // QA-209: last = latest completed visit, next = earliest upcoming open visit (clinic time)
         const summary = summarisePatientVisits(patientApptList);
         const primaryDoctorId = summary.primaryDoctorId ?? undefined;
-        const dob = profile?.date_of_birth ? formatClinicDate(profile.date_of_birth.slice(0, 10), 'en') : '—';
-        const lastVisit = summary.lastVisitAt ? formatClinicDate(summary.lastVisitAt, 'en') : '—';
-        const nextVisit = summary.nextVisitAt ? formatClinicDate(summary.nextVisitAt, 'en') : '—';
 
         return {
           id: pid,
-          name: profile?.full_name ?? 'Unknown Patient',
-          phone: profile?.phone ?? '—',
-          email: profile?.email ?? '—',
-          dob,
-          lastVisit,
+          name: profile?.full_name ?? t('clinic.appointments.unknownPatient'),
+          phone: profile?.phone ?? null,
+          email: profile?.email ?? null,
+          dateOfBirth: profile?.date_of_birth ? profile.date_of_birth.slice(0, 10) : null,
           lastVisitDate: summary.lastVisitAt,
-          nextVisit,
+          nextVisitDate: summary.nextVisitAt,
           doctorId: primaryDoctorId && doctorMap.get(primaryDoctorId) ? primaryDoctorId : null,
-          doctor: primaryDoctorId && doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
+          doctor: primaryDoctorId ? doctorMap.get(primaryDoctorId) ?? null : null,
           totalVisits: summary.completedVisits,
         };
       });
@@ -303,7 +324,9 @@ export default function ClinicPatients() {
       setPatients(rows);
       setRawAppts(apptData ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load patients.');
+      // QA-211: plain message in the UI language, not the raw database text
+      console.warn('[ClinicPatients] load failed', err);
+      setError(t('clinic.patientsPage.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -324,7 +347,7 @@ export default function ClinicPatients() {
         id: a.id,
         scheduled_at: a.scheduled_at,
         status: a.status,
-        doctorName: doctorNames.get(a.doctor_id) ? `Dr. ${doctorNames.get(a.doctor_id)}` : 'Unknown Doctor',
+        doctorName: doctorNames.get(a.doctor_id) || null,
         reason: a.chief_complaint || 'Consultation',
       }));
     setPatientAppts(appts);
@@ -336,15 +359,20 @@ export default function ClinicPatients() {
   const upcomingVisits = countUpcomingVisits(rawAppts);
 
   const doctorList = doctorFilterOptions(
-    patients.flatMap(p => (p.doctorId ? [{ id: p.doctorId, name: p.doctor }] : []))
+    patients.flatMap(p => (p.doctorId && p.doctor ? [{ id: p.doctorId, name: p.doctor }] : []))
   );
+  const doctorLabel = (name: string | null) => (name ? t('clinic.patientsPage.doctorName', { name }) : '—');
+  const P = 'clinic.patientsPage';
 
+  const query = search.trim().toLowerCase();
   const filtered = patients.filter(p =>
-    (p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.phone.includes(search) ||
-    p.doctor.toLowerCase().includes(search.toLowerCase())) &&
+    (!query ||
+      p.name.toLowerCase().includes(query) ||
+      (p.phone ?? '').toLowerCase().includes(query) ||
+      (p.doctor ?? '').toLowerCase().includes(query)) &&
     (filterDoctor === 'all' || p.doctorId === filterDoctor)
   );
+  const date = (iso: string | null) => (iso ? formatClinicDate(iso, lang) : '—');
 
   if (loading) {
     return (
@@ -361,31 +389,31 @@ export default function ClinicPatients() {
   return (
     <div className="p-6 space-y-5">
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+          <button type="button" onClick={() => void fetchData()} className="ms-2 font-semibold underline">{t('clinic.actions.retry')}</button>
         </div>
       ) : null}
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Patients</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{patients.length} patients with visits at this clinic</p>
+          <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t(`${P}.title`)}</h2>
+          <p className="text-sm text-slate-500 mt-0.5">{t(`${P}.subtitle`, { count: patients.length })}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Total Patients', value: patients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
-          { label: 'Visited This Month', value: visitedThisMonth, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Upcoming Visits', value: upcomingVisits, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: t(`${P}.kpiTotal`), value: patients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { label: t(`${P}.kpiVisitedThisMonth`), value: visitedThisMonth, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: t(`${P}.kpiUpcoming`), value: upcomingVisits, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
             <div key={k.label} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center`}><Icon size={18} className={k.color} /></div>
+              <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center`}><Icon size={18} className={k.color} aria-hidden="true" /></div>
               <div>
-                <div className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{k.value}</div>
+                <div className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{formatLocaleDigits(k.value, lang)}</div>
                 <div className="text-xs text-slate-500">{k.label}</div>
               </div>
             </div>
@@ -394,30 +422,47 @@ export default function ClinicPatients() {
       </div>
 
       {listTruncated && (
-        <p role="status" className="text-xs text-amber-700">Based on the most recent 20,000 appointments.</p>
+        <p role="status" className="text-xs text-amber-700">{t(`${P}.truncated`, { value: formatLocaleDigits(20000, lang) })}</p>
       )}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patients by name, phone, or doctor…" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t(`${P}.searchPlaceholder`)}
+            aria-label={t(`${P}.searchLabel`)}
+            className="w-full ps-9 pe-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
         </div>
         <select
+          aria-label={t(`${P}.doctorFilterLabel`)}
           value={filterDoctor}
           onChange={e => setFilterDoctor(e.target.value)}
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
         >
-          <option value="all">All Doctors</option>
-          {doctorList.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          <option value="all">{t('clinic.filters.allDoctors')}</option>
+          {doctorList.map(d => <option key={d.id} value={d.id}>{doctorLabel(d.name)}</option>)}
         </select>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[960px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
-              {['Patient', 'Contact', 'Date of Birth', 'Doctor', 'Last Visit', 'Next Visit', 'Completed Visits', ''].map(h => (
-                <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3">{h}</th>
+              {[
+                { key: 'patient', label: t(`${P}.colPatient`) },
+                { key: 'contact', label: t(`${P}.colContact`) },
+                { key: 'dob', label: t(`${P}.colDob`) },
+                { key: 'doctor', label: t(`${P}.colDoctor`) },
+                { key: 'last', label: t(`${P}.colLastVisit`) },
+                { key: 'next', label: t(`${P}.colNextVisit`) },
+                { key: 'completed', label: t(`${P}.colCompleted`) },
+              ].map(h => (
+                <th key={h.key} scope="col" className="text-start text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3">{h.label}</th>
               ))}
+              <th scope="col" className="px-5 py-3"><span className="sr-only">{t(`${P}.colOpen`)}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -430,20 +475,28 @@ export default function ClinicPatients() {
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
                         {initials}
                       </div>
-                      <span className="font-semibold text-slate-800 text-sm">{p.name}</span>
+                      {/* QA-211: a real button so the patient can be opened from the keyboard */}
+                      <button
+                        type="button"
+                        onClick={event => { event.stopPropagation(); handleRowClick(p); }}
+                        aria-label={t(`${P}.openPatient`, { name: p.name })}
+                        className="font-semibold text-slate-800 text-sm text-start hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                      >
+                        {p.name}
+                      </button>
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500"><Phone size={11} /> {p.phone}</div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5"><Mail size={11} /> {p.email}</div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500"><Phone size={11} aria-hidden="true" /> <span dir="ltr">{p.phone ? formatLocalePhoneDisplay(p.phone, lang) : '—'}</span></div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5"><Mail size={11} aria-hidden="true" /> <span dir="ltr">{p.email ?? '—'}</span></div>
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{p.dob}</td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{p.doctor}</td>
-                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{p.lastVisit}</td>
-                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{p.nextVisit}</td>
-                  <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{p.totalVisits}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{date(p.dateOfBirth)}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{doctorLabel(p.doctor)}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{date(p.lastVisitDate)}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{date(p.nextVisitDate)}</td>
+                  <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{formatLocaleDigits(p.totalVisits, lang)}</td>
                   <td className="px-5 py-4">
-                    <ChevronRight size={16} className="text-slate-300" />
+                    <ChevronRight size={16} className="text-slate-300 rtl:rotate-180" aria-hidden="true" />
                   </td>
                 </tr>
               );
@@ -452,8 +505,8 @@ export default function ClinicPatients() {
               <tr>
                 <td colSpan={8} className="text-center py-16 text-slate-400">
                   <div className="flex flex-col items-center gap-2">
-                    <Users size={32} className="opacity-30" />
-                    <p className="text-sm">No patients found.</p>
+                    <Users size={32} className="opacity-30" aria-hidden="true" />
+                    <p className="text-sm">{t(`${P}.empty`)}</p>
                   </div>
                 </td>
               </tr>
@@ -471,7 +524,7 @@ export default function ClinicPatients() {
             setBookingPatient({
               userId: selectedPatient.id,
               fullName: selectedPatient.name,
-              phone: selectedPatient.phone,
+              phone: selectedPatient.phone ?? '—',
             });
             setSelectedPatient(null);
             setShowBook(true);
