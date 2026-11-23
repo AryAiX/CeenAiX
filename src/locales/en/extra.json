@@ -3064,6 +3064,39 @@
         "explainLicenceChange": "Changing your licence number removes the verification until the new number is checked.",
         "howToVerify": "To get verified, send your DHA licence to"
       }
+    },
+    "shell": {
+      "groups": {
+        "clinic": "CLINIC",
+        "analytics": "ANALYTICS",
+        "account": "ACCOUNT",
+        "today": "TODAY"
+      },
+      "items": {
+        "todayAppointments": "Today's Appointments",
+        "patientRecords": "Patient Records",
+        "writePrescription": "Write Prescription",
+        "labReferrals": "Lab Referrals",
+        "imaging": "Imaging Center",
+        "earnings": "Earnings",
+        "myProfile": "My Profile",
+        "videoVisit": "Video visit"
+      },
+      "chips": {
+        "consulting": "Consulting: {{name}}",
+        "criticalOrders_one": "{{value}} lab order with critical results",
+        "criticalOrders_other": "{{value}} lab orders with critical results"
+      },
+      "today": {
+        "appointments_one": "{{value}} appointment",
+        "appointments_other": "{{value}} appointments",
+        "done": "{{done}}/{{total}} done",
+        "criticalAlerts": "Critical alerts",
+        "urgent": "URGENT"
+      },
+      "licenceVerified": "DHA Licensed ✓",
+      "licencePendingBadge": "DHA verification pending",
+      "licencePending": "License pending"
     }
   },
   "public": {

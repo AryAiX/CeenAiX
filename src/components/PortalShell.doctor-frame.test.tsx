@@ -113,3 +113,68 @@ describe('Doctor sidebar and top bar facts (QA-187)', () => {
     expect(dashboardItem?.textContent).toBe('Dashboard');
   });
 });
+
+describe('Doctor sidebar and top bar in Arabic (QA-188)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ar');
+    chrome({ criticalResultsCount: 2 });
+    vi.mocked(useDoctorClinicMembership).mockReturnValue({ data: null } as never);
+    auth({ city: 'Dubai' }, { consultation_fee: 300, dha_license_verified: false, license_number: null });
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  it('translates the menu, groups, today box, licence and sign-out', () => {
+    renderAt('/doctor/dashboard');
+    const sidebar = screen.getByRole('complementary');
+    for (const arabic of ['العيادة', 'الحساب', 'اليوم', 'مواعيد اليوم', 'سجلات المرضى', 'طلبات المختبر', 'ملفي الشخصي', 'تنبيهات حرجة']) {
+      expect(sidebar).toHaveTextContent(arabic);
+    }
+    for (const english of ["Today's Appointments", 'Patient Records', 'CLINIC', 'ACCOUNT', 'Critical alerts', 'Sign Out', 'DHA verification pending']) {
+      expect(sidebar).not.toHaveTextContent(english);
+    }
+    expect(sidebar).toHaveTextContent('الترخيص قيد الانتظار');
+  });
+
+  it('uses Arabic digits for counts and badges', () => {
+    renderAt('/doctor/dashboard');
+    const sidebar = screen.getByRole('complementary');
+    expect(sidebar).toHaveTextContent('٤ مواعيد');
+    expect(sidebar).toHaveTextContent('١/٤ مكتمل');
+    expect(sidebar).toHaveTextContent('٢ عاجل');
+    expect(sidebar).not.toHaveTextContent(/\d/);
+  });
+
+  it('shows the critical chip as lab orders, with Arabic plurals', () => {
+    renderAt('/doctor/dashboard');
+    expect(screen.getByText('طلبا مختبر بنتائج حرجة')).toBeInTheDocument();
+  });
+
+  it('shows the critical chip in English with the right plural', async () => {
+    await i18n.changeLanguage('en');
+    chrome({ criticalResultsCount: 1 });
+    renderAt('/doctor/dashboard');
+    expect(screen.getByText('1 lab order with critical results')).toBeInTheDocument();
+  });
+
+  it('shows the clinic date (Dubai), not the device date', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 21:30 UTC on Friday 20 Nov is already 01:30 on Saturday 21 Nov in Dubai.
+    vi.setSystemTime(new Date('2026-11-20T21:30:00Z'));
+    await i18n.changeLanguage('en');
+    renderAt('/doctor/dashboard');
+    const now = plain(screen.getByTestId('doctor-now').textContent);
+    expect(now).toContain('Saturday');
+    expect(now).toContain('21');
+    expect(now).toMatch(/1:30/);
+  });
+
+  it('flips the sidebar arrows for right-to-left', () => {
+    renderAt('/doctor/dashboard');
+    const collapse = screen.getByRole('button', { name: 'طي الشريط الجانبي' });
+    expect(collapse.querySelector('svg')?.getAttribute('class')).toContain('rtl:rotate-180');
+  });
+});

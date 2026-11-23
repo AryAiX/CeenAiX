@@ -3198,6 +3198,47 @@
         "explainLicenceChange": "تغيير رقم الترخيص يلغي التوثيق حتى يتم التحقق من الرقم الجديد.",
         "howToVerify": "للحصول على التوثيق، أرسل ترخيصك إلى"
       }
+    },
+    "shell": {
+      "groups": {
+        "clinic": "العيادة",
+        "analytics": "التحليلات",
+        "account": "الحساب",
+        "today": "اليوم"
+      },
+      "items": {
+        "todayAppointments": "مواعيد اليوم",
+        "patientRecords": "سجلات المرضى",
+        "writePrescription": "كتابة وصفة طبية",
+        "labReferrals": "طلبات المختبر",
+        "imaging": "مركز الأشعة",
+        "earnings": "الأرباح",
+        "myProfile": "ملفي الشخصي",
+        "videoVisit": "زيارة بالفيديو"
+      },
+      "chips": {
+        "consulting": "استشارة جارية: {{name}}",
+        "criticalOrders_zero": "لا توجد طلبات مختبر بنتائج حرجة",
+        "criticalOrders_one": "طلب مختبر واحد بنتائج حرجة",
+        "criticalOrders_two": "طلبا مختبر بنتائج حرجة",
+        "criticalOrders_few": "{{value}} طلبات مختبر بنتائج حرجة",
+        "criticalOrders_many": "{{value}} طلب مختبر بنتائج حرجة",
+        "criticalOrders_other": "{{value}} طلب مختبر بنتائج حرجة"
+      },
+      "today": {
+        "appointments_zero": "لا توجد مواعيد",
+        "appointments_one": "موعد واحد",
+        "appointments_two": "موعدان",
+        "appointments_few": "{{value}} مواعيد",
+        "appointments_many": "{{value}} موعدًا",
+        "appointments_other": "{{value}} موعد",
+        "done": "{{done}}/{{total}} مكتمل",
+        "criticalAlerts": "تنبيهات حرجة",
+        "urgent": "عاجل"
+      },
+      "licenceVerified": "مرخّص من هيئة الصحة بدبي ✓",
+      "licencePendingBadge": "التحقق من هيئة الصحة بدبي قيد الانتظار",
+      "licencePending": "الترخيص قيد الانتظار"
     }
   },
   "public": {

@@ -38,7 +38,13 @@ import { useDoctorPortalChrome, useDoctorClinicMembership } from '../hooks';
 import { usePatientDashboardAlert } from '../hooks/use-patient-dashboard-alert';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { supabase } from '../lib/supabase';
-import { formatLocaleCurrency, formatLocaleDigits } from '../lib/i18n-ui';
+import {
+  CLINIC_TIME_ZONE,
+  dateTimeFormatWithNumerals,
+  formatLocaleCurrency,
+  formatLocaleDigits,
+  resolveLocale,
+} from '../lib/i18n-ui';
 import { NOTIFICATIONS_CHANGED_EVENT } from '../lib/notification-events';
 
 type PortalRole = 'patient' | 'doctor';
@@ -826,38 +832,38 @@ export const PortalShell = ({
   }> = [
     {
       id: 'clinic',
-      title: 'CLINIC',
+      title: t('doctor.shell.groups.clinic'),
       items: [
         // QA-187: no red (alarm) count on Dashboard; today's count is on "Today's Appointments".
         { href: '/doctor/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
-        { href: '/doctor/today', label: "Today's Appointments", icon: CalendarCheck, badge: doctorChromeData?.todayAppointmentsCount ?? undefined, badgeTone: 'amber' },
+        { href: '/doctor/today', label: t('doctor.shell.items.todayAppointments'), icon: CalendarCheck, badge: doctorChromeData?.todayAppointmentsCount ?? undefined, badgeTone: 'amber' },
         { href: '/doctor/appointments', label: t('nav.appointments'), icon: CalendarDays },
-        { href: '/doctor/schedule', label: 'Schedule', icon: Calendar },
-        { href: '/doctor/patients', label: 'Patient Records', icon: Users },
+        { href: '/doctor/schedule', label: t('nav.schedule'), icon: Calendar },
+        { href: '/doctor/patients', label: t('doctor.shell.items.patientRecords'), icon: Users },
       ],
     },
     {
       id: 'workflow',
       items: [
-        { href: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill },
-        { href: '/doctor/prescriptions/new', label: 'Write Prescription', icon: PenLine },
-        { href: '/doctor/lab-orders', label: 'Lab Referrals', icon: FlaskConical, badge: doctorChromeData?.criticalResultsCount ?? undefined, badgeTone: 'red' },
-        { href: '/doctor/imaging', label: 'Imaging Center', icon: Scan },
+        { href: '/doctor/prescriptions', label: t('nav.prescriptions'), icon: Pill },
+        { href: '/doctor/prescriptions/new', label: t('doctor.shell.items.writePrescription'), icon: PenLine },
+        { href: '/doctor/lab-orders', label: t('doctor.shell.items.labReferrals'), icon: FlaskConical, badge: doctorChromeData?.criticalResultsCount ?? undefined, badgeTone: 'red' },
+        { href: '/doctor/imaging', label: t('doctor.shell.items.imaging'), icon: Scan },
         { href: '/doctor/messages', label: t('nav.messages'), icon: MessageSquare, badge: doctorChromeData?.unreadMessagesCount ?? undefined, badgeTone: 'blue' },
       ],
     },
     {
       id: 'analytics',
-      title: 'ANALYTICS',
-      items: [{ href: '/doctor/earnings', label: 'Earnings', icon: TrendingUp }],
+      title: t('doctor.shell.groups.analytics'),
+      items: [{ href: '/doctor/earnings', label: t('doctor.shell.items.earnings'), icon: TrendingUp }],
     },
     {
       id: 'account',
-      title: 'ACCOUNT',
+      title: t('doctor.shell.groups.account'),
       items: [
-        { href: '/doctor/notifications', label: 'Notifications', icon: Bell },
-        { href: '/doctor/profile', label: 'My Profile', icon: UserCircle2 },
-        { href: '/doctor/settings', label: 'Settings', icon: Settings },
+        { href: '/doctor/notifications', label: t('nav.notifications'), icon: Bell },
+        { href: '/doctor/profile', label: t('doctor.shell.items.myProfile'), icon: UserCircle2 },
+        { href: '/doctor/settings', label: t('nav.settings'), icon: Settings },
       ],
     },
   ];
@@ -867,27 +873,36 @@ export const PortalShell = ({
     doctorChromeData?.activeConsultationPatientName
       ? {
           id: 'consulting',
-          label: `Consulting: ${doctorChromeData.activeConsultationPatientName}`,
+          label: t('doctor.shell.chips.consulting', { name: doctorChromeData.activeConsultationPatientName }),
           className: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
         }
       : null,
     (doctorChromeData?.criticalResultsCount ?? 0) > 0
       ? {
           id: 'critical',
-          label: `${doctorChromeData?.criticalResultsCount} critical result${doctorChromeData?.criticalResultsCount === 1 ? '' : 's'}`,
+          // QA-188: counts lab orders with a critical result (QA-186), translated with plurals.
+          label: t('doctor.shell.chips.criticalOrders', {
+            count: doctorChromeData?.criticalResultsCount ?? 0,
+            value: formatLocaleDigits(doctorChromeData?.criticalResultsCount ?? 0, i18n.language),
+          }),
           className: 'border border-rose-200 bg-rose-50 text-rose-700',
         }
       : null,
   ].filter(Boolean) as Array<{ id: string; label: string; className: string }>;
 
-  const formatDoctorNow = new Date().toLocaleString(i18n.language, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  // QA-188: the clinic's date and time (Dubai) in the UI language and digits, not the device's.
+  const formatDoctorNow = new Date().toLocaleString(
+    resolveLocale(i18n.language),
+    dateTimeFormatWithNumerals(i18n.language, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: CLINIC_TIME_ZONE,
+    })
+  );
   const doctorSpecialty = doctorProfile?.specialization?.trim() || t('shared.doctor');
   // QA-187: the clinic the doctor works at, else the city. Never the personal address from the
   // profile, and no made-up place ("Dubai Healthcare City") when nothing is set.
@@ -895,27 +910,27 @@ export const PortalShell = ({
     doctorClinicMembership?.facilities?.name_en ??
     doctorClinicMembership?.facilities?.name ??
     (profile?.city?.trim() || null);
-  const doctorLicense = doctorProfile?.license_number?.trim() || 'License pending';
+  const doctorLicense = doctorProfile?.license_number?.trim() || t('doctor.shell.licencePending');
   const todayAppointmentsCount = doctorChromeData?.todayAppointmentsCount ?? 0;
   const completedTodayAppointmentsCount = doctorChromeData?.completedTodayAppointmentsCount ?? 0;
   const doctorPageTitle =
     [
-      { prefix: '/doctor/today', label: "Today's Appointments" },
+      { prefix: '/doctor/today', label: t('doctor.shell.items.todayAppointments') },
       // QA-187: these pages used to show "Dashboard" as their title.
-      { prefix: '/doctor/schedule', label: 'Schedule' },
+      { prefix: '/doctor/schedule', label: t('nav.schedule') },
       { prefix: '/doctor/notifications', label: t('nav.notifications') },
-      { prefix: '/doctor/telemedicine', label: 'Video visit' },
+      { prefix: '/doctor/telemedicine', label: t('doctor.shell.items.videoVisit') },
       { prefix: '/doctor/appointments', label: t('nav.appointments') },
-      { prefix: '/doctor/patients', label: 'Patient Records' },
-      { prefix: '/doctor/prescribe', label: 'Write Prescription' },
-      { prefix: '/doctor/prescriptions/new', label: 'Write Prescription' },
-      { prefix: '/doctor/prescriptions', label: 'Prescriptions' },
-      { prefix: '/doctor/labs', label: 'Lab Referrals' },
-      { prefix: '/doctor/lab-orders', label: 'Lab Referrals' },
-      { prefix: '/doctor/imaging', label: 'Imaging Center' },
+      { prefix: '/doctor/patients', label: t('doctor.shell.items.patientRecords') },
+      { prefix: '/doctor/prescribe', label: t('doctor.shell.items.writePrescription') },
+      { prefix: '/doctor/prescriptions/new', label: t('doctor.shell.items.writePrescription') },
+      { prefix: '/doctor/prescriptions', label: t('nav.prescriptions') },
+      { prefix: '/doctor/labs', label: t('doctor.shell.items.labReferrals') },
+      { prefix: '/doctor/lab-orders', label: t('doctor.shell.items.labReferrals') },
+      { prefix: '/doctor/imaging', label: t('doctor.shell.items.imaging') },
       { prefix: '/doctor/messages', label: t('nav.messages') },
-      { prefix: '/doctor/earnings', label: 'Earnings' },
-      { prefix: '/doctor/profile', label: 'My Profile' },
+      { prefix: '/doctor/earnings', label: t('doctor.shell.items.earnings') },
+      { prefix: '/doctor/profile', label: t('doctor.shell.items.myProfile') },
       { prefix: '/doctor/settings', label: t('nav.settings') },
     ].find((item) => location.pathname === item.prefix || location.pathname.startsWith(`${item.prefix}/`))
       ?.label ?? t('nav.dashboard');
@@ -956,7 +971,7 @@ export const PortalShell = ({
           }
         }}
         className={`flex w-full items-center rounded-lg text-[13px] leading-5 font-medium transition-all duration-300 ${
-          doctorSidebarCollapsed ? 'justify-center px-0 py-3' : 'justify-between px-4 py-2.5 text-left'
+          doctorSidebarCollapsed ? 'justify-center px-0 py-3' : 'justify-between px-4 py-2.5 text-start'
         } ${
           item.disabled
             ? 'cursor-not-allowed text-slate-500'
@@ -967,11 +982,12 @@ export const PortalShell = ({
       >
         <span className={`flex min-w-0 items-center ${doctorSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
           <Icon
+            aria-hidden="true"
             className={`h-5 w-5 shrink-0 ${
               active ? 'text-white' : item.disabled ? 'text-slate-600' : 'text-slate-400'
             }`}
           />
-          {!doctorSidebarCollapsed ? <span className="truncate">{item.label}</span> : null}
+          {!doctorSidebarCollapsed ? <span className="truncate">{item.label}</span> : <span className="sr-only">{item.label}</span>}
         </span>
         {!doctorSidebarCollapsed && item.badge ? (
           <span
@@ -979,7 +995,7 @@ export const PortalShell = ({
               active ? 'bg-white/20 text-white' : doctorBadgeToneClass(item.badgeTone)
             }`}
           >
-            {item.badge}
+            {formatLocaleDigits(item.badge, i18n.language)}
           </span>
         ) : null}
       </button>
@@ -995,7 +1011,7 @@ export const PortalShell = ({
               <button
                 type="button"
                 onClick={() => navigate('/doctor/dashboard')}
-                className="min-w-0 text-left"
+                className="min-w-0 text-start"
               >
                 <h1 className="text-lg font-bold text-white">CeenAiX</h1>
                 <p className="truncate text-[10px] uppercase tracking-wide text-teal-400">{portalLabel}</p>
@@ -1007,7 +1023,7 @@ export const PortalShell = ({
                 aria-label={t('portalShell.collapseSidebar', { defaultValue: 'Collapse sidebar' })}
                 title={t('portalShell.collapse', { defaultValue: 'Collapse' })}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </button>
             </>
           ) : (
@@ -1033,7 +1049,7 @@ export const PortalShell = ({
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#0A1628] to-teal-600 text-sm font-bold text-white shadow-lg">
                   {getInitials(accountDisplayName)}
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0A1628] bg-emerald-500" />
+                <div className="absolute -bottom-0.5 -end-0.5 h-3 w-3 rounded-full border-2 border-[#0A1628] bg-emerald-500" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-bold text-white">{accountDisplayName}</p>
@@ -1050,7 +1066,7 @@ export const PortalShell = ({
                       : 'bg-amber-900/50 text-amber-300'
                   }`}
                 >
-                  {doctorProfile?.dha_license_verified ? 'DHA Licensed ✓' : 'DHA verification pending'}
+                  {doctorProfile?.dha_license_verified ? t('doctor.shell.licenceVerified') : t('doctor.shell.licencePendingBadge')}
                 </div>
                 <p className="mt-0.5 font-mono text-[9px] text-slate-500">{doctorLicense}</p>
               </div>
@@ -1074,20 +1090,28 @@ export const PortalShell = ({
 
         {!doctorSidebarCollapsed ? (
         <div className="border-t border-white/[0.06] p-3.5 space-y-2.5">
-          <p className="px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500">TODAY</p>
+          <p className="px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500">{t('doctor.shell.groups.today')}</p>
           <div className="space-y-2 text-[12px]">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2 text-slate-400">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{todayAppointmentsCount} appointments</span>
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>
+                  {t('doctor.shell.today.appointments', {
+                    count: todayAppointmentsCount,
+                    value: formatLocaleDigits(todayAppointmentsCount, i18n.language),
+                  })}
+                </span>
               </div>
               <span className="font-mono text-[12px] font-semibold text-teal-400">
-                {completedTodayAppointmentsCount}/{todayAppointmentsCount} done
+                {t('doctor.shell.today.done', {
+                  done: formatLocaleDigits(completedTodayAppointmentsCount, i18n.language),
+                  total: formatLocaleDigits(todayAppointmentsCount, i18n.language),
+                })}
               </span>
             </div>
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2 text-slate-400">
-                <Banknote className="h-3.5 w-3.5" />
+                <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{t('doctor.earnings.earnedTodayEstimate')}</span>
               </div>
               <span className="font-mono text-[12px] font-semibold text-emerald-400" data-testid="doctor-sidebar-earned">
@@ -1101,11 +1125,11 @@ export const PortalShell = ({
                     (doctorChromeData?.criticalResultsCount ?? 0) > 0 ? 'animate-pulse bg-red-500' : 'bg-slate-500'
                   }`}
                 />
-                <span>Critical alerts</span>
+                <span>{t('doctor.shell.today.criticalAlerts')}</span>
               </div>
               <span className="font-mono text-[12px] font-bold text-red-400">
-                {doctorChromeData?.criticalResultsCount ?? 0}{' '}
-                {doctorChromeData?.criticalResultsCount ? 'URGENT' : ''}
+                {formatLocaleDigits(doctorChromeData?.criticalResultsCount ?? 0, i18n.language)}
+                {doctorChromeData?.criticalResultsCount ? ` ${t('doctor.shell.today.urgent')}` : ''}
               </span>
             </div>
           </div>
@@ -1114,8 +1138,8 @@ export const PortalShell = ({
             onClick={() => setShowLogoutConfirm(true)}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-red-400"
           >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            <span>{t('portalShell.signOut')}</span>
           </button>
         </div>
         ) : (
@@ -1126,7 +1150,7 @@ export const PortalShell = ({
             aria-label={t('portalShell.expandSidebar', { defaultValue: 'Expand sidebar' })}
             title={t('portalShell.expand', { defaultValue: 'Expand' })}
           >
-            <ChevronRight className="mx-auto h-5 w-5" />
+            <ChevronRight className="mx-auto h-5 w-5 rtl:rotate-180" aria-hidden="true" />
           </button>
         )}
       </aside>
@@ -1138,7 +1162,9 @@ export const PortalShell = ({
               <p className="truncate text-base font-semibold text-slate-900" data-testid="doctor-page-title">
                 {doctorPageTitle}
               </p>
-              <p className="hidden text-xs text-slate-500 sm:block">{formatDoctorNow}</p>
+              <p className="hidden text-xs text-slate-500 sm:block" data-testid="doctor-now">
+                {formatDoctorNow}
+              </p>
             </div>
           </div>
 
@@ -1186,7 +1212,9 @@ export const PortalShell = ({
               <button
                 type="button"
                 onClick={() => setAccountMenuOpen((current) => !current)}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left"
+                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-start"
+                aria-haspopup="menu"
+                aria-expanded={accountMenuOpen}
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 text-sm font-bold text-white">
                   {getInitials(accountDisplayName)}
@@ -1210,9 +1238,9 @@ export const PortalShell = ({
                         setAccountMenuOpen(false);
                         navigate(accountPath);
                       }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
-                      <Settings className="h-4 w-4" />
+                      <Settings className="h-4 w-4" aria-hidden="true" />
                       <span>{t('nav.profile')}</span>
                     </button>
                     <button
@@ -1221,9 +1249,9 @@ export const PortalShell = ({
                         setAccountMenuOpen(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="h-4 w-4" aria-hidden="true" />
                       <span>{t('nav.logOut')}</span>
                     </button>
                   </div>
@@ -1251,11 +1279,11 @@ export const PortalShell = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-teal-50 hover:text-teal-700'
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{item.label}</span>
                 {item.badge ? (
                   <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${active ? 'bg-white/20 text-white' : doctorBadgeToneClass(item.badgeTone)}`}>
-                    {item.badge}
+                    {formatLocaleDigits(item.badge, i18n.language)}
                   </span>
                 ) : null}
               </button>
