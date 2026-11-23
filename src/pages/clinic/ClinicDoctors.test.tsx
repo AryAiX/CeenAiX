@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -97,11 +98,11 @@ describe('ClinicDoctors link actions (QA-199)', () => {
   it('cancels an invitation and removes a doctor through the database function', async () => {
     const calls = setup();
     openMenu(await rowOf('Dr Invited Person'));
-    fireEvent.click(screen.getByRole('button', { name: /Cancel Invite/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Cancel Invite/ }));
     await waitFor(() => expectAction('doc-invited', 'cancel_invite'));
 
     openMenu(await rowOf('Dr Active Person'));
-    fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Remove/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Yes, Remove' }));
     await waitFor(() =>
       expect(supabase.rpc).toHaveBeenCalledWith('clinic_end_doctor_link', {
@@ -135,7 +136,7 @@ describe('ClinicDoctors link actions (QA-199)', () => {
   it('the edit popup only changes the fee (no Status field that could skip approval)', async () => {
     const calls = setup();
     openMenu(await rowOf('Dr Pending Person'));
-    fireEvent.click(screen.getByRole('button', { name: /Edit Fee/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Edit Fee/ }));
 
     const editPopup = screen.getByText('Edit Doctor').closest('div.rounded-2xl') as HTMLElement;
     expect(within(editPopup).queryByRole('combobox')).not.toBeInTheDocument();
@@ -241,7 +242,7 @@ describe('ClinicDoctors upcoming visits on suspend / remove (QA-203)', () => {
     const calls = setup([], upcoming);
     vi.mocked(supabase.rpc).mockResolvedValue({ data: { status: 'removed', cancelled_visits: 2 }, error: null } as never);
     openMenu(await rowOf('Dr Active Person'));
-    fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Remove/ }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Remove Doctor' });
     expect(await within(dialog).findByText(/2 upcoming visits are still booked/)).toBeInTheDocument();
@@ -250,7 +251,7 @@ describe('ClinicDoctors upcoming visits on suspend / remove (QA-203)', () => {
     expect(visitQuery.eq).toHaveBeenCalledWith('doctor_id', 'doc-active');
     expect(visitQuery.in).toHaveBeenCalledWith('status', ['scheduled', 'confirmed']);
 
-    fireEvent.click(within(dialog).getByRole('button', { name: /Remove and cancel the 2 visits/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Remove and cancel these visits/ }));
     await waitFor(() =>
       expect(supabase.rpc).toHaveBeenCalledWith('clinic_end_doctor_link', {
         p_doctor_user_id: 'doc-active',
@@ -326,7 +327,7 @@ describe('ClinicDoctors statuses (QA-204)', () => {
     const row = await rowOf('Dr Suspended Person');
     expect(within(row).getByText('Suspended')).toBeInTheDocument();
     openMenu(row);
-    fireEvent.click(screen.getByRole('button', { name: /Re-activate/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Re-activate/ }));
     await waitFor(() => expectAction('doc-susp', 'reactivate'));
     expect(await within(await rowOf('Dr Suspended Person')).findByText('Active')).toBeInTheDocument();
   });
@@ -348,7 +349,7 @@ describe('ClinicDoctors statuses (QA-204)', () => {
 describe('ClinicDoctors fee edit (QA-205)', () => {
   const openEdit = async () => {
     openMenu(await rowOf('Dr Active Person'));
-    fireEvent.click(screen.getByRole('button', { name: /Edit Fee/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Edit Fee/ }));
     return screen.getByText('Edit Doctor').closest('div.rounded-2xl') as HTMLElement;
   };
 
@@ -421,5 +422,63 @@ describe('ClinicDoctors counts (QA-206)', () => {
     }
     expect(screen.getByText('With visits today')).toBeInTheDocument();
     expect(screen.queryByText('Today on Duty')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDoctors in Arabic (QA-207)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the page, table, statuses and menu in Arabic with Arabic digits', async () => {
+    await i18n.changeLanguage('ar');
+    setup([{ user_id: 'doc-active', specialization: 'Cardiology', license_number: 'DHA-111', dha_license_verified: true, consultation_fee: null }]);
+
+    expect(await screen.findByRole('heading', { name: 'الأطباء' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /إضافة طبيب/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'رخصة هيئة الصحة' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'الكل (٣)' })).toBeInTheDocument();
+    expect(screen.getByText('طبيب واحد بانتظار الموافقة')).toBeInTheDocument();
+
+    const row = await rowOf('Dr Active Person');
+    expect(within(row).getByText('نشط')).toBeInTheDocument();
+    expect(within(row).getByText('موثّقة')).toBeInTheDocument();
+    expect(row.querySelectorAll('td')[5].textContent).toContain('٣٠٠');
+
+    fireEvent.click(within(row).getByRole('button', { name: 'إجراءات أخرى لـ Dr Active Person' }));
+    expect(screen.getByRole('menuitem', { name: /تعديل الرسوم/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /إزالة/ })).toBeInTheDocument();
+
+    for (const english of ['Doctors', 'Add Doctor', 'Active', 'Pending', 'Verified', 'Edit Fee', 'Remove']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows the upcoming-visits dialog in Arabic, right to left', async () => {
+    await i18n.changeLanguage('ar');
+    setup([], [{ id: 'v1', patient_id: 'patient-a', scheduled_at: '2030-01-10T05:00:00Z' }]);
+    openMenu(await rowOf('Dr Active Person'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /إزالة/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'إزالة الطبيب' });
+    expect(dialog).toHaveAttribute('dir', 'rtl');
+    expect(await within(dialog).findByText('لا تزال زيارة قادمة واحدة محجوزة مع هذا الطبيب:')).toBeInTheDocument();
+    expect(within(dialog).getByText(/٠٩:٠٠/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'رجوع' })).toBeInTheDocument();
+  });
+
+  it('shows a plain Arabic message, not the database text, when loading fails', async () => {
+    await i18n.changeLanguage('ar');
+    vi.mocked(supabase.from).mockImplementation(((table: string) =>
+      table === 'clinic_portal_members'
+        ? createSupabaseQueryBuilder({ data: null, error: { code: '42P01', message: 'relation "x" does not exist' } })
+        : createSupabaseQueryBuilder({ data: [], error: null })) as never);
+    render(
+      <MemoryRouter>
+        <ClinicDoctors />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('تعذّر تحميل الأطباء. يُرجى المحاولة مرة أخرى.');
+    expect(screen.queryByText(/relation/)).not.toBeInTheDocument();
   });
 });
