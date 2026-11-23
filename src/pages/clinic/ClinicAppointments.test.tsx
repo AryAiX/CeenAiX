@@ -369,3 +369,29 @@ describe('ClinicAppointments estimated prices (QA-195)', () => {
     expect(screen.getByText('Est. price')).toBeInTheDocument();
   });
 });
+
+describe('ClinicAppointments rescheduled badge (QA-196)', () => {
+  it('does not call a visit "Rescheduled" just because it was changed later (e.g. confirmed)', async () => {
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    setupSupabase({
+      listAppointments: [
+        {
+          id: 'confirmed-later',
+          patient_id: 'patient-1',
+          doctor_id: 'doctor-1',
+          scheduled_at: '2026-11-24T05:00:00Z',
+          status: 'confirmed',
+          type: 'in_person',
+          chief_complaint: 'Consultation',
+          notes: null,
+          duration_minutes: 30,
+          created_at: '2026-11-20T10:00:00Z',
+          updated_at: '2026-11-21T09:00:00Z', // confirmed a day after booking; time never changed
+        },
+      ],
+    });
+    render(<ClinicAppointments />);
+    await screen.findByText('Test Patient');
+    expect(screen.queryByText(/Rescheduled/)).not.toBeInTheDocument();
+  });
+});

@@ -26,7 +26,6 @@ interface Appointment {
   /** 'in_person' | 'virtual' (QA-195: telemedicine visits use the telemedicine fee) */
   visitType: string;
   notes: string;
-  wasRescheduled: boolean;
   /** Stored start time (UTC ISO); used for the QA-190 status rules. */
   scheduledAt: string;
 }
@@ -230,9 +229,6 @@ export default function ClinicAppointments() {
       const apptRows: Appointment[] = (apptData ?? []).map(a => {
         const patient = profileMap.get(a.patient_id);
         const doctor = profileMap.get(a.doctor_id);
-        const createdAt = new Date(a.created_at).getTime();
-        const updatedAt = new Date(a.updated_at).getTime();
-        const wasRescheduled = updatedAt - createdAt > 60000; // more than 1 minute apart
         return {
           id: a.id,
           patientName: patient?.full_name ?? 'Unknown Patient',
@@ -246,7 +242,6 @@ export default function ClinicAppointments() {
           status: a.status as Appointment['status'],
           visitType: a.type ?? 'in_person',
           notes: a.notes ?? '',
-          wasRescheduled,
           scheduledAt: a.scheduled_at,
         };
       });
@@ -312,7 +307,6 @@ export default function ClinicAppointments() {
       status: 'scheduled',
       visitType: appointmentTypeForReason(booked.reason),
       notes: booked.notes,
-      wasRescheduled: false,
       scheduledAt: booked.scheduledAt,
     };
     setAppts(prev => [newAppt, ...prev]);
@@ -445,9 +439,6 @@ export default function ClinicAppointments() {
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-slate-900 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{a.time}</span>
-                      {a.wasRescheduled && (
-                        <span className="px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded text-[10px] font-semibold border border-violet-200">↻ Rescheduled</span>
-                      )}
                     </div>
                     <div className="text-xs text-slate-400">{a.date}</div>
                   </td>
