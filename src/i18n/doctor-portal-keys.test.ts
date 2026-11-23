@@ -21,15 +21,9 @@ type Json = Record<string, unknown>;
 
 const PLURAL_SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_other'] as const;
 
-const KNOWN_MISSING = new Set<string>([
-  'doctor.settings.placeholderSection',
-  'doctor.settings.saveError',
-  'doctor.settings.toggles.autoFollowBody',
-  'doctor.settings.toggles.emailBody',
-  'doctor.settings.toggles.pushBody',
-  'doctor.settings.toggles.shareCalBody',
-  'doctor.settings.toggles.smsBody',
-]);
+// Empty since the doctor-portal QA pass: every doctor key exists in English and Arabic.
+// Keep it empty — add the missing translation instead of a new entry here.
+const KNOWN_MISSING = new Set<string>([]);
 
 const flatten = (value: Json, prefix = ''): Set<string> => {
   const keys = new Set<string>();
@@ -55,6 +49,12 @@ const hasKey = (keys: Set<string>, key: string) =>
 const sources = {
   ...import.meta.glob<string>('../pages/doctor/*.tsx', { query: '?raw', import: 'default', eager: true }),
   ...import.meta.glob<string>('../components/PortalShell.tsx', { query: '?raw', import: 'default', eager: true }),
+  // Hooks and helpers that build doctor-facing text (notifications, dashboard, chrome).
+  ...import.meta.glob<string>(['../hooks/use-doctor-*.ts', '../lib/doctor-*.ts', '!../**/*.test.ts'], {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
 };
 
 const referencedKeys = (() => {
