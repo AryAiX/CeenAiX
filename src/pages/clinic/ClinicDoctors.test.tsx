@@ -31,12 +31,12 @@ const PEOPLE = [
   { user_id: 'doc-new', full_name: 'Dr New Person', phone: null, email: 'new@example.test' },
 ];
 
-const setup = (doctorProfiles: unknown[] = [], upcomingVisits: unknown[] = []) => {
+const setup = (doctorProfiles: unknown[] = [], upcomingVisits: unknown[] = [], links: unknown[] = LINKS) => {
   const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
     const data =
       table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
-      : table === 'facility_staff' ? LINKS
+      : table === 'facility_staff' ? links
       : table === 'user_profiles' ? PEOPLE
       : table === 'doctor_profiles' ? doctorProfiles
       : table === 'appointments' ? upcomingVisits
@@ -135,7 +135,7 @@ describe('ClinicDoctors link actions (QA-199)', () => {
   it('the edit popup only changes the fee (no Status field that could skip approval)', async () => {
     const calls = setup();
     openMenu(await rowOf('Dr Pending Person'));
-    fireEvent.click(screen.getByRole('button', { name: /Edit Profile/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit Fee/ }));
 
     const editPopup = screen.getByText('Edit Doctor').closest('div.rounded-2xl') as HTMLElement;
     expect(within(editPopup).queryByRole('combobox')).not.toBeInTheDocument();
@@ -283,5 +283,64 @@ describe('ClinicDoctors upcoming visits on suspend / remove (QA-203)', () => {
         p_cancel_future_visits: false,
       })
     );
+  });
+});
+
+describe('ClinicDoctors statuses (QA-204)', () => {
+  const links = [
+    link('s-admin', 'doc-admin', 'active', true),
+    link('s-susp', 'doc-susp', 'suspended', false),
+    link('s-declined', 'doc-declined', 'declined', false),
+  ];
+  const people = [
+    { user_id: 'doc-admin', full_name: 'Dr Admin Linked', phone: null, email: null },
+    { user_id: 'doc-susp', full_name: 'Dr Suspended Person', phone: null, email: null },
+    { user_id: 'doc-declined', full_name: 'Dr Declined Person', phone: null, email: null },
+  ];
+  const render3 = () => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'facility_staff' ? links
+        : table === 'user_profiles' ? people
+        : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: 'accepted', error: null } as never);
+    render(
+      <MemoryRouter>
+        <ClinicDoctors />
+      </MemoryRouter>
+    );
+  };
+
+  it('shows admin-linked doctors as Active and counts them', async () => {
+    render3();
+    const row = await rowOf('Dr Admin Linked');
+    expect(within(row).getByText('Active')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Active (1)' })).toBeInTheDocument();
+  });
+
+  it('shows suspended doctors as Suspended and lets the clinic re-activate them', async () => {
+    render3();
+    const row = await rowOf('Dr Suspended Person');
+    expect(within(row).getByText('Suspended')).toBeInTheDocument();
+    openMenu(row);
+    fireEvent.click(screen.getByRole('button', { name: /Re-activate/ }));
+    await waitFor(() => expectAction('doc-susp', 'reactivate'));
+    expect(await within(await rowOf('Dr Suspended Person')).findByText('Active')).toBeInTheDocument();
+  });
+
+  it('lets the clinic invite a doctor again after they declined', async () => {
+    render3();
+    await rowOf('Dr Declined Person');
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: [{ user_id: 'doc-declined', full_name: 'Dr Declined Person', specialization: 'Cardiology' }],
+      error: null,
+    } as never);
+    fireEvent.click(screen.getByRole('button', { name: /Add Doctor/ }));
+    fireEvent.change(screen.getByPlaceholderText('Search doctor by name…'), { target: { value: 'Declined' } });
+    expect(await screen.findByRole('button', { name: 'Invite' })).toBeInTheDocument();
+    expect(screen.queryByText('Already in Clinic')).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
 import { formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
+import { clinicDoctorActions, clinicDoctorStatus } from '../../lib/clinic-doctor-status';
 import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
 
 interface Doctor {
@@ -69,6 +70,7 @@ const doctorLinkErrorMessage = (err: unknown): string => {
 
 function AddDoctorModal({ onClose, existingDoctorIds, onInvited }: {
   onClose: () => void;
+  /** Doctors already linked to the clinic (a declined invitation can be sent again, QA-204). */
   existingDoctorIds: string[];
   onInvited: (doctorName: string) => void;
 }) {
@@ -187,7 +189,7 @@ function AddDoctorModal({ onClose, existingDoctorIds, onInvited }: {
   );
 }
 
-function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void }) {
+function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend, onReactivate }: { doctor: Doctor; onClose: () => void; onApprove?: () => void; onReject?: () => void; onSuspend?: () => void; onReactivate?: () => void }) {
   const navigate = useNavigate();
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
@@ -318,6 +320,11 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
                 </button>
               )}
             </div>
+          )}
+          {doctor.status === 'suspended' && onReactivate && (
+            <button onClick={() => { onReactivate(); onClose(); }} className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 mt-6">
+              <CheckCircle size={16} /> Re-activate Doctor
+            </button>
           )}
           {doctor.status === 'active' && onSuspend && (
             <button onClick={() => { onSuspend(); onClose(); }} className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mt-6">
@@ -631,15 +638,8 @@ export default function ClinicDoctors() {
           ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
           : (nameParts[0]?.[0] ?? 'D').toUpperCase();
 
-        const status: Doctor['status'] = staff.invitation_status === 'accepted' && staff.is_active
-          ? 'active'
-          : staff.invitation_status === 'pending'
-            ? 'pending'
-            : staff.invitation_status === 'invited'
-              ? 'invited'
-              : staff.invitation_status === 'declined'
-                ? 'declined'
-                : 'inactive';
+        // QA-204: 'active' (admin-linked) counts as active; suspended stays suspended
+        const status: Doctor['status'] = clinicDoctorStatus(staff.invitation_status, staff.is_active);
 
         const joinedDate = staff.created_at
           ? new Date(staff.created_at).toLocaleDateString('en-AE', { month: 'short', year: 'numeric' })
@@ -744,10 +744,11 @@ export default function ClinicDoctors() {
     if (!doctor) return;
     try {
       await runDoctorLinkAction(doctor.doctorUserId, action);
-      if (action === 'cancel_invite' || action === 'remove') {
+      if (action === 'cancel_invite' || action === 'remove' || action === 'reject') {
+        // these links are no longer listed (same as after a reload)
         setDoctors(prev => prev.filter(d => d.id !== id));
       } else {
-        setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: action === 'suspend' ? 'suspended' : 'inactive' } : d));
+        setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: action === 'reactivate' ? 'active' : 'suspended' } : d));
       }
       setMenuOpen(null);
     } catch (err) {
@@ -759,6 +760,7 @@ export default function ClinicDoctors() {
 
   const handleReject = (id: string) => runAction(id, 'reject');
   const handleCancelInvite = (id: string) => runAction(id, 'cancel_invite');
+  const handleReactivate = (id: string) => runAction(id, 'reactivate');
 
   /** QA-203: suspend / remove, optionally cancelling the doctor's upcoming visits, in one call. */
   const endDoctorLink = async (cancelFutureVisits: boolean) => {
@@ -959,19 +961,22 @@ export default function ClinicDoctors() {
                       </button>
                       {menuOpen === d.id && (
                         <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg z-10 w-44 py-1">
-                          {d.status === 'pending' && (
+                          {clinicDoctorActions(d.status).canApprove && (
                             <button onClick={() => { handleApprove(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={14} /> Approve</button>
                           )}
-                          {d.status === 'pending' && (
+                          {clinicDoctorActions(d.status).canReject && (
                             <button onClick={() => { void handleReject(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} /> Reject</button>
                           )}
-                          {d.status === 'invited' && (
+                          {clinicDoctorActions(d.status).canCancelInvite && (
                             <button onClick={() => { void handleCancelInvite(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} /> Cancel Invite</button>
                           )}
-                          {d.status !== 'invited' && d.status !== 'declined' && (
-                            <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
+                          {clinicDoctorActions(d.status).canReactivate && (
+                            <button onClick={() => { void handleReactivate(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={14} /> Re-activate</button>
                           )}
-                          {d.status !== 'invited' && (
+                          {clinicDoctorActions(d.status).canEditFee && (
+                            <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Fee</button>
+                          )}
+                          {clinicDoctorActions(d.status).canRemove && (
                             <button onClick={() => { setEndTarget({ id: d.id, action: 'remove' }); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
                           )}
                         </div>
@@ -994,7 +999,7 @@ export default function ClinicDoctors() {
       {showAdd && facilityId && (
         <AddDoctorModal
           onClose={() => setShowAdd(false)}
-          existingDoctorIds={doctors.map(d => d.doctorUserId)}
+          existingDoctorIds={doctors.filter(d => !clinicDoctorActions(d.status).canInviteAgain).map(d => d.doctorUserId)}
           onInvited={(doctorName) => {
             setShowAdd(false);
             setInviteBanner(`Invitation sent to ${doctorName}!`);
@@ -1090,6 +1095,7 @@ export default function ClinicDoctors() {
           onApprove={selectedDoctor.status === 'pending' ? () => void handleApprove(selectedDoctor.id) : undefined}
           onReject={selectedDoctor.status === 'pending' ? () => void handleReject(selectedDoctor.id) : undefined}
           onSuspend={selectedDoctor.status === 'active' ? () => setEndTarget({ id: selectedDoctor.id, action: 'suspend' }) : undefined}
+          onReactivate={selectedDoctor.status === 'suspended' ? () => void handleReactivate(selectedDoctor.id) : undefined}
         />
       )}
       {endTarget && facilityId && doctors.some(d => d.id === endTarget.id) && (
