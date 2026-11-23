@@ -275,6 +275,11 @@ export default function ClinicBookAppointmentModal({
               </p>
             </div>
           )}
+          {doctors.length === 0 && (
+            <p role="status" className="col-span-2 text-xs text-amber-600">
+              No doctors can be booked yet. Doctors appear here once they have joined the clinic.
+            </p>
+          )}
           <div>
             <label htmlFor="clinic-book-doctor" className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
             <select id="clinic-book-doctor" value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
@@ -337,7 +342,7 @@ export default function ClinicBookAppointmentModal({
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={saving}
+            disabled={saving || doctors.length === 0}
             className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
             <Save size={15} /> {saving ? 'Booking…' : 'Book Appointment'}

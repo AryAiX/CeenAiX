@@ -148,3 +148,14 @@ describe('ClinicBookAppointmentModal patient search note (QA-192)', () => {
     expect(screen.queryByText('Only patients who have visited this clinic before are shown.')).not.toBeInTheDocument();
   });
 });
+
+describe('ClinicBookAppointmentModal with no bookable doctors (QA-194)', () => {
+  it('says why and does not let staff press Book', () => {
+    setupSupabase();
+    render(<ClinicBookAppointmentModal doctors={[]} fixedPatient={PATIENT} onClose={vi.fn()} onBooked={vi.fn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'No doctors can be booked yet. Doctors appear here once they have joined the clinic.'
+    );
+    expect(bookButton()).toBeDisabled();
+  });
+});

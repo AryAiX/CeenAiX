@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Plus, Search, Calendar, Clock, Check, DollarSign, Phone } from 'lucide-react';
 import { clinicDateKey, clinicTimeOfDay, clinicTodayKey } from '../../lib/clinic-booking-time';
 import ClinicBookAppointmentModal, { type ClinicBookedAppointment, type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
+import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
 import { getClinicAppointmentActions, type ClinicAppointmentStatusChange } from '../../lib/appointment-actions';
 import type { AppointmentStatus } from '../../types/enums';
 
@@ -12,6 +13,7 @@ interface Appointment {
   id: string;
   patientName: string;
   patientPhone: string;
+  doctorId: string;
   doctor: string;
   specialty: string;
   type: string;
@@ -149,7 +151,7 @@ export default function ClinicAppointments() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterDoctor, setFilterDoctor] = useState('All Doctors');
+  const [filterDoctor, setFilterDoctor] = useState('all');
   const [filterDate, setFilterDate] = useState('today');
   const [showBook, setShowBook] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
@@ -212,7 +214,7 @@ export default function ClinicAppointments() {
 
       const { data: staffData } = await supabase
         .from('facility_staff')
-        .select('doctor_user_id, consultation_fee')
+        .select('doctor_user_id, consultation_fee, invitation_status, is_active')
         .eq('facility_id', fId)
         .eq('is_active', true);
 
@@ -231,6 +233,7 @@ export default function ClinicAppointments() {
           id: a.id,
           patientName: patient?.full_name ?? 'Unknown Patient',
           patientPhone: patient?.phone ?? '—',
+          doctorId: a.doctor_id,
           doctor: doctor?.full_name ?? 'Unknown Doctor',
           specialty: specMap.get(a.doctor_id) ?? 'General Practice',
           type: a.chief_complaint ?? a.type ?? 'Consultation',
@@ -246,13 +249,15 @@ export default function ClinicAppointments() {
 
       setAppts(apptRows);
 
-      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+      // QA-194: only accepted / active clinic doctors can be booked
+      const bookableStaff = (staffData ?? []).filter(isBookableClinicDoctor);
+      const staffIds = bookableStaff.map(s => s.doctor_user_id).filter(Boolean);
       const { data: staffProfiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name')
         .in('user_id', staffIds);
 
-      const doctorRows: DoctorOption[] = (staffData ?? []).map(s => {
+      const doctorRows: DoctorOption[] = bookableStaff.map(s => {
         const profile = (staffProfiles ?? []).find(p => p.user_id === s.doctor_user_id);
         return {
           userId: s.doctor_user_id,
@@ -275,7 +280,7 @@ export default function ClinicAppointments() {
       a.doctor.toLowerCase().includes(search.toLowerCase()) ||
       a.type.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === 'all' || a.status === filterStatus;
-    const matchDoctor = filterDoctor === 'All Doctors' || a.doctor === filterDoctor;
+    const matchDoctor = filterDoctor === 'all' || a.doctorId === filterDoctor;
     const matchDate = filterDate === 'all' ||
       (filterDate === 'today' && a.date === today) ||
       (filterDate === 'upcoming' && a.date > today) ||
@@ -293,6 +298,7 @@ export default function ClinicAppointments() {
       id: booked.id,
       patientName: booked.patient.fullName,
       patientPhone: booked.patient.phone,
+      doctorId: booked.doctor.userId,
       doctor: booked.doctor.name,
       specialty: booked.doctor.specialty,
       type: booked.reason,
@@ -404,8 +410,11 @@ export default function ClinicAppointments() {
           {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <select value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-          <option>All Doctors</option>
-          {doctorOptions.map(d => <option key={d.userId}>{d.name}</option>)}
+          <option value="all">All Doctors</option>
+          {doctorFilterOptions([
+            ...doctorOptions.map(d => ({ id: d.userId, name: d.name })),
+            ...appts.map(a => ({ id: a.doctorId, name: a.doctor })),
+          ]).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
       </div>
 

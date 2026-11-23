@@ -18,6 +18,8 @@ const setupSupabase = ({
   listAppointments = [] as unknown[],
   bookedThatDay = [] as unknown[],
   availability = [{ start_time: '09:00:00', end_time: '10:00:00', slot_duration_minutes: 30 }],
+  staff = [{ doctor_user_id: 'doctor-1', consultation_fee: 300, invitation_status: 'accepted', is_active: true }] as unknown[],
+  profiles = [DOCTOR, PATIENT] as unknown[],
 } = {}) => {
   const calls: Record<string, Builder[]> = {};
   let appointmentCalls = 0;
@@ -30,11 +32,11 @@ const setupSupabase = ({
       builder = createSupabaseQueryBuilder({ data: appointmentCalls === 1 ? listAppointments : bookedThatDay, error: null });
       builder.single = vi.fn(() => Promise.resolve({ data: { id: 'new-appt' }, error: null }));
     } else if (table === 'user_profiles') {
-      builder = createSupabaseQueryBuilder({ data: [DOCTOR, PATIENT], error: null });
+      builder = createSupabaseQueryBuilder({ data: profiles, error: null });
     } else if (table === 'doctor_profiles') {
       builder = createSupabaseQueryBuilder({ data: [{ user_id: 'doctor-1', specialization: 'Cardiology' }], error: null });
     } else if (table === 'facility_staff') {
-      builder = createSupabaseQueryBuilder({ data: [{ doctor_user_id: 'doctor-1', consultation_fee: 300 }], error: null });
+      builder = createSupabaseQueryBuilder({ data: staff, error: null });
     } else if (table === 'doctor_availability') {
       builder = createSupabaseQueryBuilder({ data: availability, error: null });
     } else {
@@ -234,5 +236,69 @@ describe('ClinicAppointments status rules (QA-190)', () => {
       await screen.findByText('This change is no longer possible for this appointment. The list has been refreshed.')
     ).toBeInTheDocument();
     expect(screen.queryByText('This status change is not allowed.')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicAppointments doctor lists (QA-194)', () => {
+  const visit = (id: string, doctorId: string) => ({
+    id,
+    patient_id: 'patient-1',
+    doctor_id: doctorId,
+    scheduled_at: '2026-11-24T05:00:00Z',
+    status: 'scheduled',
+    type: 'in_person',
+    chief_complaint: `Visit ${id}`,
+    notes: null,
+    duration_minutes: 30,
+    created_at: '2026-11-20T10:00:00Z',
+    updated_at: '2026-11-20T10:00:00Z',
+  });
+  const link = (doctorId: string, invitation_status: string) => ({
+    doctor_user_id: doctorId,
+    consultation_fee: 300,
+    invitation_status,
+    is_active: true,
+  });
+
+  it('only offers accepted / active doctors in the booking popup', async () => {
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    setupSupabase({
+      staff: [link('doctor-1', 'accepted'), link('doctor-p', 'pending'), link('doctor-i', 'invited'), link('doctor-a', 'active')],
+      profiles: [
+        DOCTOR,
+        PATIENT,
+        { user_id: 'doctor-p', full_name: 'Dr Pending', phone: null },
+        { user_id: 'doctor-i', full_name: 'Dr Invited', phone: null },
+        { user_id: 'doctor-a', full_name: 'Dr Active', phone: null },
+      ],
+    });
+    render(<ClinicAppointments />);
+    await screen.findByText('Appointments');
+    fireEvent.click(screen.getByRole('button', { name: /Book Appointment/ }));
+
+    const doctorSelect = within(screen.getByRole('dialog')).getByLabelText('Doctor');
+    const names = within(doctorSelect).getAllByRole('option').map((option) => option.textContent);
+    expect(names).toEqual(['Dr Test Doctor', 'Dr Active']);
+  });
+
+  it('filters by doctor id, so two doctors with the same name are not mixed up', async () => {
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    setupSupabase({
+      listAppointments: [visit('one', 'doctor-1'), visit('two', 'doctor-2')],
+      staff: [link('doctor-1', 'accepted'), link('doctor-2', 'accepted')],
+      profiles: [
+        { user_id: 'doctor-1', full_name: 'Dr Same Name', phone: null },
+        { user_id: 'doctor-2', full_name: 'Dr Same Name', phone: null },
+        PATIENT,
+      ],
+    });
+    render(<ClinicAppointments />);
+    await screen.findByText('Visit one');
+    expect(screen.getByText('Visit two')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('All Doctors'), { target: { value: 'doctor-2' } });
+
+    expect(screen.queryByText('Visit one')).not.toBeInTheDocument();
+    expect(screen.getByText('Visit two')).toBeInTheDocument();
   });
 });

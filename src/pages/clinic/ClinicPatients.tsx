@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import ClinicBookAppointmentModal, { type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
+import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-booking';
 import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
 
 interface Patient {
@@ -14,6 +15,7 @@ interface Patient {
   dob: string;
   lastVisit: string;
   lastVisitDate: string | null;
+  doctorId: string | null;
   doctor: string;
   totalVisits: number;
 }
@@ -164,7 +166,7 @@ export default function ClinicPatients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filterDoctor, setFilterDoctor] = useState('All Doctors');
+  const [filterDoctor, setFilterDoctor] = useState('all');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientAppts, setPatientAppts] = useState<{ id?: string; scheduled_at: string; status: string }[]>([]);
   const [showBook, setShowBook] = useState(false);
@@ -203,11 +205,13 @@ export default function ClinicPatients() {
 
       const { data: staffData } = await supabase
         .from('facility_staff')
-        .select('doctor_user_id, consultation_fee')
+        .select('doctor_user_id, consultation_fee, invitation_status, is_active')
         .eq('facility_id', facilityId)
         .eq('is_active', true);
 
-      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+      // QA-194: only accepted / active clinic doctors can be booked
+      const bookableStaff = (staffData ?? []).filter(isBookableClinicDoctor);
+      const staffIds = bookableStaff.map(s => s.doctor_user_id).filter(Boolean);
       const { data: staffProfiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name')
@@ -220,7 +224,7 @@ export default function ClinicPatients() {
 
       const specMap = new Map((doctorSpecs ?? []).map(d => [d.user_id, d.specialization]));
 
-      const doctorRows: DoctorOption[] = (staffData ?? []).map(s => {
+      const doctorRows: DoctorOption[] = bookableStaff.map(s => {
         const profile = (staffProfiles ?? []).find(p => p.user_id === s.doctor_user_id);
         return {
           userId: s.doctor_user_id,
@@ -272,6 +276,7 @@ export default function ClinicPatients() {
           dob,
           lastVisit,
           lastVisitDate: lastAppt?.scheduled_at ?? null,
+          doctorId: doctorMap.get(primaryDoctorId) ? primaryDoctorId : null,
           doctor: doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
           totalVisits: patientApptList.length,
         };
@@ -308,13 +313,15 @@ export default function ClinicPatients() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
-  const doctorList = ['All Doctors', ...new Set(patients.map(p => p.doctor).filter(d => d !== '—'))];
+  const doctorList = doctorFilterOptions(
+    patients.flatMap(p => (p.doctorId ? [{ id: p.doctorId, name: p.doctor }] : []))
+  );
 
   const filtered = patients.filter(p =>
     (p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.phone.includes(search) ||
     p.doctor.toLowerCase().includes(search.toLowerCase())) &&
-    (filterDoctor === 'All Doctors' || p.doctor === filterDoctor)
+    (filterDoctor === 'all' || p.doctorId === filterDoctor)
   );
 
   if (loading) {
@@ -374,7 +381,8 @@ export default function ClinicPatients() {
           onChange={e => setFilterDoctor(e.target.value)}
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
         >
-          {doctorList.map(d => <option key={d}>{d}</option>)}
+          <option value="all">All Doctors</option>
+          {doctorList.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
       </div>
 

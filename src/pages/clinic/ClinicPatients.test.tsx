@@ -33,10 +33,14 @@ describe('ClinicPatients booking (QA-191, and the QA-189 time bug on this page)'
               ? [{ id: 'old', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-01T05:00:00Z', status: 'completed' }]
               : []
             : table === 'facility_staff'
-              ? [{ doctor_user_id: 'doctor-1', consultation_fee: 300 }]
+              ? [
+                  { doctor_user_id: 'doctor-1', consultation_fee: 300, invitation_status: 'accepted', is_active: true },
+                  { doctor_user_id: 'doctor-p', consultation_fee: 300, invitation_status: 'pending', is_active: true },
+                ]
               : table === 'user_profiles'
                 ? [
                     { user_id: 'doctor-1', full_name: 'Dr Test Doctor' },
+                    { user_id: 'doctor-p', full_name: 'Dr Pending' },
                     { user_id: 'patient-1', full_name: 'Test Patient', phone: '+971500000000', email: null, date_of_birth: null },
                   ]
                 : table === 'doctor_availability'
@@ -57,6 +61,10 @@ describe('ClinicPatients booking (QA-191, and the QA-189 time bug on this page)'
     fireEvent.click(screen.getByRole('button', { name: /Book Appointment/ }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Book Appointment' });
+    // QA-194: the pending doctor is not offered
+    expect(within(within(dialog).getByLabelText('Doctor')).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Dr Test Doctor',
+    ]);
     fireEvent.change(within(dialog).getByLabelText('Date'), { target: { value: '2026-11-24' } });
     fireEvent.click(await within(dialog).findByRole('button', { name: '09:00' }));
     fireEvent.click(within(dialog).getByRole('button', { name: /Book Appointment/ }));
@@ -69,5 +77,47 @@ describe('ClinicPatients booking (QA-191, and the QA-189 time bug on this page)'
     );
     expect(calls.notifications).toBeUndefined();
     expect(calls.appointments.every((b) => b.insert.mock.calls.length === 0)).toBe(true);
+  });
+});
+
+describe('ClinicPatients doctor filter (QA-194)', () => {
+  it('filters by doctor id, so two doctors with the same name are not mixed up', async () => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members'
+          ? { facility_id: 'facility-1' }
+          : table === 'appointments'
+            ? [
+                { id: 'a1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-01T05:00:00Z', status: 'completed' },
+                { id: 'a2', patient_id: 'patient-2', doctor_id: 'doctor-2', scheduled_at: '2026-11-02T05:00:00Z', status: 'completed' },
+              ]
+            : table === 'facility_staff'
+              ? [
+                  { doctor_user_id: 'doctor-1', consultation_fee: 300, invitation_status: 'accepted', is_active: true },
+                  { doctor_user_id: 'doctor-2', consultation_fee: 300, invitation_status: 'accepted', is_active: true },
+                ]
+              : table === 'user_profiles'
+                ? [
+                    { user_id: 'doctor-1', full_name: 'Same Name' },
+                    { user_id: 'doctor-2', full_name: 'Same Name' },
+                    { user_id: 'patient-1', full_name: 'First Patient', phone: '+971500000001', email: null, date_of_birth: null },
+                    { user_id: 'patient-2', full_name: 'Second Patient', phone: '+971500000002', email: null, date_of_birth: null },
+                  ]
+                : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+    await screen.findByText('First Patient');
+    expect(screen.getByText('Second Patient')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('All Doctors'), { target: { value: 'doctor-2' } });
+
+    expect(screen.queryByText('First Patient')).not.toBeInTheDocument();
+    expect(screen.getByText('Second Patient')).toBeInTheDocument();
   });
 });

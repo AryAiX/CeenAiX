@@ -19,6 +19,27 @@ export const CLINIC_APPOINTMENT_REASONS = [
   'Telemedicine',
 ] as const;
 
+/**
+ * QA-194: only doctors whose clinic link is accepted / active can be booked
+ * (same rule as clinic_book_appointment). Pending, invited, declined or removed links are not offered.
+ */
+export const CLINIC_BOOKABLE_DOCTOR_STATUSES = ['accepted', 'active'] as const;
+
+export const isBookableClinicDoctor = (link: { is_active?: boolean | null; invitation_status?: string | null }) =>
+  link.is_active !== false &&
+  (CLINIC_BOOKABLE_DOCTOR_STATUSES as readonly string[]).includes(link.invitation_status ?? '');
+
+/** QA-194: doctor filter choices by doctor id (two doctors can share a name), sorted by name. */
+export const doctorFilterOptions = (doctors: { id: string; name: string }[]) => {
+  const byId = new Map<string, string>();
+  for (const doctor of doctors) {
+    if (doctor.id && !byId.has(doctor.id)) byId.set(doctor.id, doctor.name);
+  }
+  return [...byId.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+};
+
 export const appointmentTypeForReason = (reason: string): 'in_person' | 'virtual' =>
   reason === 'Telemedicine' ? 'virtual' : 'in_person';
 

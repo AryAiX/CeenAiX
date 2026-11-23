@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   appointmentTypeForReason,
+  doctorFilterOptions,
+  isBookableClinicDoctor,
   bookClinicAppointment,
   clinicBookingErrorMessage,
   isClinicSlotUnavailable,
@@ -54,5 +56,32 @@ describe('clinic booking helper (QA-191)', () => {
     expect(isClinicSlotUnavailable({ code: '23P01' })).toBe(true);
     expect(isClinicSlotUnavailable({ code: '22023' })).toBe(true);
     expect(isClinicSlotUnavailable({ code: '42501' })).toBe(false);
+  });
+});
+
+describe('clinic doctor lists (QA-194)', () => {
+  it('only accepted / active, still-active links can be booked', () => {
+    expect(isBookableClinicDoctor({ is_active: true, invitation_status: 'accepted' })).toBe(true);
+    expect(isBookableClinicDoctor({ is_active: true, invitation_status: 'active' })).toBe(true);
+    for (const status of ['pending', 'invited', 'declined', 'cancelled', 'removed', null]) {
+      expect(isBookableClinicDoctor({ is_active: true, invitation_status: status })).toBe(false);
+    }
+    expect(isBookableClinicDoctor({ is_active: false, invitation_status: 'accepted' })).toBe(false);
+  });
+
+  it('builds filter choices by id, without repeats, sorted by name', () => {
+    expect(
+      doctorFilterOptions([
+        { id: 'd2', name: 'Dr B' },
+        { id: 'd1', name: 'Dr A' },
+        { id: 'd2', name: 'Dr B' },
+        { id: 'd3', name: 'Dr A' },
+        { id: '', name: 'Nobody' },
+      ])
+    ).toEqual([
+      { id: 'd1', name: 'Dr A' },
+      { id: 'd3', name: 'Dr A' },
+      { id: 'd2', name: 'Dr B' },
+    ]);
   });
 });
