@@ -634,7 +634,9 @@ export default function ClinicDoctors() {
         joinedDate: new Date().toLocaleDateString('en-AE', { month: 'short', year: 'numeric' }),
       } : d));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve doctor.');
+      // QA-200: only a pending join request can be approved; refresh if it changed meanwhile
+      if ((err as { code?: string } | null)?.code === '22023') await fetchDoctors();
+      setError(doctorLinkErrorMessage(err));
     }
   };
 

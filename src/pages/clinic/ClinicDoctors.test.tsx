@@ -140,3 +140,27 @@ describe('ClinicDoctors link actions (QA-199)', () => {
     expect(screen.queryByText('This change is not allowed for this doctor.')).not.toBeInTheDocument();
   });
 });
+
+describe('ClinicDoctors approve (QA-200)', () => {
+  it('shows a plain message and refreshes when the request can no longer be approved', async () => {
+    const calls = setup();
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: null,
+      error: { code: '22023', message: 'This clinic link cannot be approved in its current state.' },
+    } as never);
+    fireEvent.click(within(await rowOf('Dr Pending Person')).getByTitle('View profile'));
+    const loadsBefore = calls.facility_staff.length;
+    fireEvent.click(screen.getByRole('button', { name: /Approve Doctor/ }));
+
+    expect(supabase.rpc).toHaveBeenCalledWith('approve_doctor_and_link_appointments', {
+      p_staff_id: 's-pending',
+      p_facility_id: 'facility-1',
+      p_doctor_user_id: 'doc-pending',
+    });
+    expect(
+      await screen.findByText(/This change is no longer possible for this doctor. The list has been refreshed./)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('This clinic link cannot be approved in its current state.')).not.toBeInTheDocument();
+    await waitFor(() => expect(calls.facility_staff.length).toBeGreaterThan(loadsBefore));
+  });
+});
