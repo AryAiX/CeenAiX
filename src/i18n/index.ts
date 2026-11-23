@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { arabicDigitsFormatter } from './arabic-digits-formatter';
 import arCommon from '../locales/ar/common.json';
 import arExtra from '../locales/ar/extra.json';
 import arInsurancePage from '../locales/ar/insurancePage.json';
@@ -21,7 +22,7 @@ const applyDocumentLanguage = (lng: string) => {
 const initialLng =
   typeof localStorage !== 'undefined' ? localStorage.getItem(LOCALE_STORAGE_KEY) ?? 'en' : 'en';
 
-void i18n.use(initReactI18next).init({
+void i18n.use(arabicDigitsFormatter).use(initReactI18next).init({
   resources: {
     en: { common: enMerged },
     ar: { common: arMerged },
@@ -30,32 +31,11 @@ void i18n.use(initReactI18next).init({
   fallbackLng: 'en',
   defaultNS: 'common',
   ns: ['common'],
-  // Cast: i18next v26 typings omit `interpolation.format` but the runtime still applies it for {{count}}, etc.
   interpolation: {
     escapeValue: false,
-    format: (value: unknown, _format: string | undefined, lng: string | undefined) => {
-      if (typeof lng === 'string' && lng.startsWith('ar')) {
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          try {
-            return new Intl.NumberFormat('ar-AE', { numberingSystem: 'arab' }).format(value);
-          } catch {
-            return String(value);
-          }
-        }
-        if (typeof value === 'string' && /^\d+$/.test(value)) {
-          const n = Number(value);
-          if (Number.isSafeInteger(n)) {
-            try {
-              return new Intl.NumberFormat('ar-AE', { numberingSystem: 'arab' }).format(n);
-            } catch {
-              return value;
-            }
-          }
-        }
-      }
-      return value as string | number | boolean | object | null | undefined;
-    },
-  } as NonNullable<Parameters<typeof i18n.init>[0]>['interpolation'],
+    // QA-126: run every {{value}} through arabicDigitsFormatter (numbers → Arabic digits in Arabic).
+    alwaysFormat: true,
+  },
 });
 
 applyDocumentLanguage(i18n.language);
