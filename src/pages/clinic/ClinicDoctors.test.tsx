@@ -31,7 +31,7 @@ const PEOPLE = [
   { user_id: 'doc-new', full_name: 'Dr New Person', phone: null, email: 'new@example.test' },
 ];
 
-const setup = (doctorProfiles: unknown[] = []) => {
+const setup = (doctorProfiles: unknown[] = [], upcomingVisits: unknown[] = []) => {
   const calls: Record<string, MockSupabaseQueryBuilder<unknown>[]> = {};
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
     const data =
@@ -39,6 +39,7 @@ const setup = (doctorProfiles: unknown[] = []) => {
       : table === 'facility_staff' ? LINKS
       : table === 'user_profiles' ? PEOPLE
       : table === 'doctor_profiles' ? doctorProfiles
+      : table === 'appointments' ? upcomingVisits
       : [];
     const builder = createSupabaseQueryBuilder({ data, error: null });
     (calls[table] ??= []).push(builder);
@@ -81,7 +82,15 @@ describe('ClinicDoctors link actions (QA-199)', () => {
     const calls = setup();
     fireEvent.click(within(await rowOf('Dr Active Person')).getByTitle('View profile'));
     fireEvent.click(screen.getByRole('button', { name: /Suspend Doctor/ }));
-    await waitFor(() => expectAction('doc-active', 'suspend'));
+    // QA-203: suspending now asks first and goes through clinic_end_doctor_link
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Suspend' }));
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith('clinic_end_doctor_link', {
+        p_doctor_user_id: 'doc-active',
+        p_action: 'suspend',
+        p_cancel_future_visits: false,
+      })
+    );
     expect(directLinkWrites(calls)).toEqual([]);
   });
 
@@ -93,8 +102,14 @@ describe('ClinicDoctors link actions (QA-199)', () => {
 
     openMenu(await rowOf('Dr Active Person'));
     fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, Remove' }));
-    await waitFor(() => expectAction('doc-active', 'remove'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Remove' }));
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith('clinic_end_doctor_link', {
+        p_doctor_user_id: 'doc-active',
+        p_action: 'remove',
+        p_cancel_future_visits: false,
+      })
+    );
     expect(directLinkWrites(calls)).toEqual([]);
   });
 
@@ -213,5 +228,60 @@ describe('ClinicDoctors invite search privacy (QA-202)', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('clinic_search_doctors', { p_query: 'New' });
     expect(calls.user_profiles.length).toBe(profileReadsBefore);
     expect(screen.queryByText(/new@example\.test/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDoctors upcoming visits on suspend / remove (QA-203)', () => {
+  const upcoming = [
+    { id: 'v1', patient_id: 'patient-a', scheduled_at: '2030-01-10T05:00:00Z' },
+    { id: 'v2', patient_id: 'patient-b', scheduled_at: '2030-01-11T06:30:00Z' },
+  ];
+
+  it('lists the doctor\'s upcoming visits before removing, and can cancel them with the removal', async () => {
+    const calls = setup([], upcoming);
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: { status: 'removed', cancelled_visits: 2 }, error: null } as never);
+    openMenu(await rowOf('Dr Active Person'));
+    fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Remove Doctor' });
+    expect(await within(dialog).findByText(/2 upcoming visits are still booked/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Jan 10, 2030 09:00/)).toBeInTheDocument();
+    const visitQuery = calls.appointments[calls.appointments.length - 1];
+    expect(visitQuery.eq).toHaveBeenCalledWith('doctor_id', 'doc-active');
+    expect(visitQuery.in).toHaveBeenCalledWith('status', ['scheduled', 'confirmed']);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Remove and cancel the 2 visits/ }));
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith('clinic_end_doctor_link', {
+        p_doctor_user_id: 'doc-active',
+        p_action: 'remove',
+        p_cancel_future_visits: true,
+      })
+    );
+    expect(await screen.findByText(/2 upcoming visits were cancelled and the patients were notified/)).toBeInTheDocument();
+  });
+
+  it('can suspend and keep the visits, and Back changes nothing', async () => {
+    setup([], upcoming);
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: { status: 'suspended', cancelled_visits: 0 }, error: null } as never);
+    fireEvent.click(within(await rowOf('Dr Active Person')).getByTitle('View profile'));
+    fireEvent.click(screen.getByRole('button', { name: /Suspend Doctor/ }));
+
+    let dialog = await screen.findByRole('dialog', { name: 'Suspend Doctor' });
+    await within(dialog).findByText(/2 upcoming visits are still booked/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Back' }));
+    expect(supabase.rpc).not.toHaveBeenCalled();
+
+    fireEvent.click(within(await rowOf('Dr Active Person')).getByTitle('View profile'));
+    fireEvent.click(screen.getByRole('button', { name: /Suspend Doctor/ }));
+    dialog = await screen.findByRole('dialog', { name: 'Suspend Doctor' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Suspend and keep the visits' }));
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith('clinic_end_doctor_link', {
+        p_doctor_user_id: 'doc-active',
+        p_action: 'suspend',
+        p_cancel_future_visits: false,
+      })
+    );
   });
 });

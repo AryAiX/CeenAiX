@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { createPortal } from 'react-dom';
+import { formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
+import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
 
 interface Doctor {
@@ -329,33 +331,132 @@ function DoctorDetailDrawer({ doctor, onClose, onApprove, onReject, onSuspend }:
   );
 }
 
-function ConfirmModal({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+interface UpcomingVisit {
+  id: string;
+  scheduledAt: string;
+  patientName: string;
+}
+
+/**
+ * QA-203: before a doctor is suspended or removed, show their upcoming visits at this clinic and
+ * let the clinic cancel them (patients are notified) or keep them.
+ */
+function EndDoctorLinkDialog({
+  doctor,
+  action,
+  facilityId,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  doctor: Doctor;
+  action: 'suspend' | 'remove';
+  facilityId: string;
+  busy: boolean;
+  onConfirm: (cancelFutureVisits: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [visits, setVisits] = useState<UpcomingVisit[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const nowIso = new Date().toISOString();
+        const { rows } = await fetchAllPages((from, to) =>
+          supabase
+            .from('appointments')
+            .select('id, patient_id, scheduled_at')
+            .eq('facility_id', facilityId)
+            .eq('doctor_id', doctor.doctorUserId)
+            .eq('is_deleted', false)
+            .in('status', ['scheduled', 'confirmed'])
+            .gte('scheduled_at', nowIso)
+            .order('scheduled_at', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+        const people = await fetchByIdChunks(rows.map(r => r.patient_id), ids =>
+          supabase.from('user_profiles').select('user_id, full_name').in('user_id', ids)
+        );
+        const names = new Map(people.map(p => [p.user_id, p.full_name]));
+        if (!cancelled) {
+          setVisits(rows.map(r => ({ id: r.id, scheduledAt: r.scheduled_at, patientName: names.get(r.patient_id) ?? 'Unknown patient' })));
+        }
+      } catch {
+        if (!cancelled) setLoadFailed(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [doctor.doctorUserId, facilityId]);
+
+  const verb = action === 'remove' ? 'Remove' : 'Suspend';
+  const count = visits?.length ?? 0;
+
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-labelledby="end-doctor-link-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="p-6 space-y-4">
           <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto">
-            <Trash2 size={22} className="text-red-500" />
+            <Trash2 size={22} className="text-red-500" aria-hidden="true" />
           </div>
           <div className="text-center">
-            <h3 className="font-bold text-slate-900 text-lg">Remove Doctor</h3>
+            <h3 id="end-doctor-link-title" className="font-bold text-slate-900 text-lg">{verb} Doctor</h3>
             <p className="text-sm text-slate-500 mt-1">
-              Are you sure you want to remove <span className="font-semibold text-slate-800">{name}</span> from your clinic? This action can be reversed by the doctor sending a new request.
+              {action === 'remove'
+                ? <>Remove <span className="font-semibold text-slate-800">{doctor.name}</span> from your clinic? The doctor will be notified.</>
+                : <>Suspend <span className="font-semibold text-slate-800">{doctor.name}</span>? Patients cannot book this doctor at your clinic until you re-activate them. The doctor will be notified.</>}
             </p>
           </div>
+          {loadFailed ? (
+            <p role="alert" className="text-sm text-red-600 text-center">Could not check the doctor&apos;s upcoming visits. Please try again.</p>
+          ) : visits === null ? (
+            <p className="text-sm text-slate-400 text-center">Checking upcoming visits…</p>
+          ) : count === 0 ? (
+            <p className="text-sm text-slate-500 text-center">This doctor has no upcoming visits at your clinic.</p>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-semibold text-amber-800">
+                {count === 1 ? '1 upcoming visit is' : `${count} upcoming visits are`} still booked with this doctor:
+              </p>
+              <ul className="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs text-amber-900">
+                {visits!.slice(0, 20).map(v => (
+                  <li key={v.id}>
+                    {formatClinicDate(v.scheduledAt, 'en')} {formatClinicTime(v.scheduledAt, 'en')} — {v.patientName}
+                  </li>
+                ))}
+                {count > 20 && <li>and {count - 20} more</li>}
+              </ul>
+            </div>
+          )}
         </div>
-        <div className="flex gap-3 px-6 pb-6">
+        <div className="flex flex-col gap-2 px-6 pb-6">
+          {count > 0 && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onConfirm(true)}
+              className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              {verb} and cancel {count === 1 ? 'the visit' : `the ${count} visits`} (patients are notified)
+            </button>
+          )}
           <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors"
+            type="button"
+            disabled={busy || visits === null || loadFailed}
+            onClick={() => onConfirm(false)}
+            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${count > 0 ? 'bg-amber-100 hover:bg-amber-200 text-amber-800' : 'bg-red-500 hover:bg-red-600 text-white'}`}
           >
-            Cancel
+            {count > 0 ? `${verb} and keep the visits` : `Yes, ${verb}`}
           </button>
           <button
-            onClick={onConfirm}
-            className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors"
           >
-            Yes, Remove
+            Back
           </button>
         </div>
       </div>
@@ -380,7 +481,8 @@ export default function ClinicDoctors() {
   const [editForm, setEditForm] = useState({ consultationFee: 0 });
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [endTarget, setEndTarget] = useState<{ id: string; action: 'suspend' | 'remove' } | null>(null);
+  const [endingLink, setEndingLink] = useState(false);
   const [inviteBanner, setInviteBanner] = useState<string | null>(null);
 
   useEffect(() => {
@@ -648,10 +750,8 @@ export default function ClinicDoctors() {
         setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: action === 'suspend' ? 'suspended' : 'inactive' } : d));
       }
       setMenuOpen(null);
-      setConfirmDelete(null);
     } catch (err) {
       setMenuOpen(null);
-      setConfirmDelete(null);
       if ((err as { code?: string } | null)?.code === '22023') await fetchDoctors();
       setError(doctorLinkErrorMessage(err));
     }
@@ -659,8 +759,39 @@ export default function ClinicDoctors() {
 
   const handleReject = (id: string) => runAction(id, 'reject');
   const handleCancelInvite = (id: string) => runAction(id, 'cancel_invite');
-  const handleSuspend = (id: string) => runAction(id, 'suspend');
-  const handleDelete = (id: string) => runAction(id, 'remove');
+
+  /** QA-203: suspend / remove, optionally cancelling the doctor's upcoming visits, in one call. */
+  const endDoctorLink = async (cancelFutureVisits: boolean) => {
+    if (!endTarget) return;
+    const doctor = doctors.find(d => d.id === endTarget.id);
+    if (!doctor) return;
+    setEndingLink(true);
+    try {
+      const { data, error: rpcError } = await supabase.rpc('clinic_end_doctor_link', {
+        p_doctor_user_id: doctor.doctorUserId,
+        p_action: endTarget.action,
+        p_cancel_future_visits: cancelFutureVisits,
+      });
+      if (rpcError) throw rpcError;
+      const cancelled = Number((data as { cancelled_visits?: number } | null)?.cancelled_visits ?? 0);
+      if (endTarget.action === 'remove') {
+        setDoctors(prev => prev.filter(d => d.id !== doctor.id));
+      } else {
+        setDoctors(prev => prev.map(d => d.id === doctor.id ? { ...d, status: 'suspended' } : d));
+      }
+      const done = endTarget.action === 'remove' ? `${doctor.name} was removed.` : `${doctor.name} was suspended.`;
+      setInviteBanner(cancelled > 0
+        ? `${done} ${cancelled === 1 ? '1 upcoming visit was' : `${cancelled} upcoming visits were`} cancelled and the patients were notified.`
+        : done);
+      setTimeout(() => setInviteBanner(null), 6000);
+    } catch (err) {
+      if ((err as { code?: string } | null)?.code === '22023') await fetchDoctors();
+      setError(doctorLinkErrorMessage(err));
+    } finally {
+      setEndingLink(false);
+      setEndTarget(null);
+    }
+  };
 
   const handleStartEdit = (doctor: Doctor) => {
     setEditingDoctor(doctor);
@@ -841,7 +972,7 @@ export default function ClinicDoctors() {
                             <button onClick={() => handleStartEdit(d)} className="w-full px-4 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} /> Edit Profile</button>
                           )}
                           {d.status !== 'invited' && (
-                            <button onClick={() => { setConfirmDelete(d.id); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
+                            <button onClick={() => { setEndTarget({ id: d.id, action: 'remove' }); setMenuOpen(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Remove</button>
                           )}
                         </div>
                       )}
@@ -958,14 +1089,17 @@ export default function ClinicDoctors() {
           onClose={() => setSelectedDoctor(null)}
           onApprove={selectedDoctor.status === 'pending' ? () => void handleApprove(selectedDoctor.id) : undefined}
           onReject={selectedDoctor.status === 'pending' ? () => void handleReject(selectedDoctor.id) : undefined}
-          onSuspend={selectedDoctor.status === 'active' ? () => void handleSuspend(selectedDoctor.id) : undefined}
+          onSuspend={selectedDoctor.status === 'active' ? () => setEndTarget({ id: selectedDoctor.id, action: 'suspend' }) : undefined}
         />
       )}
-      {confirmDelete && (
-        <ConfirmModal
-          name={doctors.find(d => d.id === confirmDelete)?.name ?? 'this doctor'}
-          onConfirm={() => void handleDelete(confirmDelete)}
-          onCancel={() => setConfirmDelete(null)}
+      {endTarget && facilityId && doctors.some(d => d.id === endTarget.id) && (
+        <EndDoctorLinkDialog
+          doctor={doctors.find(d => d.id === endTarget.id)!}
+          action={endTarget.action}
+          facilityId={facilityId}
+          busy={endingLink}
+          onConfirm={(cancelFutureVisits) => void endDoctorLink(cancelFutureVisits)}
+          onCancel={() => setEndTarget(null)}
         />
       )}
     </div>
