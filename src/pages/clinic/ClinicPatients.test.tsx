@@ -253,3 +253,37 @@ describe('ClinicPatients last visit and counts (QA-209)', () => {
     expect(screen.getByText('Visited This Month').previousElementSibling?.textContent).toBe('1');
   });
 });
+
+describe('ClinicPatients patient card (QA-210)', () => {
+  it('shows each visit in clinic time with the doctor and reason, and no "Clinical Summary"', async () => {
+    vi.setSystemTime(new Date('2026-11-23T08:00:00Z'));
+    rpcPatients = [{ user_id: 'patient-1', full_name: 'Card Patient', phone: '+971500000001', email: null, date_of_birth: null }];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'appointments'
+          ? [{ id: 'a1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-01T21:30:00Z', status: 'completed', chief_complaint: 'Follow-up Visit' }]
+          : table === 'user_profiles' ? [{ user_id: 'doctor-1', full_name: 'First Doctor' }]
+          : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+
+    const patientName = await screen.findByText('Card Patient');
+    expect(screen.getByText(/patients with visits at this clinic/)).toBeInTheDocument();
+    fireEvent.click(patientName);
+
+    // 21:30 UTC on 1 Nov is 01:30 Dubai on 2 Nov
+    const history = screen.getByText('Appointment History').parentElement as HTMLElement;
+    expect(within(history).getByText('Nov 2, 2026', { exact: false })).toBeInTheDocument();
+    expect(within(history).getByText('01:30')).toBeInTheDocument();
+    expect(within(history).getByText('Dr. First Doctor · Follow-up Visit')).toBeInTheDocument();
+    expect(screen.getByText('Visit Summary')).toBeInTheDocument();
+    expect(screen.queryByText('Clinical Summary')).not.toBeInTheDocument();
+    expect(screen.queryByText(/registered patients/)).not.toBeInTheDocument();
+  });
+});

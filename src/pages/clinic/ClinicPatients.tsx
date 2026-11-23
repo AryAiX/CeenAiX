@@ -8,7 +8,7 @@ import { doctorFilterOptions, isBookableClinicDoctor } from '../../lib/clinic-bo
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { countUpcomingVisits, isInCurrentClinicMonth, summarisePatientVisits } from '../../lib/clinic-patient-summary';
-import { formatClinicDate } from '../../lib/clinic-booking-time';
+import { formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
 import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
 
 interface Patient {
@@ -40,9 +40,18 @@ const apptStatusConfig: Record<string, { label: string; color: string }> = {
 
 type DoctorOption = ClinicBookingDoctor;
 
+/** QA-210: one visit in the patient card (clinic time, with the doctor and the reason). */
+interface PatientVisit {
+  id?: string;
+  scheduled_at: string;
+  status: string;
+  doctorName: string;
+  reason: string;
+}
+
 function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
   patient: Patient;
-  appts: { id?: string; scheduled_at: string; status: string }[];
+  appts: PatientVisit[];
   onClose: () => void;
   onBook: () => void;
   onMessage: () => void;
@@ -93,9 +102,9 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
             </div>
           </div>
 
-          {/* Clinical Summary */}
+          {/* Visit summary (QA-210: counts only, no clinical data) */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Clinical Summary</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Visit Summary</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-xl p-3 text-center">
                 <div className="text-xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{patient.totalVisits}</div>
@@ -120,7 +129,6 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
               <div className="space-y-2">
                 {appts.map((a, idx) => {
                   const s = apptStatusConfig[a.status] ?? apptStatusConfig.scheduled;
-                  const date = new Date(a.scheduled_at);
                   return (
                     <div key={a.id ?? idx} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-xl">
                       <div className="flex items-center gap-3">
@@ -129,11 +137,10 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-slate-800">
-                            {date.toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {formatClinicDate(a.scheduled_at, 'en')}
+                            <span className="ms-2 text-xs font-normal text-slate-400">{formatClinicTime(a.scheduled_at, 'en')}</span>
                           </div>
-                          <div className="text-xs text-slate-400">
-                            {date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                          </div>
+                          <div className="text-xs text-slate-500">{a.doctorName} · {a.reason}</div>
                         </div>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${s.color}`}>
@@ -172,13 +179,14 @@ export default function ClinicPatients() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [rawAppts, setRawAppts] = useState<{ id?: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string }[]>([]);
+  const [rawAppts, setRawAppts] = useState<{ id?: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string; chief_complaint?: string | null }[]>([]);
+  const [doctorNames, setDoctorNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterDoctor, setFilterDoctor] = useState('all');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [patientAppts, setPatientAppts] = useState<{ id?: string; scheduled_at: string; status: string }[]>([]);
+  const [patientAppts, setPatientAppts] = useState<PatientVisit[]>([]);
   const [showBook, setShowBook] = useState(false);
   const [bookingPatient, setBookingPatient] = useState<{ userId: string; fullName: string; phone: string } | null>(null);
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
@@ -210,7 +218,7 @@ export default function ClinicPatients() {
       const { rows: apptData, truncated } = await fetchAllPages((from, to) =>
         supabase
           .from('appointments')
-          .select('id, patient_id, doctor_id, scheduled_at, status')
+          .select('id, patient_id, doctor_id, scheduled_at, status, chief_complaint')
           .eq('facility_id', facilityId)
           .eq('is_deleted', false)
           .order('scheduled_at', { ascending: false })
@@ -265,6 +273,7 @@ export default function ClinicPatients() {
       );
 
       const doctorMap = new Map(doctorProfiles.map(d => [d.user_id, d.full_name]));
+      setDoctorNames(new Map(doctorProfiles.map(d => [d.user_id, d.full_name ?? ''])));
 
       const rows: Patient[] = patientIds.map(pid => {
         const profile = (patientProfiles ?? []).find(p => p.user_id === pid);
@@ -308,9 +317,16 @@ export default function ClinicPatients() {
   };
 
   const handleRowClick = (patient: Patient) => {
-    const appts = rawAppts
+    const appts: PatientVisit[] = rawAppts
       .filter(a => a.patient_id === patient.id)
-      .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+      .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
+      .map(a => ({
+        id: a.id,
+        scheduled_at: a.scheduled_at,
+        status: a.status,
+        doctorName: doctorNames.get(a.doctor_id) ? `Dr. ${doctorNames.get(a.doctor_id)}` : 'Unknown Doctor',
+        reason: a.chief_complaint || 'Consultation',
+      }));
     setPatientAppts(appts);
     setSelectedPatient(patient);
   };
@@ -354,7 +370,7 @@ export default function ClinicPatients() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Patients</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{patients.length} registered patients</p>
+          <p className="text-sm text-slate-500 mt-0.5">{patients.length} patients with visits at this clinic</p>
         </div>
       </div>
 
