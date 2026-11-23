@@ -102,6 +102,12 @@ describe('ClinicDoctors link actions (QA-199)', () => {
     const calls = setup();
     await screen.findByText('Dr Active Person');
     fireEvent.click(screen.getByRole('button', { name: /Add Doctor/ }));
+    vi.mocked(supabase.rpc).mockImplementation(((name: string) =>
+      Promise.resolve(
+        name === 'clinic_search_doctors'
+          ? { data: [{ user_id: 'doc-new', full_name: 'Dr New Person', specialization: 'Cardiology' }], error: null }
+          : { data: 'invited', error: null }
+      )) as never);
     fireEvent.change(screen.getByPlaceholderText('Search doctor by name…'), { target: { value: 'New' } });
     const result = (await screen.findAllByText('Dr New Person'))[0].closest('div.flex.items-center.justify-between') as HTMLElement;
     fireEvent.click(within(result).getByRole('button', { name: 'Invite' }));
@@ -188,5 +194,24 @@ describe('ClinicDoctors DHA licence status (QA-201)', () => {
     fireEvent.click(within(row).getByTitle('View profile'));
     expect(screen.getByText('Verified by CeenAiX')).toBeInTheDocument();
     expect(screen.queryByText(/Pending Verification/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDoctors invite search privacy (QA-202)', () => {
+  it('searches through clinic_search_doctors and shows no email of other doctors', async () => {
+    const calls = setup();
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: [{ user_id: 'doc-new', full_name: 'Dr New Person', specialization: 'Cardiology' }],
+      error: null,
+    } as never);
+    await screen.findByText('Dr Active Person');
+    const profileReadsBefore = calls.user_profiles.length;
+    fireEvent.click(screen.getByRole('button', { name: /Add Doctor/ }));
+    fireEvent.change(screen.getByPlaceholderText('Search doctor by name…'), { target: { value: 'New' } });
+
+    expect(await screen.findByText('Cardiology')).toBeInTheDocument();
+    expect(supabase.rpc).toHaveBeenCalledWith('clinic_search_doctors', { p_query: 'New' });
+    expect(calls.user_profiles.length).toBe(profileReadsBefore);
+    expect(screen.queryByText(/new@example\.test/)).not.toBeInTheDocument();
   });
 });

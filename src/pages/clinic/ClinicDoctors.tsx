@@ -71,7 +71,7 @@ function AddDoctorModal({ onClose, existingDoctorIds, onInvited }: {
   onInvited: (doctorName: string) => void;
 }) {
   const [search, setSearch] = useState('');
-  const [results, setResults] = useState<{ userId: string; name: string; email: string; specialty: string }[]>([]);
+  const [results, setResults] = useState<{ userId: string; name: string; specialty: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [invitingId, setInvitingId] = useState<string | null>(null);
@@ -81,25 +81,19 @@ function AddDoctorModal({ onClose, existingDoctorIds, onInvited }: {
     setInviteError(null);
     if (query.length < 2) { setResults([]); return; }
     setSearching(true);
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('user_id, full_name, email')
-      .eq('role', 'doctor')
-      .ilike('full_name', `%${query}%`)
-      .limit(8);
-
-    const userIds = (data ?? []).map(d => d.user_id);
-    const { data: specData } = await supabase
-      .from('doctor_profiles')
-      .select('user_id, specialization')
-      .in('user_id', userIds);
-    const specMap = new Map((specData ?? []).map(s => [s.user_id, s.specialization]));
-
-    setResults((data ?? []).map(d => ({
+    // QA-202: names and specialties only (no email, phone or identity data of other doctors)
+    const { data, error } = await supabase.rpc('clinic_search_doctors', { p_query: query });
+    if (error) {
+      setResults([]);
+      setInviteError(doctorLinkErrorMessage(error));
+      setSearching(false);
+      return;
+    }
+    const rows = (data ?? []) as { user_id: string; full_name: string | null; specialization: string | null }[];
+    setResults(rows.map(d => ({
       userId: d.user_id,
       name: d.full_name ?? 'Unknown Doctor',
-      email: d.email ?? '—',
-      specialty: specMap.get(d.user_id) ?? 'General Practice',
+      specialty: d.specialization ?? 'General Practice',
     })));
     setSearching(false);
   };
@@ -156,7 +150,7 @@ function AddDoctorModal({ onClose, existingDoctorIds, onInvited }: {
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-slate-800">{d.name}</div>
-                        <div className="text-xs text-slate-400">{d.specialty} · {d.email}</div>
+                        <div className="text-xs text-slate-400">{d.specialty}</div>
                       </div>
                     </div>
                     {alreadyInClinic ? (
