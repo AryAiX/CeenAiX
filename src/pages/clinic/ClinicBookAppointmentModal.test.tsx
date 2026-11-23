@@ -127,3 +127,24 @@ describe('ClinicBookAppointmentModal (QA-191)', () => {
     expect(vi.mocked(supabase.rpc).mock.calls[0][1]).toMatchObject({ p_patient_id: 'patient-1', p_scheduled_at: '2026-11-24T05:00:00.000Z' });
   });
 });
+
+describe('ClinicBookAppointmentModal patient search note (QA-192)', () => {
+  it('explains that only returning patients can be found, and what new patients can do', async () => {
+    vi.mocked(supabase.from).mockImplementation((() => createSupabaseQueryBuilder({ data: [], error: null })) as never);
+    render(<ClinicBookAppointmentModal doctors={DOCTORS} onClose={vi.fn()} onBooked={vi.fn()} />);
+
+    const search = screen.getByLabelText('Patient Name');
+    expect(search).toHaveAccessibleDescription('Only patients who have visited this clinic before are shown.');
+
+    fireEvent.change(search, { target: { value: 'Nobody' } });
+    expect(
+      await screen.findByText("No patients found. New patients can book this clinic's doctors in the CeenAiX app.")
+    ).toBeInTheDocument();
+  });
+
+  it('does not show the search note when booking from a patient card', () => {
+    setupSupabase();
+    render(<ClinicBookAppointmentModal doctors={DOCTORS} fixedPatient={PATIENT} onClose={vi.fn()} onBooked={vi.fn()} />);
+    expect(screen.queryByText('Only patients who have visited this clinic before are shown.')).not.toBeInTheDocument();
+  });
+});

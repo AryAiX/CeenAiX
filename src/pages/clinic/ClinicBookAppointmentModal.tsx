@@ -240,6 +240,7 @@ export default function ClinicBookAppointmentModal({
                   value={patientSearch}
                   onChange={(e) => void searchPatients(e.target.value)}
                   placeholder="Search patient by name…"
+                  aria-describedby="clinic-book-patient-hint"
                   className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
                 {selectedPatient && <Check size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-500" />}
@@ -263,9 +264,15 @@ export default function ClinicBookAppointmentModal({
                 </div>
               )}
               {patientSearch.length >= 2 && showDropdown && patientResults.length === 0 && !selectedPatient && (
-                <p className="text-xs text-slate-400 mt-1">No patients found.</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  No patients found. New patients can book this clinic&apos;s doctors in the CeenAiX app.
+                </p>
               )}
               {selectedPatient && <p className="text-xs text-slate-400 mt-1">{selectedPatient.phone}</p>}
+              {/* QA-192: clinics only see patients who already have a visit here (database rule). */}
+              <p id="clinic-book-patient-hint" className="text-xs text-slate-400 mt-1">
+                Only patients who have visited this clinic before are shown.
+              </p>
             </div>
           )}
           <div>
