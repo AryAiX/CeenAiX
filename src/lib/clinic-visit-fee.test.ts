@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimatedVisitFee, sumEstimatedFees } from './clinic-visit-fee';
+import { estimatedVisitFee, parseFeeInput, sumEstimatedFees } from './clinic-visit-fee';
 
 const link = { doctor_user_id: 'd1', consultation_fee: '300', telemedicine_fee: 250, follow_up_fee: 150 };
 
@@ -28,5 +28,22 @@ describe('sumEstimatedFees (QA-195)', () => {
     expect(sumEstimatedFees([300, null, 150])).toBe(450);
     expect(sumEstimatedFees([null, null])).toBeNull();
     expect(sumEstimatedFees([])).toBe(0);
+  });
+});
+
+describe('parseFeeInput (QA-205)', () => {
+  it('reads empty as not set and accepts 0 to 100,000 with up to 2 decimals', () => {
+    expect(parseFeeInput('')).toEqual({ ok: true, value: null });
+    expect(parseFeeInput('  ')).toEqual({ ok: true, value: null });
+    expect(parseFeeInput('0')).toEqual({ ok: true, value: 0 });
+    expect(parseFeeInput(' 350 ')).toEqual({ ok: true, value: 350 });
+    expect(parseFeeInput('99.95')).toEqual({ ok: true, value: 99.95 });
+    expect(parseFeeInput('100000')).toEqual({ ok: true, value: 100000 });
+  });
+
+  it('refuses negative, too large, too precise or non-numbers', () => {
+    for (const bad of ['-1', '100000.01', '1.234', 'abc', '1e3', '12,5']) {
+      expect(parseFeeInput(bad)).toEqual({ ok: false });
+    }
   });
 });

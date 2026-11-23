@@ -140,11 +140,11 @@ describe('ClinicDoctors link actions (QA-199)', () => {
     const editPopup = screen.getByText('Edit Doctor').closest('div.rounded-2xl') as HTMLElement;
     expect(within(editPopup).queryByRole('combobox')).not.toBeInTheDocument();
     expect(within(editPopup).queryByText('Status')).not.toBeInTheDocument();
-    fireEvent.change(within(editPopup).getByRole('spinbutton'), { target: { value: '450' } });
+    fireEvent.change(within(editPopup).getByLabelText('Consultation fee (AED)'), { target: { value: '450' } });
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
 
     await waitFor(() => expect(directLinkWrites(calls)).toHaveLength(1));
-    expect(directLinkWrites(calls)[0].update).toHaveBeenCalledWith({ consultation_fee: 450 });
+    expect(directLinkWrites(calls)[0].update).toHaveBeenCalledWith({ consultation_fee: 450, telemedicine_fee: null, follow_up_fee: null });
   });
 
   it('shows a plain message (not the database text) when a change is refused', async () => {
@@ -342,5 +342,40 @@ describe('ClinicDoctors statuses (QA-204)', () => {
     fireEvent.change(screen.getByPlaceholderText('Search doctor by name…'), { target: { value: 'Declined' } });
     expect(await screen.findByRole('button', { name: 'Invite' })).toBeInTheDocument();
     expect(screen.queryByText('Already in Clinic')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDoctors fee edit (QA-205)', () => {
+  const openEdit = async () => {
+    openMenu(await rowOf('Dr Active Person'));
+    fireEvent.click(screen.getByRole('button', { name: /Edit Fee/ }));
+    return screen.getByText('Edit Doctor').closest('div.rounded-2xl') as HTMLElement;
+  };
+
+  it('edits all three fees and keeps an empty fee as "not set" (not AED 0)', async () => {
+    const calls = setup();
+    const popup = await openEdit();
+    expect(within(popup).getByLabelText('Consultation fee (AED)')).toHaveValue('300');
+    fireEvent.change(within(popup).getByLabelText('Consultation fee (AED)'), { target: { value: '' } });
+    fireEvent.change(within(popup).getByLabelText('Telemedicine fee (AED)'), { target: { value: '250.50' } });
+    fireEvent.change(within(popup).getByLabelText('Follow-up fee (AED)'), { target: { value: '150' } });
+    fireEvent.click(within(popup).getByRole('button', { name: /Save Changes/ }));
+
+    await waitFor(() => expect(directLinkWrites(calls)).toHaveLength(1));
+    expect(directLinkWrites(calls)[0].update).toHaveBeenCalledWith({
+      consultation_fee: null,
+      telemedicine_fee: 250.5,
+      follow_up_fee: 150,
+    });
+  });
+
+  it.each(['-50', 'abc', '100001', '12.345'])('refuses "%s" and saves nothing', async (value) => {
+    const calls = setup();
+    const popup = await openEdit();
+    fireEvent.change(within(popup).getByLabelText('Follow-up fee (AED)'), { target: { value } });
+    fireEvent.click(within(popup).getByRole('button', { name: /Save Changes/ }));
+
+    expect(await within(popup).findByRole('alert')).toHaveTextContent('from 0 to 100,000 AED');
+    expect(directLinkWrites(calls)).toEqual([]);
   });
 });

@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
 import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
 import { clinicDoctorActions, clinicDoctorStatus } from '../../lib/clinic-doctor-status';
+import { parseFeeInput } from '../../lib/clinic-visit-fee';
 import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
 
 interface Doctor {
@@ -24,6 +25,8 @@ interface Doctor {
   totalAppts: number;
   rating: number;
   consultationFee: number;
+  /** The clinic's own fees for this doctor (null = not set); edited in the Edit Fee popup (QA-205). */
+  clinicFees: { consultation: number | null; telemedicine: number | null; followUp: number | null };
   weeklyAvailability: { day: string; start: string; end: string }[];
   upcomingBlockedSlots: { date: string; start: string; end: string; reason: string | null }[];
   dhaVerified: boolean;
@@ -485,7 +488,8 @@ export default function ClinicDoctors() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
-  const [editForm, setEditForm] = useState({ consultationFee: 0 });
+  const [editForm, setEditForm] = useState({ consultation: '', telemedicine: '', followUp: '' });
+  const [editError, setEditError] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [endTarget, setEndTarget] = useState<{ id: string; action: 'suspend' | 'remove' } | null>(null);
@@ -532,7 +536,7 @@ export default function ClinicDoctors() {
       // Fetch facility staff (exclude terminal statuses)
       const { data: staffData, error: staffError } = await supabase
         .from('facility_staff')
-        .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, created_at')
+        .select('id, doctor_user_id, is_available, is_active, invitation_status, consultation_fee, telemedicine_fee, follow_up_fee, created_at')
         .eq('facility_id', fId)
         .not('invitation_status', 'in', '("removed","rejected","cancelled")');
 
@@ -661,6 +665,11 @@ export default function ClinicDoctors() {
           totalAppts: totalApptCount.get(staff.doctor_user_id) ?? 0,
           rating: ratings?.average_rating ? Number(Number(ratings.average_rating).toFixed(1)) : 0,
           consultationFee: Number(staff.consultation_fee ?? doctorProfile?.consultation_fee ?? 0),
+          clinicFees: {
+            consultation: staff.consultation_fee == null ? null : Number(staff.consultation_fee),
+            telemedicine: staff.telemedicine_fee == null ? null : Number(staff.telemedicine_fee),
+            followUp: staff.follow_up_fee == null ? null : Number(staff.follow_up_fee),
+          },
           weeklyAvailability: availabilityMap.get(staff.doctor_user_id) ?? [],
           upcomingBlockedSlots: blockedMap.get(staff.doctor_user_id) ?? [],
           dhaVerified: doctorProfile?.dha_license_verified ?? false,
@@ -797,23 +806,44 @@ export default function ClinicDoctors() {
 
   const handleStartEdit = (doctor: Doctor) => {
     setEditingDoctor(doctor);
-    setEditForm({ consultationFee: doctor.consultationFee });
+    const asText = (value: number | null) => (value == null ? '' : String(value));
+    setEditForm({
+      consultation: asText(doctor.clinicFees.consultation),
+      telemedicine: asText(doctor.clinicFees.telemedicine),
+      followUp: asText(doctor.clinicFees.followUp),
+    });
+    setEditError(null);
     setMenuOpen(null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingDoctor) return;
+    // QA-205: empty = not set; otherwise 0 to 100,000 with at most 2 decimals
+    const consultation = parseFeeInput(editForm.consultation);
+    const telemedicine = parseFeeInput(editForm.telemedicine);
+    const followUp = parseFeeInput(editForm.followUp);
+    if (!consultation.ok || !telemedicine.ok || !followUp.ok) {
+      setEditError('Enter each fee as an amount from 0 to 100,000 AED (up to 2 decimals), or leave it empty.');
+      return;
+    }
+    setEditError(null);
     setSavingEdit(true);
     try {
       const { error: updateError } = await supabase
         .from('facility_staff')
-        // QA-199: the edit popup only changes the fee; status changes use the doctor actions
-        .update({ consultation_fee: editForm.consultationFee })
+        // QA-199: the edit popup only changes fees; status changes use the doctor actions.
+        // QA-205: the database records every fee change in the pricing history.
+        .update({
+          consultation_fee: consultation.value,
+          telemedicine_fee: telemedicine.value,
+          follow_up_fee: followUp.value,
+        })
         .eq('id', editingDoctor.id);
       if (updateError) throw updateError;
       setDoctors(prev => prev.map(d => d.id === editingDoctor.id ? {
         ...d,
-        consultationFee: editForm.consultationFee,
+        consultationFee: consultation.value ?? 0,
+        clinicFees: { consultation: consultation.value, telemedicine: telemedicine.value, followUp: followUp.value },
       } : d));
       setEditingDoctor(null);
     } catch (err) {
@@ -1030,16 +1060,30 @@ export default function ClinicDoctors() {
 
             {/* Body */}
             <div className="p-6 space-y-5">
-              {/* Consultation Fee */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Consultation Fee (AED)</label>
-                <input
-                  type="number"
-                  value={editForm.consultationFee}
-                  onChange={e => setEditForm(prev => ({ ...prev, consultationFee: Number(e.target.value) }))}
-                  className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
+              {/* Fees (QA-205) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {([
+                  ['consultation', 'Consultation fee (AED)'],
+                  ['telemedicine', 'Telemedicine fee (AED)'],
+                  ['followUp', 'Follow-up fee (AED)'],
+                ] as const).map(([key, label]) => (
+                  <div key={key}>
+                    <label htmlFor={`edit-fee-${key}`} className="block text-xs font-semibold text-slate-600 mb-2">{label}</label>
+                    <input
+                      id={`edit-fee-${key}`}
+                      type="text"
+                      inputMode="decimal"
+                      value={editForm[key]}
+                      onChange={e => setEditForm(prev => ({ ...prev, [key]: e.target.value }))}
+                      placeholder="Not set"
+                      aria-invalid={editError ? !parseFeeInput(editForm[key]).ok : undefined}
+                      className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                ))}
               </div>
+              <p className="text-xs text-slate-500">Leave a fee empty if it is not set. Every change is kept in the pricing history.</p>
+              {editError && <p role="alert" className="text-xs text-red-600">{editError}</p>}
 
               {/* Availability */}
               <div className="rounded-xl bg-slate-50 p-4 space-y-3">

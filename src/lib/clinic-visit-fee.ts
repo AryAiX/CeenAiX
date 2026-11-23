@@ -39,3 +39,18 @@ export const sumEstimatedFees = (fees: (number | null)[]): number | null => {
   if (fees.length > 0 && known.length === 0) return null;
   return known.reduce((total, fee) => total + fee, 0);
 };
+
+/** QA-205: largest fee a clinic can set (same limit as facility_staff_fees_range_chk). */
+export const MAX_CLINIC_FEE = 100000;
+
+/**
+ * QA-205: read a fee typed by clinic staff. Empty means "not set" (null). Otherwise a number from
+ * 0 to 100,000 with at most 2 decimals. Number('') used to turn an empty box into AED 0.
+ */
+export const parseFeeInput = (raw: string): { ok: true; value: number | null } | { ok: false } => {
+  const text = raw.trim();
+  if (text === '') return { ok: true, value: null };
+  if (!/^\d+(\.\d{1,2})?$/.test(text)) return { ok: false };
+  const value = Number(text);
+  return value >= 0 && value <= MAX_CLINIC_FEE ? { ok: true, value } : { ok: false };
+};
