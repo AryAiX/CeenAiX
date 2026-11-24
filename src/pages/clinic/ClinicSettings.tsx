@@ -15,10 +15,6 @@ import {
   type SettingsFieldError,
 } from '../../lib/clinic-settings';
 
-const DAY_LABELS: Record<ClinicDayKey, string> = {
-  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
-};
-
 type Feedback = { type: 'success' | 'error'; message: string } | null;
 
 /** QA-232: the message for one section, shown next to its Save button. */
@@ -37,7 +33,7 @@ function SectionFeedback({ feedback, testId }: { feedback: Feedback; testId: str
 
 export default function ClinicSettings() {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const S = 'clinic.settingsPage';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,13 +173,13 @@ export default function ClinicSettings() {
   const inputClass =
     'w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-slate-50 disabled:text-slate-500';
   const infoFields = [
-    { id: 'clinic-name', field: 'name' as const, label: 'Clinic Name', value: clinicName, set: setClinicName, wide: true, type: 'text' },
-    { id: 'clinic-phone', field: 'phone' as const, label: 'Phone', value: phone, set: setPhone, wide: false, type: 'tel' },
-    { id: 'clinic-email', field: 'email' as const, label: 'Email', value: email, set: setEmail, wide: false, type: 'email' },
+    { id: 'clinic-name', field: 'name' as const, label: t(`${S}.name`), value: clinicName, set: setClinicName, wide: true, type: 'text' },
+    { id: 'clinic-phone', field: 'phone' as const, label: t(`${S}.phone`), value: phone, set: setPhone, wide: false, type: 'tel' },
+    { id: 'clinic-email', field: 'email' as const, label: t(`${S}.email`), value: email, set: setEmail, wide: false, type: 'email' },
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6 max-w-3xl" dir={i18n.dir()}>
       {error ? (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -192,8 +188,8 @@ export default function ClinicSettings() {
       ) : null}
 
       <div>
-        <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Settings</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Manage your clinic's profile and preferences</p>
+        <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t(`${S}.title`)}</h2>
+        <p className="text-sm text-slate-500 mt-0.5">{t(`${S}.subtitle`)}</p>
       </div>
 
       {!canEdit && !error ? (
@@ -205,12 +201,12 @@ export default function ClinicSettings() {
       {/* Clinic info */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center"><Building2 size={18} className="text-teal-600" /></div>
-          <div className="font-bold text-slate-800">Clinic Information</div>
+          <div aria-hidden="true" className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center"><Building2 size={18} className="text-teal-600" aria-hidden="true" /></div>
+          <h3 className="font-bold text-slate-800">{t(`${S}.infoTitle`)}</h3>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {infoFields.map(f => (
-            <div key={f.id} className={f.wide ? 'col-span-2' : ''}>
+            <div key={f.id} className={f.wide ? 'sm:col-span-2' : ''}>
               <label htmlFor={f.id} className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</label>
               <input
                 id={f.id}
@@ -228,8 +224,8 @@ export default function ClinicSettings() {
           ))}
           {/* QA-230: shown, not editable */}
           {[
-            { id: 'clinic-type', label: 'Clinic Type', value: clinicType },
-            { id: 'clinic-license', label: 'DHA Facility License', value: license },
+            { id: 'clinic-type', label: t(`${S}.clinicType`), value: clinicType ? t(`${S}.facilityTypes.${clinicType}`, { defaultValue: clinicType }) : '' },
+            { id: 'clinic-license', label: t(`${S}.license`), value: license },
           ].map(f => (
             <div key={f.id}>
               <div id={`${f.id}-label`} className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</div>
@@ -244,8 +240,8 @@ export default function ClinicSettings() {
               <p id={`${f.id}-hint`} className="mt-1 text-xs text-slate-400">{t('clinic.settingsPage.managedByCeenaix')}</p>
             </div>
           ))}
-          <div className="col-span-2">
-            <label htmlFor="clinic-address" className="block text-xs font-semibold text-slate-600 mb-1">Address</label>
+          <div className="sm:col-span-2">
+            <label htmlFor="clinic-address" className="block text-xs font-semibold text-slate-600 mb-1">{t(`${S}.address`)}</label>
             <input
               id="clinic-address"
               type="text"
@@ -267,7 +263,7 @@ export default function ClinicSettings() {
               disabled={savingInfo}
               className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
             >
-              <Save size={15} /> {savingInfo ? t(`${S}.saving`) : 'Save Changes'}
+              <Save size={15} aria-hidden="true" /> {savingInfo ? t(`${S}.saving`) : t(`${S}.saveInfo`)}
             </button>
             <SectionFeedback feedback={infoFeedback} testId="settings-info-feedback" />
           </div>
@@ -277,15 +273,15 @@ export default function ClinicSettings() {
       {/* Working hours */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center"><Clock size={18} className="text-blue-600" /></div>
-          <div className="font-bold text-slate-800">Working Hours</div>
+          <div aria-hidden="true" className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center"><Clock size={18} className="text-blue-600" aria-hidden="true" /></div>
+          <h3 className="font-bold text-slate-800">{t(`${S}.hoursTitle`)}</h3>
         </div>
         {mixedHours ? (
           <p data-testid="settings-mixed-hours" className="text-xs text-amber-700">{t(`${S}.mixedHours`)}</p>
         ) : null}
         <div>
-          <div className="text-xs font-semibold text-slate-600 mb-2">Working Days</div>
-          <div className="flex flex-wrap gap-2">
+          <div id="clinic-days-label" className="text-xs font-semibold text-slate-600 mb-2">{t(`${S}.workingDays`)}</div>
+          <div role="group" aria-labelledby="clinic-days-label" className="flex flex-wrap gap-2">
             {CLINIC_DAY_KEYS.map(day => (
               <button
                 key={day}
@@ -294,18 +290,18 @@ export default function ClinicSettings() {
                 aria-pressed={workingDays.includes(day)}
                 onClick={() => toggleDay(day)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:cursor-not-allowed ${workingDays.includes(day) ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >{DAY_LABELS[day]}</button>
+              >{t(`shared.weekdays.${day}`)}</button>
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="clinic-open" className="block text-xs font-semibold text-slate-600 mb-1">Opening Time</label>
-            <input id="clinic-open" type="time" value={openTime} disabled={!canEdit} onChange={e => setOpenTime(e.target.value)} aria-describedby={hoursError ? 'clinic-hours-error' : undefined} className={inputClass} />
+            <label htmlFor="clinic-open" className="block text-xs font-semibold text-slate-600 mb-1">{t(`${S}.openTime`)}</label>
+            <input id="clinic-open" type="time" dir="ltr" value={openTime} disabled={!canEdit} onChange={e => setOpenTime(e.target.value)} aria-describedby={hoursError ? 'clinic-hours-error' : undefined} className={inputClass} />
           </div>
           <div>
-            <label htmlFor="clinic-close" className="block text-xs font-semibold text-slate-600 mb-1">Closing Time</label>
-            <input id="clinic-close" type="time" value={closeTime} disabled={!canEdit} onChange={e => setCloseTime(e.target.value)} aria-describedby={hoursError ? 'clinic-hours-error' : undefined} className={inputClass} />
+            <label htmlFor="clinic-close" className="block text-xs font-semibold text-slate-600 mb-1">{t(`${S}.closeTime`)}</label>
+            <input id="clinic-close" type="time" dir="ltr" value={closeTime} disabled={!canEdit} onChange={e => setCloseTime(e.target.value)} aria-describedby={hoursError ? 'clinic-hours-error' : undefined} className={inputClass} />
           </div>
         </div>
         {fieldError(hoursError, 'clinic-hours-error')}
@@ -317,7 +313,7 @@ export default function ClinicSettings() {
               disabled={savingHours}
               className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
             >
-              <Save size={15} /> {savingHours ? t(`${S}.saving`) : 'Save Hours'}
+              <Save size={15} aria-hidden="true" /> {savingHours ? t(`${S}.saving`) : t(`${S}.saveHours`)}
             </button>
             <SectionFeedback feedback={hoursFeedback} testId="settings-hours-feedback" />
           </div>
@@ -330,7 +326,7 @@ export default function ClinicSettings() {
       <div data-testid="settings-not-available" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center"><Info size={18} className="text-slate-500" aria-hidden="true" /></div>
-          <div className="font-bold text-slate-800">{t('clinic.settingsPage.notAvailableTitle')}</div>
+          <h3 className="font-bold text-slate-800">{t('clinic.settingsPage.notAvailableTitle')}</h3>
         </div>
         <p className="text-sm text-slate-500">{t('clinic.settingsPage.notAvailable')}</p>
       </div>

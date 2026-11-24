@@ -1664,6 +1664,24 @@
       "truncated": "بناءً على أحدث {{value}} موعد."
     },
     "settingsPage": {
+      "title": "الإعدادات",
+      "subtitle": "إدارة ملف عيادتك وساعات العمل",
+      "infoTitle": "معلومات العيادة",
+      "name": "اسم العيادة",
+      "phone": "الهاتف",
+      "email": "البريد الإلكتروني",
+      "clinicType": "نوع العيادة",
+      "license": "ترخيص المنشأة من هيئة الصحة بدبي",
+      "address": "العنوان",
+      "saveInfo": "حفظ التغييرات",
+      "hoursTitle": "ساعات العمل",
+      "workingDays": "أيام العمل",
+      "openTime": "وقت الافتتاح",
+      "closeTime": "وقت الإغلاق",
+      "saveHours": "حفظ الساعات",
+      "facilityTypes": {
+        "clinic": "عيادة"
+      },
       "saving": "جارٍ الحفظ…",
       "savedInfo": "تم حفظ معلومات العيادة.",
       "savedHours": "تم حفظ ساعات العمل.",

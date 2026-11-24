@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -50,7 +51,7 @@ describe('ClinicSettings protected clinic details (QA-230)', () => {
   it('shows the clinic type and DHA licence, but not as boxes the clinic can edit', async () => {
     setup();
     expect(await screen.findByTestId('clinic-license-value')).toHaveTextContent('DHA-12345');
-    expect(screen.getByTestId('clinic-type-value')).toHaveTextContent('clinic');
+    expect(screen.getByTestId('clinic-type-value')).toHaveTextContent('Clinic');
     expect(screen.queryByDisplayValue('DHA-12345')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('clinic')).not.toBeInTheDocument();
     expect(screen.getAllByText('Managed by CeenAiX. Contact CeenAiX support to change it.')).toHaveLength(2);
@@ -168,5 +169,39 @@ describe('ClinicSettings saving (QA-232)', () => {
     expect(screen.getByLabelText('Closing Time')).toHaveValue('20:00');
     expect(screen.getByTestId('settings-mixed-hours')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Thu' })).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+describe('ClinicSettings in Arabic and layout (QA-233)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the page in Arabic, right to left, with Arabic day names', async () => {
+    await i18n.changeLanguage('ar');
+    setup();
+    expect(await screen.findByRole('heading', { name: 'الإعدادات' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'معلومات العيادة' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'ساعات العمل' })).toBeInTheDocument();
+    expect(screen.getByLabelText('اسم العيادة')).toHaveValue('QA Clinic');
+    expect(screen.getByLabelText('وقت الافتتاح')).toHaveAttribute('dir', 'ltr');
+    expect(screen.getByTestId('clinic-type-value')).toHaveTextContent('عيادة');
+    const days = screen.getByRole('group', { name: 'أيام العمل' });
+    expect(days).toHaveTextContent('إثنين');
+    expect(screen.getByRole('button', { name: /حفظ التغييرات/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'الإعدادات' }).closest('[dir]')).toHaveAttribute('dir', 'rtl');
+    for (const english of ['Settings', 'Clinic Information', 'Working Hours', 'Clinic Name', 'Save Changes', 'Save Hours', 'Mon']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('keeps email and phone left to right and stacks the fields on small screens', async () => {
+    setup();
+    await screen.findByTestId('clinic-license-value');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('dir', 'ltr');
+    expect(screen.getByLabelText('Phone')).toHaveAttribute('dir', 'ltr');
+    const grid = screen.getByLabelText('Clinic Name').closest('div.grid') as HTMLElement;
+    expect(grid.className).toContain('grid-cols-1');
+    expect(grid.className).toContain('sm:grid-cols-2');
   });
 });

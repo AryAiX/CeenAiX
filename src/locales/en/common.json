@@ -1648,6 +1648,24 @@
       "truncated": "Based on the most recent {{value}} appointments."
     },
     "settingsPage": {
+      "title": "Settings",
+      "subtitle": "Manage your clinic's profile and working hours",
+      "infoTitle": "Clinic Information",
+      "name": "Clinic Name",
+      "phone": "Phone",
+      "email": "Email",
+      "clinicType": "Clinic Type",
+      "license": "DHA Facility License",
+      "address": "Address",
+      "saveInfo": "Save Changes",
+      "hoursTitle": "Working Hours",
+      "workingDays": "Working Days",
+      "openTime": "Opening Time",
+      "closeTime": "Closing Time",
+      "saveHours": "Save Hours",
+      "facilityTypes": {
+        "clinic": "Clinic"
+      },
       "saving": "Saving…",
       "savedInfo": "Clinic information saved.",
       "savedHours": "Working hours saved.",
