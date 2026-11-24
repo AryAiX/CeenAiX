@@ -47,6 +47,9 @@ const sources = import.meta.glob<string>(
     '../pages/clinic/ClinicSettings.tsx',
     '../lib/clinic-settings.ts',
     '../pages/clinic/ClinicDashboard.tsx',
+    '../pages/clinic/ClinicPortal.tsx',
+    '../pages/clinic/ClinicSidebar.tsx',
+    '../pages/clinic/ClinicTopBar.tsx',
   ],
   { query: '?raw', import: 'default', eager: true }
 );

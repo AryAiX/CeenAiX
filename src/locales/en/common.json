@@ -1728,6 +1728,28 @@
       "feesNote": "Estimates from each doctor's clinic fees. Nothing is billed in the app yet."
     },
     "portalPage": {
+      "portalLabel": "Clinic Portal",
+      "menuLabel": "Clinic menu",
+      "collapse": "Collapse the menu",
+      "expand": "Expand the menu",
+      "sections": {
+        "overview": "Overview",
+        "management": "Management",
+        "insights": "Insights",
+        "account": "Account"
+      },
+      "today": "Today",
+      "todayAppointments_one": "{{count}} appointment",
+      "todayAppointments_other": "{{count}} appointments",
+      "todayConfirmed": "{{value}} confirmed",
+      "pendingApprovals": "Pending approvals",
+      "pendingDoctors_one": "{{count}} doctor",
+      "pendingDoctors_other": "{{count}} doctors",
+      "signOut": "Sign Out",
+      "signingOut": "Signing out…",
+      "signOutQuestion": "Are you sure you want to sign out?",
+      "signOutConfirm": "Yes, Sign Out",
+      "signOutFailed": "Could not sign out. Please try again.",
       "roles": {
         "clinic_admin": "Clinic admin",
         "clinic_manager": "Clinic manager",

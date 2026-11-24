@@ -38,10 +38,10 @@ export interface ClinicPortalMeta {
 }
 
 const defaultMeta: ClinicPortalMeta = {
-  facilityName: 'Your Clinic',
+  facilityName: '',
   facilityAddress: '',
   dhaLicensed: false,
-  userName: 'Clinic Staff',
+  userName: '',
   userRole: null,
   pendingDoctors: 0,
   todayApptCount: 0,
@@ -51,16 +51,16 @@ const defaultMeta: ClinicPortalMeta = {
   unreadNotifications: 0,
 };
 
-const mobileNavItems: Array<{ page: ClinicPage; label: string; href: string }> = [
-  { page: 'dashboard', label: 'Dashboard', href: '/clinic/dashboard' },
-  { page: 'doctors', label: 'Doctors', href: '/clinic/doctors' },
-  { page: 'appointments', label: 'Appointments', href: '/clinic/appointments' },
-  { page: 'patients', label: 'Patients', href: '/clinic/patients' },
-  { page: 'pricing', label: 'Pricing', href: '/clinic/pricing' },
-  { page: 'messages', label: 'Messages', href: '/clinic/messages' },
-  { page: 'notifications', label: 'Notifications', href: '/clinic/notifications' },
-  { page: 'analytics', label: 'Analytics', href: '/clinic/analytics' },
-  { page: 'settings', label: 'Settings', href: '/clinic/settings' },
+const mobileNavItems: Array<{ page: ClinicPage; href: string }> = [
+  { page: 'dashboard', href: '/clinic/dashboard' },
+  { page: 'doctors', href: '/clinic/doctors' },
+  { page: 'appointments', href: '/clinic/appointments' },
+  { page: 'patients', href: '/clinic/patients' },
+  { page: 'pricing', href: '/clinic/pricing' },
+  { page: 'messages', href: '/clinic/messages' },
+  { page: 'notifications', href: '/clinic/notifications' },
+  { page: 'analytics', href: '/clinic/analytics' },
+  { page: 'settings', href: '/clinic/settings' },
 ];
 
 function getPageFromPath(path: string): ClinicPage {
@@ -83,13 +83,13 @@ export default function ClinicPortal() {
   const location = useLocation();
   const navigate = useNavigate();
   const page = getPageFromPath(location.pathname);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // QA-238: titles and subtitles in the UI language; the Dashboard subtitle used to name
   // "Al Noor Medical Center" for every clinic
   const meta = {
     title: t(`clinic.portalPage.titles.${page}`),
-    subtitle: t(`clinic.portalPage.subtitles.${page}`, { name: portalMeta.facilityName }),
+    subtitle: t(`clinic.portalPage.subtitles.${page}`, { name: portalMeta.facilityName || t('clinic.facilityFallback') }),
   };
 
   useEffect(() => {
@@ -122,11 +122,11 @@ export default function ClinicPortal() {
 
         setPortalMeta(previous => ({
           ...previous,
-          facilityName: facilityData?.name ?? 'Your Clinic',
+          facilityName: facilityData?.name ?? '',
           facilityAddress: facilityData?.address ?? '',
           // only CeenAiX can set dha_status (QA-230); nothing else means "licensed"
           dhaLicensed: (facilityData?.dha_status ?? '').trim().toLowerCase() === 'licensed',
-          userName: profileData?.full_name ?? 'Clinic Staff',
+          userName: profileData?.full_name ?? '',
           userRole: memberData.portal_role ?? null,
           // QA-220 / QA-224 / QA-239: counts are kept up to date by the effect below
         }));
@@ -173,13 +173,14 @@ export default function ClinicPortal() {
   }, [user?.id, facilityId, location.pathname]);
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
+    // QA-241: the whole portal follows the UI language's direction (right to left in Arabic)
+    <div className="h-screen bg-slate-50 flex overflow-hidden" dir={i18n.dir()}>
       <div className="hidden lg:block">
         <ClinicSidebar isCollapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(c => !c)} activeTab={page} meta={portalMeta} />
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page !== 'messages' && <ClinicTopBar title={meta.title} subtitle={meta.subtitle} meta={portalMeta} />}
-        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+        <nav aria-label={t('clinic.portalPage.menuLabel')} className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
           {mobileNavItems.map((item) => {
             const active = page === item.page;
             return (
@@ -187,13 +188,14 @@ export default function ClinicPortal() {
                 key={item.href}
                 type="button"
                 onClick={() => navigate(item.href)}
+                aria-current={active ? 'page' : undefined}
                 className={`inline-flex shrink-0 items-center rounded-full px-3 py-2 text-xs font-semibold transition ${
                   active
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-teal-50 hover:text-teal-700'
                 }`}
               >
-                {item.label}
+                {t(`clinic.portalPage.titles.${item.page}`)}
               </button>
             );
           })}

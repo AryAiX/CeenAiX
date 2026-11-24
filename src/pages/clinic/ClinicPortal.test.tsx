@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { countUnreadMessages, countUnreadNotifications } from '../../lib/clinic-unread-messages';
 import { loadClinicTodayStats } from '../../lib/clinic-dashboard';
@@ -198,5 +199,27 @@ describe('ClinicPortal sidebar "TODAY" numbers (QA-239)', () => {
     renderPortalAt();
     const label = await screen.findByText('Estimated fees');
     expect(label.parentElement).toHaveTextContent('—');
+  });
+});
+
+describe('ClinicPortal direction and mobile menu (QA-241)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('turns the whole portal right to left in Arabic, with an Arabic mobile menu', async () => {
+    await i18n.changeLanguage('ar');
+    const { container } = render(
+      <MemoryRouter initialEntries={['/clinic/pricing']}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+    expect(container.firstElementChild).toHaveAttribute('dir', 'rtl');
+    const menus = screen.getAllByRole('navigation', { name: 'قائمة العيادة' });
+    expect(menus).toHaveLength(2);
+    const mobile = menus.find((menu) => menu.className.includes('lg:hidden')) as HTMLElement;
+    expect(within(mobile).getByRole('button', { name: 'الأسعار والخدمات' })).toHaveAttribute('aria-current', 'page');
+    expect(within(mobile).queryByText('Pricing')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('topbar')).toHaveTextContent('الأسعار والخدمات'));
   });
 });
