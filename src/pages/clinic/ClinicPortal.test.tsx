@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../lib/auth-context';
 import { countUnreadMessages, countUnreadNotifications } from '../../lib/clinic-unread-messages';
+import { loadClinicTodayStats } from '../../lib/clinic-dashboard';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import { announceMessagesRead, announceNotificationsChanged } from '../../lib/notification-events';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -11,6 +13,7 @@ import ClinicPortal from './ClinicPortal';
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 vi.mock('../../lib/clinic-unread-messages', () => ({ countUnreadMessages: vi.fn(), countUnreadNotifications: vi.fn() }));
+vi.mock('../../lib/clinic-dashboard', () => ({ loadClinicTodayStats: vi.fn() }));
 vi.mock('./ClinicDashboard', () => ({ default: () => null }));
 vi.mock('./ClinicDoctors', () => ({ default: () => null }));
 vi.mock('./ClinicAppointments', () => ({ default: () => null }));
@@ -33,6 +36,7 @@ beforeEach(() => {
   vi.mocked(supabase.from).mockImplementation((() => createSupabaseQueryBuilder({ data: null, error: null })) as never);
   vi.mocked(countUnreadMessages).mockResolvedValue(0);
   vi.mocked(countUnreadNotifications).mockResolvedValue(0);
+  vi.mocked(loadClinicTodayStats).mockResolvedValue({ todayApptCount: 0, todayConfirmedCount: 0, todayFees: null, pendingDoctors: 0 });
 });
 
 afterEach(() => {
@@ -142,5 +146,57 @@ describe('ClinicPortal clinic name, subtitles and DHA badge (QA-238)', () => {
     renderAt(path);
     expect(await screen.findByTestId('topbar')).toHaveTextContent(subtitle);
     expect(screen.getByTestId('topbar')).not.toHaveTextContent(wrong);
+  });
+});
+
+describe('ClinicPortal sidebar "TODAY" numbers (QA-239)', () => {
+  const stats = (todayApptCount: number, pendingDoctors: number, todayFees: number | null = 500) => ({
+    todayApptCount, todayConfirmedCount: todayApptCount, todayFees, pendingDoctors,
+  });
+
+  beforeEach(() => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'f1', portal_role: 'clinic_admin' }, error: null });
+      if (table === 'facilities') return createSupabaseQueryBuilder({ data: { name: 'QA Test Clinic', address: 'Dubai', dha_status: null }, error: null });
+      return createSupabaseQueryBuilder({ data: null, error: null });
+    }) as never);
+  });
+
+  afterEach(() => {
+    vi.mocked(loadClinicTodayStats).mockReset();
+  });
+
+  const renderPortalAt = (path = '/clinic/dashboard') =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+
+  it('shows estimated fees, not "Revenue"', async () => {
+    vi.mocked(loadClinicTodayStats).mockResolvedValue(stats(2, 0, 500));
+    renderPortalAt();
+    expect(await screen.findByText(formatLocaleCurrency(500, 'en').replace(/\s+/g, ' '))).toBeInTheDocument();
+    expect(screen.getByText('Estimated fees')).toBeInTheDocument();
+    expect(screen.queryByText('Revenue')).not.toBeInTheDocument();
+  });
+
+  it('updates the Appointments and Doctors badges when you move to another page', async () => {
+    vi.mocked(loadClinicTodayStats).mockResolvedValueOnce(stats(2, 1)).mockResolvedValue(stats(3, 0));
+    renderPortalAt('/clinic/doctors');
+    expect(await screen.findByTestId('clinic-nav-badge-appointments')).toHaveTextContent('2');
+    expect(screen.getByTestId('clinic-nav-badge-doctors')).toHaveTextContent('1');
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Patients/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('clinic-nav-badge-appointments')).toHaveTextContent('3'));
+    expect(screen.queryByTestId('clinic-nav-badge-doctors')).not.toBeInTheDocument();
+    expect(loadClinicTodayStats).toHaveBeenCalledWith(expect.anything(), 'f1');
+  });
+
+  it('shows "—" when the clinic has set no fee', async () => {
+    vi.mocked(loadClinicTodayStats).mockResolvedValue(stats(1, 0, null));
+    renderPortalAt();
+    const label = await screen.findByText('Estimated fees');
+    expect(label.parentElement).toHaveTextContent('—');
   });
 });

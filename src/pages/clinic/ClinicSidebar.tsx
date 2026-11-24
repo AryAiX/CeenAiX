@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { useTranslation } from 'react-i18next';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import {
   LayoutDashboard, Stethoscope, CalendarDays, DollarSign, Settings,
   ChevronLeft, ChevronRight, LogOut, Users, BarChart2, Building2,
@@ -42,7 +43,7 @@ function buildNavItems(meta: ClinicPortalMeta): NavItem[] {
 
 const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleCollapse, activeTab, meta }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -162,7 +163,8 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
           <div className="space-y-2 text-[12px]">
             {[
               { label: `${meta.todayApptCount} appointments`, value: `${meta.todayConfirmedCount} confirmed`, color: 'text-teal-400' },
-              { label: 'Revenue', value: `AED ${meta.todayRevenue.toLocaleString()}`, color: 'text-emerald-400' },
+              // QA-239: an estimate from the clinic's own fees (nothing is billed), like the Dashboard
+              { label: t('clinic.portalPage.todayFees'), value: meta.todayFees === null ? '—' : formatLocaleCurrency(meta.todayFees, i18n.language), color: 'text-emerald-400' },
               { label: 'Pending approvals', value: `${meta.pendingDoctors} doctor${meta.pendingDoctors !== 1 ? 's' : ''}`, color: 'text-amber-400' },
             ].map(s => (
               <div key={s.label} className="flex items-center justify-between px-2">

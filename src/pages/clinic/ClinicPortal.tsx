@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { countUnreadMessages, countUnreadNotifications } from '../../lib/clinic-unread-messages';
+import { loadClinicTodayStats } from '../../lib/clinic-dashboard';
 import { MESSAGES_READ_EVENT, NOTIFICATIONS_CHANGED_EVENT } from '../../lib/notification-events';
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
@@ -29,7 +30,8 @@ export interface ClinicPortalMeta {
   pendingDoctors: number;
   todayApptCount: number;
   todayConfirmedCount: number;
-  todayRevenue: number;
+  /** QA-239: estimated fees of today's completed visits; null when no fee is set */
+  todayFees: number | null;
   unreadMessages: number;
   unreadNotifications: number;
 }
@@ -43,7 +45,7 @@ const defaultMeta: ClinicPortalMeta = {
   pendingDoctors: 0,
   todayApptCount: 0,
   todayConfirmedCount: 0,
-  todayRevenue: 0,
+  todayFees: null,
   unreadMessages: 0,
   unreadNotifications: 0,
 };
@@ -76,6 +78,7 @@ export default function ClinicPortal() {
   const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [portalMeta, setPortalMeta] = useState<ClinicPortalMeta>(defaultMeta);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const page = getPageFromPath(location.pathname);
@@ -102,6 +105,7 @@ export default function ClinicPortal() {
 
         if (!memberData?.facility_id) return;
         const facilityId = memberData.facility_id;
+        setFacilityId(facilityId);
 
         const { data: facilityData } = await supabase
           .from('facilities')
@@ -115,37 +119,8 @@ export default function ClinicPortal() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        const { data: pendingStaff } = await supabase
-          .from('facility_staff')
-          .select('id')
-          .eq('facility_id', facilityId)
-          .eq('invitation_status', 'pending');
-
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-
-        const { data: todayAppts } = await supabase
-          .from('appointments')
-          .select('doctor_id, status')
-          .eq('facility_id', facilityId)
-          .gte('scheduled_at', todayStart)
-          .lt('scheduled_at', todayEnd)
-          .eq('is_deleted', false);
-
-        const { data: feeData } = await supabase
-          .from('facility_staff')
-          .select('doctor_user_id, consultation_fee')
-          .eq('facility_id', facilityId);
-        const feeMap = new Map((feeData ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0]));
-
-        const todayApptCount = todayAppts?.length ?? 0;
-        const todayConfirmedCount = (todayAppts ?? []).filter(a => ['confirmed', 'completed', 'in_progress'].includes(a.status)).length;
-        const todayRevenue = (todayAppts ?? [])
-          .filter(a => a.status === 'completed')
-          .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
-
         setPortalMeta(previous => ({
+          ...previous,
           facilityName: facilityData?.name ?? 'Your Clinic',
           facilityAddress: facilityData?.address ?? '',
           // only CeenAiX can set dha_status (QA-230); nothing else means "licensed"
@@ -154,13 +129,7 @@ export default function ClinicPortal() {
           userRole: memberData.portal_role
             ? memberData.portal_role.charAt(0).toUpperCase() + memberData.portal_role.slice(1)
             : 'Staff',
-          pendingDoctors: pendingStaff?.length ?? 0,
-          todayApptCount,
-          todayConfirmedCount,
-          todayRevenue,
-          // QA-220 / QA-224: kept up to date by their own effect below
-          unreadMessages: previous.unreadMessages,
-          unreadNotifications: previous.unreadNotifications,
+          // QA-220 / QA-224 / QA-239: counts are kept up to date by the effect below
         }));
       } catch (err) {
         console.warn('[ClinicPortal] Failed to load portal meta:', err);
@@ -168,8 +137,8 @@ export default function ClinicPortal() {
     })();
   }, [user?.id]);
 
-  // QA-220 / QA-224: the unread message and notification badges used to be counted once at login.
-  // They now reload when you move to another page, when messages are marked as read, and when
+  // QA-220 / QA-224 / QA-239: the badges and the sidebar's "TODAY" numbers used to be counted once at
+  // login. They now reload when you move to another page, when messages are marked as read, and when
   // notifications change (marked read, all read, dismissed).
   useEffect(() => {
     if (!user?.id) return;
@@ -186,6 +155,13 @@ export default function ClinicPortal() {
           if (!cancelled) setPortalMeta(previous => ({ ...previous, unreadNotifications: count }));
         })
         .catch(err => console.warn('[ClinicPortal] Failed to count unread notifications:', err));
+      if (facilityId) {
+        loadClinicTodayStats(supabase, facilityId)
+          .then(stats => {
+            if (!cancelled) setPortalMeta(previous => ({ ...previous, ...stats }));
+          })
+          .catch(err => console.warn("[ClinicPortal] Failed to count today's visits:", err));
+      }
     };
     refresh();
     window.addEventListener(MESSAGES_READ_EVENT, refresh);
@@ -195,7 +171,7 @@ export default function ClinicPortal() {
       window.removeEventListener(MESSAGES_READ_EVENT, refresh);
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
     };
-  }, [user?.id, location.pathname]);
+  }, [user?.id, facilityId, location.pathname]);
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden">

@@ -1728,6 +1728,7 @@
       "feesNote": "Estimates from each doctor's clinic fees. Nothing is billed in the app yet."
     },
     "portalPage": {
+      "todayFees": "Estimated fees",
       "dhaLicensed": "DHA licensed",
       "titles": {
         "dashboard": "Dashboard",
