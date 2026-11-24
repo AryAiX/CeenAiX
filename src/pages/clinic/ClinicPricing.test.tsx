@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
@@ -30,7 +31,11 @@ const setup = (saveResult: { data: unknown; error: unknown }) => {
     }
     return createSupabaseQueryBuilder({ data: [], error: null });
   }) as never);
-  render(<ClinicPricing />);
+  render(
+    <MemoryRouter>
+      <ClinicPricing />
+    </MemoryRouter>
+  );
   return saveBuilders;
 };
 
@@ -199,5 +204,38 @@ describe('ClinicPricing Arabic service names (QA-215)', () => {
     fireEvent.change(screen.getByPlaceholderText('Search services…'), { target: { value: 'استشارة' } });
     expect(screen.getByRole('heading', { name: 'استشارة عامة' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Old Lab Test' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicPricing says where visit fees come from (QA-216)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('explains that visit fees come from the Doctors page, with a link there', async () => {
+    setup({ data: null, error: null });
+    const note = await screen.findByRole('note');
+    expect(note).toHaveTextContent("come from each doctor's fees on the Doctors page");
+    expect(within(note).getByRole('link', { name: 'Go to Doctors' })).toHaveAttribute('href', '/clinic/doctors');
+    expect(screen.queryByText(/consultation fees/i)).not.toBeInTheDocument();
+  });
+
+  it('no longer says removing a service hides it from patients', async () => {
+    setup({ data: null, error: null });
+    const card = (await screen.findByText('Old Lab Test')).closest('div.rounded-2xl') as HTMLElement;
+    fireEvent.click(within(card).getAllByRole('button').find(b => b.querySelector('.lucide-trash2, .lucide-trash-2')) as HTMLElement);
+
+    expect(await screen.findByText(
+      "Remove Old Lab Test from your clinic's service list? It does not change doctors' visit fees or any booked visit."
+    )).toBeInTheDocument();
+    expect(screen.queryByText(/hide it from patients/)).not.toBeInTheDocument();
+  });
+
+  it('shows the note in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    setup({ data: null, error: null });
+    const note = await screen.findByRole('note');
+    expect(note).toHaveTextContent('تأتي من رسوم كل طبيب في صفحة الأطباء');
+    expect(within(note).getByRole('link', { name: 'الانتقال إلى الأطباء' })).toBeInTheDocument();
   });
 });

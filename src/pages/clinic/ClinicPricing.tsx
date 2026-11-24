@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import {
@@ -16,7 +17,7 @@ import {
   type ServiceFormValue,
 } from '../../lib/clinic-services';
 import { formatLocaleDigits, usesArabicEasternNumerals } from '../../lib/i18n-ui';
-import { Plus, Pencil as Edit2, Trash2, DollarSign, Clock, X, Save, ToggleLeft, ToggleRight, Search, Tag, TrendingUp, Activity } from 'lucide-react';
+import { Plus, Pencil as Edit2, Trash2, DollarSign, Clock, X, Save, ToggleLeft, ToggleRight, Search, Tag, TrendingUp, Activity, Info } from 'lucide-react';
 
 interface PricingItem {
   id: string;
@@ -275,6 +276,7 @@ function PricingModal({
 }
 
 function ConfirmDeleteModal({ name, busy, onConfirm, onCancel }: { name: string; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
+  const { t } = useTranslation();
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -284,9 +286,8 @@ function ConfirmDeleteModal({ name, busy, onConfirm, onCancel }: { name: string;
           </div>
           <div className="text-center">
             <h3 className="font-bold text-slate-900 text-lg">Remove Service</h3>
-            <p className="text-sm text-slate-500 mt-1">
-              Are you sure you want to remove <span className="font-semibold text-slate-800">{name}</span> from your services? This will hide it from patients and staff.
-            </p>
+            {/* QA-216: services are not shown to patients, and removing one changes no fee or visit */}
+            <p className="text-sm text-slate-500 mt-1">{t('clinic.pricingPage.remove.message', { name })}</p>
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-6">
@@ -478,7 +479,7 @@ export default function ClinicPricing() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Pricing & Services</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Manage your clinic's services and consultation fees</p>
+          <p className="text-sm text-slate-500 mt-0.5">{t('clinic.pricingPage.subtitle')}</p>
         </div>
         <button
           onClick={() => { setEditItem(undefined); setShowModal(true); }}
@@ -486,6 +487,15 @@ export default function ClinicPricing() {
         >
           <Plus size={16} /> Add Service
         </button>
+      </div>
+
+      {/* QA-216: nothing else in the app reads these prices; visit fees come from the doctor links */}
+      <div role="note" className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <p>
+          {t('clinic.pricingPage.feeSource.text')}{' '}
+          <Link to="/clinic/doctors" className="font-semibold underline">{t('clinic.pricingPage.feeSource.link')}</Link>
+        </p>
       </div>
 
       {/* KPIs */}

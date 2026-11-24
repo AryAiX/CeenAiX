@@ -1513,6 +1513,14 @@
       }
     },
     "pricingPage": {
+      "subtitle": "Your clinic's list of services and their standard prices",
+      "feeSource": {
+        "text": "Visit fees shown to patients when they book, and the estimated fees on Appointments, come from each doctor's fees on the Doctors page. Changing a price here does not change them.",
+        "link": "Go to Doctors"
+      },
+      "remove": {
+        "message": "Remove {{name}} from your clinic's service list? It does not change doctors' visit fees or any booked visit."
+      },
       "form": {
         "saving": "Saving…",
         "nameAr": "Service Name (Arabic)",
