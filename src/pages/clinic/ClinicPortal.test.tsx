@@ -20,7 +20,13 @@ vi.mock('./ClinicAnalytics', () => ({ default: () => null }));
 vi.mock('./ClinicMessages', () => ({ default: () => null }));
 vi.mock('./ClinicNotifications', () => ({ default: () => null }));
 vi.mock('./ClinicSettings', () => ({ default: () => null }));
-vi.mock('./ClinicTopBar', () => ({ default: () => null }));
+vi.mock('./ClinicTopBar', () => ({
+  default: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+    <div data-testid="topbar">
+      {title} | {subtitle}
+    </div>
+  ),
+}));
 
 beforeEach(() => {
   vi.mocked(useAuth).mockReturnValue({ user: { id: 'clinic-1' }, signOut: vi.fn() } as never);
@@ -88,5 +94,53 @@ describe('ClinicPortal unread notification badge (QA-224)', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /Patients/ })[0]);
     await waitFor(() => expect(screen.queryByTestId('clinic-nav-badge-notifications')).not.toBeInTheDocument());
+  });
+});
+
+describe('ClinicPortal clinic name, subtitles and DHA badge (QA-238)', () => {
+  const withClinic = (dha_status: string | null) =>
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'f1', portal_role: 'clinic_admin' }, error: null });
+      if (table === 'facilities') return createSupabaseQueryBuilder({ data: { name: 'QA Test Clinic', address: 'Dubai', dha_status }, error: null });
+      return createSupabaseQueryBuilder({ data: null, error: null });
+    }) as never);
+
+  const renderAt = (path: string) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+
+  it('does not claim the clinic is DHA licensed unless CeenAiX recorded it', async () => {
+    withClinic(null);
+    renderAt('/clinic/dashboard');
+    expect((await screen.findAllByText('QA Test Clinic')).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('clinic-dha-badge')).not.toBeInTheDocument();
+    expect(screen.queryByText(/DHA Licensed/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the badge when the clinic is recorded as licensed', async () => {
+    withClinic('licensed');
+    renderAt('/clinic/dashboard');
+    expect(await screen.findByTestId('clinic-dha-badge')).toHaveTextContent('DHA licensed ✓');
+  });
+
+  it('uses the clinic\'s own name on the Dashboard, not "Al Noor Medical Center"', async () => {
+    withClinic(null);
+    renderAt('/clinic/dashboard');
+    await waitFor(() => expect(screen.getByTestId('topbar')).toHaveTextContent('Dashboard | Overview of QA Test Clinic'));
+    expect(screen.queryByText(/Al Noor/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['/clinic/pricing', 'Your services and their standard prices', /consultation fees/i],
+    ['/clinic/analytics', 'Visits and estimated fees', /revenue/i],
+    ['/clinic/patients', 'Patients with visits at your clinic', /registered/i],
+  ])('describes %s accurately', async (path, subtitle, wrong) => {
+    withClinic(null);
+    renderAt(path);
+    expect(await screen.findByTestId('topbar')).toHaveTextContent(subtitle);
+    expect(screen.getByTestId('topbar')).not.toHaveTextContent(wrong);
   });
 });

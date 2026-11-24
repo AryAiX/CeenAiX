@@ -1727,6 +1727,31 @@
       "monthFeesSub": "Completed visits in {{month}}",
       "feesNote": "Estimates from each doctor's clinic fees. Nothing is billed in the app yet."
     },
+    "portalPage": {
+      "dhaLicensed": "DHA licensed",
+      "titles": {
+        "dashboard": "Dashboard",
+        "doctors": "Doctors",
+        "appointments": "Appointments",
+        "patients": "Patients",
+        "pricing": "Pricing & Services",
+        "analytics": "Analytics",
+        "messages": "Messages",
+        "notifications": "Notifications",
+        "settings": "Settings"
+      },
+      "subtitles": {
+        "dashboard": "Overview of {{name}}",
+        "doctors": "Your doctors, requests and invitations",
+        "appointments": "Schedule and manage patient visits",
+        "patients": "Patients with visits at your clinic",
+        "pricing": "Your services and their standard prices",
+        "analytics": "Visits and estimated fees",
+        "messages": "Conversations with your doctors and patients",
+        "notifications": "Recent activity and updates",
+        "settings": "Clinic profile and working hours"
+      }
+    },
     "visitReasons": {
       "consultation": "Consultation",
       "followUp": "Follow-up Visit",

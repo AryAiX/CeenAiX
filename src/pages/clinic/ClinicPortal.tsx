@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { countUnreadMessages, countUnreadNotifications } from '../../lib/clinic-unread-messages';
@@ -21,6 +22,8 @@ type ClinicPage = 'dashboard' | 'doctors' | 'appointments' | 'patients' | 'prici
 export interface ClinicPortalMeta {
   facilityName: string;
   facilityAddress: string;
+  /** QA-238: CeenAiX has recorded the clinic as DHA licensed (facilities.dha_status = 'licensed') */
+  dhaLicensed: boolean;
   userName: string;
   userRole: string;
   pendingDoctors: number;
@@ -34,6 +37,7 @@ export interface ClinicPortalMeta {
 const defaultMeta: ClinicPortalMeta = {
   facilityName: 'Your Clinic',
   facilityAddress: '',
+  dhaLicensed: false,
   userName: 'Clinic Staff',
   userRole: 'Staff',
   pendingDoctors: 0,
@@ -42,18 +46,6 @@ const defaultMeta: ClinicPortalMeta = {
   todayRevenue: 0,
   unreadMessages: 0,
   unreadNotifications: 0,
-};
-
-const pageMeta: Record<ClinicPage, { title: string; subtitle: string }> = {
-  dashboard:    { title: 'Dashboard',           subtitle: 'Overview of Al Noor Medical Center' },
-  doctors:      { title: 'Doctors',             subtitle: 'Manage your medical staff' },
-  appointments: { title: 'Appointments',        subtitle: 'Schedule and manage patient visits' },
-  patients:     { title: 'Patients',            subtitle: 'Your registered patient list' },
-  pricing:      { title: 'Pricing & Services',  subtitle: 'Set consultation fees and service catalog' },
-  analytics:    { title: 'Analytics',           subtitle: 'Performance and revenue insights' },
-  messages:     { title: 'Messages',            subtitle: 'Communication with staff and patients' },
-  notifications: { title: 'Notifications',      subtitle: 'Recent activity and updates' },
-  settings:     { title: 'Settings',            subtitle: 'Clinic profile and configuration' },
 };
 
 const mobileNavItems: Array<{ page: ClinicPage; label: string; href: string }> = [
@@ -87,8 +79,14 @@ export default function ClinicPortal() {
   const location = useLocation();
   const navigate = useNavigate();
   const page = getPageFromPath(location.pathname);
+  const { t } = useTranslation();
 
-  const meta = pageMeta[page];
+  // QA-238: titles and subtitles in the UI language; the Dashboard subtitle used to name
+  // "Al Noor Medical Center" for every clinic
+  const meta = {
+    title: t(`clinic.portalPage.titles.${page}`),
+    subtitle: t(`clinic.portalPage.subtitles.${page}`, { name: portalMeta.facilityName }),
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -107,7 +105,7 @@ export default function ClinicPortal() {
 
         const { data: facilityData } = await supabase
           .from('facilities')
-          .select('name, address')
+          .select('name, address, dha_status')
           .eq('id', facilityId)
           .maybeSingle();
 
@@ -150,6 +148,8 @@ export default function ClinicPortal() {
         setPortalMeta(previous => ({
           facilityName: facilityData?.name ?? 'Your Clinic',
           facilityAddress: facilityData?.address ?? '',
+          // only CeenAiX can set dha_status (QA-230); nothing else means "licensed"
+          dhaLicensed: (facilityData?.dha_status ?? '').trim().toLowerCase() === 'licensed',
           userName: profileData?.full_name ?? 'Clinic Staff',
           userRole: memberData.portal_role
             ? memberData.portal_role.charAt(0).toUpperCase() + memberData.portal_role.slice(1)

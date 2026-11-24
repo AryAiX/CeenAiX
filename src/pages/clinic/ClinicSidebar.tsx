@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, Stethoscope, CalendarDays, DollarSign, Settings,
   ChevronLeft, ChevronRight, LogOut, Users, BarChart2, Building2,
@@ -41,6 +42,7 @@ function buildNavItems(meta: ClinicPortalMeta): NavItem[] {
 
 const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleCollapse, activeTab, meta }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -103,9 +105,12 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
               <div className="flex-1 min-w-0">
                 <div className="text-white font-bold text-[13px] truncate" style={{ fontFamily: 'Inter, sans-serif' }}>{meta.facilityName}</div>
                 <div className="text-teal-400 text-[11px] truncate">{meta.facilityAddress || 'Clinic Portal'}</div>
-                <div className="mt-1 inline-flex items-center px-2 py-0.5 bg-emerald-900/50 rounded text-emerald-300 text-[9px] font-medium">
-                  DHA Licensed ✓
-                </div>
+                {/* QA-238: it showed "DHA Licensed ✓" for every clinic; now only when CeenAiX recorded it */}
+                {meta.dhaLicensed ? (
+                  <div data-testid="clinic-dha-badge" className="mt-1 inline-flex items-center px-2 py-0.5 bg-emerald-900/50 rounded text-emerald-300 text-[9px] font-medium">
+                    {t('clinic.portalPage.dhaLicensed')} ✓
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
