@@ -2,20 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { useTranslation } from 'react-i18next';
-import { Building2, Clock, Bell, Shield, Save } from 'lucide-react';
+import { Building2, Clock, Info, Save } from 'lucide-react';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${checked ? 'bg-teal-500' : 'bg-slate-200'}`}
-    >
-      <span className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform" style={{ transform: checked ? 'translateX(18px)' : 'translateX(2px)' }} />
-    </button>
-  );
-}
 
 export default function ClinicSettings() {
   const { user } = useAuth();
@@ -33,10 +22,6 @@ export default function ClinicSettings() {
   const [workingDays, setWorkingDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
   const [openTime, setOpenTime] = useState('08:00');
   const [closeTime, setCloseTime] = useState('20:00');
-  const [notifAppt, setNotifAppt] = useState(true);
-  const [notifPayment, setNotifPayment] = useState(true);
-  const [notifLicense, setNotifLicense] = useState(true);
-  const [nabidh, setNabidh] = useState(true);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -62,7 +47,7 @@ export default function ClinicSettings() {
 
       const { data: facilityData, error: facilityError } = await supabase
         .from('facilities')
-        .select('name, facility_type, license_number, phone, email, address, operating_hours, settings')
+        .select('name, facility_type, license_number, phone, email, address, operating_hours')
         .eq('id', fId)
         .maybeSingle();
 
@@ -88,13 +73,6 @@ export default function ClinicSettings() {
             if (open) setOpenTime(open);
             if (close) setCloseTime(close);
           }
-        }
-        if (facilityData.settings) {
-          const s = facilityData.settings as Record<string, boolean>;
-          if (s.notifAppt !== undefined) setNotifAppt(s.notifAppt);
-          if (s.notifPayment !== undefined) setNotifPayment(s.notifPayment);
-          if (s.notifLicense !== undefined) setNotifLicense(s.notifLicense);
-          if (s.nabidh !== undefined) setNabidh(s.nabidh);
         }
       }
     } catch (err) {
@@ -124,30 +102,6 @@ export default function ClinicSettings() {
       setFeedback({ type: 'success', message: 'Clinic information saved successfully.' });
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save changes.' });
-    }
-  };
-
-  const handleSaveNotifications = async () => {
-    if (!facilityId) return;
-    setFeedback(null);
-    try {
-      const { error: updateError } = await supabase
-        .from('facilities')
-        .update({
-          settings: {
-            notifAppt,
-            notifPayment,
-            notifLicense,
-            nabidh,
-          },
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', facilityId);
-
-      if (updateError) throw updateError;
-      setFeedback({ type: 'success', message: 'Settings saved successfully.' });
-    } catch (err) {
-      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save settings.' });
     }
   };
 
@@ -299,60 +253,16 @@ export default function ClinicSettings() {
         </button>
       </div>
 
-      {/* Notifications */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center"><Bell size={18} className="text-amber-600" /></div>
-          <div className="font-bold text-slate-800">Notifications</div>
+      {/* QA-231: the notification switches and "NABIDH sync is active — records are being submitted
+          automatically" did nothing (nothing reads these settings, and the clinic portal sends nothing
+          to NABIDH). They are replaced by a plain note until the features exist. */}
+      <div data-testid="settings-not-available" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center"><Info size={18} className="text-slate-500" aria-hidden="true" /></div>
+          <div className="font-bold text-slate-800">{t('clinic.settingsPage.notAvailableTitle')}</div>
         </div>
-        {[
-          { label: 'Appointment reminders', sub: 'Notify 24 hours before scheduled appointments', val: notifAppt, set: setNotifAppt },
-          { label: 'Payment confirmations', sub: 'Get notified when a payment is received', val: notifPayment, set: setNotifPayment },
-          { label: 'License expiry alerts', sub: 'Warn 30 days before any DHA license expires', val: notifLicense, set: setNotifLicense },
-        ].map(n => (
-          <div key={n.label} className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium text-slate-800">{n.label}</div>
-              <div className="text-xs text-slate-400 mt-0.5">{n.sub}</div>
-            </div>
-            <Toggle checked={n.val} onChange={n.set} />
-          </div>
-        ))}
-        <button
-          onClick={() => void handleSaveNotifications()}
-          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors"
-        >
-          <Save size={15} /> Save Notifications
-        </button>
+        <p className="text-sm text-slate-500">{t('clinic.settingsPage.notAvailable')}</p>
       </div>
-
-      {/* NABIDH */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center"><Shield size={18} className="text-emerald-600" /></div>
-          <div className="font-bold text-slate-800">NABIDH Integration</div>
-        </div>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-medium text-slate-800">Enable NABIDH data sync</div>
-            <div className="text-xs text-slate-400 mt-0.5">Sync patient records with the UAE national health exchange</div>
-          </div>
-          <Toggle checked={nabidh} onChange={setNabidh} />
-        </div>
-        {nabidh && (
-          <div className="p-3 bg-emerald-50 rounded-xl text-xs text-emerald-700 font-medium flex items-center gap-2">
-            ✅ NABIDH sync is active — records are being submitted automatically
-          </div>
-        )}
-        <button
-          onClick={() => void handleSaveNotifications()}
-          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors"
-        >
-          <Save size={15} /> Save NABIDH Settings
-        </button>
-      </div>
-
-
     </div>
   );
 }

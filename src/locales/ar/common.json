@@ -1664,6 +1664,8 @@
       "truncated": "بناءً على أحدث {{value}} موعد."
     },
     "settingsPage": {
+      "notAvailableTitle": "الإشعارات ونبض (NABIDH)",
+      "notAvailable": "تذكيرات المواعيد وتنبيهات الدفع وانتهاء الترخيص ومشاركة البيانات مع نبض (NABIDH) غير متاحة للعيادات بعد. لا يُرسل أي شيء إلى نبض من بوابة العيادة. ستُعلمك CeenAiX عندما تصبح جاهزة.",
       "managedByCeenaix": "تديره CeenAiX. تواصل مع دعم CeenAiX لتغييره."
     },
     "visitReasons": {

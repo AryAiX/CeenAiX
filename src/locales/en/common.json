@@ -1648,6 +1648,8 @@
       "truncated": "Based on the most recent {{value}} appointments."
     },
     "settingsPage": {
+      "notAvailableTitle": "Notifications and NABIDH",
+      "notAvailable": "Appointment reminders, payment and licence-expiry alerts, and NABIDH data sharing are not available for clinics yet. Nothing is sent to NABIDH from the clinic portal. CeenAiX will let you know when these are ready.",
       "managedByCeenaix": "Managed by CeenAiX. Contact CeenAiX support to change it."
     },
     "visitReasons": {

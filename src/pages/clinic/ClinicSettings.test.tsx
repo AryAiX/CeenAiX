@@ -16,7 +16,7 @@ const FACILITY = {
   email: 'qa@clinic.test',
   address: 'Dubai',
   operating_hours: { mon: '08:00-20:00' },
-  settings: {},
+  settings: { notifAppt: true, nabidh: true },
 };
 
 /** facilities: the first call loads the row; later calls (saves) are recorded. */
@@ -64,5 +64,30 @@ describe('ClinicSettings protected clinic details (QA-230)', () => {
     expect(payload).toMatchObject({ name: 'QA Clinic', phone: '+971500000002', email: 'qa@clinic.test', address: 'Dubai' });
     expect(payload).not.toHaveProperty('license_number');
     expect(payload).not.toHaveProperty('facility_type');
+  });
+});
+
+describe('ClinicSettings without false claims (QA-231)', () => {
+  it('does not say NABIDH sync is active and has no switches that do nothing', async () => {
+    setup();
+    await screen.findByTestId('clinic-license-value');
+    expect(screen.queryByText(/NABIDH sync is active/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/records are being submitted/)).not.toBeInTheDocument();
+    for (const label of ['Appointment reminders', 'Payment confirmations', 'License expiry alerts', 'Enable NABIDH data sync']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: /Save Notifications|Save NABIDH Settings/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId('settings-not-available')).toHaveTextContent('Nothing is sent to NABIDH from the clinic portal.');
+  });
+
+  it('never writes the old notification and NABIDH settings', async () => {
+    const saves = setup();
+    await screen.findByTestId('clinic-license-value');
+    const saveButtons = screen.getAllByRole('button', { name: /^Save/ });
+    for (const button of saveButtons) fireEvent.click(button);
+    await waitFor(() => expect(saves).toHaveLength(saveButtons.length));
+    for (const save of saves) {
+      expect(save.update.mock.calls[0][0]).not.toHaveProperty('settings');
+    }
   });
 });
