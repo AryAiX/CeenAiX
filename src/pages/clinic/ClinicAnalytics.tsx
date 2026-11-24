@@ -4,7 +4,8 @@ import { useAuth } from '../../lib/auth-context';
 import { useTranslation } from 'react-i18next';
 import { fetchAllPages } from '../../lib/supabase-batches';
 import { isCountedVisit, isInClinicMonth, summariseClinicVisits, type AnalyticsVisit } from '../../lib/clinic-analytics';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { formatLocaleCurrency, formatLocaleDigits } from '../../lib/i18n-ui';
+import { estimatedVisitFee, sumEstimatedFees, type ClinicFeeLink } from '../../lib/clinic-visit-fee';
 import { TrendingUp, Users, DollarSign, Calendar, ArrowUpRight } from 'lucide-react';
 
 export default function ClinicAnalytics() {
@@ -17,9 +18,9 @@ export default function ClinicAnalytics() {
   const [totalAppointments, setTotalAppointments] = useState(0);
   const [activePatients, setActivePatients] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; key: string; value: number }[]>([]);
-  const [doctorPerf, setDoctorPerf] = useState<{ doctorId: string; name: string; specialty: string; appts: number; revenue: number; initials: string; gradient: string }[]>([]);
+  const [doctorPerf, setDoctorPerf] = useState<{ doctorId: string; name: string; specialty: string; appts: number; revenue: number | null; initials: string; gradient: string }[]>([]);
   const [serviceBreakdown, setServiceBreakdown] = useState<{ name: string; pct: number; color: string }[]>([]);
-  const [monthlyRevenueTotal, setMonthlyRevenueTotal] = useState(0);
+  const [monthlyRevenueTotal, setMonthlyRevenueTotal] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -74,14 +75,16 @@ export default function ClinicAnalytics() {
 
       const doctorIds = [...new Set(appts.map(a => a.doctor_id))];
 
+      // QA-227: the clinic's own fees per doctor (Doctors page -> Edit Fee), the same estimate as the
+      // Appointments page (QA-195). Nothing is billed in the app, so these are estimates.
       const { data: staffFeeData } = await supabase
         .from('facility_staff')
-        .select('doctor_user_id, consultation_fee')
+        .select('doctor_user_id, consultation_fee, telemedicine_fee, follow_up_fee')
         .eq('facility_id', fId);
 
-      const feeMap = new Map(
-        (staffFeeData ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0])
-      );
+      const feeLinks = new Map(((staffFeeData ?? []) as ClinicFeeLink[]).map(s => [s.doctor_user_id, s]));
+      const feeFor = (a: (typeof appts)[number]) =>
+        estimatedVisitFee(feeLinks.get(a.doctor_id), { visitType: a.type ?? 'in_person', reason: a.chief_complaint ?? '' });
 
       const { data: doctorProfiles } = await supabase
         .from('user_profiles')
@@ -89,20 +92,18 @@ export default function ClinicAnalytics() {
         .in('user_id', doctorIds);
       const { data: doctorSpecData } = await supabase
         .from('doctor_profiles')
-        .select('user_id, specialization, consultation_fee')
+        .select('user_id, specialization')
         .in('user_id', doctorIds);
 
       const profileMap = new Map((doctorProfiles ?? []).map(p => [p.user_id, p.full_name]));
       const specMap = new Map((doctorSpecData ?? []).map(d => [d.user_id, d.specialization]));
-      const baseFeeMap = new Map((doctorSpecData ?? []).map(d => [d.user_id, Number(d.consultation_fee) || 0]));
 
-      const revenueTotal = appts
-        .filter((appointment) => appointment.status === 'completed' && isInClinicMonth(appointment.scheduled_at))
-        .reduce((sum, appointment) => {
-          const fee = feeMap.get(appointment.doctor_id) ?? baseFeeMap.get(appointment.doctor_id) ?? 0;
-          return sum + fee;
-        }, 0);
-      setMonthlyRevenueTotal(revenueTotal);
+      // the doctor's own private-practice fee is no longer used as a fallback
+      setMonthlyRevenueTotal(
+        sumEstimatedFees(
+          appts.filter(a => a.status === 'completed' && isInClinicMonth(a.scheduled_at)).map(feeFor)
+        )
+      );
 
       const gradients = [
         'from-teal-600 to-blue-600',
@@ -116,13 +117,12 @@ export default function ClinicAnalytics() {
         const name = profileMap.get(did) ?? 'Unknown Doctor';
         const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
         const completedAppts = appts.filter(a => a.doctor_id === did && a.status === 'completed');
-        const fee = feeMap.get(did) ?? baseFeeMap.get(did) ?? 0;
         return {
           doctorId: did,
           name,
           specialty: specMap.get(did) ?? 'General Practice',
           appts: summary.perDoctor.get(did) ?? 0,
-          revenue: completedAppts.length * fee,
+          revenue: sumEstimatedFees(completedAppts.map(feeFor)),
           initials,
           gradient: gradients[idx % gradients.length],
         };
@@ -193,7 +193,7 @@ export default function ClinicAnalytics() {
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { key: 'revenue', label: 'Monthly Revenue', value: `AED ${monthlyRevenueTotal.toLocaleString()}`, sub: 'This month', icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { key: 'revenue', label: t('clinic.analyticsPage.estimatedFees'), value: monthlyRevenueTotal === null ? '—' : formatLocaleCurrency(monthlyRevenueTotal, i18n.language), sub: t('clinic.analyticsPage.estimatedFeesSub'), icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
           { key: 'appointments', label: 'Total Appointments', value: totalAppointments.toLocaleString(), sub: 'All-time', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
           { key: 'patients', label: 'Active Patients', value: activePatients.toLocaleString(), sub: 'Last 90 days', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { key: 'rating', label: 'Avg. Rating', value: '—', sub: 'Coming soon', icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -263,6 +263,7 @@ export default function ClinicAnalytics() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
           <div className="font-bold text-slate-800" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Doctor Performance</div>
+          <p data-testid="analytics-fees-note" className="mt-1 text-xs text-slate-400">{t('clinic.analyticsPage.feesNote')}</p>
         </div>
         {doctorPerf.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">No doctor data yet.</div>
@@ -270,7 +271,7 @@ export default function ClinicAnalytics() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
-                {['Doctor', 'Specialty', 'Total Appointments', 'Revenue (AED)', 'Rating'].map(h => (
+                {['Doctor', 'Specialty', 'Total Appointments', t('clinic.analyticsPage.colEstimatedFees'), 'Rating'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-6 py-3">{h}</th>
                 ))}
               </tr>
@@ -293,7 +294,7 @@ export default function ClinicAnalytics() {
                       <span className="font-bold text-slate-800 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{d.appts}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-bold text-teal-700 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{d.revenue.toLocaleString()}</td>
+                  <td className="px-6 py-4 font-bold text-teal-700 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{d.revenue === null ? '—' : formatLocaleDigits(d.revenue, i18n.language)}</td>
                   <td className="px-6 py-4">
                     <span className="text-slate-400 text-sm">—</span>
                   </td>

@@ -11,8 +11,17 @@ vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() }
 
 type Visit = { id: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string; type: string; chief_complaint: string | null };
 
-const setup = (visits: Visit[], doctors: { user_id: string; full_name: string }[]) => {
+type FeeLink = { doctor_user_id: string; consultation_fee: number | null; telemedicine_fee: number | null; follow_up_fee: number | null };
+
+const setup = (
+  visits: Visit[],
+  doctors: { user_id: string; full_name: string }[],
+  feeLinks: FeeLink[] = [],
+  doctorProfiles: { user_id: string; specialization: string; consultation_fee: number }[] = []
+) => {
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
+    if (table === 'facility_staff') return createSupabaseQueryBuilder({ data: feeLinks, error: null });
+    if (table === 'doctor_profiles') return createSupabaseQueryBuilder({ data: doctorProfiles, error: null });
     if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'f1' }, error: null });
     if (table === 'facilities') return createSupabaseQueryBuilder({ data: { name: 'QA Clinic' }, error: null });
     if (table === 'appointments') return createServerLikeBuilder(visits);
@@ -100,5 +109,55 @@ describe('ClinicAnalytics counts (QA-226)', () => {
     const oct = screen.getByText('Oct').parentElement as HTMLElement;
     expect(nov).toHaveTextContent('1');
     expect(oct).toHaveTextContent('0');
+  });
+});
+
+describe('ClinicAnalytics estimated fees (QA-227)', () => {
+  const v = (id: string, scheduled_at: string, status: string, type: string, chief_complaint: string): Visit => ({
+    id, patient_id: `p-${id}`, doctor_id: 'd1', scheduled_at, status, type, chief_complaint,
+  });
+  const FEES: FeeLink = { doctor_user_id: 'd1', consultation_fee: 300, telemedicine_fee: 200, follow_up_fee: 150 };
+
+  it('uses the clinic fee for each visit type, like the Appointments page', async () => {
+    setup(
+      [
+        v('a', '2026-11-10T06:00:00Z', 'completed', 'in_person', 'Consultation'),
+        v('b', '2026-11-11T06:00:00Z', 'completed', 'virtual', 'Consultation'),
+        v('c', '2026-11-12T06:00:00Z', 'completed', 'in_person', 'Follow-up Visit'),
+        v('d', '2026-11-26T06:00:00Z', 'scheduled', 'in_person', 'Consultation'),
+        v('e', '2026-10-20T06:00:00Z', 'completed', 'in_person', 'Consultation'),
+      ],
+      [{ user_id: 'd1', full_name: 'Sara Ali' }],
+      [FEES]
+    );
+    const card = await screen.findByTestId('analytics-kpi-revenue');
+    // this month's completed visits: 300 + 200 + 150 (it used to be 3 x 300 = 900)
+    expect(card).toHaveTextContent(/AED\s*650/);
+    expect(card).toHaveTextContent('Estimated Fees');
+    expect(card).toHaveTextContent('Completed visits this month');
+    // the doctor's column covers all completed visits: 650 + 300 (October)
+    const row = within(screen.getByRole('table')).getAllByRole('row')[1];
+    expect(within(row).getAllByRole('cell')[3]).toHaveTextContent('950');
+  });
+
+  it('does not fall back to the doctor\'s private fee when the clinic has set none', async () => {
+    setup(
+      [v('a', '2026-11-10T06:00:00Z', 'completed', 'in_person', 'Consultation')],
+      [{ user_id: 'd1', full_name: 'Sara Ali' }],
+      [{ doctor_user_id: 'd1', consultation_fee: null, telemedicine_fee: null, follow_up_fee: null }],
+      [{ user_id: 'd1', specialization: 'Cardiology', consultation_fee: 500 }]
+    );
+    const card = await screen.findByTestId('analytics-kpi-revenue');
+    expect(card).toHaveTextContent('—');
+    expect(card).not.toHaveTextContent('500');
+    const row = within(screen.getByRole('table')).getAllByRole('row')[1];
+    expect(within(row).getAllByRole('cell')[3]).toHaveTextContent('—');
+  });
+
+  it('says the fees are estimates and calls nothing "revenue"', async () => {
+    setup([v('a', '2026-11-10T06:00:00Z', 'completed', 'in_person', 'Consultation')], [{ user_id: 'd1', full_name: 'Sara Ali' }], [FEES]);
+    expect(await screen.findByTestId('analytics-fees-note')).toHaveTextContent('Nothing is billed in the app yet.');
+    expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Estimated Fees (AED)' })).toBeInTheDocument();
   });
 });

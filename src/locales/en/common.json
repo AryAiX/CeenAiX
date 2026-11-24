@@ -1623,6 +1623,10 @@
       "dismiss": "Dismiss"
     },
     "analyticsPage": {
+      "estimatedFees": "Estimated Fees",
+      "estimatedFeesSub": "Completed visits this month",
+      "colEstimatedFees": "Estimated Fees (AED)",
+      "feesNote": "Fees are estimates from each doctor's clinic fees on the Doctors page (consultation, telemedicine and follow-up). Nothing is billed in the app yet.",
       "truncated": "Based on the most recent {{value}} appointments."
     },
     "visitReasons": {
