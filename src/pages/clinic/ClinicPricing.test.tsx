@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -9,8 +10,9 @@ vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 
 const SERVICES = [
-  { id: 's1', name_en: 'General Consultation', category: 'consultation', default_duration_min: 30, default_price: 300, description_en: '', is_active: true },
-  { id: 's2', name_en: 'Old Lab Test', category: 'Lab', default_duration_min: 15, default_price: 120, description_en: '', is_active: true },
+  { id: 's1', name_en: 'General Consultation', name_ar: 'استشارة عامة', description_ar: '', category: 'consultation', default_duration_min: 30, default_price: 300, description_en: '', is_active: true },
+  // created by the old page: the Arabic name is a copy of the English one
+  { id: 's2', name_en: 'Old Lab Test', name_ar: 'Old Lab Test', description_ar: '', category: 'Lab', default_duration_min: 15, default_price: 120, description_en: '', is_active: true },
 ];
 
 /** facility_services: the first call loads the list, later calls answer with `saveResult`. */
@@ -134,5 +136,68 @@ describe('ClinicPricing Add / Edit Service form (QA-214)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Lab' }));
     expect(screen.getByText('Old Lab Test')).toBeInTheDocument();
     expect(screen.queryByText('General Consultation')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicPricing Arabic service names (QA-215)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('saves the Arabic name and description entered for a new service', async () => {
+    const saves = setup({ data: { id: 's-new', name_en: 'Echo', name_ar: 'تخطيط صدى القلب', category: 'procedure', default_duration_min: 30, default_price: 400, description_en: '', description_ar: 'فحص', is_active: true }, error: null });
+    const form = await openAddForm();
+    fill(form, { name: 'Echo', price: '400' });
+    fireEvent.change(within(form).getByLabelText('Service Name (Arabic)'), { target: { value: 'تخطيط صدى القلب' } });
+    fireEvent.change(within(form).getByLabelText('Description (Arabic)'), { target: { value: 'فحص' } });
+    expect(within(form).getByLabelText('Service Name (Arabic)')).toHaveAttribute('dir', 'rtl');
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name_en: 'Echo', name_ar: 'تخطيط صدى القلب', description_ar: 'فحص' })
+    );
+  });
+
+  it('updates an Arabic name that was only a copy when the English name is changed', async () => {
+    const saves = setup({ data: { ...SERVICES[1], name_en: 'Blood Test', name_ar: 'Blood Test' }, error: null });
+    const card = (await screen.findByText('Old Lab Test')).closest('div.rounded-2xl') as HTMLElement;
+    fireEvent.click(within(card).getByRole('button', { name: /Edit/ }));
+
+    const form = document.body.querySelector('form') as HTMLFormElement;
+    expect(within(form).getByLabelText('Service Name (Arabic)')).toHaveValue('');
+    fill(form, { name: 'Blood Test' });
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].update).toHaveBeenCalledWith(expect.objectContaining({ name_en: 'Blood Test', name_ar: 'Blood Test' }));
+  });
+
+  it('keeps a real Arabic name when editing', async () => {
+    const saves = setup({ data: SERVICES[0], error: null });
+    const card = (await screen.findByText('General Consultation')).closest('div.rounded-2xl') as HTMLElement;
+    fireEvent.click(within(card).getByRole('button', { name: /Edit/ }));
+
+    const form = document.body.querySelector('form') as HTMLFormElement;
+    expect(within(form).getByLabelText('Service Name (Arabic)')).toHaveValue('استشارة عامة');
+    fill(form, { price: '350' });
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].update).toHaveBeenCalledWith(expect.objectContaining({ name_en: 'General Consultation', name_ar: 'استشارة عامة' }));
+  });
+
+  it('shows the Arabic name in Arabic and finds a service by it', async () => {
+    await i18n.changeLanguage('ar');
+    setup({ data: null, error: null });
+
+    expect(await screen.findByRole('heading', { name: 'استشارة عامة' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'General Consultation' })).not.toBeInTheDocument();
+    // no Arabic name yet: falls back to English
+    expect(screen.getByRole('heading', { name: 'Old Lab Test' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search services…'), { target: { value: 'استشارة' } });
+    expect(screen.getByRole('heading', { name: 'استشارة عامة' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Old Lab Test' })).not.toBeInTheDocument();
   });
 });

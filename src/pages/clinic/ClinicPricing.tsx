@@ -6,8 +6,10 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import {
   SERVICE_CATEGORIES,
+  arabicNameForForm,
   normalizeServiceCategory,
   serviceSaveErrorKey,
+  serviceText,
   validateServiceForm,
   type ServiceFieldError,
   type ServiceFormErrors,
@@ -19,32 +21,41 @@ import { Plus, Pencil as Edit2, Trash2, DollarSign, Clock, X, Save, ToggleLeft, 
 interface PricingItem {
   id: string;
   name: string;
+  /** QA-215 */
+  nameAr: string;
   category: string;
   durationMinutes: number;
   priceAed: number;
   description: string;
+  /** QA-215 */
+  descriptionAr: string;
   isActive: boolean;
 }
 
-const SERVICE_COLUMNS = 'id, name_en, category, default_duration_min, default_price, description_en, is_active';
+const SERVICE_COLUMNS =
+  'id, name_en, name_ar, category, default_duration_min, default_price, description_en, description_ar, is_active';
 
 interface ServiceRow {
   id: string;
   name_en: string | null;
+  name_ar: string | null;
   category: string | null;
   default_duration_min: number | null;
   default_price: number | string | null;
   description_en: string | null;
+  description_ar: string | null;
   is_active: boolean | null;
 }
 
 const toPricingItem = (s: ServiceRow): PricingItem => ({
   id: s.id,
   name: s.name_en ?? '',
+  nameAr: s.name_ar ?? '',
   category: normalizeServiceCategory(s.category),
   durationMinutes: s.default_duration_min ?? 30,
   priceAed: Number(s.default_price) || 0,
   description: s.description_en ?? '',
+  descriptionAr: s.description_ar ?? '',
   isActive: s.is_active ?? true,
 });
 
@@ -87,10 +98,12 @@ function PricingModal({
     : [...SERVICE_CATEGORIES, initialCategory];
   const [form, setForm] = useState({
     name: item?.name || '',
+    nameAr: arabicNameForForm(item),
     category: initialCategory,
     durationMinutes: String(item?.durationMinutes ?? 30),
     priceAed: item ? String(item.priceAed) : '',
     description: item?.description || '',
+    descriptionAr: item?.descriptionAr || '',
   });
   const [errors, setErrors] = useState<ServiceFormErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -157,6 +170,22 @@ function PricingModal({
             />
             {fieldError('name', 'service-name-error')}
           </div>
+          <div>
+            <label htmlFor="service-name-ar" className="block text-xs font-semibold text-slate-600 mb-1">{t('clinic.pricingPage.form.nameAr')}</label>
+            <input
+              id="service-name-ar"
+              type="text"
+              dir="rtl"
+              lang="ar"
+              value={form.nameAr}
+              onChange={set('nameAr')}
+              aria-invalid={errors.nameAr ? true : undefined}
+              aria-describedby={errors.nameAr ? 'service-name-ar-hint service-name-ar-error' : 'service-name-ar-hint'}
+              className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <p id="service-name-ar-hint" className="mt-1 text-xs text-slate-400">{t('clinic.pricingPage.form.nameArHint')}</p>
+            {fieldError('nameAr', 'service-name-ar-error')}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="service-category" className="block text-xs font-semibold text-slate-600 mb-1">Category</label>
@@ -212,6 +241,21 @@ function PricingModal({
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
             />
             {fieldError('description', 'service-description-error')}
+          </div>
+          <div>
+            <label htmlFor="service-description-ar" className="block text-xs font-semibold text-slate-600 mb-1">{t('clinic.pricingPage.form.descriptionAr')}</label>
+            <textarea
+              id="service-description-ar"
+              dir="rtl"
+              lang="ar"
+              value={form.descriptionAr}
+              onChange={set('descriptionAr')}
+              rows={2}
+              aria-invalid={errors.descriptionAr ? true : undefined}
+              aria-describedby={errors.descriptionAr ? 'service-description-ar-error' : undefined}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
+            {fieldError('descriptionAr', 'service-description-ar-error')}
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-6">
@@ -271,7 +315,8 @@ function ConfirmDeleteModal({ name, busy, onConfirm, onCancel }: { name: string;
 
 export default function ClinicPricing() {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const [items, setItems] = useState<PricingItem[]>([]);
   const [facilityId, setFacilityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -324,7 +369,9 @@ export default function ClinicPricing() {
   };
 
   const filtered = items.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
+    const query = search.trim().toLowerCase();
+    const matchSearch =
+      !query || [p.name, p.nameAr, p.description, p.descriptionAr].some(text => text.toLowerCase().includes(query));
     const matchCat = filterCat === 'all' || p.category === filterCat;
     return matchSearch && matchCat;
   });
@@ -338,10 +385,12 @@ export default function ClinicPricing() {
     if (!facilityId) return t('clinic.pricingPage.errors.saveFailed');
     const fields = {
       name_en: value.name,
+      name_ar: value.nameAr,
       category: value.category,
       default_duration_min: value.durationMinutes,
       default_price: value.priceAed,
       description_en: value.description,
+      description_ar: value.descriptionAr,
     };
     const { data, error: saveError } = editItem
       ? await supabase.from('facility_services').update(fields).eq('id', editItem.id).select(SERVICE_COLUMNS).single()
@@ -350,8 +399,6 @@ export default function ClinicPricing() {
           .insert({
             ...fields,
             facility_id: facilityId,
-            name_ar: value.name,
-            description_ar: value.description,
             currency: 'AED',
             is_active: true,
             is_deleted: false,
@@ -485,7 +532,7 @@ export default function ClinicPricing() {
                   <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full text-xs font-medium border border-teal-100">{categoryLabel(p.category)}</span>
                   {!p.isActive && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs">Inactive</span>}
                 </div>
-                <h3 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h3>
+                <h3 className="font-bold text-slate-900 text-base leading-tight">{serviceText(p, lang).name}</h3>
               </div>
               <div className="text-right shrink-0">
                 <div className="text-2xl font-bold text-teal-700" style={{ fontFamily: 'DM Mono, monospace' }}>
@@ -495,7 +542,7 @@ export default function ClinicPricing() {
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 mb-3 leading-relaxed">{p.description}</p>
+            <p className="text-xs text-slate-500 mb-3 leading-relaxed">{serviceText(p, lang).description}</p>
 
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -545,7 +592,10 @@ export default function ClinicPricing() {
 
       {confirmDelete && (
         <ConfirmDeleteModal
-          name={items.find(p => p.id === confirmDelete)?.name ?? 'this service'}
+          name={(() => {
+            const item = items.find(p => p.id === confirmDelete);
+            return item ? serviceText(item, lang).name : 'this service';
+          })()}
           busy={busyId === confirmDelete}
           onConfirm={() => void deleteItem(confirmDelete)}
           onCancel={() => setConfirmDelete(null)}

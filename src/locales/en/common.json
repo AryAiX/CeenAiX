@@ -1515,6 +1515,9 @@
     "pricingPage": {
       "form": {
         "saving": "Saving…",
+        "nameAr": "Service Name (Arabic)",
+        "nameArHint": "Leave empty to use the English name.",
+        "descriptionAr": "Description (Arabic)",
         "errors": {
           "nameRequired": "Enter a service name.",
           "nameTaken": "Another service already uses this name.",

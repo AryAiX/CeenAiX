@@ -32,18 +32,24 @@ export const MAX_SERVICE_DESCRIPTION_LENGTH = 500;
 
 export interface ServiceFormInput {
   name: string;
+  /** QA-215: optional; empty means "same as the English name" */
+  nameAr: string;
   category: string;
   durationMinutes: string;
   priceAed: string;
   description: string;
+  descriptionAr: string;
 }
 
 export interface ServiceFormValue {
   name: string;
+  /** QA-215: the Arabic name, or the English name when none was entered (name_ar is required) */
+  nameAr: string;
   category: string;
   durationMinutes: number;
   priceAed: number;
   description: string;
+  descriptionAr: string;
 }
 
 /** i18n key under clinic.pricingPage.form.errors plus its values. */
@@ -52,7 +58,9 @@ export interface ServiceFieldError {
   values?: Record<string, number>;
 }
 
-export type ServiceFormErrors = Partial<Record<'name' | 'price' | 'duration' | 'description', ServiceFieldError>>;
+export type ServiceFormErrors = Partial<
+  Record<'name' | 'nameAr' | 'price' | 'duration' | 'description' | 'descriptionAr', ServiceFieldError>
+>;
 
 export type ServiceFormResult = { ok: true; value: ServiceFormValue } | { ok: false; errors: ServiceFormErrors };
 
@@ -69,6 +77,8 @@ export const validateServiceForm = (
   const errors: ServiceFormErrors = {};
   const name = input.name.trim().replace(/\s+/g, ' ');
   const description = input.description.trim();
+  const nameAr = input.nameAr.trim().replace(/\s+/g, ' ');
+  const descriptionAr = input.descriptionAr.trim();
 
   if (!name) {
     errors.name = { key: 'nameRequired' };
@@ -76,6 +86,10 @@ export const validateServiceForm = (
     errors.name = { key: 'tooLong', values: { value: MAX_SERVICE_NAME_LENGTH } };
   } else if (existing.some(s => s.id !== editingId && s.name.trim().toLowerCase() === name.toLowerCase())) {
     errors.name = { key: 'nameTaken' };
+  }
+
+  if (nameAr.length > MAX_SERVICE_NAME_LENGTH) {
+    errors.nameAr = { key: 'tooLong', values: { value: MAX_SERVICE_NAME_LENGTH } };
   }
 
   const priceText = input.priceAed.trim();
@@ -99,11 +113,22 @@ export const validateServiceForm = (
   if (description.length > MAX_SERVICE_DESCRIPTION_LENGTH) {
     errors.description = { key: 'tooLong', values: { value: MAX_SERVICE_DESCRIPTION_LENGTH } };
   }
+  if (descriptionAr.length > MAX_SERVICE_DESCRIPTION_LENGTH) {
+    errors.descriptionAr = { key: 'tooLong', values: { value: MAX_SERVICE_DESCRIPTION_LENGTH } };
+  }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return {
     ok: true,
-    value: { name, category: normalizeServiceCategory(input.category), durationMinutes, priceAed, description },
+    value: {
+      name,
+      nameAr: nameAr || name,
+      category: normalizeServiceCategory(input.category),
+      durationMinutes,
+      priceAed,
+      description,
+      descriptionAr,
+    },
   };
 };
 
@@ -112,3 +137,19 @@ export const serviceSaveErrorKey = (error: unknown): string => {
   const code = (error as { code?: string } | null)?.code;
   return code === '23514' ? 'valuesRejected' : 'saveFailed';
 };
+
+/**
+ * QA-215: the Arabic name shown in the form. A copy of the English name (what the page used to
+ * save) is shown as empty, so that changing the English name also changes it.
+ */
+export const arabicNameForForm = (service: { name: string; nameAr: string } | undefined): string =>
+  service && service.nameAr.trim() !== service.name.trim() ? service.nameAr : '';
+
+/** QA-215: service name / description in the UI language (Arabic falls back to English). */
+export const serviceText = (
+  service: { name: string; nameAr: string; description: string; descriptionAr: string },
+  language: string
+): { name: string; description: string } =>
+  language.startsWith('ar')
+    ? { name: service.nameAr.trim() || service.name, description: service.descriptionAr.trim() || service.description }
+    : { name: service.name, description: service.description };
