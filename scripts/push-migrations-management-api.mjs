@@ -113,6 +113,12 @@ const isAlreadyRegisteredError = (error) => {
   return text.includes('already been registered');
 };
 
+// The Management API stamps each applied migration with the current second as its ledger
+// version. Two migrations applied within the same second collide on schema_migrations_pkey;
+// the second one is rolled back and is safe to retry once the clock has moved on.
+const isLedgerVersionClash = (error) =>
+  String(error.body ?? error.message ?? '').includes('schema_migrations_pkey');
+
 const isSchemaCollisionError = (error) => {
   const text = String(error.body ?? error.message ?? '').toLowerCase();
   return text.includes('already exists') || text.includes('duplicate key');
@@ -154,17 +160,30 @@ const listLocalMigrations = async () => {
   });
 };
 
+const LEDGER_CLASH_RETRIES = 3;
+
 const applyMigration = async (migration) => {
   const query = await readFile(migration.path, 'utf8');
   console.log(`Applying ${migration.filename} …`);
   try {
-    await api(`/projects/${projectRef}/database/migrations`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query,
-        name: migration.name,
-      }),
-    });
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await api(`/projects/${projectRef}/database/migrations`, {
+          method: 'POST',
+          body: JSON.stringify({
+            query,
+            name: migration.name,
+          }),
+        });
+        break;
+      } catch (error) {
+        if (!isLedgerVersionClash(error) || attempt >= LEDGER_CLASH_RETRIES) {
+          throw error;
+        }
+        console.warn(`  ledger version clash for ${migration.filename}; retrying in 1.1s`);
+        await sleep(1100);
+      }
+    }
     console.log(`  ✓ ${migration.version} ${migration.name}`);
   } catch (error) {
     if (isAlreadyRegisteredError(error)) {
