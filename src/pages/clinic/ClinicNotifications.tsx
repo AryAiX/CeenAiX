@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { safePortalActionPath } from '../../lib/notification-links';
 import { Bell, CheckCheck, Loader2, RefreshCcw, X } from 'lucide-react';
 
 interface NotificationRow {
@@ -70,7 +71,7 @@ export default function ClinicNotifications() {
     }
   };
 
-  const markRead = async (id: string) => {
+  const markRead = async (id: string): Promise<boolean> => {
     setBusyId(id);
     try {
       const { error: updateError } = await supabase
@@ -80,11 +81,22 @@ export default function ClinicNotifications() {
         .eq('user_id', user!.id);
       if (updateError) throw updateError;
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update notification.');
+      return false;
     } finally {
       setBusyId(null);
     }
+  };
+
+  // QA-223: like the doctor page (QA-163), opening an unread notification also marks it read,
+  // then goes to the page.
+  const openNotification = async (notification: NotificationRow, path: string) => {
+    if (!notification.is_read) {
+      await markRead(notification.id);
+    }
+    navigate(path);
   };
 
   const markAllRead = async () => {
@@ -198,6 +210,8 @@ export default function ClinicNotifications() {
           <div className="space-y-3">
             {filtered.map(n => {
               const cfg = typeConfig[n.type] ?? { label: n.type, color: 'bg-slate-50 text-slate-600' };
+              // QA-223: action_url comes from the database; only follow an in-app /clinic/... path
+              const actionPath = safePortalActionPath('clinic', n.action_url);
               return (
                 <div key={n.id} className={`rounded-2xl border p-4 ${n.is_read ? 'border-slate-200 bg-slate-50' : 'border-teal-200 bg-teal-50/50'}`}>
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -211,8 +225,8 @@ export default function ClinicNotifications() {
                       <p className="mt-2 text-xs font-semibold text-slate-400">{formatRelativeTime(n.created_at)}</p>
                     </div>
                     <div className="flex flex-wrap gap-2 shrink-0">
-                      {n.action_url ? (
-                        <button onClick={() => navigate(n.action_url!)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                      {actionPath ? (
+                        <button type="button" onClick={() => void openNotification(n, actionPath)} disabled={busyId === n.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
                           Open
                         </button>
                       ) : null}
