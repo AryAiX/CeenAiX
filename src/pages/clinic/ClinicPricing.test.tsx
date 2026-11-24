@@ -5,7 +5,11 @@ import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import ClinicPricing from './ClinicPricing';
+
+/** the test library turns the non-breaking space inside currency text into a normal space */
+const money = (value: number, language: string) => formatLocaleCurrency(value, language).replace(/\s+/g, ' ');
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
@@ -201,7 +205,7 @@ describe('ClinicPricing Arabic service names (QA-215)', () => {
     // no Arabic name yet: falls back to English
     expect(screen.getByRole('heading', { name: 'Old Lab Test' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search services…'), { target: { value: 'استشارة' } });
+    fireEvent.change(screen.getByRole('searchbox', { name: 'البحث في الخدمات' }), { target: { value: 'استشارة' } });
     expect(screen.getByRole('heading', { name: 'استشارة عامة' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Old Lab Test' })).not.toBeInTheDocument();
   });
@@ -237,5 +241,111 @@ describe('ClinicPricing says where visit fees come from (QA-216)', () => {
     const note = await screen.findByRole('note');
     expect(note).toHaveTextContent('تأتي من رسوم كل طبيب في صفحة الأطباء');
     expect(within(note).getByRole('link', { name: 'الانتقال إلى الأطباء' })).toBeInTheDocument();
+  });
+});
+
+describe('ClinicPricing in Arabic, labels and summary counts (QA-217)', () => {
+  /** like setup(), with a custom list of services */
+  const setupWith = (services: unknown[]) => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) =>
+      table === 'clinic_portal_members'
+        ? createSupabaseQueryBuilder({ data: { facility_id: 'facility-1' }, error: null })
+        : createSupabaseQueryBuilder({ data: services, error: null })) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPricing />
+      </MemoryRouter>
+    );
+  };
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the whole page in Arabic, with Arabic digits and prices', async () => {
+    await i18n.changeLanguage('ar');
+    setup({ data: null, error: null });
+
+    expect(await screen.findByRole('heading', { name: 'الأسعار والخدمات' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /إضافة خدمة/ })).toBeInTheDocument();
+    expect(screen.getByTestId('pricing-kpi-total')).toHaveTextContent('٢');
+    expect(screen.getByTestId('pricing-kpi-total')).toHaveTextContent('إجمالي الخدمات');
+    expect(screen.getByRole('group', { name: 'التصفية حسب الفئة' })).toHaveTextContent('مختبر');
+
+    const card = screen.getByRole('heading', { name: 'استشارة عامة' }).closest('div.rounded-2xl') as HTMLElement;
+    expect(within(card).getByText('استشارة')).toBeInTheDocument();
+    expect(within(card).getByText('٣٠ دقيقة')).toBeInTheDocument();
+    expect(within(card).getByText(money(300, 'ar'))).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'إيقاف استشارة عامة' })).toBeInTheDocument();
+
+    for (const english of ['Pricing & Services', 'Total Services', 'Add Service', 'Edit', 'Active', '30 min', 'All']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('opens the form in Arabic, right to left', async () => {
+    await i18n.changeLanguage('ar');
+    setup({ data: null, error: null });
+    fireEvent.click(await screen.findByRole('button', { name: /إضافة خدمة/ }));
+
+    const dialog = screen.getByRole('dialog', { name: 'إضافة خدمة جديدة' });
+    expect(dialog).toHaveAttribute('dir', 'rtl');
+    expect(within(dialog).getByLabelText('اسم الخدمة')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('السعر (درهم)')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'إلغاء' })).toBeInTheDocument();
+  });
+
+  it('labels the icon buttons and the popups, and closes them with Escape', async () => {
+    setup({ data: null, error: null });
+    const toggle = await screen.findByRole('button', { name: 'Switch off General Consultation' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Edit Old Lab Test' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Old Lab Test' }));
+    expect(screen.getByRole('alertdialog', { name: 'Remove Service' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Service/ }));
+    expect(screen.getByRole('dialog', { name: 'Add New Service' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('counts only switched-on services for the average and highest price, and shows AED 1 correctly', async () => {
+    setupWith([
+      { id: 'a', name_en: 'Cheap', name_ar: 'Cheap', category: 'lab', default_duration_min: 15, default_price: 1, description_en: '', description_ar: '', is_active: true },
+      { id: 'b', name_en: 'Off', name_ar: 'Off', category: 'lab', default_duration_min: 15, default_price: 900, description_en: '', description_ar: '', is_active: false },
+    ]);
+    const highest = await screen.findByTestId('pricing-kpi-highest');
+    expect(highest).toHaveTextContent(money(1, 'en'));
+    expect(highest).not.toHaveTextContent('900');
+    expect(screen.getByTestId('pricing-kpi-average')).toHaveTextContent(money(1, 'en'));
+  });
+
+  it('shows "—" for the prices when no service is switched on', async () => {
+    setupWith([
+      { id: 'b', name_en: 'Off', name_ar: 'Off', category: 'lab', default_duration_min: 15, default_price: 900, description_en: '', description_ar: '', is_active: false },
+    ]);
+    expect(await screen.findByTestId('pricing-kpi-highest')).toHaveTextContent('—');
+    expect(screen.getByTestId('pricing-kpi-average')).toHaveTextContent('—');
+  });
+
+  it('shows a plain message, not the database text, when loading fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(supabase.from).mockImplementation(((table: string) =>
+      table === 'clinic_portal_members'
+        ? createSupabaseQueryBuilder({ data: null, error: { code: '42501', message: 'permission denied for table clinic_portal_members' } })
+        : createSupabaseQueryBuilder({ data: [], error: null })) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPricing />
+      </MemoryRouter>
+    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not load your services. Please try again.');
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
   });
 });

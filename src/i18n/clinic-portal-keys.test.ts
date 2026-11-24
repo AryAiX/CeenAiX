@@ -39,6 +39,8 @@ const sources = import.meta.glob<string>(
     '../lib/clinic-booking.ts',
     '../pages/clinic/ClinicDoctors.tsx',
     '../pages/clinic/ClinicPatients.tsx',
+    '../pages/clinic/ClinicPricing.tsx',
+    '../lib/clinic-services.ts',
   ],
   { query: '?raw', import: 'default', eager: true }
 );
