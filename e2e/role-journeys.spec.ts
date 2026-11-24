@@ -70,12 +70,10 @@ const doctorRoutes: RouteCase[] = [
   { name: 'message detail', path: '/doctor/messages/00000000-0000-4000-8000-000000000701' },
   { name: 'profile', path: '/doctor/profile' },
   { name: 'notifications', path: '/doctor/notifications' },
-  { name: 'consultation workspace', path: '/doctor/consultations/00000000-0000-4000-8000-000000000601' },
   { name: 'telemedicine room', path: '/doctor/telemedicine/00000000-0000-4000-8000-000000000601' },
   { name: 'settings', path: '/doctor/settings' },
   { name: 'imaging', path: '/doctor/imaging' },
   { name: 'earnings', path: '/doctor/earnings' },
-  { name: 'portal', path: '/doctor/portal' },
 ];
 
 const adminRoutes: RouteCase[] = [

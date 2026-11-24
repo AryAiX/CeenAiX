@@ -1722,13 +1722,18 @@ const DoctorsView = ({ context }: { context: AdminContext }) => {
     const update = verified
       ? { dha_license_verified: true, dha_verified_at: nowIso, updated_at: nowIso }
       : { dha_license_verified: false, dha_verified_at: null, updated_at: nowIso };
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from('doctor_profiles')
       .update(update)
-      .eq('user_id', doctorId);
+      .eq('user_id', doctorId)
+      .select('user_id');
     setBusyDoctorId(null);
     if (updateError) {
       setVerifyError(updateError.message);
+      return;
+    }
+    if (!updatedRows || updatedRows.length === 0) {
+      setVerifyError('The doctor profile could not be updated.');
       return;
     }
     // No central refresh on AdminContext; refresh the organizations slice as
