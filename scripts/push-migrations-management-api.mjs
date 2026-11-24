@@ -4,6 +4,8 @@
  * Env:
  *   SUPABASE_ACCESS_TOKEN
  *   SUPABASE_DEV_PROJECT_REF or SUPABASE_PROD_PROJECT_REF (or --project-ref)
+ *   SUPABASE_ALLOW_EXISTING_SCHEMA=true  skip a migration whose objects already exist
+ *                                        instead of failing (QA-110; use deliberately)
  */
 
 import { readFile, readdir } from 'node:fs/promises';
@@ -16,6 +18,7 @@ const RETRY_DELAYS_MS = [5000, 10000];
 
 const dryRun = process.argv.includes('--dry-run');
 const skipDemoMigrations = process.env.SUPABASE_SKIP_DEMO_MIGRATIONS === 'true';
+const allowExistingSchema = process.env.SUPABASE_ALLOW_EXISTING_SCHEMA?.trim() === 'true';
 const schemaRequiredSeedVersions = new Set(['20260504000000', '20260510000000']);
 
 const projectRef =
@@ -97,13 +100,28 @@ const api = async (path, options = {}) => {
   }
 };
 
-const isBenignMigrationError = (error) => {
+// QA-110: these two cases used to be treated alike and both skipped silently.
+//
+// "already been registered" means the Management API already has this migration in its
+// ledger. Re-pushing is a genuine no-op, so skipping is correct.
+//
+// "already exists" / "duplicate key" mean the SQL collided with objects already in the
+// database, so the migration did NOT apply. Skipping that produced a green push against an
+// unchanged database, and left no ledger entry either. It now fails loudly.
+const isAlreadyRegisteredError = (error) => {
   const text = String(error.body ?? error.message ?? '').toLowerCase();
-  return (
-    text.includes('already exists') ||
-    text.includes('duplicate key') ||
-    text.includes('already been registered')
-  );
+  return text.includes('already been registered');
+};
+
+// The Management API stamps each applied migration with the current second as its ledger
+// version. Two migrations applied within the same second collide on schema_migrations_pkey;
+// the second one is rolled back and is safe to retry once the clock has moved on.
+const isLedgerVersionClash = (error) =>
+  String(error.body ?? error.message ?? '').includes('schema_migrations_pkey');
+
+const isSchemaCollisionError = (error) => {
+  const text = String(error.body ?? error.message ?? '').toLowerCase();
+  return text.includes('already exists') || text.includes('duplicate key');
 };
 
 const listRemoteMigrations = async () => {
@@ -142,23 +160,55 @@ const listLocalMigrations = async () => {
   });
 };
 
+const LEDGER_CLASH_RETRIES = 3;
+
 const applyMigration = async (migration) => {
   const query = await readFile(migration.path, 'utf8');
   console.log(`Applying ${migration.filename} …`);
   try {
-    await api(`/projects/${projectRef}/database/migrations`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query,
-        name: migration.name,
-      }),
-    });
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await api(`/projects/${projectRef}/database/migrations`, {
+          method: 'POST',
+          body: JSON.stringify({
+            query,
+            name: migration.name,
+          }),
+        });
+        break;
+      } catch (error) {
+        if (!isLedgerVersionClash(error) || attempt >= LEDGER_CLASH_RETRIES) {
+          throw error;
+        }
+        console.warn(`  ledger version clash for ${migration.filename}; retrying in 1.1s`);
+        await sleep(1100);
+      }
+    }
     console.log(`  ✓ ${migration.version} ${migration.name}`);
   } catch (error) {
-    if (isBenignMigrationError(error)) {
-      console.warn(`  ↷ skipped ${migration.filename} (schema already present on remote)`);
+    if (isAlreadyRegisteredError(error)) {
+      console.warn(`  ↷ skipped ${migration.filename} (already registered on remote)`);
       return;
     }
+
+    if (isSchemaCollisionError(error)) {
+      if (allowExistingSchema) {
+        console.warn(
+          `  ↷ skipped ${migration.filename} (schema already present on ${projectRef}; ` +
+            'SUPABASE_ALLOW_EXISTING_SCHEMA=true)',
+        );
+        return;
+      }
+
+      throw new Error(
+        `${migration.filename} was NOT applied: its SQL collides with objects that already ` +
+          `exist on ${projectRef}. Make the migration safe to run twice ` +
+          '(create table if not exists, create or replace function), or set ' +
+          'SUPABASE_ALLOW_EXISTING_SCHEMA=true to skip it deliberately. ' +
+          `Management API said: ${String(error.body ?? error.message ?? '')}`,
+      );
+    }
+
     throw error;
   }
 };
