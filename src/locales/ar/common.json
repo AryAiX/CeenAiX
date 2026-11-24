@@ -4,6 +4,7 @@
   },
   "messaging": {
     "careTeamFallback": "فريق الرعاية",
+    "errStartNotAllowed": "يمكنك بدء محادثة فقط مع شخص من فريق رعايتك.",
     "errStartConversation": "تعذّر بدء هذه المحادثة.",
     "errSendMessage": "تعذّر إرسال الرسالة.",
     "errLoadConversations": "تعذّر تحميل المحادثات.",

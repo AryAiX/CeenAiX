@@ -4,6 +4,7 @@
   },
   "messaging": {
     "careTeamFallback": "Care team",
+    "errStartNotAllowed": "You can only start a conversation with someone in your care team.",
     "errStartConversation": "Unable to start this conversation.",
     "errSendMessage": "Unable to send message.",
     "errLoadConversations": "Unable to load conversations.",
