@@ -1663,7 +1663,25 @@
       "selectTitle": "Choose a conversation",
       "threadEmptyBody": "Use this space for secure coordination with doctors and patients.",
       "threadError": "The selected conversation could not be loaded.",
-      "encrypted": "Encrypted"
+      "encrypted": "Encrypted",
+      "picker": {
+        "newMessage": "New message",
+        "title": "Start a conversation",
+        "subtitle": "Message one of your doctors, or a patient who has a visit at your clinic.",
+        "search": "Search doctors and patients",
+        "doctors": "Doctors",
+        "patients": "Patients",
+        "doctorName": "Dr. {{name}}",
+        "noDoctors": "No doctors are linked to your clinic yet.",
+        "noDoctorMatch": "No matching doctors.",
+        "loadError": "Your doctors could not be loaded. Please try again.",
+        "patientHint": "Type at least 2 letters of a name or phone number to find a patient.",
+        "noPatients": "No patients found with a visit at your clinic.",
+        "searchError": "Patients could not be searched. Please try again.",
+        "openExisting": "Open existing conversation",
+        "opening": "Opening…",
+        "startError": "This conversation could not be started. Please try again."
+      }
     },
     "analytics": {
       "title": "Analytics",

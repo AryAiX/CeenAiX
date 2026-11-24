@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
 import { useDoctorPatients, useMessagingHub } from '../hooks';
+import { useClinicMessageDoctors, useClinicMessagePatients } from '../hooks/use-clinic-message-contacts';
 import { useAuth } from '../lib/auth-context';
 import { MessagesWorkspace } from './MessagesWorkspace';
 
@@ -12,6 +13,11 @@ vi.mock('../hooks/use-patient-care-team', () => ({
   usePatientCareTeam: () => ({ data: [], loading: false, error: null, refetch: vi.fn() }),
 }));
 vi.mock('../lib/auth-context', () => ({ useAuth: vi.fn() }));
+vi.mock('../hooks/use-clinic-message-contacts', () => ({
+  MIN_PATIENT_SEARCH_LENGTH: 2,
+  useClinicMessageDoctors: vi.fn(),
+  useClinicMessagePatients: vi.fn(),
+}));
 
 const chip = (kind: string, href: string) =>
   `[[ceenaix-action:${encodeURIComponent(JSON.stringify({ kind, href }))}]]`;
@@ -234,5 +240,105 @@ describe('MessagesWorkspace labels for pharmacy and clinic (QA-157)', () => {
     expect(container.textContent ?? '').not.toMatch(/\b(pharmacy|clinic)\.messages\./);
     expect(screen.getByPlaceholderText(i18n.t(`${role}.messages.searchPlaceholder`))).toBeInTheDocument();
     expect(i18n.t(`${role}.messages.searchPlaceholder`)).not.toContain(`${role}.messages`);
+  });
+});
+
+describe('MessagesWorkspace new conversation for clinics (QA-218)', () => {
+  const setup = (
+    doctors: Array<{ id: string; name: string }>,
+    patients: (query: string) => Array<{ id: string; name: string }> = () => [],
+    conversations = [conversation]
+  ) => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'clinic-1' } } as never);
+    const state = { ...hub([]), conversations, activeConversation: null, activeConversationId: null };
+    state.ensureDirectConversation.mockResolvedValue({ conversationId: 'conv-new' });
+    vi.mocked(useMessagingHub).mockReturnValue(state as never);
+    vi.mocked(useClinicMessageDoctors).mockImplementation(
+      (userId) => ({ data: userId ? doctors : [], loading: false, error: false }) as never
+    );
+    vi.mocked(useClinicMessagePatients).mockImplementation(
+      (query) => ({ data: query.trim().length >= 2 ? patients(query) : [], loading: false, error: false }) as never
+    );
+    return state;
+  };
+
+  const renderClinicList = () =>
+    render(
+      <MemoryRouter initialEntries={['/clinic/messages']}>
+        <Routes>
+          <Route path="/clinic/messages" element={<MessagesWorkspace role="clinic" />} />
+          <Route path="*" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+  it('shows a New message button on an empty Messages page', async () => {
+    setup([{ id: 'doctor-1', name: 'Sara Ali' }], () => [], []);
+    renderClinicList();
+    await userEvent.click(screen.getByTestId('messages-empty-new-conversation'));
+    const dialog = screen.getByRole('dialog', { name: 'Start a conversation' });
+    expect(within(dialog).getByRole('button', { name: /Dr\. Sara Ali/ })).toBeInTheDocument();
+    expect(within(dialog).getByText('Type at least 2 letters of a name or phone number to find a patient.')).toBeInTheDocument();
+  });
+
+  it('starts a conversation with one of the clinic\'s doctors', async () => {
+    const state = setup([{ id: 'doctor-1', name: 'Sara Ali' }]);
+    renderClinicList();
+    await userEvent.click(screen.getByRole('button', { name: 'New message' }));
+    await userEvent.click(screen.getByRole('button', { name: /Dr\. Sara Ali/ }));
+    expect(state.ensureDirectConversation).toHaveBeenCalledWith('doctor-1', expect.any(String));
+    expect(landedAt).toBe('/clinic/messages/conv-new');
+  });
+
+  it('finds a patient by search and starts a conversation', async () => {
+    const state = setup([], (query) => (query.toLowerCase().includes('am') ? [{ id: 'patient-9', name: 'Amal Hassan' }] : []));
+    renderClinicList();
+    await userEvent.click(screen.getByRole('button', { name: 'New message' }));
+    const dialog = screen.getByRole('dialog', { name: 'Start a conversation' });
+    expect(within(dialog).getByText('No doctors are linked to your clinic yet.')).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByRole('searchbox', { name: 'Search doctors and patients' }), 'am');
+    await userEvent.click(within(dialog).getByRole('button', { name: /Amal Hassan/ }));
+    expect(state.ensureDirectConversation).toHaveBeenCalledWith('patient-9', expect.any(String));
+  });
+
+  it('opens the existing conversation instead of starting a new one', async () => {
+    const state = setup([{ id: 'other-1', name: 'Other Person' }]);
+    renderClinicList();
+    await userEvent.click(screen.getByRole('button', { name: 'New message' }));
+    const dialog = screen.getByRole('dialog', { name: 'Start a conversation' });
+    expect(within(dialog).getByText('Open existing conversation')).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: /Other Person/ }));
+    expect(state.ensureDirectConversation).not.toHaveBeenCalled();
+    expect(landedAt).toBe('/clinic/messages/conv-1');
+  });
+
+  it('shows a plain message when the conversation cannot be started', async () => {
+    const state = setup([{ id: 'doctor-1', name: 'Sara Ali' }]);
+    state.ensureDirectConversation.mockResolvedValue({ conversationId: null });
+    renderClinicList();
+    await userEvent.click(screen.getByRole('button', { name: 'New message' }));
+    await userEvent.click(screen.getByRole('button', { name: /Dr\. Sara Ali/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This conversation could not be started. Please try again.');
+  });
+
+  it('only loads the doctors while the picker is open, and closes with Escape', async () => {
+    setup([{ id: 'doctor-1', name: 'Sara Ali' }]);
+    vi.mocked(useClinicMessageDoctors).mockClear();
+    renderClinicList();
+    expect(vi.mocked(useClinicMessageDoctors)).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'New message' }));
+    expect(vi.mocked(useClinicMessageDoctors)).toHaveBeenLastCalledWith('clinic-1');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('works in Arabic, right to left', async () => {
+    await i18n.changeLanguage('ar');
+    setup([{ id: 'doctor-1', name: 'Sara Ali' }]);
+    renderClinicList();
+    await userEvent.click(screen.getByRole('button', { name: 'رسالة جديدة' }));
+    const dialog = screen.getByRole('dialog', { name: 'بدء محادثة' });
+    expect(dialog).toHaveAttribute('dir', 'rtl');
+    expect(within(dialog).getByRole('button', { name: /د\. Sara Ali/ })).toBeInTheDocument();
   });
 });
