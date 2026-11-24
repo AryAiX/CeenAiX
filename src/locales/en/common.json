@@ -1728,6 +1728,15 @@
       "feesNote": "Estimates from each doctor's clinic fees. Nothing is billed in the app yet."
     },
     "portalPage": {
+      "roles": {
+        "clinic_admin": "Clinic admin",
+        "clinic_manager": "Clinic manager",
+        "clinic_receptionist": "Receptionist",
+        "staff": "Clinic staff"
+      },
+      "notificationsLabel": "Notifications",
+      "notificationsUnread_one": "Notifications, {{count}} unread",
+      "notificationsUnread_other": "Notifications, {{count}} unread",
       "todayFees": "Estimated fees",
       "dhaLicensed": "DHA licensed",
       "titles": {

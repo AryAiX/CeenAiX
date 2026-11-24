@@ -26,7 +26,8 @@ export interface ClinicPortalMeta {
   /** QA-238: CeenAiX has recorded the clinic as DHA licensed (facilities.dha_status = 'licensed') */
   dhaLicensed: boolean;
   userName: string;
-  userRole: string;
+  /** QA-240: the stored portal role (clinic_admin, …); the top bar shows it translated */
+  userRole: string | null;
   pendingDoctors: number;
   todayApptCount: number;
   todayConfirmedCount: number;
@@ -41,7 +42,7 @@ const defaultMeta: ClinicPortalMeta = {
   facilityAddress: '',
   dhaLicensed: false,
   userName: 'Clinic Staff',
-  userRole: 'Staff',
+  userRole: null,
   pendingDoctors: 0,
   todayApptCount: 0,
   todayConfirmedCount: 0,
@@ -126,9 +127,7 @@ export default function ClinicPortal() {
           // only CeenAiX can set dha_status (QA-230); nothing else means "licensed"
           dhaLicensed: (facilityData?.dha_status ?? '').trim().toLowerCase() === 'licensed',
           userName: profileData?.full_name ?? 'Clinic Staff',
-          userRole: memberData.portal_role
-            ? memberData.portal_role.charAt(0).toUpperCase() + memberData.portal_role.slice(1)
-            : 'Staff',
+          userRole: memberData.portal_role ?? null,
           // QA-220 / QA-224 / QA-239: counts are kept up to date by the effect below
         }));
       } catch (err) {

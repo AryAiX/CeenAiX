@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Bell } from 'lucide-react';
 import type { ClinicPortalMeta } from './ClinicPortal';
 
 interface ClinicTopBarProps {
@@ -8,8 +9,11 @@ interface ClinicTopBarProps {
   meta: ClinicPortalMeta;
 }
 
+const KNOWN_ROLES = ['clinic_admin', 'clinic_manager', 'clinic_receptionist'];
+
 export default function ClinicTopBar({ title, subtitle, meta }: ClinicTopBarProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const userInitials = meta.userName
     .trim()
     .split(' ')
@@ -18,6 +22,12 @@ export default function ClinicTopBar({ title, subtitle, meta }: ClinicTopBarProp
     .map(w => w[0])
     .join('')
     .toUpperCase() || 'CL';
+  // QA-240: "Clinic admin" instead of the stored value "Clinic_admin"
+  const roleLabel = t(`clinic.portalPage.roles.${meta.userRole && KNOWN_ROLES.includes(meta.userRole) ? meta.userRole : 'staff'}`);
+  const bellLabel =
+    meta.unreadNotifications > 0
+      ? t('clinic.portalPage.notificationsUnread', { count: meta.unreadNotifications })
+      : t('clinic.portalPage.notificationsLabel');
 
   return (
     <div className="h-[64px] bg-white border-b border-slate-200 flex items-center justify-between gap-3 px-3 sm:px-6 shrink-0">
@@ -25,31 +35,27 @@ export default function ClinicTopBar({ title, subtitle, meta }: ClinicTopBarProp
         <h1 className="truncate font-bold text-slate-900 text-lg leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{title}</h1>
         {subtitle && <p className="truncate text-xs text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
+      {/* QA-240: the search box did nothing when you typed, and the name had a dropdown arrow with no
+          menu; both are gone */}
       <div className="flex items-center gap-3">
-        <div className="relative hidden sm:block">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search…"
-            className="pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 w-52"
-          />
-        </div>
         <button
+          type="button"
           onClick={() => navigate('/clinic/notifications')}
+          aria-label={bellLabel}
+          data-testid="clinic-topbar-bell"
           className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors"
         >
-          <Bell size={18} className="text-slate-500" />
+          <Bell size={18} className="text-slate-500" aria-hidden="true" />
           {meta.unreadNotifications > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            <span aria-hidden="true" className="absolute top-1 end-1 w-2 h-2 bg-red-500 rounded-full" />
           )}
         </button>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-600 to-blue-600 flex items-center justify-center text-white text-xs font-bold">{userInitials}</div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+          <div aria-hidden="true" className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-600 to-blue-600 flex items-center justify-center text-white text-xs font-bold">{userInitials}</div>
           <div className="hidden sm:block">
             <div className="text-xs font-semibold text-slate-800">{meta.userName}</div>
-            <div className="text-[10px] text-slate-400">{meta.userRole}</div>
+            <div data-testid="clinic-topbar-role" className="text-[10px] text-slate-400">{roleLabel}</div>
           </div>
-          <ChevronDown size={14} className="text-slate-400" />
         </div>
       </div>
     </div>

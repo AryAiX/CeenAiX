@@ -1752,6 +1752,19 @@
       "feesNote": "تقديرات من رسوم كل طبيب في العيادة. لا تتم أي فوترة في التطبيق حتى الآن."
     },
     "portalPage": {
+      "roles": {
+        "clinic_admin": "مسؤول العيادة",
+        "clinic_manager": "مدير العيادة",
+        "clinic_receptionist": "موظف الاستقبال",
+        "staff": "طاقم العيادة"
+      },
+      "notificationsLabel": "الإشعارات",
+      "notificationsUnread_zero": "الإشعارات، لا يوجد غير مقروء",
+      "notificationsUnread_one": "الإشعارات، إشعار واحد غير مقروء",
+      "notificationsUnread_two": "الإشعارات، إشعاران غير مقروءين",
+      "notificationsUnread_few": "الإشعارات، {{count}} إشعارات غير مقروءة",
+      "notificationsUnread_many": "الإشعارات، {{count}} إشعارًا غير مقروء",
+      "notificationsUnread_other": "الإشعارات، {{count}} إشعار غير مقروء",
       "todayFees": "الرسوم التقديرية",
       "dhaLicensed": "مرخّصة من هيئة الصحة بدبي",
       "titles": {
