@@ -1592,6 +1592,36 @@
         "removeFailed": "Could not remove the service. Please try again."
       }
     },
+    "notificationsPage": {
+      "title": "Notifications",
+      "subtitle": "Stay up to date with your clinic activity",
+      "loadFailed": "Could not load your notifications. Please try again.",
+      "updateFailed": "Could not update the notification. Please try again.",
+      "unreadLabel": "Unread Notifications",
+      "refresh": "Refresh",
+      "markAllRead": "Mark All Read",
+      "activityLog": "Activity Log",
+      "filtersLabel": "Filter notifications",
+      "filters": {
+        "all": "All",
+        "unread": "Unread",
+        "appointment": "Appointments",
+        "system": "System"
+      },
+      "types": {
+        "appointment": "Appointment",
+        "system": "System",
+        "alert": "Alert",
+        "medication": "Medication",
+        "lab_result": "Lab Result"
+      },
+      "empty": "No notifications to show.",
+      "latestOnly": "Showing your latest {{value}} notifications.",
+      "new": "New",
+      "open": "Open",
+      "markRead": "Mark Read",
+      "dismiss": "Dismiss"
+    },
     "visitReasons": {
       "consultation": "Consultation",
       "followUp": "Follow-up Visit",

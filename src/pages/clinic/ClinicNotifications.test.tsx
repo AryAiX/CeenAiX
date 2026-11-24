@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { NOTIFICATIONS_CHANGED_EVENT } from '../../lib/notification-events';
 import { supabase } from '../../lib/supabase';
@@ -140,8 +141,88 @@ describe('ClinicNotifications keeps the badges up to date (QA-224)', () => {
       </MemoryRouter>
     );
     fireEvent.click(within(await card('Doctor request')).getByRole('button', { name: /Mark Read/ }));
-    await screen.findByText(/permission denied/);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not update the notification. Please try again.');
     expect(listener).not.toHaveBeenCalled();
     stop();
+  });
+});
+
+describe('ClinicNotifications in Arabic and accessibility (QA-225)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+    vi.useRealTimers();
+  });
+
+  it('shows the page in Arabic, with Arabic digits and times', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-24T08:05:00Z'));
+    await i18n.changeLanguage('ar');
+    setup([note('n1', 'Doctor request', '/clinic/doctors'), { ...note('n2', 'Booked', null), type: 'appointment' }]);
+
+    expect(await screen.findByRole('heading', { name: 'الإشعارات' })).toBeInTheDocument();
+    expect(screen.getByTestId('clinic-unread-notifications')).toHaveTextContent('٢');
+    expect(screen.getByRole('button', { name: /تعليم الكل كمقروء/ })).toBeInTheDocument();
+
+    const item = await card('Doctor request');
+    expect(within(item).getByText('النظام')).toBeInTheDocument();
+    expect(within(item).getByText('جديد')).toBeInTheDocument();
+    expect(within(item).getByRole('button', { name: 'فتح' })).toBeInTheDocument();
+    expect(within(item).getByRole('button', { name: /تعليم كمقروء/ })).toBeInTheDocument();
+    expect(within(item).getByRole('button', { name: /إخفاء/ })).toBeInTheDocument();
+    expect(within(item).getByText(i18n.t('shared.time.minutesAgo', { count: 5, value: '٥' }))).toBeInTheDocument();
+    expect(within(await card('Booked')).getByText('موعد')).toBeInTheDocument();
+
+    for (const english of ['Notifications', 'Mark All Read', 'Activity Log', 'Open', 'Dismiss', 'New', '5m ago']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows the date for notifications older than a week', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-12-10T08:00:00Z'));
+    setup([note('n1', 'Old one', null, true)]);
+    expect(within(await card('Old one')).getByText('Nov 24, 2026')).toBeInTheDocument();
+  });
+
+  it('shows a plain message, not the database text, when loading fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(supabase.from).mockImplementation(
+      (() => createSupabaseQueryBuilder({ data: null, error: new Error('relation "notifications" does not exist') })) as never
+    );
+    render(
+      <MemoryRouter>
+        <ClinicNotifications />
+      </MemoryRouter>
+    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not load your notifications. Please try again.');
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.queryByText(/does not exist/)).not.toBeInTheDocument();
+  });
+
+  it('marks the selected filter and links each button to its notification', async () => {
+    setup([note('n1', 'Doctor request', '/clinic/doctors')]);
+    const item = await card('Doctor request');
+    const group = screen.getByRole('group', { name: 'Filter notifications' });
+    expect(within(group).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(group).getByRole('button', { name: 'Unread' }));
+    expect(within(group).getByRole('button', { name: 'Unread' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(item).getByRole('button', { name: /Dismiss/ })).toHaveAccessibleDescription('Doctor request');
+  });
+
+  it('loads only the latest 200 and says so when there are that many', async () => {
+    const rows = Array.from({ length: 200 }, (_, i) => note(`n${i}`, `Note ${i}`, null, true));
+    let builder: MockSupabaseQueryBuilder<unknown> | undefined;
+    vi.mocked(supabase.from).mockImplementation((() => {
+      builder = createSupabaseQueryBuilder({ data: rows, error: null });
+      return builder;
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicNotifications />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Showing your latest 200 notifications.')).toBeInTheDocument();
+    expect(builder?.limit).toHaveBeenCalledWith(200);
   });
 });

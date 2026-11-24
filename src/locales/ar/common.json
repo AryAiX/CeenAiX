@@ -1608,6 +1608,36 @@
         "removeFailed": "تعذّرت إزالة الخدمة. يُرجى المحاولة مرة أخرى."
       }
     },
+    "notificationsPage": {
+      "title": "الإشعارات",
+      "subtitle": "ابقَ على اطلاع بنشاط عيادتك",
+      "loadFailed": "تعذّر تحميل إشعاراتك. يُرجى المحاولة مرة أخرى.",
+      "updateFailed": "تعذّر تحديث الإشعار. يُرجى المحاولة مرة أخرى.",
+      "unreadLabel": "الإشعارات غير المقروءة",
+      "refresh": "تحديث",
+      "markAllRead": "تعليم الكل كمقروء",
+      "activityLog": "سجل النشاط",
+      "filtersLabel": "تصفية الإشعارات",
+      "filters": {
+        "all": "الكل",
+        "unread": "غير المقروءة",
+        "appointment": "المواعيد",
+        "system": "النظام"
+      },
+      "types": {
+        "appointment": "موعد",
+        "system": "النظام",
+        "alert": "تنبيه",
+        "medication": "دواء",
+        "lab_result": "نتيجة مختبر"
+      },
+      "empty": "لا توجد إشعارات لعرضها.",
+      "latestOnly": "يتم عرض آخر {{value}} إشعار.",
+      "new": "جديد",
+      "open": "فتح",
+      "markRead": "تعليم كمقروء",
+      "dismiss": "إخفاء"
+    },
     "visitReasons": {
       "consultation": "استشارة",
       "followUp": "زيارة متابعة",
