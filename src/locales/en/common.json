@@ -1687,6 +1687,13 @@
       "notAvailable": "Appointment reminders, payment and licence-expiry alerts, and NABIDH data sharing are not available for clinics yet. Nothing is sent to NABIDH from the clinic portal. CeenAiX will let you know when these are ready.",
       "managedByCeenaix": "Managed by CeenAiX. Contact CeenAiX support to change it."
     },
+    "dashboardPage": {
+      "todayFees": "Today's Estimated Fees",
+      "todayFeesSub": "Completed visits today",
+      "monthFees": "This Month's Estimated Fees",
+      "monthFeesSub": "Completed visits in {{month}}",
+      "feesNote": "Estimates from each doctor's clinic fees. Nothing is billed in the app yet."
+    },
     "visitReasons": {
       "consultation": "Consultation",
       "followUp": "Follow-up Visit",

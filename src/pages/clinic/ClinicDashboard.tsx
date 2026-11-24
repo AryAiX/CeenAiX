@@ -7,6 +7,10 @@ import { useAuth } from '../../lib/auth-context';
 import { clinicDayRangeUtc, clinicTodayKey, formatClinicTime } from '../../lib/clinic-booking-time';
 import { CLINIC_TIME_ZONE } from '../../lib/i18n-ui';
 import { doctorsForToday, summariseToday } from '../../lib/clinic-dashboard';
+import { useTranslation } from 'react-i18next';
+import { fetchAllPages } from '../../lib/supabase-batches';
+import { estimatedVisitFee, sumEstimatedFees, type ClinicFeeLink } from '../../lib/clinic-visit-fee';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
   completed:    { label: 'Completed',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
@@ -47,8 +51,9 @@ interface DashboardData {
   activeDoctors: number;
   onDutyCount: number;
   pendingApproval: number;
-  todayRevenue: number;
-  monthlyRevenue: number;
+  /** QA-235: estimates from the clinic's own fees; null when no fee is set */
+  todayFees: number | null;
+  monthFees: number | null;
   currentMonth: string;
   todayAppts: TodayAppointment[];
   doctors: DoctorRow[];
@@ -59,6 +64,7 @@ interface DashboardData {
 export default function ClinicDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +115,7 @@ export default function ClinicDashboard() {
       // Today's appointments filtered by facility
       const { data: appts, error: apptsError } = await supabase
         .from('appointments')
-        .select('id, status, scheduled_at, chief_complaint, patient_id, doctor_id')
+        .select('id, status, scheduled_at, chief_complaint, patient_id, doctor_id, type')
         .eq('facility_id', facilityId)
         .gte('scheduled_at', todayStart)
         .lte('scheduled_at', todayEnd)
@@ -218,26 +224,35 @@ export default function ClinicDashboard() {
         };
       });
 
-      // Revenue — calculated from facility_staff consultation_fee × completed appointments
-      const feeMap = new Map<string, number>(
-        (facilityStaff ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0])
-      );
+      // QA-235: estimated fees, the same estimate as Appointments and Analytics (QA-195 / QA-227): the
+      // clinic's own fee for each visit type (telemedicine, follow-up, consultation). Links that are no
+      // longer active still count, so past visits of a doctor who left keep their estimate.
+      const { data: feeRows } = await supabase
+        .from('facility_staff')
+        .select('doctor_user_id, consultation_fee, telemedicine_fee, follow_up_fee')
+        .eq('facility_id', facilityId);
+      const feeLinks = new Map(((feeRows ?? []) as ClinicFeeLink[]).map(link => [link.doctor_user_id, link]));
+      const feeFor = (visit: { doctor_id: string; type?: string | null; chief_complaint?: string | null }) =>
+        estimatedVisitFee(feeLinks.get(visit.doctor_id), { visitType: visit.type ?? 'in_person', reason: visit.chief_complaint ?? '' });
 
-      const todayRevenue = (appts ?? [])
-        .filter(a => a.status === 'completed')
-        .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
+      const todayFees = sumEstimatedFees((appts ?? []).filter(a => a.status === 'completed').map(feeFor));
 
       const monthStart = clinicDayRangeUtc(`${clinicTodayKey(now).slice(0, 7)}-01`).startIso;
-      const { data: monthAppts } = await supabase
-        .from('appointments')
-        .select('doctor_id, status')
-        .eq('facility_id', facilityId)
-        .eq('is_deleted', false)
-        .eq('status', 'completed')
-        .gte('scheduled_at', monthStart);
-
-      const monthlyRevenue = (monthAppts ?? [])
-        .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
+      // every completed visit this month, in pages (one request stops at 1,000 rows)
+      const { rows: monthAppts } = await fetchAllPages<{ id: string; doctor_id: string; type: string | null; chief_complaint: string | null }>((from, to) =>
+        supabase
+          .from('appointments')
+          .select('id, doctor_id, type, chief_complaint')
+          .eq('facility_id', facilityId)
+          .eq('is_deleted', false)
+          .eq('status', 'completed')
+          .gte('scheduled_at', monthStart)
+          .lte('scheduled_at', todayEnd)
+          .order('scheduled_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      const monthFees = sumEstimatedFees(monthAppts.map(feeFor));
 
       setData({
         todayApptCount,
@@ -246,8 +261,8 @@ export default function ClinicDashboard() {
         activeDoctors,
         onDutyCount,
         pendingApproval,
-        todayRevenue,
-        monthlyRevenue,
+        todayFees,
+        monthFees,
         currentMonth: currentMonthLabel,
         todayAppts: todayApptRows,
         doctors: doctorRows,
@@ -289,6 +304,7 @@ export default function ClinicDashboard() {
   if (!data) return null;
 
   const maxRevenue = Math.max(...data.doctors.map(d => d.appts), 1);
+  const money = (value: number | null) => (value === null ? '—' : formatLocaleCurrency(value, i18n.language));
 
   const kpis = [
     {
@@ -311,18 +327,18 @@ export default function ClinicDashboard() {
     },
     {
       key: 'today-fees',
-      label: "Today's Revenue",
-      value: `AED ${data.todayRevenue.toLocaleString()}`,
-      sub: 'Across all services',
+      label: t('clinic.dashboardPage.todayFees'),
+      value: money(data.todayFees),
+      sub: t('clinic.dashboardPage.todayFeesSub'),
       icon: DollarSign,
       color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200',
       trend: 'Today',
     },
     {
       key: 'month-fees',
-      label: 'Monthly Revenue',
-      value: `AED ${data.monthlyRevenue >= 1000 ? `${(data.monthlyRevenue / 1000).toFixed(0)}K` : data.monthlyRevenue.toLocaleString()}`,
-      sub: data.currentMonth,
+      label: t('clinic.dashboardPage.monthFees'),
+      value: money(data.monthFees),
+      sub: t('clinic.dashboardPage.monthFeesSub', { month: data.currentMonth }),
       icon: TrendingUp,
       color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200',
       trend: 'This month',
@@ -331,6 +347,8 @@ export default function ClinicDashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      <p data-testid="dashboard-fees-note" className="text-xs text-slate-400">{t('clinic.dashboardPage.feesNote')}</p>
+
       {/* KPI Strip */}
       <div className="grid grid-cols-4 gap-4">
         {kpis.map(k => {

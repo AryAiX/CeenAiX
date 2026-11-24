@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
+import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import ClinicDashboard from './ClinicDashboard';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
@@ -16,6 +18,7 @@ const setup = ({
   today = [] as Visit[],
   month = [] as Partial<Visit>[],
   links = [] as Link[],
+  feeLinks = undefined as Link[] | undefined,
   names = [] as { user_id: string; full_name: string }[],
   settings = {} as Record<string, unknown>,
 } = {}) => {
@@ -29,13 +32,17 @@ const setup = ({
     if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'f1' }, error: null });
     if (table === 'facilities') return createSupabaseQueryBuilder({ data: { settings }, error: null });
     if (table === 'appointments') {
-      const builder = createSupabaseQueryBuilder({ data: appointmentQueries.length === 0 ? today : month, error: null });
+      const builder =
+        appointmentQueries.length === 0
+          ? createSupabaseQueryBuilder({ data: today, error: null })
+          : (createServerLikeBuilder(month as Record<string, unknown>[]) as unknown as MockSupabaseQueryBuilder<unknown>);
       appointmentQueries.push(builder);
       return builder;
     }
     if (table === 'facility_staff') {
       staffCalls += 1;
-      return createSupabaseQueryBuilder({ data: staffCalls === 1 ? links : [], error: null });
+      // 1: active links, 2: pending links, 3: every link's fees
+      return createSupabaseQueryBuilder({ data: staffCalls === 1 ? links : staffCalls === 2 ? [] : feeLinks ?? links, error: null });
     }
     if (table === 'user_profiles') return createSupabaseQueryBuilder({ data: names, error: null });
     return createSupabaseQueryBuilder({ data: [], error: null });
@@ -109,5 +116,46 @@ describe('ClinicDashboard today (QA-234)', () => {
     const firstDoctor = await screen.findAllByText(/Eve Five/);
     expect(firstDoctor.length).toBeGreaterThan(0);
     expect(screen.queryByText('Dan Four')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDashboard estimated fees (QA-235)', () => {
+  const money = (value: number) => formatLocaleCurrency(value, 'en').replace(/\s+/g, ' ');
+  const link = (doctor_user_id: string, fees: Partial<Link> = {}): Link => ({
+    id: `l-${doctor_user_id}`, doctor_user_id, is_available: true, is_active: true,
+    consultation_fee: 300, telemedicine_fee: 200, follow_up_fee: 150, invitation_status: 'active', ...fees,
+  });
+  const done = (id: string, extra: Partial<Visit> & { type?: string } = {}) => ({
+    ...visit(id, 'completed'), type: 'in_person', ...extra,
+  });
+
+  it('uses the clinic fee for each visit type', async () => {
+    setup({
+      today: [done('a'), done('b', { type: 'virtual' }), { ...visit('c', 'scheduled'), type: 'in_person' } as Visit],
+      month: [done('a'), done('b', { type: 'virtual' }), done('m', { chief_complaint: 'Follow-up Visit', scheduled_at: '2026-11-05T06:00:00Z' })],
+      links: [link('d1')],
+    });
+    expect(await screen.findByTestId('dashboard-kpi-today-fees')).toHaveTextContent(money(500));
+    expect(screen.getByTestId('dashboard-kpi-month-fees')).toHaveTextContent(money(650));
+    expect(screen.getByTestId('dashboard-kpi-month-fees')).toHaveTextContent("This Month's Estimated Fees");
+  });
+
+  it('counts every completed visit this month and shows the full amount', async () => {
+    const month = Array.from({ length: 1500 }, (_, i) => ({ ...done(`v${String(i).padStart(4, '0')}`), scheduled_at: '2026-11-10T06:00:00Z' }));
+    setup({ month, links: [link('d1')] });
+    // 1,500 x 300 (it used to stop at 1,000 visits and round to "AED 300K")
+    expect(await screen.findByTestId('dashboard-kpi-month-fees')).toHaveTextContent(money(450000));
+  });
+
+  it('keeps the estimate for a doctor who has left the clinic', async () => {
+    setup({ today: [done('a')], month: [done('a')], links: [], feeLinks: [link('d1', { is_active: false })] });
+    expect(await screen.findByTestId('dashboard-kpi-today-fees')).toHaveTextContent(money(300));
+  });
+
+  it('shows "—" when the clinic has set no fee, and calls nothing "revenue"', async () => {
+    setup({ today: [done('a')], month: [done('a')], links: [link('d1', { consultation_fee: null, telemedicine_fee: null, follow_up_fee: null })] });
+    expect(await screen.findByTestId('dashboard-kpi-today-fees')).toHaveTextContent('—');
+    expect(screen.getByTestId('dashboard-fees-note')).toHaveTextContent('Nothing is billed in the app yet.');
+    expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument();
   });
 });
