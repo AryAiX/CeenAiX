@@ -106,8 +106,12 @@ PYEOF
     psql_mark_applied "${version}" "${name}"
   done < "${migration_plan}"
 
-  echo "=== [2/4] Remove demo rows and verify reference data ==="
-  psql_exec -f "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
+  echo "=== [2/4] Remove demo rows (only on a fresh database) ==="
+  if [[ "${PROD_DEMO_CLEANUP:-}" == "true" ]]; then
+    psql_exec -f "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
+  else
+    echo "Skipped: set PROD_DEMO_CLEANUP=true only when provisioning a fresh database."
+  fi
 
   echo "Azure UAE migration sync complete."
 }
@@ -148,7 +152,11 @@ done
 echo "=== [3/4] Push canonical schema/reference migrations ==="
 "${SUPABASE_CMD[@]}" db push --db-url "${DB_URL}" --include-all --yes
 
-echo "=== [4/4] Remove demo rows and verify reference data ==="
-psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
+echo "=== [4/4] Remove demo rows (only on a fresh database) ==="
+if [[ "${PROD_DEMO_CLEANUP:-}" == "true" ]]; then
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
+else
+  echo "Skipped: set PROD_DEMO_CLEANUP=true only when provisioning a fresh database."
+fi
 
 echo "Azure UAE migration sync complete."
