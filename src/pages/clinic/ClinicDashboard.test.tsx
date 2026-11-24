@@ -21,6 +21,7 @@ const setup = ({
   feeLinks = undefined as Link[] | undefined,
   names = [] as { user_id: string; full_name: string }[],
   settings = {} as Record<string, unknown>,
+  pending = [] as { id: string; invitation_status: string }[],
 } = {}) => {
   const appointmentQueries: MockSupabaseQueryBuilder<unknown>[] = [];
   let staffCalls = 0;
@@ -42,7 +43,7 @@ const setup = ({
     if (table === 'facility_staff') {
       staffCalls += 1;
       // 1: active links, 2: pending links, 3: every link's fees
-      return createSupabaseQueryBuilder({ data: staffCalls === 1 ? links : staffCalls === 2 ? [] : feeLinks ?? links, error: null });
+      return createSupabaseQueryBuilder({ data: staffCalls === 1 ? links : staffCalls === 2 ? pending : feeLinks ?? links, error: null });
     }
     if (table === 'user_profiles') return createSupabaseQueryBuilder({ data: names, error: null });
     return createSupabaseQueryBuilder({ data: [], error: null });
@@ -157,5 +158,30 @@ describe('ClinicDashboard estimated fees (QA-235)', () => {
     expect(await screen.findByTestId('dashboard-kpi-today-fees')).toHaveTextContent('—');
     expect(screen.getByTestId('dashboard-fees-note')).toHaveTextContent('Nothing is billed in the app yet.');
     expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDashboard alerts (QA-236)', () => {
+  it('never says NABIDH sync is active, even when the old setting is still saved', async () => {
+    setup({ today: [visit('a', 'confirmed')], settings: { nabidh: true } });
+    await screen.findByTestId('dashboard-total-today');
+    expect(screen.queryByText(/NABIDH/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+  });
+
+  it('does not claim all systems are operational', async () => {
+    setup({ today: [visit('a', 'confirmed')] });
+    await screen.findByTestId('dashboard-total-today');
+    expect(screen.queryByText('All Systems Operational')).not.toBeInTheDocument();
+    expect(screen.getByText('No alerts right now.')).toBeInTheDocument();
+  });
+
+  it('says doctors are waiting for the clinic\'s approval, with a way to review them', async () => {
+    setup({ pending: [{ id: 'l1', invitation_status: 'pending' }, { id: 'l2', invitation_status: 'pending' }, { id: 'l3', invitation_status: 'invited' }] });
+    const alert = await screen.findByTestId('dashboard-alert-pending');
+    expect(alert).toHaveTextContent('Doctors waiting for your approval');
+    expect(alert).toHaveTextContent('2 doctors asked to join your clinic.');
+    expect(alert).not.toHaveTextContent('verification');
+    expect(within(alert).getByRole('button', { name: 'Review on the Doctors page' })).toBeInTheDocument();
   });
 });

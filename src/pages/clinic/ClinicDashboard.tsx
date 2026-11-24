@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, ArrowRight, Stethoscope, Activity } from 'lucide-react';
+import { Calendar, DollarSign, TrendingUp, Clock, AlertCircle, ArrowRight, Stethoscope, Activity } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { useAuth } from '../../lib/auth-context';
@@ -58,7 +58,6 @@ interface DashboardData {
   todayAppts: TodayAppointment[];
   doctors: DoctorRow[];
   statusBreakdown: { status: string; label: string; count: number; share: number; color: string }[];
-  nabidhActive: boolean;
 }
 
 export default function ClinicDashboard() {
@@ -104,13 +103,7 @@ export default function ClinicDashboard() {
 
       const facilityId = memberData.facility_id;
 
-      const { data: facilitySettings } = await supabase
-        .from('facilities')
-        .select('settings')
-        .eq('id', facilityId)
-        .maybeSingle();
-
-      const nabidhActive = (facilitySettings?.settings as Record<string, boolean>)?.nabidh ?? false;
+      // QA-236: the old "NABIDH Sync Active" alert read facilities.settings.nabidh; nothing syncs to NABIDH
 
       // Today's appointments filtered by facility
       const { data: appts, error: apptsError } = await supabase
@@ -267,7 +260,6 @@ export default function ClinicDashboard() {
         todayAppts: todayApptRows,
         doctors: doctorRows,
         statusBreakdown,
-        nabidhActive,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
@@ -505,12 +497,16 @@ export default function ClinicDashboard() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="font-bold text-slate-800 mb-4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Alerts & Notices</div>
           <div className="space-y-3">
+            {/* QA-236: these doctors asked to join and wait for the clinic's approval (not a verification) */}
             {data.pendingApproval > 0 ? (
-              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl">
-                <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
+              <div data-testid="dashboard-alert-pending" className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl">
+                <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <div className="text-sm font-semibold text-slate-800">Doctor Approval Pending</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{data.pendingApproval} doctor{data.pendingApproval > 1 ? 's' : ''} awaiting verification</div>
+                  <div className="text-sm font-semibold text-slate-800">{t('clinic.dashboardPage.pendingTitle')}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{t('clinic.dashboardPage.pendingBody', { count: data.pendingApproval })}</div>
+                  <button type="button" onClick={() => navigate('/clinic/doctors')} className="mt-1 text-xs font-semibold text-blue-700 underline">
+                    {t('clinic.dashboardPage.pendingReview')}
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -523,23 +519,9 @@ export default function ClinicDashboard() {
                 </div>
               </div>
             ) : null}
-            {data.nabidhActive && (
-              <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-xl">
-                <CheckCircle size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-sm font-semibold text-slate-800">NABIDH Sync Active</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Records syncing automatically</div>
-                </div>
-              </div>
-            )}
+            {/* QA-236: no "NABIDH Sync Active" (nothing syncs) and no "All Systems Operational" (nothing is checked) */}
             {data.pendingApproval === 0 && data.todayApptCount > 0 ? (
-              <div className="flex items-start gap-3 p-3 bg-teal-50 rounded-xl">
-                <CheckCircle size={16} className="text-teal-500 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-sm font-semibold text-slate-800">All Systems Operational</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{data.todayApptCount} appointments scheduled today</div>
-                </div>
-              </div>
+              <p className="text-sm text-slate-400">{t('clinic.dashboardPage.noAlerts')}</p>
             ) : null}
           </div>
         </div>

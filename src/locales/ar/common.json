@@ -1704,6 +1704,15 @@
       "managedByCeenaix": "تديره CeenAiX. تواصل مع دعم CeenAiX لتغييره."
     },
     "dashboardPage": {
+      "pendingTitle": "أطباء بانتظار موافقتك",
+      "pendingBody_zero": "لم يطلب أي طبيب الانضمام إلى عيادتك.",
+      "pendingBody_one": "طلب طبيب واحد الانضمام إلى عيادتك.",
+      "pendingBody_two": "طلب طبيبان الانضمام إلى عيادتك.",
+      "pendingBody_few": "طلب {{count}} أطباء الانضمام إلى عيادتك.",
+      "pendingBody_many": "طلب {{count}} طبيبًا الانضمام إلى عيادتك.",
+      "pendingBody_other": "طلب {{count}} طبيب الانضمام إلى عيادتك.",
+      "pendingReview": "المراجعة في صفحة الأطباء",
+      "noAlerts": "لا توجد تنبيهات حاليًا.",
       "todayFees": "الرسوم التقديرية اليوم",
       "todayFeesSub": "الزيارات المكتملة اليوم",
       "monthFees": "الرسوم التقديرية لهذا الشهر",
