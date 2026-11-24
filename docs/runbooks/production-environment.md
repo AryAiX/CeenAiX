@@ -27,7 +27,7 @@ The repo holds 92 migrations as of 2026-05-10. Several are pure demo seeds (pati
 We use a two-stage strategy:
 
 1. **Skip pure demo migrations** by marking them `--status applied` on the prod project *before* the first push. They never run. The list lives in `scripts/prod-demo-migrations.txt`.
-2. **Allow mixed migrations** to run (their schema is needed), then **`TRUNCATE` the demo rows** they inserted. The cleanup SQL lives in `scripts/prod-demo-cleanup.sql` and is idempotent.
+2. **Allow mixed migrations** to run (their schema is needed), then **`TRUNCATE` the demo rows** they inserted. The cleanup SQL lives in `scripts/prod-demo-cleanup.sql`. It truncates whole tables with `CASCADE`, which also empties prescriptions, lab orders, clinics, clinic links and claims, so it only runs when `PROD_DEMO_CLEANUP=true` is set while provisioning a fresh database. Normal releases skip it.
 
 Reference tables intentionally kept populated in prod:
 

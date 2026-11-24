@@ -6,6 +6,8 @@
 #   SUPABASE_ACCESS_TOKEN
 #
 # Project restore, migrations, demo cleanup, and verify use the Management API.
+# Fresh database only (destroys clinical and partner data otherwise):
+#   PROD_DEMO_CLEANUP=true
 # Optional emergency bypass when Supabase database endpoints are unavailable:
 #   SKIP_PROD_MIGRATION_CHECK=true
 # Optional direct Postgres fallback when the Management API database endpoints fail:
@@ -237,9 +239,14 @@ elif ! apply_migrations_management_api; then
   apply_migrations_direct_db || exit 1
 fi
 
-echo "=== [3/6] Remove demo rows (idempotent) ==="
+echo "=== [3/6] Remove demo rows (only on a fresh database) ==="
+# prod-demo-cleanup.sql TRUNCATEs whole tables with CASCADE (lab_orders, organizations, ...),
+# which also empties prescriptions, clinics, clinic links and claims. It is only safe on a
+# freshly provisioned database, so it never runs as part of a normal release.
 if skip_prod_database_management_api; then
   echo "::warning::Emergency database sync bypass enabled; production demo cleanup skipped."
+elif [[ "${PROD_DEMO_CLEANUP:-}" != "true" ]]; then
+  echo "Skipped: set PROD_DEMO_CLEANUP=true only when provisioning a fresh production database."
 else
   run_sql_with_direct_fallback "Production demo cleanup" "${ROOT_DIR}/scripts/prod-demo-cleanup.sql"
 fi
