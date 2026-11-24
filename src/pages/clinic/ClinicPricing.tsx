@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import {
+  SERVICE_CATEGORIES,
+  normalizeServiceCategory,
+  serviceSaveErrorKey,
+  validateServiceForm,
+  type ServiceFieldError,
+  type ServiceFormErrors,
+  type ServiceFormValue,
+} from '../../lib/clinic-services';
+import { formatLocaleDigits, usesArabicEasternNumerals } from '../../lib/i18n-ui';
 import { Plus, Pencil as Edit2, Trash2, DollarSign, Clock, X, Save, ToggleLeft, ToggleRight, Search, Tag, TrendingUp, Activity } from 'lucide-react';
 
 interface PricingItem {
@@ -14,78 +26,211 @@ interface PricingItem {
   isActive: boolean;
 }
 
-const categories = ['All', 'Consultation', 'Follow-up', 'Procedure', 'Telemedicine', 'Lab', 'Imaging', 'Package'];
+const SERVICE_COLUMNS = 'id, name_en, category, default_duration_min, default_price, description_en, is_active';
 
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+interface ServiceRow {
+  id: string;
+  name_en: string | null;
+  category: string | null;
+  default_duration_min: number | null;
+  default_price: number | string | null;
+  description_en: string | null;
+  is_active: boolean | null;
 }
 
-function PricingModal({ item, onClose, onSave }: { item?: PricingItem; onClose: () => void; onSave: (p: Partial<PricingItem>) => void }) {
+const toPricingItem = (s: ServiceRow): PricingItem => ({
+  id: s.id,
+  name: s.name_en ?? '',
+  category: normalizeServiceCategory(s.category),
+  durationMinutes: s.default_duration_min ?? 30,
+  priceAed: Number(s.default_price) || 0,
+  description: s.description_en ?? '',
+  isActive: s.is_active ?? true,
+});
+
+const CATEGORY_LABELS: Record<string, string> = {
+  consultation: 'Consultation',
+  follow_up: 'Follow-up',
+  procedure: 'Procedure',
+  telemedicine: 'Telemedicine',
+  lab: 'Lab',
+  imaging: 'Imaging',
+  package: 'Package',
+};
+
+/** Label of a stored (lowercase) category; unknown values are shown as stored. */
+function categoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] ?? category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ');
+}
+
+/**
+ * QA-214: the form checks its values before saving, stays open (with what was typed) until the
+ * save has worked, and cannot be sent twice.
+ */
+function PricingModal({
+  item,
+  existing,
+  onClose,
+  onSave,
+}: {
+  item?: PricingItem;
+  existing: { id: string; name: string }[];
+  onClose: () => void;
+  /** resolves to a plain error message, or null when saved */
+  onSave: (value: ServiceFormValue) => Promise<string | null>;
+}) {
+  const { t, i18n } = useTranslation();
   const isEdit = !!item;
+  const initialCategory = normalizeServiceCategory(item?.category);
+  const categoryOptions: string[] = (SERVICE_CATEGORIES as readonly string[]).includes(initialCategory)
+    ? [...SERVICE_CATEGORIES]
+    : [...SERVICE_CATEGORIES, initialCategory];
   const [form, setForm] = useState({
     name: item?.name || '',
-    category: item?.category ? capitalize(item.category) : 'Consultation',
-    durationMinutes: String(item?.durationMinutes || 30),
-    priceAed: String(item?.priceAed || ''),
+    category: initialCategory,
+    durationMinutes: String(item?.durationMinutes ?? 30),
+    priceAed: item ? String(item.priceAed) : '',
     description: item?.description || '',
   });
+  const [errors, setErrors] = useState<ServiceFormErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const message = (error: ServiceFieldError | undefined) => {
+    if (!error) return null;
+    const values = Object.fromEntries(
+      Object.entries(error.values ?? {}).map(([k, v]) => [
+        k,
+        // "100,000" in English, Arabic digits in Arabic
+        usesArabicEasternNumerals(i18n.language) ? formatLocaleDigits(v, i18n.language) : v.toLocaleString('en-US'),
+      ])
+    );
+    return t(`clinic.pricingPage.form.errors.${error.key}`, values);
+  };
+  const fieldError = (field: keyof ServiceFormErrors, id: string) => {
+    const text = message(errors[field]);
+    return text ? <p id={id} className="mt-1 text-xs text-red-600">{text}</p> : null;
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (saving) return;
+    const result = validateServiceForm(form, existing, item?.id);
+    if (!result.ok) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
+    setSaveError(null);
+    setSaving(true);
+    const failure = await onSave(result.value);
+    setSaving(false);
+    if (failure) setSaveError(failure);
+  };
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <form onSubmit={submit} noValidate className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center"><DollarSign size={18} className="text-teal-600" /></div>
             <h3 className="font-bold text-slate-900">{isEdit ? 'Edit Service' : 'Add New Service'}</h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} className="text-slate-400" /></button>
+          <button type="button" onClick={onClose} disabled={saving} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} className="text-slate-400" /></button>
         </div>
         <div className="p-6 space-y-4">
+          {saveError ? (
+            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>
+          ) : null}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Service Name</label>
-            <input type="text" value={form.name} onChange={set('name')} placeholder="e.g. Cardiology Consultation" className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <label htmlFor="service-name" className="block text-xs font-semibold text-slate-600 mb-1">Service Name</label>
+            <input
+              id="service-name"
+              type="text"
+              value={form.name}
+              onChange={set('name')}
+              placeholder="e.g. Cardiology Consultation"
+              aria-invalid={errors.name ? true : undefined}
+              aria-describedby={errors.name ? 'service-name-error' : undefined}
+              className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            {fieldError('name', 'service-name-error')}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Category</label>
-              <select value={form.category} onChange={set('category')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-                {categories.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
+              <label htmlFor="service-category" className="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+              <select id="service-category" value={form.category} onChange={set('category')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+                {categoryOptions.map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Duration (minutes)</label>
-              <input type="number" value={form.durationMinutes} onChange={set('durationMinutes')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              <label htmlFor="service-duration" className="block text-xs font-semibold text-slate-600 mb-1">Duration (minutes)</label>
+              <input
+                id="service-duration"
+                type="number"
+                inputMode="numeric"
+                min={5}
+                max={480}
+                step={5}
+                value={form.durationMinutes}
+                onChange={set('durationMinutes')}
+                aria-invalid={errors.duration ? true : undefined}
+                aria-describedby={errors.duration ? 'service-duration-error' : undefined}
+                className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              {fieldError('duration', 'service-duration-error')}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Price (AED)</label>
-              <input type="number" value={form.priceAed} onChange={set('priceAed')} placeholder="0" className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              <label htmlFor="service-price" className="block text-xs font-semibold text-slate-600 mb-1">Price (AED)</label>
+              <input
+                id="service-price"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.01"
+                value={form.priceAed}
+                onChange={set('priceAed')}
+                placeholder="0"
+                aria-invalid={errors.price ? true : undefined}
+                aria-describedby={errors.price ? 'service-price-error' : undefined}
+                className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              {fieldError('price', 'service-price-error')}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-            <textarea value={form.description} onChange={set('description')} rows={3} placeholder="Brief description of this service…" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
+            <label htmlFor="service-description" className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+            <textarea
+              id="service-description"
+              value={form.description}
+              onChange={set('description')}
+              rows={3}
+              placeholder="Brief description of this service…"
+              aria-invalid={errors.description ? true : undefined}
+              aria-describedby={errors.description ? 'service-description-error' : undefined}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
+            {fieldError('description', 'service-description-error')}
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors">Cancel</button>
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-60">Cancel</button>
           <button
-            onClick={() => {
-              onSave({ ...form, durationMinutes: Number(form.durationMinutes), priceAed: Number(form.priceAed) });
-              onClose();
-            }}
-            className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            type="submit"
+            disabled={saving}
+            className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            <Save size={15} /> {isEdit ? 'Save Changes' : 'Add Service'}
+            <Save size={15} /> {saving ? t('clinic.pricingPage.form.saving') : isEdit ? 'Save Changes' : 'Add Service'}
           </button>
         </div>
-      </div>
+      </form>
     </div>,
     document.body
   );
 }
 
-function ConfirmDeleteModal({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmDeleteModal({ name, busy, onConfirm, onCancel }: { name: string; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -102,13 +247,17 @@ function ConfirmDeleteModal({ name, onConfirm, onCancel }: { name: string; onCon
         </div>
         <div className="flex gap-3 px-6 pb-6">
           <button
+            type="button"
             onClick={onCancel}
+            disabled={busy}
             className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={onConfirm}
+            disabled={busy}
             className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors"
           >
             Yes, Remove
@@ -122,15 +271,17 @@ function ConfirmDeleteModal({ name, onConfirm, onCancel }: { name: string; onCon
 
 export default function ClinicPricing() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [items, setItems] = useState<PricingItem[]>([]);
   const [facilityId, setFacilityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filterCat, setFilterCat] = useState('All');
+  const [filterCat, setFilterCat] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<PricingItem | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -157,24 +308,14 @@ export default function ClinicPricing() {
 
       const { data: servicesData, error: servicesError } = await supabase
         .from('facility_services')
-        .select('id, name_en, category, default_duration_min, default_price, description_en, is_active')
+        .select(SERVICE_COLUMNS)
         .eq('facility_id', fId)
         .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
       if (servicesError) throw servicesError;
 
-      const rows: PricingItem[] = (servicesData ?? []).map(s => ({
-        id: s.id,
-        name: s.name_en ?? '',
-        category: s.category ?? 'Consultation',
-        durationMinutes: s.default_duration_min ?? 30,
-        priceAed: Number(s.default_price) || 0,
-        description: s.description_en ?? '',
-        isActive: s.is_active ?? true,
-      }));
-
-      setItems(rows);
+      setItems(((servicesData ?? []) as ServiceRow[]).map(toPricingItem));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load services.');
     } finally {
@@ -184,7 +325,7 @@ export default function ClinicPricing() {
 
   const filtered = items.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCat === 'All' || p.category.toLowerCase() === filterCat.toLowerCase();
+    const matchCat = filterCat === 'all' || p.category === filterCat;
     return matchSearch && matchCat;
   });
 
@@ -192,78 +333,76 @@ export default function ClinicPricing() {
   const avgPrice = Math.round(items.filter(p => p.isActive).reduce((s, p) => s + p.priceAed, 0) / (totalActive || 1));
   const maxPrice = Math.max(...items.map(p => p.priceAed), 1);
 
-  function handleSave(data: Partial<PricingItem>) {
-    if (!facilityId) return;
-    if (editItem) {
-      void (async () => {
-        const { error: updateError } = await supabase
-          .from('facility_services')
-          .update({
-            name_en: data.name,
-            category: data.category,
-            default_duration_min: data.durationMinutes,
-            default_price: data.priceAed,
-            description_en: data.description,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editItem.id);
-        if (updateError) { setError(updateError.message); return; }
-        setItems(prev => prev.map(p => p.id === editItem.id ? { ...p, ...data } : p));
-        setEditItem(undefined);
-      })();
-    } else {
-      void (async () => {
-        const { data: inserted, error: insertError } = await supabase
+  /** QA-214: save, then show the row as the database stored it. Returns a plain error message or null. */
+  async function handleSave(value: ServiceFormValue): Promise<string | null> {
+    if (!facilityId) return t('clinic.pricingPage.errors.saveFailed');
+    const fields = {
+      name_en: value.name,
+      category: value.category,
+      default_duration_min: value.durationMinutes,
+      default_price: value.priceAed,
+      description_en: value.description,
+    };
+    const { data, error: saveError } = editItem
+      ? await supabase.from('facility_services').update(fields).eq('id', editItem.id).select(SERVICE_COLUMNS).single()
+      : await supabase
           .from('facility_services')
           .insert({
+            ...fields,
             facility_id: facilityId,
-            name_en: data.name,
-            name_ar: data.name,
-            category: data.category,
-            default_duration_min: data.durationMinutes,
-            default_price: data.priceAed,
-            description_en: data.description,
-            description_ar: data.description,
+            name_ar: value.name,
+            description_ar: value.description,
             currency: 'AED',
             is_active: true,
             is_deleted: false,
           })
-          .select('id')
+          .select(SERVICE_COLUMNS)
           .single();
-        if (insertError) { setError(insertError.message); return; }
-        setItems(prev => [...prev, {
-          id: inserted.id,
-          isActive: true,
-          ...data,
-        } as PricingItem]);
-        setEditItem(undefined);
-      })();
+    if (saveError || !data) {
+      console.warn('[ClinicPricing] save failed', saveError);
+      return t(`clinic.pricingPage.errors.${serviceSaveErrorKey(saveError)}`);
     }
+    const saved = toPricingItem(data as ServiceRow);
+    setItems(prev => (editItem ? prev.map(p => (p.id === saved.id ? saved : p)) : [saved, ...prev]));
+    setShowModal(false);
+    setEditItem(undefined);
+    return null;
   }
 
-  function toggleActive(id: string) {
+  async function toggleActive(id: string) {
     const item = items.find(p => p.id === id);
-    if (!item) return;
-    void (async () => {
-      const { error: updateError } = await supabase
-        .from('facility_services')
-        .update({ is_active: !item.isActive, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (updateError) { setError(updateError.message); return; }
-      setItems(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
-    })();
+    if (!item || busyId) return;
+    setBusyId(id);
+    setError(null);
+    const { error: updateError } = await supabase
+      .from('facility_services')
+      .update({ is_active: !item.isActive })
+      .eq('id', id);
+    setBusyId(null);
+    if (updateError) {
+      console.warn('[ClinicPricing] toggle failed', updateError);
+      setError(t('clinic.pricingPage.errors.toggleFailed'));
+      return;
+    }
+    setItems(prev => prev.map(p => p.id === id ? { ...p, isActive: !item.isActive } : p));
   }
 
-  function deleteItem(id: string) {
-    void (async () => {
-      const { error: deleteError } = await supabase
-        .from('facility_services')
-        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
-        .eq('id', id);
-      if (deleteError) { setError(deleteError.message); return; }
-      setItems(prev => prev.filter(p => p.id !== id));
-      setConfirmDelete(null);
-    })();
+  async function deleteItem(id: string) {
+    if (busyId) return;
+    setBusyId(id);
+    setError(null);
+    const { error: deleteError } = await supabase
+      .from('facility_services')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .eq('id', id);
+    setBusyId(null);
+    setConfirmDelete(null);
+    if (deleteError) {
+      console.warn('[ClinicPricing] remove failed', deleteError);
+      setError(t('clinic.pricingPage.errors.removeFailed'));
+      return;
+    }
+    setItems(prev => prev.filter(p => p.id !== id));
   }
 
   if (loading) {
@@ -330,8 +469,8 @@ export default function ClinicPricing() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search services…" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {categories.map(c => (
-            <button key={c} onClick={() => setFilterCat(c)} className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${filterCat === c ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{c}</button>
+          {['all', ...SERVICE_CATEGORIES].map(c => (
+            <button key={c} type="button" aria-pressed={filterCat === c} onClick={() => setFilterCat(c)} className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${filterCat === c ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{c === 'all' ? 'All' : categoryLabel(c)}</button>
           ))}
         </div>
       </div>
@@ -343,7 +482,7 @@ export default function ClinicPricing() {
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full text-xs font-medium border border-teal-100">{capitalize(p.category)}</span>
+                  <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full text-xs font-medium border border-teal-100">{categoryLabel(p.category)}</span>
                   {!p.isActive && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs">Inactive</span>}
                 </div>
                 <h3 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h3>
@@ -370,7 +509,7 @@ export default function ClinicPricing() {
             </div>
 
             <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-              <button onClick={() => toggleActive(p.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p.isActive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              <button type="button" onClick={() => void toggleActive(p.id)} disabled={busyId === p.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p.isActive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                 {p.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                 {p.isActive ? 'Active' : 'Inactive'}
               </button>
@@ -395,12 +534,20 @@ export default function ClinicPricing() {
         </div>
       )}
 
-      {showModal && <PricingModal item={editItem} onClose={() => { setShowModal(false); setEditItem(undefined); }} onSave={handleSave} />}
+      {showModal && (
+        <PricingModal
+          item={editItem}
+          existing={items}
+          onClose={() => { setShowModal(false); setEditItem(undefined); }}
+          onSave={handleSave}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDeleteModal
           name={items.find(p => p.id === confirmDelete)?.name ?? 'this service'}
-          onConfirm={() => deleteItem(confirmDelete)}
+          busy={busyId === confirmDelete}
+          onConfirm={() => void deleteItem(confirmDelete)}
           onCancel={() => setConfirmDelete(null)}
         />
       )}

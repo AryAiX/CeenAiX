@@ -1512,6 +1512,25 @@
         "book": "Book Appointment"
       }
     },
+    "pricingPage": {
+      "form": {
+        "saving": "Saving…",
+        "errors": {
+          "nameRequired": "Enter a service name.",
+          "nameTaken": "Another service already uses this name.",
+          "tooLong": "Use {{value}} characters or fewer.",
+          "priceRequired": "Enter a price (0 for a free service).",
+          "priceInvalid": "Enter a price from 0 to {{value}} AED, with up to 2 decimals.",
+          "durationInvalid": "Enter a whole number of minutes from {{min}} to {{max}}."
+        }
+      },
+      "errors": {
+        "saveFailed": "Could not save the service. Please try again.",
+        "valuesRejected": "The service was not saved because a value is out of range. Check the name, price and duration.",
+        "toggleFailed": "Could not switch the service on or off. Please try again.",
+        "removeFailed": "Could not remove the service. Please try again."
+      }
+    },
     "visitReasons": {
       "consultation": "Consultation",
       "followUp": "Follow-up Visit",
