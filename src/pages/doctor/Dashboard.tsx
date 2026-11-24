@@ -337,7 +337,10 @@ export const DoctorDashboard: React.FC = () => {
           </h1>
           <p className="text-sm text-slate-400">
             {[
-              new Date().toLocaleDateString(locale, dtOpts({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })),
+              new Date().toLocaleDateString(
+                locale,
+                dtOpts({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: CLINIC_TIME_ZONE })
+              ),
               doctorCity,
             ]
               .filter(Boolean)
@@ -520,7 +523,10 @@ export const DoctorDashboard: React.FC = () => {
           <div>
             <h2 className="text-[17px] font-bold text-slate-900">{t('doctor.dashboard.ui.schedule.title')}</h2>
             <p className="text-[13px] text-slate-400">
-              {new Date().toLocaleDateString(locale, dtOpts({ weekday: 'long', day: 'numeric', month: 'long' }))}
+              {new Date().toLocaleDateString(
+                locale,
+                dtOpts({ weekday: 'long', day: 'numeric', month: 'long', timeZone: CLINIC_TIME_ZONE })
+              )}
             </p>
           </div>
           <div className="flex items-center gap-4">
