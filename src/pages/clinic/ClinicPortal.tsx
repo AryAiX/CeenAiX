@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { countUnreadMessages } from '../../lib/clinic-unread-messages';
+import { MESSAGES_READ_EVENT, NOTIFICATIONS_CHANGED_EVENT } from '../../lib/notification-events';
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
 import ClinicDashboard from './ClinicDashboard';
@@ -145,23 +147,6 @@ export default function ClinicPortal() {
           .filter(a => a.status === 'completed')
           .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
 
-        const { data: convData } = await supabase
-          .from('conversations')
-          .select('id')
-          .or(`created_by.eq.${user.id},participant_ids.cs.["${user.id}"]`);
-        const conversationIds = (convData ?? []).map(c => c.id);
-
-        let unreadMessages = 0;
-        if (conversationIds.length > 0) {
-          const { data: unreadMsgs } = await supabase
-            .from('messages')
-            .select('id')
-            .in('conversation_id', conversationIds)
-            .neq('sender_id', user.id)
-            .is('read_at', null);
-          unreadMessages = unreadMsgs?.length ?? 0;
-        }
-
         const { data: unreadNotifs } = await supabase
           .from('notifications')
           .select('id')
@@ -169,7 +154,7 @@ export default function ClinicPortal() {
           .eq('is_read', false)
           .eq('is_deleted', false);
 
-        setPortalMeta({
+        setPortalMeta(previous => ({
           facilityName: facilityData?.name ?? 'Your Clinic',
           facilityAddress: facilityData?.address ?? '',
           userName: profileData?.full_name ?? 'Clinic Staff',
@@ -180,14 +165,38 @@ export default function ClinicPortal() {
           todayApptCount,
           todayConfirmedCount,
           todayRevenue,
-          unreadMessages,
+          // QA-220: kept up to date by its own effect below
+          unreadMessages: previous.unreadMessages,
           unreadNotifications: unreadNotifs?.length ?? 0,
-        });
+        }));
       } catch (err) {
         console.warn('[ClinicPortal] Failed to load portal meta:', err);
       }
     })();
   }, [user?.id]);
+
+  // QA-220: the unread message badge used to be counted once at login. It now reloads when you move
+  // to another page, when messages are marked as read, and when notifications change.
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+    let cancelled = false;
+    const refresh = () => {
+      countUnreadMessages(supabase, userId)
+        .then(count => {
+          if (!cancelled) setPortalMeta(previous => ({ ...previous, unreadMessages: count }));
+        })
+        .catch(err => console.warn('[ClinicPortal] Failed to count unread messages:', err));
+    };
+    refresh();
+    window.addEventListener(MESSAGES_READ_EVENT, refresh);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(MESSAGES_READ_EVENT, refresh);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    };
+  }, [user?.id, location.pathname]);
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden">

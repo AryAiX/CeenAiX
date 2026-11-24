@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { PostgrestError } from '@supabase/postgrest-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
+import { MESSAGES_READ_EVENT } from '../lib/notification-events';
 import { supabase } from '../lib/supabase';
 import { createSupabaseQueryBuilder } from '../test/supabase-mock';
 import { useMessagingHub } from './use-messaging-hub';
@@ -131,5 +132,32 @@ describe('useMessagingHub error messages (QA-219)', () => {
     conversationsLoadError = dbError('relation "public.conversations" does not exist', '42P01');
     const { result } = await loaded();
     expect(result.current.conversationError).toBe('Unable to load conversations.');
+  });
+});
+
+describe('useMessagingHub read announcements (QA-220)', () => {
+  it('announces that messages were read when a conversation is opened, so badges can update', async () => {
+    const listener = vi.fn();
+    window.addEventListener(MESSAGES_READ_EVENT, listener);
+    try {
+      await loaded();
+      await waitFor(() => expect(supabase.rpc).toHaveBeenCalledWith('mark_conversation_messages_read', { p_conversation_id: 'conv-1' }));
+      await waitFor(() => expect(listener).toHaveBeenCalled());
+    } finally {
+      window.removeEventListener(MESSAGES_READ_EVENT, listener);
+    }
+  });
+
+  it('does not announce anything when marking as read fails', async () => {
+    rpcResults.mark_conversation_messages_read = { data: null, error: dbError('permission denied', '42501') };
+    const listener = vi.fn();
+    window.addEventListener(MESSAGES_READ_EVENT, listener);
+    try {
+      await loaded();
+      await waitFor(() => expect(supabase.rpc).toHaveBeenCalledWith('mark_conversation_messages_read', { p_conversation_id: 'conv-1' }));
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(MESSAGES_READ_EVENT, listener);
+    }
   });
 });

@@ -138,11 +138,12 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
                   <Icon size={18} className="shrink-0" />
                   {!isCollapsed && <span className="font-medium text-[13px]" style={{ fontFamily: 'Inter, sans-serif' }}>{item.label}</span>}
                 </div>
-                {!isCollapsed && item.badge && (
-                  <span className={`${item.badgeColor} text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center`}>
-                    {item.badge}
+                {/* QA-220: `item.badge && …` printed a stray "0" when the count was zero */}
+                {!isCollapsed && (item.badge ?? 0) > 0 ? (
+                  <span data-testid={`clinic-nav-badge-${item.id}`} className={`${item.badgeColor} text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center`}>
+                    {(item.badge ?? 0) > 99 ? '99+' : item.badge}
                   </span>
-                )}
+                ) : null}
               </button>
             </React.Fragment>
           );

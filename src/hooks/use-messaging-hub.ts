@@ -11,6 +11,7 @@ import {
   trimMessageDraft,
 } from '../lib/messaging';
 import { supabase } from '../lib/supabase';
+import { announceMessagesRead } from '../lib/notification-events';
 
 const careTeamFallback = () => i18n.t('messaging.careTeamFallback', { defaultValue: 'Care team' });
 const errStartConversation = () =>
@@ -230,6 +231,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         return;
       }
 
+      announceMessagesRead();
       await loadConversations();
     },
     [loadConversations]
