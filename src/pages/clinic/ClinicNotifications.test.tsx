@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../lib/auth-context';
+import { NOTIFICATIONS_CHANGED_EVENT } from '../../lib/notification-events';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
 import ClinicNotifications from './ClinicNotifications';
@@ -88,5 +89,59 @@ describe('ClinicNotifications Open button (QA-223)', () => {
     const item = await card('Suspicious');
     expect(within(item).queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
     expect(within(item).getByRole('button', { name: /Mark Read/ })).toBeInTheDocument();
+  });
+});
+
+describe('ClinicNotifications keeps the badges up to date (QA-224)', () => {
+  const listen = () => {
+    const listener = vi.fn();
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, listener);
+    return { listener, stop: () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, listener) };
+  };
+
+  it('announces the change after Mark Read', async () => {
+    const { listener, stop } = listen();
+    setup([note('n1', 'Doctor request', '/clinic/doctors')]);
+    fireEvent.click(within(await card('Doctor request')).getByRole('button', { name: /Mark Read/ }));
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1));
+    stop();
+  });
+
+  it('announces the change after Mark All Read', async () => {
+    const { listener, stop } = listen();
+    setup([note('n1', 'First', null), note('n2', 'Second', null)]);
+    await screen.findByText('First');
+    fireEvent.click(screen.getByRole('button', { name: /Mark All Read/ }));
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1));
+    stop();
+  });
+
+  it('announces the change after Dismiss', async () => {
+    const { listener, stop } = listen();
+    setup([note('n1', 'Doctor request', '/clinic/doctors')]);
+    fireEvent.click(within(await card('Doctor request')).getByRole('button', { name: /Dismiss/ }));
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByText('Doctor request')).not.toBeInTheDocument());
+    stop();
+  });
+
+  it('does not announce anything when the update fails', async () => {
+    const { listener, stop } = listen();
+    let calls = 0;
+    vi.mocked(supabase.from).mockImplementation((() => {
+      calls += 1;
+      return calls === 1
+        ? createSupabaseQueryBuilder({ data: [note('n1', 'Doctor request', null)], error: null })
+        : createSupabaseQueryBuilder({ data: null, error: new Error('permission denied') });
+    }) as never);
+    render(
+      <MemoryRouter initialEntries={['/clinic/notifications']}>
+        <ClinicNotifications />
+      </MemoryRouter>
+    );
+    fireEvent.click(within(await card('Doctor request')).getByRole('button', { name: /Mark Read/ }));
+    await screen.findByText(/permission denied/);
+    expect(listener).not.toHaveBeenCalled();
+    stop();
   });
 });

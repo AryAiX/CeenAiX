@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { announceNotificationsChanged } from '../../lib/notification-events';
 import { safePortalActionPath } from '../../lib/notification-links';
 import { Bell, CheckCheck, Loader2, RefreshCcw, X } from 'lucide-react';
 
@@ -81,6 +82,7 @@ export default function ClinicNotifications() {
         .eq('user_id', user!.id);
       if (updateError) throw updateError;
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      announceNotificationsChanged();
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update notification.');
@@ -109,6 +111,7 @@ export default function ClinicNotifications() {
         .eq('is_read', false);
       if (updateError) throw updateError;
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      announceNotificationsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update notifications.');
     } finally {
@@ -126,6 +129,7 @@ export default function ClinicNotifications() {
         .eq('user_id', user!.id);
       if (updateError) throw updateError;
       setNotifications(prev => prev.filter(n => n.id !== id));
+      announceNotificationsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to dismiss notification.');
     } finally {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseQueryBuilder } from '../test/supabase-mock';
-import { countUnreadMessages } from './clinic-unread-messages';
+import { countUnreadMessages, countUnreadNotifications } from './clinic-unread-messages';
 
 const client = (conversationIds: string[], countsPerQuery: number[]) => {
   const messageQueries: ReturnType<typeof createSupabaseQueryBuilder>[] = [];
@@ -40,5 +40,18 @@ describe('countUnreadMessages (QA-220)', () => {
     const { client: c, messageQueries } = client([], []);
     expect(await countUnreadMessages(c, 'me')).toBe(0);
     expect(messageQueries).toHaveLength(0);
+  });
+});
+
+describe('countUnreadNotifications (QA-224)', () => {
+  it('counts this user\'s unread, not dismissed notifications without downloading them', async () => {
+    const builder = createSupabaseQueryBuilder({ data: null, error: null, count: 1234 });
+    const from = vi.fn(() => builder);
+    expect(await countUnreadNotifications({ from } as never, 'me')).toBe(1234);
+    expect(from).toHaveBeenCalledWith('notifications');
+    expect(builder.select).toHaveBeenCalledWith('id', { count: 'exact', head: true });
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'me');
+    expect(builder.eq).toHaveBeenCalledWith('is_read', false);
+    expect(builder.eq).toHaveBeenCalledWith('is_deleted', false);
   });
 });

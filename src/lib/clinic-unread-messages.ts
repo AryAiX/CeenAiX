@@ -30,3 +30,18 @@ export const countUnreadMessages = async (client: SupabaseClient, userId: string
   }
   return total;
 };
+
+/**
+ * QA-224: the user's unread notifications (sidebar badge and top-bar bell). A count query, so it
+ * does not download the rows (which stops at 1,000).
+ */
+export const countUnreadNotifications = async (client: SupabaseClient, userId: string): Promise<number> => {
+  const { count, error } = await client
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_read', false)
+    .eq('is_deleted', false);
+  if (error) throw error;
+  return count ?? 0;
+};
