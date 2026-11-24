@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -100,7 +101,7 @@ describe('ClinicDashboard today (QA-234)', () => {
     expect(await screen.findByTestId('dashboard-total-today')).toHaveTextContent('2');
     expect(screen.getByTestId('dashboard-kpi-appointments')).toHaveTextContent('2');
     const noShowRow = screen.getByText('Patient p-b').closest('div.flex') as HTMLElement;
-    expect(within(noShowRow).getByText('No-show')).toBeInTheDocument();
+    expect(within(noShowRow).getByText('No show')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-status-no_show')).toHaveTextContent('1');
     expect(screen.getByTestId('dashboard-status-cancelled')).toHaveTextContent('1');
   });
@@ -183,5 +184,63 @@ describe('ClinicDashboard alerts (QA-236)', () => {
     expect(alert).toHaveTextContent('2 doctors asked to join your clinic.');
     expect(alert).not.toHaveTextContent('verification');
     expect(within(alert).getByRole('button', { name: 'Review on the Doctors page' })).toBeInTheDocument();
+  });
+});
+
+describe('ClinicDashboard in Arabic and layout (QA-237)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const link = (doctor_user_id: string): Link => ({
+    id: `l-${doctor_user_id}`, doctor_user_id, is_available: true, is_active: true, consultation_fee: 300, invitation_status: 'active',
+  });
+
+  it('shows the page in Arabic, right to left, with Arabic digits, times and statuses', async () => {
+    await i18n.changeLanguage('ar');
+    setup({
+      today: [{ ...visit('a', 'confirmed', '2026-11-25T05:00:00Z'), chief_complaint: 'Follow-up Visit' }, visit('b', 'no_show')],
+      links: [link('d1')],
+      names: [{ user_id: 'd1', full_name: 'Sara Ali' }],
+    });
+    expect(await screen.findByText('جدول اليوم')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-kpi-appointments')).toHaveTextContent('٢');
+    expect(screen.getByTestId('dashboard-kpi-appointments')).toHaveTextContent('مواعيد اليوم');
+    expect(screen.getAllByText('٠٩:٠٠')).toHaveLength(2);
+    expect(screen.getAllByText(i18n.t('shared.appointmentStatus.no_show')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/د\. Sara Ali/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(new RegExp(i18n.t('clinic.visitReasons.followUp'))).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('زيارتان').length).toBeGreaterThan(0);
+    expect(screen.getByText('جدول اليوم').closest('[dir]')).toHaveAttribute('dir', 'rtl');
+    for (const english of ["Today's Schedule", 'Doctors Today', 'Quick Actions', 'Appointment Status', 'View all', 'appts', 'total today']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('has no green chips repeating the text and stacks on small screens', async () => {
+    setup({ today: [visit('a', 'confirmed')] });
+    const card = await screen.findByTestId('dashboard-kpi-appointments');
+    expect(card.querySelector('.rounded-full.bg-emerald-50')).toBeNull();
+    expect((card.parentElement as HTMLElement).className).toContain('grid-cols-1');
+  });
+
+  it('describes the per-doctor chart for screen readers', async () => {
+    setup({ today: [visit('a', 'confirmed'), visit('b', 'completed')], links: [link('d1')], names: [{ user_id: 'd1', full_name: 'Sara Ali' }] });
+    expect(await screen.findByRole('img', { name: 'Visits today by doctor: Sara Ali 2' })).toBeInTheDocument();
+  });
+
+  it('shows a plain message, not the database text, when loading fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(supabase.from).mockImplementation(
+      (() => createSupabaseQueryBuilder({ data: null, error: new Error('permission denied for table clinic_portal_members') })) as never
+    );
+    render(
+      <MemoryRouter>
+        <ClinicDashboard />
+      </MemoryRouter>
+    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not load the dashboard. Please try again.');
+    expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
   });
 });
