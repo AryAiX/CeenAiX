@@ -6,6 +6,8 @@ import { Skeleton } from '../../components/Skeleton';
 import { useDoctorNotifications } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
+import { announceNotificationsChanged } from '../../lib/notification-events';
+import { safePortalActionPath } from '../../lib/notification-links';
 import { supabase } from '../../lib/supabase';
 
 export const DoctorNotifications: React.FC = () => {
@@ -18,7 +20,7 @@ export const DoctorNotifications: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  const markRead = async (notificationId: string) => {
+  const markRead = async (notificationId: string): Promise<boolean> => {
     setBusyId(notificationId);
     setActionError(null);
     const { error: updateError } = await supabase
@@ -30,10 +32,20 @@ export const DoctorNotifications: React.FC = () => {
     setBusyId(null);
 
     if (updateError) {
-      setActionError(updateError.message);
-      return;
+      setActionError(t('doctor.notifications.errUpdate'));
+      return false;
     }
+    announceNotificationsChanged();
     refetch();
+    return true;
+  };
+
+  // QA-163: opening an unread notification also marks it read, then goes to the page.
+  const openNotification = async (notificationId: string, path: string, isRead: boolean) => {
+    if (!isRead) {
+      await markRead(notificationId);
+    }
+    navigate(path);
   };
 
   const markAllRead = async () => {
@@ -48,9 +60,10 @@ export const DoctorNotifications: React.FC = () => {
     setBusyId(null);
 
     if (updateError) {
-      setActionError(updateError.message);
+      setActionError(t('doctor.notifications.errUpdate'));
       return;
     }
+    announceNotificationsChanged();
     refetch();
   };
 
@@ -77,7 +90,11 @@ export const DoctorNotifications: React.FC = () => {
   }
 
   const storedNotifications = data?.notifications ?? [];
-  const unreadCount = storedNotifications.filter((notification) => !notification.is_read).length;
+  // QA-162: real totals from the database, not just the newest rows that were loaded.
+  const totalCount = data?.totalCount ?? storedNotifications.length;
+  const unreadCount = data?.unreadCount ?? storedNotifications.filter((notification) => !notification.is_read).length;
+  const readCount = Math.max(0, totalCount - unreadCount);
+  const showingLatestOnly = totalCount > storedNotifications.length;
   const liveAttentionItems = data?.derivedNotifications ?? [];
 
   return (
@@ -93,13 +110,13 @@ export const DoctorNotifications: React.FC = () => {
             role="alert"
             className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700"
           >
-            {error}
+            {t('doctor.notifications.errLoad')}
             <button
               type="button"
               onClick={refetch}
-              className="ml-2 font-semibold underline"
+              className="ms-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -153,7 +170,7 @@ export const DoctorNotifications: React.FC = () => {
                   key={notification.id}
                   type="button"
                   onClick={() => navigate(notification.actionUrl)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-teal-200 hover:bg-teal-50/40"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-start transition hover:border-teal-200 hover:bg-teal-50/40"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-semibold text-slate-900">{notification.title}</p>
@@ -180,83 +197,102 @@ export const DoctorNotifications: React.FC = () => {
                   key={filter}
                   type="button"
                   onClick={() => setNotificationFilter(filter)}
+                  aria-pressed={notificationFilter === filter}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                     notificationFilter === filter
                       ? 'bg-emerald-600 text-white'
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {filter === 'all' ? `All (${formatLocaleDigits(storedNotifications.length, uiLang)})`
-                    : filter === 'unread' ? `Unread (${formatLocaleDigits(unreadCount, uiLang)})`
-                    : `Read (${formatLocaleDigits(storedNotifications.length - unreadCount, uiLang)})`}
+                  {t(`doctor.notifications.filters.${filter}`, {
+                    value: formatLocaleDigits(
+                      filter === 'all' ? totalCount : filter === 'unread' ? unreadCount : readCount,
+                      uiLang
+                    ),
+                  })}
                 </button>
               ))}
             </div>
           </div>
 
+          {showingLatestOnly ? (
+            <p className="mb-3 text-xs text-slate-500" data-testid="notifications-latest-only">
+              {t('doctor.notifications.showingLatest', {
+                shown: formatLocaleDigits(storedNotifications.length, uiLang),
+                total: formatLocaleDigits(totalCount, uiLang),
+              })}
+            </p>
+          ) : null}
+
           {filteredNotifications.length === 0 ? (
             <p className="text-sm text-slate-600">
-              {notificationFilter === 'unread' ? 'No unread notifications.'
-                : notificationFilter === 'read' ? 'No read notifications.'
-                : t('doctor.notifications.emptyLog')}
+              {notificationFilter === 'unread'
+                ? t('doctor.notifications.emptyUnread')
+                : notificationFilter === 'read'
+                  ? t('doctor.notifications.emptyRead')
+                  : t('doctor.notifications.emptyLog')}
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${
-                    notification.is_read
-                      ? 'border-slate-200 bg-slate-50'
-                      : 'border-emerald-200 bg-emerald-50/50'
-                  }`}
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-900">{notification.title}</p>
+              {filteredNotifications.map((notification) => {
+                const actionPath = safePortalActionPath('doctor', notification.action_url);
+                return (
+                  <div
+                    key={notification.id}
+                    className={`rounded-2xl border p-4 ${
+                      notification.is_read
+                        ? 'border-slate-200 bg-slate-50'
+                        : 'border-emerald-200 bg-emerald-50/50'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-slate-900">{notification.title}</p>
+                          {!notification.is_read ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                              {t('doctor.notifications.unreadBadge')}
+                            </span>
+                          ) : null}
+                        </div>
+                        {notification.body ? (
+                          <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
+                        ) : null}
+                        <p className="mt-2 text-xs font-semibold text-slate-500">
+                          {formatRelativeTime(t, notification.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {actionPath ? (
+                          <button
+                            type="button"
+                            onClick={() => void openNotification(notification.id, actionPath, notification.is_read)}
+                            disabled={busyId === notification.id}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                          >
+                            {t('doctor.notifications.open')}
+                          </button>
+                        ) : null}
                         {!notification.is_read ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                            {t('doctor.notifications.unreadBadge')}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => markRead(notification.id)}
+                            disabled={busyId === notification.id}
+                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {busyId === notification.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCheck className="h-4 w-4" />
+                            )}
+                            <span>{t('doctor.notifications.markRead')}</span>
+                          </button>
                         ) : null}
                       </div>
-                      {notification.body ? (
-                        <p className="mt-2 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                      <p className="mt-2 text-xs font-semibold text-slate-500">
-                        {formatRelativeTime(t, notification.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {notification.action_url ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(notification.action_url ?? '/doctor/dashboard')}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                        >
-                          {t('doctor.notifications.open')}
-                        </button>
-                      ) : null}
-                      {!notification.is_read ? (
-                        <button
-                          type="button"
-                          onClick={() => markRead(notification.id)}
-                          disabled={busyId === notification.id}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {busyId === notification.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCheck className="h-4 w-4" />
-                          )}
-                          <span>{t('doctor.notifications.markRead')}</span>
-                        </button>
-                      ) : null}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

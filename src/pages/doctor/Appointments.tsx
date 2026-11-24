@@ -5,6 +5,7 @@ import { Bell, Calendar, CalendarCheck, CalendarDays, CheckCircle2, ClipboardLis
 import { Skeleton } from '../../components/Skeleton';
 import { useAppointments, useQuery } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
+import { noShowRatePercent, summarizeAppointments } from '../../lib/appointment-stats';
 import { supabase } from '../../lib/supabase';
 import {
   appointmentTypeLabel,
@@ -296,26 +297,29 @@ export const DoctorAppointments: React.FC = () => {
       }),
     [appointments, endOfMonth, startOfMonth]
   );
-  const monthNoShows = useMemo(
-    () => monthAppointments.filter((appointment) => ['no_show', 'cancelled'].includes(appointment.status)).length,
-    [monthAppointments]
-  );
-  const todayDone = todayAppointmentsForStats.filter((appointment) => appointment.status === 'completed').length;
-  // Canonical AppointmentStatus enum: scheduled / confirmed / in_progress /
-  // completed / cancelled / no_show. The previous list used 'checked_in'
-  // which is not in the enum; remove it and keep parity with the week-level
-  // 'remaining' metric below.
-  const todayActive = todayAppointmentsForStats.filter((appointment) => appointment.status === 'in_progress').length;
-  const todayUpcoming = todayAppointmentsForStats.filter((appointment) =>
-    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
-  ).length;
-  const weekDone = weekAppointments.filter((appointment) => appointment.status === 'completed').length;
-  const weekRemaining = weekAppointments.filter((appointment) =>
-    ['scheduled', 'confirmed', 'in_progress'].includes(appointment.status)
-  ).length;
+  // QA-115: one set of status rules for every KPI (see lib/appointment-stats). Cancelled
+  // appointments no longer count as booked, an in-progress visit is "active" only (it used
+  // to be counted again as "upcoming"), and no-shows no longer include cancellations.
+  const todaySummary = useMemo(() => summarizeAppointments(todayAppointmentsForStats), [todayAppointmentsForStats]);
+  const weekSummary = useMemo(() => summarizeAppointments(weekAppointments), [weekAppointments]);
+  const monthSummary = useMemo(() => summarizeAppointments(monthAppointments), [monthAppointments]);
+  const scheduledTodayCount = useMemo(() => summarizeAppointments(routeAppointments).booked, [routeAppointments]);
+  // Completion-rate denominator: appointments that actually had the chance to complete
+  // (cancelled and no-show rows excluded).
+  const completionEligible = useMemo(() => {
+    const summary = summarizeAppointments(routeAppointments);
+    return summary.booked - summary.noShows;
+  }, [routeAppointments]);
+  const monthNoShows = monthSummary.noShows;
+  const todayDone = todaySummary.done;
+  const todayActive = todaySummary.active;
+  const todayUpcoming = todaySummary.upcoming;
+  const weekDone = weekSummary.done;
+  const weekRemaining = weekSummary.active + weekSummary.upcoming;
   const consultationFee = doctorProfile?.consultation_fee ?? 0;
   const weekRevenue = weekDone * consultationFee;
-  const todayRemainingRevenue = todayUpcoming * consultationFee;
+  // Still to earn today: the visit in progress plus the ones not started yet.
+  const todayRemainingRevenue = (todayActive + todayUpcoming) * consultationFee;
   const weekDays = useMemo(
     () =>
       Array.from({ length: 7 }, (_, index) => {
@@ -409,7 +413,7 @@ export const DoctorAppointments: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleKpiCardAction = (action: 'today' | 'week' | 'pending' | 'analytics' | 'profile') => {
+  const handleKpiCardAction = (action: 'today' | 'week' | 'pending' | 'noShows' | 'revenue') => {
     if (action === 'today') {
       navigate('/doctor/today');
       return;
@@ -425,12 +429,16 @@ export const DoctorAppointments: React.FC = () => {
       setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
-    if (action === 'analytics') {
-      handleTabChange('analytics');
+    if (action === 'noShows') {
+      // Show the actual no-show appointments behind the number, newest first.
+      setListSearchQuery('');
+      setListStatusFilter('no_show');
+      setListSortOrder('desc');
+      handleTabChange('list');
       setTimeout(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
-    navigate('/doctor/profile');
+    navigate('/doctor/earnings');
   };
 
   const handleMonthChange = (offset: number) => {
@@ -443,7 +451,7 @@ export const DoctorAppointments: React.FC = () => {
     setFeedback(null);
     setBusyAppointmentId(appointmentId);
 
-    const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment', {
+    const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment_with_reason', {
       p_appointment_id: appointmentId,
     });
 
@@ -476,7 +484,7 @@ export const DoctorAppointments: React.FC = () => {
                 className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-teal-700"
               >
                 <Plus className="h-4 w-4" />
-                New Appointment
+                {t('doctor.appointments.newAppointment')}
               </button>
               <button
                 type="button"
@@ -484,23 +492,15 @@ export const DoctorAppointments: React.FC = () => {
                 className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Download className="h-4 w-4" />
-                Export
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange('pending')}
-                className="relative flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-amber-600"
-              >
-                <Bell className="h-4 w-4" />
-                Requests ({formatLocaleDigits(pendingRequestCount, uiLang)})
+                {t('doctor.appointments.export')}
               </button>
             </div>
           </div>
         </div>
       ) : (
         <div className="mb-6">
-          <h1 className="text-[28px] font-bold text-slate-900">Today's Appointments</h1>
-          <p className="mt-1 text-sm text-slate-500">Live worklist for completed, active, and upcoming visits today.</p>
+          <h1 className="text-[28px] font-bold text-slate-900">{t('doctor.dashboard.todayAppts')}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t('doctor.appointments.todaySubtitle')}</p>
         </div>
       )}
 
@@ -509,7 +509,7 @@ export const DoctorAppointments: React.FC = () => {
           <div className="flex flex-wrap items-center gap-3">
             <Bell className="h-5 w-5 text-amber-600" />
             <span className="text-[14px] font-bold text-amber-900">
-              {formatLocaleDigits(pendingRequestCount, uiLang)} appointment requests need your review
+              {t('doctor.appointments.requestsBanner', { value: formatLocaleDigits(pendingRequestCount, uiLang) })}
             </span>
             <div className="flex flex-wrap gap-2 lg:ms-4">
               {routeAppointments
@@ -528,7 +528,7 @@ export const DoctorAppointments: React.FC = () => {
             onClick={() => handleTabChange('pending')}
             className="self-start rounded-lg bg-amber-600 px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-amber-700 lg:self-auto"
           >
-            Review All Requests →
+            {t('doctor.appointments.reviewAllRequests')} <span aria-hidden="true" className="inline-block rtl:rotate-180">→</span>
           </button>
         </div>
       ) : null}
@@ -538,48 +538,63 @@ export const DoctorAppointments: React.FC = () => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             {[
               {
-                label: "Today's Appointments",
+                label: t('doctor.dashboard.todayAppts'),
                 action: 'today' as const,
-                value: todayAppointmentsForStats.length,
-                sub: `${formatLocaleDigits(todayDone, uiLang)} done · ${formatLocaleDigits(todayActive, uiLang)} active · ${formatLocaleDigits(todayUpcoming, uiLang)} upcoming`,
+                value: todaySummary.booked,
+                sub: t('doctor.appointments.kpiTodaySub', {
+                  done: formatLocaleDigits(todayDone, uiLang),
+                  active: formatLocaleDigits(todayActive, uiLang),
+                  upcoming: formatLocaleDigits(todayUpcoming, uiLang),
+                }),
                 icon: CalendarCheck,
                 iconClass: 'bg-teal-100 text-teal-600',
                 valueClass: 'text-slate-900',
-                progress: todayAppointmentsForStats.length > 0 ? (todayDone / todayAppointmentsForStats.length) * 100 : 0,
+                progress: todaySummary.booked > 0 ? (todayDone / todaySummary.booked) * 100 : 0,
               },
               {
-                label: 'This Week',
+                label: t('doctor.appointments.kpiWeek'),
                 action: 'week' as const,
-                value: weekAppointments.length,
-                sub: `${formatLocaleDigits(weekDone, uiLang)} done · ${formatLocaleDigits(weekRemaining, uiLang)} remaining`,
+                value: weekSummary.booked,
+                sub: t('doctor.appointments.kpiWeekSub', {
+                  done: formatLocaleDigits(weekDone, uiLang),
+                  remaining: formatLocaleDigits(weekRemaining, uiLang),
+                }),
                 icon: Calendar,
                 iconClass: 'bg-blue-100 text-blue-600',
                 valueClass: 'text-slate-900',
               },
               {
-                label: 'Pending Requests',
+                label: t('doctor.appointments.kpiPending'),
                 action: 'pending' as const,
                 value: pendingRequestCount,
-                sub: `${formatLocaleDigits(pendingRequestCount, uiLang)} live from scheduled/confirmed bookings`,
+                sub: t('doctor.appointments.kpiPendingSub', { value: formatLocaleDigits(pendingRequestCount, uiLang) }),
                 icon: Bell,
                 iconClass: 'bg-amber-100 text-amber-600',
                 valueClass: 'text-amber-600',
                 urgent: pendingRequestCount > 0,
               },
               {
-                label: 'No-Shows This Month',
-                action: 'analytics' as const,
+                label: t('doctor.appointments.kpiNoShows'),
+                action: 'noShows' as const,
                 value: monthNoShows,
-                sub: `${monthAppointments.length > 0 ? formatLocaleDigits(Math.round((monthNoShows / monthAppointments.length) * 1000) / 10, uiLang) : '0'}% rate · Live status`,
+                sub: t('doctor.appointments.kpiNoShowsSub', {
+                  rate: formatLocaleDigits(noShowRatePercent(monthSummary), uiLang),
+                }),
                 icon: UserX,
                 iconClass: 'bg-red-100 text-red-500',
                 valueClass: 'text-red-500',
               },
               {
-                label: 'Week Revenue',
-                action: 'profile' as const,
-                value: consultationFee > 0 ? `AED ${formatLocaleDigits(weekRevenue, uiLang)}` : 'AED --',
-                sub: consultationFee > 0 ? `AED ${formatLocaleDigits(todayRemainingRevenue, uiLang)} remaining today` : 'Set consultation fee in profile',
+                label: t('doctor.appointments.kpiRevenue'),
+                action: 'revenue' as const,
+                value:
+                  consultationFee > 0
+                    ? t('doctor.appointments.amountAed', { value: formatLocaleDigits(weekRevenue, uiLang) })
+                    : t('doctor.appointments.amountAedEmpty'),
+                sub:
+                  consultationFee > 0
+                    ? t('doctor.appointments.kpiRevenueRemaining', { value: formatLocaleDigits(todayRemainingRevenue, uiLang) })
+                    : t('doctor.appointments.kpiRevenueSetFee'),
                 icon: TrendingUp,
                 iconClass: 'bg-emerald-100 text-emerald-600',
                 valueClass: 'text-emerald-600',
@@ -625,8 +640,8 @@ export const DoctorAppointments: React.FC = () => {
                   <CalendarCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scheduled today</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatLocaleDigits(routeAppointments.length, uiLang)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.statScheduledToday')}</p>
+                  <p className="text-2xl font-bold text-slate-900">{formatLocaleDigits(scheduledTodayCount, uiLang)}</p>
                 </div>
               </div>
             </div>
@@ -636,7 +651,7 @@ export const DoctorAppointments: React.FC = () => {
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('shared.appointmentStatus.completed')}</p>
                   <p className="text-2xl font-bold text-slate-900">{formatLocaleDigits(completedTodayCount, uiLang)}</p>
                 </div>
               </div>
@@ -647,7 +662,7 @@ export const DoctorAppointments: React.FC = () => {
                   <PlayCircle className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active / upcoming</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.statActiveUpcoming')}</p>
                   <p className="text-2xl font-bold text-slate-900">{formatLocaleDigits(activeTodayCount, uiLang)}</p>
                 </div>
               </div>
@@ -689,11 +704,11 @@ export const DoctorAppointments: React.FC = () => {
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
             <Calendar className="mx-auto mb-4 h-10 w-10 text-slate-300" />
             <h3 className="text-lg font-semibold text-slate-900">
-              {isTodayRoute ? 'No appointments today' : t('doctor.appointments.emptyTitle')}
+              {isTodayRoute ? t('doctor.appointments.todayEmptyTitle') : t('doctor.appointments.emptyTitle')}
             </h3>
             <p className="mt-2 text-sm text-slate-500">
               {isTodayRoute
-                ? "Today's schedule will appear here once bookings land on the doctor's calendar."
+                ? t('doctor.appointments.todayEmptyBody')
                 : t('doctor.appointments.emptyBody')}
             </p>
           </div>
@@ -708,7 +723,13 @@ export const DoctorAppointments: React.FC = () => {
                       {calendarScale === 'day'
                         ? selectedCalendarDate.toLocaleDateString(locale, dtOpts({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))
                         : calendarScale === 'week'
-                        ? `Week of ${startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} – ${new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}`
+                        ? t('doctor.appointments.weekOf', {
+                            start: startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' })),
+                            end: new Date(endOfWeek.getTime() - 1).toLocaleDateString(
+                              locale,
+                              dtOpts({ month: 'short', day: 'numeric', year: 'numeric' })
+                            ),
+                          })
                         : currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
                     </span>
                   ) : null}
@@ -730,7 +751,7 @@ export const DoctorAppointments: React.FC = () => {
                             : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
-                        📅 Day
+                        📅 {t('doctor.appointments.scaleDay')}
                       </button>
                       <button
                         type="button"
@@ -745,7 +766,7 @@ export const DoctorAppointments: React.FC = () => {
                             : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
-                        📆 Week
+                        📆 {t('doctor.appointments.scaleWeek')}
                       </button>
                       <button
                         type="button"
@@ -760,7 +781,7 @@ export const DoctorAppointments: React.FC = () => {
                             : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
-                        📅 Month
+                        📅 {t('doctor.appointments.scaleMonth')}
                       </button>
                     </div>
                   </div>
@@ -771,10 +792,10 @@ export const DoctorAppointments: React.FC = () => {
                   {appointmentTabs.map((tab) => {
                     const active = activeTab === tab.id;
                     const labels: Record<AppointmentBodyTab, string> = {
-                      calendar: '📅 Calendar',
-                      list: '📋 List View',
-                      pending: `⏰ Pending (${formatLocaleDigits(pendingRequestCount, uiLang)})`,
-                      analytics: '📊 Analytics',
+                      calendar: `📅 ${t('doctor.appointments.calendar')}`,
+                      list: `📋 ${t('doctor.appointments.viewList')}`,
+                      pending: `⏰ ${t('doctor.appointments.tabPending', { value: formatLocaleDigits(pendingRequestCount, uiLang) })}`,
+                      analytics: `📊 ${t('doctor.appointments.tabAnalytics')}`,
                     };
                     return (
                       <button
@@ -807,7 +828,7 @@ export const DoctorAppointments: React.FC = () => {
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
                     aria-label={t('doctor.appointments.previousDay', { defaultValue: 'Previous day' })}
                   >
-                    ← Previous day
+                    <span aria-hidden="true" className="inline-block rtl:rotate-180">←</span> {t('doctor.appointments.previousDay')}
                   </button>
                   <div className="text-sm font-bold text-slate-900">
                     {selectedCalendarDate.toLocaleDateString(
@@ -825,7 +846,7 @@ export const DoctorAppointments: React.FC = () => {
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
                     aria-label={t('doctor.appointments.nextDay', { defaultValue: 'Next day' })}
                   >
-                    Next day →
+                    {t('doctor.appointments.nextDay')} <span aria-hidden="true" className="inline-block rtl:rotate-180">→</span>
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -877,7 +898,7 @@ export const DoctorAppointments: React.FC = () => {
                     onClick={() => handleMonthChange(-1)}
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
                   >
-                    ← Previous Month
+                    <span aria-hidden="true" className="inline-block rtl:rotate-180">←</span> {t('doctor.appointments.prevMonth')}
                   </button>
                   <span className="text-[15px] font-bold text-slate-800">
                     {currentMonth.toLocaleDateString(locale, dtOpts({ month: 'long', year: 'numeric' }))}
@@ -887,11 +908,13 @@ export const DoctorAppointments: React.FC = () => {
                     onClick={() => handleMonthChange(1)}
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
                   >
-                    Next Month →
+                    {t('doctor.appointments.nextMonth')} <span aria-hidden="true" className="inline-block rtl:rotate-180">→</span>
                   </button>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                  {Array.from({ length: 7 }, (_, index) =>
+                    new Date(2024, 0, 7 + index).toLocaleDateString(locale, dtOpts({ weekday: 'short' }))
+                  ).map((day) => (
                     <div key={day} className="py-2">
                       {day}
                     </div>
@@ -962,11 +985,16 @@ export const DoctorAppointments: React.FC = () => {
                     }}
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
                   >
-                    ← Previous Week
+                    <span aria-hidden="true" className="inline-block rtl:rotate-180">←</span> {t('doctor.appointments.previousWeek')}
                   </button>
                   <span className="text-[15px] font-bold text-slate-800">
-                    Week of {startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' }))} –{' '}
-                    {new Date(endOfWeek.getTime() - 1).toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric', year: 'numeric' }))}
+                    {t('doctor.appointments.weekOf', {
+                      start: startOfWeek.toLocaleDateString(locale, dtOpts({ month: 'short', day: 'numeric' })),
+                      end: new Date(endOfWeek.getTime() - 1).toLocaleDateString(
+                        locale,
+                        dtOpts({ month: 'short', day: 'numeric', year: 'numeric' })
+                      ),
+                    })}
                   </span>
                   <button
                     type="button"
@@ -977,7 +1005,7 @@ export const DoctorAppointments: React.FC = () => {
                     }}
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
                   >
-                    Next Week →
+                    {t('doctor.appointments.nextWeek')} <span aria-hidden="true" className="inline-block rtl:rotate-180">→</span>
                   </button>
                 </div>
                 <div className="grid min-w-[980px] grid-cols-7 gap-3">
@@ -1000,7 +1028,7 @@ export const DoctorAppointments: React.FC = () => {
                             <p className="text-lg font-bold text-slate-900">{formatLocaleDigits(date.getDate(), uiLang)}</p>
                           </div>
                           {isToday ? (
-                            <span className="rounded-full bg-teal-600 px-2 py-1 text-[10px] font-bold text-white">Today</span>
+                            <span className="rounded-full bg-teal-600 px-2 py-1 text-[10px] font-bold text-white">{t('doctor.appointments.today')}</span>
                           ) : null}
                         </div>
                         <div className="space-y-2">
@@ -1043,7 +1071,7 @@ export const DoctorAppointments: React.FC = () => {
                             ))
                           ) : (
                             <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-3 py-5 text-center text-[11px] text-slate-400">
-                              Available
+                              {t('doctor.appointments.available')}
                             </div>
                           )}
                         </div>
@@ -1086,7 +1114,7 @@ export const DoctorAppointments: React.FC = () => {
                     type="search"
                     value={pendingSearchQuery}
                     onChange={(e) => setPendingSearchQuery(e.target.value)}
-                    placeholder="Search by patient name..."
+                    placeholder={t('doctor.appointments.searchPatient')}
                     className="w-full rounded-lg border border-slate-200 py-2 pl-4 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
                   />
                 </div>
@@ -1096,17 +1124,17 @@ export const DoctorAppointments: React.FC = () => {
                     onChange={(e) => setPendingStatusFilter(e.target.value)}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
                   >
-                    <option value="all">All Pending</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="confirmed">Confirmed</option>
+                    <option value="all">{t('doctor.appointments.filterAllPending')}</option>
+                    <option value="scheduled">{t('shared.appointmentStatus.scheduled')}</option>
+                    <option value="confirmed">{t('shared.appointmentStatus.confirmed')}</option>
                   </select>
                   <select
                     value={pendingSortOrder}
                     onChange={(e) => setPendingSortOrder(e.target.value as 'asc' | 'desc')}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
                   >
-                    <option value="asc">Nearest First</option>
-                    <option value="desc">Furthest First</option>
+                    <option value="asc">{t('doctor.appointments.sortNearest')}</option>
+                    <option value="desc">{t('doctor.appointments.sortFurthest')}</option>
                   </select>
                   {(pendingSearchQuery || pendingStatusFilter !== 'all') ? (
                     <button
@@ -1117,7 +1145,7 @@ export const DoctorAppointments: React.FC = () => {
                       }}
                       className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
                     >
-                      Clear
+                      {t('doctor.appointments.clear')}
                     </button>
                   ) : null}
                 </div>
@@ -1131,7 +1159,7 @@ export const DoctorAppointments: React.FC = () => {
                     type="search"
                     value={listSearchQuery}
                     onChange={(e) => setListSearchQuery(e.target.value)}
-                    placeholder="Search by patient name..."
+                    placeholder={t('doctor.appointments.searchPatient')}
                     className="w-full rounded-lg border border-slate-200 py-2 pl-4 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
                   />
                 </div>
@@ -1141,21 +1169,21 @@ export const DoctorAppointments: React.FC = () => {
                     onChange={(e) => setListStatusFilter(e.target.value)}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
                   >
-                    <option value="all">All Statuses</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="no_show">No Show</option>
+                    <option value="all">{t('doctor.appointments.filterAllStatuses')}</option>
+                    <option value="scheduled">{t('shared.appointmentStatus.scheduled')}</option>
+                    <option value="confirmed">{t('shared.appointmentStatus.confirmed')}</option>
+                    <option value="in_progress">{t('shared.appointmentStatus.in_progress')}</option>
+                    <option value="completed">{t('shared.appointmentStatus.completed')}</option>
+                    <option value="cancelled">{t('shared.appointmentStatus.cancelled')}</option>
+                    <option value="no_show">{t('shared.appointmentStatus.no_show')}</option>
                   </select>
                   <select
                     value={listSortOrder}
                     onChange={(e) => setListSortOrder(e.target.value as 'asc' | 'desc')}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20"
                   >
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
+                    <option value="desc">{t('doctor.appointments.sortNewest')}</option>
+                    <option value="asc">{t('doctor.appointments.sortOldest')}</option>
                   </select>
                   {(listSearchQuery || listStatusFilter !== 'all') ? (
                     <button
@@ -1166,7 +1194,7 @@ export const DoctorAppointments: React.FC = () => {
                       }}
                       className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
                     >
-                      Clear
+                      {t('doctor.appointments.clear')}
                     </button>
                   ) : null}
                 </div>
@@ -1176,50 +1204,35 @@ export const DoctorAppointments: React.FC = () => {
             {activeTab === 'analytics' && !isTodayRoute ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completion rate</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.completionRate')}</p>
                   <p className="mt-3 text-3xl font-bold text-slate-900">
-                    {/*
-                      Denominator is appointments that actually had the chance
-                      to complete. Cancelled / no-show rows are excluded so a
-                      busy clinic with frequent no-shows doesn't appear to be
-                      missing completions it never had.
-                    */}
-                    {(() => {
-                      const eligible = routeAppointments.filter(
-                        (appointment) =>
-                          appointment.status !== 'cancelled' &&
-                          appointment.status !== 'no_show'
-                      ).length;
-                      return eligible > 0
-                        ? `${formatLocaleDigits(Math.round((completedCount / eligible) * 100), uiLang)}%`
-                        : '0%';
-                    })()}
+                    {t('doctor.appointments.percentValue', {
+                      value: formatLocaleDigits(
+                        completionEligible > 0 ? Math.round((completedCount / completionEligible) * 100) : 0,
+                        uiLang
+                      ),
+                    })}
                   </p>
                   <p className="mt-2 text-sm text-slate-500">
-                    {formatLocaleDigits(completedCount, uiLang)} completed of{' '}
-                    {formatLocaleDigits(
-                      routeAppointments.filter(
-                        (appointment) =>
-                          appointment.status !== 'cancelled' &&
-                          appointment.status !== 'no_show'
-                      ).length,
-                      uiLang
-                    )}
+                    {t('doctor.appointments.completionRateBody', {
+                      done: formatLocaleDigits(completedCount, uiLang),
+                      eligible: formatLocaleDigits(completionEligible, uiLang),
+                    })}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pending workload</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.pendingWorkload')}</p>
                   <p className="mt-3 text-3xl font-bold text-amber-600">
                     {formatLocaleDigits(pendingRequestCount, uiLang)}
                   </p>
-                  <p className="mt-2 text-sm text-slate-500">Scheduled or confirmed appointments still in the queue.</p>
+                  <p className="mt-2 text-sm text-slate-500">{t('doctor.appointments.pendingWorkloadBody')}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">No-shows / cancellations</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('doctor.appointments.noShowsCancellations')}</p>
                   <p className="mt-3 text-3xl font-bold text-rose-600">
                     {formatLocaleDigits(cancelledCount, uiLang)}
                   </p>
-                  <p className="mt-2 text-sm text-slate-500">Live from appointment status values.</p>
+                  <p className="mt-2 text-sm text-slate-500">{t('doctor.appointments.noShowsCancellationsBody')}</p>
                 </div>
               </div>
             ) : (activeTab === 'pending' ? filteredPendingAppointments : filteredVisibleAppointments).length === 0 ? (

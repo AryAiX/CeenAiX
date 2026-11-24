@@ -25,6 +25,8 @@ const errDeleteMessage = () =>
   i18n.t('messaging.errDeleteMessage', { defaultValue: 'Unable to delete message.' });
 const errEditMessage = () =>
   i18n.t('messaging.errEditMessage', { defaultValue: 'Unable to edit message.' });
+const errRestoreMessage = () =>
+  i18n.t('messaging.errRestoreMessage', { defaultValue: 'Unable to restore the message.' });
 
 interface UserProfileRow {
   user_id: string;
@@ -444,6 +446,31 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     [activeConversationId, loadConversations, loadMessages, userId]
   );
 
+  /** QA-154: Undo after delete. Deleting is immediate, so Undo puts the message back. */
+  const restoreMessage = useCallback(
+    async (messageId: string): Promise<boolean> => {
+      if (!userId) return false;
+      setWorking(true);
+      setActionError(null);
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .update({ is_deleted: false })
+          .eq('id', messageId)
+          .eq('sender_id', userId);
+        if (error) throw error;
+        await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
+        return true;
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : errRestoreMessage());
+        return false;
+      } finally {
+        setWorking(false);
+      }
+    },
+    [activeConversationId, loadConversations, loadMessages, userId]
+  );
+
   const updateMessage = useCallback(
     async (messageId: string, newBody: string): Promise<boolean> => {
       if (!userId) return false;
@@ -484,6 +511,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
     ensureDirectConversation,
     sendMessage,
     deleteMessage,
+    restoreMessage,
     updateMessage,
     refresh: loadConversations,
   };

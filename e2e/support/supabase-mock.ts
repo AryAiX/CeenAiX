@@ -2073,9 +2073,11 @@ const rpcPayload = (
       });
       return { ok: true };
     case 'cancel_doctor_appointment':
+    case 'cancel_doctor_appointment_with_reason':
       updateAppointment(state, (payload as JsonRecord | null)?.p_appointment_id, {
         status: 'cancelled',
         cancelled_at: now.toISOString(),
+        cancellation_reason: (payload as JsonRecord | null)?.p_reason ?? null,
       });
       return { ok: true };
     case 'reschedule_patient_appointment':
@@ -2766,6 +2768,41 @@ const handleAuthRoute = async (route: Route, fallbackRole: E2ERole) => {
   await json(route, {});
 };
 
+const workflowLabOrderItems = (items: JsonRecord[]): JsonRecord[] =>
+  items.map((item, index) => ({
+    ...item,
+    id: index === 0 ? workflowIds.labOrderItem : `${workflowIds.labOrderItem}-${index + 1}`,
+    parent_item_id: null,
+    sort_order: index + 1,
+    loinc_code: item.loinc_code ?? null,
+    display_name_long: item.test_name ?? null,
+    description: null,
+    status_category: 'pending',
+    flag: null,
+    result_value: null,
+    result_unit: null,
+    numeric_value: null,
+    reference_range: null,
+    reference_text: null,
+    reference_min: null,
+    reference_max: null,
+    is_abnormal: null,
+    doctor_comment: null,
+    patient_explanation: null,
+    retest_due_date: null,
+    fasting_required: false,
+    unit_cost_aed: null,
+    insurance_coverage_aed: null,
+    patient_cost_aed: null,
+    status_label: 'Pending',
+    category_color: '#10b981',
+    trend_direction: null,
+    reference_zones: null,
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+    resulted_at: null,
+  }));
+
 const handleRestRoute = async (
   route: Route,
   fallbackRole: E2ERole,
@@ -2783,6 +2820,29 @@ const handleRestRoute = async (
   }
 
   const currentUser = userForRequest(route, fallbackRole);
+
+  if (state && url.pathname.includes('/rest/v1/rpc/') && table === 'create_doctor_lab_order') {
+    const input = (parsePostData(route) ?? {}) as JsonRecord;
+    const labOrder = {
+      patient_id: input.p_patient_id,
+      doctor_id: currentUser.id,
+      appointment_id: input.p_appointment_id ?? null,
+      status: 'ordered',
+      id: workflowIds.labOrder,
+      assigned_lab_id: labId,
+      ordered_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      is_deleted: false,
+    };
+    state.labOrders.push(labOrder);
+    state.labOrderItems.push(
+      ...workflowLabOrderItems(
+        asArray(input.p_items).map((item) => ({ ...item, lab_order_id: labOrder.id, status: 'ordered' }))
+      )
+    );
+    await json(route, labOrder.id);
+    return;
+  }
 
   if (url.pathname.includes('/rest/v1/rpc/')) {
     await json(route, rpcPayload(table, state, parsePostData(route), currentUser));
@@ -2829,39 +2889,7 @@ const handleRestRoute = async (
     }
 
     if (state && method === 'POST' && table === 'lab_order_items') {
-      const insertedItems = asArray(payload).map((item, index) => ({
-        ...item,
-        id: index === 0 ? workflowIds.labOrderItem : `${workflowIds.labOrderItem}-${index + 1}`,
-        parent_item_id: null,
-        sort_order: index + 1,
-        loinc_code: item.loinc_code ?? null,
-        display_name_long: item.test_name ?? null,
-        description: null,
-        status_category: 'pending',
-        flag: null,
-        result_value: null,
-        result_unit: null,
-        numeric_value: null,
-        reference_range: null,
-        reference_text: null,
-        reference_min: null,
-        reference_max: null,
-        is_abnormal: null,
-        doctor_comment: null,
-        patient_explanation: null,
-        retest_due_date: null,
-        fasting_required: false,
-        unit_cost_aed: null,
-        insurance_coverage_aed: null,
-        patient_cost_aed: null,
-        status_label: 'Pending',
-        category_color: '#10b981',
-        trend_direction: null,
-        reference_zones: null,
-        created_at: now.toISOString(),
-        updated_at: now.toISOString(),
-        resulted_at: null,
-      }));
+      const insertedItems = workflowLabOrderItems(asArray(payload));
       state.labOrderItems.push(...insertedItems);
       await json(route, isObjectResponse(route) ? insertedItems[0] ?? {} : insertedItems);
       return;

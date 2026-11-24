@@ -11,6 +11,18 @@ const UPCOMING_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 
 
 export type DoctorPatientRisk = 'critical' | 'high' | 'medium' | 'low' | 'new';
 
+/**
+ * QA-131: flags are structured so the page can translate them. They used to be English
+ * strings ("Allergy: Penicillin (severe)", "In session") and the page chose risk, colour and
+ * icon by matching words in that text; translated text would have silently broken
+ * "Critical" detection. Risk now comes from the allergy's severity field.
+ */
+export type DoctorPatientFlag =
+  | { kind: 'allergy'; allergen: string; severity: string | null }
+  | { kind: 'inSession' }
+  | { kind: 'priorNoShow' }
+  | { kind: 'newPatient' };
+
 export interface DoctorPatientSummary {
   id: string;
   name: string;
@@ -23,7 +35,7 @@ export interface DoctorPatientSummary {
   risk: DoctorPatientRisk;
   conditions: string[];
   allergies: string[];
-  flags: string[];
+  flags: DoctorPatientFlag[];
   totalAppointments: number;
   upcomingAppointments: number;
   nextAppointment: string | null;
@@ -215,13 +227,19 @@ export function useDoctorPatients(userId: string | null | undefined) {
       ]);
     }
     const allergiesByPatientId = new Map<string, string[]>();
+    const allergyRecordsByPatientId = new Map<string, Array<{ allergen: string; severity: string | null }>>();
     for (const allergy of (allergies ?? []) as AllergyRow[]) {
       if (!allergy.allergen) {
         continue;
       }
 
+      // Unchanged label: CreatePrescription / CreateLabOrder show it as an allergy warning.
       const label = allergy.severity ? `${allergy.allergen} (${allergy.severity})` : allergy.allergen;
       allergiesByPatientId.set(allergy.patient_id, [...(allergiesByPatientId.get(allergy.patient_id) ?? []), label]);
+      allergyRecordsByPatientId.set(allergy.patient_id, [
+        ...(allergyRecordsByPatientId.get(allergy.patient_id) ?? []),
+        { allergen: allergy.allergen, severity: allergy.severity ?? null },
+      ]);
     }
 
     const now = Date.now();
@@ -253,14 +271,17 @@ export function useDoctorPatients(userId: string | null | undefined) {
       const latestAppointment = appointmentsForPatient[0] ?? null;
       const conditions = conditionsByPatientId.get(patientId) ?? [];
       const patientAllergies = allergiesByPatientId.get(patientId) ?? [];
-      const flags = [
-        ...patientAllergies.map((allergy) => `Allergy: ${allergy}`),
-        ...(nextAppointment?.status === 'in_progress' ? ['In session'] : []),
-        ...(appointmentsForPatient.some((appointment) => appointment.status === 'no_show') ? ['Prior no-show'] : []),
-        ...(appointmentsForPatient.length <= 1 ? ['New patient'] : []),
+      const allergyRecords = allergyRecordsByPatientId.get(patientId) ?? [];
+      const flags: DoctorPatientFlag[] = [
+        ...allergyRecords.map((allergy) => ({ kind: 'allergy' as const, ...allergy })),
+        ...(nextAppointment?.status === 'in_progress' ? [{ kind: 'inSession' as const }] : []),
+        ...(appointmentsForPatient.some((appointment) => appointment.status === 'no_show')
+          ? [{ kind: 'priorNoShow' as const }]
+          : []),
+        ...(appointmentsForPatient.length <= 1 ? [{ kind: 'newPatient' as const }] : []),
       ];
       const risk: DoctorPatientRisk =
-        flags.some((flag) => /severe|critical/i.test(flag))
+        allergyRecords.some((allergy) => allergy.severity === 'severe')
           ? 'critical'
           : patientAllergies.length > 0 || conditions.length >= 2
             ? 'high'

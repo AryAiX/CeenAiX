@@ -22,6 +22,8 @@ import { AiScribePanel, LiveSessionPanel, RecordingControlBar } from '../../comp
 import type { AppliedSoap } from '../../components/consultation';
 import { LabTestNameDisplay } from '../../components/LabTestNameDisplay';
 import { useDoctorAppointmentDetail, useQuery } from '../../hooks';
+import { canDoctorSetStatus, getDoctorAppointmentActions } from '../../lib/appointment-actions';
+import { createNotePersister } from '../../lib/consultation-note-persister';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import {
@@ -30,6 +32,7 @@ import {
   dateTimeFormatWithNumerals,
   labOrderStatusLabel,
   prescriptionStatusLabel,
+  preVisitStatusLabel,
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { formatCanonicalValueForReview } from '../../lib/canonical-record-updates';
@@ -57,12 +60,56 @@ const toReviewValue = (value: unknown): Parameters<typeof formatCanonicalValueFo
     ? (value as Parameters<typeof formatCanonicalValueForReview>[0])
     : { value: null };
 
+const PRE_VISIT_STATUS_ICON: Record<string, string> = {
+  completed: '✅',
+  reviewed: '👁️',
+  in_progress: '⏳',
+  not_started: '🔘',
+};
+
+type ConsultationNotePayload = {
+  appointment_id: string;
+  doctor_id: string;
+  subjective: string | null;
+  objective: string | null;
+  assessment: string | null;
+  plan: string | null;
+  doctor_approved: boolean;
+  is_deleted: boolean;
+};
+
 export const DoctorAppointmentDetail: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const { appointmentId } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { data, loading, error, refetch } = useDoctorAppointmentDetail(user?.id, appointmentId);
+
+  // QA-120: one note per appointment. Fresh persister per appointment; it remembers the
+  // note id after the first insert and serialises saves (autosave, manual save, scribe).
+  const notePersister = useMemo(
+    () =>
+      createNotePersister<ConsultationNotePayload>({
+        insert: async (payload) => {
+          const { data: row, error: insertError } = await supabase
+            .from('consultation_notes')
+            .insert(payload)
+            .select('id')
+            .single();
+          return { id: row?.id ?? null, error: insertError };
+        },
+        update: async (id, payload) => {
+          const { error: updateError } = await supabase.from('consultation_notes').update(payload).eq('id', id);
+          return { error: updateError };
+        },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new persister per appointment is the point
+    [appointmentId]
+  );
+  const loadedNoteId = data?.consultationNote?.id;
+  useEffect(() => {
+    notePersister.adoptNoteId(loadedNoteId);
+  }, [notePersister, loadedNoteId]);
 
   const scribe = useConsultationScribeController({
     appointmentId,
@@ -145,7 +192,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
   const approveAndSaveFromScribe = useCallback(
     async (soap: AppliedSoap) => {
       if (!data || !user?.id) return;
-      const payload = {
+      const payload: ConsultationNotePayload = {
         appointment_id: data.appointment.id,
         doctor_id: user.id,
         subjective: soap.subjective.trim() || null,
@@ -155,10 +202,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
         doctor_approved: true,
         is_deleted: false,
       };
-      const operation = data.consultationNote
-        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-        : supabase.from('consultation_notes').insert(payload);
-      const { error: noteError } = await operation;
+      const noteError = await notePersister.save(payload);
       if (noteError) {
         setFeedback({ type: 'error', message: noteError.message });
         return;
@@ -174,7 +218,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       setFeedback({ type: 'success', message: t('doctor.consultationScribe.scribe.approvedSaved') });
       refetch();
     },
-    [data, user?.id, scribe, t, refetch]
+    [data, user?.id, scribe, t, refetch, notePersister]
   );
 
   useEffect(() => {
@@ -196,7 +240,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
     async (draft: ConsultationNoteDraft) => {
       if (!data || !user?.id) return;
       setAutoSaveStatus('saving');
-      const payload = {
+      const payload: ConsultationNotePayload = {
         appointment_id: data.appointment.id,
         doctor_id: user.id,
         subjective: draft.subjective.trim() || null,
@@ -206,10 +250,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
         doctor_approved: draft.doctorApproved,
         is_deleted: false,
       };
-      const operation = data.consultationNote
-        ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-        : supabase.from('consultation_notes').insert(payload);
-      const { error: noteError } = await operation;
+      const noteError = await notePersister.save(payload);
       if (!noteError) {
         setAutoSaveStatus('saved');
         if (autoSaveIdleTimer.current) clearTimeout(autoSaveIdleTimer.current);
@@ -219,7 +260,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
         setFeedback({ type: 'error', message: noteError.message });
       }
     },
-    [data, user?.id]
+    [data, user?.id, notePersister]
   );
 
   useEffect(() => {
@@ -253,8 +294,12 @@ export const DoctorAppointmentDetail: React.FC = () => {
     ).length;
   }, [data, noteDraft]);
 
-  const updateAppointmentStatus = async (status: string) => {
+  const updateAppointmentStatus = async (status: 'in_progress' | 'completed' | 'no_show') => {
     if (!data || !user?.id) {
+      return;
+    }
+    // QA-121: the buttons are disabled when a change isn't allowed; this is the backstop.
+    if (!canDoctorSetStatus(data.appointment, status)) {
       return;
     }
 
@@ -281,9 +326,13 @@ export const DoctorAppointmentDetail: React.FC = () => {
 
   const handleCancelAppointment = async () => {
     if (!data) return;
+    if (!getDoctorAppointmentActions(data.appointment).canCancel) {
+      setShowCancelModal(false);
+      return;
+    }
     setFeedback(null);
     setCancellingAppointment(true);
-    const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment', {
+    const { error: cancelError } = await supabase.rpc('cancel_doctor_appointment_with_reason', {
       p_appointment_id: data.appointment.id,
     });
     setCancellingAppointment(false);
@@ -292,7 +341,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       return;
     }
     setShowCancelModal(false);
-    setFeedback({ type: 'success', message: 'Appointment cancelled successfully.' });
+    setFeedback({ type: 'success', message: t('doctor.appointmentDetail.cancelSuccess') });
     refetch();
   };
 
@@ -300,7 +349,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
     if (!data || !user?.id) return;
     setFeedback(null);
     setSavingNote(true);
-    const payload = {
+    const payload: ConsultationNotePayload = {
       appointment_id: data.appointment.id,
       doctor_id: user.id,
       subjective: noteDraft.subjective.trim() || null,
@@ -310,10 +359,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
       doctor_approved: noteDraft.doctorApproved,
       is_deleted: false,
     };
-    const operation = data.consultationNote
-      ? supabase.from('consultation_notes').update(payload).eq('id', data.consultationNote.id)
-      : supabase.from('consultation_notes').insert(payload);
-    const { error: noteError } = await operation;
+    const noteError = await notePersister.save(payload);
     setSavingNote(false);
     if (noteError) {
       setFeedback({ type: 'error', message: noteError.message });
@@ -398,6 +444,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
     );
   }
 
+  const actions = getDoctorAppointmentActions(data.appointment);
+
   const formatPreVisitAnswer = (answerText: string | null, answerJson: unknown): string => {
     if (Array.isArray(answerJson) && answerJson.length > 0) {
       return (answerJson as string[]).join(', ');
@@ -422,8 +470,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
           onClick={() => navigate('/doctor/appointments')}
           className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Appointments
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+          {t('doctor.consultationWorkspace.actionBackAppointments')}
         </button>
         <h1 className="text-2xl font-bold text-slate-900">{t('doctor.appointmentDetail.title')}</h1>
         <p className="mt-1 text-sm text-slate-500">{patientName}</p>
@@ -534,7 +582,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                     className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
                   >
                     <Video className="h-4 w-4" />
-                    <span>Join video visit</span>
+                    <span>{t('doctor.appointmentDetail.joinVideoVisit')}</span>
                   </button>
                 ) : null}
                 <button
@@ -561,15 +609,15 @@ export const DoctorAppointmentDetail: React.FC = () => {
             </div>
           </div>
 
-          <div className={`grid gap-4 p-6 ${['scheduled', 'confirmed', 'in_progress'].includes(data.appointment.status) ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
+          <div className={`grid gap-4 p-6 ${actions.canCancel ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || !actions.canStart}
               onClick={() => updateAppointmentStatus('in_progress')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'in_progress'
-                  ? 'border-teal-400 bg-teal-50 ring-2 ring-teal-400'
-                  : 'border-slate-200 bg-slate-50 hover:border-teal-200 hover:bg-teal-50'
+                  ? 'border-teal-400 bg-teal-50 ring-2 ring-teal-400 disabled:cursor-default disabled:opacity-100'
+                  : 'border-slate-200 bg-slate-50 hover:border-teal-200 hover:bg-teal-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -583,17 +631,17 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </p>
               </div>
               {data.appointment.status === 'in_progress' ? (
-                <p className="mt-1 text-[10px] font-medium text-teal-600">● Currently active</p>
+                <p className="mt-1 text-[10px] font-medium text-teal-600">● {t('doctor.appointmentDetail.currentlyActive')}</p>
               ) : null}
             </button>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || !actions.canComplete}
               onClick={() => updateAppointmentStatus('completed')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'completed'
-                  ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400'
-                  : 'border-slate-200 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50'
+                  ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400 disabled:cursor-default disabled:opacity-100'
+                  : 'border-slate-200 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -607,17 +655,17 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </p>
               </div>
               {data.appointment.status === 'completed' ? (
-                <p className="mt-1 text-[10px] font-medium text-emerald-600">✓ Appointment done</p>
+                <p className="mt-1 text-[10px] font-medium text-emerald-600">✓ {t('doctor.appointmentDetail.appointmentDone')}</p>
               ) : null}
             </button>
             <button
               type="button"
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || !actions.canMarkNoShow}
               onClick={() => updateAppointmentStatus('no_show')}
               className={`rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60 ${
                 data.appointment.status === 'no_show'
-                  ? 'border-red-400 bg-red-50 ring-2 ring-red-400'
-                  : 'border-slate-200 bg-slate-50 hover:border-red-200 hover:bg-red-50'
+                  ? 'border-red-400 bg-red-50 ring-2 ring-red-400 disabled:cursor-default disabled:opacity-100'
+                  : 'border-slate-200 bg-slate-50 hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -627,14 +675,14 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <p className={`text-xs font-semibold uppercase tracking-wide ${
                   data.appointment.status === 'no_show' ? 'text-red-700' : 'text-slate-500'
                 }`}>
-                  No-Show
+                  {t('doctor.appointmentDetail.statusNoShow')}
                 </p>
               </div>
               {data.appointment.status === 'no_show' ? (
-                <p className="mt-1 text-[10px] font-medium text-red-600">✗ Patient did not attend</p>
+                <p className="mt-1 text-[10px] font-medium text-red-600">✗ {t('doctor.appointmentDetail.patientDidNotAttend')}</p>
               ) : null}
             </button>
-            {['scheduled', 'confirmed'].includes(data.appointment.status) ? (
+            {actions.canCancel ? (
               <button
                 type="button"
                 onClick={() => setShowCancelModal(true)}
@@ -643,10 +691,10 @@ export const DoctorAppointmentDetail: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-red-600">
-                    Cancel Appointment
+                    {t('doctor.appointments.cancel')}
                   </p>
                 </div>
-                <p className="mt-1 text-[10px] font-medium text-red-500">Notify patient and cancel</p>
+                <p className="mt-1 text-[10px] font-medium text-red-500">{t('doctor.appointmentDetail.cancelCardBody')}</p>
               </button>
             ) : null}
             <div className="rounded-2xl bg-slate-50 p-4">
@@ -681,7 +729,8 @@ export const DoctorAppointmentDetail: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
                 >
                   <User className="h-4 w-4" />
-                  View Full Record ↗
+                  {t('doctor.appointmentDetail.viewFullRecord')}{' '}
+                  <span aria-hidden="true" className="inline-block rtl:-scale-x-100">↗</span>
                 </a>
               </div>
               <div className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
@@ -748,11 +797,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                         : data.preVisitAssessment.status === 'in_progress' ? 'text-amber-700'
                         : 'text-slate-500'
                       }`}>
-                        {data.preVisitAssessment.status === 'completed' ? '✅ Completed'
-                        : data.preVisitAssessment.status === 'reviewed' ? '👁️ Reviewed'
-                        : data.preVisitAssessment.status === 'in_progress' ? '⏳ In Progress'
-                        : data.preVisitAssessment.status === 'not_started' ? '🔘 Not Started'
-                        : data.preVisitAssessment.status}
+                        {`${PRE_VISIT_STATUS_ICON[data.preVisitAssessment.status] ?? ''} ${preVisitStatusLabel(t, data.preVisitAssessment.status)}`.trim()}
                       </span>
                     </p>
                     {data.preVisitSummary ? (
@@ -770,13 +815,13 @@ export const DoctorAppointmentDetail: React.FC = () => {
                       <div className="mt-3 space-y-3">
                         {data.preVisitAnswers.map((answer) => {
                           const badge = answer.question_type === 'boolean' ? (
-                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">Yes/No</span>
+                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{t('doctor.appointmentDetail.questionTypeBoolean')}</span>
                           ) : answer.question_type === 'multi_select' ? (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Multi-select</span>
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">{t('doctor.appointmentDetail.questionTypeMulti')}</span>
                           ) : answer.question_type === 'single_select' ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Single choice</span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{t('doctor.appointmentDetail.questionTypeSingle')}</span>
                           ) : answer.question_type === 'date' ? (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Date</span>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{t('doctor.appointmentDetail.questionTypeDate')}</span>
                           ) : null;
                           return (
                             <div key={answer.id} className="rounded-xl bg-white px-3 py-3">
@@ -838,7 +883,9 @@ export const DoctorAppointmentDetail: React.FC = () => {
                                   ? 'bg-emerald-100 text-emerald-700'
                                   : 'bg-amber-100 text-amber-700'
                               }`}>
-                                {item.review_status === 'reviewed' ? '✅ Reviewed' : '⏳ Pending Review'}
+                                {item.review_status === 'reviewed'
+                                  ? `✅ ${t('shared.labOrderItemStatus.reviewed')}`
+                                  : `⏳ ${t('doctor.appointmentDetail.pendingReview')}`}
                               </span>
                             </div>
                           </div>
@@ -895,7 +942,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                                 ))}
                               </div>
                             ) : (
-                              <p className="border-t border-slate-100 pt-2 text-xs text-slate-400">No medication details available</p>
+                              <p className="border-t border-slate-100 pt-2 text-xs text-slate-400">{t('doctor.appointmentDetail.noMedicationDetails')}</p>
                             )}
                           </div>
                         );
@@ -950,9 +997,9 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 <h3 className="text-xl font-bold text-slate-900">{t('doctor.appointmentDetail.soapTitle')}</h3>
                 <p className="text-sm text-slate-600">
                   {autoSaveStatus === 'saving' ? (
-                    <span className="text-amber-600">⏳ Auto-saving...</span>
+                    <span className="text-amber-600">⏳ {t('doctor.appointmentDetail.autoSaving')}</span>
                   ) : autoSaveStatus === 'saved' ? (
-                    <span className="text-emerald-600">✓ Auto-saved</span>
+                    <span className="text-emerald-600">✓ {t('doctor.appointmentDetail.autoSaved')}</span>
                   ) : (
                     t('doctor.appointmentDetail.soapSub')
                   )}
@@ -962,7 +1009,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 {noteSaved ? (
                   <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
                     <CheckCircle2 className="h-4 w-4" />
-                    Saved!
+                    {t('doctor.appointmentDetail.savedShort')}
                   </span>
                 ) : null}
                 <button
@@ -1072,7 +1119,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Cancel Appointment</h2>
+              <h2 className="text-lg font-bold text-slate-900">{t('doctor.appointments.cancel')}</h2>
               <button
                 type="button"
                 onClick={() => setShowCancelModal(false)}
@@ -1091,7 +1138,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 </p>
               </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                ⚠️ Cancelling this appointment will notify the patient immediately. This action cannot be undone.
+                ⚠️ {t('doctor.appointmentDetail.cancelWarning')}
               </div>
             </div>
             <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
@@ -1100,7 +1147,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 onClick={() => setShowCancelModal(false)}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                Keep Appointment
+                {t('doctor.appointmentDetail.keepAppointment')}
               </button>
               <button
                 type="button"
@@ -1108,7 +1155,7 @@ export const DoctorAppointmentDetail: React.FC = () => {
                 onClick={handleCancelAppointment}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
               >
-                {cancellingAppointment ? 'Cancelling...' : 'Cancel Appointment'}
+                {cancellingAppointment ? t('doctor.appointments.cancelling') : t('doctor.appointments.cancel')}
               </button>
             </div>
           </div>

@@ -1,5 +1,11 @@
 import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
+import {
+  pickCriticalResults,
+  toDashboardLabResults,
+  type DashboardLabItemRow,
+  type DashboardLabResult,
+} from '../lib/doctor-dashboard-labs';
 import { CLINIC_TIME_ZONE, clinicDayUtcBounds, isSameCalendarDayInTimeZone } from '../lib/i18n-ui';
 import { getMessagePreviewText } from '../lib/messaging';
 import type { AppointmentStatus, AppointmentType, LabOrderStatus, PreVisitAssessmentStatus } from '../types';
@@ -38,18 +44,8 @@ export interface DoctorDashboardMessagePreview {
   readAt: string | null;
 }
 
-export interface DoctorCriticalResult {
-  id: string;
-  labOrderId: string;
-  patientId: string;
-  patientName: string;
-  testName: string;
-  resultValue: string | null;
-  resultUnit: string | null;
-  referenceRange: string | null;
-  resultedAt: string;
-  labOrderStatus: LabOrderStatus;
-}
+// QA-180: shape and rules live in ../lib/doctor-dashboard-labs.
+export type DoctorCriticalResult = DashboardLabResult;
 
 export interface DoctorQueueAppointment {
   id: string;
@@ -75,7 +71,6 @@ export interface DoctorDashboardData {
   pendingReviews: number;
   prescriptionsToday: number;
   labOrdersToday: number;
-  estimatedRevenueToday: number | null;
   activeConsultation: DoctorNextAppointment | null;
   nextAppointment: DoctorNextAppointment | null;
   todaySchedule: DoctorQueueAppointment[];
@@ -144,10 +139,6 @@ interface PrescriptionRow {
   prescription_items?: PrescriptionMedicationRow[] | null;
 }
 
-interface DoctorProfileFeeRow {
-  consultation_fee: number | null;
-}
-
 interface ConversationRow {
   id: string;
   subject: string | null;
@@ -169,16 +160,7 @@ interface LabOrderRow {
   status: LabOrderStatus;
 }
 
-interface LabOrderItemRow {
-  id: string;
-  lab_order_id: string;
-  test_name: string;
-  result_value: string | null;
-  result_unit: string | null;
-  reference_range: string | null;
-  is_abnormal: boolean | null;
-  resulted_at: string | null;
-}
+type LabOrderItemRow = DashboardLabItemRow;
 
 const UPCOMING_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 'in_progress']);
 const TODAY_ACTIVE_STATUSES = new Set<AppointmentStatus>(['scheduled', 'confirmed', 'in_progress', 'completed']);
@@ -298,7 +280,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       { data: conditionRows, error: conditionsError },
       { data: allergyRows, error: allergiesError },
       { data: prescriptionRows, error: prescriptionsError },
-      { data: doctorProfileRows, error: doctorProfileError },
       { count: prescriptionsTodayCount, error: prescriptionsTodayError },
       { count: labOrdersTodayCount, error: labOrdersTodayError },
       { data: preVisitAssessments, error: preVisitAssessmentsError },
@@ -339,7 +320,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
             .eq('doctor_id', userId)
             .eq('is_deleted', false)
         : Promise.resolve({ data: [], error: null }),
-      supabase.from('doctor_profiles').select('consultation_fee').eq('user_id', userId).maybeSingle(),
       supabase
         .from('prescriptions')
         .select('id', { count: 'exact', head: true })
@@ -368,7 +348,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     if (conditionsError) throw conditionsError;
     if (allergiesError) throw allergiesError;
     if (prescriptionsError) throw prescriptionsError;
-    if (doctorProfileError) throw doctorProfileError;
     if (prescriptionsTodayError) throw prescriptionsTodayError;
     if (labOrdersTodayError) throw labOrdersTodayError;
     if (preVisitAssessmentsError) throw preVisitAssessmentsError;
@@ -430,7 +409,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       pushMapValue(appointmentsByPatientId, appointment.patient_id, appointment);
     });
 
-    const consultationFee = ((doctorProfileRows as DoctorProfileFeeRow | null) ?? null)?.consultation_fee ?? null;
 
     const buildAppointment = (appointment: AppointmentRow): DoctorNextAppointment => {
       const patientProfile = patientProfileById.get(appointment.patient_id);
@@ -560,16 +538,19 @@ export function useDoctorDashboard(userId: string | null | undefined) {
         { count, error: unreadMessagesError },
         { data: recentMessageRows, error: recentMessagesError },
       ] = await Promise.all([
+        // QA-181: skip deleted messages (QA-154), like Notifications (QA-160) and the sidebar badge (QA-161).
         supabase
           .from('messages')
           .select('id', { count: 'exact', head: true })
           .in('conversation_id', conversationIds)
+          .eq('is_deleted', false)
           .is('read_at', null)
           .neq('sender_id', userId),
         supabase
           .from('messages')
           .select('id, conversation_id, sender_id, body, sent_at, read_at')
           .in('conversation_id', conversationIds)
+          .eq('is_deleted', false)
           .neq('sender_id', userId)
           .gte('sent_at', startOfTodayIso)
           .lte('sent_at', endOfTodayIso)
@@ -620,7 +601,9 @@ export function useDoctorDashboard(userId: string | null | undefined) {
     if (labOrderIds.length > 0) {
       const { data: labOrderItems, error: labOrderItemsError } = await supabase
         .from('lab_order_items')
-        .select('id, lab_order_id, test_name, result_value, result_unit, reference_range, is_abnormal, resulted_at')
+        .select(
+          'id, lab_order_id, test_name, result_value, result_unit, reference_range, is_abnormal, resulted_at, numeric_value, flag, status_category'
+        )
         .in('lab_order_id', labOrderIds)
         .in('status', ['resulted', 'reviewed'])
         .not('resulted_at', 'is', null)
@@ -631,61 +614,13 @@ export function useDoctorDashboard(userId: string | null | undefined) {
 
       const labOrderById = new Map(safeLabOrders.map((labOrder) => [labOrder.id, labOrder]));
 
-      const normalizedLabResults = ((labOrderItems ?? []) as LabOrderItemRow[])
-        .filter((item) => item.resulted_at)
-        .map((item) => {
-          const labOrder = labOrderById.get(item.lab_order_id);
-          const patientId = labOrder?.patient_id ?? '';
-
-          return {
-            id: item.id,
-            labOrderId: item.lab_order_id,
-            patientId,
-            patientName: patientNameById.get(patientId) ?? patientFallback(),
-            testName: item.test_name,
-            resultValue: item.result_value,
-            resultUnit: item.result_unit,
-            referenceRange: item.reference_range,
-            resultedAt: item.resulted_at as string,
-            labOrderStatus: labOrder?.status ?? 'reviewed',
-            isAbnormal: item.is_abnormal === true,
-          };
-        });
-
-      criticalResults = normalizedLabResults
-        .filter(
-          (item) =>
-            item.isAbnormal && (item.labOrderStatus === 'resulted' || item.labOrderStatus === 'reviewed')
-        )
-        .slice(0, 3)
-        .map((item) => ({
-          id: item.id,
-          labOrderId: item.labOrderId,
-          patientId: item.patientId,
-          patientName: item.patientName,
-          testName: item.testName,
-          resultValue: item.resultValue,
-          resultUnit: item.resultUnit,
-          referenceRange: item.referenceRange,
-          resultedAt: item.resultedAt,
-          labOrderStatus: item.labOrderStatus,
-        }));
-
-      recentLabResults = normalizedLabResults
-        .filter((item) => item.isAbnormal)
-        .slice(0, 4)
-        .map((item) => ({
-          id: item.id,
-          labOrderId: item.labOrderId,
-          patientId: item.patientId,
-          patientName: item.patientName,
-          testName: item.testName,
-          resultValue: item.resultValue,
-          resultUnit: item.resultUnit,
-          referenceRange: item.referenceRange,
-          resultedAt: item.resultedAt,
-          labOrderStatus: item.labOrderStatus,
-        }));
+      const normalizedLabResults = toDashboardLabResults(
+        (labOrderItems ?? []) as LabOrderItemRow[],
+        labOrderById,
+        (patientId) => patientNameById.get(patientId) ?? patientFallback()
+      );
+      criticalResults = pickCriticalResults(normalizedLabResults);
+      recentLabResults = normalizedLabResults.slice(0, 4);
     }
 
     return {
@@ -698,8 +633,6 @@ export function useDoctorDashboard(userId: string | null | undefined) {
       pendingReviews: (pendingNotesCount ?? 0) + preVisitReviewCount + (patientUpdateReviewCount ?? 0),
       prescriptionsToday: prescriptionsTodayCount ?? 0,
       labOrdersToday: labOrdersTodayCount ?? 0,
-      estimatedRevenueToday:
-        consultationFee !== null && todayAppointments > 0 ? consultationFee * todayAppointments : null,
       activeConsultation: activeConsultationSource ? buildAppointment(activeConsultationSource) : null,
       nextAppointment: nextAppointmentSource ? buildAppointment(nextAppointmentSource) : null,
       todaySchedule,

@@ -1,12 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   useDoctorPatients,
   useLabTestCatalogSearch,
   useQuery,
 } from '../../hooks';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -26,6 +27,7 @@ vi.mock('../../lib/auth-context', () => ({
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }));
 
@@ -80,6 +82,9 @@ describe('CreateLabOrder metadata persistence', () => {
   const useQueryMock = vi.mocked(useQuery);
   const useAuthMock = vi.mocked(useAuth);
   const fromMock = vi.mocked(supabase.from);
+  const rpcMock = vi.mocked(supabase.rpc);
+  /** The tests sent to create_doctor_lab_order (QA-143: one call saves the order and its tests). */
+  const savedItems = () => (rpcMock.mock.calls[0]?.[1] as { p_items: unknown[] } | undefined)?.p_items;
 
   const labOrderBuilder = createSupabaseQueryBuilder({
     data: { id: 'lab-order-1' },
@@ -96,6 +101,7 @@ describe('CreateLabOrder metadata persistence', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    rpcMock.mockResolvedValue({ data: 'lab-order-1', error: null } as never);
     useAuthMock.mockReturnValue({ user: { id: 'doctor-1' } } as never);
     useDoctorPatientsMock.mockReturnValue({
       data: [{ id: 'patient-1', name: 'Patient One' }],
@@ -162,7 +168,7 @@ describe('CreateLabOrder metadata persistence', () => {
 
   const saveOrder = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(screen.getByRole('button', { name: /save lab order/i }));
-    await waitFor(() => expect(labOrderItemsBuilder.insert).toHaveBeenCalled());
+    await waitFor(() => expect(rpcMock).toHaveBeenCalled());
   };
 
   it('writes an authoritative LOINC code and specimen from a LOINC catalog selection', async () => {
@@ -181,7 +187,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: '58410-2',
         loinc_code: '58410-2',
@@ -206,7 +212,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Custom Metabolic Panel/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: 'CUSTOM-CMP-1',
         loinc_code: null,
@@ -237,7 +243,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Novel Marker/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: 'SUGGESTED-42',
         loinc_code: null,
@@ -262,7 +268,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Respiratory Pathogen Test/i }));
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_code: '94500-6',
         loinc_code: '94500-6',
@@ -298,7 +304,7 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(customOptions[customOptions.length - 1]);
     await saveOrder(user);
 
-    expect(labOrderItemsBuilder.insert).toHaveBeenCalledWith([
+    expect(savedItems()).toEqual([
       expect.objectContaining({
         test_name: 'Complete Blood Count',
         test_code: '58410-2',
@@ -312,5 +318,131 @@ describe('CreateLabOrder metadata persistence', () => {
         specimen_type: 'Serum',
       }),
     ]);
+  });
+
+  it('saves the order and its tests in one call, never row by row (QA-143)', async () => {
+    const loinc = makeCatalog({
+      id: 'catalog-loinc',
+      source: 'loinc',
+      source_code: '58410-2',
+      display_name_en: 'Complete Blood Count',
+      specimen: 'Blood',
+    });
+    renderWithMatches([loinc]);
+    const user = userEvent.setup();
+
+    await selectPatient(user);
+    await user.type(screen.getByPlaceholderText(/search by test name/i), 'Complete');
+    await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
+    await saveOrder(user);
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      'create_doctor_lab_order',
+      expect.objectContaining({ p_patient_id: 'patient-1', p_appointment_id: null })
+    );
+    expect(fromMock).not.toHaveBeenCalledWith('lab_orders');
+    expect(fromMock).not.toHaveBeenCalledWith('lab_order_items');
+  });
+
+  it('starts from the original tests when opened by Reorder (QA-144)', async () => {
+    useLabTestCatalogSearchMock.mockReturnValue({
+      data: { catalogMatches: [], pendingSuggestionMatches: [] },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/doctor/lab-orders/new',
+            search: '?patient=patient-1',
+            state: {
+              reorderItems: [
+                {
+                  labTestCatalogId: 'catalog-loinc',
+                  labTestCatalogSuggestionId: null,
+                  testName: 'Complete Blood Count',
+                  testNameAr: '',
+                  testCode: '58410-2',
+                  loincCode: '58410-2',
+                  specimen: 'Blood',
+                },
+              ],
+            },
+          },
+        ]}
+      >
+        <CreateLabOrder />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByDisplayValue('Complete Blood Count')).toBeInTheDocument();
+    await saveOrder(user);
+    expect(savedItems()).toEqual([
+      expect.objectContaining({
+        lab_test_catalog_id: 'catalog-loinc',
+        test_name: 'Complete Blood Count',
+        loinc_code: '58410-2',
+        specimen_type: 'Blood',
+      }),
+    ]);
+  });
+
+  it('goes back to the list with a saved flag and points the patient to Lab Results (QA-147)', async () => {
+    let landed: { path: string; state: unknown } | null = null;
+    const ListProbe = () => {
+      const location = useLocation();
+      landed = { path: location.pathname, state: location.state };
+      return null;
+    };
+    const loinc = makeCatalog({ id: 'catalog-loinc', source: 'loinc', source_code: '58410-2', display_name_en: 'Complete Blood Count' });
+    useLabTestCatalogSearchMock.mockReturnValue({
+      data: { catalogMatches: [{ ...loinc, displayNameEn: loinc.display_name_en, displayNameAr: null }], pendingSuggestionMatches: [] },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/doctor/lab-orders/new']}>
+        <Routes>
+          <Route path="/doctor/lab-orders/new" element={<CreateLabOrder />} />
+          <Route path="/doctor/lab-orders" element={<ListProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await selectPatient(user);
+    await user.type(screen.getByPlaceholderText(/search by test name/i), 'Complete');
+    await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
+    await saveOrder(user);
+    await waitFor(() => expect(landed).toEqual({ path: '/doctor/lab-orders', state: { labOrderSaved: true } }));
+    expect(notificationsBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({ action_url: '/patient/lab-results' }));
+  });
+
+  it('shows no English labels in Arabic (QA-147)', async () => {
+    await i18n.changeLanguage('ar');
+    try {
+      const user = userEvent.setup();
+      renderWithMatches([]);
+      await user.click(screen.getByRole('button', { name: i18n.t('doctor.createLabOrder.save') }));
+      await user.type(screen.getByPlaceholderText(i18n.t('doctor.createLabOrder.searchTestPlaceholder')), 'x');
+      await user.click(screen.getByRole('button', { name: i18n.t('doctor.createLabOrder.backToList') }));
+      const text = document.body.textContent ?? '';
+      for (const english of [
+        'Back to Lab Orders',
+        'Please select a patient',
+        'Please search and select a lab test',
+        'Leave without saving?',
+        'Keep Editing',
+        'Leave Anyway',
+      ]) {
+        expect(text).not.toContain(english);
+      }
+      expect(screen.getByText(i18n.t('doctor.createLabOrder.leaveTitle'))).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage('en');
+    }
   });
 });

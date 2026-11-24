@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { jsPDF } from 'jspdf';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle, MessageSquare, Pill, Printer, Search, Users, X } from 'lucide-react';
 import { Skeleton } from '../../components/Skeleton';
 import { MedicationNameDisplay } from '../../components/MedicationNameDisplay';
 import { useDoctorPrescriptions } from '../../hooks';
+import type { DoctorPrescriptionRecord } from '../../hooks/use-doctor-prescriptions';
 import { useAuth } from '../../lib/auth-context';
 import {
   dateTimeFormatWithNumerals,
@@ -15,12 +15,30 @@ import {
   resolveLocale,
 } from '../../lib/i18n-ui';
 import { formatMedicationDetailLine } from '../../lib/medication-display';
+import {
+  downloadPrescriptionPdf,
+  printPrescription as openPrescriptionPrint,
+  type PrescriptionPrintContent,
+} from '../../lib/prescription-print';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+
+/** Lets keyboard users open the summary cards with Enter or Space, like a button. */
+const activateOnKey = (event: React.KeyboardEvent, action: () => void) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    action();
+  }
+};
 
 export const DoctorPrescriptions: React.FC = () => {
   const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  // Set by New Prescription after a successful save (it returns here instead of showing a next-steps panel).
+  const [showSavedNotice, setShowSavedNotice] = useState(
+    () => Boolean((location.state as { prescriptionSaved?: boolean } | null)?.prescriptionSaved)
+  );
+  const { user, profile, doctorProfile } = useAuth();
   const locale = resolveLocale(i18n.language);
   const uiLang = i18n.language ?? 'en';
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,7 +46,16 @@ export const DoctorPrescriptions: React.FC = () => {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printPrescriptionId, setPrintPrescriptionId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const { data, loading, error, refetch } = useDoctorPrescriptions(user?.id);
+
+  // Clear the flag from history so the message doesn't come back on refresh or Back.
+  useEffect(() => {
+    if ((location.state as { prescriptionSaved?: boolean } | null)?.prescriptionSaved) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
   const prescriptions = useMemo(() => data ?? [], [data]);
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString(
@@ -57,6 +84,7 @@ export const DoctorPrescriptions: React.FC = () => {
         prescription.patientName,
         prescription.patientEmail,
         prescription.status,
+        prescriptionStatusLabel(t, prescription.status),
         ...prescription.items.flatMap((item) => [
           item.medication_name,
           item.medication_name_ar,
@@ -80,7 +108,7 @@ export const DoctorPrescriptions: React.FC = () => {
     });
 
     return result;
-  }, [prescriptions, searchQuery, statusFilter, sortOrder]);
+  }, [prescriptions, searchQuery, statusFilter, sortOrder, t]);
 
   const activePrescriptions = useMemo(
     () => filteredPrescriptions.filter((prescription) => prescription.status === 'active'),
@@ -128,98 +156,102 @@ export const DoctorPrescriptions: React.FC = () => {
   const closePrintModal = () => {
     setShowPrintModal(false);
     setPrintPrescriptionId(null);
+    setPdfError(null);
   };
 
-  const handleDownloadPdf = () => {
+  const isEnglishUi = uiLang.toLowerCase().startsWith('en');
+
+  /** Same name rule as MedicationNameDisplay: Arabic name first (with the Latin name under it) when there is one. */
+  const printItemNames = (item: DoctorPrescriptionRecord['items'][number]) => {
+    const localized = item.medication_name_ar?.trim() ?? '';
+    const canonical = item.medication_name.trim();
+    return !isEnglishUi && localized && localized.toLowerCase() !== canonical.toLowerCase()
+      ? { name: localized, secondaryName: canonical }
+      : { name: canonical, secondaryName: null };
+  };
+
+  const itemDetailLine = (item: DoctorPrescriptionRecord['items'][number]) =>
+    formatMedicationDetailLine(t, uiLang, {
+      dosage: item.dosage,
+      frequency: item.frequency,
+      duration: item.duration,
+      detail: '',
+      emptyFallback: t('doctor.prescriptions.noMedicationDetail'),
+    }) || t('doctor.prescriptions.noMedicationDetail');
+
+  /** "Dr. Name" in the current language, without doubling a "Dr." the name already has. */
+  const rawDoctorName = (profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? '').trim();
+  const signedDoctorName = /^(dr\.?\s|د\.\s?)/i.test(rawDoctorName)
+    ? rawDoctorName
+    : t('doctor.prescriptions.print.doctorName', { name: rawDoctorName });
+
+  // QA-138: the message draft follows the app language and uses the same translated medicine lines as the page.
+  const openMessageDraft = (prescription: DoctorPrescriptionRecord) => {
+    const medications = prescription.items
+      .map((item) => {
+        const { name, secondaryName } = printItemNames(item);
+        const label = secondaryName ? `${name} (${secondaryName})` : name;
+        return `• ${label} — ${itemDetailLine(item)}`;
+      })
+      .join('\n');
+    const draft = t('doctor.prescriptions.messageDraft', {
+      patient: prescription.patientName,
+      date: formatDate(prescription.prescribed_at),
+      medications,
+      doctor: signedDoctorName,
+    });
+    navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
+  };
+
+  // QA-137: one translated layout for both printing and the PDF.
+  const buildPrintContent = (prescription: DoctorPrescriptionRecord): PrescriptionPrintContent => {
+    const printKey = (name: string, options?: Record<string, unknown>) => t(`doctor.prescriptions.print.${name}`, options);
+    const shortId = prescription.id.slice(0, 8);
+    return {
+      language: uiLang,
+      brand: t('shared.pdf.brand'),
+      title: printKey('docTitle'),
+      details: [
+        { label: printKey('patient'), value: prescription.patientName },
+        { label: printKey('prescribedOn'), value: formatDate(prescription.prescribed_at) },
+        ...(rawDoctorName ? [{ label: printKey('doctor'), value: signedDoctorName }] : []),
+        ...(doctorProfile?.license_number ? [{ label: printKey('licence'), value: doctorProfile.license_number }] : []),
+        { label: printKey('status'), value: prescriptionStatusLabel(t, prescription.status) },
+        { label: printKey('prescriptionId'), value: shortId },
+      ],
+      medicationsHeading: printKey('medications'),
+      quantityLabel: printKey('quantity'),
+      instructionsLabel: printKey('instructions'),
+      items: prescription.items.map((item) => ({
+        ...printItemNames(item),
+        detail: itemDetailLine(item),
+        quantity: item.quantity != null ? formatLocaleDigits(item.quantity, uiLang) : null,
+        instructions: item.instructions,
+      })),
+      disclaimer: printKey('docDisclaimer'),
+      footerNote: t('shared.pdf.footerNote'),
+      pageLabel: (page, total) =>
+        t('shared.pdf.pageOf', { page: formatLocaleDigits(page, uiLang), total: formatLocaleDigits(total, uiLang) }),
+      fileName: `prescription-${shortId}`,
+    };
+  };
+
+  const handlePrint = () => {
     if (!printPrescription) return;
-    const doc = new jsPDF();
-    const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Unknown';
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 20;
+    openPrescriptionPrint(buildPrintContent(printPrescription));
+  };
 
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CeenAiX', 14, 18);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Healthcare Platform — Official Prescription', 14, 28);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 28, { align: 'right' });
-
-    y = 55;
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PATIENT INFORMATION', 14, y);
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Patient Name: ${printPrescription.patientName}`, 14, y);
-    y += 7;
-    doc.text(`Prescribed Date: ${formatDate(printPrescription.prescribed_at)}`, 14, y);
-    y += 7;
-    doc.text(`Prescribing Doctor: Dr. ${doctorName}`, 14, y);
-    y += 15;
-
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, y, pageWidth - 14, y);
-    y += 10;
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PRESCRIBED MEDICATIONS', 14, y);
-    y += 10;
-
-    printPrescription.items.forEach((item, index) => {
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, y - 5, pageWidth - 28, 35, 3, 3, 'F');
-
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${index + 1}. ${item.medication_name}`, 20, y + 2);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(71, 85, 105);
-      doc.text(`Dosage: ${item.dosage ?? '-'}   Frequency: ${item.frequency ?? '-'}   Duration: ${item.duration ?? '-'}`, 20, y + 2);
-      y += 8;
-
-      if (item.instructions) {
-        doc.text(`Instructions: ${item.instructions}`, 20, y + 2);
-        y += 8;
-      }
-
-      y += 8;
-    });
-
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, y, pageWidth - 14, y);
-    y += 10;
-
-    doc.setFontSize(8);
-    doc.setTextColor(148, 163, 184);
-    doc.setFont('helvetica', 'italic');
-    doc.text('This prescription is generated by CeenAiX Health Platform. Always verify with the prescribing doctor.', 14, y, {
-      maxWidth: pageWidth - 28,
-    });
-
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 280, pageWidth, 17, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text('CeenAiX Healthcare Platform — UAE', 14, 290);
-    doc.text(`Prescription ID: ${printPrescription.id.slice(0, 8)}`, pageWidth - 14, 290, { align: 'right' });
-
-    doc.save(`prescription-${printPrescription.id.slice(0, 8)}.pdf`);
+  const handleDownloadPdf = async () => {
+    if (!printPrescription || pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      await downloadPrescriptionPdf(buildPrintContent(printPrescription));
+    } catch {
+      setPdfError(t('doctor.prescriptions.print.pdfError'));
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   return (
@@ -240,6 +272,25 @@ export const DoctorPrescriptions: React.FC = () => {
       </div>
 
       <div>
+        {showSavedNotice ? (
+          <div
+            role="status"
+            className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+          >
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              {t('doctor.createPrescription.saveSuccess')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowSavedNotice(false)}
+              aria-label={t('doctor.prescriptions.print.close')}
+              className="rounded-lg p-1 text-emerald-600 transition hover:bg-emerald-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
         {error ? (
           <div
             role="alert"
@@ -249,9 +300,9 @@ export const DoctorPrescriptions: React.FC = () => {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="ml-2 font-semibold underline"
+              className="ms-2 font-semibold underline"
             >
-              Retry
+              {t('shared.retry')}
             </button>
           </div>
         ) : null}
@@ -260,6 +311,7 @@ export const DoctorPrescriptions: React.FC = () => {
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-emerald-200 hover:shadow-md"
             onClick={() => setStatusFilter('active')}
+            onKeyDown={(event) => activateOnKey(event, () => setStatusFilter('active'))}
             role="button"
             tabIndex={0}
           >
@@ -269,7 +321,6 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(activePrescriptionCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-emerald-600">Click to filter</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                 <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -279,6 +330,7 @@ export const DoctorPrescriptions: React.FC = () => {
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-teal-200 hover:shadow-md"
             onClick={() => setStatusFilter('active')}
+            onKeyDown={(event) => activateOnKey(event, () => setStatusFilter('active'))}
             role="button"
             tabIndex={0}
           >
@@ -288,7 +340,6 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(pendingDispenseCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-teal-600">Click to view active</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
                 <Pill className="h-5 w-5 text-teal-600" />
@@ -298,6 +349,7 @@ export const DoctorPrescriptions: React.FC = () => {
           <div
             className="cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
             onClick={() => setStatusFilter('all')}
+            onKeyDown={(event) => activateOnKey(event, () => setStatusFilter('all'))}
             role="button"
             tabIndex={0}
           >
@@ -307,7 +359,6 @@ export const DoctorPrescriptions: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900">
                   {formatLocaleDigits(uniquePatientsCount, uiLang)}
                 </p>
-                <p className="mt-1 text-xs text-blue-600">Click to view all</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
                 <Users className="h-5 w-5 text-blue-600" />
@@ -343,8 +394,8 @@ export const DoctorPrescriptions: React.FC = () => {
               onChange={(event) => setSortOrder(event.target.value as 'desc' | 'asc')}
               className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 md:w-auto"
             >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
+              <option value="desc">{t('doctor.prescriptions.sortNewest')}</option>
+              <option value="asc">{t('doctor.prescriptions.sortOldest')}</option>
             </select>
           </div>
         </div>
@@ -397,23 +448,11 @@ export const DoctorPrescriptions: React.FC = () => {
                             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
                           >
                             <Users className="h-4 w-4" />
-                            <span>View Patient</span>
+                            <span>{t('doctor.prescriptions.viewPatient')}</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              const medicationLines = prescription.items
-                                .map((item) => {
-                                  const details = [item.dosage, item.frequency, item.duration]
-                                    .filter(Boolean)
-                                    .join(' — ');
-                                  return `• ${item.medication_name}${details ? ` — ${details}` : ''}`;
-                                })
-                                .join('\n');
-                              const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Your Doctor';
-                              const draft = `Hi ${prescription.patientName},\n\nYour prescription has been issued on ${formatDate(prescription.prescribed_at)}.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed and complete the full course. If you experience any side effects or have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
-                              navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
-                            }}
+                            onClick={() => openMessageDraft(prescription)}
                             className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
                           >
                             <MessageSquare className="h-4 w-4" />
@@ -428,7 +467,7 @@ export const DoctorPrescriptions: React.FC = () => {
                             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                           >
                             <Printer className="h-4 w-4" />
-                            <span>Print / PDF</span>
+                            <span>{t('doctor.prescriptions.print.button')}</span>
                           </button>
                         </div>
                       </div>
@@ -568,23 +607,11 @@ export const DoctorPrescriptions: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
                       >
                         <Users className="h-4 w-4" />
-                        <span>View Patient</span>
+                        <span>{t('doctor.prescriptions.viewPatient')}</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          const medicationLines = prescription.items
-                            .map((item) => {
-                              const details = [item.dosage, item.frequency, item.duration]
-                                .filter(Boolean)
-                                .join(' — ');
-                              return `• ${item.medication_name}${details ? ` — ${details}` : ''}`;
-                            })
-                            .join('\n');
-                          const doctorName = user?.user_metadata?.full_name ?? user?.email ?? 'Your Doctor';
-                          const draft = `Hi ${prescription.patientName},\n\nYour prescription has been issued on ${formatDate(prescription.prescribed_at)}.\n\nMedications:\n${medicationLines}\n\nPlease take your medications as prescribed and complete the full course. If you experience any side effects or have any questions, feel free to message me here.\n\nDr. ${doctorName}`;
-                          navigate(`/doctor/messages?patient=${prescription.patient_id}&draft=${encodeURIComponent(draft)}`);
-                        }}
+                        onClick={() => openMessageDraft(prescription)}
                         className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
                       >
                         <MessageSquare className="h-4 w-4" />
@@ -599,7 +626,7 @@ export const DoctorPrescriptions: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         <Printer className="h-4 w-4" />
-                        <span>Print / PDF</span>
+                        <span>{t('doctor.prescriptions.print.button')}</span>
                       </button>
                     </div>
                   </div>
@@ -617,11 +644,12 @@ export const DoctorPrescriptions: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                   <div className="flex items-center gap-2">
                     <Printer className="h-5 w-5 text-slate-600" />
-                    <h2 className="text-base font-semibold text-slate-900">Print or Download Prescription</h2>
+                    <h2 className="text-base font-semibold text-slate-900">{t('doctor.prescriptions.print.modalTitle')}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={closePrintModal}
+                    aria-label={t('doctor.prescriptions.print.close')}
                     className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                   >
                     <X className="h-4 w-4" />
@@ -639,9 +667,15 @@ export const DoctorPrescriptions: React.FC = () => {
                   <ul className="mt-3 space-y-1">
                     {printPrescription.items.map((item) => (
                       <li key={item.id} className="text-xs text-slate-600">
-                        <span className="font-medium">{item.medication_name}</span>
-                        {item.dosage ? ` · ${item.dosage}` : ''}
-                        {item.frequency ? ` · ${item.frequency}` : ''}
+                        <MedicationNameDisplay
+                          canonicalName={item.medication_name}
+                          localizedName={item.medication_name_ar}
+                          language={uiLang}
+                          variant="compact"
+                          primaryClassName="font-medium text-slate-700"
+                        />
+                        <span> · </span>
+                        <span dir="auto">{itemDetailLine(item)}</span>
                       </li>
                     ))}
                   </ul>
@@ -651,46 +685,46 @@ export const DoctorPrescriptions: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 p-6">
                   <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                     <span className="mb-2 text-2xl">🖨️</span>
-                    <p className="mb-1 text-sm font-semibold text-slate-800">Print Prescription</p>
-                    <p className="mb-4 text-xs text-slate-500">
-                      Open your browser print dialog to print this prescription
-                    </p>
+                    <p className="mb-1 text-sm font-semibold text-slate-800">{t('doctor.prescriptions.print.printTitle')}</p>
+                    <p className="mb-4 text-xs text-slate-500">{t('doctor.prescriptions.print.printBody')}</p>
                     <button
                       type="button"
-                      onClick={() => window.print()}
-                      className="w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+                      onClick={handlePrint}
+                      className="mt-auto w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
                     >
-                      Print Now
+                      {t('doctor.prescriptions.print.printNow')}
                     </button>
                   </div>
 
                   <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                     <span className="mb-2 text-2xl">📑</span>
-                    <p className="mb-1 text-sm font-semibold text-slate-800">Download as PDF</p>
-                    <p className="mb-4 text-xs text-slate-500">
-                      Download a professional PDF version of this prescription
-                    </p>
+                    <p className="mb-1 text-sm font-semibold text-slate-800">{t('doctor.prescriptions.print.pdfTitle')}</p>
+                    <p className="mb-4 text-xs text-slate-500">{t('doctor.prescriptions.print.pdfBody')}</p>
                     <button
                       type="button"
-                      onClick={handleDownloadPdf}
-                      className="w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
+                      onClick={() => void handleDownloadPdf()}
+                      disabled={pdfBusy}
+                      className="mt-auto w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-wait disabled:opacity-60"
                     >
-                      Download PDF
+                      {pdfBusy ? t('doctor.prescriptions.print.preparingPdf') : t('doctor.prescriptions.print.downloadPdf')}
                     </button>
                   </div>
                 </div>
 
                 {/* Disclaimer + close */}
                 <div className="border-t border-slate-100 px-6 py-4">
-                  <p className="mb-4 text-xs text-amber-700">
-                    ⚠️ This prescription is for informational purposes. Always verify with the prescribing doctor.
-                  </p>
+                  {pdfError ? (
+                    <p role="alert" className="mb-3 text-xs font-semibold text-red-600">
+                      {pdfError}
+                    </p>
+                  ) : null}
+                  <p className="mb-4 text-xs text-amber-700">⚠️ {t('doctor.prescriptions.print.modalDisclaimer')}</p>
                   <button
                     type="button"
                     onClick={closePrintModal}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    Close
+                    {t('doctor.prescriptions.print.close')}
                   </button>
                 </div>
               </div>
