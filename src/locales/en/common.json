@@ -1622,6 +1622,9 @@
       "markRead": "Mark Read",
       "dismiss": "Dismiss"
     },
+    "analyticsPage": {
+      "truncated": "Based on the most recent {{value}} appointments."
+    },
     "visitReasons": {
       "consultation": "Consultation",
       "followUp": "Follow-up Visit",

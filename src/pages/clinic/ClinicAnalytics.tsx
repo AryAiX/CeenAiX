@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { useTranslation } from 'react-i18next';
+import { fetchAllPages } from '../../lib/supabase-batches';
+import { isCountedVisit, isInClinicMonth, summariseClinicVisits, type AnalyticsVisit } from '../../lib/clinic-analytics';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { TrendingUp, Users, DollarSign, Calendar, ArrowUpRight } from 'lucide-react';
 
 export default function ClinicAnalytics() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState('Your Clinic');
   const [totalAppointments, setTotalAppointments] = useState(0);
   const [activePatients, setActivePatients] = useState(0);
-  const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; value: number }[]>([]);
-  const [doctorPerf, setDoctorPerf] = useState<{ name: string; specialty: string; appts: number; revenue: number; initials: string; gradient: string }[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; key: string; value: number }[]>([]);
+  const [doctorPerf, setDoctorPerf] = useState<{ doctorId: string; name: string; specialty: string; appts: number; revenue: number; initials: string; gradient: string }[]>([]);
   const [serviceBreakdown, setServiceBreakdown] = useState<{ name: string; pct: number; color: string }[]>([]);
   const [monthlyRevenueTotal, setMonthlyRevenueTotal] = useState(0);
 
@@ -43,38 +49,28 @@ export default function ClinicAnalytics() {
         .maybeSingle();
       setClinicName(facilityData?.name ?? 'Your Clinic');
 
-      const { data: apptData, error: apptError } = await supabase
-        .from('appointments')
-        .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint')
-        .eq('facility_id', fId)
-        .eq('is_deleted', false);
-
-      if (apptError) throw apptError;
-      const appts = apptData ?? [];
-
-      setTotalAppointments(appts.length);
-
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      const recentPatients = new Set(
-        appts
-          .filter(a => new Date(a.scheduled_at) >= ninetyDaysAgo)
-          .map(a => a.patient_id)
+      // QA-226: read every visit in pages (one request stops at 1,000 rows without saying so)
+      const { rows: apptRows, truncated: listTruncated } = await fetchAllPages<AnalyticsVisit & { type: string | null; chief_complaint: string | null }>((from, to) =>
+        supabase
+          .from('appointments')
+          .select('id, patient_id, doctor_id, scheduled_at, status, type, chief_complaint')
+          .eq('facility_id', fId)
+          .eq('is_deleted', false)
+          .order('scheduled_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
       );
-      setActivePatients(recentPatients.size);
+      setTruncated(listTruncated);
+      // QA-226: cancelled visits did not happen and are left out everywhere
+      const appts = apptRows.filter(isCountedVisit);
+      const summary = summariseClinicVisits(apptRows);
+
+      setTotalAppointments(summary.totalAppointments);
+      setActivePatients(summary.activePatients);
 
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const now = new Date();
-      const last6Months = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
-        return { month: monthNames[d.getMonth()], year: d.getFullYear(), value: 0 };
-      });
-      appts.forEach(a => {
-        const d = new Date(a.scheduled_at);
-        const idx = last6Months.findIndex(m => m.month === monthNames[d.getMonth()] && m.year === d.getFullYear());
-        if (idx !== -1) last6Months[idx].value += 1;
-      });
-      setMonthlyRevenue(last6Months.map(m => ({ month: m.month, value: m.value })));
+      // months in clinic time (Dubai), not the browser's
+      setMonthlyRevenue(summary.months.map(m => ({ month: monthNames[Number(m.key.slice(5, 7)) - 1], key: m.key, value: m.count })));
 
       const doctorIds = [...new Set(appts.map(a => a.doctor_id))];
 
@@ -100,14 +96,8 @@ export default function ClinicAnalytics() {
       const specMap = new Map((doctorSpecData ?? []).map(d => [d.user_id, d.specialization]));
       const baseFeeMap = new Map((doctorSpecData ?? []).map(d => [d.user_id, Number(d.consultation_fee) || 0]));
 
-      const now2 = new Date();
-      const monthStart = new Date(now2.getFullYear(), now2.getMonth(), 1);
-      const monthEnd = new Date(now2.getFullYear(), now2.getMonth() + 1, 1);
       const revenueTotal = appts
-        .filter((appointment) => {
-          const scheduledAt = new Date(appointment.scheduled_at);
-          return appointment.status === 'completed' && scheduledAt >= monthStart && scheduledAt < monthEnd;
-        })
+        .filter((appointment) => appointment.status === 'completed' && isInClinicMonth(appointment.scheduled_at))
         .reduce((sum, appointment) => {
           const fee = feeMap.get(appointment.doctor_id) ?? baseFeeMap.get(appointment.doctor_id) ?? 0;
           return sum + fee;
@@ -125,13 +115,13 @@ export default function ClinicAnalytics() {
       const perfRows = doctorIds.map((did, idx) => {
         const name = profileMap.get(did) ?? 'Unknown Doctor';
         const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-        const doctorAppts = appts.filter(a => a.doctor_id === did);
-        const completedAppts = doctorAppts.filter(a => a.status === 'completed');
+        const completedAppts = appts.filter(a => a.doctor_id === did && a.status === 'completed');
         const fee = feeMap.get(did) ?? baseFeeMap.get(did) ?? 0;
         return {
+          doctorId: did,
           name,
           specialty: specMap.get(did) ?? 'General Practice',
-          appts: doctorAppts.length,
+          appts: summary.perDoctor.get(did) ?? 0,
           revenue: completedAppts.length * fee,
           initials,
           gradient: gradients[idx % gradients.length],
@@ -195,19 +185,22 @@ export default function ClinicAnalytics() {
       <div>
         <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Analytics</h2>
         <p className="text-sm text-slate-500 mt-0.5">Performance overview for {clinicName}</p>
+        {truncated ? (
+          <p className="text-xs text-amber-700 mt-1">{t('clinic.analyticsPage.truncated', { value: formatLocaleDigits(20000, i18n.language) })}</p>
+        ) : null}
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Monthly Revenue', value: `AED ${monthlyRevenueTotal.toLocaleString()}`, sub: 'This month', icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
-          { label: 'Total Appointments', value: totalAppointments.toLocaleString(), sub: 'All-time', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Active Patients', value: activePatients.toLocaleString(), sub: 'Last 90 days', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Avg. Rating', value: '—', sub: 'Coming soon', icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { key: 'revenue', label: 'Monthly Revenue', value: `AED ${monthlyRevenueTotal.toLocaleString()}`, sub: 'This month', icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { key: 'appointments', label: 'Total Appointments', value: totalAppointments.toLocaleString(), sub: 'All-time', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { key: 'patients', label: 'Active Patients', value: activePatients.toLocaleString(), sub: 'Last 90 days', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { key: 'rating', label: 'Avg. Rating', value: '—', sub: 'Coming soon', icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
-            <div key={k.label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+            <div key={k.key} data-testid={`analytics-kpi-${k.key}`} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
               <div className="flex items-start justify-between mb-3">
                 <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center`}><Icon size={20} className={k.color} /></div>
                 <ArrowUpRight size={16} className="text-emerald-500" />
@@ -231,7 +224,7 @@ export default function ClinicAnalytics() {
           </div>
           <div className="flex items-end gap-4 h-40">
             {monthlyRevenue.map(m => (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
+              <div key={m.key} className="flex-1 flex flex-col items-center gap-2">
                 <div className="text-xs font-bold text-slate-700" style={{ fontFamily: 'DM Mono, monospace' }}>{m.value}</div>
                 <div
                   className="w-full rounded-t-lg bg-gradient-to-t from-teal-600 to-teal-400 transition-all"
@@ -284,7 +277,7 @@ export default function ClinicAnalytics() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {doctorPerf.map(d => (
-                <tr key={d.name} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={d.doctorId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${d.gradient} flex items-center justify-center text-white font-bold text-sm shrink-0`}>{d.initials}</div>

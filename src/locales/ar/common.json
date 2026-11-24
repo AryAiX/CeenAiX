@@ -1638,6 +1638,9 @@
       "markRead": "تعليم كمقروء",
       "dismiss": "إخفاء"
     },
+    "analyticsPage": {
+      "truncated": "بناءً على أحدث {{value}} موعد."
+    },
     "visitReasons": {
       "consultation": "استشارة",
       "followUp": "زيارة متابعة",
