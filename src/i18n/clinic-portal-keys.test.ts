@@ -43,6 +43,7 @@ const sources = import.meta.glob<string>(
     '../lib/clinic-services.ts',
     '../components/ClinicContactPicker.tsx',
     '../pages/clinic/ClinicNotifications.tsx',
+    '../pages/clinic/ClinicAnalytics.tsx',
   ],
   { query: '?raw', import: 'default', eager: true }
 );

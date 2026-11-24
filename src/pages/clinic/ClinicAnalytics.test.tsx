@@ -193,3 +193,59 @@ describe('ClinicAnalytics visit reasons (QA-228)', () => {
     expect(screen.getByText('أخرى')).toBeInTheDocument();
   });
 });
+
+describe('ClinicAnalytics placeholders, Arabic and accessibility (QA-229)', () => {
+  const v = (id: string, scheduled_at: string, chief_complaint = 'Consultation'): Visit => ({
+    id, patient_id: `p-${id}`, doctor_id: 'd1', scheduled_at, status: 'completed', type: 'in_person', chief_complaint,
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('has no rating placeholder and no growth arrows', async () => {
+    setup([v('a', '2026-11-10T06:00:00Z')], [{ user_id: 'd1', full_name: 'Sara Ali' }]);
+    await screen.findByTestId('analytics-kpi-appointments');
+    expect(screen.queryByText(/Rating/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('analytics-kpi-rating')).not.toBeInTheDocument();
+    expect(document.querySelector('.lucide-arrow-up-right')).toBeNull();
+    expect(within(screen.getByRole('table')).getAllByRole('columnheader')).toHaveLength(4);
+  });
+
+  it('describes the monthly chart for screen readers', async () => {
+    setup([v('a', '2026-11-10T06:00:00Z'), v('b', '2026-11-11T06:00:00Z'), v('c', '2026-09-01T06:00:00Z')], [{ user_id: 'd1', full_name: 'Sara Ali' }]);
+    expect(await screen.findByRole('img', { name: 'Appointments per month: Jun 0, Jul 0, Aug 0, Sep 1, Oct 0, Nov 2' })).toBeInTheDocument();
+  });
+
+  it('shows the page in Arabic, with Arabic digits, months and percentages', async () => {
+    await i18n.changeLanguage('ar');
+    setup([v('a', '2026-11-10T06:00:00Z'), v('b', '2026-11-11T06:00:00Z', 'Follow-up Visit')], [{ user_id: 'd1', full_name: 'Sara Ali' }]);
+
+    expect(await screen.findByRole('heading', { name: 'التحليلات' })).toBeInTheDocument();
+    expect(screen.getByText('نظرة عامة على أداء QA Clinic')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-kpi-appointments')).toHaveTextContent('٢');
+    expect(screen.getByTestId('analytics-kpi-appointments')).toHaveTextContent('إجمالي المواعيد');
+    const novInArabic = new Intl.DateTimeFormat('ar-AE', { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 10, 1)));
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain(`${novInArabic} ٢`);
+    const fiftyPercent = new Intl.NumberFormat('ar-AE', { style: 'percent', numberingSystem: 'arab' }).format(0.5);
+    expect(fiftyPercent).toContain('٥٠٪');
+    expect(screen.getAllByText(fiftyPercent).length).toBe(2);
+    expect(screen.getByRole('columnheader', { name: 'الطبيب' })).toBeInTheDocument();
+    for (const english of ['Analytics', 'Total Appointments', 'Active Patients', 'Doctor Performance', 'Monthly Appointments', 'Nov']) {
+      expect(screen.queryByText(english)).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows a plain message, not the database text, when loading fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(supabase.from).mockImplementation(
+      (() => createSupabaseQueryBuilder({ data: null, error: new Error('permission denied for table clinic_portal_members') })) as never
+    );
+    render(<ClinicAnalytics />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not load analytics. Please try again.');
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
+  });
+});
