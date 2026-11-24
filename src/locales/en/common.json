@@ -1648,6 +1648,23 @@
       "truncated": "Based on the most recent {{value}} appointments."
     },
     "settingsPage": {
+      "saving": "Saving…",
+      "savedInfo": "Clinic information saved.",
+      "savedHours": "Working hours saved.",
+      "readOnly": "Only the clinic admin can change these settings.",
+      "mixedHours": "Different hours were saved for different days. Saving will set these hours for every selected day.",
+      "errors": {
+        "loadFailed": "Could not load your clinic settings. Please try again.",
+        "saveFailed": "Could not save. Please try again.",
+        "notAllowed": "Only the clinic admin can change these settings.",
+        "nameRequired": "Enter the clinic name.",
+        "tooLong": "Use {{value}} characters or fewer.",
+        "addressRequired": "Enter the clinic address.",
+        "emailInvalid": "Enter a valid email address, such as info@clinic.ae.",
+        "phoneInvalid": "Enter a valid phone number, such as +971 4 123 4567.",
+        "daysRequired": "Choose at least one working day.",
+        "hoursOrder": "The closing time must be after the opening time."
+      },
       "notAvailableTitle": "Notifications and NABIDH",
       "notAvailable": "Appointment reminders, payment and licence-expiry alerts, and NABIDH data sharing are not available for clinics yet. Nothing is sent to NABIDH from the clinic portal. CeenAiX will let you know when these are ready.",
       "managedByCeenaix": "Managed by CeenAiX. Contact CeenAiX support to change it."

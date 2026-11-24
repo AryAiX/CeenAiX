@@ -3,25 +3,63 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { useTranslation } from 'react-i18next';
 import { Building2, Clock, Info, Save } from 'lucide-react';
+import {
+  CLINIC_DAY_KEYS,
+  buildOperatingHours,
+  parseOperatingHours,
+  settingsSaveErrorKey,
+  validateClinicInfo,
+  validateHours,
+  type ClinicDayKey,
+  type ClinicInfoErrors,
+  type SettingsFieldError,
+} from '../../lib/clinic-settings';
 
-const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_LABELS: Record<ClinicDayKey, string> = {
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+};
+
+type Feedback = { type: 'success' | 'error'; message: string } | null;
+
+/** QA-232: the message for one section, shown next to its Save button. */
+function SectionFeedback({ feedback, testId }: { feedback: Feedback; testId: string }) {
+  if (!feedback) return null;
+  return (
+    <p
+      role={feedback.type === 'error' ? 'alert' : 'status'}
+      data-testid={testId}
+      className={`text-sm ${feedback.type === 'success' ? 'text-emerald-700' : 'text-red-700'}`}
+    >
+      {feedback.message}
+    </p>
+  );
+}
 
 export default function ClinicSettings() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const S = 'clinic.settingsPage';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [facilityId, setFacilityId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  // QA-232: only a clinic admin may save (facilities_clinic_admin_update); others see the page read-only
+  const [canEdit, setCanEdit] = useState(false);
+  const [infoFeedback, setInfoFeedback] = useState<Feedback>(null);
+  const [hoursFeedback, setHoursFeedback] = useState<Feedback>(null);
+  const [infoErrors, setInfoErrors] = useState<ClinicInfoErrors>({});
+  const [hoursError, setHoursError] = useState<SettingsFieldError | null>(null);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [savingHours, setSavingHours] = useState(false);
   const [clinicName, setClinicName] = useState('');
   const [clinicType, setClinicType] = useState('');
   const [license, setLicense] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [workingDays, setWorkingDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
+  const [workingDays, setWorkingDays] = useState<ClinicDayKey[]>(['mon', 'tue', 'wed', 'thu', 'fri', 'sat']);
   const [openTime, setOpenTime] = useState('08:00');
   const [closeTime, setCloseTime] = useState('20:00');
+  const [mixedHours, setMixedHours] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -35,7 +73,7 @@ export default function ClinicSettings() {
     try {
       const { data: memberData, error: memberError } = await supabase
         .from('clinic_portal_members')
-        .select('facility_id')
+        .select('facility_id, portal_role')
         .eq('user_id', user!.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -44,6 +82,7 @@ export default function ClinicSettings() {
       if (!memberData?.facility_id) throw new Error('No clinic facility found.');
       const fId = memberData.facility_id;
       setFacilityId(fId);
+      setCanEdit(memberData.portal_role === 'clinic_admin');
 
       const { data: facilityData, error: facilityError } = await supabase
         .from('facilities')
@@ -59,84 +98,70 @@ export default function ClinicSettings() {
         setPhone(facilityData.phone ?? '');
         setEmail(facilityData.email ?? '');
         setAddress(facilityData.address ?? '');
-        if (facilityData.operating_hours) {
-          const hours = facilityData.operating_hours as Record<string, string>;
-          const dayMap: Record<string, string> = {
-            mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday',
-            thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
-          };
-          const activeDays = Object.keys(hours).map(k => dayMap[k]).filter(Boolean);
-          setWorkingDays(activeDays);
-          const firstValue = Object.values(hours)[0];
-          if (firstValue) {
-            const [open, close] = firstValue.split('-');
-            if (open) setOpenTime(open);
-            if (close) setCloseTime(close);
-          }
-        }
+        const hours = parseOperatingHours(facilityData.operating_hours);
+        setWorkingDays(hours.days);
+        setOpenTime(hours.open);
+        setCloseTime(hours.close);
+        setMixedHours(hours.mixed);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load clinic settings.');
+      console.warn('[ClinicSettings] load failed', err);
+      setError(t(`${S}.errors.loadFailed`));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveClinicInfo = async () => {
-    if (!facilityId) return;
-    setFeedback(null);
-    try {
-      const { error: updateError } = await supabase
-        .from('facilities')
-        .update({
-          // QA-230: facility type and DHA licence are managed by CeenAiX (the database refuses changes)
-          name: clinicName,
-          phone: phone,
-          email: email,
-          address: address,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', facilityId);
-
-      if (updateError) throw updateError;
-      setFeedback({ type: 'success', message: 'Clinic information saved successfully.' });
-    } catch (err) {
-      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save changes.' });
+  /** Saves and asks for the row back: without permission the database changes 0 rows and says nothing. */
+  const saveFacility = async (fields: Record<string, unknown>): Promise<string | null> => {
+    const { data, error: updateError } = await supabase
+      .from('facilities')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('id', facilityId!)
+      .select('id');
+    if (updateError) {
+      console.warn('[ClinicSettings] save failed', updateError);
+      return t(`${S}.errors.${settingsSaveErrorKey(updateError)}`);
     }
+    if (!Array.isArray(data) || data.length === 0) return t(`${S}.errors.notAllowed`);
+    return null;
+  };
+
+  const handleSaveClinicInfo = async () => {
+    if (!facilityId || savingInfo) return;
+    setInfoFeedback(null);
+    const result = validateClinicInfo({ name: clinicName, phone, email, address });
+    if (!result.ok) {
+      setInfoErrors(result.errors);
+      return;
+    }
+    setInfoErrors({});
+    setSavingInfo(true);
+    // QA-230: facility type and DHA licence are managed by CeenAiX (the database refuses changes)
+    const failure = await saveFacility({ ...result.value });
+    setSavingInfo(false);
+    setInfoFeedback(failure ? { type: 'error', message: failure } : { type: 'success', message: t(`${S}.savedInfo`) });
   };
 
   const handleSaveHours = async () => {
-    if (!facilityId) return;
-    setFeedback(null);
-    try {
-      const dayMap: Record<string, string> = {
-        Monday: 'mon', Tuesday: 'tue', Wednesday: 'wed',
-        Thursday: 'thu', Friday: 'fri', Saturday: 'sat', Sunday: 'sun',
-      };
-      const operatingHours: Record<string, string> = {};
-      workingDays.forEach(day => {
-        const key = dayMap[day];
-        if (key) operatingHours[key] = `${openTime}-${closeTime}`;
-      });
-
-      const { error: updateError } = await supabase
-        .from('facilities')
-        .update({
-          operating_hours: operatingHours,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', facilityId);
-
-      if (updateError) throw updateError;
-      setFeedback({ type: 'success', message: 'Working hours saved successfully.' });
-    } catch (err) {
-      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save hours.' });
-    }
+    if (!facilityId || savingHours) return;
+    setHoursFeedback(null);
+    const problem = validateHours(workingDays, openTime, closeTime);
+    setHoursError(problem);
+    if (problem) return;
+    setSavingHours(true);
+    const failure = await saveFacility({ operating_hours: buildOperatingHours(workingDays, openTime, closeTime) });
+    setSavingHours(false);
+    if (!failure) setMixedHours(false);
+    setHoursFeedback(failure ? { type: 'error', message: failure } : { type: 'success', message: t(`${S}.savedHours`) });
   };
 
-  function toggleDay(d: string) {
-    setWorkingDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+  function toggleDay(day: ClinicDayKey) {
+    setWorkingDays(prev => (prev.includes(day) ? prev.filter(x => x !== day) : [...prev, day]));
   }
+
+  const fieldError = (problem: SettingsFieldError | null | undefined, id: string) =>
+    problem ? <p id={id} className="mt-1 text-xs text-red-600">{t(`${S}.errors.${problem.key}`, problem.values)}</p> : null;
 
   if (loading) {
     return (
@@ -149,12 +174,20 @@ export default function ClinicSettings() {
     );
   }
 
+  const inputClass =
+    'w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-slate-50 disabled:text-slate-500';
+  const infoFields = [
+    { id: 'clinic-name', field: 'name' as const, label: 'Clinic Name', value: clinicName, set: setClinicName, wide: true, type: 'text' },
+    { id: 'clinic-phone', field: 'phone' as const, label: 'Phone', value: phone, set: setPhone, wide: false, type: 'tel' },
+    { id: 'clinic-email', field: 'email' as const, label: 'Email', value: email, set: setEmail, wide: false, type: 'email' },
+  ];
+
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+          <button type="button" onClick={() => void fetchData()} className="ms-2 font-semibold underline">{t('clinic.actions.retry')}</button>
         </div>
       ) : null}
 
@@ -163,10 +196,10 @@ export default function ClinicSettings() {
         <p className="text-sm text-slate-500 mt-0.5">Manage your clinic's profile and preferences</p>
       </div>
 
-      {feedback ? (
-        <div className={`rounded-xl border px-4 py-3 text-sm ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`}>
-          {feedback.message}
-        </div>
+      {!canEdit && !error ? (
+        <p data-testid="settings-read-only" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          {t(`${S}.readOnly`)}
+        </p>
       ) : null}
 
       {/* Clinic info */}
@@ -176,14 +209,21 @@ export default function ClinicSettings() {
           <div className="font-bold text-slate-800">Clinic Information</div>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {[
-            { label: 'Clinic Name', value: clinicName, set: setClinicName },
-            { label: 'Phone', value: phone, set: setPhone },
-            { label: 'Email', value: email, set: setEmail },
-          ].map(f => (
-            <div key={f.label} className={f.label === 'Clinic Name' ? 'col-span-2' : ''}>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</label>
-              <input type="text" value={f.value} onChange={e => f.set(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          {infoFields.map(f => (
+            <div key={f.id} className={f.wide ? 'col-span-2' : ''}>
+              <label htmlFor={f.id} className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</label>
+              <input
+                id={f.id}
+                type={f.type}
+                value={f.value}
+                disabled={!canEdit}
+                onChange={e => f.set(e.target.value)}
+                aria-invalid={infoErrors[f.field] ? true : undefined}
+                aria-describedby={infoErrors[f.field] ? `${f.id}-error` : undefined}
+                dir={f.field === 'name' ? undefined : 'ltr'}
+                className={inputClass}
+              />
+              {fieldError(infoErrors[f.field], `${f.id}-error`)}
             </div>
           ))}
           {/* QA-230: shown, not editable */}
@@ -205,16 +245,33 @@ export default function ClinicSettings() {
             </div>
           ))}
           <div className="col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Address</label>
-            <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <label htmlFor="clinic-address" className="block text-xs font-semibold text-slate-600 mb-1">Address</label>
+            <input
+              id="clinic-address"
+              type="text"
+              value={address}
+              disabled={!canEdit}
+              onChange={e => setAddress(e.target.value)}
+              aria-invalid={infoErrors.address ? true : undefined}
+              aria-describedby={infoErrors.address ? 'clinic-address-error' : undefined}
+              className={inputClass}
+            />
+            {fieldError(infoErrors.address, 'clinic-address-error')}
           </div>
         </div>
-        <button
-          onClick={() => void handleSaveClinicInfo()}
-          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors"
-        >
-          <Save size={15} /> Save Changes
-        </button>
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleSaveClinicInfo()}
+              disabled={savingInfo}
+              className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              <Save size={15} /> {savingInfo ? t(`${S}.saving`) : 'Save Changes'}
+            </button>
+            <SectionFeedback feedback={infoFeedback} testId="settings-info-feedback" />
+          </div>
+        ) : null}
       </div>
 
       {/* Working hours */}
@@ -223,34 +280,48 @@ export default function ClinicSettings() {
           <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center"><Clock size={18} className="text-blue-600" /></div>
           <div className="font-bold text-slate-800">Working Hours</div>
         </div>
+        {mixedHours ? (
+          <p data-testid="settings-mixed-hours" className="text-xs text-amber-700">{t(`${S}.mixedHours`)}</p>
+        ) : null}
         <div>
           <div className="text-xs font-semibold text-slate-600 mb-2">Working Days</div>
           <div className="flex flex-wrap gap-2">
-            {days.map(d => (
+            {CLINIC_DAY_KEYS.map(day => (
               <button
-                key={d}
-                onClick={() => toggleDay(d)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${workingDays.includes(d) ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >{d.slice(0, 3)}</button>
+                key={day}
+                type="button"
+                disabled={!canEdit}
+                aria-pressed={workingDays.includes(day)}
+                onClick={() => toggleDay(day)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:cursor-not-allowed ${workingDays.includes(day) ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >{DAY_LABELS[day]}</button>
             ))}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Opening Time</label>
-            <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <label htmlFor="clinic-open" className="block text-xs font-semibold text-slate-600 mb-1">Opening Time</label>
+            <input id="clinic-open" type="time" value={openTime} disabled={!canEdit} onChange={e => setOpenTime(e.target.value)} aria-describedby={hoursError ? 'clinic-hours-error' : undefined} className={inputClass} />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Closing Time</label>
-            <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <label htmlFor="clinic-close" className="block text-xs font-semibold text-slate-600 mb-1">Closing Time</label>
+            <input id="clinic-close" type="time" value={closeTime} disabled={!canEdit} onChange={e => setCloseTime(e.target.value)} aria-describedby={hoursError ? 'clinic-hours-error' : undefined} className={inputClass} />
           </div>
         </div>
-        <button
-          onClick={() => void handleSaveHours()}
-          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors"
-        >
-          <Save size={15} /> Save Hours
-        </button>
+        {fieldError(hoursError, 'clinic-hours-error')}
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleSaveHours()}
+              disabled={savingHours}
+              className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              <Save size={15} /> {savingHours ? t(`${S}.saving`) : 'Save Hours'}
+            </button>
+            <SectionFeedback feedback={hoursFeedback} testId="settings-hours-feedback" />
+          </div>
+        ) : null}
       </div>
 
       {/* QA-231: the notification switches and "NABIDH sync is active — records are being submitted

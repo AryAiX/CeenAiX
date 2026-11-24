@@ -20,14 +20,17 @@ const FACILITY = {
 };
 
 /** facilities: the first call loads the row; later calls (saves) are recorded. */
-const setup = () => {
+const setup = (
+  { role = 'clinic_admin', facility = FACILITY, saveResult = { data: [{ id: 'f1' }], error: null as unknown } }:
+  { role?: string; facility?: Record<string, unknown>; saveResult?: { data: unknown; error: unknown } } = {}
+) => {
   const saves: MockSupabaseQueryBuilder<unknown>[] = [];
   let facilityCalls = 0;
   vi.mocked(supabase.from).mockImplementation(((table: string) => {
-    if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'f1' }, error: null });
+    if (table === 'clinic_portal_members') return createSupabaseQueryBuilder({ data: { facility_id: 'f1', portal_role: role }, error: null });
     facilityCalls += 1;
-    if (facilityCalls === 1) return createSupabaseQueryBuilder({ data: FACILITY, error: null });
-    const builder = createSupabaseQueryBuilder({ data: null, error: null });
+    if (facilityCalls === 1) return createSupabaseQueryBuilder({ data: facility, error: null });
+    const builder = createSupabaseQueryBuilder(saveResult);
     saves.push(builder);
     return builder;
   }) as never);
@@ -89,5 +92,81 @@ describe('ClinicSettings without false claims (QA-231)', () => {
     for (const save of saves) {
       expect(save.update.mock.calls[0][0]).not.toHaveProperty('settings');
     }
+  });
+});
+
+describe('ClinicSettings saving (QA-232)', () => {
+  it('refuses an empty name and a bad email, with a message under each field, and saves nothing', async () => {
+    const saves = setup();
+    await screen.findByTestId('clinic-license-value');
+    fireEvent.change(screen.getByLabelText('Clinic Name'), { target: { value: ' ' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'not-an-email' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+
+    expect(await screen.findByText('Enter the clinic name.')).toBeInTheDocument();
+    expect(screen.getByText('Enter a valid email address, such as info@clinic.ae.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
+    expect(saves).toHaveLength(0);
+  });
+
+  it('refuses a closing time before the opening time', async () => {
+    const saves = setup();
+    await screen.findByTestId('clinic-license-value');
+    fireEvent.change(screen.getByLabelText('Closing Time'), { target: { value: '07:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Hours/ }));
+
+    expect(await screen.findByText('The closing time must be after the opening time.')).toBeInTheDocument();
+    expect(saves).toHaveLength(0);
+  });
+
+  it('refuses saving with no working day', async () => {
+    const saves = setup({ facility: { ...FACILITY, operating_hours: { mon: '08:00-20:00' } } });
+    await screen.findByTestId('clinic-license-value');
+    fireEvent.click(screen.getByRole('button', { name: 'Mon' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save Hours/ }));
+    expect(await screen.findByText('Choose at least one working day.')).toBeInTheDocument();
+    expect(saves).toHaveLength(0);
+  });
+
+  it('shows the saved message next to the button that was pressed', async () => {
+    setup();
+    await screen.findByTestId('clinic-license-value');
+    fireEvent.click(screen.getByRole('button', { name: /Save Hours/ }));
+    expect(await screen.findByTestId('settings-hours-feedback')).toHaveTextContent('Working hours saved.');
+    expect(screen.queryByTestId('settings-info-feedback')).not.toBeInTheDocument();
+  });
+
+  it('does not say "saved" when the database changed nothing', async () => {
+    setup({ saveResult: { data: [], error: null } });
+    await screen.findByTestId('clinic-license-value');
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    expect(await screen.findByTestId('settings-info-feedback')).toHaveTextContent('Only the clinic admin can change these settings.');
+    expect(screen.queryByText(/saved/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a plain message, not the database text, when saving fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    setup({ saveResult: { data: null, error: { code: '23502', message: 'null value in column "address" violates not-null constraint' } } });
+    await screen.findByTestId('clinic-license-value');
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save. Please try again.');
+    expect(screen.queryByText(/not-null/)).not.toBeInTheDocument();
+  });
+
+  it('shows the page read-only to a clinic manager, who cannot save', async () => {
+    setup({ role: 'clinic_manager' });
+    expect(await screen.findByTestId('settings-read-only')).toHaveTextContent('Only the clinic admin can change these settings.');
+    expect(screen.getByLabelText('Clinic Name')).toBeDisabled();
+    expect(screen.getByLabelText('Opening Time')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /^Save/ })).not.toBeInTheDocument();
+  });
+
+  it('reads the most common saved hours, not just the first day\'s', async () => {
+    setup({ facility: { ...FACILITY, operating_hours: { mon: '09:00-13:00', tue: '08:00-20:00', wed: '08:00-20:00' } } });
+    await screen.findByTestId('clinic-license-value');
+    expect(screen.getByLabelText('Opening Time')).toHaveValue('08:00');
+    expect(screen.getByLabelText('Closing Time')).toHaveValue('20:00');
+    expect(screen.getByTestId('settings-mixed-hours')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thu' })).toHaveAttribute('aria-pressed', 'false');
   });
 });
