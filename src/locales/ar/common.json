@@ -1639,6 +1639,8 @@
       "dismiss": "إخفاء"
     },
     "analyticsPage": {
+      "byReason": "المواعيد حسب سبب الزيارة",
+      "otherReason": "أخرى",
       "estimatedFees": "الرسوم التقديرية",
       "estimatedFeesSub": "الزيارات المكتملة هذا الشهر",
       "colEstimatedFees": "الرسوم التقديرية (درهم)",

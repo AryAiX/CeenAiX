@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder } from '../../test/supabase-mock';
@@ -159,5 +160,36 @@ describe('ClinicAnalytics estimated fees (QA-227)', () => {
     expect(await screen.findByTestId('analytics-fees-note')).toHaveTextContent('Nothing is billed in the app yet.');
     expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Estimated Fees (AED)' })).toBeInTheDocument();
+  });
+});
+
+describe('ClinicAnalytics visit reasons (QA-228)', () => {
+  const v = (id: string, chief_complaint: string | null): Visit => ({
+    id, patient_id: `p-${id}`, doctor_id: 'd1', scheduled_at: '2026-11-10T06:00:00Z', status: 'completed', type: 'in_person', chief_complaint,
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows standard reasons and "Other", never the text patients typed', async () => {
+    setup(
+      [v('a', 'Consultation'), v('b', 'Consultation'), v('c', 'Severe chest pain since Monday, please help'), v('d', 'Follow-up Visit')],
+      [{ user_id: 'd1', full_name: 'Sara Ali' }]
+    );
+    expect(await screen.findByText('Appointments by Visit Reason')).toBeInTheDocument();
+    expect(screen.getByText('Consultation')).toBeInTheDocument();
+    expect(screen.getByText('Follow-up Visit')).toBeInTheDocument();
+    expect(screen.getByText('Other')).toBeInTheDocument();
+    expect(screen.queryByText(/chest pain/)).not.toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
+  });
+
+  it('shows the reasons in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    setup([v('a', 'Follow-up Visit'), v('b', 'my own words')], [{ user_id: 'd1', full_name: 'Sara Ali' }]);
+    expect(await screen.findByText('المواعيد حسب سبب الزيارة')).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('clinic.visitReasons.followUp'))).toBeInTheDocument();
+    expect(screen.getByText('أخرى')).toBeInTheDocument();
   });
 });

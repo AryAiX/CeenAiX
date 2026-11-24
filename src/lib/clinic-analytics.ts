@@ -72,3 +72,29 @@ export const summariseClinicVisits = (visits: AnalyticsVisit[], now: Date = new 
 /** Is the visit in the current clinic month? */
 export const isInClinicMonth = (scheduledAt: string, now: Date = new Date()) =>
   clinicDateKey(scheduledAt).slice(0, 7) === clinicTodayKey(now).slice(0, 7);
+
+/** Shown for any reason that is not one of the standard visit reasons. */
+export const OTHER_REASON = 'other';
+
+/**
+ * QA-228: "Appointments by Visit Reason". Visits are grouped by the standard visit reasons (the
+ * list clinics book with). The chart used to group by the text patients type when booking, which
+ * put their own words about their health on the chart and split one reason across spellings;
+ * anything that is not a standard reason now counts as "Other". Cancelled visits are left out.
+ */
+export const visitReasonBreakdown = (
+  visits: { status: string; chief_complaint: string | null }[],
+  standardReasons: readonly string[]
+): { reason: string; count: number; pct: number }[] => {
+  const byLowerCase = new Map(standardReasons.map((reason) => [reason.toLowerCase(), reason]));
+  const counts = new Map<string, number>();
+  const counted = visits.filter(isCountedVisit);
+  for (const visit of counted) {
+    const reason = byLowerCase.get((visit.chief_complaint ?? '').trim().toLowerCase()) ?? OTHER_REASON;
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  const total = counted.length || 1;
+  return Array.from(counts, ([reason, count]) => ({ reason, count, pct: Math.round((count / total) * 100) })).sort(
+    (a, b) => (a.reason === OTHER_REASON ? 1 : b.reason === OTHER_REASON ? -1 : b.count - a.count)
+  );
+};

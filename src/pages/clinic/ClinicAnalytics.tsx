@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
 import { useTranslation } from 'react-i18next';
 import { fetchAllPages } from '../../lib/supabase-batches';
-import { isCountedVisit, isInClinicMonth, summariseClinicVisits, type AnalyticsVisit } from '../../lib/clinic-analytics';
+import { OTHER_REASON, isCountedVisit, isInClinicMonth, summariseClinicVisits, visitReasonBreakdown, type AnalyticsVisit } from '../../lib/clinic-analytics';
+import { CLINIC_APPOINTMENT_REASONS, visitReasonLabel } from '../../lib/clinic-booking';
 import { formatLocaleCurrency, formatLocaleDigits } from '../../lib/i18n-ui';
 import { estimatedVisitFee, sumEstimatedFees, type ClinicFeeLink } from '../../lib/clinic-visit-fee';
 import { TrendingUp, Users, DollarSign, Calendar, ArrowUpRight } from 'lucide-react';
@@ -130,21 +131,13 @@ export default function ClinicAnalytics() {
 
       setDoctorPerf(perfRows);
 
-      const typeCounts: Record<string, number> = {};
-      appts.forEach(a => {
-        const t = a.chief_complaint ?? a.type ?? 'Consultation';
-        typeCounts[t] = (typeCounts[t] || 0) + 1;
-      });
-      const total = appts.length || 1;
-      const colors = ['bg-teal-500', 'bg-blue-500', 'bg-amber-500', 'bg-emerald-500', 'bg-slate-400'];
-      const breakdown = Object.entries(typeCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count], idx) => ({
-          name,
-          pct: Math.round((count / total) * 100),
-          color: colors[idx % colors.length],
-        }));
+      // QA-228: standard visit reasons only; what patients typed counts as "Other"
+      const colors = ['bg-teal-500', 'bg-blue-500', 'bg-amber-500', 'bg-emerald-500', 'bg-violet-500', 'bg-cyan-500', 'bg-rose-500', 'bg-indigo-500'];
+      const breakdown = visitReasonBreakdown(apptRows, CLINIC_APPOINTMENT_REASONS).map((row, idx) => ({
+        name: row.reason,
+        pct: row.pct,
+        color: row.reason === OTHER_REASON ? 'bg-slate-400' : colors[idx % colors.length],
+      }));
       setServiceBreakdown(breakdown);
 
     } catch (err) {
@@ -238,7 +231,7 @@ export default function ClinicAnalytics() {
 
         {/* Service breakdown */}
         <div className="col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="font-bold text-slate-800 mb-5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Appointments by Type</div>
+          <div className="font-bold text-slate-800 mb-5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t('clinic.analyticsPage.byReason')}</div>
           {serviceBreakdown.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">No data yet.</div>
           ) : (
@@ -246,7 +239,9 @@ export default function ClinicAnalytics() {
               {serviceBreakdown.map(s => (
                 <div key={s.name}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-slate-600 truncate max-w-[140px]">{s.name}</span>
+                    <span className="text-sm text-slate-600 truncate max-w-[160px]">
+                      {s.name === OTHER_REASON ? t('clinic.analyticsPage.otherReason') : visitReasonLabel(t, s.name)}
+                    </span>
                     <span className="text-sm font-bold text-slate-800 shrink-0" style={{ fontFamily: 'DM Mono, monospace' }}>{s.pct}%</span>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">

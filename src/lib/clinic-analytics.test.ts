@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isInClinicMonth, summariseClinicVisits, type AnalyticsVisit } from './clinic-analytics';
+import { CLINIC_APPOINTMENT_REASONS } from './clinic-booking';
+import { isInClinicMonth, summariseClinicVisits, visitReasonBreakdown, type AnalyticsVisit } from './clinic-analytics';
 
 // 24 Nov 2026, 12:00 in Dubai (UTC+4)
 const NOW = new Date('2026-11-24T08:00:00Z');
@@ -68,5 +69,25 @@ describe('isInClinicMonth (QA-226)', () => {
   it('uses the clinic calendar', () => {
     expect(isInClinicMonth('2026-10-31T21:30:00Z', NOW)).toBe(true);
     expect(isInClinicMonth('2026-10-31T19:00:00Z', NOW)).toBe(false);
+  });
+});
+
+describe('visitReasonBreakdown (QA-228)', () => {
+  const r = (chief_complaint: string | null, status = 'completed') => ({ status, chief_complaint });
+
+  it('groups by the standard visit reasons and puts what patients typed under "Other"', () => {
+    const rows = visitReasonBreakdown(
+      [r('Consultation'), r(' consultation '), r('Follow-up Visit'), r('chest pain since Monday'), r(null), r('Consultation', 'cancelled')],
+      CLINIC_APPOINTMENT_REASONS
+    );
+    expect(rows).toEqual([
+      { reason: 'Consultation', count: 2, pct: 40 },
+      { reason: 'Follow-up Visit', count: 1, pct: 20 },
+      { reason: 'other', count: 2, pct: 40 },
+    ]);
+  });
+
+  it('is empty when there are no visits', () => {
+    expect(visitReasonBreakdown([r('Consultation', 'cancelled')], CLINIC_APPOINTMENT_REASONS)).toEqual([]);
   });
 });

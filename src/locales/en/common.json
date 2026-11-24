@@ -1623,6 +1623,8 @@
       "dismiss": "Dismiss"
     },
     "analyticsPage": {
+      "byReason": "Appointments by Visit Reason",
+      "otherReason": "Other",
       "estimatedFees": "Estimated Fees",
       "estimatedFeesSub": "Completed visits this month",
       "colEstimatedFees": "Estimated Fees (AED)",
