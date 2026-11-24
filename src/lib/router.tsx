@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { PortalShell } from '../components/PortalShell';
 import { ProtectedRoute } from './auth-context';
@@ -45,15 +45,14 @@ import { DoctorPatientDetail } from '../pages/doctor/PatientDetail';
 import { DoctorLabOrders } from '../pages/doctor/LabOrders';
 import { CreateLabOrder } from '../pages/doctor/CreateLabOrder';
 import { DoctorMessages } from '../pages/doctor/Messages';
+import { DoctorConsultationRedirect } from '../pages/doctor/ConsultationRedirect';
 import { DoctorNotifications } from '../pages/doctor/Notifications';
 import { DoctorSchedule } from '../pages/doctor/Schedule';
 import { DoctorProfile } from '../pages/doctor/Profile';
-import { DoctorConsultationWorkspace } from '../pages/doctor/ConsultationWorkspace';
 import { DoctorTelemedicineConsultation } from '../pages/doctor/TelemedicineConsultation';
 import { DoctorSettings } from '../pages/doctor/Settings';
 import { DoctorImaging } from '../pages/doctor/Imaging';
 import { DoctorEarnings } from '../pages/doctor/Earnings';
-import { DoctorPortal } from '../pages/doctor/Portal';
 import {
   AdminAiAnalytics,
   AdminAudit,
@@ -357,7 +356,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/doctor/consultations/:appointmentId',
-    element: withPortalProtection(<DoctorConsultationWorkspace />, 'doctor'),
+    element: <DoctorConsultationRedirect />,
   },
   {
     path: '/doctor/settings',
@@ -373,7 +372,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/doctor/portal',
-    element: withPortalProtection(<DoctorPortal />, 'doctor'),
+    element: <Navigate to="/doctor/dashboard" replace />,
   },
   {
     path: '/admin/dashboard',
