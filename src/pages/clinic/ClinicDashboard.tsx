@@ -4,13 +4,22 @@ import { Calendar, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, Arro
 import { supabase } from '../../lib/supabase';
 import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { useAuth } from '../../lib/auth-context';
+import { clinicDayRangeUtc, clinicTodayKey, formatClinicTime } from '../../lib/clinic-booking-time';
+import { CLINIC_TIME_ZONE } from '../../lib/i18n-ui';
+import { doctorsForToday, summariseToday } from '../../lib/clinic-dashboard';
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
   completed:    { label: 'Completed',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
   in_progress:  { label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500 animate-pulse' },
   confirmed:    { label: 'Confirmed',   color: 'bg-teal-50 text-teal-700 border-teal-200',          dot: 'bg-teal-500' },
   scheduled:    { label: 'Scheduled',   color: 'bg-slate-50 text-slate-600 border-slate-200',       dot: 'bg-slate-400' },
+  no_show:      { label: 'No-show',     color: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-500' },
   cancelled:    { label: 'Cancelled',   color: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500' },
+};
+
+const breakdownColor: Record<string, string> = {
+  completed: 'bg-emerald-500', in_progress: 'bg-blue-500', confirmed: 'bg-teal-500',
+  scheduled: 'bg-slate-300', no_show: 'bg-amber-500', cancelled: 'bg-red-400',
 };
 
 interface TodayAppointment {
@@ -43,7 +52,7 @@ interface DashboardData {
   currentMonth: string;
   todayAppts: TodayAppointment[];
   doctors: DoctorRow[];
-  statusBreakdown: { label: string; count: number; color: string }[];
+  statusBreakdown: { status: string; label: string; count: number; share: number; color: string }[];
   nabidhActive: boolean;
 }
 
@@ -54,12 +63,13 @@ export default function ClinicDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // QA-234: today and this month in clinic time (Dubai), not the browser's
   const todayLabel = new Date().toLocaleDateString('en-AE', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: CLINIC_TIME_ZONE,
   });
 
   const currentMonthLabel = new Date().toLocaleDateString('en-AE', {
-    month: 'short', year: 'numeric',
+    month: 'short', year: 'numeric', timeZone: CLINIC_TIME_ZONE,
   });
 
   useEffect(() => {
@@ -73,8 +83,7 @@ export default function ClinicDashboard() {
     setError(null);
     try {
       const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      const { startIso: todayStart, endIso: todayEnd } = clinicDayRangeUtc(clinicTodayKey(now));
 
       // Get clinic's facility_id
       const { data: memberData, error: memberError } = await supabase
@@ -103,23 +112,24 @@ export default function ClinicDashboard() {
         .select('id, status, scheduled_at, chief_complaint, patient_id, doctor_id')
         .eq('facility_id', facilityId)
         .gte('scheduled_at', todayStart)
-        .lt('scheduled_at', todayEnd)
+        .lte('scheduled_at', todayEnd)
         .eq('is_deleted', false)
         .order('scheduled_at', { ascending: true });
 
       if (apptsError) throw apptsError;
 
-      const todayApptCount = appts?.length ?? 0;
-      const confirmedCount = appts?.filter(a => ['confirmed', 'completed', 'in_progress'].includes(a.status)).length ?? 0;
-      const pendingCount = appts?.filter(a => a.status === 'scheduled').length ?? 0;
-
-      // Status breakdown
-      const statusBreakdown = [
-        { label: 'Completed',   count: appts?.filter(a => a.status === 'completed').length ?? 0,   color: 'bg-emerald-500' },
-        { label: 'In Progress', count: appts?.filter(a => a.status === 'in_progress').length ?? 0, color: 'bg-blue-500' },
-        { label: 'Confirmed',   count: appts?.filter(a => a.status === 'confirmed').length ?? 0,   color: 'bg-teal-500' },
-        { label: 'Scheduled',   count: appts?.filter(a => a.status === 'scheduled').length ?? 0,   color: 'bg-slate-300' },
-      ];
+      // QA-234: cancelled visits are not counted as appointments; the breakdown shows every status
+      const today = summariseToday(appts ?? []);
+      const todayApptCount = today.total;
+      const confirmedCount = today.confirmed;
+      const pendingCount = today.pending;
+      const statusBreakdown = today.breakdown.map(b => ({
+        status: b.status,
+        label: (statusConfig[b.status] ?? statusConfig.scheduled).label,
+        count: b.count,
+        share: b.share,
+        color: breakdownColor[b.status],
+      }));
 
       // Get patient and doctor names
       const patientIds = [...new Set((appts ?? []).map(a => a.patient_id))];
@@ -139,7 +149,7 @@ export default function ClinicDashboard() {
       // Build today's schedule
       const todayApptRows: TodayAppointment[] = (appts ?? []).slice(0, 6).map(a => ({
         id: a.id,
-        time: new Date(a.scheduled_at).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        time: formatClinicTime(a.scheduled_at, 'en'),
         patient: patientMap.get(a.patient_id) ?? 'Unknown Patient',
         type: a.chief_complaint ?? 'Consultation',
         doctor: doctorMap.get(a.doctor_id) ? `Dr. ${doctorMap.get(a.doctor_id)}` : 'Unknown Doctor',
@@ -186,14 +196,14 @@ export default function ClinicDashboard() {
       const onDutyCount = facilityStaff?.filter(d => d.is_available).length ?? 0;
       const pendingApproval = (pendingStaff ?? []).filter(d => d.invitation_status === 'pending').length;
 
-      // Count appointments per doctor today
-      const doctorApptCount = new Map<string, number>();
-      (appts ?? []).forEach(a => {
-        doctorApptCount.set(a.doctor_id, (doctorApptCount.get(a.doctor_id) ?? 0) + 1);
-      });
-
-      const doctorRows: DoctorRow[] = (facilityStaff ?? []).slice(0, 4).map(d => {
-        const fullName = doctorNameMap.get(d.doctor_user_id) || 'Unknown Doctor';
+      // QA-234: the doctors with the most visits today first (it used to be whichever 4 came first)
+      const linkedDoctors = (facilityStaff ?? []).map(d => ({
+        ...d,
+        doctorUserId: d.doctor_user_id as string,
+        name: doctorNameMap.get(d.doctor_user_id) || 'Unknown Doctor',
+      }));
+      const doctorRows: DoctorRow[] = doctorsForToday(linkedDoctors, today.perDoctor).map(d => {
+        const fullName = d.name;
         const nameParts = fullName.trim().split(' ').filter(Boolean);
         const initials = nameParts.length >= 2
           ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
@@ -203,7 +213,7 @@ export default function ClinicDashboard() {
           name: fullName,
           specialty: doctorSpecMap.get(d.doctor_user_id) || 'General Practice',
           initials,
-          appts: doctorApptCount.get(d.doctor_user_id) ?? 0,
+          appts: d.appts,
           status: d.is_available ? 'on-duty' : 'off-duty',
         };
       });
@@ -217,7 +227,7 @@ export default function ClinicDashboard() {
         .filter(a => a.status === 'completed')
         .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
 
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const monthStart = clinicDayRangeUtc(`${clinicTodayKey(now).slice(0, 7)}-01`).startIso;
       const { data: monthAppts } = await supabase
         .from('appointments')
         .select('doctor_id, status')
@@ -282,6 +292,7 @@ export default function ClinicDashboard() {
 
   const kpis = [
     {
+      key: 'appointments',
       label: "Today's Appointments",
       value: String(data.todayApptCount),
       sub: `${data.confirmedCount} confirmed · ${data.pendingCount} pending`,
@@ -290,6 +301,7 @@ export default function ClinicDashboard() {
       trend: `${data.confirmedCount} confirmed`,
     },
     {
+      key: 'doctors',
       label: 'Active Doctors',
       value: String(data.activeDoctors),
       sub: `${data.pendingApproval} pending approval`,
@@ -298,6 +310,7 @@ export default function ClinicDashboard() {
       trend: `${data.onDutyCount} on duty today`,
     },
     {
+      key: 'today-fees',
       label: "Today's Revenue",
       value: `AED ${data.todayRevenue.toLocaleString()}`,
       sub: 'Across all services',
@@ -306,6 +319,7 @@ export default function ClinicDashboard() {
       trend: 'Today',
     },
     {
+      key: 'month-fees',
       label: 'Monthly Revenue',
       value: `AED ${data.monthlyRevenue >= 1000 ? `${(data.monthlyRevenue / 1000).toFixed(0)}K` : data.monthlyRevenue.toLocaleString()}`,
       sub: data.currentMonth,
@@ -322,7 +336,7 @@ export default function ClinicDashboard() {
         {kpis.map(k => {
           const Icon = k.icon;
           return (
-            <div key={k.label} className={`bg-white rounded-2xl border ${k.border} p-5 shadow-sm`}>
+            <div key={k.key} data-testid={`dashboard-kpi-${k.key}`} className={`bg-white rounded-2xl border ${k.border} p-5 shadow-sm`}>
               <div className="flex items-start justify-between mb-3">
                 <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center`}>
                   <Icon size={20} className={k.color} />
@@ -517,7 +531,7 @@ export default function ClinicDashboard() {
           <div className="font-bold text-slate-800 mb-4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Appointment Status</div>
           <div className="space-y-3">
             {data.statusBreakdown.map(s => (
-              <div key={s.label}>
+              <div key={s.status} data-testid={`dashboard-status-${s.status}`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-slate-600">{s.label}</span>
                   <span className="text-sm font-bold text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{s.count}</span>
@@ -525,14 +539,14 @@ export default function ClinicDashboard() {
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${s.color}`}
-                    style={{ width: `${data.todayApptCount > 0 ? (s.count / data.todayApptCount) * 100 : 0}%` }}
+                    style={{ width: `${s.share * 100}%` }}
                   />
                 </div>
               </div>
             ))}
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-            <span className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{data.todayApptCount}</span>
+            <span data-testid="dashboard-total-today" className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{data.todayApptCount}</span>
             <span className="text-sm text-slate-400 ml-2">total today</span>
           </div>
         </div>
