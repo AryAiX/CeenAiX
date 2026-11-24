@@ -110,8 +110,11 @@ select_direct_database_url() {
 
 run_sql_management_api() {
   local sql_file="$1"
+  # QA-109: pass the ref explicitly. run-sql-management-api.mjs no longer falls back to
+  # SUPABASE_PROD_PROJECT_REF on its own, so production has to be named here.
   SUPABASE_PROD_PROJECT_REF="${PROJECT_REF}" \
-    node "${ROOT_DIR}/scripts/run-sql-management-api.mjs" "${sql_file}"
+    node "${ROOT_DIR}/scripts/run-sql-management-api.mjs" "${sql_file}" \
+      --project-ref "${PROJECT_REF}"
 }
 
 psql_exec() {

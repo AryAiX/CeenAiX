@@ -3,10 +3,16 @@
  *
  * Env:
  *   SUPABASE_ACCESS_TOKEN
- *   SUPABASE_PROD_PROJECT_REF or SUPABASE_DEV_PROJECT_REF (or --project-ref)
+ *   SUPABASE_DEV_PROJECT_REF   used when no --project-ref is passed
+ *   SUPABASE_PROD_PROJECT_REF  only used with --allow-production or SUPABASE_ALLOW_PRODUCTION=true
  *
  * Usage:
- *   node scripts/run-sql-management-api.mjs path/to/file.sql
+ *   node scripts/run-sql-management-api.mjs path/to/file.sql [--project-ref <ref>]
+ *
+ * QA-109: this script used to resolve the project ref as --project-ref, then
+ * SUPABASE_PROD_PROJECT_REF, then SUPABASE_DEV_PROJECT_REF. A bare invocation in a
+ * shell that had SUPABASE_PROD_PROJECT_REF set therefore ran arbitrary SQL against
+ * production. Production now requires an explicit opt-in.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -18,10 +24,29 @@ const MAX_API_ATTEMPTS = 3;
 const RETRY_DELAYS_MS = [5000, 10000];
 
 const sqlPath = process.argv.find((arg) => arg.endsWith('.sql'));
-const projectRef =
-  process.argv.find((arg, index) => process.argv[index - 1] === '--project-ref') ||
-  process.env.SUPABASE_PROD_PROJECT_REF?.trim() ||
-  process.env.SUPABASE_DEV_PROJECT_REF?.trim();
+const explicitRef = process.argv
+  .find((arg, index) => process.argv[index - 1] === '--project-ref')
+  ?.trim();
+const allowProduction =
+  process.argv.includes('--allow-production') ||
+  process.env.SUPABASE_ALLOW_PRODUCTION?.trim() === 'true';
+
+const devProjectRef = process.env.SUPABASE_DEV_PROJECT_REF?.trim();
+const prodProjectRef = process.env.SUPABASE_PROD_PROJECT_REF?.trim();
+
+let projectRef;
+let projectRefSource;
+
+if (explicitRef) {
+  projectRef = explicitRef;
+  projectRefSource = '--project-ref';
+} else if (allowProduction && prodProjectRef) {
+  projectRef = prodProjectRef;
+  projectRefSource = 'SUPABASE_PROD_PROJECT_REF (production opt-in)';
+} else if (devProjectRef) {
+  projectRef = devProjectRef;
+  projectRefSource = 'SUPABASE_DEV_PROJECT_REF';
+}
 
 const accessToken = process.env.SUPABASE_ACCESS_TOKEN?.trim();
 
@@ -31,14 +56,24 @@ if (!accessToken) {
 }
 
 if (!projectRef) {
-  console.error('Set SUPABASE_PROD_PROJECT_REF / SUPABASE_DEV_PROJECT_REF or pass --project-ref');
+  if (prodProjectRef && !allowProduction) {
+    console.error(
+      'Refusing to fall back to SUPABASE_PROD_PROJECT_REF (QA-109). Pass --project-ref <ref>, ' +
+        'set SUPABASE_DEV_PROJECT_REF, or opt in to production with --allow-production ' +
+        '(or SUPABASE_ALLOW_PRODUCTION=true).',
+    );
+  } else {
+    console.error('Set SUPABASE_DEV_PROJECT_REF or pass --project-ref <ref>');
+  }
   process.exit(1);
 }
 
 if (!sqlPath) {
-  console.error('Usage: node scripts/run-sql-management-api.mjs <file.sql>');
+  console.error('Usage: node scripts/run-sql-management-api.mjs <file.sql> [--project-ref <ref>]');
   process.exit(1);
 }
+
+console.log(`Target project: ${projectRef} (resolved from ${projectRefSource})`);
 
 const sleep = (ms) => new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 
