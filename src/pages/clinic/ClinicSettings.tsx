@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { useTranslation } from 'react-i18next';
 import { Building2, Clock, Bell, Shield, Save } from 'lucide-react';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -18,6 +19,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 export default function ClinicSettings() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [facilityId, setFacilityId] = useState<string | null>(null);
@@ -109,9 +111,8 @@ export default function ClinicSettings() {
       const { error: updateError } = await supabase
         .from('facilities')
         .update({
+          // QA-230: facility type and DHA licence are managed by CeenAiX (the database refuses changes)
           name: clinicName,
-          facility_type: clinicType,
-          license_number: license,
           phone: phone,
           email: email,
           address: address,
@@ -223,14 +224,30 @@ export default function ClinicSettings() {
         <div className="grid grid-cols-2 gap-4">
           {[
             { label: 'Clinic Name', value: clinicName, set: setClinicName },
-            { label: 'Clinic Type', value: clinicType, set: setClinicType },
-            { label: 'DHA Facility License', value: license, set: setLicense },
             { label: 'Phone', value: phone, set: setPhone },
             { label: 'Email', value: email, set: setEmail },
           ].map(f => (
             <div key={f.label} className={f.label === 'Clinic Name' ? 'col-span-2' : ''}>
               <label className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</label>
               <input type="text" value={f.value} onChange={e => f.set(e.target.value)} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+          ))}
+          {/* QA-230: shown, not editable */}
+          {[
+            { id: 'clinic-type', label: 'Clinic Type', value: clinicType },
+            { id: 'clinic-license', label: 'DHA Facility License', value: license },
+          ].map(f => (
+            <div key={f.id}>
+              <div id={`${f.id}-label`} className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</div>
+              <div
+                aria-labelledby={`${f.id}-label`}
+                aria-describedby={`${f.id}-hint`}
+                data-testid={`${f.id}-value`}
+                className="w-full min-h-10 px-3 py-2 border border-slate-100 bg-slate-50 rounded-lg text-sm text-slate-700"
+              >
+                {f.value || '—'}
+              </div>
+              <p id={`${f.id}-hint`} className="mt-1 text-xs text-slate-400">{t('clinic.settingsPage.managedByCeenaix')}</p>
             </div>
           ))}
           <div className="col-span-2">

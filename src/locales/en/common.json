@@ -1647,6 +1647,9 @@
       "feesNote": "Fees are estimates from each doctor's clinic fees on the Doctors page (consultation, telemedicine and follow-up). Nothing is billed in the app yet.",
       "truncated": "Based on the most recent {{value}} appointments."
     },
+    "settingsPage": {
+      "managedByCeenaix": "Managed by CeenAiX. Contact CeenAiX support to change it."
+    },
     "visitReasons": {
       "consultation": "Consultation",
       "followUp": "Follow-up Visit",
