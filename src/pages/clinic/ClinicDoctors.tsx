@@ -11,7 +11,8 @@ import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
 import { clinicDoctorActions, clinicDoctorStatus } from '../../lib/clinic-doctor-status';
 import { parseFeeInput } from '../../lib/clinic-visit-fee';
 import { formatLocaleCurrency, formatLocaleDecimal, formatLocaleDigits, formatLocalePhoneDisplay, resolveLocale } from '../../lib/i18n-ui';
-import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, MoreVertical, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
+import { RowActionsMenu, type RowAction } from '../../components/RowActionsMenu';
+import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
 
 interface Doctor {
   id: string;
@@ -529,7 +530,6 @@ export default function ClinicDoctors() {
   const [editForm, setEditForm] = useState({ consultation: '', telemedicine: '', followUp: '' });
   const [editError, setEditError] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [endTarget, setEndTarget] = useState<{ id: string; action: 'suspend' | 'remove' } | null>(null);
   const [endingLink, setEndingLink] = useState(false);
   const [inviteBanner, setInviteBanner] = useState<string | null>(null);
@@ -539,14 +539,6 @@ export default function ClinicDoctors() {
     void fetchDoctors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  useEffect(() => {
-    const handleClickOutside = () => setMenuOpen(null);
-    if (menuOpen) {
-      document.addEventListener('click', handleClickOutside);
-    }
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [menuOpen]);
 
   const fetchDoctors = async () => {
     setLoading(true);
@@ -786,9 +778,7 @@ export default function ClinicDoctors() {
       } else {
         setDoctors(prev => prev.map(d => d.id === id ? { ...d, status: action === 'reactivate' ? 'active' : 'suspended' } : d));
       }
-      setMenuOpen(null);
     } catch (err) {
-      setMenuOpen(null);
       if ((err as { code?: string } | null)?.code === '22023') await fetchDoctors();
       setError(t(doctorLinkErrorKey(err)));
     }
@@ -840,7 +830,19 @@ export default function ClinicDoctors() {
       followUp: asText(doctor.clinicFees.followUp),
     });
     setEditError(null);
-    setMenuOpen(null);
+  };
+
+  // QA-244: the row's "⋮" actions (drawn by RowActionsMenu on top of the page, not inside the table)
+  const rowActions = (d: Doctor): RowAction[] => {
+    const can = clinicDoctorActions(d.status);
+    const actions: RowAction[] = [];
+    if (can.canApprove) actions.push({ key: 'approve', label: t('clinic.doctorsPage.approve'), tone: 'success', icon: <CheckCircle size={14} aria-hidden="true" />, onSelect: () => { void handleApprove(d.id); } });
+    if (can.canReject) actions.push({ key: 'reject', label: t('clinic.doctorsPage.reject'), tone: 'danger', icon: <XCircle size={14} aria-hidden="true" />, onSelect: () => { void handleReject(d.id); } });
+    if (can.canCancelInvite) actions.push({ key: 'cancel-invite', label: t('clinic.doctorsPage.cancelInvite'), tone: 'danger', icon: <XCircle size={14} aria-hidden="true" />, onSelect: () => { void handleCancelInvite(d.id); } });
+    if (can.canReactivate) actions.push({ key: 'reactivate', label: t('clinic.doctorsPage.reactivate'), tone: 'success', icon: <CheckCircle size={14} aria-hidden="true" />, onSelect: () => { void handleReactivate(d.id); } });
+    if (can.canEditFee) actions.push({ key: 'edit-fee', label: t('clinic.doctorsPage.editFee'), icon: <Edit2 size={14} aria-hidden="true" />, onSelect: () => handleStartEdit(d) });
+    if (can.canRemove) actions.push({ key: 'remove', label: t('clinic.doctorsPage.remove'), tone: 'danger', icon: <Trash2 size={14} aria-hidden="true" />, onSelect: () => setEndTarget({ id: d.id, action: 'remove' }) });
+    return actions;
   };
 
   const handleSaveEdit = async () => {
@@ -1037,41 +1039,7 @@ export default function ClinicDoctors() {
                     >
                       <Eye size={15} className="text-slate-400 hover:text-teal-600" aria-hidden="true" />
                     </button>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === d.id ? null : d.id); }}
-                        onKeyDown={e => { if (e.key === 'Escape') setMenuOpen(null); }}
-                        aria-label={t('clinic.doctorsPage.moreActions', { name: d.name })}
-                        aria-haspopup="menu"
-                        aria-expanded={menuOpen === d.id}
-                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-                      >
-                        <MoreVertical size={15} className="text-slate-400" aria-hidden="true" />
-                      </button>
-                      {menuOpen === d.id && (
-                        <div role="menu" onKeyDown={e => { if (e.key === 'Escape') setMenuOpen(null); }} className="absolute end-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg z-10 w-44 py-1">
-                          {clinicDoctorActions(d.status).canApprove && (
-                            <button onClick={() => { handleApprove(d.id); setMenuOpen(null); }} role="menuitem" type="button" className="w-full px-4 py-2 text-start text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={14} aria-hidden="true" /> {t('clinic.doctorsPage.approve')}</button>
-                          )}
-                          {clinicDoctorActions(d.status).canReject && (
-                            <button onClick={() => { void handleReject(d.id); setMenuOpen(null); }} role="menuitem" type="button" className="w-full px-4 py-2 text-start text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} aria-hidden="true" /> {t('clinic.doctorsPage.reject')}</button>
-                          )}
-                          {clinicDoctorActions(d.status).canCancelInvite && (
-                            <button onClick={() => { void handleCancelInvite(d.id); setMenuOpen(null); }} role="menuitem" type="button" className="w-full px-4 py-2 text-start text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><XCircle size={14} aria-hidden="true" /> {t('clinic.doctorsPage.cancelInvite')}</button>
-                          )}
-                          {clinicDoctorActions(d.status).canReactivate && (
-                            <button onClick={() => { void handleReactivate(d.id); setMenuOpen(null); }} role="menuitem" type="button" className="w-full px-4 py-2 text-start text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={14} aria-hidden="true" /> {t('clinic.doctorsPage.reactivate')}</button>
-                          )}
-                          {clinicDoctorActions(d.status).canEditFee && (
-                            <button onClick={() => handleStartEdit(d)} role="menuitem" type="button" className="w-full px-4 py-2 text-start text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><Edit2 size={14} aria-hidden="true" /> {t('clinic.doctorsPage.editFee')}</button>
-                          )}
-                          {clinicDoctorActions(d.status).canRemove && (
-                            <button onClick={() => { setEndTarget({ id: d.id, action: 'remove' }); setMenuOpen(null); }} role="menuitem" type="button" className="w-full px-4 py-2 text-start text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} aria-hidden="true" /> {t('clinic.doctorsPage.remove')}</button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <RowActionsMenu label={t('clinic.doctorsPage.moreActions', { name: d.name })} actions={rowActions(d)} />
                   </div>
                 </td>
               </tr>

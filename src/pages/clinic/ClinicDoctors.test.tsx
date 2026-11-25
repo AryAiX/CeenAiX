@@ -30,6 +30,7 @@ const PEOPLE = [
   { user_id: 'doc-pending', full_name: 'Dr Pending Person', phone: null, email: null },
   { user_id: 'doc-invited', full_name: 'Dr Invited Person', phone: null, email: null },
   { user_id: 'doc-new', full_name: 'Dr New Person', phone: null, email: 'new@example.test' },
+  { user_id: 'doc-declined', full_name: 'Dr Declined Person', phone: null, email: null },
 ];
 
 const setup = (doctorProfiles: unknown[] = [], upcomingVisits: unknown[] = [], links: unknown[] = LINKS) => {
@@ -480,5 +481,23 @@ describe('ClinicDoctors in Arabic (QA-207)', () => {
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('تعذّر تحميل الأطباء. يُرجى المحاولة مرة أخرى.');
     expect(screen.queryByText(/relation/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDoctors actions menu (QA-244)', () => {
+  it('opens the "⋮" menu on top of the page, not inside the table that scrolls sideways', async () => {
+    setup();
+    const row = await rowOf('Dr Active Person');
+    openMenu(row);
+    const opened = screen.getByRole('menu');
+    expect(row.closest('table')?.contains(opened)).toBe(false);
+    expect(opened.parentElement).toBe(document.body);
+    expect(within(opened).getByRole('menuitem', { name: /Edit Fee/ })).toBeInTheDocument();
+  });
+
+  it('shows no empty menu for a doctor who declined (nothing to do there)', async () => {
+    setup([], [], [...LINKS, { ...LINKS[0], id: 's-declined', doctor_user_id: 'doc-declined', invitation_status: 'declined', is_active: false }]);
+    const row = await rowOf('Dr Declined Person');
+    expect(within(row).queryByRole('button', { name: /More actions/ })).not.toBeInTheDocument();
   });
 });
