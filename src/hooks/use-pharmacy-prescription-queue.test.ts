@@ -1,9 +1,14 @@
+import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 
 import { supabase } from '../lib/supabase';
-import { sendPharmacyHoldNotificationAndMessage } from './use-pharmacy-prescription-queue';
+import { createSupabaseQueryBuilder } from '../test/supabase-mock';
+import {
+  sendPharmacyHoldNotificationAndMessage,
+  usePharmacyPrescriptionQueue,
+} from './use-pharmacy-prescription-queue';
 
 describe('sendPharmacyHoldNotificationAndMessage (QA-263)', () => {
   const rpcMock = vi.mocked(supabase.rpc);
@@ -43,5 +48,69 @@ describe('sendPharmacyHoldNotificationAndMessage (QA-263)', () => {
         pharmacyUserId: null,
       })
     ).rejects.toMatchObject({ message: 'Prescription not found.' });
+  });
+});
+
+describe('usePharmacyPrescriptionQueue grouping key (QA-251)', () => {
+  const fromMock = vi.mocked(supabase.from);
+  const PRESCRIPTION = '1a2b3c4d-1111-2222-3333-444455556666';
+  const taskRow = (id: string, medication: string, prescriptionId: string | null, externalRef: string) => ({
+    id,
+    prescription_id: prescriptionId,
+    external_ref: externalRef,
+    patient_name: 'Test Patient',
+    prescriber_name: 'Dr Test',
+    medication_name: medication,
+    quantity: 10,
+    priority: 'routine',
+    workflow_status: 'new',
+    received_at: '2026-11-25T08:00:00.000Z',
+    insurance_provider: 'Cash',
+    copay_aed: 0,
+    allergy_flag: false,
+    assigned_to: null,
+    patient_user_id: 'patient-1',
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const tables: Record<string, ReturnType<typeof createSupabaseQueryBuilder>> = {
+      organizations: createSupabaseQueryBuilder({
+        data: { id: 'org-1', name: 'QA Pharmacy', slug: 'qa', city: null, notes: null },
+        error: null,
+      }),
+      pharmacy_facility_profiles: createSupabaseQueryBuilder({ data: null, error: null }),
+      organization_staff_members: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_dispensing_tasks: createSupabaseQueryBuilder({
+        data: [
+          taskRow('task-1', 'Amoxicillin', PRESCRIPTION, `rx-${PRESCRIPTION}-item-aaaa`),
+          taskRow('task-2', 'Paracetamol', PRESCRIPTION, `rx-${PRESCRIPTION}-item-bbbb`),
+          taskRow('task-3', 'Demo medicine', null, 'RX-ATO-20'),
+        ],
+        error: null,
+      }),
+      pharmacy_inventory_items: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_claims: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_messages: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_settings: createSupabaseQueryBuilder({ data: [], error: null }),
+    };
+    fromMock.mockImplementation(((table: string) => {
+      const builder = tables[table];
+      if (!builder) throw new Error(`Unexpected table ${table}`);
+      return builder;
+    }) as never);
+  });
+
+  it('groups the medicines of one prescription by the prescription, not by each medicine reference', async () => {
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.queue).toHaveLength(3));
+
+    const queue = result.current.data?.queue ?? [];
+    expect(queue.map((item) => item.prescriptionId)).toEqual([PRESCRIPTION, PRESCRIPTION, 'RX-ATO-20']);
+    expect(queue.map((item) => item.externalRef)).toEqual([
+      `rx-${PRESCRIPTION}-item-aaaa`,
+      `rx-${PRESCRIPTION}-item-bbbb`,
+      'RX-ATO-20',
+    ]);
   });
 });

@@ -41,7 +41,14 @@ export interface PharmacyStaffMember {
 
 export interface PharmacyQueuePrescriptionItem {
   id: string;
+  /**
+   * The prescription this medicine belongs to (QA-251): the real prescription id, so all medicines
+   * of one prescription group together. Tasks without a prescription (old demo rows) use their own
+   * reference instead.
+   */
   prescriptionId: string;
+  /** The task's own reference (`external_ref`), one per medicine. */
+  externalRef: string;
   patientName: string;
   medication: string;
   prescriber: string;
@@ -172,6 +179,7 @@ interface StaffRow {
 
 interface DispensingTaskRow {
   id: string;
+  prescription_id: string | null;
   external_ref: string;
   patient_name: string;
   prescriber_name: string;
@@ -450,7 +458,7 @@ export function usePharmacyPrescriptionQueue() {
         .order('created_at', { ascending: true }),
       supabase
         .from('pharmacy_dispensing_tasks')
-        .select('id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
+        .select('id, prescription_id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
         .eq('organization_id', org.id)
         .order('received_at', { ascending: false }),
       supabase
@@ -504,7 +512,9 @@ export function usePharmacyPrescriptionQueue() {
       const waitMinutes = Math.max(0, Math.round((Date.now() - new Date(task.received_at).getTime()) / 60000));
       return {
         id: task.id,
-        prescriptionId: task.external_ref,
+        // QA-251: group by the real prescription; every medicine has its own external_ref.
+        prescriptionId: task.prescription_id ?? task.external_ref,
+        externalRef: task.external_ref,
         patientName: task.patient_name,
         medication: task.medication_name,
         prescriber: task.prescriber_name,

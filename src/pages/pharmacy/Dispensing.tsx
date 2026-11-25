@@ -15,14 +15,22 @@ import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
-import { inferPrescriptionWorkflowStatus } from './prescription-status';
+import {
+  inferPrescriptionWorkflowStatus,
+  openDispensingTaskIds,
+  prescriptionReference,
+} from './prescription-status';
 
 type FilterType = 'all' | 'new' | 'in_progress' | 'on_hold' | 'dispensed' | 'picked_up' | 'cancelled';
 type SortType = 'newest' | 'oldest' | 'patient' | 'status';
 
 interface PrescriptionListRow {
   id: string;
-  taskIds: string[];
+  /** QA-251: every medicine (dispensing task) of this prescription, with its own status. */
+  tasks: Array<Pick<PharmacyQueuePrescriptionItem, 'id' | 'workflowStatus'>>;
+  /** The medicines' own references, so an old link with a task reference still finds the row. */
+  refs: string[];
+  patientUserId: string | null;
   patientName: string;
   patientInitials: string;
   avatarClass: string;
@@ -172,7 +180,9 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
 
     return {
       id: prescriptionId,
-      taskIds: group.map((item) => item.id),
+      tasks: group.map((item) => ({ id: item.id, workflowStatus: item.workflowStatus })),
+      refs: group.map((item) => item.externalRef),
+      patientUserId: group.find((item) => item.patientUserId)?.patientUserId ?? null,
       patientName: first.patientName,
       patientInitials: initialsFor(first.patientName),
       avatarClass: avatarClassFor(prescriptionId),
@@ -255,11 +265,14 @@ export const PharmacyDispensing = () => {
   };
 
   const handleOnHold = async (row: PrescriptionListRow) => {
+    // QA-251: only the medicines still open; dispensed, picked up and cancelled ones stay as they are.
+    const taskIds = openDispensingTaskIds(row.tasks);
+    if (taskIds.length === 0) return;
     setActionError(null);
     setBusyId(row.id);
     try {
       await Promise.all(
-        row.taskIds.map((taskId) =>
+        taskIds.map((taskId) =>
           updatePharmacyDispensingTaskStatus(taskId, 'on_hold', {
             holdReasonCode: holdReason,
             holdNote,
@@ -267,14 +280,12 @@ export const PharmacyDispensing = () => {
         )
       );
 
-      const patientUserId = data?.queue?.find(
-        (item) => item.prescriptionId === row.id
-      )?.patientUserId ?? null;
+      const patientUserId = row.patientUserId;
 
       if (patientUserId) {
         try {
           await sendPharmacyHoldNotificationAndMessage({
-            taskIds: row.taskIds,
+            taskIds,
             patientUserId,
             medications: row.drugs,
             holdReasonLabel: getHoldReasonLabel(holdReason).replace(/^[^\s]+\s/, ''),
@@ -309,6 +320,9 @@ export const PharmacyDispensing = () => {
     }
     const nextStatus = nextStatusFor(status);
     if (!nextStatus) return;
+    // QA-251: only the medicines still open; dispensed, picked up and cancelled ones stay as they are.
+    const taskIds = openDispensingTaskIds(row.tasks);
+    if (taskIds.length === 0) return;
     setActionError(null);
     setBusyId(row.id);
     try {
@@ -318,7 +332,7 @@ export const PharmacyDispensing = () => {
           : nextStatus === 'dispensed'
             ? 'dispensed'
             : 'on_hold';
-      await Promise.all(row.taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, workflowStatus)));
+      await Promise.all(taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, workflowStatus)));
       refetch();
     } catch (error) {
       setActionError(
@@ -351,6 +365,8 @@ export const PharmacyDispensing = () => {
         !query ||
         row.patientName.toLowerCase().includes(query) ||
         row.id.toLowerCase().includes(query) ||
+        row.refs.some((ref) => ref.toLowerCase().includes(query)) ||
+        prescriptionReference(row.id).toLowerCase().includes(query) ||
         row.doctorName.toLowerCase().includes(query) ||
         row.drugs.some((drug) => drug.toLowerCase().includes(query));
 
@@ -541,7 +557,7 @@ export const PharmacyDispensing = () => {
                       <div className="truncate text-[12px] text-slate-600" title={row.drugs.join(', ')}>
                         {row.drugs.map(drug => drug.length > 20 ? drug.slice(0, 20) + '…' : drug).join(', ') || '—'}
                       </div>
-                      <div className="font-mono text-[10px] text-slate-400">RX-{row.id.slice(0, 8).toUpperCase()}</div>
+                      <div className="font-mono text-[10px] text-slate-400">{prescriptionReference(row.id)}</div>
                     </div>
 
                     <div>
@@ -598,10 +614,7 @@ export const PharmacyDispensing = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          const queueItem = data?.queue?.find(
-                            (item) => item.prescriptionId === row.id
-                          );
-                          const patientUserId = queueItem?.patientUserId ?? null;
+                          const patientUserId = row.patientUserId;
                           const medList = row.drugs.slice(0, 2).join(', ');
                           const draftText = `Regarding your prescription for ${medList}: `;
                           if (patientUserId) {
@@ -708,7 +721,7 @@ export const PharmacyDispensing = () => {
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-slate-900">{viewModalRow.patientName}</h2>
-                  <p className="mt-0.5 font-mono text-xs text-slate-400">RX-{viewModalRow.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="mt-0.5 font-mono text-xs text-slate-400">{prescriptionReference(viewModalRow.id)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
