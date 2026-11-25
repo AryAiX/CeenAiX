@@ -11,6 +11,7 @@ import {
   trimMessageDraft,
 } from '../lib/messaging';
 import { supabase } from '../lib/supabase';
+import { announceMessagesRead } from '../lib/notification-events';
 
 const careTeamFallback = () => i18n.t('messaging.careTeamFallback', { defaultValue: 'Care team' });
 const errStartConversation = () =>
@@ -27,6 +28,20 @@ const errEditMessage = () =>
   i18n.t('messaging.errEditMessage', { defaultValue: 'Unable to edit message.' });
 const errRestoreMessage = () =>
   i18n.t('messaging.errRestoreMessage', { defaultValue: 'Unable to restore the message.' });
+const errStartNotAllowed = () =>
+  i18n.t('messaging.errStartNotAllowed', {
+    defaultValue: 'You can only start a conversation with someone in your care team.',
+  });
+
+/**
+ * QA-219: the message shown on screen is always a plain one in the UI language. Supabase errors are
+ * Error objects too, so `error instanceof Error ? error.message : …` used to show the raw database
+ * text (in English, even in Arabic). The details stay in the console.
+ */
+const plainError = (error: unknown, fallback: () => string, context: string): string => {
+  console.warn(`[messaging] ${context}`, error);
+  return fallback();
+};
 
 interface UserProfileRow {
   user_id: string;
@@ -194,7 +209,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
       }
     } catch (error) {
       if (requestId === conversationRequestIdRef.current) {
-        setConversationError(error instanceof Error ? error.message : errLoadConversations());
+        setConversationError(plainError(error, errLoadConversations, 'load conversations failed'));
       }
     } finally {
       if (requestId === conversationRequestIdRef.current) {
@@ -211,13 +226,12 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
 
       if (error) {
         if (!isMissingMessagingRpcError(error)) {
-          const message = error.message;
-          console.warn(message);
-          setThreadError(message);
+          setThreadError(plainError(error, errLoadMessages, 'mark as read failed'));
         }
         return;
       }
 
+      announceMessagesRead();
       await loadConversations();
     },
     [loadConversations]
@@ -257,7 +271,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         void markConversationRead(conversationId);
       } catch (error) {
         if (loadMessagesRequestRef.current === requestId) {
-          setThreadError(error instanceof Error ? error.message : errLoadMessages());
+          setThreadError(plainError(error, errLoadMessages, 'load messages failed'));
         }
       } finally {
         if (loadMessagesRequestRef.current === requestId) {
@@ -356,7 +370,11 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           created: true,
         };
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : errStartConversation());
+        // 42501: the database only allows a conversation with someone in the care team (QA-073)
+        const notAllowed = (error as { code?: string } | null)?.code === '42501';
+        setActionError(
+          plainError(error, notAllowed ? errStartNotAllowed : errStartConversation, 'start conversation failed')
+        );
         return {
           conversationId: null,
           created: false,
@@ -407,13 +425,13 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
           console.warn(
             `[messaging] message sent but conversation timestamp update failed: ${updateConversationError.message}`
           );
-          setActionError(updateConversationError.message);
+          // QA-219: the message was sent, so no error is shown for this.
         }
 
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : errSendMessage());
+        setActionError(plainError(error, errSendMessage, 'send failed'));
         return false;
       } finally {
         setWorking(false);
@@ -437,7 +455,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : errDeleteMessage());
+        setActionError(plainError(error, errDeleteMessage, 'delete failed'));
         return false;
       } finally {
         setWorking(false);
@@ -462,7 +480,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await Promise.all([loadConversations(), loadMessages(activeConversationId)]);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : errRestoreMessage());
+        setActionError(plainError(error, errRestoreMessage, 'restore failed'));
         return false;
       } finally {
         setWorking(false);
@@ -488,7 +506,7 @@ export function useMessagingHub(userId: string | null | undefined, selectedConve
         await loadMessages(activeConversationId);
         return true;
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : errEditMessage());
+        setActionError(plainError(error, errEditMessage, 'edit failed'));
         return false;
       } finally {
         setWorking(false);

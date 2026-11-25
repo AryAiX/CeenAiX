@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AppointmentStatus } from '../types/enums';
-import { canDoctorSetStatus, getDoctorAppointmentActions } from './appointment-actions';
+import { canDoctorSetStatus, getClinicAppointmentActions, getDoctorAppointmentActions } from './appointment-actions';
 
 // 19 Nov 2026, 12:00 in Dubai (UTC+4).
 const NOW = new Date('2026-11-19T08:00:00Z');
@@ -73,5 +73,47 @@ describe('canDoctorSetStatus', () => {
 
   it('allows completing an in-progress visit', () => {
     expect(canDoctorSetStatus(at('in_progress', '2026-11-19T07:30:00Z'), 'completed', NOW)).toBe(true);
+  });
+});
+
+describe('getClinicAppointmentActions (QA-190)', () => {
+  const now = new Date('2026-11-19T06:00:00Z');
+  const visit = (status: string, scheduled_at: string) => ({ status, scheduled_at });
+
+  it('lets the clinic confirm or cancel a future scheduled visit, but not mark it a no-show', () => {
+    expect(getClinicAppointmentActions(visit('scheduled', '2026-11-20T05:00:00Z'), now)).toEqual({
+      canConfirm: true,
+      canCancel: true,
+      canMarkNoShow: false,
+    });
+  });
+
+  it('does not confirm twice, but can still cancel a confirmed visit', () => {
+    expect(getClinicAppointmentActions(visit('confirmed', '2026-11-20T05:00:00Z'), now)).toEqual({
+      canConfirm: false,
+      canCancel: true,
+      canMarkNoShow: false,
+    });
+  });
+
+  it('after the start time only offers no-show', () => {
+    expect(getClinicAppointmentActions(visit('scheduled', '2026-11-19T05:30:00Z'), now)).toEqual({
+      canConfirm: false,
+      canCancel: false,
+      canMarkNoShow: true,
+    });
+  });
+
+  it.each(['completed', 'cancelled', 'no_show', 'in_progress'])('offers nothing for a %s visit', (status) => {
+    expect(getClinicAppointmentActions(visit(status, '2026-11-20T05:00:00Z'), now)).toEqual({
+      canConfirm: false,
+      canCancel: false,
+      canMarkNoShow: false,
+    });
+    expect(getClinicAppointmentActions(visit(status, '2026-11-18T05:00:00Z'), now)).toEqual({
+      canConfirm: false,
+      canCancel: false,
+      canMarkNoShow: false,
+    });
   });
 });

@@ -30,6 +30,7 @@ import {
   trimMessageDraft,
 } from '../lib/messaging';
 import { Skeleton } from './Skeleton';
+import { ClinicContactPicker } from './ClinicContactPicker';
 
 interface MessagesWorkspaceProps {
   role: 'patient' | 'doctor' | 'pharmacy' | 'clinic';
@@ -130,14 +131,20 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
   // QA-155: doctors can start a conversation here too, by picking one of their patients. The list
   // only loads while the picker is open.
   const isDoctor = role === 'doctor';
-  const canStartConversations = isPatient || isDoctor;
+  // QA-218: clinics start conversations too, with their doctors or patients with a visit there.
+  const isClinic = role === 'clinic';
+  const canStartConversations = isPatient || isDoctor || isClinic;
   const doctorPatients = useDoctorPatients(isDoctor && patientPickerOpen ? user?.id : null);
   const pickerPatients = useMemo(() => {
     const query = patientPickerQuery.trim().toLowerCase();
     const all = doctorPatients.data ?? [];
     return query ? all.filter((patient) => patient.name.toLowerCase().includes(query)) : all;
   }, [doctorPatients.data, patientPickerQuery]);
-  const newConversationLabel = isPatient ? t('patient.messages.careTeam.newMessage') : t('doctor.messages.newMessage');
+  const newConversationLabel = isPatient
+    ? t('patient.messages.careTeam.newMessage')
+    : isClinic
+      ? t('clinic.messages.picker.newMessage')
+      : t('doctor.messages.newMessage');
 
   const openCareTeam = () => {
     setCareTeamError(null);
@@ -178,7 +185,13 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       closePickers();
       navigate(`/${role}/messages/${nextConversationId}`);
     } else {
-      setCareTeamError(isPatient ? t('patient.messages.careTeam.startError') : t('doctor.messages.startError'));
+      setCareTeamError(
+        isPatient
+          ? t('patient.messages.careTeam.startError')
+          : isClinic
+            ? t('clinic.messages.picker.startError')
+            : t('doctor.messages.startError')
+      );
     }
   };
 
@@ -1301,6 +1314,16 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
           document.body
         )
       : null}
+    {isClinic && patientPickerOpen ? (
+      <ClinicContactPicker
+        userId={user?.id}
+        busyId={careTeamBusyId}
+        error={careTeamError}
+        existingCounterpartIds={new Set(conversations.map((conversation) => conversation.counterpart.id))}
+        onPick={(contactId) => void startConversationWith(contactId)}
+        onClose={() => setPatientPickerOpen(false)}
+      />
+    ) : null}
     {isPatient && careTeamOpen
       ? createPortal(
           <div

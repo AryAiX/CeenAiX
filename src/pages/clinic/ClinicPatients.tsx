@@ -1,271 +1,84 @@
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
-import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User, Save, Check } from 'lucide-react';
+import ClinicBookAppointmentModal, { type ClinicBookingDoctor } from './ClinicBookAppointmentModal';
+import { doctorFilterOptions, isBookableClinicDoctor, visitReasonLabel } from '../../lib/clinic-booking';
+import { appointmentStatusLabel, formatLocaleDigits, formatLocalePhoneDisplay } from '../../lib/i18n-ui';
+import { fetchAllPages, fetchByIdChunks } from '../../lib/supabase-batches';
+import { fetchClinicPatientProfiles } from '../../lib/clinic-patients';
+import { countUpcomingVisits, isInCurrentClinicMonth, summarisePatientVisits } from '../../lib/clinic-patient-summary';
+import { formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
+import { Search, Users, Phone, Mail, Calendar, Clock, ChevronRight, X, BookOpen, MessageSquare, User } from 'lucide-react';
 
 interface Patient {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  dob: string;
-  lastVisit: string;
+  phone: string | null;
+  email: string | null;
+  /** YYYY-MM-DD */
+  dateOfBirth: string | null;
+  /** QA-209: latest COMPLETED visit (not a future or cancelled booking) */
   lastVisitDate: string | null;
-  doctor: string;
+  nextVisitDate: string | null;
+  doctorId: string | null;
+  /** primary doctor's name (shown as "Dr. …" in the UI language), null when unknown */
+  doctor: string | null;
+  /** QA-209: completed visits only */
   totalVisits: number;
 }
 
-const apptStatusConfig: Record<string, { label: string; color: string }> = {
-  scheduled:     { label: 'Scheduled',   color: 'bg-slate-100 text-slate-600' },
-  confirmed:     { label: 'Confirmed',   color: 'bg-teal-50 text-teal-700' },
-  'in-progress': { label: 'In Progress', color: 'bg-blue-50 text-blue-700' },
-  in_progress:   { label: 'In Progress', color: 'bg-blue-50 text-blue-700' },
-  completed:     { label: 'Completed',   color: 'bg-emerald-50 text-emerald-700' },
-  cancelled:     { label: 'Cancelled',   color: 'bg-red-50 text-red-600' },
-  'no-show':     { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
-  no_show:       { label: 'No Show',     color: 'bg-amber-50 text-amber-700' },
+const apptStatusColor: Record<string, string> = {
+  scheduled:   'bg-slate-100 text-slate-600',
+  confirmed:   'bg-teal-50 text-teal-700',
+  in_progress: 'bg-blue-50 text-blue-700',
+  completed:   'bg-emerald-50 text-emerald-700',
+  cancelled:   'bg-red-50 text-red-600',
+  no_show:     'bg-amber-50 text-amber-700',
 };
 
-interface Appointment {
-  patientName: string;
-  patientPhone: string;
-  doctor: string;
-  type: string;
-  date: string;
-  time: string;
-  notes: string;
-}
+type DoctorOption = ClinicBookingDoctor;
 
-interface DoctorOption {
-  userId: string;
-  name: string;
-  specialty: string;
-  consultationFee: number;
-}
-
-const apptTypes = ['Consultation', 'Follow-up Visit', 'General Checkup', 'Diabetes Management', 'Lab Results Review', 'Radiology Review', 'Specialist Referral', 'Telemedicine'];
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(mins: number): string {
-  const h = Math.floor(mins / 60).toString().padStart(2, '0');
-  const m = (mins % 60).toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
-
-const TELEMEDICINE_TYPES = new Set(['Telemedicine']);
-
-function BookModal({ onClose, onBook, doctors: doctorList, initialPatient }: {
-  onClose: () => void;
-  onBook: (a: Partial<Appointment> & { patientId: string }) => void;
-  doctors: DoctorOption[];
-  initialPatient: { userId: string; fullName: string; phone: string };
-}) {
-  const [form, setForm] = useState({
-    patientName: initialPatient.fullName,
-    patientPhone: initialPatient.phone,
-    doctor: doctorList[0]?.userId ?? '',
-    type: apptTypes[0],
-    date: '',
-    time: '',
-    notes: '',
-  });
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
-  const [bookError, setBookError] = useState<string | null>(null);
-
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [slotsError, setSlotsError] = useState<string | null>(null);
-
-  const loadSlots = async (doctorId: string, dateStr: string) => {
-    if (!doctorId || !dateStr) { setAvailableSlots([]); return; }
-    setSlotsLoading(true);
-    setSlotsError(null);
-    try {
-      const dayOfWeek = new Date(`${dateStr}T00:00:00`).getDay();
-
-      const { data: availability } = await supabase
-        .from('doctor_availability')
-        .select('start_time, end_time, slot_duration_minutes')
-        .eq('doctor_id', doctorId)
-        .eq('day_of_week', dayOfWeek)
-        .eq('is_active', true);
-
-      const { data: blocked } = await supabase
-        .from('blocked_slots')
-        .select('start_time, end_time')
-        .eq('doctor_id', doctorId)
-        .eq('blocked_date', dateStr);
-
-      const dayStart = `${dateStr}T00:00:00`;
-      const dayEnd = `${dateStr}T23:59:59`;
-      const { data: existingAppts } = await supabase
-        .from('appointments')
-        .select('scheduled_at, duration_minutes')
-        .eq('doctor_id', doctorId)
-        .gte('scheduled_at', dayStart)
-        .lte('scheduled_at', dayEnd)
-        .eq('is_deleted', false)
-        .not('status', 'in', '("cancelled","no_show")');
-
-      const slots: string[] = [];
-      (availability ?? []).forEach(window => {
-        const duration = window.slot_duration_minutes || 30;
-        let cursor = timeToMinutes(window.start_time);
-        const end = timeToMinutes(window.end_time);
-        while (cursor + duration <= end) {
-          const slotEnd = cursor + duration;
-
-          const isBlocked = (blocked ?? []).some(b => {
-            const bStart = timeToMinutes(b.start_time);
-            const bEnd = timeToMinutes(b.end_time);
-            return cursor < bEnd && slotEnd > bStart;
-          });
-
-          const isBooked = (existingAppts ?? []).some(a => {
-            const aStart = timeToMinutes(new Date(a.scheduled_at).toTimeString().slice(0, 5));
-            const aEnd = aStart + (a.duration_minutes || 30);
-            return cursor < aEnd && slotEnd > aStart;
-          });
-
-          if (!isBlocked && !isBooked) {
-            slots.push(minutesToTime(cursor));
-          }
-          cursor += duration;
-        }
-      });
-
-      setAvailableSlots(slots);
-      if (slots.length === 0) {
-        setSlotsError('This doctor has no available slots on this day.');
-      }
-    } catch (err) {
-      setSlotsError(err instanceof Error ? err.message : 'Failed to load availability.');
-    } finally {
-      setSlotsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (form.doctor && form.date) {
-      void loadSlots(form.doctor, form.date);
-      setForm(f => ({ ...f, time: '' }));
-    }
-  }, [form.doctor, form.date]);
-
-  return createPortal(
-    <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center"><Calendar size={18} className="text-teal-600" /></div>
-            <h3 className="font-bold text-slate-900">Book Appointment</h3>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} className="text-slate-400" /></button>
-        </div>
-        <div className="p-6 grid grid-cols-2 gap-4">
-          <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-teal-50 rounded-lg border border-teal-100">
-            <Check size={15} className="text-teal-600" />
-            <div>
-              <div className="text-sm font-semibold text-slate-800">{initialPatient.fullName}</div>
-              <div className="text-xs text-slate-400">{initialPatient.phone}</div>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
-            <select value={form.doctor} onChange={set('doctor')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              {doctorList.map(d => <option key={d.userId} value={d.userId}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Appointment Type</label>
-            <select value={form.type} onChange={set('type')} className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              {apptTypes.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Date</label>
-            <input
-              type="date"
-              value={form.date}
-              min={new Date().toISOString().split('T')[0]}
-              onChange={set('date')}
-              className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Available Time Slots</label>
-            {!form.date ? (
-              <p className="text-xs text-slate-400">Select a date to see available slots.</p>
-            ) : slotsLoading ? (
-              <p className="text-xs text-slate-400">Loading availability…</p>
-            ) : slotsError ? (
-              <p className="text-xs text-amber-600">{slotsError}</p>
-            ) : (
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {availableSlots.map(slot => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, time: slot }))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      form.time === slot
-                        ? 'bg-teal-600 text-white border-teal-600'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
-            <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder="Optional notes…" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
-          </div>
-          {bookError && <p className="col-span-2 text-xs text-red-500">{bookError}</p>}
-        </div>
-        <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors">Cancel</button>
-          <button
-            onClick={() => {
-              if (!form.date || !form.time) {
-                setBookError('Please select a date and an available time slot.');
-                return;
-              }
-              onBook({ ...form, patientId: initialPatient.userId });
-              onClose();
-            }}
-            className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-          >
-            <Save size={15} /> Book Appointment
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
+/** QA-210: one visit in the patient card (clinic time, with the doctor and the reason). */
+interface PatientVisit {
+  id?: string;
+  scheduled_at: string;
+  status: string;
+  /** null when the doctor's name is not known */
+  doctorName: string | null;
+  /** stored reason (English); translated for display */
+  reason: string;
 }
 
 function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
   patient: Patient;
-  appts: { id?: string; scheduled_at: string; status: string }[];
+  appts: PatientVisit[];
   onClose: () => void;
   onBook: () => void;
   onMessage: () => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const C = 'clinic.patientsPage.card';
   const initials = patient.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const date = (iso: string | null) => (iso ? formatClinicDate(iso, lang) : '—');
+  const doctorLabel = (name: string | null) =>
+    name ? t('clinic.patientsPage.doctorName', { name }) : t('clinic.appointments.unknownDoctor');
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div role="dialog" aria-modal="true" aria-labelledby="patient-card-title" dir={i18n.dir()} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -274,12 +87,12 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
               {initials}
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">{patient.name}</h3>
-              <p className="text-xs text-slate-400">Patient Profile</p>
+              <h3 id="patient-card-title" className="font-bold text-slate-900">{patient.name}</h3>
+              <p className="text-xs text-slate-400">{t(`${C}.subtitle`)}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg">
-            <X size={18} className="text-slate-400" />
+          <button type="button" onClick={onClose} aria-label={t(`${C}.close`)} className="p-1 hover:bg-slate-100 rounded-lg">
+            <X size={18} className="text-slate-400" aria-hidden="true" />
           </button>
         </div>
 
@@ -287,68 +100,73 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
 
           {/* Patient Info */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Patient Info</p>
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{t(`${C}.info`)}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Phone size={14} className="text-slate-400" /> {patient.phone}
+                <Phone size={14} className="text-slate-400" aria-hidden="true" />
+                <span className="sr-only">{t(`${C}.phone`)}: </span>
+                <span dir="ltr">{patient.phone ? formatLocalePhoneDisplay(patient.phone, lang) : '—'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Mail size={14} className="text-slate-400" /> {patient.email}
+                <Mail size={14} className="text-slate-400" aria-hidden="true" />
+                <span className="sr-only">{t(`${C}.email`)}: </span>
+                <span dir="ltr">{patient.email ?? '—'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <User size={14} className="text-slate-400" /> DOB: {patient.dob}
+                <User size={14} className="text-slate-400" aria-hidden="true" /> {t(`${C}.dob`, { value: date(patient.dateOfBirth) })}
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Calendar size={14} className="text-slate-400" /> Last Visit: {patient.lastVisit}
+                <Calendar size={14} className="text-slate-400" aria-hidden="true" /> {t(`${C}.lastVisit`, { value: date(patient.lastVisitDate) })}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Clock size={14} className="text-slate-400" aria-hidden="true" /> {t(`${C}.nextVisit`, { value: date(patient.nextVisitDate) })}
               </div>
             </div>
           </div>
 
-          {/* Clinical Summary */}
+          {/* Visit summary (QA-210: counts only, no clinical data) */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Clinical Summary</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{t(`${C}.summary`)}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{patient.totalVisits}</div>
-                <div className="text-xs text-slate-500 mt-0.5">Total Visits</div>
+                <div className="text-xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{formatLocaleDigits(patient.totalVisits, lang)}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t(`${C}.completed`)}</div>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 text-center">
-                <div className="text-sm font-semibold text-slate-700">{patient.doctor}</div>
-                <div className="text-xs text-slate-500 mt-0.5">Primary Doctor</div>
+                <div className="text-sm font-semibold text-slate-700">{patient.doctor ? doctorLabel(patient.doctor) : '—'}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t(`${C}.primaryDoctor`)}</div>
               </div>
             </div>
           </div>
 
           {/* Appointment History */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Appointment History</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{t(`${C}.history`)}</p>
             {appts.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
-                <Calendar size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No appointments found.</p>
+                <Calendar size={28} className="mx-auto mb-2 opacity-30" aria-hidden="true" />
+                <p className="text-sm">{t(`${C}.noHistory`)}</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {appts.map((a, idx) => {
-                  const s = apptStatusConfig[a.status] ?? apptStatusConfig.scheduled;
-                  const date = new Date(a.scheduled_at);
+                  const color = apptStatusColor[a.status] ?? apptStatusColor.scheduled;
                   return (
                     <div key={a.id ?? idx} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-xl">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center">
-                          <Calendar size={13} className="text-teal-600" />
+                          <Calendar size={13} className="text-teal-600" aria-hidden="true" />
                         </div>
                         <div>
                           <div className="text-sm font-medium text-slate-800">
-                            {date.toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {formatClinicDate(a.scheduled_at, lang)}
+                            <span className="ms-2 text-xs font-normal text-slate-400">{formatClinicTime(a.scheduled_at, lang)}</span>
                           </div>
-                          <div className="text-xs text-slate-400">
-                            {date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                          </div>
+                          <div className="text-xs text-slate-500">{doctorLabel(a.doctorName)} · {visitReasonLabel(t, a.reason)}</div>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${s.color}`}>
-                        {s.label}
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${color}`}>
+                        {appointmentStatusLabel(t, a.status)}
                       </span>
                     </div>
                   );
@@ -361,16 +179,18 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
         {/* Quick Actions */}
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
           <button
+            type="button"
             onClick={onMessage}
             className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
-            <MessageSquare size={15} /> Send Message
+            <MessageSquare size={15} aria-hidden="true" /> {t(`${C}.sendMessage`)}
           </button>
           <button
+            type="button"
             onClick={onBook}
             className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
           >
-            <BookOpen size={15} /> Book Appointment
+            <BookOpen size={15} aria-hidden="true" /> {t(`${C}.book`)}
           </button>
         </div>
       </div>
@@ -381,18 +201,23 @@ function PatientModal({ patient, appts, onClose, onBook, onMessage }: {
 
 export default function ClinicPatients() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [rawAppts, setRawAppts] = useState<{ id?: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string }[]>([]);
+  const [rawAppts, setRawAppts] = useState<{ id?: string; patient_id: string; doctor_id: string; scheduled_at: string; status: string; chief_complaint?: string | null }[]>([]);
+  const [doctorNames, setDoctorNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filterDoctor, setFilterDoctor] = useState('All Doctors');
+  const [filterDoctor, setFilterDoctor] = useState('all');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [patientAppts, setPatientAppts] = useState<{ id?: string; scheduled_at: string; status: string }[]>([]);
+  const [patientAppts, setPatientAppts] = useState<PatientVisit[]>([]);
   const [showBook, setShowBook] = useState(false);
+  const isPhone = useIsPhone();
   const [bookingPatient, setBookingPatient] = useState<{ userId: string; fullName: string; phone: string } | null>(null);
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
+  const [listTruncated, setListTruncated] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -416,21 +241,28 @@ export default function ClinicPatients() {
 
       const facilityId = memberData.facility_id;
 
-      const { data: apptData, error: apptError } = await supabase
-        .from('appointments')
-        .select('id, patient_id, doctor_id, scheduled_at, status')
-        .eq('facility_id', facilityId)
-        .eq('is_deleted', false);
-
-      if (apptError) throw apptError;
+      // QA-197: read every visit in pages (the API stops at 1,000 rows without saying so)
+      const { rows: apptData, truncated } = await fetchAllPages((from, to) =>
+        supabase
+          .from('appointments')
+          .select('id, patient_id, doctor_id, scheduled_at, status, chief_complaint')
+          .eq('facility_id', facilityId)
+          .eq('is_deleted', false)
+          .order('scheduled_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      setListTruncated(truncated);
 
       const { data: staffData } = await supabase
         .from('facility_staff')
-        .select('doctor_user_id, consultation_fee')
+        .select('doctor_user_id, consultation_fee, invitation_status, is_active')
         .eq('facility_id', facilityId)
         .eq('is_active', true);
 
-      const staffIds = (staffData ?? []).map(s => s.doctor_user_id).filter(Boolean);
+      // QA-194: only accepted / active clinic doctors can be booked
+      const bookableStaff = (staffData ?? []).filter(isBookableClinicDoctor);
+      const staffIds = bookableStaff.map(s => s.doctor_user_id).filter(Boolean);
       const { data: staffProfiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name')
@@ -443,12 +275,12 @@ export default function ClinicPatients() {
 
       const specMap = new Map((doctorSpecs ?? []).map(d => [d.user_id, d.specialization]));
 
-      const doctorRows: DoctorOption[] = (staffData ?? []).map(s => {
+      const doctorRows: DoctorOption[] = bookableStaff.map(s => {
         const profile = (staffProfiles ?? []).find(p => p.user_id === s.doctor_user_id);
         return {
           userId: s.doctor_user_id,
-          name: profile?.full_name ?? 'Unknown Doctor',
-          specialty: specMap.get(s.doctor_user_id) ?? 'General Practice',
+          name: profile?.full_name ?? t('clinic.appointments.unknownDoctor'),
+          specialty: specMap.get(s.doctor_user_id) ?? t('clinic.appointments.generalPractice'),
           consultationFee: Number(s.consultation_fee) || 0,
         };
       });
@@ -460,127 +292,89 @@ export default function ClinicPatients() {
 
       const doctorIds = [...new Set((apptData ?? []).map(a => a.doctor_id))];
 
-      const { data: patientProfiles } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name, phone, email, date_of_birth')
-        .in('user_id', patientIds);
+      // QA-197: look names up in small batches (hundreds of ids in one address fail)
+      // QA-208: patients only through clinic_patient_profiles (no identity / insurance data)
+      const patientProfiles = await fetchClinicPatientProfiles(supabase, patientIds);
+      const doctorProfiles = await fetchByIdChunks(doctorIds, (ids) =>
+        supabase.from('user_profiles').select('user_id, full_name').in('user_id', ids)
+      );
 
-      const { data: doctorProfiles } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name')
-        .in('user_id', doctorIds);
-
-      const doctorMap = new Map((doctorProfiles ?? []).map(d => [d.user_id, d.full_name]));
+      const doctorMap = new Map(doctorProfiles.map(d => [d.user_id, d.full_name]));
+      setDoctorNames(new Map(doctorProfiles.map(d => [d.user_id, d.full_name ?? ''])));
 
       const rows: Patient[] = patientIds.map(pid => {
         const profile = (patientProfiles ?? []).find(p => p.user_id === pid);
         const patientApptList = (apptData ?? []).filter(a => a.patient_id === pid);
-        const sorted = [...patientApptList].sort((a, b) =>
-          new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
-        );
-        const lastAppt = sorted[0];
-        const primaryDoctorId = lastAppt?.doctor_id;
-        const dob = profile?.date_of_birth
-          ? new Date(profile.date_of_birth).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '—';
-        const lastVisit = lastAppt?.scheduled_at
-          ? new Date(lastAppt.scheduled_at).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '—';
+        // QA-209: last = latest completed visit, next = earliest upcoming open visit (clinic time)
+        const summary = summarisePatientVisits(patientApptList);
+        const primaryDoctorId = summary.primaryDoctorId ?? undefined;
 
         return {
           id: pid,
-          name: profile?.full_name ?? 'Unknown Patient',
-          phone: profile?.phone ?? '—',
-          email: profile?.email ?? '—',
-          dob,
-          lastVisit,
-          lastVisitDate: lastAppt?.scheduled_at ?? null,
-          doctor: doctorMap.get(primaryDoctorId) ? `Dr. ${doctorMap.get(primaryDoctorId)}` : '—',
-          totalVisits: patientApptList.length,
+          name: profile?.full_name ?? t('clinic.appointments.unknownPatient'),
+          phone: profile?.phone ?? null,
+          email: profile?.email ?? null,
+          dateOfBirth: profile?.date_of_birth ? profile.date_of_birth.slice(0, 10) : null,
+          lastVisitDate: summary.lastVisitAt,
+          nextVisitDate: summary.nextVisitAt,
+          doctorId: primaryDoctorId && doctorMap.get(primaryDoctorId) ? primaryDoctorId : null,
+          doctor: primaryDoctorId ? doctorMap.get(primaryDoctorId) ?? null : null,
+          totalVisits: summary.completedVisits,
         };
       });
 
       setPatients(rows);
       setRawAppts(apptData ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load patients.');
+      // QA-211: plain message in the UI language, not the raw database text
+      console.warn('[ClinicPatients] load failed', err);
+      setError(t('clinic.patientsPage.loadFailed'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBook = async (data: Partial<Appointment> & { patientId: string }) => {
-    try {
-      const { data: memberData } = await supabase
-        .from('clinic_portal_members')
-        .select('facility_id')
-        .eq('user_id', user!.id)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      const fId = memberData?.facility_id;
-      if (!fId) throw new Error('No clinic facility found.');
-
-      const selectedDoctor = doctorOptions.find(d => d.userId === data.doctor);
-      if (!selectedDoctor) throw new Error('Please select a valid doctor.');
-
-      const scheduledAt = `${data.date}T${data.time}:00`;
-
-      const apptType = data.type && TELEMEDICINE_TYPES.has(data.type) ? 'virtual' : 'in_person';
-
-      const { error: insertError } = await supabase
-        .from('appointments')
-        .insert({
-          facility_id: fId,
-          doctor_id: selectedDoctor.userId,
-          patient_id: data.patientId,
-          type: apptType,
-          status: 'scheduled',
-          scheduled_at: scheduledAt,
-          duration_minutes: 30,
-          chief_complaint: data.type || 'Consultation',
-          notes: data.notes || null,
-        });
-
-      if (insertError) throw insertError;
-
-      await supabase.from('notifications').insert({
-        user_id: data.patientId,
-        type: 'appointment',
-        title: '📅 New Appointment Scheduled',
-        body: `${selectedDoctor.name} has scheduled an appointment with you on ${data.date} at ${data.time}.`,
-        action_url: '/patient/appointments',
-      });
-
-      void fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to book appointment.');
-    }
+  /** QA-191: the shared popup books through clinic_book_appointment; reload the list afterwards. */
+  const handleBooked = () => {
+    setShowBook(false);
+    setBookingPatient(null);
+    void fetchData();
   };
 
   const handleRowClick = (patient: Patient) => {
-    const appts = rawAppts
+    const appts: PatientVisit[] = rawAppts
       .filter(a => a.patient_id === patient.id)
-      .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+      .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
+      .map(a => ({
+        id: a.id,
+        scheduled_at: a.scheduled_at,
+        status: a.status,
+        doctorName: doctorNames.get(a.doctor_id) || null,
+        reason: a.chief_complaint || 'Consultation',
+      }));
     setPatientAppts(appts);
     setSelectedPatient(patient);
   };
 
-  const now = new Date();
-  const visitedThisMonth = patients.filter(p => {
-    if (!p.lastVisitDate) return false;
-    const d = new Date(p.lastVisitDate);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
+  // QA-209: a completed visit in the current clinic (Dubai) month
+  const visitedThisMonth = patients.filter(p => isInCurrentClinicMonth(p.lastVisitDate)).length;
+  const upcomingVisits = countUpcomingVisits(rawAppts);
 
-  const doctorList = ['All Doctors', ...new Set(patients.map(p => p.doctor).filter(d => d !== '—'))];
-
-  const filtered = patients.filter(p =>
-    (p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.phone.includes(search) ||
-    p.doctor.toLowerCase().includes(search.toLowerCase())) &&
-    (filterDoctor === 'All Doctors' || p.doctor === filterDoctor)
+  const doctorList = doctorFilterOptions(
+    patients.flatMap(p => (p.doctorId && p.doctor ? [{ id: p.doctorId, name: p.doctor }] : []))
   );
+  const doctorLabel = (name: string | null) => (name ? t('clinic.patientsPage.doctorName', { name }) : '—');
+  const P = 'clinic.patientsPage';
+
+  const query = search.trim().toLowerCase();
+  const filtered = patients.filter(p =>
+    (!query ||
+      p.name.toLowerCase().includes(query) ||
+      (p.phone ?? '').toLowerCase().includes(query) ||
+      (p.doctor ?? '').toLowerCase().includes(query)) &&
+    (filterDoctor === 'all' || p.doctorId === filterDoctor)
+  );
+  const date = (iso: string | null) => (iso ? formatClinicDate(iso, lang) : '—');
 
   if (loading) {
     return (
@@ -597,31 +391,31 @@ export default function ClinicPatients() {
   return (
     <div className="p-6 space-y-5">
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-          <button onClick={() => void fetchData()} className="ml-2 font-semibold underline">Retry</button>
+          <button type="button" onClick={() => void fetchData()} className="ms-2 font-semibold underline">{t('clinic.actions.retry')}</button>
         </div>
       ) : null}
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Patients</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{patients.length} registered patients</p>
+          <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t(`${P}.title`)}</h2>
+          <p className="text-sm text-slate-500 mt-0.5">{t(`${P}.subtitle`, { count: patients.length })}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Total Patients', value: patients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
-          { label: 'Visited This Month', value: visitedThisMonth, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Booked Visits', value: rawAppts.length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: t(`${P}.kpiTotal`), value: patients.length, icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { label: t(`${P}.kpiVisitedThisMonth`), value: visitedThisMonth, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: t(`${P}.kpiUpcoming`), value: upcomingVisits, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(k => {
           const Icon = k.icon;
           return (
             <div key={k.label} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center`}><Icon size={18} className={k.color} /></div>
+              <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center`}><Icon size={18} className={k.color} aria-hidden="true" /></div>
               <div>
-                <div className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{k.value}</div>
+                <div className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Mono, monospace' }}>{formatLocaleDigits(k.value, lang)}</div>
                 <div className="text-xs text-slate-500">{k.label}</div>
               </div>
             </div>
@@ -629,27 +423,87 @@ export default function ClinicPatients() {
         })}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+      {listTruncated && (
+        <p role="status" className="text-xs text-amber-700">{t(`${P}.truncated`, { value: formatLocaleDigits(20000, lang) })}</p>
+      )}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patients by name, phone, or doctor…" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t(`${P}.searchPlaceholder`)}
+            aria-label={t(`${P}.searchLabel`)}
+            className="w-full ps-9 pe-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
         </div>
         <select
+          aria-label={t(`${P}.doctorFilterLabel`)}
           value={filterDoctor}
           onChange={e => setFilterDoctor(e.target.value)}
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
         >
-          {doctorList.map(d => <option key={d}>{d}</option>)}
+          <option value="all">{t('clinic.filters.allDoctors')}</option>
+          {doctorList.map(d => <option key={d.id} value={d.id}>{doctorLabel(d.name)}</option>)}
         </select>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+        {isPhone ? (
+          // QA-249: a card per patient on phones
+          <ul data-testid="clinic-patient-cards" className="divide-y divide-slate-100">
+            {filtered.map(p => {
+              const initials = p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleRowClick(p)}
+                    aria-label={t(`${P}.openPatient`, { name: p.name })}
+                    className="w-full p-4 text-start hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">{initials}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-slate-800 text-sm">{p.name}</span>
+                        <span className="block text-xs text-slate-500" dir="ltr">{p.phone ? formatLocalePhoneDisplay(p.phone, lang) : '—'}</span>
+                      </span>
+                      <ChevronRight size={16} className="text-slate-300 rtl:rotate-180 shrink-0" aria-hidden="true" />
+                    </span>
+                    <span className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      <span><span className="block text-slate-400">{t(`${P}.colDoctor`)}</span><span className="block text-slate-700">{doctorLabel(p.doctor)}</span></span>
+                      <span><span className="block text-slate-400">{t(`${P}.colCompleted`)}</span><span className="block font-bold text-slate-800">{formatLocaleDigits(p.totalVisits, lang)}</span></span>
+                      <span><span className="block text-slate-400">{t(`${P}.colLastVisit`)}</span><span className="block text-slate-700">{date(p.lastVisitDate)}</span></span>
+                      <span><span className="block text-slate-400">{t(`${P}.colNextVisit`)}</span><span className="block text-slate-700">{date(p.nextVisitDate)}</span></span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {filtered.length === 0 && (
+              <li className="flex flex-col items-center gap-2 text-center py-16 text-slate-400">
+                <Users size={32} className="opacity-30" aria-hidden="true" />
+                <p className="text-sm">{t(`${P}.empty`)}</p>
+              </li>
+            )}
+          </ul>
+        ) : (
+        <table className="w-full min-w-[960px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
-              {['Patient', 'Contact', 'Date of Birth', 'Doctor', 'Last Visit', 'Visits', ''].map(h => (
-                <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3">{h}</th>
+              {[
+                { key: 'patient', label: t(`${P}.colPatient`) },
+                { key: 'contact', label: t(`${P}.colContact`) },
+                { key: 'dob', label: t(`${P}.colDob`) },
+                { key: 'doctor', label: t(`${P}.colDoctor`) },
+                { key: 'last', label: t(`${P}.colLastVisit`) },
+                { key: 'next', label: t(`${P}.colNextVisit`) },
+                { key: 'completed', label: t(`${P}.colCompleted`) },
+              ].map(h => (
+                <th key={h.key} scope="col" className="text-start text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3">{h.label}</th>
               ))}
+              <th scope="col" className="px-5 py-3"><span className="sr-only">{t(`${P}.colOpen`)}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -662,35 +516,45 @@ export default function ClinicPatients() {
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
                         {initials}
                       </div>
-                      <span className="font-semibold text-slate-800 text-sm">{p.name}</span>
+                      {/* QA-211: a real button so the patient can be opened from the keyboard */}
+                      <button
+                        type="button"
+                        onClick={event => { event.stopPropagation(); handleRowClick(p); }}
+                        aria-label={t(`${P}.openPatient`, { name: p.name })}
+                        className="font-semibold text-slate-800 text-sm text-start hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                      >
+                        {p.name}
+                      </button>
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500"><Phone size={11} /> {p.phone}</div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5"><Mail size={11} /> {p.email}</div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500"><Phone size={11} aria-hidden="true" /> <span dir="ltr">{p.phone ? formatLocalePhoneDisplay(p.phone, lang) : '—'}</span></div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5"><Mail size={11} aria-hidden="true" /> <span dir="ltr">{p.email ?? '—'}</span></div>
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{p.dob}</td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{p.doctor}</td>
-                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{p.lastVisit}</td>
-                  <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{p.totalVisits}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{date(p.dateOfBirth)}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{doctorLabel(p.doctor)}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{date(p.lastVisitDate)}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600" style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{date(p.nextVisitDate)}</td>
+                  <td className="px-5 py-4 font-bold text-sm text-slate-800" style={{ fontFamily: 'DM Mono, monospace' }}>{formatLocaleDigits(p.totalVisits, lang)}</td>
                   <td className="px-5 py-4">
-                    <ChevronRight size={16} className="text-slate-300" />
+                    <ChevronRight size={16} className="text-slate-300 rtl:rotate-180" aria-hidden="true" />
                   </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-16 text-slate-400">
+                <td colSpan={8} className="text-center py-16 text-slate-400">
                   <div className="flex flex-col items-center gap-2">
-                    <Users size={32} className="opacity-30" />
-                    <p className="text-sm">No patients found.</p>
+                    <Users size={32} className="opacity-30" aria-hidden="true" />
+                    <p className="text-sm">{t(`${P}.empty`)}</p>
                   </div>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        )}
       </div>
 
       {selectedPatient && (
@@ -702,7 +566,7 @@ export default function ClinicPatients() {
             setBookingPatient({
               userId: selectedPatient.id,
               fullName: selectedPatient.name,
-              phone: selectedPatient.phone,
+              phone: selectedPatient.phone ?? '—',
             });
             setSelectedPatient(null);
             setShowBook(true);
@@ -712,11 +576,11 @@ export default function ClinicPatients() {
       )}
 
       {showBook && bookingPatient && (
-        <BookModal
-          onClose={() => { setShowBook(false); setBookingPatient(null); }}
-          onBook={handleBook}
+        <ClinicBookAppointmentModal
           doctors={doctorOptions}
-          initialPatient={bookingPatient}
+          fixedPatient={bookingPatient}
+          onClose={() => { setShowBook(false); setBookingPatient(null); }}
+          onBooked={handleBooked}
         />
       )}
     </div>

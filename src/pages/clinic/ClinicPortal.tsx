@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { countUnreadMessages, countUnreadNotifications } from '../../lib/clinic-unread-messages';
+import { loadClinicTodayStats } from '../../lib/clinic-dashboard';
+import { MESSAGES_READ_EVENT, NOTIFICATIONS_CHANGED_EVENT } from '../../lib/notification-events';
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { BarChart2, Bell, CalendarDays, DollarSign, LayoutDashboard, LogOut, MessageSquare, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
+import ClinicSignOutDialog from './ClinicSignOutDialog';
 import ClinicDashboard from './ClinicDashboard';
 import ClinicDoctors from './ClinicDoctors';
 import ClinicAppointments from './ClinicAppointments';
@@ -19,51 +27,46 @@ type ClinicPage = 'dashboard' | 'doctors' | 'appointments' | 'patients' | 'prici
 export interface ClinicPortalMeta {
   facilityName: string;
   facilityAddress: string;
+  /** QA-238: CeenAiX has recorded the clinic as DHA licensed (facilities.dha_status = 'licensed') */
+  dhaLicensed: boolean;
   userName: string;
-  userRole: string;
+  /** QA-240: the stored portal role (clinic_admin, …); the top bar shows it translated */
+  userRole: string | null;
   pendingDoctors: number;
   todayApptCount: number;
   todayConfirmedCount: number;
-  todayRevenue: number;
+  /** QA-239: estimated fees of today's completed visits; null when no fee is set */
+  todayFees: number | null;
   unreadMessages: number;
   unreadNotifications: number;
 }
 
 const defaultMeta: ClinicPortalMeta = {
-  facilityName: 'Your Clinic',
+  facilityName: '',
   facilityAddress: '',
-  userName: 'Clinic Staff',
-  userRole: 'Staff',
+  dhaLicensed: false,
+  userName: '',
+  userRole: null,
   pendingDoctors: 0,
   todayApptCount: 0,
   todayConfirmedCount: 0,
-  todayRevenue: 0,
+  todayFees: null,
   unreadMessages: 0,
   unreadNotifications: 0,
 };
 
-const pageMeta: Record<ClinicPage, { title: string; subtitle: string }> = {
-  dashboard:    { title: 'Dashboard',           subtitle: 'Overview of Al Noor Medical Center' },
-  doctors:      { title: 'Doctors',             subtitle: 'Manage your medical staff' },
-  appointments: { title: 'Appointments',        subtitle: 'Schedule and manage patient visits' },
-  patients:     { title: 'Patients',            subtitle: 'Your registered patient list' },
-  pricing:      { title: 'Pricing & Services',  subtitle: 'Set consultation fees and service catalog' },
-  analytics:    { title: 'Analytics',           subtitle: 'Performance and revenue insights' },
-  messages:     { title: 'Messages',            subtitle: 'Communication with staff and patients' },
-  notifications: { title: 'Notifications',      subtitle: 'Recent activity and updates' },
-  settings:     { title: 'Settings',            subtitle: 'Clinic profile and configuration' },
-};
-
-const mobileNavItems: Array<{ page: ClinicPage; label: string; href: string }> = [
-  { page: 'dashboard', label: 'Dashboard', href: '/clinic/dashboard' },
-  { page: 'doctors', label: 'Doctors', href: '/clinic/doctors' },
-  { page: 'appointments', label: 'Appointments', href: '/clinic/appointments' },
-  { page: 'patients', label: 'Patients', href: '/clinic/patients' },
-  { page: 'pricing', label: 'Pricing', href: '/clinic/pricing' },
-  { page: 'messages', label: 'Messages', href: '/clinic/messages' },
-  { page: 'notifications', label: 'Notifications', href: '/clinic/notifications' },
-  { page: 'analytics', label: 'Analytics', href: '/clinic/analytics' },
-  { page: 'settings', label: 'Settings', href: '/clinic/settings' },
+// QA-250: icons and the same badges as the sidebar (the phone menu showed text only, so unread
+// messages, notifications and doctors waiting for approval were invisible on phones)
+const mobileNavItems: Array<{ page: ClinicPage; href: string; icon: LucideIcon; badge?: (meta: ClinicPortalMeta) => number; badgeColor?: string }> = [
+  { page: 'dashboard', href: '/clinic/dashboard', icon: LayoutDashboard },
+  { page: 'doctors', href: '/clinic/doctors', icon: Stethoscope, badge: (m) => m.pendingDoctors, badgeColor: 'bg-amber-500' },
+  { page: 'appointments', href: '/clinic/appointments', icon: CalendarDays, badge: (m) => m.todayApptCount, badgeColor: 'bg-teal-500' },
+  { page: 'patients', href: '/clinic/patients', icon: Users },
+  { page: 'pricing', href: '/clinic/pricing', icon: DollarSign },
+  { page: 'messages', href: '/clinic/messages', icon: MessageSquare, badge: (m) => m.unreadMessages, badgeColor: 'bg-blue-500' },
+  { page: 'notifications', href: '/clinic/notifications', icon: Bell, badge: (m) => m.unreadNotifications, badgeColor: 'bg-red-500' },
+  { page: 'analytics', href: '/clinic/analytics', icon: BarChart2 },
+  { page: 'settings', href: '/clinic/settings', icon: Settings },
 ];
 
 function getPageFromPath(path: string): ClinicPage {
@@ -81,12 +84,20 @@ function getPageFromPath(path: string): ClinicPage {
 export default function ClinicPortal() {
   const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [portalMeta, setPortalMeta] = useState<ClinicPortalMeta>(defaultMeta);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const page = getPageFromPath(location.pathname);
+  const { t, i18n } = useTranslation();
 
-  const meta = pageMeta[page];
+  // QA-238: titles and subtitles in the UI language; the Dashboard subtitle used to name
+  // "Al Noor Medical Center" for every clinic
+  const meta = {
+    title: t(`clinic.portalPage.titles.${page}`),
+    subtitle: t(`clinic.portalPage.subtitles.${page}`, { name: portalMeta.facilityName || t('clinic.facilityFallback') }),
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -102,10 +113,11 @@ export default function ClinicPortal() {
 
         if (!memberData?.facility_id) return;
         const facilityId = memberData.facility_id;
+        setFacilityId(facilityId);
 
         const { data: facilityData } = await supabase
           .from('facilities')
-          .select('name, address')
+          .select('name, address, dha_status')
           .eq('id', facilityId)
           .maybeSingle();
 
@@ -115,107 +127,113 @@ export default function ClinicPortal() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        const { data: pendingStaff } = await supabase
-          .from('facility_staff')
-          .select('id')
-          .eq('facility_id', facilityId)
-          .eq('invitation_status', 'pending');
-
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-
-        const { data: todayAppts } = await supabase
-          .from('appointments')
-          .select('doctor_id, status')
-          .eq('facility_id', facilityId)
-          .gte('scheduled_at', todayStart)
-          .lt('scheduled_at', todayEnd)
-          .eq('is_deleted', false);
-
-        const { data: feeData } = await supabase
-          .from('facility_staff')
-          .select('doctor_user_id, consultation_fee')
-          .eq('facility_id', facilityId);
-        const feeMap = new Map((feeData ?? []).map(s => [s.doctor_user_id, Number(s.consultation_fee) || 0]));
-
-        const todayApptCount = todayAppts?.length ?? 0;
-        const todayConfirmedCount = (todayAppts ?? []).filter(a => ['confirmed', 'completed', 'in_progress'].includes(a.status)).length;
-        const todayRevenue = (todayAppts ?? [])
-          .filter(a => a.status === 'completed')
-          .reduce((sum, a) => sum + (feeMap.get(a.doctor_id) ?? 0), 0);
-
-        const { data: convData } = await supabase
-          .from('conversations')
-          .select('id')
-          .or(`created_by.eq.${user.id},participant_ids.cs.["${user.id}"]`);
-        const conversationIds = (convData ?? []).map(c => c.id);
-
-        let unreadMessages = 0;
-        if (conversationIds.length > 0) {
-          const { data: unreadMsgs } = await supabase
-            .from('messages')
-            .select('id')
-            .in('conversation_id', conversationIds)
-            .neq('sender_id', user.id)
-            .is('read_at', null);
-          unreadMessages = unreadMsgs?.length ?? 0;
-        }
-
-        const { data: unreadNotifs } = await supabase
-          .from('notifications')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('is_read', false)
-          .eq('is_deleted', false);
-
-        setPortalMeta({
-          facilityName: facilityData?.name ?? 'Your Clinic',
+        setPortalMeta(previous => ({
+          ...previous,
+          facilityName: facilityData?.name ?? '',
           facilityAddress: facilityData?.address ?? '',
-          userName: profileData?.full_name ?? 'Clinic Staff',
-          userRole: memberData.portal_role
-            ? memberData.portal_role.charAt(0).toUpperCase() + memberData.portal_role.slice(1)
-            : 'Staff',
-          pendingDoctors: pendingStaff?.length ?? 0,
-          todayApptCount,
-          todayConfirmedCount,
-          todayRevenue,
-          unreadMessages,
-          unreadNotifications: unreadNotifs?.length ?? 0,
-        });
+          // only CeenAiX can set dha_status (QA-230); nothing else means "licensed"
+          dhaLicensed: (facilityData?.dha_status ?? '').trim().toLowerCase() === 'licensed',
+          userName: profileData?.full_name ?? '',
+          userRole: memberData.portal_role ?? null,
+          // QA-220 / QA-224 / QA-239: counts are kept up to date by the effect below
+        }));
       } catch (err) {
         console.warn('[ClinicPortal] Failed to load portal meta:', err);
       }
     })();
   }, [user?.id]);
 
+  // QA-220 / QA-224 / QA-239: the badges and the sidebar's "TODAY" numbers used to be counted once at
+  // login. They now reload when you move to another page, when messages are marked as read, and when
+  // notifications change (marked read, all read, dismissed).
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+    let cancelled = false;
+    const refresh = () => {
+      countUnreadMessages(supabase, userId)
+        .then(count => {
+          if (!cancelled) setPortalMeta(previous => ({ ...previous, unreadMessages: count }));
+        })
+        .catch(err => console.warn('[ClinicPortal] Failed to count unread messages:', err));
+      countUnreadNotifications(supabase, userId)
+        .then(count => {
+          if (!cancelled) setPortalMeta(previous => ({ ...previous, unreadNotifications: count }));
+        })
+        .catch(err => console.warn('[ClinicPortal] Failed to count unread notifications:', err));
+      if (facilityId) {
+        loadClinicTodayStats(supabase, facilityId)
+          .then(stats => {
+            if (!cancelled) setPortalMeta(previous => ({ ...previous, ...stats }));
+          })
+          .catch(err => console.warn("[ClinicPortal] Failed to count today's visits:", err));
+      }
+    };
+    refresh();
+    window.addEventListener(MESSAGES_READ_EVENT, refresh);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(MESSAGES_READ_EVENT, refresh);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    };
+  }, [user?.id, facilityId, location.pathname]);
+
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
+    // QA-241: the whole portal follows the UI language's direction (right to left in Arabic)
+    // QA-245: "relative" here and on <main> keeps hidden screen-reader labels (sr-only, position
+    // absolute) inside the scrolling area. Without it they were placed against the whole page, which
+    // made the page itself taller: a second scroll bar and an empty white area at the bottom.
+    <div className="relative h-screen bg-slate-50 flex overflow-hidden" dir={i18n.dir()}>
       <div className="hidden lg:block">
         <ClinicSidebar isCollapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(c => !c)} activeTab={page} meta={portalMeta} />
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page !== 'messages' && <ClinicTopBar title={meta.title} subtitle={meta.subtitle} meta={portalMeta} />}
-        <nav className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+        <nav aria-label={t('clinic.portalPage.menuLabel')} className="lg:hidden flex shrink-0 items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {/* QA-242: on phones the sidebar is hidden and Messages has no top bar.
+              QA-247: the other pages already show the toggle in the top bar, so only Messages gets it here. */}
+          {page === 'messages' && <LanguageSwitcher dense variant="light" className="shrink-0" />}
+          {/* QA-248: same reason for Sign Out (elsewhere it is in the top bar's account menu) */}
+          {page === 'messages' && (
+            <button
+              type="button"
+              onClick={() => setConfirmSignOut(true)}
+              aria-label={t('clinic.portalPage.signOut')}
+              data-testid="clinic-mobile-signout"
+              className="inline-flex shrink-0 items-center rounded-full bg-slate-100 p-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut size={14} className="rtl:rotate-180" aria-hidden="true" />
+            </button>
+          )}
           {mobileNavItems.map((item) => {
             const active = page === item.page;
+            const Icon = item.icon;
+            const badge = item.badge?.(portalMeta) ?? 0;
             return (
               <button
                 key={item.href}
                 type="button"
                 onClick={() => navigate(item.href)}
-                className={`inline-flex shrink-0 items-center rounded-full px-3 py-2 text-xs font-semibold transition ${
+                aria-current={active ? 'page' : undefined}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
                   active
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-teal-50 hover:text-teal-700'
                 }`}
               >
-                {item.label}
+                <Icon size={14} className="shrink-0" aria-hidden="true" />
+                <span>{t(`clinic.portalPage.titles.${item.page}`)}</span>
+                {badge > 0 ? (
+                  <span data-testid={`clinic-mobile-badge-${item.page}`} className={`${item.badgeColor} rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white min-w-[18px] text-center`}>
+                    {badge > 99 ? `${formatLocaleDigits(99, i18n.language)}+` : formatLocaleDigits(badge, i18n.language)}
+                  </span>
+                ) : null}
               </button>
             );
           })}
         </nav>
-        <main className="flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto">
           {page === 'dashboard'    && <ClinicDashboard />}
           {page === 'doctors'      && <ClinicDoctors />}
           {page === 'appointments' && <ClinicAppointments />}
@@ -227,6 +245,7 @@ export default function ClinicPortal() {
           {page === 'settings'     && <ClinicSettings />}
         </main>
       </div>
+      <ClinicSignOutDialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} />
     </div>
   );
 }
