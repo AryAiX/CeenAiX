@@ -255,3 +255,13 @@ describe('ClinicPortal language toggle on every page (QA-242)', () => {
     expect(screen.getByTestId('clinic-sidebar-language')).toBeInTheDocument();
   });
 });
+
+describe('ClinicPortal single scroll bar (QA-245)', () => {
+  it('keeps hidden labels inside the scrolling page area, so the page itself never scrolls', () => {
+    const { container } = renderPortal();
+    // an sr-only label is position: absolute; without a positioned box around it the browser placed
+    // it against the whole page, which grew the page (second scroll bar + empty white area)
+    expect(container.firstElementChild).toHaveClass('relative', 'h-screen', 'overflow-hidden');
+    expect(screen.getByRole('main')).toHaveClass('relative', 'overflow-y-auto');
+  });
+});

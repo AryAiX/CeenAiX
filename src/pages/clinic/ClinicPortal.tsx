@@ -175,7 +175,10 @@ export default function ClinicPortal() {
 
   return (
     // QA-241: the whole portal follows the UI language's direction (right to left in Arabic)
-    <div className="h-screen bg-slate-50 flex overflow-hidden" dir={i18n.dir()}>
+    // QA-245: "relative" here and on <main> keeps hidden screen-reader labels (sr-only, position
+    // absolute) inside the scrolling area. Without it they were placed against the whole page, which
+    // made the page itself taller: a second scroll bar and an empty white area at the bottom.
+    <div className="relative h-screen bg-slate-50 flex overflow-hidden" dir={i18n.dir()}>
       <div className="hidden lg:block">
         <ClinicSidebar isCollapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(c => !c)} activeTab={page} meta={portalMeta} />
       </div>
@@ -203,7 +206,7 @@ export default function ClinicPortal() {
             );
           })}
         </nav>
-        <main className="flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto">
           {page === 'dashboard'    && <ClinicDashboard />}
           {page === 'doctors'      && <ClinicDoctors />}
           {page === 'appointments' && <ClinicAppointments />}
