@@ -12,6 +12,8 @@ import { placeRowMenu } from '../lib/row-menu-position';
  * no room below, and aligned to the button's end edge (right in English, left in Arabic).
  * It closes on Escape (focus goes back to the button), on a click outside, and when the page
  * scrolls or is resized. Arrow keys, Home and End move between the actions.
+ *
+ * QA-248: `trigger` / `triggerClassName` replace the "⋮" button, e.g. the clinic top bar's account menu.
  */
 export interface RowAction {
   key: string;
@@ -27,7 +29,19 @@ const toneClass: Record<NonNullable<RowAction['tone']>, string> = {
   success: 'text-emerald-600 hover:bg-emerald-50 focus:bg-emerald-50',
 };
 
-export function RowActionsMenu({ label, actions }: { label: string; actions: RowAction[] }) {
+export function RowActionsMenu({
+  label,
+  actions,
+  trigger,
+  triggerClassName,
+  testId,
+}: {
+  label: string;
+  actions: RowAction[];
+  trigger?: ReactNode;
+  triggerClassName?: string;
+  testId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr');
@@ -115,9 +129,10 @@ export function RowActionsMenu({ label, actions }: { label: string; actions: Row
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+        data-testid={testId}
+        className={triggerClassName ?? 'p-1.5 hover:bg-slate-100 rounded-lg transition-colors'}
       >
-        <MoreVertical size={15} className="text-slate-400" aria-hidden="true" />
+        {trigger ?? <MoreVertical size={15} className="text-slate-400" aria-hidden="true" />}
       </button>
       {open &&
         createPortal(

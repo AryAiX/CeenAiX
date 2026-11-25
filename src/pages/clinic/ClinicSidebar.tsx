@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../lib/auth-context';
 import { useTranslation } from 'react-i18next';
 import { formatLocaleCurrency, formatLocaleDigits } from '../../lib/i18n-ui';
 import {
@@ -10,6 +9,7 @@ import {
 } from 'lucide-react';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import type { ClinicPortalMeta } from './ClinicPortal';
+import ClinicSignOutDialog from './ClinicSignOutDialog';
 
 interface ClinicSidebarProps {
   isCollapsed: boolean;
@@ -46,11 +46,7 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const P = 'clinic.portalPage';
-  const { signOut } = useAuth();
-  const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const cancelRef = useRef<HTMLButtonElement | null>(null);
   const navItems = buildNavItems(meta);
   const facilityName = meta.facilityName || t('clinic.facilityFallback');
 
@@ -62,30 +58,6 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
     .map(w => w[0])
     .join('')
     .toUpperCase() || 'CL';
-
-  // QA-241: the Sign Out dialog closes with Escape and starts on "Cancel"
-  useEffect(() => {
-    if (!showLogoutConfirm) return;
-    cancelRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShowLogoutConfirm(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showLogoutConfirm]);
-
-  async function handleSignOut() {
-    setSigningOut(true);
-    setSignOutError(false);
-    const { error } = await signOut();
-    setSigningOut(false);
-    if (!error) {
-      navigate('/auth/login', { replace: true });
-    } else {
-      // it used to fail without a word
-      setSignOutError(true);
-    }
-  }
 
   return (
     <aside className={`${isCollapsed ? 'w-[72px]' : 'w-[260px]'} bg-[#0A1628] flex flex-col transition-all duration-300 shadow-2xl shrink-0 h-full`}>
@@ -222,69 +194,42 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
             <span className="text-slate-400 text-[12px]">{t('nav.language')}</span>
             <LanguageSwitcher dense variant="dark" />
           </div>
-          {signOutError ? (
-            <p role="alert" className="px-2 text-[12px] text-red-300">{t(`${P}.signOutFailed`)}</p>
-          ) : null}
           <button
             type="button"
             onClick={() => setShowLogoutConfirm(true)}
-            disabled={signingOut}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 text-slate-400 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 text-slate-400 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5"
           >
             <LogOut size={16} className="rtl:rotate-180" aria-hidden="true" />
-            <span className="text-[13px]" style={{ fontFamily: 'Inter, sans-serif' }}>
-              {signingOut ? t(`${P}.signingOut`) : t(`${P}.signOut`)}
-            </span>
+            <span className="text-[13px]" style={{ fontFamily: 'Inter, sans-serif' }}>{t(`${P}.signOut`)}</span>
           </button>
         </div>
       )}
 
       {isCollapsed && (
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          aria-label={t(`${P}.expand`)}
-          className="p-4 border-t border-white/[0.06] hover:bg-white/5 transition-colors"
-        >
-          <ChevronRight size={18} className="text-slate-400 mx-auto rtl:rotate-180" aria-hidden="true" />
-        </button>
+        <>
+          {/* QA-248: the collapsed menu had no way to sign out */}
+          <button
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            aria-label={t(`${P}.signOut`)}
+            title={t(`${P}.signOut`)}
+            data-testid="clinic-sidebar-signout-collapsed"
+            className="p-4 border-t border-white/[0.06] text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors"
+          >
+            <LogOut size={18} className="mx-auto rtl:rotate-180" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label={t(`${P}.expand`)}
+            className="p-4 border-t border-white/[0.06] hover:bg-white/5 transition-colors"
+          >
+            <ChevronRight size={18} className="text-slate-400 mx-auto rtl:rotate-180" aria-hidden="true" />
+          </button>
+        </>
       )}
 
-      {showLogoutConfirm ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="clinic-signout-title"
-            aria-describedby="clinic-signout-body"
-            dir={i18n.dir()}
-            className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6"
-          >
-            <h3 id="clinic-signout-title" className="text-lg font-bold text-gray-900">{t(`${P}.signOut`)}</h3>
-            <p id="clinic-signout-body" className="mt-2 text-sm text-gray-500">{t(`${P}.signOutQuestion`)}</p>
-            <div className="mt-6 flex items-center gap-3">
-              <button
-                ref={cancelRef}
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                {t('clinic.actions.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLogoutConfirm(false);
-                  void handleSignOut();
-                }}
-                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
-              >
-                {t(`${P}.signOutConfirm`)}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ClinicSignOutDialog open={showLogoutConfirm} onClose={() => setShowLogoutConfirm(false)} />
     </aside>
   );
 };

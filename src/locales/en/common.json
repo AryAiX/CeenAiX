@@ -1730,6 +1730,7 @@
     "portalPage": {
       "portalLabel": "Clinic Portal",
       "menuLabel": "Clinic menu",
+      "accountMenu": "Account menu",
       "collapse": "Collapse the menu",
       "expand": "Expand the menu",
       "sections": {

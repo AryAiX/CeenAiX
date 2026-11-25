@@ -98,3 +98,12 @@ describe('ClinicSidebar in Arabic and accessibility (QA-241)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not sign out. Please try again.');
   });
 });
+
+describe('ClinicSidebar sign out when collapsed (QA-248)', () => {
+  it('offers Sign Out in the collapsed menu too', async () => {
+    renderSidebar(true);
+    fireEvent.click(screen.getByTestId('clinic-sidebar-signout-collapsed'));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Sign Out' })).getByRole('button', { name: 'Yes, Sign Out' }));
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  });
+});

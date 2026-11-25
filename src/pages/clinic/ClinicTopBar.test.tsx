@@ -1,9 +1,18 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
+import { useAuth } from '../../lib/auth-context';
 import type { ClinicPortalMeta } from './ClinicPortal';
 import ClinicTopBar from './ClinicTopBar';
+
+vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
+
+let signOut: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  signOut = vi.fn().mockResolvedValue({ error: null });
+  vi.mocked(useAuth).mockReturnValue({ signOut } as never);
+});
 
 const META: ClinicPortalMeta = {
   facilityName: 'QA Test Clinic',
@@ -44,7 +53,9 @@ describe('ClinicTopBar (QA-240)', () => {
     renderBar();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Search…')).not.toBeInTheDocument();
-    expect(document.querySelector('.lucide-chevron-down')).toBeNull();
+    // QA-248: the arrow is back, but now it opens a real account menu
+    const arrow = document.querySelector('.lucide-chevron-down');
+    expect(arrow?.closest('button')).toHaveAttribute('aria-haspopup', 'menu');
   });
 
   it.each([
@@ -92,5 +103,44 @@ describe('ClinicTopBar language toggle (QA-242)', () => {
     fireEvent.click(within(screen.getByRole('group', { name: 'اللغة' })).getByRole('button', { name: 'EN' }));
     await waitFor(() => expect(i18n.language).toBe('en'));
     expect(screen.getByTestId('clinic-topbar-role')).toHaveTextContent('Clinic admin');
+  });
+});
+
+describe('ClinicTopBar account menu and sign out (QA-248)', () => {
+  it('opens an account menu from the name with Settings and Sign Out', () => {
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    const menu = screen.getByRole('menu', { name: 'Account menu' });
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Settings' }));
+    expect(landedAt).toBe('/clinic/settings');
+  });
+
+  it('asks first, then signs out and goes to the login page', async () => {
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Sign Out' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Sign Out' });
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus());
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Yes, Sign Out' }));
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(landedAt).toBe('/auth/login'));
+  });
+
+  it('keeps the dialog open and says so when signing out fails', async () => {
+    signOut.mockResolvedValue({ error: new Error('network') });
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Sign Out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, Sign Out' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not sign out. Please try again.');
+    expect(screen.getByRole('alertdialog', { name: 'Sign Out' })).toBeInTheDocument();
+  });
+
+  it('works in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: 'قائمة الحساب' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'تسجيل الخروج' }));
+    expect(screen.getByRole('alertdialog', { name: 'تسجيل الخروج' })).toHaveAttribute('dir', 'rtl');
   });
 });

@@ -9,6 +9,8 @@ import { MESSAGES_READ_EVENT, NOTIFICATIONS_CHANGED_EVENT } from '../../lib/noti
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { LogOut } from 'lucide-react';
+import ClinicSignOutDialog from './ClinicSignOutDialog';
 import ClinicDashboard from './ClinicDashboard';
 import ClinicDoctors from './ClinicDoctors';
 import ClinicAppointments from './ClinicAppointments';
@@ -79,6 +81,7 @@ function getPageFromPath(path: string): ClinicPage {
 export default function ClinicPortal() {
   const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [portalMeta, setPortalMeta] = useState<ClinicPortalMeta>(defaultMeta);
   const [facilityId, setFacilityId] = useState<string | null>(null);
   const location = useLocation();
@@ -188,6 +191,18 @@ export default function ClinicPortal() {
           {/* QA-242: on phones the sidebar is hidden and Messages has no top bar.
               QA-247: the other pages already show the toggle in the top bar, so only Messages gets it here. */}
           {page === 'messages' && <LanguageSwitcher dense variant="light" className="shrink-0" />}
+          {/* QA-248: same reason for Sign Out (elsewhere it is in the top bar's account menu) */}
+          {page === 'messages' && (
+            <button
+              type="button"
+              onClick={() => setConfirmSignOut(true)}
+              aria-label={t('clinic.portalPage.signOut')}
+              data-testid="clinic-mobile-signout"
+              className="inline-flex shrink-0 items-center rounded-full bg-slate-100 p-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut size={14} className="rtl:rotate-180" aria-hidden="true" />
+            </button>
+          )}
           {mobileNavItems.map((item) => {
             const active = page === item.page;
             return (
@@ -219,6 +234,7 @@ export default function ClinicPortal() {
           {page === 'settings'     && <ClinicSettings />}
         </main>
       </div>
+      <ClinicSignOutDialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} />
     </div>
   );
 }

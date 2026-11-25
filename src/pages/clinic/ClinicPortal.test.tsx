@@ -284,3 +284,16 @@ describe('ClinicPortal phone menu language toggle (QA-247)', () => {
     expect(within(phoneMenu()).getByRole('group', { name: 'Language' })).toBeInTheDocument();
   });
 });
+
+describe('ClinicPortal sign out on phones (QA-248)', () => {
+  it('offers Sign Out in the phone menu on Messages, which has no top bar', () => {
+    render(
+      <MemoryRouter initialEntries={['/clinic/messages']}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+    const phoneMenu = screen.getAllByRole('navigation', { name: 'Clinic menu' }).find((menu) => menu.className.includes('lg:hidden')) as HTMLElement;
+    fireEvent.click(within(phoneMenu).getByRole('button', { name: 'Sign Out' }));
+    expect(screen.getByRole('alertdialog', { name: 'Sign Out' })).toBeInTheDocument();
+  });
+});
