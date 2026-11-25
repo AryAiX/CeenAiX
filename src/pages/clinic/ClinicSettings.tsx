@@ -161,7 +161,7 @@ export default function ClinicSettings() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6 max-w-3xl animate-pulse">
+      <div className="p-6 space-y-6 animate-pulse">
         <div className="h-10 bg-slate-100 rounded-xl w-48" />
         {[...Array(3)].map((_, i) => (
           <div key={i} className="h-48 bg-slate-100 rounded-2xl" />
@@ -179,21 +179,23 @@ export default function ClinicSettings() {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl" dir={i18n.dir()}>
+    // QA-246: full width like the other clinic pages (it was capped at max-w-3xl, which left an empty
+    // area on the right on desktop). On wide screens the two cards sit side by side.
+    <div data-testid="settings-page" className="p-6 grid grid-cols-1 xl:grid-cols-2 gap-6 items-start" dir={i18n.dir()}>
       {error ? (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" className="xl:col-span-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
           <button type="button" onClick={() => void fetchData()} className="ms-2 font-semibold underline">{t('clinic.actions.retry')}</button>
         </div>
       ) : null}
 
-      <div>
+      <div className="xl:col-span-2">
         <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t(`${S}.title`)}</h2>
         <p className="text-sm text-slate-500 mt-0.5">{t(`${S}.subtitle`)}</p>
       </div>
 
       {!canEdit && !error ? (
-        <p data-testid="settings-read-only" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <p data-testid="settings-read-only" className="xl:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           {t(`${S}.readOnly`)}
         </p>
       ) : null}
@@ -323,7 +325,7 @@ export default function ClinicSettings() {
       {/* QA-231: the notification switches and "NABIDH sync is active — records are being submitted
           automatically" did nothing (nothing reads these settings, and the clinic portal sends nothing
           to NABIDH). They are replaced by a plain note until the features exist. */}
-      <div data-testid="settings-not-available" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+      <div data-testid="settings-not-available" className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center"><Info size={18} className="text-slate-500" aria-hidden="true" /></div>
           <h3 className="font-bold text-slate-800">{t('clinic.settingsPage.notAvailableTitle')}</h3>

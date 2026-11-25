@@ -205,3 +205,13 @@ describe('ClinicSettings in Arabic and layout (QA-233)', () => {
     expect(grid.className).toContain('sm:grid-cols-2');
   });
 });
+
+describe('ClinicSettings layout (QA-246)', () => {
+  it('uses the full width on desktop, with the two cards side by side', async () => {
+    setup();
+    const page = await screen.findByTestId('settings-page');
+    expect(page.className).not.toContain('max-w-3xl');
+    expect(page).toHaveClass('grid', 'xl:grid-cols-2');
+    expect(screen.getByTestId('settings-not-available')).toHaveClass('xl:col-span-2');
+  });
+});

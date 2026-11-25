@@ -185,8 +185,9 @@ export default function ClinicPortal() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page !== 'messages' && <ClinicTopBar title={meta.title} subtitle={meta.subtitle} meta={portalMeta} />}
         <nav aria-label={t('clinic.portalPage.menuLabel')} className="lg:hidden flex shrink-0 items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
-          {/* QA-242: on phones the sidebar is hidden and Messages has no top bar */}
-          <LanguageSwitcher dense variant="light" className="shrink-0" />
+          {/* QA-242: on phones the sidebar is hidden and Messages has no top bar.
+              QA-247: the other pages already show the toggle in the top bar, so only Messages gets it here. */}
+          {page === 'messages' && <LanguageSwitcher dense variant="light" className="shrink-0" />}
           {mobileNavItems.map((item) => {
             const active = page === item.page;
             return (

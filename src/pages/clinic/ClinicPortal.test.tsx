@@ -244,14 +244,14 @@ describe('ClinicPortal language toggle on every page (QA-242)', () => {
     expect(screen.getAllByRole('group', { name: 'اللغة' })).toHaveLength(2);
   });
 
-  it('shows the toggle in the top bar, sidebar and phone menu on other pages', async () => {
+  it('shows the toggle in the top bar and sidebar on other pages', async () => {
     render(
       <MemoryRouter initialEntries={['/clinic/dashboard']}>
         <ClinicPortal />
       </MemoryRouter>
     );
-    // the top bar is stubbed in these tests, so 2 here + the real top bar (ClinicTopBar.test)
-    expect(screen.getAllByRole('group', { name: 'Language' })).toHaveLength(2);
+    // the top bar is stubbed in these tests, so 1 here (sidebar) + the real top bar (ClinicTopBar.test)
+    expect(screen.getAllByRole('group', { name: 'Language' })).toHaveLength(1);
     expect(screen.getByTestId('clinic-sidebar-language')).toBeInTheDocument();
   });
 });
@@ -263,5 +263,24 @@ describe('ClinicPortal single scroll bar (QA-245)', () => {
     // it against the whole page, which grew the page (second scroll bar + empty white area)
     expect(container.firstElementChild).toHaveClass('relative', 'h-screen', 'overflow-hidden');
     expect(screen.getByRole('main')).toHaveClass('relative', 'overflow-y-auto');
+  });
+});
+
+describe('ClinicPortal phone menu language toggle (QA-247)', () => {
+  const phoneMenu = () =>
+    screen.getAllByRole('navigation', { name: 'Clinic menu' }).find((menu) => menu.className.includes('lg:hidden')) as HTMLElement;
+
+  it('does not repeat the toggle in the phone menu when the top bar already has it', () => {
+    renderPortal();
+    expect(within(phoneMenu()).queryByRole('group', { name: 'Language' })).not.toBeInTheDocument();
+  });
+
+  it('keeps it in the phone menu on Messages, which has no top bar', () => {
+    render(
+      <MemoryRouter initialEntries={['/clinic/messages']}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+    expect(within(phoneMenu()).getByRole('group', { name: 'Language' })).toBeInTheDocument();
   });
 });
