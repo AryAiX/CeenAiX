@@ -8,6 +8,7 @@ import { loadClinicTodayStats } from '../../lib/clinic-dashboard';
 import { MESSAGES_READ_EVENT, NOTIFICATIONS_CHANGED_EVENT } from '../../lib/notification-events';
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import ClinicDashboard from './ClinicDashboard';
 import ClinicDoctors from './ClinicDoctors';
 import ClinicAppointments from './ClinicAppointments';
@@ -180,7 +181,9 @@ export default function ClinicPortal() {
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page !== 'messages' && <ClinicTopBar title={meta.title} subtitle={meta.subtitle} meta={portalMeta} />}
-        <nav aria-label={t('clinic.portalPage.menuLabel')} className="lg:hidden flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+        <nav aria-label={t('clinic.portalPage.menuLabel')} className="lg:hidden flex shrink-0 items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2">
+          {/* QA-242: on phones the sidebar is hidden and Messages has no top bar */}
+          <LanguageSwitcher dense variant="light" className="shrink-0" />
           {mobileNavItems.map((item) => {
             const active = page === item.page;
             return (

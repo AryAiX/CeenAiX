@@ -8,6 +8,7 @@ import {
   ChevronLeft, ChevronRight, LogOut, Users, BarChart2, Building2,
   MessageSquare, Bell
 } from 'lucide-react';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import type { ClinicPortalMeta } from './ClinicPortal';
 
 interface ClinicSidebarProps {
@@ -215,6 +216,11 @@ const ClinicSidebar: React.FC<ClinicSidebarProps> = ({ isCollapsed, onToggleColl
                 <span className={`font-mono font-semibold ${s.color}`}>{s.value}</span>
               </div>
             ))}
+          </div>
+          {/* QA-242: also here, because the Messages page has no top bar */}
+          <div data-testid="clinic-sidebar-language" className="flex items-center justify-between gap-2 px-2 pt-1">
+            <span className="text-slate-400 text-[12px]">{t('nav.language')}</span>
+            <LanguageSwitcher dense variant="dark" />
           </div>
           {signOutError ? (
             <p role="alert" className="px-2 text-[12px] text-red-300">{t(`${P}.signOutFailed`)}</p>

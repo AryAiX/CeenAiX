@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Bell } from 'lucide-react';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import type { ClinicPortalMeta } from './ClinicPortal';
 
 interface ClinicTopBarProps {
@@ -38,6 +39,8 @@ export default function ClinicTopBar({ title, subtitle, meta }: ClinicTopBarProp
       {/* QA-240: the search box did nothing when you typed, and the name had a dropdown arrow with no
           menu; both are gone */}
       <div className="flex items-center gap-3">
+        {/* QA-242: EN / عربي, like the doctor and patient portals */}
+        <LanguageSwitcher dense variant="light" />
         <button
           type="button"
           onClick={() => navigate('/clinic/notifications')}

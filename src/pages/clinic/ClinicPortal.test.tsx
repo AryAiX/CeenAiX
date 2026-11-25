@@ -223,3 +223,35 @@ describe('ClinicPortal direction and mobile menu (QA-241)', () => {
     await waitFor(() => expect(screen.getByTestId('topbar')).toHaveTextContent('الأسعار والخدمات'));
   });
 });
+
+describe('ClinicPortal language toggle on every page (QA-242)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('can switch language on the Messages page, which has no top bar', async () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/clinic/messages']}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('topbar')).not.toBeInTheDocument();
+    // the sidebar (desktop) and the menu row (phones) each have one
+    const toggles = screen.getAllByRole('group', { name: 'Language' });
+    expect(toggles).toHaveLength(2);
+    fireEvent.click(within(toggles[0]).getByRole('button', { name: 'عربي' }));
+    await waitFor(() => expect(container.firstElementChild).toHaveAttribute('dir', 'rtl'));
+    expect(screen.getAllByRole('group', { name: 'اللغة' })).toHaveLength(2);
+  });
+
+  it('shows the toggle in the top bar, sidebar and phone menu on other pages', async () => {
+    render(
+      <MemoryRouter initialEntries={['/clinic/dashboard']}>
+        <ClinicPortal />
+      </MemoryRouter>
+    );
+    // the top bar is stubbed in these tests, so 2 here + the real top bar (ClinicTopBar.test)
+    expect(screen.getAllByRole('group', { name: 'Language' })).toHaveLength(2);
+    expect(screen.getByTestId('clinic-sidebar-language')).toBeInTheDocument();
+  });
+});

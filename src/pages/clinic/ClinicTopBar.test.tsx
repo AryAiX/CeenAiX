@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import i18n from '../../i18n';
@@ -76,5 +76,21 @@ describe('ClinicTopBar (QA-240)', () => {
     renderBar({ unreadNotifications: 2 });
     expect(screen.getByTestId('clinic-topbar-role')).toHaveTextContent('مسؤول العيادة');
     expect(screen.getByTestId('clinic-topbar-bell')).toHaveAccessibleName('الإشعارات، إشعاران غير مقروءين');
+  });
+});
+
+describe('ClinicTopBar language toggle (QA-242)', () => {
+  it('switches the portal to Arabic and back, and remembers the choice', async () => {
+    renderBar();
+    const toggle = screen.getByRole('group', { name: 'Language' });
+    fireEvent.click(within(toggle).getByRole('button', { name: 'عربي' }));
+    await waitFor(() => expect(i18n.language).toBe('ar'));
+    expect(window.localStorage.getItem('ceenaix.lang')).toBe('ar');
+    expect(screen.getByTestId('clinic-topbar-role')).toHaveTextContent('مسؤول العيادة');
+    expect(within(screen.getByRole('group', { name: 'اللغة' })).getByRole('button', { name: 'عربي' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(within(screen.getByRole('group', { name: 'اللغة' })).getByRole('button', { name: 'EN' }));
+    await waitFor(() => expect(i18n.language).toBe('en'));
+    expect(screen.getByTestId('clinic-topbar-role')).toHaveTextContent('Clinic admin');
   });
 });
