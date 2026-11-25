@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, MessageSquare, Play, Search, X } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
@@ -27,7 +28,7 @@ type SortType = 'newest' | 'oldest' | 'patient' | 'status';
 interface PrescriptionListRow {
   id: string;
   /** QA-251: every medicine (dispensing task) of this prescription, with its own status. */
-  tasks: Array<Pick<PharmacyQueuePrescriptionItem, 'id' | 'workflowStatus'>>;
+  tasks: Array<Pick<PharmacyQueuePrescriptionItem, 'id' | 'workflowStatus' | 'medication' | 'quantity'>>;
   /** The medicines' own references, so an old link with a task reference still finds the row. */
   refs: string[];
   patientUserId: string | null;
@@ -64,50 +65,61 @@ const sortLabels: Record<SortType, string> = {
 
 const statusConfig: Record<
   Exclude<FilterType, 'all'>,
-  { label: string; bg: string; text: string; border: string; action: string }
+  { label: string; bg: string; text: string; border: string }
 > = {
   new: {
     label: 'NEW',
     bg: 'bg-blue-50',
     text: 'text-blue-700',
     border: 'border-l-blue-500',
-    action: 'Dispense',
   },
   in_progress: {
     label: 'IN PROGRESS',
     bg: 'bg-teal-50',
     text: 'text-teal-700',
     border: 'border-l-teal-500',
-    action: 'Continue',
   },
   on_hold: {
     label: 'ON HOLD',
     bg: 'bg-amber-50',
     text: 'text-amber-700',
     border: 'border-l-amber-500',
-    action: 'Resume',
   },
   dispensed: {
     label: 'DISPENSED',
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     border: 'border-l-emerald-500',
-    action: 'View',
   },
   picked_up: {
     label: 'PICKED UP',
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     border: 'border-l-emerald-600',
-    action: 'View',
   },
   cancelled: {
     label: 'CANCELLED',
     bg: 'bg-slate-50',
     text: 'text-slate-500',
     border: 'border-l-slate-300',
-    action: 'View',
   },
+};
+
+/**
+ * QA-252: what the main button does. "Start" only starts work on a new prescription; "Mark as
+ * dispensed" (with a confirmation) is the step that tells the patient their medicines are ready.
+ */
+const actionLabel = (status: Exclude<FilterType, 'all'>, t: TFunction): string => {
+  switch (status) {
+    case 'new':
+      return t('pharmacy.dispensing.actionStart', { defaultValue: 'Start' });
+    case 'in_progress':
+      return t('pharmacy.dispensing.actionMarkDispensed', { defaultValue: 'Mark as dispensed' });
+    case 'on_hold':
+      return t('pharmacy.dispensing.actionResume', { defaultValue: 'Resume' });
+    default:
+      return t('pharmacy.dispensing.actionView', { defaultValue: 'View' });
+  }
 };
 
 const statusSortOrder: Record<Exclude<FilterType, 'all'>, number> = {
@@ -180,7 +192,12 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
 
     return {
       id: prescriptionId,
-      tasks: group.map((item) => ({ id: item.id, workflowStatus: item.workflowStatus })),
+      tasks: group.map((item) => ({
+        id: item.id,
+        workflowStatus: item.workflowStatus,
+        medication: item.medication,
+        quantity: item.quantity,
+      })),
       refs: group.map((item) => item.externalRef),
       patientUserId: group.find((item) => item.patientUserId)?.patientUserId ?? null,
       patientName: first.patientName,
@@ -232,6 +249,18 @@ export const PharmacyDispensing = () => {
   const [holdReason, setHoldReason] = useState('');
   const [holdNote, setHoldNote] = useState('');
   const [viewModalRow, setViewModalRow] = useState<PrescriptionListRow | null>(null);
+  const [dispenseConfirmRow, setDispenseConfirmRow] = useState<PrescriptionListRow | null>(null);
+  const dispenseCancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!dispenseConfirmRow) return;
+    dispenseCancelRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDispenseConfirmRow(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [dispenseConfirmRow]);
 
   useEffect(() => {
     const id = searchParams.get('id');
@@ -580,6 +609,9 @@ export const PharmacyDispensing = () => {
                         onClick={() => {
                           if (row.status === 'dispensed' || row.status === 'cancelled') {
                             setViewModalRow(row);
+                          } else if (row.status === 'in_progress') {
+                            // QA-252: dispensing tells the patient and cannot be undone, so confirm first.
+                            setDispenseConfirmRow(row);
                           } else {
                             void handleRowAction(row, row.status);
                           }
@@ -594,7 +626,7 @@ export const PharmacyDispensing = () => {
                         }`}
                       >
                         {row.status !== 'dispensed' && row.status !== 'cancelled' ? <Play className="h-3 w-3" /> : null}
-                        {busyId === row.id ? '…' : cfg.action}
+                        {busyId === row.id ? '…' : actionLabel(row.status, t)}
                       </button>
                       {(row.status === 'new' || row.status === 'in_progress') ? (
                         <button
@@ -637,6 +669,78 @@ export const PharmacyDispensing = () => {
           </div>
         </div>
       </div>
+      {dispenseConfirmRow ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dispense-confirm-title"
+            aria-describedby="dispense-confirm-body"
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
+            <div className="border-b border-slate-100 px-6 py-4">
+              <h2 id="dispense-confirm-title" className="text-base font-semibold text-slate-900">
+                {t('pharmacy.dispensing.confirmDispenseTitle', { defaultValue: 'Mark as dispensed?' })}
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {dispenseConfirmRow.patientName} · {prescriptionReference(dispenseConfirmRow.id)}
+              </p>
+            </div>
+            <div className="space-y-3 px-6 py-4">
+              <ul className="space-y-1.5" aria-label={t('pharmacy.dispensing.confirmDispenseListLabel', { defaultValue: 'Medicines to dispense' })}>
+                {dispenseConfirmRow.tasks
+                  .filter((item) => openDispensingTaskIds([item]).length > 0)
+                  .map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-800"
+                    >
+                      <span className="min-w-0 break-words font-medium">{item.medication}</span>
+                      <span className="shrink-0 text-xs text-slate-500">
+                        {typeof item.quantity === 'number'
+                          ? t('pharmacy.dispensing.confirmDispenseQty', {
+                              defaultValue: 'Qty {{qty}}',
+                              qty: formatLocaleDigits(item.quantity, uiLang),
+                            })
+                          : t('pharmacy.dispensing.confirmDispenseQtyUnknown', { defaultValue: 'Qty not given' })}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+              <p id="dispense-confirm-body" className="text-sm text-slate-600">
+                {t('pharmacy.dispensing.confirmDispenseBody', {
+                  defaultValue:
+                    "Check the medicines before you confirm. The patient is told their medicines are ready for pickup, and this can't be undone.",
+                })}
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                ref={dispenseCancelRef}
+                type="button"
+                onClick={() => setDispenseConfirmRow(null)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {t('pharmacy.dispensing.confirmDispenseCancel', { defaultValue: 'Cancel' })}
+              </button>
+              <button
+                type="button"
+                disabled={busyId === dispenseConfirmRow.id}
+                onClick={() => {
+                  const row = dispenseConfirmRow;
+                  void handleRowAction(row, row.status).finally(() => setDispenseConfirmRow(null));
+                }}
+                className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busyId === dispenseConfirmRow.id
+                  ? t('pharmacy.dispensing.confirmDispenseSaving', { defaultValue: 'Saving…' })
+                  : t('pharmacy.dispensing.confirmDispenseConfirm', { defaultValue: 'Confirm dispensed' })}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
       {holdModalRow ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">

@@ -3407,7 +3407,19 @@
         "verifying": "Verifying",
         "counseling": "Counseling",
         "ready": "Ready"
-      }
+      },
+      "actionStart": "Start",
+      "actionMarkDispensed": "Mark as dispensed",
+      "actionResume": "Resume",
+      "actionView": "View",
+      "confirmDispenseTitle": "Mark as dispensed?",
+      "confirmDispenseListLabel": "Medicines to dispense",
+      "confirmDispenseQty": "Qty {{qty}}",
+      "confirmDispenseQtyUnknown": "Qty not given",
+      "confirmDispenseBody": "Check the medicines before you confirm. The patient is told their medicines are ready for pickup, and this can't be undone.",
+      "confirmDispenseCancel": "Cancel",
+      "confirmDispenseConfirm": "Confirm dispensed",
+      "confirmDispenseSaving": "Saving…"
     },
     "inventory": {
       "title": "Inventory",

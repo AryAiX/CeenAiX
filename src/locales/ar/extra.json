@@ -3549,7 +3549,19 @@
         "verifying": "قيد التحقق",
         "counseling": "إرشاد",
         "ready": "جاهزة"
-      }
+      },
+      "actionStart": "بدء",
+      "actionMarkDispensed": "تأكيد الصرف",
+      "actionResume": "استئناف",
+      "actionView": "عرض",
+      "confirmDispenseTitle": "تأكيد صرف الوصفة؟",
+      "confirmDispenseListLabel": "الأدوية المطلوب صرفها",
+      "confirmDispenseQty": "الكمية {{qty}}",
+      "confirmDispenseQtyUnknown": "الكمية غير محددة",
+      "confirmDispenseBody": "تحقّق من الأدوية قبل التأكيد. سيتم إبلاغ المريض بأن أدويته جاهزة للاستلام، ولا يمكن التراجع عن ذلك.",
+      "confirmDispenseCancel": "إلغاء",
+      "confirmDispenseConfirm": "نعم، تم الصرف",
+      "confirmDispenseSaving": "جارٍ الحفظ…"
     },
     "inventory": {
       "title": "المخزون",
