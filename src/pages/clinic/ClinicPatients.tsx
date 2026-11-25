@@ -1,3 +1,4 @@
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -213,6 +214,7 @@ export default function ClinicPatients() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientAppts, setPatientAppts] = useState<PatientVisit[]>([]);
   const [showBook, setShowBook] = useState(false);
+  const isPhone = useIsPhone();
   const [bookingPatient, setBookingPatient] = useState<{ userId: string; fullName: string; phone: string } | null>(null);
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
   const [listTruncated, setListTruncated] = useState(false);
@@ -448,6 +450,45 @@ export default function ClinicPatients() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+        {isPhone ? (
+          // QA-249: a card per patient on phones
+          <ul data-testid="clinic-patient-cards" className="divide-y divide-slate-100">
+            {filtered.map(p => {
+              const initials = p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleRowClick(p)}
+                    aria-label={t(`${P}.openPatient`, { name: p.name })}
+                    className="w-full p-4 text-start hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">{initials}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-slate-800 text-sm">{p.name}</span>
+                        <span className="block text-xs text-slate-500" dir="ltr">{p.phone ? formatLocalePhoneDisplay(p.phone, lang) : '—'}</span>
+                      </span>
+                      <ChevronRight size={16} className="text-slate-300 rtl:rotate-180 shrink-0" aria-hidden="true" />
+                    </span>
+                    <span className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      <span><span className="block text-slate-400">{t(`${P}.colDoctor`)}</span><span className="block text-slate-700">{doctorLabel(p.doctor)}</span></span>
+                      <span><span className="block text-slate-400">{t(`${P}.colCompleted`)}</span><span className="block font-bold text-slate-800">{formatLocaleDigits(p.totalVisits, lang)}</span></span>
+                      <span><span className="block text-slate-400">{t(`${P}.colLastVisit`)}</span><span className="block text-slate-700">{date(p.lastVisitDate)}</span></span>
+                      <span><span className="block text-slate-400">{t(`${P}.colNextVisit`)}</span><span className="block text-slate-700">{date(p.nextVisitDate)}</span></span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {filtered.length === 0 && (
+              <li className="flex flex-col items-center gap-2 text-center py-16 text-slate-400">
+                <Users size={32} className="opacity-30" aria-hidden="true" />
+                <p className="text-sm">{t(`${P}.empty`)}</p>
+              </li>
+            )}
+          </ul>
+        ) : (
         <table className="w-full min-w-[960px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
@@ -513,6 +554,7 @@ export default function ClinicPatients() {
             )}
           </tbody>
         </table>
+        )}
       </div>
 
       {selectedPatient && (

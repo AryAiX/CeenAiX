@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder } from '../../test/supabase-mock';
 import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
 import ClinicAnalytics from './ClinicAnalytics';
+import { mockScreen } from '../../test/phone-screen';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
@@ -247,5 +248,24 @@ describe('ClinicAnalytics placeholders, Arabic and accessibility (QA-229)', () =
     expect(alert).toHaveTextContent('Could not load analytics. Please try again.');
     expect(within(alert).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicAnalytics on a phone (QA-249)', () => {
+  let restore: () => void = () => undefined;
+  afterEach(() => restore());
+
+  it('shows the doctor list as cards with visits and estimated fees', async () => {
+    restore = mockScreen(true);
+    setup(
+      [{ id: 'a', patient_id: 'p1', doctor_id: 'd1', scheduled_at: '2026-11-10T06:00:00Z', status: 'completed', type: 'in_person', chief_complaint: 'Consultation' }],
+      [{ user_id: 'd1', full_name: 'Sara Ali' }],
+      [{ doctor_user_id: 'd1', consultation_fee: 300, telemedicine_fee: null, follow_up_fee: null }]
+    );
+    const cards = await screen.findByTestId('clinic-analytics-doctor-cards');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    const card = within(cards).getByText('Sara Ali').closest('li') as HTMLElement;
+    expect(within(card).getByText('Appointments')).toBeInTheDocument();
+    expect(within(card).getByText('300')).toBeInTheDocument();
   });
 });

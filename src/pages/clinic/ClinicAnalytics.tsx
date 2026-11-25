@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { useTranslation } from 'react-i18next';
 import { fetchAllPages } from '../../lib/supabase-batches';
 import { OTHER_REASON, isCountedVisit, isInClinicMonth, summariseClinicVisits, visitReasonBreakdown, type AnalyticsVisit } from '../../lib/clinic-analytics';
@@ -13,6 +14,7 @@ export default function ClinicAnalytics() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const [truncated, setTruncated] = useState(false);
+  const isPhone = useIsPhone();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState<string | null>(null);
@@ -278,6 +280,31 @@ export default function ClinicAnalytics() {
         </div>
         {doctorPerf.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">{t(`${A}.noDoctors`)}</div>
+        ) : isPhone ? (
+          // QA-249: a card per doctor on phones
+          <ul data-testid="clinic-analytics-doctor-cards" className="divide-y divide-slate-100">
+            {doctorPerf.map(d => (
+              <li key={d.doctorId} className="p-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div aria-hidden="true" className={`w-9 h-9 rounded-xl bg-gradient-to-br ${d.gradient} flex items-center justify-center text-white font-bold text-sm shrink-0`}>{d.initials}</div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-800 text-sm">{d.name}</div>
+                    <div className="text-xs text-slate-500">{d.specialty}</div>
+                  </div>
+                </div>
+                <dl className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <dt className="text-slate-400">{t(`${A}.colAppointments`)}</dt>
+                    <dd className="font-bold text-slate-800 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{num(d.appts)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">{t(`${A}.colEstimatedFees`)}</dt>
+                    <dd className="font-bold text-teal-700 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{d.revenue === null ? '—' : num(d.revenue)}</dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full min-w-[640px]">

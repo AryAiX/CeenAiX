@@ -297,3 +297,21 @@ describe('ClinicPortal sign out on phones (QA-248)', () => {
     expect(screen.getByRole('alertdialog', { name: 'Sign Out' })).toBeInTheDocument();
   });
 });
+
+describe('ClinicPortal phone menu badges (QA-250)', () => {
+  it('shows icons and the unread / waiting counts in the phone menu, like the sidebar', async () => {
+    vi.mocked(countUnreadMessages).mockResolvedValue(3);
+    vi.mocked(countUnreadNotifications).mockResolvedValue(120);
+    vi.mocked(loadClinicTodayStats).mockResolvedValue({ todayApptCount: 6, todayConfirmedCount: 4, todayFees: 450, pendingDoctors: 1 });
+    vi.mocked(supabase.from).mockImplementation(((table: string) =>
+      createSupabaseQueryBuilder({ data: table === 'clinic_portal_members' ? { facility_id: 'f1', portal_role: 'clinic_admin' } : null, error: null })) as never);
+    renderPortal();
+    const phoneMenu = screen.getAllByRole('navigation', { name: 'Clinic menu' }).find((menu) => menu.className.includes('lg:hidden')) as HTMLElement;
+    await waitFor(() => expect(within(phoneMenu).getByTestId('clinic-mobile-badge-messages')).toHaveTextContent('3'));
+    expect(within(phoneMenu).getByTestId('clinic-mobile-badge-notifications')).toHaveTextContent('99+');
+    await waitFor(() => expect(within(phoneMenu).getByTestId('clinic-mobile-badge-appointments')).toHaveTextContent('6'));
+    expect(within(phoneMenu).getByTestId('clinic-mobile-badge-doctors')).toHaveTextContent('1');
+    expect(within(phoneMenu).queryByTestId('clinic-mobile-badge-patients')).not.toBeInTheDocument();
+    expect(within(phoneMenu).getByRole('button', { name: /Messages/ }).querySelector('svg')).not.toBeNull();
+  });
+});

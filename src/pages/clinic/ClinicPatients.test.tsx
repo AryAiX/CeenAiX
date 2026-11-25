@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { installClinicRpc, type PatientFixture } from '../../test/clinic-rpc-mock';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
 import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
+import { mockScreen } from '../../test/phone-screen';
 import ClinicPatients from './ClinicPatients';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
@@ -386,5 +387,40 @@ describe('ClinicPatients in Arabic and from the keyboard (QA-211)', () => {
     expect(alert).toHaveTextContent('تعذّر تحميل المرضى. يُرجى المحاولة مرة أخرى.');
     expect(within(alert).getByRole('button', { name: i18n.t('clinic.actions.retry') })).toBeInTheDocument();
     expect(screen.queryByText(/relation/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicPatients on a phone (QA-249)', () => {
+  let restore: () => void = () => undefined;
+  afterEach(() => restore());
+
+  it('shows a card per patient with doctor, visits and dates, and opens the patient from it', async () => {
+    restore = mockScreen(true);
+    rpcPatients = [{ user_id: 'patient-1', full_name: 'Card Patient', phone: '+971500000001', email: null, date_of_birth: null }];
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      const data =
+        table === 'clinic_portal_members' ? { facility_id: 'facility-1' }
+        : table === 'appointments'
+          ? [
+              { id: 'a1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-10T06:00:00Z', status: 'completed', chief_complaint: 'Consultation' },
+              { id: 'a2', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-28T06:00:00Z', status: 'scheduled', chief_complaint: 'Consultation' },
+            ]
+          : table === 'user_profiles' ? [{ user_id: 'doctor-1', full_name: 'First Doctor' }]
+          : [];
+      return createSupabaseQueryBuilder({ data, error: null });
+    }) as never);
+    render(
+      <MemoryRouter>
+        <ClinicPatients />
+      </MemoryRouter>
+    );
+    const cards = await screen.findByTestId('clinic-patient-cards');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    const open = within(cards).getByRole('button', { name: 'Open Card Patient' });
+    expect(open).toHaveTextContent('Dr. First Doctor');
+    expect(open).toHaveTextContent(formatClinicDate('2026-11-10T06:00:00Z', 'en'));
+    expect(open).toHaveTextContent(formatClinicDate('2026-11-28T06:00:00Z', 'en'));
+    fireEvent.click(open);
+    expect(await screen.findByText('Appointment History')).toBeInTheDocument();
   });
 });

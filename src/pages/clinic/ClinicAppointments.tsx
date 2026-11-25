@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { createPortal } from 'react-dom';
 import { Plus, Search, Calendar, Clock, Check, DollarSign, Phone } from 'lucide-react';
 import {
@@ -168,6 +169,7 @@ export default function ClinicAppointments() {
   const [showBook, setShowBook] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const isPhone = useIsPhone();
 
   const today = clinicTodayKey();
 
@@ -381,6 +383,40 @@ export default function ClinicAppointments() {
     t('clinic.appointments.colActions'),
   ];
 
+  // QA-249: the same buttons in the table and in the phone cards
+  const renderActions = (a: Appointment) => {
+    const actions = getClinicAppointmentActions({ status: a.status, scheduled_at: a.scheduledAt });
+    const busy = busyId === a.id;
+    if (!actions.canConfirm && !actions.canCancel && !actions.canMarkNoShow) {
+      return (
+        <span className="text-xs text-slate-400">
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">{t('clinic.appointments.noActions')}</span>
+        </span>
+      );
+    }
+    const base = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-60';
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {actions.canConfirm && (
+          <button type="button" disabled={busy} onClick={() => void changeStatus(a.id, 'confirmed')} className={`${base} bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100`}>
+            {t('clinic.appointments.confirm')}
+          </button>
+        )}
+        {actions.canCancel && (
+          <button type="button" disabled={busy} onClick={() => setCancelTarget(a)} className={`${base} bg-white text-red-600 border-red-200 hover:bg-red-50`}>
+            {t('clinic.appointments.cancel')}
+          </button>
+        )}
+        {actions.canMarkNoShow && (
+          <button type="button" disabled={busy} onClick={() => void changeStatus(a.id, 'no_show')} className={`${base} bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100`}>
+            {t('clinic.appointments.noShow')}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 space-y-5">
       {error ? (
@@ -476,8 +512,43 @@ export default function ClinicAppointments() {
       )}
       <p className="text-xs text-slate-500">{t('clinic.appointments.estimateNote')}</p>
 
-      {/* Table */}
+      {/* Table (QA-249: a card per visit on phones) */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+        {isPhone ? (
+          <ul data-testid="clinic-appointment-cards" className="divide-y divide-slate-100">
+            {filtered.map(a => {
+              const s = statusStyle[a.status] ?? statusStyle.scheduled;
+              return (
+                <li key={a.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm" style={{ fontFamily: 'DM Mono, monospace' }}>{formatClinicTime(a.scheduledAt, lang)}</div>
+                      <div className="text-xs text-slate-400">{formatClinicDate(a.scheduledAt, lang)}</div>
+                    </div>
+                    <span className={`flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border w-fit ${s.color}`}>
+                      <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />{appointmentStatusLabel(t, a.status)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-800 text-sm">{patientLabel(a)}</div>
+                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                      <Phone size={10} aria-hidden="true" />
+                      <span dir="ltr">{a.patientPhone ? formatLocalePhoneDisplay(a.patientPhone, lang) : '—'}</span>
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {doctorLabel(a)} <span className="text-xs text-slate-400">· {a.specialty ?? t('clinic.appointments.generalPractice')}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-slate-600">{visitReasonLabel(t, a.type)}</span>
+                    <span className="font-bold text-teal-700" style={{ fontFamily: 'DM Mono, monospace' }}>{money(feeFor(a))}</span>
+                  </div>
+                  {renderActions(a)}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
         <table className="w-full min-w-[860px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
@@ -516,44 +587,14 @@ export default function ClinicAppointments() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    {(() => {
-                      const actions = getClinicAppointmentActions({ status: a.status, scheduled_at: a.scheduledAt });
-                      const busy = busyId === a.id;
-                      if (!actions.canConfirm && !actions.canCancel && !actions.canMarkNoShow) {
-                        return (
-                          <span className="text-xs text-slate-400">
-                            <span aria-hidden="true">—</span>
-                            <span className="sr-only">{t('clinic.appointments.noActions')}</span>
-                          </span>
-                        );
-                      }
-                      const base = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-60';
-                      return (
-                        <div className="flex flex-wrap gap-1.5">
-                          {actions.canConfirm && (
-                            <button type="button" disabled={busy} onClick={() => void changeStatus(a.id, 'confirmed')} className={`${base} bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100`}>
-                              {t('clinic.appointments.confirm')}
-                            </button>
-                          )}
-                          {actions.canCancel && (
-                            <button type="button" disabled={busy} onClick={() => setCancelTarget(a)} className={`${base} bg-white text-red-600 border-red-200 hover:bg-red-50`}>
-                              {t('clinic.appointments.cancel')}
-                            </button>
-                          )}
-                          {actions.canMarkNoShow && (
-                            <button type="button" disabled={busy} onClick={() => void changeStatus(a.id, 'no_show')} className={`${base} bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100`}>
-                              {t('clinic.appointments.noShow')}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {renderActions(a)}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        )}
         {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <Calendar size={32} aria-hidden="true" className="mx-auto mb-3 opacity-30" />

@@ -9,7 +9,8 @@ import { MESSAGES_READ_EVENT, NOTIFICATIONS_CHANGED_EVENT } from '../../lib/noti
 import ClinicSidebar from './ClinicSidebar';
 import ClinicTopBar from './ClinicTopBar';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
-import { LogOut } from 'lucide-react';
+import { BarChart2, Bell, CalendarDays, DollarSign, LayoutDashboard, LogOut, MessageSquare, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import ClinicSignOutDialog from './ClinicSignOutDialog';
 import ClinicDashboard from './ClinicDashboard';
 import ClinicDoctors from './ClinicDoctors';
@@ -54,16 +55,18 @@ const defaultMeta: ClinicPortalMeta = {
   unreadNotifications: 0,
 };
 
-const mobileNavItems: Array<{ page: ClinicPage; href: string }> = [
-  { page: 'dashboard', href: '/clinic/dashboard' },
-  { page: 'doctors', href: '/clinic/doctors' },
-  { page: 'appointments', href: '/clinic/appointments' },
-  { page: 'patients', href: '/clinic/patients' },
-  { page: 'pricing', href: '/clinic/pricing' },
-  { page: 'messages', href: '/clinic/messages' },
-  { page: 'notifications', href: '/clinic/notifications' },
-  { page: 'analytics', href: '/clinic/analytics' },
-  { page: 'settings', href: '/clinic/settings' },
+// QA-250: icons and the same badges as the sidebar (the phone menu showed text only, so unread
+// messages, notifications and doctors waiting for approval were invisible on phones)
+const mobileNavItems: Array<{ page: ClinicPage; href: string; icon: LucideIcon; badge?: (meta: ClinicPortalMeta) => number; badgeColor?: string }> = [
+  { page: 'dashboard', href: '/clinic/dashboard', icon: LayoutDashboard },
+  { page: 'doctors', href: '/clinic/doctors', icon: Stethoscope, badge: (m) => m.pendingDoctors, badgeColor: 'bg-amber-500' },
+  { page: 'appointments', href: '/clinic/appointments', icon: CalendarDays, badge: (m) => m.todayApptCount, badgeColor: 'bg-teal-500' },
+  { page: 'patients', href: '/clinic/patients', icon: Users },
+  { page: 'pricing', href: '/clinic/pricing', icon: DollarSign },
+  { page: 'messages', href: '/clinic/messages', icon: MessageSquare, badge: (m) => m.unreadMessages, badgeColor: 'bg-blue-500' },
+  { page: 'notifications', href: '/clinic/notifications', icon: Bell, badge: (m) => m.unreadNotifications, badgeColor: 'bg-red-500' },
+  { page: 'analytics', href: '/clinic/analytics', icon: BarChart2 },
+  { page: 'settings', href: '/clinic/settings', icon: Settings },
 ];
 
 function getPageFromPath(path: string): ClinicPage {
@@ -205,19 +208,27 @@ export default function ClinicPortal() {
           )}
           {mobileNavItems.map((item) => {
             const active = page === item.page;
+            const Icon = item.icon;
+            const badge = item.badge?.(portalMeta) ?? 0;
             return (
               <button
                 key={item.href}
                 type="button"
                 onClick={() => navigate(item.href)}
                 aria-current={active ? 'page' : undefined}
-                className={`inline-flex shrink-0 items-center rounded-full px-3 py-2 text-xs font-semibold transition ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
                   active
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-teal-50 hover:text-teal-700'
                 }`}
               >
-                {t(`clinic.portalPage.titles.${item.page}`)}
+                <Icon size={14} className="shrink-0" aria-hidden="true" />
+                <span>{t(`clinic.portalPage.titles.${item.page}`)}</span>
+                {badge > 0 ? (
+                  <span data-testid={`clinic-mobile-badge-${item.page}`} className={`${item.badgeColor} rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white min-w-[18px] text-center`}>
+                    {badge > 99 ? `${formatLocaleDigits(99, i18n.language)}+` : formatLocaleDigits(badge, i18n.language)}
+                  </span>
+                ) : null}
               </button>
             );
           })}

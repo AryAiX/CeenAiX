@@ -5,6 +5,7 @@ import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
+import { mockScreen } from '../../test/phone-screen';
 import ClinicDoctors from './ClinicDoctors';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
@@ -499,5 +500,25 @@ describe('ClinicDoctors actions menu (QA-244)', () => {
     setup([], [], [...LINKS, { ...LINKS[0], id: 's-declined', doctor_user_id: 'doc-declined', invitation_status: 'declined', is_active: false }]);
     const row = await rowOf('Dr Declined Person');
     expect(within(row).queryByRole('button', { name: /More actions/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClinicDoctors on a phone (QA-249)', () => {
+  let restore: () => void = () => undefined;
+  afterEach(() => restore());
+
+  it('shows a card per doctor with status, fee, View profile and the ⋮ actions', async () => {
+    restore = mockScreen(true);
+    setup();
+    const cards = await screen.findByTestId('clinic-doctor-cards');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    const card = (await within(cards).findByText('Dr Active Person')).closest('li') as HTMLElement;
+    expect(within(card).getByText('Active')).toBeInTheDocument();
+    expect(within(card).getByText(/300/)).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole('button', { name: /More actions/ }));
+    expect(screen.getByRole('menuitem', { name: /Edit Fee/ })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(within(card).getByRole('button', { name: 'View profile: Dr Active Person' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 });

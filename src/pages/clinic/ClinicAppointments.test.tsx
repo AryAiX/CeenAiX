@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { installClinicRpc, type PatientFixture } from '../../test/clinic-rpc-mock';
 import { createSupabaseQueryBuilder, type MockSupabaseQueryBuilder } from '../../test/supabase-mock';
 import { createServerLikeBuilder } from '../../test/supabase-server-like-mock';
+import { mockScreen } from '../../test/phone-screen';
 import ClinicAppointments from './ClinicAppointments';
 
 vi.mock('../../lib/auth-context', () => ({ useAuth: vi.fn() }));
@@ -555,5 +556,37 @@ describe('ClinicAppointments patient privacy (QA-208)', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('clinic_patient_profiles', { p_patient_ids: ['patient-1'] });
     const askedProfileIds = (calls.user_profiles ?? []).flatMap((b) => b.in.mock.calls.flatMap(([, ids]) => ids as string[]));
     expect(askedProfileIds).not.toContain('patient-1');
+  });
+});
+
+describe('ClinicAppointments on a phone (QA-249)', () => {
+  let restore: () => void = () => undefined;
+  afterEach(() => restore());
+
+  it('shows a card per visit with its status, price and buttons, instead of a table cut off on the side', async () => {
+    restore = mockScreen(true);
+    vi.setSystemTime(new Date('2026-11-24T04:00:00Z'));
+    setupSupabase({
+      listAppointments: [
+        { id: 'v1', patient_id: 'patient-1', doctor_id: 'doctor-1', scheduled_at: '2026-11-24T05:00:00Z', status: 'scheduled', type: 'in_person', chief_complaint: 'Consultation', notes: null, duration_minutes: 30, created_at: '2026-11-20T10:00:00Z', updated_at: '2026-11-20T10:00:00Z' },
+      ],
+    });
+    render(<ClinicAppointments />);
+    const cards = await screen.findByTestId('clinic-appointment-cards');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    const card = within(cards).getByText('Test Patient').closest('li') as HTMLElement;
+    expect(within(card).getByText('Scheduled')).toBeInTheDocument();
+    expect(within(card).getByText('09:00')).toBeInTheDocument();
+    expect(within(card).getByText(/300/)).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
+  it('keeps the table on wider screens', async () => {
+    restore = mockScreen(false);
+    setupSupabase();
+    render(<ClinicAppointments />);
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(screen.queryByTestId('clinic-appointment-cards')).not.toBeInTheDocument();
   });
 });

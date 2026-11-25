@@ -144,3 +144,11 @@ describe('ClinicTopBar account menu and sign out (QA-248)', () => {
     expect(screen.getByRole('alertdialog', { name: 'تسجيل الخروج' })).toHaveAttribute('dir', 'rtl');
   });
 });
+
+describe('ClinicTopBar on a phone (QA-250)', () => {
+  it('keeps the title but leaves out the subtitle that was cut to a few words', () => {
+    renderBar();
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByText('Overview')).toHaveClass('hidden', 'sm:block');
+  });
+});

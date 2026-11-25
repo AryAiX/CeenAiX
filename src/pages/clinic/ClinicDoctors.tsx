@@ -12,6 +12,7 @@ import { clinicDoctorActions, clinicDoctorStatus } from '../../lib/clinic-doctor
 import { parseFeeInput } from '../../lib/clinic-visit-fee';
 import { formatLocaleCurrency, formatLocaleDecimal, formatLocaleDigits, formatLocalePhoneDisplay, resolveLocale } from '../../lib/i18n-ui';
 import { RowActionsMenu, type RowAction } from '../../components/RowActionsMenu';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { Search, Plus, CheckCircle, Clock, AlertCircle, X, Save, Stethoscope, Phone, Mail, Calendar, Star, Pencil as Edit2, Trash2, Eye, XCircle, MessageSquare } from 'lucide-react';
 
 interface Doctor {
@@ -531,6 +532,7 @@ export default function ClinicDoctors() {
   const [editError, setEditError] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [endTarget, setEndTarget] = useState<{ id: string; action: 'suspend' | 'remove' } | null>(null);
+  const isPhone = useIsPhone();
   const [endingLink, setEndingLink] = useState(false);
   const [inviteBanner, setInviteBanner] = useState<string | null>(null);
 
@@ -977,8 +979,56 @@ export default function ClinicDoctors() {
         </div>
       )}
 
-      {/* Doctor table */}
+      {/* Doctor table (QA-249: a card per doctor on phones) */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+        {isPhone ? (
+          <ul data-testid="clinic-doctor-cards" className="divide-y divide-slate-100">
+            {filtered.map(d => (
+              <li key={d.id} className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${d.gradient} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                    {d.initials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-slate-800 text-sm">{d.name}</div>
+                    <div className="text-xs text-slate-500">{d.specialty}</div>
+                  </div>
+                  <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border ${statusConfig[d.status].color}`}>{t(`clinic.doctorsPage.status.${d.status}`)}</span>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div>
+                    <dt className="text-slate-400">{t('clinic.doctorsPage.colLicence')}</dt>
+                    <dd className="font-mono text-slate-600" dir="ltr">{d.dhaLicense}</dd>
+                    <dd className={`font-medium ${d.dhaVerified ? 'text-emerald-600' : 'text-amber-600'}`}>{d.dhaVerified ? t('clinic.doctorsPage.verified') : t('clinic.doctorsPage.notVerified')}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">{t('clinic.doctorsPage.colFee')}</dt>
+                    <dd className="font-bold text-teal-700 text-sm">{d.consultationFee == null ? '—' : formatLocaleCurrency(d.consultationFee, lang)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">{t('clinic.doctorsPage.colToday')}</dt>
+                    <dd className="font-bold text-slate-800 text-sm">{formatLocaleDigits(d.todayAppts, lang)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">{t('clinic.doctorsPage.colTotal')}</dt>
+                    <dd className="font-bold text-slate-800 text-sm">{formatLocaleDigits(d.totalAppts, lang)}</dd>
+                  </div>
+                </dl>
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDoctor(d)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    aria-label={`${t('clinic.doctorsPage.viewProfile')}: ${d.name}`}
+                  >
+                    <Eye size={14} aria-hidden="true" /> {t('clinic.doctorsPage.viewProfile')}
+                  </button>
+                  <RowActionsMenu label={t('clinic.doctorsPage.moreActions', { name: d.name })} actions={rowActions(d)} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
         <table className="w-full min-w-[960px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50">
@@ -1046,6 +1096,7 @@ export default function ClinicDoctors() {
             ))}
           </tbody>
         </table>
+        )}
         {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <Stethoscope size={32} aria-hidden="true" className="mx-auto mb-3 opacity-30" />

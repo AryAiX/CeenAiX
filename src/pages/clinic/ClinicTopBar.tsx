@@ -38,7 +38,8 @@ export default function ClinicTopBar({ title, subtitle, meta }: ClinicTopBarProp
     <div className="h-[64px] bg-white border-b border-slate-200 flex items-center justify-between gap-3 px-3 sm:px-6 shrink-0">
       <div className="min-w-0">
         <h1 className="truncate font-bold text-slate-900 text-lg leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{title}</h1>
-        {subtitle && <p className="truncate text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+        {/* QA-250: on phones the subtitle was cut to a few words; it shows from the sm size up */}
+        {subtitle && <p className="hidden sm:block truncate text-xs text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
       {/* QA-240: the search box did nothing when you typed, and the name had a dropdown arrow with no
           menu; both are gone */}
