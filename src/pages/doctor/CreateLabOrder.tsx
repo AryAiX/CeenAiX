@@ -800,13 +800,10 @@ export const CreateLabOrder: React.FC = () => {
       return;
     }
 
-    await supabase.from('notifications').insert({
-      user_id: patientId,
-      type: 'system',
-      title: 'New lab order created',
-      body: 'Your doctor added a new lab order to your care plan.',
-      // QA-147: patients find lab orders and results on Lab Results, not Appointments.
-      action_url: '/patient/lab-results',
+    // QA-263: the database writes the patient's notification (only the lab order's own doctor may
+    // ask). It still links to Lab Results (QA-147).
+    await supabase.rpc('notify_patient_lab_order_created', {
+      p_lab_order_id: insertedLabOrderId,
     });
 
     setSaving(false);

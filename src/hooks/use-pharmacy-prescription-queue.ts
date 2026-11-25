@@ -340,12 +340,14 @@ export async function updatePharmacyDispensingTaskStatus(
 }
 
 export async function sendPharmacyHoldNotificationAndMessage({
+  taskIds,
   patientUserId,
   medications,
   holdReasonLabel,
   holdNote,
   pharmacyUserId,
 }: {
+  taskIds: string[];
   patientUserId: string;
   medications: string[];
   holdReasonLabel: string;
@@ -355,12 +357,10 @@ export async function sendPharmacyHoldNotificationAndMessage({
   const medList = medications.slice(0, 2).join(', ');
   const messageBody = `Your prescription for ${medList} has been placed on hold.\n\nReason: ${holdReasonLabel}${holdNote ? `\n\nNote: ${holdNote}` : ''}\n\nPlease contact us if you have any questions.`;
 
-  const { error: notificationError } = await supabase.from('notifications').insert({
-    user_id: patientUserId,
-    type: 'medication',
-    title: 'Prescription On Hold',
-    body: `Your prescription for ${medList} is on hold: ${holdReasonLabel}. Tap to message the pharmacy.`,
-    action_url: '/patient/messages',
+  // QA-263: the database writes the patient's notification from the tasks on hold (only a member
+  // of that pharmacy may ask); the app can no longer write into another user's inbox.
+  const { error: notificationError } = await supabase.rpc('notify_patient_prescription_on_hold', {
+    p_task_ids: taskIds,
   });
 
   if (notificationError) throw notificationError;

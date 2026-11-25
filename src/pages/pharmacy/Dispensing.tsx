@@ -274,6 +274,7 @@ export const PharmacyDispensing = () => {
       if (patientUserId) {
         try {
           await sendPharmacyHoldNotificationAndMessage({
+            taskIds: row.taskIds,
             patientUserId,
             medications: row.drugs,
             holdReasonLabel: getHoldReasonLabel(holdReason).replace(/^[^\s]+\s/, ''),

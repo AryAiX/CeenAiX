@@ -167,5 +167,9 @@ describe('CreatePrescription after saving', () => {
     );
     expect(landed).toEqual({ path: '/doctor/prescriptions', state: { prescriptionSaved: true } });
     expect(screen.queryByText(/What would you like to do next/i)).not.toBeInTheDocument();
+    // QA-263: the database writes the patient's notification; the page never writes into the
+    // patient's inbox itself.
+    expect(supabase.rpc).toHaveBeenCalledWith('notify_patient_prescription_issued', { p_prescription_id: 'rx-1' });
+    expect(supabase.from).not.toHaveBeenCalledWith('notifications');
   });
 });

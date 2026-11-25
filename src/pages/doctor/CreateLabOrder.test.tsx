@@ -390,7 +390,7 @@ describe('CreateLabOrder metadata persistence', () => {
     ]);
   });
 
-  it('goes back to the list with a saved flag and points the patient to Lab Results (QA-147)', async () => {
+  it('goes back to the list with a saved flag and asks the database to notify the patient (QA-147, QA-263)', async () => {
     let landed: { path: string; state: unknown } | null = null;
     const ListProbe = () => {
       const location = useLocation();
@@ -418,7 +418,10 @@ describe('CreateLabOrder metadata persistence', () => {
     await user.click(screen.getByRole('button', { name: /Complete Blood Count/i }));
     await saveOrder(user);
     await waitFor(() => expect(landed).toEqual({ path: '/doctor/lab-orders', state: { labOrderSaved: true } }));
-    expect(notificationsBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({ action_url: '/patient/lab-results' }));
+    // QA-263: the database writes the patient's notification (it links to Lab Results); the page
+    // no longer writes into the patient's inbox itself.
+    expect(rpcMock).toHaveBeenCalledWith('notify_patient_lab_order_created', { p_lab_order_id: 'lab-order-1' });
+    expect(notificationsBuilder.insert).not.toHaveBeenCalled();
   });
 
   it('shows no English labels in Arabic (QA-147)', async () => {

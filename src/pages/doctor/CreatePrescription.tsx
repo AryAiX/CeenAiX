@@ -1139,12 +1139,10 @@ export const CreatePrescription: React.FC = () => {
       return;
     }
 
-    await supabase.from('notifications').insert({
-      user_id: patientId,
-      type: 'medication',
-      title: 'New prescription issued',
-      body: 'Your doctor added a new medication plan to your account.',
-      action_url: '/patient/prescriptions',
+    // QA-263: the database writes the patient's notification (only the prescription's own doctor
+    // may ask); the app can no longer write into another user's inbox.
+    await supabase.rpc('notify_patient_prescription_issued', {
+      p_prescription_id: insertedPrescriptionId,
     });
 
     setSaving(false);
