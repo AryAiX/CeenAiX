@@ -111,3 +111,57 @@ describe('PharmacyInventory expired and expiring stock (QA-265)', () => {
     expect(screen.queryByText('Amoxicillin')).not.toBeInTheDocument();
   });
 });
+
+describe('PharmacyInventory shows only stored facts (QA-266)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not guess ATC codes or categories from the medicine name', () => {
+    showInventory([
+      item({ id: 'met', genericName: 'Metformin' }),
+      item({ id: 'los', genericName: 'Losartan', atcCode: 'C09CA01', category: 'ARB' }),
+    ]);
+    renderInventory();
+
+    const guessed = inventoryRowFor('Metformin');
+    expect(within(guessed).queryByText(/A10BA02|RX-CUSTOM/)).not.toBeInTheDocument();
+    expect(within(guessed).queryByText('Biguanide')).not.toBeInTheDocument();
+    expect(within(guessed).getByText('—')).toBeInTheDocument();
+
+    const stored = inventoryRowFor('Losartan');
+    expect(within(stored).getByText('Tablets · C09CA01')).toBeInTheDocument();
+    expect(within(stored).getByText('ARB')).toBeInTheDocument();
+  });
+
+  it('does not repeat the generic name as the brand', () => {
+    showInventory([item({ id: 'met', genericName: 'Metformin', brandName: '' })]);
+    renderInventory();
+
+    expect(within(inventoryRowFor('Metformin')).getByText('Tablets')).toBeInTheDocument();
+    expect(screen.queryByText(/^Metformin ·/)).not.toBeInTheDocument();
+  });
+
+  it('has no invented days of supply or made-up affected prescriptions', () => {
+    showInventory([
+      item({ id: 'out', genericName: 'Warfarin', stock: 0, status: 'out' }),
+      item({ id: 'ok', genericName: 'Losartan', stock: 100 }),
+    ]);
+    renderInventory();
+
+    expect(screen.queryByText(/Affects:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/prescription on hold/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+d$/)).not.toBeInTheDocument();
+  });
+
+  it('shows the DHA formulary badge only for items marked as on the formulary', () => {
+    showInventory([
+      item({ id: 'on', genericName: 'Losartan', isDHAFormulary: true }),
+      item({ id: 'off', genericName: 'Metformin', isDHAFormulary: false }),
+    ]);
+    renderInventory();
+
+    expect(within(inventoryRowFor('Losartan')).getByText('DHA formulary')).toBeInTheDocument();
+    expect(within(inventoryRowFor('Metformin')).queryByText(/DHA/)).not.toBeInTheDocument();
+  });
+});

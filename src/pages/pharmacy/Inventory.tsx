@@ -36,12 +36,12 @@ interface InventoryRow {
   brandName: string;
   strength: string;
   form: string;
-  atcCode: string;
-  category: string;
+  /** QA-266: stored values only (no guesses from the medicine name). */
+  atcCode: string | null;
+  category: string | null;
   stockQty: number;
   unit: string;
   reorderLevel: number;
-  daysSupply: number | null;
   /** QA-265: based on usable stock only. */
   stockStatus: 'in_stock' | 'low' | 'critical' | 'out_of_stock';
   /** QA-265: a usable batch expires within 45 days. */
@@ -50,7 +50,6 @@ interface InventoryRow {
   expiredQty: number;
   isControlled: boolean;
   isDHAFormulary: boolean;
-  affectedPrescriptions: string[];
   batchCount: number;
   nextExpiry: string | null;
 }
@@ -101,39 +100,6 @@ const stockConfig: Record<
 const EXPIRING_SOON_PILL = 'bg-yellow-50 text-yellow-800';
 const EXPIRED_PILL = 'bg-red-100 text-red-800';
 
-const categoryForMedication = (name: string) => {
-  if (/atorvastatin|rosuvastatin/i.test(name)) return 'Statin';
-  if (/metformin/i.test(name)) return 'Biguanide';
-  if (/bisoprolol/i.test(name)) return 'Beta Blocker';
-  if (/warfarin|aspirin/i.test(name)) return 'Anticoagulant';
-  if (/furosemide|spironolactone/i.test(name)) return 'Diuretic';
-  if (/amlodipine/i.test(name)) return 'Calcium Channel Blocker';
-  if (/losartan/i.test(name)) return 'ARB';
-  if (/omeprazole/i.test(name)) return 'PPI';
-  return 'General';
-};
-
-const atcForMedication = (name: string) => {
-  if (/atorvastatin/i.test(name)) return 'C10AA05';
-  if (/metformin/i.test(name)) return 'A10BA02';
-  if (/bisoprolol/i.test(name)) return 'C07AB07';
-  if (/warfarin/i.test(name)) return 'B01AA03';
-  if (/furosemide/i.test(name)) return 'C03CA01';
-  if (/spironolactone/i.test(name)) return 'C03DA01';
-  if (/amlodipine/i.test(name)) return 'C08CA01';
-  if (/losartan/i.test(name)) return 'C09CA01';
-  if (/rosuvastatin/i.test(name)) return 'C10AA07';
-  if (/aspirin/i.test(name)) return 'B01AC06';
-  return 'RX-CUSTOM';
-};
-
-const strengthForMedication = (name: string) => {
-  const match = name.match(/\b\d+\s?(?:mg|iu|mcg|g)\b/i);
-  return match?.[0] ?? '';
-};
-
-const cleanMedicationName = (name: string) => name.replace(/\s+\d+\s?(?:mg|iu|mcg|g)\b/i, '').trim();
-
 const statusForInventory = (item: PharmacyInventoryDerivedItem): InventoryRow['stockStatus'] => {
   if (item.stock <= 0) return 'out_of_stock';
   if (item.stock < item.reorderPoint) {
@@ -147,30 +113,27 @@ const formatNumber = (value: number | null | undefined, language: string) =>
 
 const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] =>
   items.map((item) => {
-    const genericName = item.genericName || cleanMedicationName(item.name);
-    const strength = item.strength ?? strengthForMedication(item.name);
+    const genericName = item.genericName || item.name;
+    const strength = item.strength ?? '';
     const stockStatus = statusForInventory(item);
-    const daysSupply =
-      item.stock <= 0 ? 0 : stockStatus === 'in_stock' ? Math.max(7, Math.round(item.stock / 2)) : Math.max(1, Math.round(item.stock / 3));
 
     return {
       id: item.id,
       genericName,
-      brandName: item.brandName || genericName,
+      // QA-266: no brand is shown as no brand (it used to repeat the generic name).
+      brandName: item.brandName?.trim() ?? '',
       strength,
-      form: item.dosageForm || 'Tablets',
-      atcCode: item.atcCode ?? atcForMedication(genericName),
-      category: item.category ?? categoryForMedication(genericName),
+      form: item.dosageForm,
+      atcCode: item.atcCode?.trim() || null,
+      category: item.category?.trim() || null,
       stockQty: item.stock,
       unit: item.unit,
       reorderLevel: item.reorderPoint,
-      daysSupply,
       stockStatus,
       expiringSoon: item.expiringSoon,
       expiredQty: item.expiredStock,
       isControlled: item.isControlled,
       isDHAFormulary: item.isDHAFormulary,
-      affectedPrescriptions: stockStatus === 'out_of_stock' ? ['1 prescription on hold'] : [],
       batchCount: item.batchCount,
       nextExpiry: item.expiryMonth,
     };
@@ -218,8 +181,8 @@ export const PharmacyInventory = () => {
         item.id.toLowerCase().includes(query) ||
         item.genericName.toLowerCase().includes(query) ||
         item.brandName.toLowerCase().includes(query) ||
-        item.atcCode.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query);
+        (item.atcCode ?? '').toLowerCase().includes(query) ||
+        (item.category ?? '').toLowerCase().includes(query);
       const matchesFilter =
         filter === 'all'
           ? true
@@ -418,7 +381,7 @@ export const PharmacyInventory = () => {
                 return (
                   <Fragment key={item.id}>
                     <div
-                      className={`grid min-h-16 grid-cols-[2fr_1fr_1fr_80px_100px_120px_160px] items-center border-b border-[#F8FAFC] border-l-4 px-5 py-3.5 transition-colors hover:bg-emerald-50 ${cfg.row} ${index === filtered.length - 1 && !isBatchOpen ? 'border-b-0' : ''}`}
+                      className={`grid min-h-16 grid-cols-[2fr_1fr_1fr_100px_160px_160px] items-center border-b border-[#F8FAFC] border-l-4 px-5 py-3.5 transition-colors hover:bg-emerald-50 ${cfg.row} ${index === filtered.length - 1 && !isBatchOpen ? 'border-b-0' : ''}`}
                       style={{
                         borderLeftColor:
                           item.stockStatus === 'out_of_stock'
@@ -442,12 +405,12 @@ export const PharmacyInventory = () => {
                         ) : null}
                         {item.isDHAFormulary ? (
                           <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 font-mono text-[9px] text-emerald-700">
-                            DHA ✓
+                            DHA formulary
                           </span>
                         ) : null}
                       </div>
                       <div className="truncate text-[11px] text-slate-400">
-                        {item.brandName} · {item.form} · {item.atcCode}
+                        {[item.brandName, item.form, item.atcCode].filter(Boolean).join(' · ')}
                       </div>
                       {item.expiredQty > 0 ? (
                         <div role="note" className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-red-800">
@@ -455,15 +418,9 @@ export const PharmacyInventory = () => {
                           {formatNumber(item.expiredQty, uiLang)} {item.unit} expired · not counted in stock · remove from the shelf
                         </div>
                       ) : null}
-                      {item.affectedPrescriptions.length > 0 ? (
-                        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-red-700">
-                          <AlertTriangle className="h-2.5 w-2.5" />
-                          Affects: {item.affectedPrescriptions.join(', ')}
-                        </div>
-                      ) : null}
                     </div>
 
-                    <div className="text-xs text-slate-500">{item.category}</div>
+                    <div className={`text-xs ${item.category ? 'text-slate-500' : 'text-slate-300'}`}>{item.category ?? '—'}</div>
 
                     <div>
                       <div
@@ -484,24 +441,6 @@ export const PharmacyInventory = () => {
                           style={{ width: `${stockPct}%` }}
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      {item.daysSupply != null ? (
-                        <span
-                          className={`font-mono text-[13px] font-bold ${
-                            item.daysSupply < 5
-                              ? 'text-red-700'
-                              : item.daysSupply < 15
-                                ? 'text-amber-700'
-                                : 'text-emerald-600'
-                          }`}
-                        >
-                          {item.daysSupply}d
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-300">—</span>
-                      )}
                     </div>
 
                     <div className="font-mono text-[12px] text-slate-500">
