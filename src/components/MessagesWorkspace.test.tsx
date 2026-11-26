@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -340,5 +340,36 @@ describe('MessagesWorkspace new conversation for clinics (QA-218)', () => {
     const dialog = screen.getByRole('dialog', { name: 'بدء محادثة' });
     expect(dialog).toHaveAttribute('dir', 'rtl');
     expect(within(dialog).getByRole('button', { name: /د\. Sara Ali/ })).toBeInTheDocument();
+  });
+});
+
+describe('MessagesWorkspace draft from a link (QA-274)', () => {
+  const draftText = 'Regarding Hydrocortisone 1% cream & Zinc #2 + B: ';
+
+  const renderFromLink = (role: 'pharmacy' | 'patient', path: string) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path={`/${role}/messages`} element={<MessagesWorkspace role={role} />} />
+          <Route path={`/${role}/messages/:conversationId`} element={<MessagesWorkspace role={role} />} />
+          <Route path="*" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+  it.each([
+    ['pharmacy', `/pharmacy/messages?patient=patient-1&draft=${encodeURIComponent(draftText)}`],
+    ['patient', `/patient/messages?doctor=doctor-1&draft=${encodeURIComponent(draftText)}`],
+  ] as const)('keeps the whole %s draft, with %%, & , # and +, and does not crash', async (role, path) => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: `${role}-user` } } as never);
+    const state = hub([]);
+    state.ensureDirectConversation.mockResolvedValue({ conversationId: 'conv-1' });
+    vi.mocked(useMessagingHub).mockReturnValue(state as never);
+
+    renderFromLink(role, path);
+
+    await waitFor(() => expect(document.getElementById(`${role}-message-draft`)).toHaveValue(draftText));
+    expect(landedAt).toBe('');
+    expect(state.ensureDirectConversation).toHaveBeenCalledTimes(1);
   });
 });

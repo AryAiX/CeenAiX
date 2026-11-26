@@ -214,9 +214,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
       );
 
       if (nextConversationId) {
+        // QA-274: searchParams.get() gives the decoded text, so it must be encoded again before it
+        // goes back into the address ("1% cream", "A & B" or "#2" used to break or crash the page).
         const draftValue = searchParams.get('draft');
         const target = draftValue
-          ? `/${role}/messages/${nextConversationId}?draft=${draftValue}`
+          ? `/${role}/messages/${nextConversationId}?draft=${encodeURIComponent(draftValue)}`
           : `/${role}/messages/${nextConversationId}`;
         navigate(target, { replace: true });
       }
@@ -228,7 +230,8 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
     if (!draftParam || !activeConversationId) return;
     if (draftPrefillRef.current === activeConversationId) return;
     draftPrefillRef.current = activeConversationId;
-    const decoded = decodeURIComponent(draftParam);
+    // QA-274: already decoded by searchParams.get(); decoding a second time threw on a "%" in the text.
+    const decoded = draftParam;
     if (role === 'doctor') {
       setDoctorComposerBody(decoded);
       setTimeout(() => {
