@@ -83,6 +83,8 @@ export interface PharmacyInventoryDerivedItem {
   nextExpiryDate: string | null;
   /** QA-265: a usable batch expires within 45 days (Dubai dates). */
   expiringSoon: boolean;
+  /** QA-267: the item's batches, earliest expiry first (the one to use first). */
+  batches: PharmacyInventoryBatch[];
   reorderPoint: number;
   expiryMonth: string | null;
   /**
@@ -100,6 +102,18 @@ export interface PharmacyInventoryDerivedItem {
   isControlled: boolean;
   isDHAFormulary: boolean;
   batchCount: number;
+}
+
+/** QA-267: one stock batch of an inventory item. */
+export interface PharmacyInventoryBatch {
+  id: string;
+  batchNumber: string;
+  quantity: number;
+  /** YYYY-MM-DD, or null when no expiry is recorded. */
+  expiryDate: string | null;
+  receivedAt: string | null;
+  /** Dubai dates: expired after the expiry date; expiring soon within 45 days; empty when no units. */
+  state: 'usable' | 'expiring_soon' | 'expired' | 'empty';
 }
 
 export interface PharmacyClaimLedgerItem {
@@ -232,8 +246,10 @@ interface InventoryItemRow {
 interface InventoryBatchRow {
   id: string;
   inventory_item_id: string;
+  batch_number?: string | null;
   quantity_on_hand: number;
   expiry_date: string | null;
+  received_at?: string | null;
 }
 
 interface ClaimRow {
@@ -341,6 +357,39 @@ export const summarizeInventoryBatches = (
     nextExpiryDate !== null && daysBetweenDateKeys(todayKey, nextExpiryDate) <= EXPIRING_SOON_DAYS;
   return { stock, expiredStock, nextExpiryDate, expiringSoon };
 };
+
+/** QA-267: the batches of an item with their state, earliest expiry first (no expiry last). */
+export const describeInventoryBatches = (
+  batches: InventoryBatchRow[],
+  todayKey: string
+): PharmacyInventoryBatch[] =>
+  batches
+    .map((batch): PharmacyInventoryBatch => {
+      const quantity = Math.max(0, batch.quantity_on_hand);
+      const expiryDate = batch.expiry_date ? batch.expiry_date.slice(0, 10) : null;
+      const state: PharmacyInventoryBatch['state'] =
+        quantity === 0
+          ? 'empty'
+          : expiryDate && expiryDate < todayKey
+            ? 'expired'
+            : expiryDate && daysBetweenDateKeys(todayKey, expiryDate) <= EXPIRING_SOON_DAYS
+              ? 'expiring_soon'
+              : 'usable';
+      return {
+        id: batch.id,
+        batchNumber: batch.batch_number?.trim() || '—',
+        quantity,
+        expiryDate,
+        receivedAt: batch.received_at ?? null,
+        state,
+      };
+    })
+    .sort((a, b) => {
+      if (a.expiryDate === b.expiryDate) return a.batchNumber.localeCompare(b.batchNumber);
+      if (a.expiryDate === null) return 1;
+      if (b.expiryDate === null) return -1;
+      return a.expiryDate < b.expiryDate ? -1 : 1;
+    });
 
 const inventoryStatus = (
   stock: number,
@@ -730,7 +779,7 @@ export function usePharmacyPrescriptionQueue() {
       const { rows } = await fetchAllPages<InventoryBatchRow>((from, to) =>
         supabase
           .from('pharmacy_inventory_batches')
-          .select('id, inventory_item_id, quantity_on_hand, expiry_date')
+          .select('id, inventory_item_id, batch_number, quantity_on_hand, expiry_date, received_at')
           .in('inventory_item_id', chunk)
           .order('id', { ascending: true })
           .range(from, to)
@@ -786,6 +835,7 @@ export function usePharmacyPrescriptionQueue() {
         expiredStock,
         nextExpiryDate,
         expiringSoon,
+        batches: describeInventoryBatches(batches, todayKey),
         reorderPoint: item.reorder_level,
         expiryMonth: formatExpiry(nextExpiryDate),
         status: inventoryStatus(stock, item.reorder_level, expiringSoon),

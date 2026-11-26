@@ -8,6 +8,7 @@ import { createSupabaseQueryBuilder } from '../test/supabase-mock';
 import {
   fetchPharmacyPrescriptionDetails,
   PharmacyTaskChangeNotAllowedError,
+  describeInventoryBatches,
   sendPharmacyHoldNotificationAndMessage,
   summarizeInventoryBatches,
   updatePharmacyDispensingTaskStatus,
@@ -547,5 +548,29 @@ describe('usePharmacyPrescriptionQueue stock and expiry (QA-265)', () => {
     expect(byId.get('low-expiring')).toMatchObject({ stock: 10, expiredStock: 0, status: 'low', expiringSoon: true });
     // Expired units on the shelf are an alert as well.
     expect(result.current.data?.lowStockAlerts).toBe(2);
+  });
+});
+
+describe('describeInventoryBatches (QA-267)', () => {
+  it('lists every batch with its state, earliest expiry first and no expiry last', () => {
+    const batches = describeInventoryBatches(
+      [
+        { id: 'b-none', inventory_item_id: 'i', batch_number: 'NONE-1', quantity_on_hand: 5, expiry_date: null, received_at: '2026-10-01T08:00:00Z' },
+        { id: 'b-late', inventory_item_id: 'i', batch_number: 'LATE-1', quantity_on_hand: 40, expiry_date: '2027-08-01', received_at: null },
+        { id: 'b-old', inventory_item_id: 'i', batch_number: 'OLD-1', quantity_on_hand: 30, expiry_date: '2026-11-25', received_at: null },
+        { id: 'b-soon', inventory_item_id: 'i', batch_number: 'SOON-1', quantity_on_hand: 10, expiry_date: '2026-12-15', received_at: null },
+        { id: 'b-empty', inventory_item_id: 'i', batch_number: ' ', quantity_on_hand: 0, expiry_date: '2026-12-01', received_at: null },
+      ],
+      '2026-11-26'
+    );
+
+    expect(batches.map((batch) => [batch.batchNumber, batch.state])).toEqual([
+      ['OLD-1', 'expired'],
+      ['—', 'empty'],
+      ['SOON-1', 'expiring_soon'],
+      ['LATE-1', 'usable'],
+      ['NONE-1', 'usable'],
+    ]);
+    expect(batches[4]).toMatchObject({ quantity: 5, expiryDate: null, receivedAt: '2026-10-01T08:00:00Z' });
   });
 });

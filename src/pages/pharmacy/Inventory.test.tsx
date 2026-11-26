@@ -22,6 +22,7 @@ const item = (
   expiredStock: 0,
   nextExpiryDate: '2027-08-01',
   expiringSoon: false,
+  batches: [],
   reorderPoint: 20,
   expiryMonth: '01 Aug',
   status: 'healthy',
@@ -163,5 +164,45 @@ describe('PharmacyInventory shows only stored facts (QA-266)', () => {
 
     expect(within(inventoryRowFor('Losartan')).getByText('DHA formulary')).toBeInTheDocument();
     expect(within(inventoryRowFor('Metformin')).queryByText(/DHA/)).not.toBeInTheDocument();
+  });
+});
+
+describe('PharmacyInventory batches panel (QA-267)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('lists the real batches with quantity, expiry, received date and state', async () => {
+    showInventory([
+      item({
+        id: 'amox',
+        genericName: 'Amoxicillin',
+        batchCount: 2,
+        batches: [
+          { id: 'b1', batchNumber: 'AMX-0126', quantity: 30, expiryDate: '2026-11-25', receivedAt: '2026-05-01T21:30:00Z', state: 'expired' },
+          { id: 'b2', batchNumber: 'AMX-0827', quantity: 40, expiryDate: '2027-08-01', receivedAt: null, state: 'usable' },
+        ],
+      }),
+    ]);
+    renderInventory();
+
+    await userEvent.click(within(inventoryRowFor('Amoxicillin')).getByRole('button', { name: /Batches/ }));
+
+    const table = screen.getByRole('table', { name: /Batches of Amoxicillin/ });
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([
+      // 21:30 UTC on 1 May is 2 May in Dubai.
+      ['AMX-0126', '30 tabs', '2026-11-25', '2026-05-02', 'EXPIRED'],
+      ['AMX-0827', '40 tabs', '2027-08-01', '—', 'USABLE'],
+    ]);
+  });
+
+  it('says so when an item has no batches', async () => {
+    showInventory([item({ id: 'none', genericName: 'Losartan', batchCount: 0, batches: [] })]);
+    renderInventory();
+
+    await userEvent.click(within(inventoryRowFor('Losartan')).getByRole('button', { name: /Batches/ }));
+
+    expect(screen.getByText('No batches recorded for this item.')).toBeInTheDocument();
   });
 });

@@ -14,9 +14,10 @@ import {
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue } from '../../hooks';
-import type { PharmacyInventoryDerivedItem } from '../../hooks';
+import type { PharmacyInventoryBatch, PharmacyInventoryDerivedItem } from '../../hooks';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { clinicDateKey } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType =
@@ -52,6 +53,8 @@ interface InventoryRow {
   isDHAFormulary: boolean;
   batchCount: number;
   nextExpiry: string | null;
+  /** QA-267: the real batches, earliest expiry first. */
+  batches: PharmacyInventoryBatch[];
 }
 
 const filterLabels: Record<FilterType, string> = {
@@ -108,6 +111,13 @@ const statusForInventory = (item: PharmacyInventoryDerivedItem): InventoryRow['s
   return 'in_stock';
 };
 
+const BATCH_STATE: Record<PharmacyInventoryBatch['state'], { label: string; pill: string }> = {
+  usable: { label: 'USABLE', pill: 'bg-emerald-50 text-emerald-700' },
+  expiring_soon: { label: 'EXPIRING SOON', pill: 'bg-yellow-50 text-yellow-800' },
+  expired: { label: 'EXPIRED', pill: 'bg-red-100 text-red-800' },
+  empty: { label: 'EMPTY', pill: 'bg-slate-100 text-slate-500' },
+};
+
 const formatNumber = (value: number | null | undefined, language: string) =>
   typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
 
@@ -136,6 +146,7 @@ const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] 
       isDHAFormulary: item.isDHAFormulary,
       batchCount: item.batchCount,
       nextExpiry: item.expiryMonth,
+      batches: item.batches,
     };
   });
 
@@ -526,12 +537,42 @@ export const PharmacyInventory = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="mt-3 flex items-center gap-2">
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${stockConfig[item.stockStatus].pill}`}>
-                            {stockConfig[item.stockStatus].label}
-                          </span>
-                          <span className="text-[11px] text-slate-500">{item.genericName} {item.strength} · {item.form}</span>
-                        </div>
+                        {/* QA-267: the batches themselves, earliest expiry first (use that one first). */}
+                        {item.batches.length === 0 ? (
+                          <p className="mt-3 text-[12px] text-slate-400">No batches recorded for this item.</p>
+                        ) : (
+                          <table className="mt-3 w-full overflow-hidden rounded-lg bg-white text-start text-[12px] shadow-sm">
+                            <caption className="sr-only">Batches of {item.genericName} {item.strength}</caption>
+                            <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
+                              <tr>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">Batch</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">Quantity</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">Expiry</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">Received</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">State</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {item.batches.map((batch) => (
+                                <tr key={batch.id} className="border-t border-slate-100">
+                                  <td className="px-3 py-2 font-mono text-slate-700">{batch.batchNumber}</td>
+                                  <td className="px-3 py-2 font-mono text-slate-700">
+                                    {formatNumber(batch.quantity, uiLang)} {item.unit}
+                                  </td>
+                                  <td className="px-3 py-2 font-mono text-slate-700">{batch.expiryDate ?? '—'}</td>
+                                  <td className="px-3 py-2 font-mono text-slate-500">
+                                    {batch.receivedAt ? clinicDateKey(batch.receivedAt) : '—'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${BATCH_STATE[batch.state].pill}`}>
+                                      {BATCH_STATE[batch.state].label}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     ) : null}
                   </Fragment>

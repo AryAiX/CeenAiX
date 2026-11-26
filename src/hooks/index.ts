@@ -108,6 +108,7 @@ export type {
   PharmacyClaimLedgerItem,
   PharmacyFacilityProfile,
   PharmacyHoldOutreachResult,
+  PharmacyInventoryBatch,
   PharmacyInventoryDerivedItem,
   PharmacyMessageThread,
   PharmacyOrganization,
