@@ -17,6 +17,7 @@ import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyInventoryBatch, PharmacyInventoryDerivedItem } from '../../hooks';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { clinicTodayKey, formatClinicDate } from '../../lib/clinic-booking-time';
 import { downloadCsv } from '../../lib/csv-export';
 import { PHARMACY_NAV_ITEMS } from './navItems';
@@ -199,6 +200,7 @@ export const PharmacyInventory = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const isPhone = useIsPhone();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
@@ -258,6 +260,180 @@ export const PharmacyInventory = () => {
 
   const lowOrCritical = counts.low + counts.critical;
 
+  // QA-272: the same pieces for the table (computer) and the cards (phone).
+  const renderBadges = (item: InventoryRow) => (
+    <>
+      {item.isControlled ? (
+        <span
+          title={t('pharmacy.inventory.controlledLong', { defaultValue: 'Controlled substance' })}
+          className="flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-700"
+        >
+          <Lock className="h-2 w-2" aria-hidden="true" />
+          {t('pharmacy.inventory.controlledShort', { defaultValue: 'Controlled' })}
+        </span>
+      ) : null}
+      {item.isDHAFormulary ? (
+        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 font-mono text-[9px] text-emerald-700 rtl:font-sans">
+          {t('pharmacy.inventory.dhaFormulary', { defaultValue: 'DHA formulary' })}
+        </span>
+      ) : null}
+    </>
+  );
+
+  const renderExpiredNote = (item: InventoryRow) =>
+      item.expiredQty > 0 ? (
+        <div role="note" className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-red-800">
+          <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+          {t('pharmacy.inventory.expiredNote', {
+            defaultValue: '{{qty}} {{unit}} expired · not counted in stock · remove from the shelf',
+            qty: formatNumber(item.expiredQty, uiLang),
+            unit: item.unit,
+          })}
+        </div>
+      ) : null;
+
+  const renderStatus = (item: InventoryRow) => {
+    const cfg = stockConfig[item.stockStatus];
+    return (
+      <>
+        <div className="flex flex-wrap gap-1">
+          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.pill}`}>
+            {stockLabel(item.stockStatus, t)}
+          </span>
+          {item.expiringSoon ? (
+            <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRING_SOON_PILL}`}>
+              {t('pharmacy.inventory.flagExpiringSoon', { defaultValue: 'EXPIRING SOON' })}
+            </span>
+          ) : null}
+          {item.expiredQty > 0 ? (
+            <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRED_PILL}`}>
+              {t('pharmacy.inventory.flagExpiredStock', { defaultValue: 'EXPIRED STOCK' })}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-0.5 font-mono text-[9px] text-slate-400">
+          {item.nextExpiryDate
+            ? formatClinicDate(item.nextExpiryDate, uiLang)
+            : t('pharmacy.inventory.batchCount', { count: item.batchCount, defaultValue: '{{count}} batches' })}
+        </div>
+      </>
+    );
+  };
+
+  const renderActions = (item: InventoryRow) => {
+    const isBatchOpen = expandedBatchId === item.id;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedBatchId((current) => (current === item.id ? null : item.id))
+          }
+          aria-expanded={isBatchOpen}
+          className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+            isBatchOpen
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <Eye className="h-3 w-3" aria-hidden="true" />
+          {t('pharmacy.inventory.batchesButton', { defaultValue: 'Batches' })}
+        </button>
+        <a
+          href={reorderMailto(item)}
+          title={t('pharmacy.inventory.emailReorderTitle', {
+            defaultValue: 'Opens an email draft to send to your supplier',
+          })}
+          className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
+        >
+          <ShoppingCart className="h-3 w-3" aria-hidden="true" />
+          {t('pharmacy.inventory.emailReorder', { defaultValue: 'Email reorder' })}
+        </a>
+      </>
+    );
+  };
+
+  const renderBatchPanel = (item: InventoryRow) => (
+    <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-4">
+      <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 rtl:tracking-normal">
+        {t('pharmacy.inventory.panelHeading', { defaultValue: 'On-hand batches' })}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+          <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.current', { defaultValue: 'Usable stock' })}</div>
+          <div className="font-mono text-[15px] font-bold text-slate-800">
+            {formatNumber(item.stockQty, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+          <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.reorder', { defaultValue: 'Reorder level' })}</div>
+          <div className="font-mono text-[15px] font-bold text-slate-800">
+            {formatNumber(item.reorderLevel, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+          <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.batches', { defaultValue: 'Batches' })}</div>
+          <div className="font-mono text-[15px] font-bold text-slate-800">
+            {formatNumber(item.batchCount, uiLang)}
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+          <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.nextExpiry', { defaultValue: 'Next expiry' })}</div>
+          <div className="font-mono text-[15px] font-bold text-slate-800">
+            {item.nextExpiryDate ? formatClinicDate(item.nextExpiryDate, uiLang) : '—'}
+          </div>
+        </div>
+      </div>
+      {/* QA-267: the batches themselves, earliest expiry first (use that one first). */}
+      {item.batches.length === 0 ? (
+        <p className="mt-3 text-[12px] text-slate-400">
+          {t('pharmacy.inventory.noBatches', { defaultValue: 'No batches recorded for this item.' })}
+        </p>
+      ) : (
+        <table className="mt-3 w-full overflow-hidden rounded-lg bg-white text-start text-[12px] shadow-sm">
+          <caption className="sr-only">
+            {t('pharmacy.inventory.batchCaption', {
+              defaultValue: 'Batches of {{item}}',
+              item: [item.genericName, item.strength].filter(Boolean).join(' '),
+            })}
+          </caption>
+          <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500 rtl:tracking-normal">
+            <tr>
+              <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.batch', { defaultValue: 'Batch' })}</th>
+              <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.quantity', { defaultValue: 'Quantity' })}</th>
+              <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.expiry', { defaultValue: 'Expiry' })}</th>
+              <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.received', { defaultValue: 'Received' })}</th>
+              <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.state', { defaultValue: 'State' })}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {item.batches.map((batch) => (
+              <tr key={batch.id} className="border-t border-slate-100">
+                <td className="px-3 py-2 font-mono text-slate-700">{batch.batchNumber}</td>
+                <td className="px-3 py-2 font-mono text-slate-700">
+                  {formatNumber(batch.quantity, uiLang)} {item.unit}
+                </td>
+                <td className="px-3 py-2 font-mono text-slate-700">
+                  {batch.expiryDate ? formatClinicDate(batch.expiryDate, uiLang) : '—'}
+                </td>
+                <td className="px-3 py-2 font-mono text-slate-500">
+                  {batch.receivedAt ? formatClinicDate(batch.receivedAt, uiLang) : '—'}
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${BATCH_STATE[batch.state].pill}`}>
+                    {t(`pharmacy.inventory.batchState.${batch.state}`, {
+                      defaultValue: BATCH_STATE[batch.state].label,
+                    })}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+
   return (
     <OpsShell
       title={t('pharmacy.inventory.title')}
@@ -271,7 +447,7 @@ export const PharmacyInventory = () => {
       variant="pharmacy"
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
-        <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
+        <div className="relative flex min-h-full flex-col overflow-y-auto bg-slate-50">
         <div className="mx-6 mb-4 mt-5 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-[20px] font-bold text-slate-900">
@@ -435,6 +611,64 @@ export const PharmacyInventory = () => {
         </div>
 
         <section className="mx-6 mb-6 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+          {isPhone ? (
+            // QA-272: on a phone each item is a card, so stock, status and buttons are visible
+            // without scrolling sideways through a 1,120 px table.
+            <>
+              {loading && !data ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {t('pharmacy.inventory.loading', { defaultValue: 'Loading inventory…' })}
+                </div>
+              ) : null}
+              {data && filtered.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {t('pharmacy.inventory.emptySearch', { defaultValue: 'No items match your search' })}
+                </div>
+              ) : null}
+              <ul className="divide-y divide-slate-100">
+                {filtered.map((item) => {
+                  const cfg = stockConfig[item.stockStatus];
+                  return (
+                    <li key={item.id} className={`border-s-4 px-4 py-3 ${cfg.row} ${cfg.border}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="break-words text-sm font-semibold text-slate-800">
+                          {item.genericName} {item.strength}
+                        </span>
+                        {renderBadges(item)}
+                      </div>
+                      <div className="break-words text-xs text-slate-400">
+                        {[item.brandName, item.form, item.atcCode].filter(Boolean).join(' · ')}
+                      </div>
+                      {renderExpiredNote(item)}
+                      <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <dt className="text-slate-400">{t('pharmacy.inventory.column.stock', { defaultValue: 'Usable stock' })}</dt>
+                          <dd className="font-mono font-bold text-slate-800">
+                            {formatNumber(item.stockQty, uiLang)} {item.unit}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-400">{t('pharmacy.inventory.column.reorder', { defaultValue: 'Reorder level' })}</dt>
+                          <dd className="font-mono text-slate-600">
+                            {formatNumber(item.reorderLevel, uiLang)} {item.unit}
+                          </dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-slate-400">{t('pharmacy.inventory.column.category', { defaultValue: 'Category' })}</dt>
+                          <dd className="break-words text-slate-600">{item.category ?? '—'}</dd>
+                        </div>
+                      </dl>
+                      <div className="mt-2">{renderStatus(item)}</div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">{renderActions(item)}</div>
+                      {expandedBatchId === item.id ? (
+                        <div className="-mx-4 mt-3 overflow-x-auto">{renderBatchPanel(item)}</div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
           <div className="overflow-x-auto">
             <div className="min-w-[1120px]">
               {/* QA-271: the table had no column headers. */}
@@ -476,34 +710,12 @@ export const PharmacyInventory = () => {
                         <span className="text-[13px] font-semibold text-slate-800">
                           {item.genericName} {item.strength}
                         </span>
-                        {item.isControlled ? (
-                          <span
-                            title={t('pharmacy.inventory.controlledLong', { defaultValue: 'Controlled substance' })}
-                            className="flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-700"
-                          >
-                            <Lock className="h-2 w-2" aria-hidden="true" />
-                            {t('pharmacy.inventory.controlledShort', { defaultValue: 'Controlled' })}
-                          </span>
-                        ) : null}
-                        {item.isDHAFormulary ? (
-                          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 font-mono text-[9px] text-emerald-700 rtl:font-sans">
-                            {t('pharmacy.inventory.dhaFormulary', { defaultValue: 'DHA formulary' })}
-                          </span>
-                        ) : null}
+                        {renderBadges(item)}
                       </div>
                       <div className="truncate text-[11px] text-slate-400">
                         {[item.brandName, item.form, item.atcCode].filter(Boolean).join(' · ')}
                       </div>
-                      {item.expiredQty > 0 ? (
-                        <div role="note" className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-red-800">
-                          <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
-                          {t('pharmacy.inventory.expiredNote', {
-                            defaultValue: '{{qty}} {{unit}} expired · not counted in stock · remove from the shelf',
-                            qty: formatNumber(item.expiredQty, uiLang),
-                            unit: item.unit,
-                          })}
-                        </div>
-                      ) : null}
+                      {renderExpiredNote(item)}
                     </div>
 
                     <div className={`text-xs ${item.category ? 'text-slate-500' : 'text-slate-300'}`}>{item.category ?? '—'}</div>
@@ -534,141 +746,18 @@ export const PharmacyInventory = () => {
                     </div>
 
                     <div>
-                      <div className="flex flex-wrap gap-1">
-                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.pill}`}>
-                          {stockLabel(item.stockStatus, t)}
-                        </span>
-                        {item.expiringSoon ? (
-                          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRING_SOON_PILL}`}>
-                            {t('pharmacy.inventory.flagExpiringSoon', { defaultValue: 'EXPIRING SOON' })}
-                          </span>
-                        ) : null}
-                        {item.expiredQty > 0 ? (
-                          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRED_PILL}`}>
-                            {t('pharmacy.inventory.flagExpiredStock', { defaultValue: 'EXPIRED STOCK' })}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 font-mono text-[9px] text-slate-400">
-                        {item.nextExpiryDate
-                          ? formatClinicDate(item.nextExpiryDate, uiLang)
-                          : t('pharmacy.inventory.batchCount', { count: item.batchCount, defaultValue: '{{count}} batches' })}
-                      </div>
+                      {renderStatus(item)}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedBatchId((current) => (current === item.id ? null : item.id))
-                        }
-                        aria-expanded={isBatchOpen}
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                          isBatchOpen
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <Eye className="h-3 w-3" aria-hidden="true" />
-                        {t('pharmacy.inventory.batchesButton', { defaultValue: 'Batches' })}
-                      </button>
-                      <a
-                        href={reorderMailto(item)}
-                        title={t('pharmacy.inventory.emailReorderTitle', {
-                          defaultValue: 'Opens an email draft to send to your supplier',
-                        })}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
-                      >
-                        <ShoppingCart className="h-3 w-3" aria-hidden="true" />
-                        {t('pharmacy.inventory.emailReorder', { defaultValue: 'Email reorder' })}
-                      </a>
-                    </div>
+                    <div className="flex items-center gap-1.5">{renderActions(item)}</div>
                   </div>
-                    {isBatchOpen ? (
-                      <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-4">
-                        <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 rtl:tracking-normal">
-                          {t('pharmacy.inventory.panelHeading', { defaultValue: 'On-hand batches' })}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.current', { defaultValue: 'Usable stock' })}</div>
-                            <div className="font-mono text-[15px] font-bold text-slate-800">
-                              {formatNumber(item.stockQty, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
-                            </div>
-                          </div>
-                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.reorder', { defaultValue: 'Reorder level' })}</div>
-                            <div className="font-mono text-[15px] font-bold text-slate-800">
-                              {formatNumber(item.reorderLevel, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
-                            </div>
-                          </div>
-                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.batches', { defaultValue: 'Batches' })}</div>
-                            <div className="font-mono text-[15px] font-bold text-slate-800">
-                              {formatNumber(item.batchCount, uiLang)}
-                            </div>
-                          </div>
-                          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.nextExpiry', { defaultValue: 'Next expiry' })}</div>
-                            <div className="font-mono text-[15px] font-bold text-slate-800">
-                              {item.nextExpiryDate ? formatClinicDate(item.nextExpiryDate, uiLang) : '—'}
-                            </div>
-                          </div>
-                        </div>
-                        {/* QA-267: the batches themselves, earliest expiry first (use that one first). */}
-                        {item.batches.length === 0 ? (
-                          <p className="mt-3 text-[12px] text-slate-400">
-                            {t('pharmacy.inventory.noBatches', { defaultValue: 'No batches recorded for this item.' })}
-                          </p>
-                        ) : (
-                          <table className="mt-3 w-full overflow-hidden rounded-lg bg-white text-start text-[12px] shadow-sm">
-                            <caption className="sr-only">
-                              {t('pharmacy.inventory.batchCaption', {
-                                defaultValue: 'Batches of {{item}}',
-                                item: [item.genericName, item.strength].filter(Boolean).join(' '),
-                              })}
-                            </caption>
-                            <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500 rtl:tracking-normal">
-                              <tr>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.batch', { defaultValue: 'Batch' })}</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.quantity', { defaultValue: 'Quantity' })}</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.expiry', { defaultValue: 'Expiry' })}</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.received', { defaultValue: 'Received' })}</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.state', { defaultValue: 'State' })}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {item.batches.map((batch) => (
-                                <tr key={batch.id} className="border-t border-slate-100">
-                                  <td className="px-3 py-2 font-mono text-slate-700">{batch.batchNumber}</td>
-                                  <td className="px-3 py-2 font-mono text-slate-700">
-                                    {formatNumber(batch.quantity, uiLang)} {item.unit}
-                                  </td>
-                                  <td className="px-3 py-2 font-mono text-slate-700">
-                                    {batch.expiryDate ? formatClinicDate(batch.expiryDate, uiLang) : '—'}
-                                  </td>
-                                  <td className="px-3 py-2 font-mono text-slate-500">
-                                    {batch.receivedAt ? formatClinicDate(batch.receivedAt, uiLang) : '—'}
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${BATCH_STATE[batch.state].pill}`}>
-                                      {t(`pharmacy.inventory.batchState.${batch.state}`, {
-                                        defaultValue: BATCH_STATE[batch.state].label,
-                                      })}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    ) : null}
+                    {isBatchOpen ? renderBatchPanel(item) : null}
                   </Fragment>
                 );
               })}
             </div>
           </div>
+          )}
         </section>
       </div>
     </OpsShell>

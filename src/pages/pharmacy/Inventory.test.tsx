@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
+import { mockScreen } from '../../test/phone-screen';
 import type { PharmacyInventoryDerivedItem } from '../../hooks';
 
 vi.mock('../../components/OpsShell', () => ({
@@ -391,5 +392,65 @@ describe('PharmacyInventory column headers (QA-271)', () => {
     for (const label of ['Item', 'Category', 'Usable stock', 'Reorder level', 'Status', 'Actions']) {
       expect(screen.getByText(label, { exact: true })).toBeInTheDocument();
     }
+  });
+});
+
+describe('PharmacyInventory on a phone (QA-272)', () => {
+  let restoreScreen: (() => void) | null = null;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    restoreScreen?.();
+    restoreScreen = null;
+  });
+
+  const inventory = () => [
+    item({
+      id: 'amox',
+      sku: 'AMX',
+      genericName: 'Amoxicillin',
+      strength: '500 mg',
+      stock: 12,
+      reorderPoint: 40,
+      status: 'low',
+      expiredStock: 5,
+      category: 'Antibiotic',
+      batchCount: 1,
+      batches: [{ id: 'b1', batchNumber: 'AMX-1', quantity: 12, expiryDate: '2027-01-01', receivedAt: null, state: 'usable' }],
+    }),
+    item({ id: 'los', genericName: 'Losartan' }),
+  ];
+
+  it('shows a card per item with its stock, status, warning and buttons, instead of the wide table', async () => {
+    restoreScreen = mockScreen(true);
+    showInventory(inventory());
+    const { container } = renderInventory();
+
+    expect(container.querySelector('.min-w-\\[1120px\\]')).toBeNull();
+    const cards = screen.getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    const card = cards[0];
+    expect(within(card).getByText('Amoxicillin 500 mg')).toBeInTheDocument();
+    expect(within(card).getByText('12 tabs')).toBeInTheDocument();
+    expect(within(card).getByText('Antibiotic')).toBeInTheDocument();
+    expect(within(card).getByText('CRITICAL')).toBeInTheDocument();
+    expect(within(card).getByText('EXPIRED STOCK')).toBeInTheDocument();
+    expect(within(card).getByRole('note')).toHaveTextContent('5 tabs expired');
+    expect(within(card).getByRole('link', { name: 'Email reorder' })).toBeInTheDocument();
+
+    await userEvent.click(within(card).getByRole('button', { name: /Batches/ }));
+    expect(within(card).getByRole('table', { name: 'Batches of Amoxicillin 500 mg' })).toBeInTheDocument();
+  });
+
+  it('keeps the table on a wider screen', () => {
+    restoreScreen = mockScreen(false);
+    showInventory(inventory());
+    const { container } = renderInventory();
+
+    expect(container.querySelector('.min-w-\\[1120px\\]')).not.toBeNull();
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
 });
