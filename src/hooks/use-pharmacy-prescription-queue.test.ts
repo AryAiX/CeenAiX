@@ -6,6 +6,7 @@ vi.mock('../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } })
 import { supabase } from '../lib/supabase';
 import { createSupabaseQueryBuilder } from '../test/supabase-mock';
 import {
+  fetchPharmacyPrescriptionDetails,
   sendPharmacyHoldNotificationAndMessage,
   usePharmacyPrescriptionQueue,
 } from './use-pharmacy-prescription-queue';
@@ -57,6 +58,7 @@ describe('usePharmacyPrescriptionQueue grouping key (QA-251)', () => {
   const taskRow = (id: string, medication: string, prescriptionId: string | null, externalRef: string) => ({
     id,
     prescription_id: prescriptionId,
+    prescription_item_id: prescriptionId ? `item-${id}` : null,
     external_ref: externalRef,
     patient_name: 'Test Patient',
     prescriber_name: 'Dr Test',
@@ -107,10 +109,68 @@ describe('usePharmacyPrescriptionQueue grouping key (QA-251)', () => {
 
     const queue = result.current.data?.queue ?? [];
     expect(queue.map((item) => item.prescriptionId)).toEqual([PRESCRIPTION, PRESCRIPTION, 'RX-ATO-20']);
+    expect(queue.map((item) => item.prescriptionItemId)).toEqual(['item-task-1', 'item-task-2', null]);
     expect(queue.map((item) => item.externalRef)).toEqual([
       `rx-${PRESCRIPTION}-item-aaaa`,
       `rx-${PRESCRIPTION}-item-bbbb`,
       'RX-ATO-20',
     ]);
+  });
+});
+
+describe('fetchPharmacyPrescriptionDetails (QA-253)', () => {
+  const fromMock = vi.mocked(supabase.from);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('loads the doctor lines for the given medicines and the frequency / duration labels', async () => {
+    const items = createSupabaseQueryBuilder({
+      data: [
+        {
+          id: 'item-1',
+          medication_name: 'Amoxicillin',
+          medication_name_ar: '  ',
+          dosage: ' 1 capsule ',
+          frequency: 'Three times a day',
+          frequency_code: 'tid',
+          duration: '',
+          duration_code: null,
+          quantity: 21,
+          instructions: null,
+        },
+      ],
+      error: null,
+    });
+    const vocab = createSupabaseQueryBuilder({
+      data: [{ category: 'frequency', code: 'tid', label_en: 'Three times a day', label_ar: 'ثلاث مرات', legacy_match: null }],
+      error: null,
+    });
+    fromMock.mockImplementation(((table: string) => (table === 'prescription_items' ? items : vocab)) as never);
+
+    const result = await fetchPharmacyPrescriptionDetails(['item-1', 'item-1', '']);
+
+    expect(items.in).toHaveBeenCalledWith('id', ['item-1']);
+    expect(result.items).toEqual([
+      expect.objectContaining({ id: 'item-1', medicationNameAr: null, dosage: '1 capsule', duration: null, quantity: 21 }),
+    ]);
+    expect(result.vocab).toHaveLength(1);
+  });
+
+  it('asks nothing when no medicine is linked to a doctor line', async () => {
+    await expect(fetchPharmacyPrescriptionDetails([])).resolves.toEqual({ items: [], vocab: [] });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it('still shows the doctor text when the labels cannot be loaded, but reports a refused read', async () => {
+    const items = createSupabaseQueryBuilder({ data: [], error: null });
+    const vocab = createSupabaseQueryBuilder({ data: null, error: { message: 'vocab down' } });
+    fromMock.mockImplementation(((table: string) => (table === 'prescription_items' ? items : vocab)) as never);
+    await expect(fetchPharmacyPrescriptionDetails(['item-1'])).resolves.toEqual({ items: [], vocab: [] });
+
+    const refused = createSupabaseQueryBuilder({ data: null, error: { message: 'permission denied' } });
+    fromMock.mockImplementation(((table: string) => (table === 'prescription_items' ? refused : vocab)) as never);
+    await expect(fetchPharmacyPrescriptionDetails(['item-1'])).rejects.toMatchObject({ message: 'permission denied' });
   });
 });

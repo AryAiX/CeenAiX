@@ -96,6 +96,7 @@ export type {
   NabidhStatus,
 } from './use-lab-ops-portal';
 export {
+  fetchPharmacyPrescriptionDetails,
   sendPharmacyHoldNotificationAndMessage,
   sendPharmacyResponse,
   setPharmacySettingEnabled,
@@ -108,6 +109,8 @@ export type {
   PharmacyInventoryDerivedItem,
   PharmacyMessageThread,
   PharmacyOrganization,
+  PharmacyPrescriptionDetails,
+  PharmacyPrescriptionItemDetail,
   PharmacyPrescriptionQueueData,
   PharmacyQueuePrescriptionItem,
   PharmacySettingItem,

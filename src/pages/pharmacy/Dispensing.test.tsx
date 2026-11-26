@@ -11,12 +11,14 @@ vi.mock('../../components/OpsShell', () => ({
 }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: () => ({ user: { id: 'pharmacist-1' } }) }));
 vi.mock('../../hooks', () => ({
+  fetchPharmacyPrescriptionDetails: vi.fn(),
   usePharmacyPrescriptionQueue: vi.fn(),
   updatePharmacyDispensingTaskStatus: vi.fn(),
   sendPharmacyHoldNotificationAndMessage: vi.fn(),
 }));
 
 import {
+  fetchPharmacyPrescriptionDetails,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
 } from '../../hooks';
@@ -29,6 +31,7 @@ const task = (
 ): PharmacyQueuePrescriptionItem => ({
   prescriptionId: PRESCRIPTION,
   externalRef: `rx-${PRESCRIPTION}-item-${overrides.id}`,
+  prescriptionItemId: `item-${overrides.id}`,
   patientName: 'Test Patient',
   prescriber: 'Dr Test',
   priority: 'routine',
@@ -217,5 +220,111 @@ describe('PharmacyDispensing marking a prescription as dispensed (QA-252)', () =
     expect(within(dialog).getByRole('button', { name: 'نعم، تم الصرف' })).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'إلغاء' })).toBeInTheDocument();
     expect(within(dialog).getByText('الكمية ٢٠')).toBeInTheDocument();
+  });
+});
+
+describe('PharmacyDispensing prescription details (QA-253)', () => {
+  const vocab = [
+    { category: 'frequency', code: 'tid', label_en: 'Three times a day', label_ar: 'ثلاث مرات يومياً', legacy_match: null },
+    { category: 'duration', code: 'd7', label_en: '7 days', label_ar: '٧ أيام', legacy_match: null },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(fetchPharmacyPrescriptionDetails).mockResolvedValue({
+      items: [
+        {
+          id: 'item-task-a',
+          medicationName: 'Amoxicillin 500 mg',
+          medicationNameAr: 'أموكسيسيلين ٥٠٠ ملغ',
+          dosage: '1 capsule',
+          frequency: 'Three times a day',
+          frequencyCode: 'tid',
+          duration: '7 days',
+          durationCode: 'd7',
+          quantity: 21,
+          instructions: 'Take after food',
+        },
+      ],
+      vocab,
+    });
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const queue = () => [
+    task({ id: 'task-a', medication: 'Amoxicillin 500 mg', quantity: 21 }),
+    task({ id: 'task-b', medication: 'Demo medicine', prescriptionItemId: null, quantity: null }),
+  ];
+
+  it('opens from every open row and shows what the doctor prescribed for each medicine', async () => {
+    showQueue(queue());
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Details' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Prescription details' });
+    expect(fetchPharmacyPrescriptionDetails).toHaveBeenCalledWith(['item-task-a']);
+    expect(await within(dialog).findByText('1 capsule')).toBeInTheDocument();
+    expect(within(dialog).getByText('Three times a day')).toBeInTheDocument();
+    expect(within(dialog).getByText('7 days')).toBeInTheDocument();
+    expect(within(dialog).getByText('21')).toBeInTheDocument();
+    expect(within(dialog).getByText('Take after food')).toBeInTheDocument();
+    // A medicine without the doctor's line still shows, and says so.
+    expect(within(dialog).getByText('Demo medicine')).toBeInTheDocument();
+    expect(within(dialog).getByText("The doctor's details for this medicine are not linked.")).toBeInTheDocument();
+    expect(updatePharmacyDispensingTaskStatus).not.toHaveBeenCalled();
+  });
+
+  it('opens the details from View on a picked up prescription (it did nothing before)', async () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin 500 mg', workflowStatus: 'picked_up', isDispensed: true })]);
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'View' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Prescription details' })).toBeInTheDocument();
+    expect(updatePharmacyDispensingTaskStatus).not.toHaveBeenCalled();
+  });
+
+  it('no longer shows a made-up DHA reference on a dispensed prescription', async () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin 500 mg', workflowStatus: 'dispensed', isDispensed: true })]);
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'View' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Prescription details' });
+    expect(within(dialog).queryByText(/DHA/)).not.toBeInTheDocument();
+  });
+
+  it('says plainly when the details cannot be loaded, and closes with Escape', async () => {
+    vi.mocked(fetchPharmacyPrescriptionDetails).mockRejectedValueOnce(new Error('permission denied for table'));
+    showQueue(queue());
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Details' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Prescription details' });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not load the prescription details.');
+    expect(within(dialog).queryByText(/permission denied/)).not.toBeInTheDocument();
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the details in Arabic, with the Arabic medicine name and labels', async () => {
+    await i18n.changeLanguage('ar');
+    showQueue(queue());
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'التفاصيل' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'تفاصيل الوصفة' });
+    expect(await within(dialog).findByText('أموكسيسيلين ٥٠٠ ملغ')).toBeInTheDocument();
+    expect(within(dialog).getByText('ثلاث مرات يومياً')).toBeInTheDocument();
+    expect(within(dialog).getByText('٧ أيام')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('عدد المرات')).toHaveLength(2);
+    expect(within(dialog).getByText('٢١')).toBeInTheDocument();
   });
 });

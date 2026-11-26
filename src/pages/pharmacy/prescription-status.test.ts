@@ -13,6 +13,7 @@ const task = (
   id,
   prescriptionId: 'rx-1',
   externalRef: `ref-${id}`,
+  prescriptionItemId: null,
   patientName: 'Test Patient',
   medication: 'Medicine',
   prescriber: 'Dr Test',

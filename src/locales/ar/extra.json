@@ -3561,7 +3561,39 @@
       "confirmDispenseBody": "تحقّق من الأدوية قبل التأكيد. سيتم إبلاغ المريض بأن أدويته جاهزة للاستلام، ولا يمكن التراجع عن ذلك.",
       "confirmDispenseCancel": "إلغاء",
       "confirmDispenseConfirm": "نعم، تم الصرف",
-      "confirmDispenseSaving": "جارٍ الحفظ…"
+      "confirmDispenseSaving": "جارٍ الحفظ…",
+      "actionDetails": "التفاصيل",
+      "detailsTitle": "تفاصيل الوصفة",
+      "detailsDoctor": "الطبيب",
+      "detailsMedicines": "الأدوية",
+      "detailsDosage": "الجرعة",
+      "detailsFrequency": "عدد المرات",
+      "detailsDuration": "المدة",
+      "detailsQuantity": "الكمية",
+      "detailsInstructions": "التعليمات",
+      "detailsNotGiven": "غير محدد",
+      "detailsNoLink": "تفاصيل الطبيب لهذا الدواء غير مرتبطة.",
+      "detailsLoading": "جارٍ تحميل التفاصيل…",
+      "detailsError": "تعذّر تحميل تفاصيل الوصفة.",
+      "detailsRetry": "إعادة المحاولة",
+      "detailsClose": "إغلاق",
+      "detailsInsurance": "التأمين",
+      "detailsCopay": "حصة المريض",
+      "detailsPriority": "الأولوية",
+      "detailsAllergy": "يوجد تنبيه حساسية في السجل",
+      "medicineStatus": {
+        "new": "جديد",
+        "in_progress": "قيد التحضير",
+        "on_hold": "معلّق",
+        "dispensed": "تم الصرف",
+        "picked_up": "تم الاستلام",
+        "cancelled": "ملغى"
+      },
+      "priority": {
+        "stat": "عاجل",
+        "routine": "عادي",
+        "scheduled": "مجدول"
+      }
     },
     "inventory": {
       "title": "المخزون",

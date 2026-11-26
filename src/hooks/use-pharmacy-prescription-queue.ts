@@ -1,4 +1,5 @@
 import i18n from 'i18next';
+import type { PrescriptionClinicalVocabRow } from '../lib/prescription-vocab';
 import { supabase } from '../lib/supabase';
 import { useQuery } from './use-query';
 
@@ -49,6 +50,8 @@ export interface PharmacyQueuePrescriptionItem {
   prescriptionId: string;
   /** The task's own reference (`external_ref`), one per medicine. */
   externalRef: string;
+  /** QA-253: the doctor's prescription line (dosage, frequency, …) this medicine comes from. */
+  prescriptionItemId: string | null;
   patientName: string;
   medication: string;
   prescriber: string;
@@ -180,6 +183,7 @@ interface StaffRow {
 interface DispensingTaskRow {
   id: string;
   prescription_id: string | null;
+  prescription_item_id: string | null;
   external_ref: string;
   patient_name: string;
   prescriber_name: string;
@@ -394,6 +398,86 @@ export async function sendPharmacyHoldNotificationAndMessage({
   }
 }
 
+/** QA-253: what the doctor wrote for one medicine, so the pharmacist knows what to dispense. */
+export interface PharmacyPrescriptionItemDetail {
+  id: string;
+  medicationName: string;
+  medicationNameAr: string | null;
+  dosage: string | null;
+  frequency: string | null;
+  frequencyCode: string | null;
+  duration: string | null;
+  durationCode: string | null;
+  quantity: number | null;
+  instructions: string | null;
+}
+
+export interface PharmacyPrescriptionDetails {
+  items: PharmacyPrescriptionItemDetail[];
+  /** Translated labels for frequency / duration codes; empty if they could not be loaded. */
+  vocab: PrescriptionClinicalVocabRow[];
+}
+
+interface PrescriptionItemDetailRow {
+  id: string;
+  medication_name: string;
+  medication_name_ar: string | null;
+  dosage: string | null;
+  frequency: string | null;
+  frequency_code: string | null;
+  duration: string | null;
+  duration_code: string | null;
+  quantity: number | null;
+  instructions: string | null;
+}
+
+const blankToNull = (value: string | null | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+/**
+ * QA-253: load the doctor's lines (dosage, frequency, duration, quantity, instructions) for the
+ * medicines of one prescription. The pharmacy may read the lines of prescriptions sent to it.
+ */
+export async function fetchPharmacyPrescriptionDetails(
+  prescriptionItemIds: string[]
+): Promise<PharmacyPrescriptionDetails> {
+  const ids = Array.from(new Set(prescriptionItemIds.filter(Boolean)));
+  if (ids.length === 0) {
+    return { items: [], vocab: [] };
+  }
+
+  const [itemResult, vocabResult] = await Promise.all([
+    supabase
+      .from('prescription_items')
+      .select(
+        'id, medication_name, medication_name_ar, dosage, frequency, frequency_code, duration, duration_code, quantity, instructions'
+      )
+      .in('id', ids),
+    supabase.from('prescription_clinical_vocab').select('category, code, label_en, label_ar, legacy_match'),
+  ]);
+
+  if (itemResult.error) throw itemResult.error;
+
+  return {
+    items: ((itemResult.data ?? []) as PrescriptionItemDetailRow[]).map((row) => ({
+      id: row.id,
+      medicationName: row.medication_name,
+      medicationNameAr: blankToNull(row.medication_name_ar),
+      dosage: blankToNull(row.dosage),
+      frequency: blankToNull(row.frequency),
+      frequencyCode: blankToNull(row.frequency_code),
+      duration: blankToNull(row.duration),
+      durationCode: blankToNull(row.duration_code),
+      quantity: row.quantity,
+      instructions: blankToNull(row.instructions),
+    })),
+    // The labels only translate codes; without them the doctor's own text is shown.
+    vocab: vocabResult.error ? [] : ((vocabResult.data ?? []) as PrescriptionClinicalVocabRow[]),
+  };
+}
+
 /**
  * Persists a pharmacist reply on a `pharmacy_messages` row. The Bolt prototype
  * silently cleared the draft; this writes back to the canonical table so the
@@ -458,7 +542,7 @@ export function usePharmacyPrescriptionQueue() {
         .order('created_at', { ascending: true }),
       supabase
         .from('pharmacy_dispensing_tasks')
-        .select('id, prescription_id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
+        .select('id, prescription_id, prescription_item_id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
         .eq('organization_id', org.id)
         .order('received_at', { ascending: false }),
       supabase
@@ -515,6 +599,7 @@ export function usePharmacyPrescriptionQueue() {
         // QA-251: group by the real prescription; every medicine has its own external_ref.
         prescriptionId: task.prescription_id ?? task.external_ref,
         externalRef: task.external_ref,
+        prescriptionItemId: task.prescription_item_id,
         patientName: task.patient_name,
         medication: task.medication_name,
         prescriber: task.prescriber_name,

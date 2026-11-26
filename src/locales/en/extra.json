@@ -3419,7 +3419,39 @@
       "confirmDispenseBody": "Check the medicines before you confirm. The patient is told their medicines are ready for pickup, and this can't be undone.",
       "confirmDispenseCancel": "Cancel",
       "confirmDispenseConfirm": "Confirm dispensed",
-      "confirmDispenseSaving": "Saving…"
+      "confirmDispenseSaving": "Saving…",
+      "actionDetails": "Details",
+      "detailsTitle": "Prescription details",
+      "detailsDoctor": "Doctor",
+      "detailsMedicines": "Medicines",
+      "detailsDosage": "Dose",
+      "detailsFrequency": "How often",
+      "detailsDuration": "How long",
+      "detailsQuantity": "Quantity",
+      "detailsInstructions": "Instructions",
+      "detailsNotGiven": "Not given",
+      "detailsNoLink": "The doctor's details for this medicine are not linked.",
+      "detailsLoading": "Loading details…",
+      "detailsError": "Could not load the prescription details.",
+      "detailsRetry": "Try again",
+      "detailsClose": "Close",
+      "detailsInsurance": "Insurance",
+      "detailsCopay": "Copay",
+      "detailsPriority": "Priority",
+      "detailsAllergy": "Allergy flag on record",
+      "medicineStatus": {
+        "new": "New",
+        "in_progress": "In progress",
+        "on_hold": "On hold",
+        "dispensed": "Dispensed",
+        "picked_up": "Picked up",
+        "cancelled": "Cancelled"
+      },
+      "priority": {
+        "stat": "Urgent (STAT)",
+        "routine": "Routine",
+        "scheduled": "Scheduled"
+      }
     },
     "inventory": {
       "title": "Inventory",

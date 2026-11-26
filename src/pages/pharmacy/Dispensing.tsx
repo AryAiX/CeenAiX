@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown, MessageSquare, Play, Search, X } from 'lucide-react';
+import { ChevronDown, FileText, MessageSquare, Play, Search, X } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import {
@@ -16,6 +16,7 @@ import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PrescriptionDetailsDialog } from './PrescriptionDetailsDialog';
 import {
   inferPrescriptionWorkflowStatus,
   openDispensingTaskIds,
@@ -28,7 +29,9 @@ type SortType = 'newest' | 'oldest' | 'patient' | 'status';
 interface PrescriptionListRow {
   id: string;
   /** QA-251: every medicine (dispensing task) of this prescription, with its own status. */
-  tasks: Array<Pick<PharmacyQueuePrescriptionItem, 'id' | 'workflowStatus' | 'medication' | 'quantity'>>;
+  tasks: Array<
+    Pick<PharmacyQueuePrescriptionItem, 'id' | 'workflowStatus' | 'medication' | 'quantity' | 'prescriptionItemId'>
+  >;
   /** The medicines' own references, so an old link with a task reference still finds the row. */
   refs: string[];
   patientUserId: string | null;
@@ -122,6 +125,9 @@ const actionLabel = (status: Exclude<FilterType, 'all'>, t: TFunction): string =
   }
 };
 
+const isFinished = (status: Exclude<FilterType, 'all'>) =>
+  status === 'dispensed' || status === 'picked_up' || status === 'cancelled';
+
 const statusSortOrder: Record<Exclude<FilterType, 'all'>, number> = {
   new: 0,
   in_progress: 1,
@@ -197,6 +203,7 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
         workflowStatus: item.workflowStatus,
         medication: item.medication,
         quantity: item.quantity,
+        prescriptionItemId: item.prescriptionItemId,
       })),
       refs: group.map((item) => item.externalRef),
       patientUserId: group.find((item) => item.patientUserId)?.patientUserId ?? null,
@@ -248,7 +255,8 @@ export const PharmacyDispensing = () => {
   const [holdModalRow, setHoldModalRow] = useState<PrescriptionListRow | null>(null);
   const [holdReason, setHoldReason] = useState('');
   const [holdNote, setHoldNote] = useState('');
-  const [viewModalRow, setViewModalRow] = useState<PrescriptionListRow | null>(null);
+  const [detailsRow, setDetailsRow] = useState<PrescriptionListRow | null>(null);
+  const closeDetails = useCallback(() => setDetailsRow(null), []);
   const [dispenseConfirmRow, setDispenseConfirmRow] = useState<PrescriptionListRow | null>(null);
   const dispenseCancelRef = useRef<HTMLButtonElement>(null);
 
@@ -529,8 +537,8 @@ export const PharmacyDispensing = () => {
 
         <div className="mx-6 mb-6 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <div className="min-w-[1120px]">
-              <div className="grid grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_160px] border-b border-slate-100 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400">
+            <div className="min-w-[1200px]">
+              <div className="grid grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_240px] border-b border-slate-100 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400">
                 <div>Received</div>
                 <div>Patient</div>
                 <div>Doctor</div>
@@ -554,7 +562,7 @@ export const PharmacyDispensing = () => {
                 return (
                   <div
                     key={row.id}
-                    className={`grid min-h-16 grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_160px] items-center border-l-4 px-5 py-3 transition-colors hover:bg-emerald-50 ${cfg.border}`}
+                    className={`grid min-h-16 grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_240px] items-center border-l-4 px-5 py-3 transition-colors hover:bg-emerald-50 ${cfg.border}`}
                     style={{
                       borderBottom: index < sorted.length - 1 ? '1px solid #F8FAFC' : undefined,
                     }}
@@ -607,8 +615,9 @@ export const PharmacyDispensing = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          if (row.status === 'dispensed' || row.status === 'cancelled') {
-                            setViewModalRow(row);
+                          if (isFinished(row.status)) {
+                            // QA-253: View opens the prescription details (picked up rows did nothing before).
+                            setDetailsRow(row);
                           } else if (row.status === 'in_progress') {
                             // QA-252: dispensing tells the patient and cannot be undone, so confirm first.
                             setDispenseConfirmRow(row);
@@ -616,18 +625,28 @@ export const PharmacyDispensing = () => {
                             void handleRowAction(row, row.status);
                           }
                         }}
-                        disabled={busyId === row.id && row.status !== 'dispensed' && row.status !== 'cancelled'}
+                        disabled={busyId === row.id && !isFinished(row.status)}
                         className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                          row.status === 'dispensed'
+                          isFinished(row.status)
                             ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             : row.status === 'on_hold'
                               ? 'bg-amber-500 text-white hover:bg-amber-600'
                               : 'bg-emerald-600 text-white hover:bg-emerald-700'
                         }`}
                       >
-                        {row.status !== 'dispensed' && row.status !== 'cancelled' ? <Play className="h-3 w-3" /> : null}
+                        {!isFinished(row.status) ? <Play className="h-3 w-3" /> : null}
                         {busyId === row.id ? '…' : actionLabel(row.status, t)}
                       </button>
+                      {!isFinished(row.status) ? (
+                        <button
+                          type="button"
+                          onClick={() => setDetailsRow(row)}
+                          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          <FileText className="h-3 w-3" aria-hidden="true" />
+                          {t('pharmacy.dispensing.actionDetails', { defaultValue: 'Details' })}
+                        </button>
+                      ) : null}
                       {(row.status === 'new' || row.status === 'in_progress') ? (
                         <button
                           type="button"
@@ -815,114 +834,7 @@ export const PharmacyDispensing = () => {
         </div>,
         document.body
       ) : null}
-      {viewModalRow ? createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-[13px] font-bold text-white ${viewModalRow.avatarClass}`}>
-                  {viewModalRow.patientInitials}
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">{viewModalRow.patientName}</h2>
-                  <p className="mt-0.5 font-mono text-xs text-slate-400">{prescriptionReference(viewModalRow.id)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                  viewModalRow.status === 'dispensed'
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {viewModalRow.status === 'dispensed' ? 'DISPENSED ✅' : 'CANCELLED'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setViewModalRow(null)}
-                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 px-6 py-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Patient</div>
-                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.patientName}</div>
-                  {viewModalRow.hasAllergyFlag ? (
-                    <div className="mt-1 text-[11px] text-red-600">⚠️ Allergy flag on record</div>
-                  ) : null}
-                </div>
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Doctor</div>
-                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.doctorName}</div>
-                  <div className="text-[11px] text-slate-400">CeenAiX care team</div>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Pharmacy</div>
-                  <div className="text-sm font-semibold text-slate-800">{data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'}</div>
-                  <div className="text-[11px] text-slate-400">{data?.profile?.licenseNumber ?? 'DHA Licensed'}</div>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">DHA Reference</div>
-                  <div className="font-mono text-sm font-bold text-slate-800">DHA-{viewModalRow.id.slice(0, 8).toUpperCase()}</div>
-                  <div className="text-[11px] text-emerald-600">Ready for DHA reporting ✅</div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-slate-100 px-4 py-3">
-                <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-400">Medications</div>
-                <div className="space-y-1">
-                  {viewModalRow.drugs.map((drug, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm text-slate-700">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                      {drug}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Insurance</div>
-                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.insurance}</div>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Copay</div>
-                  <div className="font-mono text-sm font-bold text-emerald-600">AED {formatNumber(viewModalRow.copay, uiLang)}</div>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Priority</div>
-                  <div className="text-sm font-semibold text-slate-800">{viewModalRow.priority.toUpperCase()}</div>
-                </div>
-              </div>
-
-              {viewModalRow.status === 'dispensed' ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  ✅ Medication dispensed successfully. Patient has been notified for pickup.
-                </div>
-              ) : (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  ❌ This prescription was cancelled.
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-slate-100 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setViewModalRow(null)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      ) : null}
+      {detailsRow ? <PrescriptionDetailsDialog row={detailsRow} onClose={closeDetails} /> : null}
     </OpsShell>
   );
 };
