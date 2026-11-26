@@ -234,7 +234,8 @@ const groupPrescriptionRows = (
       copay: group.reduce((sum, item) => sum + item.copayAed, 0),
       status: inferPrescriptionStatus(group),
       receivedAt,
-      priority: first.priority,
+      // QA-262: urgent when any medicine is urgent (STAT).
+      priority: group.some((item) => item.priority === 'stat') ? 'stat' : first.priority,
       hasAllergyFlag: group.some((item) => item.allergyFlag),
     };
   });
@@ -524,7 +525,14 @@ export const PharmacyDispensing = () => {
 
     return filtered.sort((a, b) => {
       if (sort === 'patient') {
-        return a.patientName.localeCompare(b.patientName);
+        return a.patientName.localeCompare(b.patientName, uiLang);
+      }
+
+      // QA-262: urgent (STAT) prescriptions still to dispense come first.
+      const urgentA = a.priority === 'stat' && !isFinished(a.status) ? 0 : 1;
+      const urgentB = b.priority === 'stat' && !isFinished(b.status) ? 0 : 1;
+      if (urgentA !== urgentB) {
+        return urgentA - urgentB;
       }
 
       if (sort === 'status') {
@@ -537,7 +545,7 @@ export const PharmacyDispensing = () => {
 
       return Date.parse(b.receivedAt) - Date.parse(a.receivedAt);
     });
-  }, [filter, rows, search, sort]);
+  }, [filter, rows, search, sort, uiLang]);
 
   // QA-261: the same buttons for the table (computer) and the cards (phone).
   const renderRowActions = (row: PrescriptionListRow) => (
@@ -633,6 +641,13 @@ export const PharmacyDispensing = () => {
     </>
   );
 
+  const renderUrgent = (row: PrescriptionListRow) =>
+    row.priority === 'stat' && !isFinished(row.status) ? (
+      <span className="ms-1 whitespace-nowrap rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
+        {t('pharmacy.dispensing.priority.stat', { defaultValue: 'Urgent (STAT)' })}
+      </span>
+    ) : null;
+
   const renderAllergyFlag = (row: PrescriptionListRow) =>
     row.hasAllergyFlag ? (
       <span
@@ -670,8 +685,8 @@ export const PharmacyDispensing = () => {
   return (
     <OpsShell
       title={t('pharmacy.dispensing.pageTitle', { defaultValue: 'Prescriptions' })}
-      subtitle={t('pharmacy.dispensing.shellSubtitle', {
-        defaultValue: '{{pharmacy}} · Dispensing queue',
+      subtitle={t('pharmacy.dispensing.pageSubtitle', {
+        defaultValue: 'Prescriptions sent to {{pharmacy}}',
         pharmacy:
           data?.profile?.displayName ??
           data?.organization?.name ??
@@ -681,7 +696,8 @@ export const PharmacyDispensing = () => {
       navItems={PHARMACY_NAV_ITEMS(t, {
         prescriptions: counts.new + counts.on_hold || undefined,
         inventory: data?.lowStockAlerts || undefined,
-        messages: counts.on_hold || undefined,
+        // QA-262: unread messages, like every other pharmacy page (not on-hold prescriptions).
+        messages: data?.messages?.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
       })}
       accent="emerald"
       variant="pharmacy"
@@ -714,24 +730,8 @@ export const PharmacyDispensing = () => {
             {actionNotice}
           </div>
         ) : null}
-        <div className="mx-6 mb-4 mt-5 flex shrink-0 items-center justify-between">
-          <div>
-            <h2 className="text-[20px] font-bold text-slate-900">
-              {t('pharmacy.dispensing.pageTitle', { defaultValue: 'Prescriptions' })}
-            </h2>
-            <div className="text-[13px] text-slate-400">
-              {t('pharmacy.dispensing.pageSubtitle', {
-                defaultValue: 'Prescriptions sent to {{pharmacy}}',
-                pharmacy:
-                  data?.profile?.displayName ??
-                  data?.organization?.name ??
-                  t('pharmacy.dispensing.pharmacyFallback', { defaultValue: 'your pharmacy' }),
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-6 mb-4 flex shrink-0 flex-wrap items-center gap-3">
+        {/* QA-262: the title and subtitle are in the top bar only (they were shown twice). */}
+        <div className="mx-6 mb-4 mt-5 flex shrink-0 flex-wrap items-center gap-3">
           <div className="relative min-w-[240px] flex-1">
             <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
@@ -762,8 +762,8 @@ export const PharmacyDispensing = () => {
                 key={key}
                 type="button"
                 onClick={() => {
+                  // QA-262: a filter no longer clears the search (or the Dashboard's ?id= link).
                   setFilter(key);
-                  setSearch('');
                 }}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                   filter === key
@@ -823,6 +823,7 @@ export const PharmacyDispensing = () => {
                           <div className="break-words text-sm font-semibold text-slate-800">
                             {row.patientName}
                             {renderAllergyFlag(row)}
+                          {renderUrgent(row)}
                           </div>
                           <div className="break-words text-xs text-slate-500">{row.doctorName}</div>
                         </div>
@@ -885,6 +886,7 @@ export const PharmacyDispensing = () => {
                         <div className="truncate text-[13px] font-semibold text-slate-800">
                           {row.patientName}
                           {renderAllergyFlag(row)}
+                          {renderUrgent(row)}
                         </div>
                       </div>
                     </div>
@@ -895,7 +897,7 @@ export const PharmacyDispensing = () => {
 
                     <div className="pe-3 min-w-0">
                       <div className="truncate text-[12px] text-slate-600" title={row.drugs.join(', ')}>
-                        {row.drugs.map(drug => drug.length > 20 ? drug.slice(0, 20) + '…' : drug).join(', ') || '—'}
+                        {row.drugs.join(', ') || '—'}
                       </div>
                       <div className="font-mono text-[10px] text-slate-400">{prescriptionReference(row.id)}</div>
                     </div>

@@ -3501,7 +3501,6 @@
         "other": "Other"
       },
       "medicationPending": "Medication pending",
-      "shellSubtitle": "{{pharmacy}} · Dispensing queue",
       "clearSearch": "Clear search",
       "column": {
         "received": "Received",

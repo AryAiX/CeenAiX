@@ -9,12 +9,29 @@ import { mockScreen } from '../../test/phone-screen';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 
 vi.mock('../../components/OpsShell', () => ({
-  OpsShell: ({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) => (
+  OpsShell: ({
+    children,
+    title,
+    subtitle,
+    navItems,
+  }: {
+    children: ReactNode;
+    title?: string;
+    subtitle?: string;
+    navItems?: Array<{ href: string; badge?: number }>;
+  }) => (
     <div>
       <header data-testid="shell-header">
         <span>{title}</span>
         <span>{subtitle}</span>
       </header>
+      <nav hidden>
+        {navItems?.map((item) => (
+          <span key={item.href} data-testid={`badge-${item.href}`}>
+            {item.badge ?? ''}
+          </span>
+        ))}
+      </nav>
       {children}
     </div>
   ),
@@ -703,5 +720,89 @@ describe('PharmacyDispensing on a phone and in its dialogs (QA-261)', () => {
     expect(note).toHaveAttribute('maxLength', '1000');
     await userEvent.type(note, 'Back Monday');
     expect(screen.getByText('11 / 1000')).toBeInTheDocument();
+  });
+});
+
+describe('PharmacyDispensing small fixes (QA-262)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('keeps the search when a filter is chosen', async () => {
+    showQueue([
+      task({ id: 'task-a', medication: 'Amoxicillin' }),
+      task({ id: 'task-b', medication: 'Ibuprofen', patientName: 'Other Patient', prescriptionId: 'rx-2' }),
+    ]);
+    renderPage();
+
+    await userEvent.type(screen.getByRole('textbox'), 'Amox');
+    await userEvent.click(screen.getByRole('button', { name: /^New/ }));
+
+    expect(screen.getByRole('textbox')).toHaveValue('Amox');
+    expect(screen.getByText('Test Patient')).toBeInTheDocument();
+    expect(screen.queryByText('Other Patient')).not.toBeInTheDocument();
+  });
+
+  it('keeps the Dashboard link to one prescription when a filter is chosen', async () => {
+    showQueue([
+      task({ id: 'task-a', medication: 'Amoxicillin' }),
+      task({ id: 'task-b', medication: 'Ibuprofen', patientName: 'Other Patient', prescriptionId: 'rx-2', externalRef: 'rx-2-item-b' }),
+    ]);
+    renderPage(`/pharmacy/dispensing?id=${PRESCRIPTION}`);
+
+    await userEvent.click(screen.getByRole('button', { name: /^New/ }));
+
+    expect(screen.getByText('Test Patient')).toBeInTheDocument();
+    expect(screen.queryByText('Other Patient')).not.toBeInTheDocument();
+  });
+
+  it('marks urgent prescriptions and lists them first while they are still open', () => {
+    showQueue([
+      task({ id: 'task-new', medication: 'Amoxicillin', patientName: 'Routine Patient', prescriptionId: 'rx-routine', receivedAt: '2026-11-26T09:00:00.000Z' }),
+      task({ id: 'task-stat', medication: 'Adrenaline', patientName: 'Urgent Patient', prescriptionId: 'rx-stat', priority: 'stat', receivedAt: '2026-11-26T07:00:00.000Z' }),
+      task({ id: 'task-done', medication: 'Insulin', patientName: 'Done Patient', prescriptionId: 'rx-done', priority: 'stat', workflowStatus: 'dispensed', isDispensed: true, receivedAt: '2026-11-26T10:00:00.000Z' }),
+    ]);
+    renderPage();
+
+    const order = ['Done Patient', 'Routine Patient', 'Urgent Patient']
+      .map((name) => ({ name, top: rowFor(name).compareDocumentPosition(rowFor('Urgent Patient')) }));
+    // Urgent Patient comes before the others, although it is the oldest.
+    expect(order.filter((item) => item.name !== 'Urgent Patient').every((item) => item.top & Node.DOCUMENT_POSITION_PRECEDING)).toBe(true);
+    expect(within(rowFor('Urgent Patient')).getByText('Urgent (STAT)')).toBeInTheDocument();
+    // A dispensed urgent prescription is no longer marked or moved up.
+    expect(within(rowFor('Done Patient')).queryByText('Urgent (STAT)')).not.toBeInTheDocument();
+  });
+
+  it('shows unread messages on the Messages badge, like the other pharmacy pages', () => {
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: {
+        queue: [task({ id: 'task-a', medication: 'Amoxicillin', workflowStatus: 'on_hold' })],
+        messages: [{ unreadCount: 2 }, { unreadCount: 1 }],
+        profile: null,
+        organization: null,
+        lowStockAlerts: 0,
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    renderPage();
+
+    expect(screen.getByTestId('badge-/pharmacy/messages')).toHaveTextContent('3');
+  });
+
+  it('shows the page title once, in the top bar', () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    expect(screen.getAllByText('Prescriptions')).toHaveLength(1);
+    expect(within(screen.getByTestId('shell-header')).getByText('Prescriptions')).toBeInTheDocument();
+  });
+
+  it('shows long medicine names in full', () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin and clavulanic acid 875 mg' })]);
+    renderPage();
+
+    expect(within(rowFor('Test Patient')).getByText('Amoxicillin and clavulanic acid 875 mg')).toBeInTheDocument();
   });
 });

@@ -9,7 +9,12 @@ import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 import i18n from '../../i18n';
 
 vi.mock('../../components/OpsShell', () => ({
-  OpsShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  OpsShell: ({ children, subtitle }: { children: ReactNode; subtitle?: string }) => (
+    <div>
+      <p>{subtitle}</p>
+      {children}
+    </div>
+  ),
 }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: () => ({ user: { id: 'pharmacist-1' } }) }));
 vi.mock('../../hooks', () => ({

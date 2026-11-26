@@ -3643,7 +3643,6 @@
         "other": "سبب آخر"
       },
       "medicationPending": "الدواء قيد التحديد",
-      "shellSubtitle": "{{pharmacy}} · قائمة الصرف",
       "clearSearch": "مسح البحث",
       "column": {
         "received": "وقت الاستلام",
