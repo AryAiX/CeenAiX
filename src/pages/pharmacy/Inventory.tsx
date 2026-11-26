@@ -42,7 +42,12 @@ interface InventoryRow {
   unit: string;
   reorderLevel: number;
   daysSupply: number | null;
-  stockStatus: Exclude<FilterType, 'all' | 'controlled' | 'dha_formulary'>;
+  /** QA-265: based on usable stock only. */
+  stockStatus: 'in_stock' | 'low' | 'critical' | 'out_of_stock';
+  /** QA-265: a usable batch expires within 45 days. */
+  expiringSoon: boolean;
+  /** QA-265: units past their expiry date (not counted in stockQty). */
+  expiredQty: number;
   isControlled: boolean;
   isDHAFormulary: boolean;
   affectedPrescriptions: string[];
@@ -90,19 +95,11 @@ const stockConfig: Record<
     dot: 'bg-red-500',
     row: 'bg-red-50/40',
   },
-  expiring_soon: {
-    label: 'EXPIRING SOON',
-    pill: 'bg-yellow-50 text-yellow-800',
-    dot: 'bg-yellow-500',
-    row: 'bg-yellow-50/40',
-  },
-  expired: {
-    label: 'EXPIRED',
-    pill: 'bg-slate-100 text-slate-500',
-    dot: 'bg-slate-400',
-    row: 'bg-slate-50',
-  },
 };
+
+/** QA-265: expiry is shown next to the stock status, not instead of it. */
+const EXPIRING_SOON_PILL = 'bg-yellow-50 text-yellow-800';
+const EXPIRED_PILL = 'bg-red-100 text-red-800';
 
 const categoryForMedication = (name: string) => {
   if (/atorvastatin|rosuvastatin/i.test(name)) return 'Statin';
@@ -138,9 +135,10 @@ const strengthForMedication = (name: string) => {
 const cleanMedicationName = (name: string) => name.replace(/\s+\d+\s?(?:mg|iu|mcg|g)\b/i, '').trim();
 
 const statusForInventory = (item: PharmacyInventoryDerivedItem): InventoryRow['stockStatus'] => {
-  if (item.status === 'out') return 'out_of_stock';
-  if (item.status === 'near_expiry') return 'expiring_soon';
-  if (item.status === 'low') return item.stock <= Math.max(1, Math.floor(item.reorderPoint / 2)) ? 'critical' : 'low';
+  if (item.stock <= 0) return 'out_of_stock';
+  if (item.stock < item.reorderPoint) {
+    return item.stock <= Math.max(1, Math.floor(item.reorderPoint / 2)) ? 'critical' : 'low';
+  }
   return 'in_stock';
 };
 
@@ -168,6 +166,8 @@ const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] 
       reorderLevel: item.reorderPoint,
       daysSupply,
       stockStatus,
+      expiringSoon: item.expiringSoon,
+      expiredQty: item.expiredStock,
       isControlled: item.isControlled,
       isDHAFormulary: item.isDHAFormulary,
       affectedPrescriptions: stockStatus === 'out_of_stock' ? ['1 prescription on hold'] : [],
@@ -201,8 +201,8 @@ export const PharmacyInventory = () => {
       low: rows.filter((item) => item.stockStatus === 'low').length,
       critical: rows.filter((item) => item.stockStatus === 'critical').length,
       out_of_stock: rows.filter((item) => item.stockStatus === 'out_of_stock').length,
-      expiring_soon: rows.filter((item) => item.stockStatus === 'expiring_soon').length,
-      expired: rows.filter((item) => item.stockStatus === 'expired').length,
+      expiring_soon: rows.filter((item) => item.expiringSoon).length,
+      expired: rows.filter((item) => item.expiredQty > 0).length,
       controlled: rows.filter((item) => item.isControlled).length,
       dha_formulary: rows.filter((item) => item.isDHAFormulary).length,
     }),
@@ -227,7 +227,11 @@ export const PharmacyInventory = () => {
             ? item.isControlled
             : filter === 'dha_formulary'
               ? item.isDHAFormulary
-              : item.stockStatus === filter;
+              : filter === 'expiring_soon'
+                ? item.expiringSoon
+                : filter === 'expired'
+                  ? item.expiredQty > 0
+                  : item.stockStatus === filter;
 
       return matchesSearch && matchesFilter;
     });
@@ -323,13 +327,15 @@ export const PharmacyInventory = () => {
           </div>
         ) : null}
 
-        <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[
             { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
             { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
             { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
             { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
             { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
+            // QA-265: items with expired units still on the shelf.
+            { label: 'Expired Stock', value: counts.expired, color: 'text-red-800', bg: 'bg-red-50', filterKey: 'expired' },
           ].map((stat) => (
             <button
               key={stat.label}
@@ -417,9 +423,7 @@ export const PharmacyInventory = () => {
                         borderLeftColor:
                           item.stockStatus === 'out_of_stock'
                             ? '#EF4444'
-                            : item.stockStatus === 'expiring_soon'
-                              ? '#EAB308'
-                              : item.stockStatus === 'critical'
+                            : item.stockStatus === 'critical'
                                 ? '#F97316'
                                 : item.stockStatus === 'low'
                                   ? '#F59E0B'
@@ -445,6 +449,12 @@ export const PharmacyInventory = () => {
                       <div className="truncate text-[11px] text-slate-400">
                         {item.brandName} · {item.form} · {item.atcCode}
                       </div>
+                      {item.expiredQty > 0 ? (
+                        <div role="note" className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-red-800">
+                          <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+                          {formatNumber(item.expiredQty, uiLang)} {item.unit} expired · not counted in stock · remove from the shelf
+                        </div>
+                      ) : null}
                       {item.affectedPrescriptions.length > 0 ? (
                         <div className="mt-0.5 flex items-center gap-1 text-[10px] text-red-700">
                           <AlertTriangle className="h-2.5 w-2.5" />
@@ -499,9 +509,21 @@ export const PharmacyInventory = () => {
                     </div>
 
                     <div>
-                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.pill}`}>
-                        {cfg.label}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.pill}`}>
+                          {cfg.label}
+                        </span>
+                        {item.expiringSoon ? (
+                          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRING_SOON_PILL}`}>
+                            EXPIRING SOON
+                          </span>
+                        ) : null}
+                        {item.expiredQty > 0 ? (
+                          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRED_PILL}`}>
+                            EXPIRED STOCK
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="mt-0.5 font-mono text-[9px] text-slate-400">
                         {item.nextExpiry ?? `${item.batchCount} batch${item.batchCount === 1 ? '' : 'es'}`}
                       </div>

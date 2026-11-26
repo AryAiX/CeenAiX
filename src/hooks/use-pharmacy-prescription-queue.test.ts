@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../lib/supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 
@@ -9,6 +9,7 @@ import {
   fetchPharmacyPrescriptionDetails,
   PharmacyTaskChangeNotAllowedError,
   sendPharmacyHoldNotificationAndMessage,
+  summarizeInventoryBatches,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
 } from './use-pharmacy-prescription-queue';
@@ -439,5 +440,112 @@ describe('usePharmacyPrescriptionQueue reads long lists completely (QA-259)', ()
     const idBatches = batchTable.in.mock.calls.map((call) => (call[1] as string[]).length);
     expect(idBatches).toEqual([150, 10]);
     expect(result.current.data?.inventory.every((item) => item.stock === 5)).toBe(true);
+  });
+});
+
+describe('summarizeInventoryBatches (QA-265)', () => {
+  const TODAY = '2026-11-26';
+
+  it('does not count expired batches as stock, but reports them', () => {
+    expect(
+      summarizeInventoryBatches(
+        [
+          { quantity_on_hand: 40, expiry_date: '2027-06-30' },
+          { quantity_on_hand: 25, expiry_date: '2026-11-25' },
+        ],
+        TODAY
+      )
+    ).toEqual({ stock: 40, expiredStock: 25, nextExpiryDate: '2027-06-30', expiringSoon: false });
+  });
+
+  it('treats a batch as usable on its expiry date and expired the day after', () => {
+    expect(summarizeInventoryBatches([{ quantity_on_hand: 10, expiry_date: TODAY }], TODAY)).toMatchObject({
+      stock: 10,
+      expiredStock: 0,
+      expiringSoon: true,
+    });
+    expect(summarizeInventoryBatches([{ quantity_on_hand: 10, expiry_date: TODAY }], '2026-11-27')).toMatchObject({
+      stock: 0,
+      expiredStock: 10,
+      nextExpiryDate: null,
+      expiringSoon: false,
+    });
+  });
+
+  it('marks expiring soon within 45 days, from usable batches that still have units', () => {
+    expect(summarizeInventoryBatches([{ quantity_on_hand: 5, expiry_date: '2027-01-10' }], TODAY).expiringSoon).toBe(true);
+    expect(summarizeInventoryBatches([{ quantity_on_hand: 5, expiry_date: '2027-01-11' }], TODAY).expiringSoon).toBe(false);
+    // An empty batch that expires soon does not count.
+    expect(
+      summarizeInventoryBatches(
+        [
+          { quantity_on_hand: 0, expiry_date: '2026-12-01' },
+          { quantity_on_hand: 5, expiry_date: '2027-09-01' },
+        ],
+        TODAY
+      )
+    ).toMatchObject({ nextExpiryDate: '2027-09-01', expiringSoon: false });
+  });
+});
+
+describe('usePharmacyPrescriptionQueue stock and expiry (QA-265)', () => {
+  const fromMock = vi.mocked(supabase.from);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 26 Nov 2026 00:30 in Dubai, still 25 Nov in UTC.
+    vi.setSystemTime(new Date('2026-11-25T20:30:00.000Z'));
+    const item = (id: string, reorder: number) => ({
+      id,
+      sku: id,
+      generic_name: `Medicine ${id}`,
+      brand_name: '',
+      strength: null,
+      dosage_form: 'Tablets',
+      atc_code: null,
+      category: null,
+      unit: 'tabs',
+      reorder_level: reorder,
+      is_controlled: false,
+      is_dha_formulary: false,
+    });
+    const tables: Record<string, unknown> = {
+      organizations: createSupabaseQueryBuilder({
+        data: { id: 'org-1', name: 'QA Pharmacy', slug: 'qa', city: null, notes: null },
+        error: null,
+      }),
+      pharmacy_facility_profiles: createSupabaseQueryBuilder({ data: null, error: null }),
+      organization_staff_members: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_dispensing_tasks: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_inventory_items: createSupabaseQueryBuilder({ data: [item('expired', 20), item('low-expiring', 50)], error: null }),
+      pharmacy_inventory_batches: createSupabaseQueryBuilder({
+        data: [
+          { id: 'b1', inventory_item_id: 'expired', quantity_on_hand: 30, expiry_date: '2026-11-25' },
+          { id: 'b2', inventory_item_id: 'expired', quantity_on_hand: 40, expiry_date: '2027-08-01' },
+          { id: 'b3', inventory_item_id: 'low-expiring', quantity_on_hand: 10, expiry_date: '2026-12-15' },
+        ],
+        error: null,
+      }),
+      pharmacy_claims: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_messages: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_settings: createSupabaseQueryBuilder({ data: [], error: null }),
+    };
+    fromMock.mockImplementation(((table: string) => tables[table]) as never);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('leaves expired units out of the stock, uses the Dubai date, and does not hide low stock behind expiry', async () => {
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.inventory).toHaveLength(2));
+
+    const byId = new Map(result.current.data?.inventory.map((item) => [item.id, item]));
+    expect(byId.get('expired')).toMatchObject({ stock: 40, expiredStock: 30, status: 'healthy', expiringSoon: false });
+    expect(byId.get('low-expiring')).toMatchObject({ stock: 10, expiredStock: 0, status: 'low', expiringSoon: true });
+    // Expired units on the shelf are an alert as well.
+    expect(result.current.data?.lowStockAlerts).toBe(2);
   });
 });

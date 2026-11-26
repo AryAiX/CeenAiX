@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import type { PrescriptionClinicalVocabRow } from '../lib/prescription-vocab';
 import { supabase } from '../lib/supabase';
 import { fetchAllPages, ID_CHUNK_SIZE } from '../lib/supabase-batches';
+import { clinicTodayKey } from '../lib/clinic-booking-time';
 import { useQuery } from './use-query';
 
 const linkedDispensingTaskFallback = () =>
@@ -74,9 +75,20 @@ export interface PharmacyInventoryDerivedItem {
   id: string;
   name: string;
   sku: string;
+  /** QA-265: usable stock only; expired batches are not counted. */
   stock: number;
+  /** QA-265: units in batches past their expiry date (to take off the shelf, not to dispense). */
+  expiredStock: number;
+  /** QA-265: the earliest expiry (YYYY-MM-DD) of a usable batch that still has stock. */
+  nextExpiryDate: string | null;
+  /** QA-265: a usable batch expires within 45 days (Dubai dates). */
+  expiringSoon: boolean;
   reorderPoint: number;
   expiryMonth: string | null;
+  /**
+   * The most urgent stock state: out > low > expiring soon > healthy (QA-265: low stock is no
+   * longer hidden by a batch that expires soon). Expired stock is in `expiredStock`.
+   */
   status: 'healthy' | 'low' | 'near_expiry' | 'out';
   genericName: string;
   brandName: string;
@@ -293,17 +305,51 @@ const workflowToQueueStatus = (
   return 'verifying';
 };
 
+/** QA-265: a batch expiring within this many days counts as "expiring soon". */
+export const EXPIRING_SOON_DAYS = 45;
+
+/** Whole days from one YYYY-MM-DD date to another (calendar days, no time zone). */
+const daysBetweenDateKeys = (fromKey: string, toKey: string) => {
+  const [fy, fm, fd] = fromKey.split('-').map(Number);
+  const [ty, tm, td] = toKey.split('-').map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
+};
+
+/**
+ * QA-265: split an item's batches into usable and expired stock, using today's date in Dubai.
+ * A batch is expired after its expiry date; batches with no units are ignored.
+ */
+export const summarizeInventoryBatches = (
+  batches: Array<{ quantity_on_hand: number; expiry_date: string | null }>,
+  todayKey: string
+) => {
+  let stock = 0;
+  let expiredStock = 0;
+  let nextExpiryDate: string | null = null;
+  for (const batch of batches) {
+    const quantity = Math.max(0, batch.quantity_on_hand);
+    if (quantity === 0) continue;
+    const expiry = batch.expiry_date ? batch.expiry_date.slice(0, 10) : null;
+    if (expiry && expiry < todayKey) {
+      expiredStock += quantity;
+      continue;
+    }
+    stock += quantity;
+    if (expiry && (nextExpiryDate === null || expiry < nextExpiryDate)) nextExpiryDate = expiry;
+  }
+  const expiringSoon =
+    nextExpiryDate !== null && daysBetweenDateKeys(todayKey, nextExpiryDate) <= EXPIRING_SOON_DAYS;
+  return { stock, expiredStock, nextExpiryDate, expiringSoon };
+};
+
 const inventoryStatus = (
   stock: number,
   reorderPoint: number,
-  nextExpiry: string | null
+  expiringSoon: boolean
 ): PharmacyInventoryDerivedItem['status'] => {
   if (stock <= 0) return 'out';
-  if (nextExpiry) {
-    const daysUntilExpiry = Math.ceil((new Date(nextExpiry).getTime() - Date.now()) / 86_400_000);
-    if (daysUntilExpiry <= 45) return 'near_expiry';
-  }
   if (stock < reorderPoint) return 'low';
+  if (expiringSoon) return 'near_expiry';
   return 'healthy';
 };
 
@@ -725,14 +771,11 @@ export function usePharmacyPrescriptionQueue() {
 
     const queueByTaskId = new Map(queue.map((task) => [task.id, task]));
 
+    const todayKey = clinicTodayKey();
     const inventory = inventoryRows.map((item): PharmacyInventoryDerivedItem => {
       const batches = batchesByItem.get(item.id) ?? [];
-      const stock = batches.reduce((sum, batch) => sum + batch.quantity_on_hand, 0);
-      const nextExpiry =
-        batches
-          .map((batch) => batch.expiry_date)
-          .filter((value): value is string => Boolean(value))
-          .sort()[0] ?? null;
+      // QA-265: expired batches are not usable stock.
+      const { stock, expiredStock, nextExpiryDate, expiringSoon } = summarizeInventoryBatches(batches, todayKey);
       const name = [item.generic_name, item.strength].filter(Boolean).join(' ');
 
       return {
@@ -740,9 +783,12 @@ export function usePharmacyPrescriptionQueue() {
         name,
         sku: item.sku,
         stock,
+        expiredStock,
+        nextExpiryDate,
+        expiringSoon,
         reorderPoint: item.reorder_level,
-        expiryMonth: formatExpiry(nextExpiry),
-        status: inventoryStatus(stock, item.reorder_level, nextExpiry),
+        expiryMonth: formatExpiry(nextExpiryDate),
+        status: inventoryStatus(stock, item.reorder_level, expiringSoon),
         genericName: item.generic_name,
         brandName: item.brand_name,
         strength: item.strength,
@@ -811,7 +857,8 @@ export function usePharmacyPrescriptionQueue() {
       })),
       pendingPrescriptions: queue.filter((item) => item.workflowStatus !== 'dispensed' && item.workflowStatus !== 'cancelled').length,
       dispensedToday: dispensedCount,
-      lowStockAlerts: inventory.filter((item) => item.status === 'low' || item.status === 'out' || item.status === 'near_expiry').length,
+      // QA-265: expired stock on the shelf is an alert too.
+      lowStockAlerts: inventory.filter((item) => item.expiredStock > 0 || item.status === 'low' || item.status === 'out' || item.status === 'near_expiry').length,
       claimsInReview: claims.filter((claim) => claim.status === 'review').length,
       queue,
       inventory,
