@@ -3608,7 +3608,8 @@
       "pageSubtitle": "الوصفات المُرسلة إلى {{pharmacy}}",
       "pharmacyFallback": "صيدليتك",
       "emptySearch": "لا توجد وصفات تطابق بحثك",
-      "loading": "جارٍ تحميل الوصفات…"
+      "loading": "جارٍ تحميل الوصفات…",
+      "tasksTruncated": "هذه القائمة طويلة جداً، لذلك لا تظهر أقدم الوصفات."
     },
     "inventory": {
       "title": "المخزون",

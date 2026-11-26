@@ -522,6 +522,16 @@ export const PharmacyDispensing = () => {
             {actionError}
           </div>
         ) : null}
+        {data?.tasksTruncated ? (
+          <div
+            role="note"
+            className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            {t('pharmacy.dispensing.tasksTruncated', {
+              defaultValue: 'This list is very long, so the oldest prescriptions are not shown.',
+            })}
+          </div>
+        ) : null}
         {actionNotice ? (
           <div
             role="status"

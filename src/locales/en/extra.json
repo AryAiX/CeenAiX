@@ -3466,7 +3466,8 @@
       "pageSubtitle": "Prescriptions sent to {{pharmacy}}",
       "pharmacyFallback": "your pharmacy",
       "emptySearch": "No prescriptions match your search",
-      "loading": "Loading prescriptions…"
+      "loading": "Loading prescriptions…",
+      "tasksTruncated": "This list is very long, so the oldest prescriptions are not shown."
     },
     "inventory": {
       "title": "Inventory",

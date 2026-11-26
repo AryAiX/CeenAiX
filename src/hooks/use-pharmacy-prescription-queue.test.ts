@@ -312,3 +312,132 @@ describe('updatePharmacyDispensingTaskStatus (QA-255)', () => {
     });
   });
 });
+
+describe('usePharmacyPrescriptionQueue reads long lists completely (QA-259)', () => {
+  const fromMock = vi.mocked(supabase.from);
+
+  /** A table whose answer depends on the requested range, like the real API (at most 1,000 rows). */
+  const pagedTable = <T,>(rowAt: (index: number) => T, total: number) => {
+    const builder = createSupabaseQueryBuilder({ data: [] as T[], error: null });
+    let range: [number, number] = [0, 999];
+    let inFilter: string[] | null = null;
+    builder.range = vi.fn((from: number, to: number) => {
+      range = [from, to];
+      return builder;
+    });
+    builder.in = vi.fn((_column: string, values: string[]) => {
+      inFilter = values;
+      return builder;
+    });
+    const answer = () => {
+      const [from, to] = range;
+      const end = Math.min(to + 1, from + 1000, total);
+      const rows: T[] = [];
+      for (let index = from; index < end; index += 1) rows.push(rowAt(index));
+      return { data: inFilter ? rows.filter((row) => inFilter?.includes((row as { inventory_item_id: string }).inventory_item_id)) : rows, error: null };
+    };
+    builder.then = ((resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve(answer()).then(resolve, reject)) as never;
+    return builder;
+  };
+
+  const taskRow = (index: number) => ({
+    id: `task-${index}`,
+    prescription_id: `rx-${index}`,
+    prescription_item_id: null,
+    external_ref: `ref-${index}`,
+    patient_name: 'Test Patient',
+    prescriber_name: 'Dr Test',
+    medication_name: 'Medicine',
+    quantity: 1,
+    priority: 'routine',
+    workflow_status: 'new',
+    received_at: '2026-11-25T08:00:00.000Z',
+    insurance_provider: 'Cash',
+    copay_aed: 0,
+    allergy_flag: false,
+    assigned_to: null,
+    patient_user_id: null,
+  });
+
+  const setTables = (tasks: ReturnType<typeof pagedTable>, items = 0) => {
+    const empty = () => createSupabaseQueryBuilder({ data: [], error: null });
+    const itemTable = pagedTable(
+      (index) => ({
+        id: `item-${index}`,
+        sku: `SKU-${index}`,
+        generic_name: `Medicine ${index}`,
+        brand_name: null,
+        strength: null,
+        dosage_form: null,
+        atc_code: null,
+        category: null,
+        unit: null,
+        reorder_level: 0,
+        is_controlled: false,
+        is_dha_formulary: false,
+      }),
+      items
+    );
+    const batchTable = pagedTable(
+      (index) => ({ id: `batch-${index}`, inventory_item_id: `item-${index}`, quantity_on_hand: 5, expiry_date: null }),
+      items
+    );
+    const tables: Record<string, unknown> = {
+      organizations: createSupabaseQueryBuilder({
+        data: { id: 'org-1', name: 'QA Pharmacy', slug: 'qa', city: null, notes: null },
+        error: null,
+      }),
+      pharmacy_facility_profiles: createSupabaseQueryBuilder({ data: null, error: null }),
+      organization_staff_members: empty(),
+      pharmacy_dispensing_tasks: tasks,
+      pharmacy_inventory_items: itemTable,
+      pharmacy_inventory_batches: batchTable,
+      pharmacy_claims: empty(),
+      pharmacy_messages: empty(),
+      pharmacy_settings: empty(),
+    };
+    fromMock.mockImplementation(((table: string) => tables[table]) as never);
+    return { batchTable };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  it('loads every dispensing task, not only the first 1,000', async () => {
+    const tasks = pagedTable(taskRow, 1003);
+    setTables(tasks);
+
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.queue).toHaveLength(1003));
+
+    expect(tasks.range).toHaveBeenCalledWith(0, 999);
+    expect(tasks.range).toHaveBeenCalledWith(1000, 1999);
+    // A unique last order keeps the pages from overlapping.
+    expect(tasks.order).toHaveBeenCalledWith('id', { ascending: true });
+    expect(result.current.data?.tasksTruncated).toBe(false);
+  });
+
+  it('says when the list is longer than the safety limit', async () => {
+    setTables(pagedTable(taskRow, 25000));
+
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.queue.length).toBeGreaterThan(0));
+
+    expect(result.current.data?.queue).toHaveLength(20000);
+    expect(result.current.data?.tasksTruncated).toBe(true);
+  });
+
+  it('looks up the stock of many items in small batches of ids', async () => {
+    const { batchTable } = setTables(pagedTable(taskRow, 1), 160);
+
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.inventory).toHaveLength(160));
+
+    const idBatches = batchTable.in.mock.calls.map((call) => (call[1] as string[]).length);
+    expect(idBatches).toEqual([150, 10]);
+    expect(result.current.data?.inventory.every((item) => item.stock === 5)).toBe(true);
+  });
+});

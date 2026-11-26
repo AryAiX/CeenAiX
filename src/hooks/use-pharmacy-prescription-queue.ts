@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import type { PrescriptionClinicalVocabRow } from '../lib/prescription-vocab';
 import { supabase } from '../lib/supabase';
+import { fetchAllPages, ID_CHUNK_SIZE } from '../lib/supabase-batches';
 import { useQuery } from './use-query';
 
 const linkedDispensingTaskFallback = () =>
@@ -144,6 +145,8 @@ export interface PharmacyPrescriptionQueueData {
   messages: PharmacyMessageThread[];
   settings: PharmacySettingItem[];
   reportMetrics: PharmacyReportMetrics;
+  /** QA-259: more dispensing tasks than the safety limit; the oldest are not shown. */
+  tasksTruncated: boolean;
 }
 
 interface OrganizationRow {
@@ -272,6 +275,7 @@ const emptyData = (): PharmacyPrescriptionQueueData => ({
     dhaSubmittedCount: 0,
     lastSubmittedLabel: 'No submissions',
   },
+  tasksTruncated: false,
 });
 
 const toNumber = (value: number | string | null | undefined) => {
@@ -587,6 +591,9 @@ export function usePharmacyPrescriptionQueue() {
 
     const org = organization as OrganizationRow;
 
+    // QA-259: every list is read page by page. The API returns at most 1,000 rows per request and
+    // does not say when it stopped, so older tasks, items, claims or threads used to vanish.
+    // Each query ends with a unique column (id) so the pages do not overlap.
     const [
       profileResult,
       staffResult,
@@ -601,64 +608,96 @@ export function usePharmacyPrescriptionQueue() {
         .select('display_name, license_number, license_valid_until, address, operating_hours, pharmacist_in_charge, dha_connected, nabidh_connected, phone, email, website, emergency_contact, working_hours_json, logo_url, description')
         .eq('organization_id', org.id)
         .maybeSingle(),
-      supabase
-        .from('organization_staff_members')
-        .select('id, full_name, role_title, credential_number, shift_status')
-        .eq('organization_id', org.id)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('pharmacy_dispensing_tasks')
-        .select('id, prescription_id, prescription_item_id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
-        .eq('organization_id', org.id)
-        .order('received_at', { ascending: false }),
-      supabase
-        .from('pharmacy_inventory_items')
-        .select('id, sku, generic_name, brand_name, strength, dosage_form, atc_code, category, unit, reorder_level, is_controlled, is_dha_formulary')
-        .eq('organization_id', org.id)
-        .order('generic_name', { ascending: true }),
-      supabase
-        .from('pharmacy_claims')
-        .select('id, dispensing_task_id, external_ref, payer_name, amount_aed, status, submitted_at, paid_at')
-        .eq('organization_id', org.id)
-        .order('submitted_at', { ascending: false }),
-      supabase
-        .from('pharmacy_messages')
-        .select('id, contact_name, specialty, message_type, status, unread_count, last_message, contact_message, pharmacy_response, last_message_at')
-        .eq('organization_id', org.id)
-        .order('last_message_at', { ascending: false }),
-      supabase
-        .from('pharmacy_settings')
-        .select('id, setting_key, title, description, enabled')
-        .eq('organization_id', org.id)
-        .order('created_at', { ascending: true }),
+      fetchAllPages<StaffRow>((from, to) =>
+        supabase
+          .from('organization_staff_members')
+          .select('id, full_name, role_title, credential_number, shift_status')
+          .eq('organization_id', org.id)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllPages<DispensingTaskRow>((from, to) =>
+        supabase
+          .from('pharmacy_dispensing_tasks')
+          .select('id, prescription_id, prescription_item_id, external_ref, patient_name, prescriber_name, medication_name, quantity, priority, workflow_status, received_at, insurance_provider, copay_aed, allergy_flag, assigned_to, patient_user_id')
+          .eq('organization_id', org.id)
+          .order('received_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllPages<InventoryItemRow>((from, to) =>
+        supabase
+          .from('pharmacy_inventory_items')
+          .select('id, sku, generic_name, brand_name, strength, dosage_form, atc_code, category, unit, reorder_level, is_controlled, is_dha_formulary')
+          .eq('organization_id', org.id)
+          .order('generic_name', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllPages<ClaimRow>((from, to) =>
+        supabase
+          .from('pharmacy_claims')
+          .select('id, dispensing_task_id, external_ref, payer_name, amount_aed, status, submitted_at, paid_at')
+          .eq('organization_id', org.id)
+          .order('submitted_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllPages<MessageRow>((from, to) =>
+        supabase
+          .from('pharmacy_messages')
+          .select('id, contact_name, specialty, message_type, status, unread_count, last_message, contact_message, pharmacy_response, last_message_at')
+          .eq('organization_id', org.id)
+          .order('last_message_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllPages<SettingRow>((from, to) =>
+        supabase
+          .from('pharmacy_settings')
+          .select('id, setting_key, title, description, enabled')
+          .eq('organization_id', org.id)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
     ]);
 
     if (profileResult.error) throw profileResult.error;
-    if (staffResult.error) throw staffResult.error;
-    if (taskResult.error) throw taskResult.error;
-    if (itemResult.error) throw itemResult.error;
-    if (claimResult.error) throw claimResult.error;
-    if (messageResult.error) throw messageResult.error;
-    if (settingResult.error) throw settingResult.error;
+    for (const [name, result] of [
+      ['staff', staffResult],
+      ['inventory items', itemResult],
+      ['claims', claimResult],
+      ['messages', messageResult],
+      ['settings', settingResult],
+    ] as const) {
+      if (result.truncated) console.warn(`[pharmacy] ${name} list stopped at the safety limit`);
+    }
 
-    const inventoryRows = (itemResult.data ?? []) as InventoryItemRow[];
+    const inventoryRows = itemResult.rows;
     const inventoryIds = inventoryRows.map((item) => item.id);
-    const { data: batchesData, error: batchesError } =
-      inventoryIds.length > 0
-        ? await supabase
-            .from('pharmacy_inventory_batches')
-            .select('id, inventory_item_id, quantity_on_hand, expiry_date')
-            .in('inventory_item_id', inventoryIds)
-        : { data: [], error: null };
-
-    if (batchesError) throw batchesError;
+    // QA-259: ids in small batches (a long id list breaks the web address), each batch paged.
+    const batchesData: InventoryBatchRow[] = [];
+    for (let start = 0; start < inventoryIds.length; start += ID_CHUNK_SIZE) {
+      const chunk = inventoryIds.slice(start, start + ID_CHUNK_SIZE);
+      const { rows } = await fetchAllPages<InventoryBatchRow>((from, to) =>
+        supabase
+          .from('pharmacy_inventory_batches')
+          .select('id, inventory_item_id, quantity_on_hand, expiry_date')
+          .in('inventory_item_id', chunk)
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      batchesData.push(...rows);
+    }
 
     const batchesByItem = new Map<string, InventoryBatchRow[]>();
-    for (const batch of (batchesData ?? []) as InventoryBatchRow[]) {
+    for (const batch of batchesData) {
       batchesByItem.set(batch.inventory_item_id, [...(batchesByItem.get(batch.inventory_item_id) ?? []), batch]);
     }
 
-    const queue = ((taskResult.data ?? []) as DispensingTaskRow[]).map((task): PharmacyQueuePrescriptionItem => {
+    const queue = taskResult.rows.map((task): PharmacyQueuePrescriptionItem => {
       const waitMinutes = Math.max(0, Math.round((Date.now() - new Date(task.received_at).getTime()) / 60000));
       return {
         id: task.id,
@@ -717,7 +756,7 @@ export function usePharmacyPrescriptionQueue() {
       };
     });
 
-    const claims = ((claimResult.data ?? []) as ClaimRow[]).map((claim): PharmacyClaimLedgerItem => {
+    const claims = claimResult.rows.map((claim): PharmacyClaimLedgerItem => {
       const task = claim.dispensing_task_id ? queueByTaskId.get(claim.dispensing_task_id) : undefined;
       return {
         id: claim.id,
@@ -763,7 +802,7 @@ export function usePharmacyPrescriptionQueue() {
             description: (profileResult.data as ProfileRow).description,
           }
         : null,
-      staff: ((staffResult.data ?? []) as StaffRow[]).map((staff) => ({
+      staff: staffResult.rows.map((staff) => ({
         id: staff.id,
         fullName: staff.full_name,
         roleTitle: staff.role_title,
@@ -777,7 +816,7 @@ export function usePharmacyPrescriptionQueue() {
       queue,
       inventory,
       claims,
-      messages: ((messageResult.data ?? []) as MessageRow[]).map((message) => ({
+      messages: messageResult.rows.map((message) => ({
         id: message.id,
         contactName: message.contact_name,
         specialty: message.specialty,
@@ -789,7 +828,7 @@ export function usePharmacyPrescriptionQueue() {
         pharmacyResponse: message.pharmacy_response,
         lastMessageAt: message.last_message_at,
       })),
-      settings: ((settingResult.data ?? []) as SettingRow[]).map((setting) => ({
+      settings: settingResult.rows.map((setting) => ({
         id: setting.id,
         settingKey: setting.setting_key,
         title: setting.title,
@@ -802,6 +841,7 @@ export function usePharmacyPrescriptionQueue() {
         dhaSubmittedCount: queue.length,
         lastSubmittedLabel: queue.length > 0 ? 'Today' : 'No submissions',
       },
+      tasksTruncated: taskResult.truncated,
     };
   }, []);
 }

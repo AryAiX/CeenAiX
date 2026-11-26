@@ -524,3 +524,17 @@ describe('PharmacyDispensing shows only real facts on the rows (QA-257)', () => 
     expect(within(rowFor('Test Patient')).getByRole('img', { name: 'Allergy flag on record' })).toBeInTheDocument();
   });
 });
+
+describe('PharmacyDispensing very long lists (QA-259)', () => {
+  it('says when the oldest prescriptions are not shown', () => {
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { queue: [task({ id: 'task-a', medication: 'Amoxicillin' })], profile: null, organization: null, lowStockAlerts: 0, tasksTruncated: true },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    renderPage();
+
+    expect(screen.getByRole('note')).toHaveTextContent('This list is very long, so the oldest prescriptions are not shown.');
+  });
+});
