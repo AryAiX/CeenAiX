@@ -17,6 +17,7 @@ import type { PharmacyInventoryBatch, PharmacyInventoryDerivedItem } from '../..
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { clinicTodayKey, formatClinicDate } from '../../lib/clinic-booking-time';
+import { downloadCsv } from '../../lib/csv-export';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType =
@@ -261,48 +262,57 @@ export const PharmacyInventory = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              disabled={filtered.length === 0}
+              title="Exports the items shown, with the current filter and search, as a CSV file"
               onClick={() => {
                 setExportError(null);
                 try {
-                  const header = ['id', 'generic_name', 'brand_name', 'stock_qty', 'reorder_level', 'stock_status', 'next_expiry'];
-                  const escape = (v: string | number | null | undefined) => {
-                    if (v === null || v === undefined) return '';
-                    const s = String(v);
-                    return s.includes(',') || s.includes('"') || s.includes('\n')
-                      ? `"${s.replace(/"/g, '""')}"`
-                      : s;
-                  };
-                  const body = [
-                    header,
-                    ...rows.map((row) => [
-                      row.id,
+                  // QA-270: the items shown (filter + search), with usable and expired stock, through
+                  // the shared CSV helper (Arabic opens correctly in Excel; no formulas can run).
+                  downloadCsv(`pharmacy-inventory-${clinicTodayKey()}.csv`, [
+                    [
+                      'sku',
+                      'generic_name',
+                      'brand_name',
+                      'strength',
+                      'form',
+                      'usable_stock',
+                      'expired_stock',
+                      'unit',
+                      'reorder_level',
+                      'stock_status',
+                      'expiring_soon',
+                      'next_expiry',
+                      'controlled',
+                    ],
+                    ...filtered.map((row) => [
+                      row.sku,
                       row.genericName,
                       row.brandName,
+                      row.strength,
+                      row.form,
                       row.stockQty,
+                      row.expiredQty,
+                      row.unit,
                       row.reorderLevel,
                       row.stockStatus,
+                      row.expiringSoon,
                       row.nextExpiryDate,
+                      row.isControlled,
                     ]),
-                  ]
-                    .map((line) => line.map(escape).join(','))
-                    .join('\n');
-                  const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  // QA-269: today's date in Dubai, not in UTC.
-                  link.download = `pharmacy-inventory-${clinicTodayKey()}.csv`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
+                  ]);
                 } catch (err) {
-                  setExportError(err instanceof Error ? err.message : 'Export failed.');
+                  console.warn(`[pharmacy] inventory export failed: ${err instanceof Error ? err.message : String(err)}`);
+                  setExportError(
+                    t('pharmacy.inventory.exportFailed', {
+                      defaultValue: 'Could not create the export. Please try again.',
+                    })
+                  );
                 }
               }}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-4 w-4" aria-hidden="true" />
               Export Stock Report
             </button>
           </div>

@@ -3551,7 +3551,8 @@
         "low": "Low",
         "near_expiry": "Near expiry",
         "out": "Out"
-      }
+      },
+      "exportFailed": "Could not create the export. Please try again."
     },
     "messages": {
       "title": "Messages",

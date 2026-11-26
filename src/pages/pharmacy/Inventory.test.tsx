@@ -9,8 +9,10 @@ vi.mock('../../components/OpsShell', () => ({
   OpsShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn() }));
+vi.mock('../../lib/csv-export', () => ({ downloadCsv: vi.fn() }));
 
 import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { downloadCsv } from '../../lib/csv-export';
 import { PharmacyInventory } from './Inventory';
 
 const item = (
@@ -248,5 +250,49 @@ describe('PharmacyInventory buttons that do what they say (QA-268)', () => {
     );
     expect(href).not.toContain('0b7c2f4e');
     expect(link).toHaveAttribute('title', 'Opens an email draft to send to your supplier');
+  });
+});
+
+describe('PharmacyInventory stock export (QA-270)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('exports the items shown, with usable and expired stock, through the shared CSV helper', async () => {
+    showInventory([
+      item({ id: 'amox', sku: 'AMX-500', genericName: 'Amoxicillin', strength: '500 mg', stock: 40, expiredStock: 30, nextExpiryDate: '2027-08-01' }),
+      item({ id: 'met', sku: 'MET-850', genericName: 'Metformin', stock: 5, reorderPoint: 50, status: 'low' }),
+    ]);
+    renderInventory();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Expired \(1\)/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Export Stock Report/ }));
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    const [fileName, rows] = vi.mocked(downloadCsv).mock.calls[0];
+    expect(fileName).toMatch(/^pharmacy-inventory-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(rows[0]).toEqual([
+      'sku', 'generic_name', 'brand_name', 'strength', 'form', 'usable_stock', 'expired_stock',
+      'unit', 'reorder_level', 'stock_status', 'expiring_soon', 'next_expiry', 'controlled',
+    ]);
+    // Only the item shown by the Expired filter, and no internal id.
+    expect(rows.slice(1)).toEqual([
+      ['AMX-500', 'Amoxicillin', '', '500 mg', 'Tablets', 40, 30, 'tabs', 20, 'in_stock', false, '2027-08-01', false],
+    ]);
+  });
+
+  it('shows a plain message when the export fails, not the browser error', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(downloadCsv).mockImplementation(() => {
+      throw new Error('Failed to execute createObjectURL');
+    });
+    showInventory([item({ id: 'amox', genericName: 'Amoxicillin' })]);
+    renderInventory();
+
+    await userEvent.click(screen.getByRole('button', { name: /Export Stock Report/ }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not create the export. Please try again.');
+    expect(screen.queryByText(/createObjectURL/)).not.toBeInTheDocument();
+    warn.mockRestore();
   });
 });
