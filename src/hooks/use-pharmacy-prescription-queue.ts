@@ -351,6 +351,19 @@ export async function updatePharmacyDispensingTaskStatus(
   if (error) throw error;
 }
 
+/** QA-254: what reached the patient after a hold. */
+export interface PharmacyHoldOutreachResult {
+  /** The CeenAiX notification was saved. */
+  notified: boolean;
+  /** The message from the pharmacy was sent in Messages. */
+  messaged: boolean;
+}
+
+/**
+ * Tells the patient a prescription is on hold: a notification (written by the database, QA-263)
+ * and a message from the pharmacy in Messages (QA-254). It never throws: it reports what got
+ * through, so the page can say so plainly. Database errors are logged for operators, not shown.
+ */
 export async function sendPharmacyHoldNotificationAndMessage({
   taskIds,
   patientUserId,
@@ -365,37 +378,64 @@ export async function sendPharmacyHoldNotificationAndMessage({
   holdReasonLabel: string;
   holdNote: string;
   pharmacyUserId: string | null;
-}): Promise<void> {
+}): Promise<PharmacyHoldOutreachResult> {
   const medList = medications.slice(0, 2).join(', ');
   const messageBody = `Your prescription for ${medList} has been placed on hold.\n\nReason: ${holdReasonLabel}${holdNote ? `\n\nNote: ${holdNote}` : ''}\n\nPlease contact us if you have any questions.`;
+  const result: PharmacyHoldOutreachResult = { notified: false, messaged: false };
 
   // QA-263: the database writes the patient's notification from the tasks on hold (only a member
   // of that pharmacy may ask); the app can no longer write into another user's inbox.
   const { error: notificationError } = await supabase.rpc('notify_patient_prescription_on_hold', {
     p_task_ids: taskIds,
   });
+  if (notificationError) {
+    console.warn(`[pharmacy] hold notification failed: ${notificationError.message}`);
+  } else {
+    result.notified = true;
+  }
 
-  if (notificationError) throw notificationError;
+  if (!pharmacyUserId) return result;
 
-  if (!pharmacyUserId) return;
+  try {
+    // QA-254: the real function is get_or_create_direct_conversation (there is no
+    // ensure_direct_conversation) and it returns the conversation id itself. It only lets a
+    // pharmacy write to a patient whose prescription it holds.
+    const { data: conversationId, error: conversationError } = await supabase.rpc(
+      'get_or_create_direct_conversation',
+      {
+        p_other_user_id: patientUserId,
+        p_subject: `Prescription Update - ${medList}`,
+      }
+    );
+    if (conversationError) throw conversationError;
+    if (typeof conversationId !== 'string' || !conversationId) {
+      throw new Error('No conversation id returned');
+    }
 
-  const { data: conversation, error: conversationError } = await supabase.rpc('ensure_direct_conversation', {
-    p_other_user_id: patientUserId,
-    p_subject: `Prescription Update - ${medList}`,
-  });
-
-  if (conversationError) throw conversationError;
-
-  if (conversation?.id) {
+    const sentAt = new Date().toISOString();
     const { error: messageError } = await supabase.from('messages').insert({
-      conversation_id: conversation.id,
+      conversation_id: conversationId,
       sender_id: pharmacyUserId,
       body: messageBody,
+      sent_at: sentAt,
       is_deleted: false,
     });
-
     if (messageError) throw messageError;
+    result.messaged = true;
+
+    // Best effort, like Messages: the message is sent even if the list order is not updated.
+    const { error: conversationUpdateError } = await supabase
+      .from('conversations')
+      .update({ last_message_at: sentAt })
+      .eq('id', conversationId);
+    if (conversationUpdateError) {
+      console.warn(`[pharmacy] hold message sent but conversation time not updated: ${conversationUpdateError.message}`);
+    }
+  } catch (error) {
+    console.warn(`[pharmacy] hold message failed: ${error instanceof Error ? error.message : String(error)}`);
   }
+
+  return result;
 }
 
 /** QA-253: what the doctor wrote for one medicine, so the pharmacist knows what to dispense. */

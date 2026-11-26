@@ -251,6 +251,7 @@ export const PharmacyDispensing = () => {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const [holdModalRow, setHoldModalRow] = useState<PrescriptionListRow | null>(null);
   const [holdReason, setHoldReason] = useState('');
@@ -306,6 +307,7 @@ export const PharmacyDispensing = () => {
     const taskIds = openDispensingTaskIds(row.tasks);
     if (taskIds.length === 0) return;
     setActionError(null);
+    setActionNotice(null);
     setBusyId(row.id);
     try {
       await Promise.all(
@@ -319,23 +321,37 @@ export const PharmacyDispensing = () => {
 
       const patientUserId = row.patientUserId;
 
+      // QA-254: say plainly what reached the patient; database errors are logged, not shown.
       if (patientUserId) {
-        try {
-          await sendPharmacyHoldNotificationAndMessage({
-            taskIds,
-            patientUserId,
-            medications: row.drugs,
-            holdReasonLabel: getHoldReasonLabel(holdReason).replace(/^[^\s]+\s/, ''),
-            holdNote,
-            pharmacyUserId: user?.id ?? null,
-          });
-        } catch (notificationError) {
-          setActionError(
-            notificationError instanceof Error
-              ? `Status updated, but patient notification failed: ${notificationError.message}`
-              : 'Status updated, but patient notification failed.'
+        const outreach = await sendPharmacyHoldNotificationAndMessage({
+          taskIds,
+          patientUserId,
+          medications: row.drugs,
+          holdReasonLabel: getHoldReasonLabel(holdReason).replace(/^[^\s]+\s/, ''),
+          holdNote,
+          pharmacyUserId: user?.id ?? null,
+        });
+        if (!outreach.notified && !outreach.messaged) {
+          setActionNotice(
+            t('pharmacy.dispensing.holdPatientNotTold', {
+              defaultValue:
+                'The prescription is on hold, but the patient could not be told. Please contact them directly.',
+            })
+          );
+        } else if (!outreach.messaged) {
+          setActionNotice(
+            t('pharmacy.dispensing.holdMessageNotSent', {
+              defaultValue:
+                'The prescription is on hold and the patient was notified, but the message could not be sent. You can write to them from Messages.',
+            })
           );
         }
+      } else {
+        setActionNotice(
+          t('pharmacy.dispensing.holdNoPatientAccount', {
+            defaultValue: 'The prescription is on hold. This patient has no CeenAiX account, so they were not told.',
+          })
+        );
       }
 
       refetch();
@@ -343,9 +359,14 @@ export const PharmacyDispensing = () => {
       setHoldReason('');
       setHoldNote('');
     } catch (error) {
+      console.warn(`[pharmacy] hold failed: ${error instanceof Error ? error.message : String(error)}`);
       setActionError(
-        error instanceof Error ? error.message : 'Could not update prescription status.'
+        t('pharmacy.dispensing.statusUpdateFailed', {
+          defaultValue: 'Could not update the prescription. Please try again.',
+        })
       );
+      // Some medicines may have changed before the error: show what is really saved.
+      refetch();
     } finally {
       setBusyId(null);
     }
@@ -361,6 +382,7 @@ export const PharmacyDispensing = () => {
     const taskIds = openDispensingTaskIds(row.tasks);
     if (taskIds.length === 0) return;
     setActionError(null);
+    setActionNotice(null);
     setBusyId(row.id);
     try {
       const workflowStatus: Parameters<typeof updatePharmacyDispensingTaskStatus>[1] =
@@ -372,9 +394,15 @@ export const PharmacyDispensing = () => {
       await Promise.all(taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, workflowStatus)));
       refetch();
     } catch (error) {
+      // QA-254: a plain, translated message; the database error is logged for operators.
+      console.warn(`[pharmacy] status update failed: ${error instanceof Error ? error.message : String(error)}`);
       setActionError(
-        error instanceof Error ? error.message : 'Could not update prescription status.'
+        t('pharmacy.dispensing.statusUpdateFailed', {
+          defaultValue: 'Could not update the prescription. Please try again.',
+        })
       );
+      // Some medicines may have changed before the error: show what is really saved.
+      refetch();
     } finally {
       setBusyId(null);
     }
@@ -448,6 +476,14 @@ export const PharmacyDispensing = () => {
             className="mx-6 mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
           >
             {actionError}
+          </div>
+        ) : null}
+        {actionNotice ? (
+          <div
+            role="status"
+            className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            {actionNotice}
           </div>
         ) : null}
         <div className="mx-6 mb-4 mt-5 flex shrink-0 items-center justify-between">

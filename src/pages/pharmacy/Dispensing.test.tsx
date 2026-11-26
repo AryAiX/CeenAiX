@@ -19,6 +19,7 @@ vi.mock('../../hooks', () => ({
 
 import {
   fetchPharmacyPrescriptionDetails,
+  sendPharmacyHoldNotificationAndMessage,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
 } from '../../hooks';
@@ -326,5 +327,89 @@ describe('PharmacyDispensing prescription details (QA-253)', () => {
     expect(within(dialog).getByText('٧ أيام')).toBeInTheDocument();
     expect(within(dialog).getAllByText('عدد المرات')).toHaveLength(2);
     expect(within(dialog).getByText('٢١')).toBeInTheDocument();
+  });
+});
+
+describe('PharmacyDispensing hold and errors told plainly (QA-254)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(updatePharmacyDispensingTaskStatus).mockResolvedValue(undefined);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const putOnHold = async () => {
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Hold' }));
+    await userEvent.click(screen.getByRole('button', { name: /Out of Stock/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm Hold' }));
+  };
+
+  it('puts the open medicines on hold and tells the patient, with no warning when both got through', async () => {
+    vi.mocked(sendPharmacyHoldNotificationAndMessage).mockResolvedValue({ notified: true, messaged: true });
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    await putOnHold();
+
+    expect(updatePharmacyDispensingTaskStatus).toHaveBeenCalledWith('task-a', 'on_hold', {
+      holdReasonCode: 'out_of_stock',
+      holdNote: '',
+    });
+    expect(sendPharmacyHoldNotificationAndMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ taskIds: ['task-a'], patientUserId: 'patient-1', holdReasonLabel: 'Out of Stock' })
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says when the patient was notified but the message could not be sent', async () => {
+    vi.mocked(sendPharmacyHoldNotificationAndMessage).mockResolvedValue({ notified: true, messaged: false });
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    await putOnHold();
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'The prescription is on hold and the patient was notified, but the message could not be sent.'
+    );
+  });
+
+  it('says when the patient could not be told at all', async () => {
+    vi.mocked(sendPharmacyHoldNotificationAndMessage).mockResolvedValue({ notified: false, messaged: false });
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    await putOnHold();
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'The prescription is on hold, but the patient could not be told. Please contact them directly.'
+    );
+  });
+
+  it('says when the patient has no CeenAiX account to tell', async () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin', patientUserId: null })]);
+    renderPage();
+
+    await putOnHold();
+
+    expect(sendPharmacyHoldNotificationAndMessage).not.toHaveBeenCalled();
+    expect(await screen.findByRole('status')).toHaveTextContent('This patient has no CeenAiX account');
+  });
+
+  it('shows a plain, translated message instead of the database error when a status change fails', async () => {
+    vi.mocked(updatePharmacyDispensingTaskStatus).mockRejectedValue(
+      new Error('new row violates row-level security policy for table "pharmacy_dispensing_tasks"')
+    );
+    await i18n.changeLanguage('ar');
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'بدء' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('تعذّر تحديث الوصفة. يُرجى المحاولة مرة أخرى.');
+    expect(screen.queryByText(/row-level security/)).not.toBeInTheDocument();
   });
 });

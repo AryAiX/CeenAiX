@@ -106,6 +106,7 @@ export {
 export type {
   PharmacyClaimLedgerItem,
   PharmacyFacilityProfile,
+  PharmacyHoldOutreachResult,
   PharmacyInventoryDerivedItem,
   PharmacyMessageThread,
   PharmacyOrganization,

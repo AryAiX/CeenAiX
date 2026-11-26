@@ -36,7 +36,8 @@ describe('sendPharmacyHoldNotificationAndMessage (QA-263)', () => {
     expect(fromMock).not.toHaveBeenCalledWith('notifications');
   });
 
-  it('reports a refused notification instead of hiding it', async () => {
+  it('reports a refused notification instead of throwing, and logs the database error', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'Prescription not found.' } } as never);
 
     await expect(
@@ -48,7 +49,88 @@ describe('sendPharmacyHoldNotificationAndMessage (QA-263)', () => {
         holdNote: '',
         pharmacyUserId: null,
       })
-    ).rejects.toMatchObject({ message: 'Prescription not found.' });
+    ).resolves.toEqual({ notified: false, messaged: false });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Prescription not found.'));
+    warn.mockRestore();
+  });
+});
+
+describe('sendPharmacyHoldNotificationAndMessage message to the patient (QA-254)', () => {
+  const rpcMock = vi.mocked(supabase.rpc);
+  const fromMock = vi.mocked(supabase.from);
+  const hold = {
+    taskIds: ['task-1', 'task-2'],
+    patientUserId: 'patient-1',
+    medications: ['Amoxicillin', 'Paracetamol'],
+    holdReasonLabel: 'Out of Stock',
+    holdNote: 'Back on Monday',
+    pharmacyUserId: 'pharmacist-1',
+  };
+  let messages: ReturnType<typeof createSupabaseQueryBuilder>;
+  let conversations: ReturnType<typeof createSupabaseQueryBuilder>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    messages = createSupabaseQueryBuilder({ data: null, error: null });
+    conversations = createSupabaseQueryBuilder({ data: null, error: null });
+    fromMock.mockImplementation(((table: string) => (table === 'messages' ? messages : conversations)) as never);
+    rpcMock.mockImplementation(((name: string) =>
+      Promise.resolve(
+        name === 'get_or_create_direct_conversation'
+          ? { data: 'conversation-1', error: null }
+          : { data: null, error: null }
+      )) as never);
+  });
+
+  it('opens the conversation with the real function and sends the message in it', async () => {
+    await expect(sendPharmacyHoldNotificationAndMessage(hold)).resolves.toEqual({ notified: true, messaged: true });
+
+    expect(rpcMock).toHaveBeenCalledWith('get_or_create_direct_conversation', {
+      p_other_user_id: 'patient-1',
+      p_subject: 'Prescription Update - Amoxicillin, Paracetamol',
+    });
+    expect(rpcMock).not.toHaveBeenCalledWith('ensure_direct_conversation', expect.anything());
+    expect(messages.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversation_id: 'conversation-1',
+        sender_id: 'pharmacist-1',
+        body: expect.stringContaining('Reason: Out of Stock'),
+      })
+    );
+    expect(messages.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.stringContaining('Note: Back on Monday') })
+    );
+    // The conversation moves to the top of both inboxes.
+    expect(conversations.update).toHaveBeenCalledWith({ last_message_at: expect.any(String) });
+    expect(conversations.eq).toHaveBeenCalledWith('id', 'conversation-1');
+  });
+
+  it('reports a refused conversation as "not messaged" instead of throwing', async () => {
+    rpcMock.mockImplementation(((name: string) =>
+      Promise.resolve(
+        name === 'get_or_create_direct_conversation'
+          ? { data: null, error: { message: 'You can only start a conversation with your care team.' } }
+          : { data: null, error: null }
+      )) as never);
+
+    await expect(sendPharmacyHoldNotificationAndMessage(hold)).resolves.toEqual({ notified: true, messaged: false });
+    expect(messages.insert).not.toHaveBeenCalled();
+  });
+
+  it('reports a refused message as "not messaged"', async () => {
+    messages = createSupabaseQueryBuilder({ data: null, error: { message: 'new row violates row-level security policy' } });
+    fromMock.mockImplementation(((table: string) => (table === 'messages' ? messages : conversations)) as never);
+
+    await expect(sendPharmacyHoldNotificationAndMessage(hold)).resolves.toEqual({ notified: true, messaged: false });
+    expect(conversations.update).not.toHaveBeenCalled();
+  });
+
+  it('still counts the message as sent when only the conversation time could not be updated', async () => {
+    conversations = createSupabaseQueryBuilder({ data: null, error: { message: 'update failed' } });
+    fromMock.mockImplementation(((table: string) => (table === 'messages' ? messages : conversations)) as never);
+
+    await expect(sendPharmacyHoldNotificationAndMessage(hold)).resolves.toEqual({ notified: true, messaged: true });
   });
 });
 
