@@ -639,15 +639,22 @@ export const PharmacyDispensing = () => {
                       <div className="min-w-0">
                         <div className="truncate text-[13px] font-semibold text-slate-800">
                           {row.patientName}
-                          {row.hasAllergyFlag ? <span className="ml-1 text-[9px] text-red-500">⚠️</span> : null}
+                          {row.hasAllergyFlag ? (
+                            <span
+                              role="img"
+                              aria-label={t('pharmacy.dispensing.detailsAllergy', { defaultValue: 'Allergy flag on record' })}
+                              title={t('pharmacy.dispensing.detailsAllergy', { defaultValue: 'Allergy flag on record' })}
+                              className="ms-1 text-[9px] text-red-500"
+                            >
+                              ⚠️
+                            </span>
+                          ) : null}
                         </div>
-                        <div className="font-mono text-[10px] text-slate-400">{row.id.slice(0, 8)} · live</div>
                       </div>
                     </div>
 
                     <div className="pr-3">
                       <div className="truncate text-[12px] text-slate-700">{row.doctorName}</div>
-                      <div className="truncate text-[11px] text-slate-400">CeenAiX care team</div>
                     </div>
 
                     <div className="pr-3 min-w-0">
@@ -666,9 +673,6 @@ export const PharmacyDispensing = () => {
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.bg} ${cfg.text}`}>
                         {cfg.label}
                       </span>
-                      {row.status === 'dispensed' ? (
-                        <div className="mt-0.5 font-mono text-[9px] text-slate-400">Complete</div>
-                      ) : null}
                     </div>
 
                     <div className="flex items-center gap-1.5">

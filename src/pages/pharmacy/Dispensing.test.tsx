@@ -495,3 +495,32 @@ describe('PharmacyDispensing handing medicines to the patient (QA-256)', () => {
     expect(within(dialog).getByRole('button', { name: 'تأكيد التسليم' })).toBeInTheDocument();
   });
 });
+
+describe('PharmacyDispensing shows only real facts on the rows (QA-257)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('has no made-up "live", "CeenAiX care team" or "Complete" labels', () => {
+    showQueue([
+      task({ id: 'task-a', medication: 'Amoxicillin' }),
+      task({ id: 'task-b', medication: 'Paracetamol', patientName: 'Done Patient', prescriptionId: 'rx-2', workflowStatus: 'dispensed', isDispensed: true }),
+    ]);
+    renderPage();
+
+    expect(screen.queryByText(/· live/)).not.toBeInTheDocument();
+    expect(screen.queryByText('CeenAiX care team')).not.toBeInTheDocument();
+    expect(screen.queryByText('Complete')).not.toBeInTheDocument();
+    expect(screen.queryByText(/DHA/)).not.toBeInTheDocument();
+    // The real facts stay.
+    expect(within(rowFor('Test Patient')).getByText('Dr Test')).toBeInTheDocument();
+    expect(within(rowFor('Done Patient')).getByText('DISPENSED')).toBeInTheDocument();
+  });
+
+  it('names the allergy warning for screen readers', () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin', allergyFlag: true })]);
+    renderPage();
+
+    expect(within(rowFor('Test Patient')).getByRole('img', { name: 'Allergy flag on record' })).toBeInTheDocument();
+  });
+});
