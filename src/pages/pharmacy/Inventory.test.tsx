@@ -8,7 +8,32 @@ import { mockScreen } from '../../test/phone-screen';
 import type { PharmacyInventoryDerivedItem } from '../../hooks';
 
 vi.mock('../../components/OpsShell', () => ({
-  OpsShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  OpsShell: ({
+    children,
+    title,
+    subtitle,
+    navItems,
+  }: {
+    children: ReactNode;
+    title?: string;
+    subtitle?: string;
+    navItems?: Array<{ href: string; badge?: number }>;
+  }) => (
+    <div>
+      <header data-testid="shell-header">
+        <span>{title}</span>
+        <span>{subtitle}</span>
+      </header>
+      <nav hidden>
+        {navItems?.map((navItem) => (
+          <span key={navItem.href} data-testid={`badge-${navItem.href}`}>
+            {navItem.badge ?? ''}
+          </span>
+        ))}
+      </nav>
+      {children}
+    </div>
+  ),
 }));
 vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn() }));
 vi.mock('../../lib/csv-export', () => ({ downloadCsv: vi.fn() }));
@@ -339,7 +364,7 @@ describe('PharmacyInventory in Arabic, right to left (QA-271)', () => {
     renderInventory();
 
     expect(latin(document.body.textContent)).toEqual([]);
-    expect(screen.getByText('إدارة المخزون')).toBeInTheDocument();
+    expect(within(screen.getByTestId('shell-header')).getByText('المخزون')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^الكل/ })).toBeInTheDocument();
     const row = inventoryRowFor('أموكسيسيلين ٥٠٠ ملغ');
     expect(within(row).getByText('حرج')).toBeInTheDocument();
@@ -452,5 +477,80 @@ describe('PharmacyInventory on a phone (QA-272)', () => {
 
     expect(container.querySelector('.min-w-\\[1120px\\]')).not.toBeNull();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+  });
+});
+
+describe('PharmacyInventory small fixes (QA-273)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('keeps the search when a filter is chosen', async () => {
+    showInventory([
+      item({ id: 'amox', genericName: 'Amoxicillin', stock: 5, reorderPoint: 50, status: 'low' }),
+      item({ id: 'met', genericName: 'Metformin', stock: 5, reorderPoint: 50, status: 'low' }),
+    ]);
+    renderInventory();
+
+    await userEvent.type(screen.getByRole('textbox'), 'Amox');
+    await userEvent.click(screen.getByRole('button', { name: /^Critical/ }));
+
+    expect(screen.getByRole('textbox')).toHaveValue('Amox');
+    expect(screen.getByText('Amoxicillin', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('Metformin', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('lists both low and critical items under the "Low / Critical" figure', async () => {
+    showInventory([
+      item({ id: 'low', genericName: 'Losartan', stock: 30, reorderPoint: 40, status: 'low' }),
+      item({ id: 'crit', genericName: 'Warfarin', stock: 5, reorderPoint: 40, status: 'low' }),
+      item({ id: 'fine', genericName: 'Metformin' }),
+    ]);
+    renderInventory();
+
+    const figure = screen.getByRole('button', { name: /Low \/ Critical/ });
+    expect(figure).toHaveTextContent('2');
+    await userEvent.click(figure);
+
+    expect(figure).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Losartan', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Warfarin', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('Metformin', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('shows the title once, in the top bar, without the made-up "procurement workflow"', () => {
+    showInventory([item({ id: 'amox', genericName: 'Amoxicillin' })]);
+    renderInventory();
+
+    expect(screen.queryByText('Inventory Management')).not.toBeInTheDocument();
+    expect(screen.queryByText(/procurement/i)).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('shell-header')).getByText(/^Stock levels · /)).toBeInTheDocument();
+  });
+
+  it('counts the menu badges like the other pharmacy pages', () => {
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: {
+        inventory: [item({ id: 'amox', genericName: 'Amoxicillin' })],
+        queue: [
+          { id: 't1', prescriptionId: 'rx-1', workflowStatus: 'new', quantity: 1, isDispensed: false },
+          { id: 't2', prescriptionId: 'rx-1', workflowStatus: 'new', quantity: 1, isDispensed: false },
+          { id: 't3', prescriptionId: 'rx-2', workflowStatus: 'picked_up', quantity: 1, isDispensed: true },
+        ],
+        messages: [{ unreadCount: 4 }],
+        pendingPrescriptions: 3,
+        lowStockAlerts: 2,
+        profile: null,
+        organization: null,
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+    renderInventory();
+
+    // One prescription waiting (two medicines), not 3 medicines; picked up ones are not waiting.
+    expect(screen.getByTestId('badge-/pharmacy/dispensing')).toHaveTextContent('1');
+    expect(screen.getByTestId('badge-/pharmacy/inventory')).toHaveTextContent('2');
+    expect(screen.getByTestId('badge-/pharmacy/messages')).toHaveTextContent('4');
   });
 });

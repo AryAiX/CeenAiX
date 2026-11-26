@@ -11,7 +11,32 @@ import type { PharmacyInventoryDerivedItem } from '../../hooks';
 import i18n from '../../i18n';
 
 vi.mock('../../components/OpsShell', () => ({
-  OpsShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  OpsShell: ({
+    children,
+    title,
+    subtitle,
+    navItems,
+  }: {
+    children: ReactNode;
+    title?: string;
+    subtitle?: string;
+    navItems?: Array<{ href: string; badge?: number }>;
+  }) => (
+    <div>
+      <header data-testid="shell-header">
+        <span>{title}</span>
+        <span>{subtitle}</span>
+      </header>
+      <nav hidden>
+        {navItems?.map((navItem) => (
+          <span key={navItem.href} data-testid={`badge-${navItem.href}`}>
+            {navItem.badge ?? ''}
+          </span>
+        ))}
+      </nav>
+      {children}
+    </div>
+  ),
 }));
 vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn() }));
 

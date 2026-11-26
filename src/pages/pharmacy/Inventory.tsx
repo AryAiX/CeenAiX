@@ -20,7 +20,7 @@ import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import { useIsPhone } from '../../hooks/use-is-phone';
 import { clinicTodayKey, formatClinicDate } from '../../lib/clinic-booking-time';
 import { downloadCsv } from '../../lib/csv-export';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 type FilterType =
   | 'all'
@@ -31,7 +31,9 @@ type FilterType =
   | 'expiring_soon'
   | 'expired'
   | 'controlled'
-  | 'dha_formulary';
+  | 'dha_formulary'
+  /** QA-273: used by the "Low / Critical" figure (both levels). */
+  | 'low_or_critical';
 
 interface InventoryRow {
   id: string;
@@ -83,6 +85,7 @@ const FILTER_DEFAULTS: Record<FilterType, string> = {
   expired: 'Expired',
   controlled: 'Controlled',
   dha_formulary: 'DHA Formulary',
+  low_or_critical: 'Low / Critical',
 };
 const filterLabel = (key: FilterType, t: TFunction) =>
   t(`pharmacy.inventory.filter.${key}`, { defaultValue: FILTER_DEFAULTS[key] });
@@ -226,6 +229,7 @@ export const PharmacyInventory = () => {
       expired: rows.filter((item) => item.expiredQty > 0).length,
       controlled: rows.filter((item) => item.isControlled).length,
       dha_formulary: rows.filter((item) => item.isDHAFormulary).length,
+      low_or_critical: rows.filter((item) => item.stockStatus === 'low' || item.stockStatus === 'critical').length,
     }),
     [rows]
   );
@@ -248,7 +252,9 @@ export const PharmacyInventory = () => {
             ? item.isControlled
             : filter === 'dha_formulary'
               ? item.isDHAFormulary
-              : filter === 'expiring_soon'
+              : filter === 'low_or_critical'
+                ? item.stockStatus === 'low' || item.stockStatus === 'critical'
+                : filter === 'expiring_soon'
                 ? item.expiringSoon
                 : filter === 'expired'
                   ? item.expiredQty > 0
@@ -437,33 +443,24 @@ export const PharmacyInventory = () => {
   return (
     <OpsShell
       title={t('pharmacy.inventory.title')}
-      subtitle={t('pharmacy.inventory.subtitle')}
-      eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: data?.pendingPrescriptions || undefined,
-        inventory: data?.lowStockAlerts || undefined,
+      subtitle={t('pharmacy.inventory.pageCaption', {
+        defaultValue: 'Stock levels · {{pharmacy}} · {{date}}',
+        pharmacy:
+          data?.profile?.displayName ??
+          data?.organization?.name ??
+          t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' }),
+        date: formatClinicDate(clinicTodayKey(), uiLang),
       })}
+      eyebrow={t('pharmacy.dashboard.eyebrow')}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data))}
       accent="emerald"
       variant="pharmacy"
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
         <div className="relative flex min-h-full flex-col overflow-y-auto bg-slate-50">
-        <div className="mx-6 mb-4 mt-5 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-[20px] font-bold text-slate-900">
-              {t('pharmacy.inventory.pageHeading', { defaultValue: 'Inventory Management' })}
-            </h2>
-            <div className="text-[13px] text-slate-400">
-              {t('pharmacy.inventory.pageCaption', {
-                defaultValue: 'Stock levels · {{pharmacy}} · {{date}}',
-                pharmacy:
-                  data?.profile?.displayName ??
-                  data?.organization?.name ??
-                  t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' }),
-                date: formatClinicDate(clinicTodayKey(), uiLang),
-              })}
-            </div>
-          </div>
+        {/* QA-273: the title and caption are in the top bar only (they were shown twice, and the top
+            bar promised a "procurement workflow" the portal does not have). */}
+        <div className="mx-6 mb-4 mt-5 flex shrink-0 flex-wrap items-center justify-end gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -543,7 +540,7 @@ export const PharmacyInventory = () => {
           {[
             { label: t('pharmacy.inventory.kpi.total', { defaultValue: 'Total SKUs' }), value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
             { label: t('pharmacy.inventory.kpi.inStock', { defaultValue: 'In Stock' }), value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
-            { label: t('pharmacy.inventory.kpi.lowCritical', { defaultValue: 'Low / Critical' }), value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
+            { label: t('pharmacy.inventory.kpi.lowCritical', { defaultValue: 'Low / Critical' }), value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low_or_critical' },
             { label: t('pharmacy.inventory.kpi.out', { defaultValue: 'Out of Stock' }), value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
             { label: t('pharmacy.inventory.kpi.expiring', { defaultValue: 'Expiring Soon' }), value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
             // QA-265: items with expired units still on the shelf.
@@ -553,6 +550,7 @@ export const PharmacyInventory = () => {
               key={stat.filterKey + stat.color}
               type="button"
               onClick={() => setFilter(stat.filterKey as FilterType)}
+              aria-pressed={filter === stat.filterKey}
               className={`rounded-xl border px-4 py-3 shadow-sm text-start transition-all cursor-pointer hover:ring-2 hover:ring-emerald-300 ${stat.bg} ${
                 filter === stat.filterKey ? 'ring-2 ring-emerald-500 border-emerald-300' : 'border-slate-100'
               }`}
@@ -594,10 +592,8 @@ export const PharmacyInventory = () => {
               <button
                 key={key}
                 type="button"
-                onClick={() => {
-                  setFilter(key);
-                  setSearch('');
-                }}
+                // QA-273: a filter no longer clears the search (or the Dashboard's ?id= link).
+                onClick={() => setFilter(key)}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                   filter === key
                     ? 'bg-emerald-600 text-white'

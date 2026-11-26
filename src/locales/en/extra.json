@@ -3562,7 +3562,8 @@
         "expiring_soon": "Expiring Soon",
         "expired": "Expired",
         "controlled": "Controlled",
-        "dha_formulary": "DHA Formulary"
+        "dha_formulary": "DHA Formulary",
+        "low_or_critical": "Low / Critical"
       },
       "stockStatus": {
         "in_stock": "IN STOCK",
@@ -3570,7 +3571,6 @@
         "critical": "CRITICAL",
         "out_of_stock": "OUT OF STOCK"
       },
-      "pageHeading": "Inventory Management",
       "pageCaption": "Stock levels · {{pharmacy}} · {{date}}",
       "exportTitle": "Exports the items shown, with the current filter and search, as a CSV file",
       "exportButton": "Export Stock Report",

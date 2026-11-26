@@ -3704,7 +3704,8 @@
         "expiring_soon": "قريب الانتهاء",
         "expired": "منتهي الصلاحية",
         "controlled": "أدوية مراقبة",
-        "dha_formulary": "قائمة أدوية هيئة الصحة"
+        "dha_formulary": "قائمة أدوية هيئة الصحة",
+        "low_or_critical": "منخفض / حرج"
       },
       "stockStatus": {
         "in_stock": "متوفر",
@@ -3712,7 +3713,6 @@
         "critical": "حرج",
         "out_of_stock": "نفد المخزون"
       },
-      "pageHeading": "إدارة المخزون",
       "pageCaption": "مستويات المخزون · {{pharmacy}} · {{date}}",
       "exportTitle": "يصدّر الأصناف المعروضة، حسب التصفية والبحث الحاليين، كملف CSV",
       "exportButton": "تصدير تقرير المخزون",

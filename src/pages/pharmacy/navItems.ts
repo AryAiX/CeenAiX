@@ -10,12 +10,45 @@ import {
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { OpsShellNavItem } from '../../components/OpsShell';
+import type { PharmacyQueuePrescriptionItem } from '../../hooks';
+import { inferPrescriptionWorkflowStatus } from './prescription-status';
 
-interface PharmacyNavCounts {
+export interface PharmacyNavCounts {
   prescriptions?: number;
   inventory?: number;
   messages?: number;
 }
+
+/**
+ * QA-273: the menu badges, counted the same way on every pharmacy page (they used to differ from
+ * page to page, so a badge changed or vanished while moving around):
+ *   - Prescriptions: prescriptions (not medicines) that are new or on hold;
+ *   - Inventory: stock alerts (low, out, expiring soon, expired units);
+ *   - Messages: unread messages.
+ */
+export const pharmacyNavCounts = (
+  data?: {
+    queue?: PharmacyQueuePrescriptionItem[];
+    messages?: Array<{ unreadCount: number }>;
+    lowStockAlerts?: number;
+  } | null
+): PharmacyNavCounts => {
+  const byPrescription = new Map<string, PharmacyQueuePrescriptionItem[]>();
+  for (const item of data?.queue ?? []) {
+    byPrescription.set(item.prescriptionId, [...(byPrescription.get(item.prescriptionId) ?? []), item]);
+  }
+  let waiting = 0;
+  for (const group of byPrescription.values()) {
+    const status = inferPrescriptionWorkflowStatus(group);
+    if (status === 'new' || status === 'on_hold') waiting += 1;
+  }
+  const unread = (data?.messages ?? []).reduce((sum, item) => sum + (item.unreadCount || 0), 0);
+  return {
+    prescriptions: waiting || undefined,
+    inventory: data?.lowStockAlerts || undefined,
+    messages: unread || undefined,
+  };
+};
 
 export const PHARMACY_NAV_ITEMS = (t: TFunction, counts: PharmacyNavCounts = {}): OpsShellNavItem[] => [
   {

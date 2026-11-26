@@ -23,7 +23,7 @@ import {
   formatClinicDate,
   formatClinicTime,
 } from '../../lib/clinic-booking-time';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { PrescriptionDetailsDialog } from './PrescriptionDetailsDialog';
 import {
   inferPrescriptionWorkflowStatus,
@@ -693,12 +693,7 @@ export const PharmacyDispensing = () => {
           t('pharmacy.dispensing.pharmacyFallback', { defaultValue: 'your pharmacy' }),
       })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: counts.new + counts.on_hold || undefined,
-        inventory: data?.lowStockAlerts || undefined,
-        // QA-262: unread messages, like every other pharmacy page (not on-hold prescriptions).
-        messages: data?.messages?.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data))}
       accent="emerald"
       variant="pharmacy"
     >
