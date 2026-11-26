@@ -15,6 +15,7 @@ import {
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { formatLocaleCurrency, formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
 import {
   clinicDateKey,
@@ -269,6 +270,7 @@ export const PharmacyDispensing = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const isPhone = useIsPhone();
   // QA-258: new prescriptions appear and "x min ago" stays right without reloading the page.
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -301,6 +303,19 @@ export const PharmacyDispensing = () => {
   const [holdModalRow, setHoldModalRow] = useState<PrescriptionListRow | null>(null);
   const [holdReason, setHoldReason] = useState('');
   const [holdNote, setHoldNote] = useState('');
+  const holdCloseRef = useRef<HTMLButtonElement>(null);
+  const holdOpenId = holdModalRow?.id ?? null;
+
+  // QA-261: the hold dialog works like the others: focus inside, Escape closes it.
+  useEffect(() => {
+    if (!holdOpenId) return;
+    holdCloseRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setHoldModalRow(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [holdOpenId]);
   const [detailsRow, setDetailsRow] = useState<PrescriptionListRow | null>(null);
   const closeDetails = useCallback(() => setDetailsRow(null), []);
   const [dispenseConfirmRow, setDispenseConfirmRow] = useState<PrescriptionListRow | null>(null);
@@ -524,6 +539,134 @@ export const PharmacyDispensing = () => {
     });
   }, [filter, rows, search, sort]);
 
+  // QA-261: the same buttons for the table (computer) and the cards (phone).
+  const renderRowActions = (row: PrescriptionListRow) => (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          if (isFinished(row.status)) {
+            // QA-253: View opens the prescription details (picked up rows did nothing before).
+            setDetailsRow(row);
+          } else if (row.status === 'in_progress') {
+            // QA-252: dispensing tells the patient and cannot be undone, so confirm first.
+            setConfirmKind('dispense');
+            setDispenseConfirmRow(row);
+          } else {
+            void handleRowAction(row, row.status);
+          }
+        }}
+        disabled={busyId === row.id && !isFinished(row.status)}
+        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          isFinished(row.status)
+            ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            : row.status === 'on_hold'
+              ? 'bg-amber-500 text-white hover:bg-amber-600'
+              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+        }`}
+      >
+        {!isFinished(row.status) ? <Play className="h-3 w-3" /> : null}
+        {busyId === row.id ? '…' : actionLabel(row.status, t)}
+      </button>
+      {row.status === 'dispensed' ? (
+        <button
+          type="button"
+          onClick={() => {
+            // QA-256: the pharmacy records that the patient collected the medicines.
+            setConfirmKind('handover');
+            setDispenseConfirmRow(row);
+          }}
+          disabled={busyId === row.id}
+          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {t('pharmacy.dispensing.actionHandover', { defaultValue: 'Handed to patient' })}
+        </button>
+      ) : null}
+      {!isFinished(row.status) ? (
+        <button
+          type="button"
+          onClick={() => setDetailsRow(row)}
+          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+        >
+          <FileText className="h-3 w-3" aria-hidden="true" />
+          {t('pharmacy.dispensing.actionDetails', { defaultValue: 'Details' })}
+        </button>
+      ) : null}
+      {(row.status === 'new' || row.status === 'in_progress') ? (
+        <button
+          type="button"
+          onClick={() => {
+            setHoldModalRow(row);
+            setHoldReason('');
+            setHoldNote('');
+          }}
+          disabled={busyId === row.id}
+          title={t('pharmacy.dispensing.holdTitle', { defaultValue: 'Put on hold' })}
+          className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-amber-600 border border-amber-300 bg-amber-50 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {t('pharmacy.dispensing.actionHold', { defaultValue: 'Hold' })}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          const patientUserId = row.patientUserId;
+          const medList = row.drugs.slice(0, 2).join(', ');
+          const draftText = t('pharmacy.dispensing.messageDraft', {
+            defaultValue: 'Regarding your prescription for {{medicines}}: ',
+            medicines: medList,
+          });
+          if (patientUserId) {
+            navigate(`/pharmacy/messages?patient=${patientUserId}&draft=${encodeURIComponent(draftText)}`);
+          } else {
+            navigate('/pharmacy/messages');
+          }
+        }}
+        aria-label={t('pharmacy.dispensing.messagePatient', {
+          defaultValue: 'Message patient about this prescription',
+        })}
+        title={t('pharmacy.dispensing.messagePatientShort', { defaultValue: 'Message patient' })}
+        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-emerald-600"
+      >
+        <MessageSquare className="h-3.5 w-3.5" />
+      </button>
+    </>
+  );
+
+  const renderAllergyFlag = (row: PrescriptionListRow) =>
+    row.hasAllergyFlag ? (
+      <span
+        role="img"
+        aria-label={t('pharmacy.dispensing.detailsAllergy', { defaultValue: 'Allergy flag on record' })}
+        title={t('pharmacy.dispensing.detailsAllergy', { defaultValue: 'Allergy flag on record' })}
+        className="ms-1 text-[9px] text-red-500"
+      >
+        ⚠️
+      </span>
+    ) : null;
+
+  const listStatus = (
+    <>
+      {data && sorted.length === 0 ? (
+        <div className="py-12 text-center text-sm text-slate-400">
+          {t('pharmacy.dispensing.emptySearch', { defaultValue: 'No prescriptions match your search' })}
+        </div>
+      ) : null}
+      {/* QA-258: only the first load shows this; background refreshes keep the list. */}
+      {loading && !data ? (
+        <div className="py-12 text-center text-sm text-slate-400">
+          {t('pharmacy.dispensing.loading', { defaultValue: 'Loading prescriptions…' })}
+        </div>
+      ) : null}
+    </>
+  );
+
+  const receivedLabel = (row: PrescriptionListRow) =>
+    // QA-258: Dubai time for today's prescriptions, the Dubai date for older ones.
+    clinicDateKey(row.receivedAt) === todayKey
+      ? formatClinicTime(row.receivedAt, uiLang)
+      : formatClinicDate(row.receivedAt, uiLang);
+
   return (
     <OpsShell
       title={t('pharmacy.dispensing.pageTitle', { defaultValue: 'Prescriptions' })}
@@ -544,7 +687,7 @@ export const PharmacyDispensing = () => {
       variant="pharmacy"
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
-        <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
+        <div className="relative flex min-h-full flex-col overflow-y-auto bg-slate-50">
         {actionError ? (
           <div
             role="alert"
@@ -665,6 +808,45 @@ export const PharmacyDispensing = () => {
         </div>
 
         <div className="mx-6 mb-6 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+          {isPhone ? (
+            // QA-261: on a phone each prescription is a card, so status and buttons are visible
+            // without scrolling sideways through a 1,200 px table.
+            <>
+              {listStatus}
+              <ul className="divide-y divide-slate-100">
+                {sorted.map((row) => {
+                  const cfg = statusConfig[row.status];
+                  return (
+                    <li key={row.id} className={`border-s-4 px-4 py-3 ${cfg.border}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="break-words text-sm font-semibold text-slate-800">
+                            {row.patientName}
+                            {renderAllergyFlag(row)}
+                          </div>
+                          <div className="break-words text-xs text-slate-500">{row.doctorName}</div>
+                        </div>
+                        <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.bg} ${cfg.text}`}>
+                          {statusLabel(row.status, t)}
+                        </span>
+                      </div>
+                      <p className="mt-2 break-words text-sm text-slate-700">{row.drugs.join(', ') || '—'}</p>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
+                        <span className="font-mono">{prescriptionReference(row.id)}</span>
+                        <span>
+                          {receivedLabel(row)} · {formatRelativeTime(t, row.receivedAt)}
+                        </span>
+                        <span>
+                          {row.insurance} · {formatLocaleCurrency(row.copay, uiLang)}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">{renderRowActions(row)}</div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
           <div className="overflow-x-auto">
             <div className="min-w-[1200px]">
               <div className="grid grid-cols-[90px_1fr_0.9fr_0.9fr_90px_110px_240px] border-b border-slate-100 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400 rtl:font-sans rtl:tracking-normal">
@@ -677,26 +859,11 @@ export const PharmacyDispensing = () => {
                 <div>{t('pharmacy.dispensing.column.actions', { defaultValue: 'Actions' })}</div>
               </div>
 
-              {data && sorted.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-400">
-                  {t('pharmacy.dispensing.emptySearch', { defaultValue: 'No prescriptions match your search' })}
-                </div>
-              ) : null}
-
-              {/* QA-258: only the first load shows this; background refreshes keep the list. */}
-              {loading && !data ? (
-                <div className="py-12 text-center text-sm text-slate-400">
-                  {t('pharmacy.dispensing.loading', { defaultValue: 'Loading prescriptions…' })}
-                </div>
-              ) : null}
+              {listStatus}
 
               {sorted.map((row, index) => {
                 const cfg = statusConfig[row.status];
-                // QA-258: Dubai time for today's prescriptions, the Dubai date for older ones.
-                const received =
-                  clinicDateKey(row.receivedAt) === todayKey
-                    ? formatClinicTime(row.receivedAt, uiLang)
-                    : formatClinicDate(row.receivedAt, uiLang);
+                const received = receivedLabel(row);
                 return (
                   <div
                     key={row.id}
@@ -717,16 +884,7 @@ export const PharmacyDispensing = () => {
                       <div className="min-w-0">
                         <div className="truncate text-[13px] font-semibold text-slate-800">
                           {row.patientName}
-                          {row.hasAllergyFlag ? (
-                            <span
-                              role="img"
-                              aria-label={t('pharmacy.dispensing.detailsAllergy', { defaultValue: 'Allergy flag on record' })}
-                              title={t('pharmacy.dispensing.detailsAllergy', { defaultValue: 'Allergy flag on record' })}
-                              className="ms-1 text-[9px] text-red-500"
-                            >
-                              ⚠️
-                            </span>
-                          ) : null}
+                          {renderAllergyFlag(row)}
                         </div>
                       </div>
                     </div>
@@ -753,101 +911,13 @@ export const PharmacyDispensing = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isFinished(row.status)) {
-                            // QA-253: View opens the prescription details (picked up rows did nothing before).
-                            setDetailsRow(row);
-                          } else if (row.status === 'in_progress') {
-                            // QA-252: dispensing tells the patient and cannot be undone, so confirm first.
-                            setConfirmKind('dispense');
-                            setDispenseConfirmRow(row);
-                          } else {
-                            void handleRowAction(row, row.status);
-                          }
-                        }}
-                        disabled={busyId === row.id && !isFinished(row.status)}
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                          isFinished(row.status)
-                            ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            : row.status === 'on_hold'
-                              ? 'bg-amber-500 text-white hover:bg-amber-600'
-                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        }`}
-                      >
-                        {!isFinished(row.status) ? <Play className="h-3 w-3" /> : null}
-                        {busyId === row.id ? '…' : actionLabel(row.status, t)}
-                      </button>
-                      {row.status === 'dispensed' ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // QA-256: the pharmacy records that the patient collected the medicines.
-                            setConfirmKind('handover');
-                            setDispenseConfirmRow(row);
-                          }}
-                          disabled={busyId === row.id}
-                          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {t('pharmacy.dispensing.actionHandover', { defaultValue: 'Handed to patient' })}
-                        </button>
-                      ) : null}
-                      {!isFinished(row.status) ? (
-                        <button
-                          type="button"
-                          onClick={() => setDetailsRow(row)}
-                          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                          <FileText className="h-3 w-3" aria-hidden="true" />
-                          {t('pharmacy.dispensing.actionDetails', { defaultValue: 'Details' })}
-                        </button>
-                      ) : null}
-                      {(row.status === 'new' || row.status === 'in_progress') ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHoldModalRow(row);
-                            setHoldReason('');
-                            setHoldNote('');
-                          }}
-                          disabled={busyId === row.id}
-                          title={t('pharmacy.dispensing.holdTitle', { defaultValue: 'Put on hold' })}
-                          className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-amber-600 border border-amber-300 bg-amber-50 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {t('pharmacy.dispensing.actionHold', { defaultValue: 'Hold' })}
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const patientUserId = row.patientUserId;
-                          const medList = row.drugs.slice(0, 2).join(', ');
-                          const draftText = t('pharmacy.dispensing.messageDraft', {
-                            defaultValue: 'Regarding your prescription for {{medicines}}: ',
-                            medicines: medList,
-                          });
-                          if (patientUserId) {
-                            navigate(`/pharmacy/messages?patient=${patientUserId}&draft=${encodeURIComponent(draftText)}`);
-                          } else {
-                            navigate('/pharmacy/messages');
-                          }
-                        }}
-                        aria-label={t('pharmacy.dispensing.messagePatient', {
-                          defaultValue: 'Message patient about this prescription',
-                        })}
-                        title={t('pharmacy.dispensing.messagePatientShort', { defaultValue: 'Message patient' })}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-emerald-600"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <div className="flex items-center gap-1.5">{renderRowActions(row)}</div>
                   </div>
                 );
               })}
             </div>
           </div>
+          )}
         </div>
       </div>
       {dispenseConfirmRow ? createPortal(
@@ -945,10 +1015,15 @@ export const PharmacyDispensing = () => {
       ) : null}
       {holdModalRow ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hold-dialog-title"
+            className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">
+                <h2 id="hold-dialog-title" className="text-base font-semibold text-slate-900">
                   {t('pharmacy.dispensing.holdDialogTitle', { defaultValue: 'Put Prescription On Hold' })}
                 </h2>
                 <p className="mt-0.5 text-xs text-slate-500">
@@ -956,6 +1031,7 @@ export const PharmacyDispensing = () => {
                 </p>
               </div>
               <button
+                ref={holdCloseRef}
                 type="button"
                 onClick={() => setHoldModalRow(null)}
                 aria-label={t('pharmacy.dispensing.detailsClose', { defaultValue: 'Close' })}
@@ -964,18 +1040,19 @@ export const PharmacyDispensing = () => {
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <div className="space-y-4 px-6 py-4">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <div className="space-y-4 overflow-y-auto px-6 py-4">
+              <div role="group" aria-labelledby="hold-reason-label">
+                <p id="hold-reason-label" className="mb-2 block text-sm font-semibold text-slate-700">
                   {t('pharmacy.dispensing.holdReasonLabel', { defaultValue: 'Reason for Hold' })}{' '}
                   <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
+                </p>
                 <div className="grid grid-cols-1 gap-2">
                   {HOLD_REASONS.map((reason) => (
                     <button
                       key={reason.value}
                       type="button"
                       onClick={() => setHoldReason(reason.value)}
+                      aria-pressed={holdReason === reason.value}
                       className={`rounded-lg border px-4 py-2.5 text-start text-sm transition ${
                         holdReason === reason.value
                           ? 'border-amber-400 bg-amber-50 font-semibold text-amber-800'
@@ -988,19 +1065,29 @@ export const PharmacyDispensing = () => {
                 </div>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label htmlFor="hold-note" className="mb-2 block text-sm font-semibold text-slate-700">
                   {t('pharmacy.dispensing.holdNoteLabel', { defaultValue: 'Additional Notes' })}{' '}
                   <span className="font-normal text-slate-400">
                     {t('pharmacy.dispensing.optional', { defaultValue: '(optional)' })}
                   </span>
                 </label>
                 <textarea
+                  id="hold-note"
                   value={holdNote}
+                  maxLength={FORM_FIELD_LIMITS.pharmacyHoldNote}
+                  aria-describedby="hold-note-count"
                   onChange={(e) => setHoldNote(e.target.value)}
                   rows={3}
                   placeholder={t('pharmacy.dispensing.holdNotePh', { defaultValue: 'Add any additional details…' })}
                   className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none"
                 />
+                <p id="hold-note-count" className="mt-1 text-end text-[11px] text-slate-400">
+                  {t('pharmacy.dispensing.holdNoteCount', {
+                    defaultValue: '{{count}} / {{max}}',
+                    count: formatLocaleDigits(holdNote.length, uiLang),
+                    max: formatLocaleDigits(FORM_FIELD_LIMITS.pharmacyHoldNote, uiLang),
+                  })}
+                </p>
               </div>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-6 py-4">

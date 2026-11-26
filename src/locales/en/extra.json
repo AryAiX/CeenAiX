@@ -3522,7 +3522,8 @@
       "holdNoteLabel": "Additional Notes",
       "optional": "(optional)",
       "holdNotePh": "Add any additional details…",
-      "holdConfirm": "Confirm Hold"
+      "holdConfirm": "Confirm Hold",
+      "holdNoteCount": "{{count}} / {{max}}"
     },
     "inventory": {
       "title": "Inventory",

@@ -14,6 +14,8 @@ export const FORM_FIELD_LIMITS = {
   searchQuery: 200,
   icdCode: 20,
   doseNumberMax: 99,
+  /** QA-261: the database allows 1,000 characters for a hold note (QA-255). */
+  pharmacyHoldNote: 1000,
 } as const;
 
 export const PATIENT_RECORD_FIELD_LIMITS = {

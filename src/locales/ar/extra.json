@@ -3664,7 +3664,8 @@
       "holdNoteLabel": "ملاحظات إضافية",
       "optional": "(اختياري)",
       "holdNotePh": "أضف أي تفاصيل إضافية…",
-      "holdConfirm": "تأكيد التعليق"
+      "holdConfirm": "تأكيد التعليق",
+      "holdNoteCount": "{{count}} / {{max}}"
     },
     "inventory": {
       "title": "المخزون",

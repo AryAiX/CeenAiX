@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { formatLocaleCurrency } from '../../lib/i18n-ui';
+import { mockScreen } from '../../test/phone-screen';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 
 vi.mock('../../components/OpsShell', () => ({
@@ -626,5 +627,81 @@ describe('PharmacyDispensing in Arabic, right to left (QA-260)', () => {
 
     expect(rowFor('مريض تجريبي').className).toContain('border-s-4');
     expect(rowFor('مريض تجريبي').className).not.toContain('border-l-4');
+  });
+});
+
+describe('PharmacyDispensing on a phone and in its dialogs (QA-261)', () => {
+  let restoreScreen: (() => void) | null = null;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(updatePharmacyDispensingTaskStatus).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    restoreScreen?.();
+    restoreScreen = null;
+  });
+
+  it('shows a card per prescription on a phone, with its status and buttons, instead of the wide table', async () => {
+    restoreScreen = mockScreen(true);
+    showQueue([
+      task({ id: 'task-a', medication: 'Amoxicillin' }),
+      task({ id: 'task-b', medication: 'Paracetamol' }),
+      task({ id: 'task-c', medication: 'Ibuprofen', patientName: 'Second Patient', prescriptionId: 'rx-2', workflowStatus: 'dispensed', isDispensed: true }),
+    ]);
+    const { container } = renderPage();
+
+    expect(container.querySelector('.min-w-\\[1200px\\]')).toBeNull();
+    const cards = screen.getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    const first = cards.find((card) => card.textContent?.includes('Test Patient')) as HTMLElement;
+    expect(within(first).getByText('NEW')).toBeInTheDocument();
+    expect(within(first).getByText('Amoxicillin, Paracetamol')).toBeInTheDocument();
+    expect(within(first).getByText('RX-1A2B3C4D')).toBeInTheDocument();
+    const second = cards.find((card) => card.textContent?.includes('Second Patient')) as HTMLElement;
+    expect(within(second).getByRole('button', { name: 'Handed to patient' })).toBeInTheDocument();
+
+    await userEvent.click(within(first).getByRole('button', { name: 'Start' }));
+    expect(updatePharmacyDispensingTaskStatus).toHaveBeenCalledWith('task-a', 'in_progress');
+  });
+
+  it('keeps the table on a wider screen', () => {
+    restoreScreen = mockScreen(false);
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    const { container } = renderPage();
+
+    expect(container.querySelector('.min-w-\\[1200px\\]')).not.toBeNull();
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+  });
+
+  it('makes the hold dialog a real dialog: named, focused, closed with Escape', async () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Hold' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Put Prescription On Hold' });
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus();
+    const reason = within(dialog).getByRole('button', { name: /Out of Stock/ });
+    expect(reason).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(reason);
+    expect(reason).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(updatePharmacyDispensingTaskStatus).not.toHaveBeenCalled();
+  });
+
+  it('limits the hold note to what the database accepts and shows how much is used', async () => {
+    showQueue([task({ id: 'task-a', medication: 'Amoxicillin' })]);
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Hold' }));
+
+    const note = screen.getByLabelText(/Additional Notes/);
+    expect(note).toHaveAttribute('maxLength', '1000');
+    await userEvent.type(note, 'Back Monday');
+    expect(screen.getByText('11 / 1000')).toBeInTheDocument();
   });
 });
