@@ -3603,7 +3603,12 @@
       "confirmHandoverTitle": "هل تم تسليم الأدوية للمريض؟",
       "confirmHandoverListLabel": "الأدوية المسلّمة",
       "confirmHandoverBody": "أكّد أن المريض، أو من ينوب عنه، استلم هذه الأدوية. لا يمكن التراجع عن ذلك.",
-      "confirmHandoverConfirm": "تأكيد التسليم"
+      "confirmHandoverConfirm": "تأكيد التسليم",
+      "pageTitle": "الوصفات",
+      "pageSubtitle": "الوصفات المُرسلة إلى {{pharmacy}}",
+      "pharmacyFallback": "صيدليتك",
+      "emptySearch": "لا توجد وصفات تطابق بحثك",
+      "loading": "جارٍ تحميل الوصفات…"
     },
     "inventory": {
       "title": "المخزون",

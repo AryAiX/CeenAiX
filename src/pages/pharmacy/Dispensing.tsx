@@ -15,7 +15,13 @@ import {
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { formatLocaleDigits, formatRelativeTime } from '../../lib/i18n-ui';
+import {
+  clinicDateKey,
+  clinicTodayKey,
+  formatClinicDate,
+  formatClinicTime,
+} from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 import { PrescriptionDetailsDialog } from './PrescriptionDetailsDialog';
 import {
@@ -44,8 +50,8 @@ interface PrescriptionListRow {
   insurance: string;
   copay: number;
   status: Exclude<FilterType, 'all'>;
-  receivedAt: Date;
-  receivedTimeAgo: string;
+  /** QA-258: when the first medicine of the prescription reached the pharmacy (stored time). */
+  receivedAt: string;
   priority: PharmacyQueuePrescriptionItem['priority'];
   hasAllergyFlag: boolean;
 }
@@ -167,18 +173,14 @@ const avatarClassFor = (seed: string) => {
   return avatarClasses[hash % avatarClasses.length];
 };
 
-const receivedMeta = (waitMinutes: number) => {
-  const receivedAt = new Date(Date.now() - waitMinutes * 60 * 1000);
-  const receivedTime = receivedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+/** QA-258: the earliest stored received time of the group (not rebuilt from rounded minutes). */
+const earliestReceivedAt = (group: PharmacyQueuePrescriptionItem[]): string =>
+  group.reduce((earliest, item) =>
+    Date.parse(item.receivedAt) < Date.parse(earliest) ? item.receivedAt : earliest
+  , group[0].receivedAt);
 
-  if (waitMinutes < 60) {
-    return { receivedAt, receivedTimeAgo: `${waitMinutes} min ago`, receivedTime };
-  }
-
-  const hours = Math.floor(waitMinutes / 60);
-  const minutes = waitMinutes % 60;
-  return { receivedAt, receivedTimeAgo: `${hours}h ${minutes}min ago`, receivedTime };
-};
+/** QA-258: auto refresh while the page is open (and when the pharmacist comes back to the tab). */
+const AUTO_REFRESH_MS = 60_000;
 
 const inferPrescriptionStatus = (items: PharmacyQueuePrescriptionItem[]): PrescriptionListRow['status'] =>
   inferPrescriptionWorkflowStatus(items);
@@ -194,8 +196,7 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
 
   return Array.from(groups.entries()).map(([prescriptionId, group]) => {
     const first = group[0];
-    const maxWait = Math.max(...group.map((item) => item.waitMinutes));
-    const { receivedAt, receivedTimeAgo } = receivedMeta(maxWait);
+    const receivedAt = earliestReceivedAt(group);
 
     return {
       id: prescriptionId,
@@ -217,7 +218,6 @@ const groupPrescriptionRows = (items: PharmacyQueuePrescriptionItem[]): Prescrip
       copay: group.reduce((sum, item) => sum + item.copayAed, 0),
       status: inferPrescriptionStatus(group),
       receivedAt,
-      receivedTimeAgo,
       priority: first.priority,
       hasAllergyFlag: group.some((item) => item.allergyFlag),
     };
@@ -245,6 +245,26 @@ export const PharmacyDispensing = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  // QA-258: new prescriptions appear and "x min ago" stays right without reloading the page.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const refresh = () => {
+      setNowMs(Date.now());
+      void refetch();
+    };
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'hidden') refresh();
+    }, AUTO_REFRESH_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [refetch]);
+  const todayKey = clinicTodayKey(new Date(nowMs));
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -472,10 +492,10 @@ export const PharmacyDispensing = () => {
       }
 
       if (sort === 'oldest') {
-        return a.receivedAt.getTime() - b.receivedAt.getTime();
+        return Date.parse(a.receivedAt) - Date.parse(b.receivedAt);
       }
 
-      return b.receivedAt.getTime() - a.receivedAt.getTime();
+      return Date.parse(b.receivedAt) - Date.parse(a.receivedAt);
     });
   }, [filter, rows, search, sort]);
 
@@ -512,9 +532,17 @@ export const PharmacyDispensing = () => {
         ) : null}
         <div className="mx-6 mb-4 mt-5 flex shrink-0 items-center justify-between">
           <div>
-            <h2 className="text-[20px] font-bold text-slate-900">Prescriptions</h2>
+            <h2 className="text-[20px] font-bold text-slate-900">
+              {t('pharmacy.dispensing.pageTitle', { defaultValue: 'Prescriptions' })}
+            </h2>
             <div className="text-[13px] text-slate-400">
-              All prescriptions today · {data?.profile?.displayName ?? data?.organization?.name ?? 'Pharmacy'}
+              {t('pharmacy.dispensing.pageSubtitle', {
+                defaultValue: 'Prescriptions sent to {{pharmacy}}',
+                pharmacy:
+                  data?.profile?.displayName ??
+                  data?.organization?.name ??
+                  t('pharmacy.dispensing.pharmacyFallback', { defaultValue: 'your pharmacy' }),
+              })}
             </div>
           </div>
         </div>
@@ -608,17 +636,26 @@ export const PharmacyDispensing = () => {
                 <div>Actions</div>
               </div>
 
-              {!loading && sorted.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-400">No prescriptions match your search</div>
+              {data && sorted.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {t('pharmacy.dispensing.emptySearch', { defaultValue: 'No prescriptions match your search' })}
+                </div>
               ) : null}
 
-              {loading ? (
-                <div className="py-12 text-center text-sm text-slate-400">Loading prescriptions...</div>
+              {/* QA-258: only the first load shows this; background refreshes keep the list. */}
+              {loading && !data ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {t('pharmacy.dispensing.loading', { defaultValue: 'Loading prescriptions…' })}
+                </div>
               ) : null}
 
               {sorted.map((row, index) => {
                 const cfg = statusConfig[row.status];
-                const received = row.receivedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                // QA-258: Dubai time for today's prescriptions, the Dubai date for older ones.
+                const received =
+                  clinicDateKey(row.receivedAt) === todayKey
+                    ? formatClinicTime(row.receivedAt, uiLang)
+                    : formatClinicDate(row.receivedAt, uiLang);
                 return (
                   <div
                     key={row.id}
@@ -629,7 +666,7 @@ export const PharmacyDispensing = () => {
                   >
                     <div>
                       <div className="font-mono text-[11px] text-slate-600">{received}</div>
-                      <div className="text-[10px] text-slate-400">{row.receivedTimeAgo}</div>
+                      <div className="text-[10px] text-slate-400">{formatRelativeTime(t, row.receivedAt)}</div>
                     </div>
 
                     <div className="flex items-center gap-2 pr-3">

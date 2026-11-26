@@ -3461,7 +3461,12 @@
       "confirmHandoverTitle": "Handed to the patient?",
       "confirmHandoverListLabel": "Medicines handed over",
       "confirmHandoverBody": "Confirm that the patient, or someone for them, collected these medicines. This can't be undone.",
-      "confirmHandoverConfirm": "Confirm handover"
+      "confirmHandoverConfirm": "Confirm handover",
+      "pageTitle": "Prescriptions",
+      "pageSubtitle": "Prescriptions sent to {{pharmacy}}",
+      "pharmacyFallback": "your pharmacy",
+      "emptySearch": "No prescriptions match your search",
+      "loading": "Loading prescriptions…"
     },
     "inventory": {
       "title": "Inventory",
