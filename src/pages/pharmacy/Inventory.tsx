@@ -16,7 +16,7 @@ import { usePharmacyPrescriptionQueue } from '../../hooks';
 import type { PharmacyInventoryBatch, PharmacyInventoryDerivedItem } from '../../hooks';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
-import { clinicDateKey } from '../../lib/clinic-booking-time';
+import { clinicTodayKey, formatClinicDate } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS } from './navItems';
 
 type FilterType =
@@ -52,7 +52,8 @@ interface InventoryRow {
   isControlled: boolean;
   isDHAFormulary: boolean;
   batchCount: number;
-  nextExpiry: string | null;
+  /** QA-269: YYYY-MM-DD of the earliest usable batch; shown as a Dubai date with the year. */
+  nextExpiryDate: string | null;
   /** QA-267: the real batches, earliest expiry first. */
   batches: PharmacyInventoryBatch[];
 }
@@ -164,7 +165,7 @@ const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] 
       isControlled: item.isControlled,
       isDHAFormulary: item.isDHAFormulary,
       batchCount: item.batchCount,
-      nextExpiry: item.expiryMonth,
+      nextExpiryDate: item.nextExpiryDate,
       batches: item.batches,
     };
   });
@@ -254,7 +255,7 @@ export const PharmacyInventory = () => {
               {data?.profile?.displayName ??
                 data?.organization?.name ??
                 t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' })}{' '}
-              · {new Date().toLocaleDateString(uiLang)}
+              · {formatClinicDate(clinicTodayKey(), uiLang)}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -280,7 +281,7 @@ export const PharmacyInventory = () => {
                       row.stockQty,
                       row.reorderLevel,
                       row.stockStatus,
-                      row.nextExpiry,
+                      row.nextExpiryDate,
                     ]),
                   ]
                     .map((line) => line.map(escape).join(','))
@@ -289,7 +290,8 @@ export const PharmacyInventory = () => {
                   const url = URL.createObjectURL(blob);
                   const link = document.createElement('a');
                   link.href = url;
-                  link.download = `pharmacy-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+                  // QA-269: today's date in Dubai, not in UTC.
+                  link.download = `pharmacy-inventory-${clinicTodayKey()}.csv`;
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);
@@ -491,7 +493,9 @@ export const PharmacyInventory = () => {
                         ) : null}
                       </div>
                       <div className="mt-0.5 font-mono text-[9px] text-slate-400">
-                        {item.nextExpiry ?? `${item.batchCount} batch${item.batchCount === 1 ? '' : 'es'}`}
+                        {item.nextExpiryDate
+                          ? formatClinicDate(item.nextExpiryDate, uiLang)
+                          : `${item.batchCount} batch${item.batchCount === 1 ? '' : 'es'}`}
                       </div>
                     </div>
 
@@ -546,7 +550,7 @@ export const PharmacyInventory = () => {
                           <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
                             <div className="text-[10px] text-slate-400">Next Expiry</div>
                             <div className="font-mono text-[15px] font-bold text-slate-800">
-                              {item.nextExpiry ?? '—'}
+                              {item.nextExpiryDate ? formatClinicDate(item.nextExpiryDate, uiLang) : '—'}
                             </div>
                           </div>
                         </div>
@@ -572,9 +576,11 @@ export const PharmacyInventory = () => {
                                   <td className="px-3 py-2 font-mono text-slate-700">
                                     {formatNumber(batch.quantity, uiLang)} {item.unit}
                                   </td>
-                                  <td className="px-3 py-2 font-mono text-slate-700">{batch.expiryDate ?? '—'}</td>
+                                  <td className="px-3 py-2 font-mono text-slate-700">
+                                    {batch.expiryDate ? formatClinicDate(batch.expiryDate, uiLang) : '—'}
+                                  </td>
                                   <td className="px-3 py-2 font-mono text-slate-500">
-                                    {batch.receivedAt ? clinicDateKey(batch.receivedAt) : '—'}
+                                    {batch.receivedAt ? formatClinicDate(batch.receivedAt, uiLang) : '—'}
                                   </td>
                                   <td className="px-3 py-2">
                                     <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${BATCH_STATE[batch.state].pill}`}>

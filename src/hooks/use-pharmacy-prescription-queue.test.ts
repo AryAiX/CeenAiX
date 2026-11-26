@@ -549,6 +549,15 @@ describe('usePharmacyPrescriptionQueue stock and expiry (QA-265)', () => {
     // Expired units on the shelf are an alert as well.
     expect(result.current.data?.lowStockAlerts).toBe(2);
   });
+
+  it('writes the next expiry as a Dubai date with the year (QA-269)', async () => {
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.inventory).toHaveLength(2));
+
+    const byId = new Map(result.current.data?.inventory.map((item) => [item.id, item]));
+    expect(byId.get('low-expiring')?.expiryMonth).toBe('Dec 15, 2026');
+    expect(byId.get('expired')?.expiryMonth).toBe('Aug 1, 2027');
+  });
 });
 
 describe('describeInventoryBatches (QA-267)', () => {

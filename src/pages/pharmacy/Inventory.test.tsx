@@ -192,8 +192,8 @@ describe('PharmacyInventory batches panel (QA-267)', () => {
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([
       // 21:30 UTC on 1 May is 2 May in Dubai.
-      ['AMX-0126', '30 tabs', '2026-11-25', '2026-05-02', 'EXPIRED'],
-      ['AMX-0827', '40 tabs', '2027-08-01', '—', 'USABLE'],
+      ['AMX-0126', '30 tabs', 'Nov 25, 2026', 'May 2, 2026', 'EXPIRED'],
+      ['AMX-0827', '40 tabs', 'Aug 1, 2027', '—', 'USABLE'],
     ]);
   });
 

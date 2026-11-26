@@ -2,7 +2,7 @@ import i18n from 'i18next';
 import type { PrescriptionClinicalVocabRow } from '../lib/prescription-vocab';
 import { supabase } from '../lib/supabase';
 import { fetchAllPages, ID_CHUNK_SIZE } from '../lib/supabase-batches';
-import { clinicTodayKey } from '../lib/clinic-booking-time';
+import { clinicTodayKey, formatClinicDate } from '../lib/clinic-booking-time';
 import { useQuery } from './use-query';
 
 const linkedDispensingTaskFallback = () =>
@@ -402,9 +402,13 @@ const inventoryStatus = (
   return 'healthy';
 };
 
+/**
+ * QA-269: the expiry date as a Dubai date with the year, in the UI language. It used to be the
+ * browser's language and time zone with no year ("01 Dec"), a day early west of UTC.
+ */
 const formatExpiry = (value: string | null) => {
   if (!value) return null;
-  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+  return formatClinicDate(value.slice(0, 10), i18n.language ?? 'en');
 };
 
 /**
