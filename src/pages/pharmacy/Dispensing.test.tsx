@@ -11,6 +11,7 @@ vi.mock('../../components/OpsShell', () => ({
 }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: () => ({ user: { id: 'pharmacist-1' } }) }));
 vi.mock('../../hooks', () => ({
+  PharmacyTaskChangeNotAllowedError: class PharmacyTaskChangeNotAllowedError extends Error {},
   fetchPharmacyPrescriptionDetails: vi.fn(),
   usePharmacyPrescriptionQueue: vi.fn(),
   updatePharmacyDispensingTaskStatus: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../../hooks', () => ({
 
 import {
   fetchPharmacyPrescriptionDetails,
+  PharmacyTaskChangeNotAllowedError,
   sendPharmacyHoldNotificationAndMessage,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
@@ -411,5 +413,31 @@ describe('PharmacyDispensing hold and errors told plainly (QA-254)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('تعذّر تحديث الوصفة. يُرجى المحاولة مرة أخرى.');
     expect(screen.queryByText(/row-level security/)).not.toBeInTheDocument();
+  });
+});
+
+describe('PharmacyDispensing refused changes (QA-255)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  it('says the change is not allowed and reloads the list when the database refuses it', async () => {
+    const refetch = vi.fn();
+    vi.mocked(updatePharmacyDispensingTaskStatus).mockRejectedValue(new PharmacyTaskChangeNotAllowedError('0 rows'));
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { queue: [task({ id: 'task-a', medication: 'Amoxicillin' })], profile: null, organization: null, lowStockAlerts: 0 },
+      loading: false,
+      error: null,
+      refetch,
+    } as never);
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Start' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "This change isn't allowed for this prescription. The list now shows what is saved."
+    );
+    expect(refetch).toHaveBeenCalled();
   });
 });

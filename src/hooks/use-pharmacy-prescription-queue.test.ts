@@ -7,7 +7,9 @@ import { supabase } from '../lib/supabase';
 import { createSupabaseQueryBuilder } from '../test/supabase-mock';
 import {
   fetchPharmacyPrescriptionDetails,
+  PharmacyTaskChangeNotAllowedError,
   sendPharmacyHoldNotificationAndMessage,
+  updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
 } from './use-pharmacy-prescription-queue';
 
@@ -254,5 +256,59 @@ describe('fetchPharmacyPrescriptionDetails (QA-253)', () => {
     const refused = createSupabaseQueryBuilder({ data: null, error: { message: 'permission denied' } });
     fromMock.mockImplementation(((table: string) => (table === 'prescription_items' ? refused : vocab)) as never);
     await expect(fetchPharmacyPrescriptionDetails(['item-1'])).rejects.toMatchObject({ message: 'permission denied' });
+  });
+});
+
+describe('updatePharmacyDispensingTaskStatus (QA-255)', () => {
+  const fromMock = vi.mocked(supabase.from);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const useTasks = (result: { data: unknown; error: unknown }) => {
+    const builder = createSupabaseQueryBuilder(result);
+    fromMock.mockReturnValue(builder as never);
+    return builder;
+  };
+
+  it('saves the status and checks that the row was really changed', async () => {
+    const builder = useTasks({ data: [{ id: 'task-1' }], error: null });
+
+    await expect(
+      updatePharmacyDispensingTaskStatus('task-1', 'on_hold', { holdReasonCode: 'out_of_stock', holdNote: '  Monday ' })
+    ).resolves.toBeUndefined();
+
+    expect(builder.update).toHaveBeenCalledWith({
+      workflow_status: 'on_hold',
+      hold_reason_code: 'out_of_stock',
+      hold_note: 'Monday',
+    });
+    expect(builder.eq).toHaveBeenCalledWith('id', 'task-1');
+    expect(builder.select).toHaveBeenCalledWith('id');
+  });
+
+  it('treats 0 changed rows (refused by the access rules) as not allowed, not as success', async () => {
+    useTasks({ data: [], error: null });
+
+    await expect(updatePharmacyDispensingTaskStatus('task-1', 'in_progress')).rejects.toBeInstanceOf(
+      PharmacyTaskChangeNotAllowedError
+    );
+  });
+
+  it('treats a step the database guard refuses as not allowed', async () => {
+    useTasks({ data: null, error: { code: '42501', message: 'A prescription cannot go from dispensed to new.' } });
+
+    await expect(updatePharmacyDispensingTaskStatus('task-1', 'new')).rejects.toBeInstanceOf(
+      PharmacyTaskChangeNotAllowedError
+    );
+  });
+
+  it('passes other database errors on as they are', async () => {
+    useTasks({ data: null, error: { code: '08006', message: 'connection lost' } });
+
+    await expect(updatePharmacyDispensingTaskStatus('task-1', 'in_progress')).rejects.toMatchObject({
+      message: 'connection lost',
+    });
   });
 });

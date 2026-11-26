@@ -329,14 +329,26 @@ export async function setPharmacySettingEnabled(
  * `on_hold` / `dispensed` / `cancelled`). Wraps the canonical
  * `pharmacy_dispensing_tasks` row write.
  */
+/**
+ * QA-255: the database refused a change to a dispensing task: the step is not allowed (for example
+ * from dispensed back to new), the task belongs to another pharmacy, or another pharmacist changed
+ * it first. Nothing was saved.
+ */
+export class PharmacyTaskChangeNotAllowedError extends Error {
+  constructor(detail?: string) {
+    super(detail ? `Dispensing task change not allowed: ${detail}` : 'Dispensing task change not allowed');
+    this.name = 'PharmacyTaskChangeNotAllowedError';
+  }
+}
+
 export async function updatePharmacyDispensingTaskStatus(
   taskId: string,
   workflowStatus: PharmacyQueuePrescriptionItem['workflowStatus'],
   options?: { holdReasonCode?: string; holdNote?: string }
 ): Promise<void> {
+  // updated_at is set by the database (QA-255).
   const payload: Record<string, unknown> = {
     workflow_status: workflowStatus,
-    updated_at: new Date().toISOString(),
   };
 
   if (workflowStatus === 'on_hold') {
@@ -347,8 +359,22 @@ export async function updatePharmacyDispensingTaskStatus(
     payload.hold_note = null;
   }
 
-  const { error } = await supabase.from('pharmacy_dispensing_tasks').update(payload).eq('id', taskId);
-  if (error) throw error;
+  const { data, error } = await supabase
+    .from('pharmacy_dispensing_tasks')
+    .update(payload)
+    .eq('id', taskId)
+    .select('id');
+  if (error) {
+    // 42501: the database guard refused the step (QA-255).
+    if ((error as { code?: string }).code === '42501') {
+      throw new PharmacyTaskChangeNotAllowedError(error.message);
+    }
+    throw error;
+  }
+  // QA-255: a change refused by the access rules updates 0 rows without an error.
+  if (!data || data.length === 0) {
+    throw new PharmacyTaskChangeNotAllowedError('0 rows updated');
+  }
 }
 
 /** QA-254: what reached the patient after a hold. */

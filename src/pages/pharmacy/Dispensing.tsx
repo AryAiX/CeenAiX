@@ -7,6 +7,7 @@ import { ChevronDown, FileText, MessageSquare, Play, Search, X } from 'lucide-re
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import {
+  PharmacyTaskChangeNotAllowedError,
   sendPharmacyHoldNotificationAndMessage,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
@@ -302,6 +303,16 @@ export const PharmacyDispensing = () => {
     }
   };
 
+  // QA-254 / QA-255: plain, translated messages; the database error is only logged.
+  const statusErrorMessage = (error: unknown) =>
+    error instanceof PharmacyTaskChangeNotAllowedError
+      ? t('pharmacy.dispensing.statusChangeNotAllowed', {
+          defaultValue: "This change isn't allowed for this prescription. The list now shows what is saved.",
+        })
+      : t('pharmacy.dispensing.statusUpdateFailed', {
+          defaultValue: 'Could not update the prescription. Please try again.',
+        });
+
   const handleOnHold = async (row: PrescriptionListRow) => {
     // QA-251: only the medicines still open; dispensed, picked up and cancelled ones stay as they are.
     const taskIds = openDispensingTaskIds(row.tasks);
@@ -360,11 +371,7 @@ export const PharmacyDispensing = () => {
       setHoldNote('');
     } catch (error) {
       console.warn(`[pharmacy] hold failed: ${error instanceof Error ? error.message : String(error)}`);
-      setActionError(
-        t('pharmacy.dispensing.statusUpdateFailed', {
-          defaultValue: 'Could not update the prescription. Please try again.',
-        })
-      );
+      setActionError(statusErrorMessage(error));
       // Some medicines may have changed before the error: show what is really saved.
       refetch();
     } finally {
@@ -396,11 +403,7 @@ export const PharmacyDispensing = () => {
     } catch (error) {
       // QA-254: a plain, translated message; the database error is logged for operators.
       console.warn(`[pharmacy] status update failed: ${error instanceof Error ? error.message : String(error)}`);
-      setActionError(
-        t('pharmacy.dispensing.statusUpdateFailed', {
-          defaultValue: 'Could not update the prescription. Please try again.',
-        })
-      );
+      setActionError(statusErrorMessage(error));
       // Some medicines may have changed before the error: show what is really saved.
       refetch();
     } finally {

@@ -3455,7 +3455,8 @@
       "holdPatientNotTold": "The prescription is on hold, but the patient could not be told. Please contact them directly.",
       "holdMessageNotSent": "The prescription is on hold and the patient was notified, but the message could not be sent. You can write to them from Messages.",
       "holdNoPatientAccount": "The prescription is on hold. This patient has no CeenAiX account, so they were not told.",
-      "statusUpdateFailed": "Could not update the prescription. Please try again."
+      "statusUpdateFailed": "Could not update the prescription. Please try again.",
+      "statusChangeNotAllowed": "This change isn't allowed for this prescription. The list now shows what is saved."
     },
     "inventory": {
       "title": "Inventory",

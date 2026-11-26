@@ -97,6 +97,7 @@ export type {
 } from './use-lab-ops-portal';
 export {
   fetchPharmacyPrescriptionDetails,
+  PharmacyTaskChangeNotAllowedError,
   sendPharmacyHoldNotificationAndMessage,
   sendPharmacyResponse,
   setPharmacySettingEnabled,
