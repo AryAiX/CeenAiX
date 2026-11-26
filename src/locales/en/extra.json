@@ -3406,7 +3406,13 @@
       "status": {
         "verifying": "Verifying",
         "counseling": "Counseling",
-        "ready": "Ready"
+        "ready": "Ready",
+        "new": "NEW",
+        "in_progress": "IN PROGRESS",
+        "on_hold": "ON HOLD",
+        "dispensed": "DISPENSED",
+        "picked_up": "PICKED UP",
+        "cancelled": "CANCELLED"
       },
       "actionStart": "Start",
       "actionMarkDispensed": "Mark as dispensed",
@@ -3467,7 +3473,56 @@
       "pharmacyFallback": "your pharmacy",
       "emptySearch": "No prescriptions match your search",
       "loading": "Loading prescriptions…",
-      "tasksTruncated": "This list is very long, so the oldest prescriptions are not shown."
+      "tasksTruncated": "This list is very long, so the oldest prescriptions are not shown.",
+      "filter": {
+        "all": "All",
+        "new": "New",
+        "in_progress": "In Progress",
+        "on_hold": "On Hold",
+        "dispensed": "Dispensed",
+        "picked_up": "Picked Up",
+        "cancelled": "Cancelled"
+      },
+      "sort": {
+        "newest": "Newest First",
+        "oldest": "Oldest First",
+        "patient": "Patient A-Z",
+        "status": "By Status"
+      },
+      "sortButton": "Sort: {{label}}",
+      "holdReason": {
+        "out_of_stock": "Out of Stock",
+        "insurance_issue": "Insurance Issue",
+        "allergy_concern": "Allergy Concern",
+        "doctor_clarification": "Doctor Clarification Needed",
+        "substitution_required": "Substitution Required",
+        "incomplete_prescription": "Incomplete Prescription",
+        "patient_not_reachable": "Patient Not Reachable",
+        "other": "Other"
+      },
+      "medicationPending": "Medication pending",
+      "shellSubtitle": "{{pharmacy}} · Dispensing queue",
+      "clearSearch": "Clear search",
+      "column": {
+        "received": "Received",
+        "patient": "Patient",
+        "doctor": "Doctor",
+        "drugs": "Drugs",
+        "insurance": "Insurance",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "holdTitle": "Put on hold",
+      "actionHold": "Hold",
+      "messageDraft": "Regarding your prescription for {{medicines}}: ",
+      "messagePatient": "Message patient about this prescription",
+      "messagePatientShort": "Message patient",
+      "holdDialogTitle": "Put Prescription On Hold",
+      "holdReasonLabel": "Reason for Hold",
+      "holdNoteLabel": "Additional Notes",
+      "optional": "(optional)",
+      "holdNotePh": "Add any additional details…",
+      "holdConfirm": "Confirm Hold"
     },
     "inventory": {
       "title": "Inventory",

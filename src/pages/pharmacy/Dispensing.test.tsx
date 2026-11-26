@@ -4,10 +4,19 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
+import { formatLocaleCurrency } from '../../lib/i18n-ui';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 
 vi.mock('../../components/OpsShell', () => ({
-  OpsShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  OpsShell: ({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) => (
+    <div>
+      <header data-testid="shell-header">
+        <span>{title}</span>
+        <span>{subtitle}</span>
+      </header>
+      {children}
+    </div>
+  ),
 }));
 vi.mock('../../lib/auth-context', () => ({ useAuth: () => ({ user: { id: 'pharmacist-1' } }) }));
 vi.mock('../../hooks', () => ({
@@ -536,5 +545,86 @@ describe('PharmacyDispensing very long lists (QA-259)', () => {
     renderPage();
 
     expect(screen.getByRole('note')).toHaveTextContent('This list is very long, so the oldest prescriptions are not shown.');
+  });
+});
+
+describe('PharmacyDispensing in Arabic, right to left (QA-260)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(updatePharmacyDispensingTaskStatus).mockResolvedValue(undefined);
+    vi.mocked(sendPharmacyHoldNotificationAndMessage).mockResolvedValue({ notified: true, messaged: true });
+    await i18n.changeLanguage('ar');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  // Arabic test data, so any Latin letter left on screen is an untranslated label.
+  const arabicQueue = () => [
+    task({
+      id: 'task-a',
+      medication: 'أموكسيسيلين',
+      patientName: 'مريض تجريبي',
+      prescriber: 'د. اختبار',
+      insuranceProvider: 'نقدي',
+      copayAed: 15,
+    }),
+  ];
+  const latinOutsideReference = (text: string | null) =>
+    (text ?? '').replace(/RX-[0-9A-F]+/g, '').match(/[A-Za-z]+/g) ?? [];
+
+  it('shows the whole page in Arabic', () => {
+    showQueue(arabicQueue());
+    renderPage();
+
+    expect(latinOutsideReference(document.body.textContent)).toEqual([]);
+    expect(screen.getByRole('button', { name: /^الكل/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /الترتيب: الأحدث أولاً/ })).toBeInTheDocument();
+    expect(screen.getByText('وقت الاستلام')).toBeInTheDocument();
+    const row = rowFor('مريض تجريبي');
+    expect(within(row).getByText('جديدة')).toBeInTheDocument();
+    // The copay is in Arabic currency format, not "AED 15".
+    expect(row).toHaveTextContent(formatLocaleCurrency(15, 'ar').replace(/\s+/g, ' '));
+    expect(row).not.toHaveTextContent('AED');
+    expect(within(row).getByRole('button', { name: 'مراسلة المريض بخصوص هذه الوصفة' })).toBeInTheDocument();
+    expect(within(screen.getByTestId('shell-header')).getByText('الوصفات')).toBeInTheDocument();
+  });
+
+  it('shows the hold dialog in Arabic but writes the reason to the patient in English, like the notification', async () => {
+    showQueue(arabicQueue());
+    renderPage();
+
+    await userEvent.click(within(rowFor('مريض تجريبي')).getByRole('button', { name: 'تعليق' }));
+    const title = screen.getByRole('heading', { name: 'تعليق الوصفة' });
+    const dialog = title.closest('.rounded-2xl') as HTMLElement;
+    expect(latinOutsideReference(dialog.textContent)).toEqual([]);
+    expect(within(dialog).getByRole('button', { name: 'إغلاق' })).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /غير متوفر في المخزون/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'تأكيد التعليق' }));
+
+    expect(sendPharmacyHoldNotificationAndMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ holdReasonLabel: 'Out of Stock' })
+    );
+  });
+
+  it('places the search, sort menu and status bar on the right side in Arabic', async () => {
+    showQueue(arabicQueue());
+    renderPage();
+
+    await userEvent.type(screen.getByRole('textbox'), 'x');
+    const clear = screen.getByRole('button', { name: 'مسح البحث' });
+    expect(clear.className).toContain('end-3');
+    expect(clear.className).not.toMatch(/\bright-3\b/);
+
+    await userEvent.clear(screen.getByRole('textbox'));
+    await userEvent.click(screen.getByRole('button', { name: /الترتيب/ }));
+    const newest = screen.getByRole('button', { name: 'الأقدم أولاً' });
+    expect(newest.className).toContain('text-start');
+    expect(newest.parentElement?.className).toContain('end-0');
+
+    expect(rowFor('مريض تجريبي').className).toContain('border-s-4');
+    expect(rowFor('مريض تجريبي').className).not.toContain('border-l-4');
   });
 });

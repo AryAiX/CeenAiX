@@ -3548,7 +3548,13 @@
       "status": {
         "verifying": "قيد التحقق",
         "counseling": "إرشاد",
-        "ready": "جاهزة"
+        "ready": "جاهزة",
+        "new": "جديدة",
+        "in_progress": "قيد التحضير",
+        "on_hold": "معلّقة",
+        "dispensed": "تم الصرف",
+        "picked_up": "تم الاستلام",
+        "cancelled": "ملغاة"
       },
       "actionStart": "بدء",
       "actionMarkDispensed": "تأكيد الصرف",
@@ -3609,7 +3615,56 @@
       "pharmacyFallback": "صيدليتك",
       "emptySearch": "لا توجد وصفات تطابق بحثك",
       "loading": "جارٍ تحميل الوصفات…",
-      "tasksTruncated": "هذه القائمة طويلة جداً، لذلك لا تظهر أقدم الوصفات."
+      "tasksTruncated": "هذه القائمة طويلة جداً، لذلك لا تظهر أقدم الوصفات.",
+      "filter": {
+        "all": "الكل",
+        "new": "جديدة",
+        "in_progress": "قيد التحضير",
+        "on_hold": "معلّقة",
+        "dispensed": "تم صرفها",
+        "picked_up": "تم استلامها",
+        "cancelled": "ملغاة"
+      },
+      "sort": {
+        "newest": "الأحدث أولاً",
+        "oldest": "الأقدم أولاً",
+        "patient": "المريض (أ-ي)",
+        "status": "حسب الحالة"
+      },
+      "sortButton": "الترتيب: {{label}}",
+      "holdReason": {
+        "out_of_stock": "غير متوفر في المخزون",
+        "insurance_issue": "مشكلة في التأمين",
+        "allergy_concern": "مخاوف من الحساسية",
+        "doctor_clarification": "بحاجة إلى توضيح من الطبيب",
+        "substitution_required": "يلزم دواء بديل",
+        "incomplete_prescription": "وصفة غير مكتملة",
+        "patient_not_reachable": "تعذّر التواصل مع المريض",
+        "other": "سبب آخر"
+      },
+      "medicationPending": "الدواء قيد التحديد",
+      "shellSubtitle": "{{pharmacy}} · قائمة الصرف",
+      "clearSearch": "مسح البحث",
+      "column": {
+        "received": "وقت الاستلام",
+        "patient": "المريض",
+        "doctor": "الطبيب",
+        "drugs": "الأدوية",
+        "insurance": "التأمين",
+        "status": "الحالة",
+        "actions": "الإجراءات"
+      },
+      "holdTitle": "تعليق الوصفة",
+      "actionHold": "تعليق",
+      "messageDraft": "بخصوص وصفتك لـ {{medicines}}: ",
+      "messagePatient": "مراسلة المريض بخصوص هذه الوصفة",
+      "messagePatientShort": "مراسلة المريض",
+      "holdDialogTitle": "تعليق الوصفة",
+      "holdReasonLabel": "سبب التعليق",
+      "holdNoteLabel": "ملاحظات إضافية",
+      "optional": "(اختياري)",
+      "holdNotePh": "أضف أي تفاصيل إضافية…",
+      "holdConfirm": "تأكيد التعليق"
     },
     "inventory": {
       "title": "المخزون",
