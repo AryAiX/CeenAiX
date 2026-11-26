@@ -6,7 +6,6 @@ import {
   Download,
   Eye,
   Lock,
-  Plus,
   Search,
   ShoppingCart,
   X,
@@ -33,6 +32,7 @@ type FilterType =
 
 interface InventoryRow {
   id: string;
+  sku: string;
   genericName: string;
   brandName: string;
   strength: string;
@@ -118,6 +118,24 @@ const BATCH_STATE: Record<PharmacyInventoryBatch['state'], { label: string; pill
   empty: { label: 'EMPTY', pill: 'bg-slate-100 text-slate-500' },
 };
 
+/**
+ * QA-268: an email draft the pharmacist sends to their supplier (the system has no suppliers).
+ * It names the item as the supplier knows it (SKU, brand, strength, form), not by an internal id.
+ */
+const reorderMailto = (item: InventoryRow) => {
+  const product = [item.genericName, item.strength, item.form].filter(Boolean).join(' ');
+  const lines = [
+    `Medication: ${product}`,
+    item.brandName ? `Brand: ${item.brandName}` : null,
+    `SKU: ${item.sku}`,
+    `Usable stock: ${item.stockQty} ${item.unit}`,
+    `Reorder level: ${item.reorderLevel} ${item.unit}`,
+    '',
+    'Please arrange a reorder.',
+  ].filter((line): line is string => line !== null);
+  return `mailto:?subject=${encodeURIComponent(`Reorder request: ${product}`)}&body=${encodeURIComponent(lines.join('\n'))}`;
+};
+
 const formatNumber = (value: number | null | undefined, language: string) =>
   typeof value === 'number' ? formatLocaleDigits(value, language) : '—';
 
@@ -129,6 +147,7 @@ const toInventoryRows = (items: PharmacyInventoryDerivedItem[]): InventoryRow[] 
 
     return {
       id: item.id,
+      sku: item.sku,
       genericName,
       // QA-266: no brand is shown as no brand (it used to repeat the generic name).
       brandName: item.brandName?.trim() ?? '',
@@ -284,16 +303,13 @@ export const PharmacyInventory = () => {
               <Download className="h-4 w-4" />
               Export Stock Report
             </button>
-            <a
-              href="/pharmacy/messages"
-              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-              title="Open pharmacy messages to coordinate a stock receipt with the supplier"
-            >
-              <Plus className="h-4 w-4" />
-              Receive Stock
-            </a>
           </div>
         </div>
+
+        {/* QA-268: there is no stock receiving in the portal yet; "Receive Stock" only opened Messages. */}
+        <p role="note" className="mx-6 mb-3 text-[12px] text-slate-500">
+          Stock and batches are updated by a CeenAiX administrator. Use "Email reorder" to send a reorder request to your supplier.
+        </p>
 
         {exportError ? (
           <div className="mx-6 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -496,15 +512,12 @@ export const PharmacyInventory = () => {
                         Batches
                       </button>
                       <a
-                        href={`mailto:?subject=${encodeURIComponent(
-                          `Reorder request: ${item.genericName}`
-                        )}&body=${encodeURIComponent(
-                          `Item id: ${item.id}\nMedication: ${item.genericName}\nCurrent stock: ${item.stockQty}\nReorder level: ${item.reorderLevel}\n\nPlease arrange a reorder.`
-                        )}`}
+                        href={reorderMailto(item)}
+                        title="Opens an email draft to send to your supplier"
                         className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
                       >
-                        <ShoppingCart className="h-3 w-3" />
-                        Order
+                        <ShoppingCart className="h-3 w-3" aria-hidden="true" />
+                        Email reorder
                       </a>
                     </div>
                   </div>

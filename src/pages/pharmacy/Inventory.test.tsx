@@ -206,3 +206,47 @@ describe('PharmacyInventory batches panel (QA-267)', () => {
     expect(screen.getByText('No batches recorded for this item.')).toBeInTheDocument();
   });
 });
+
+describe('PharmacyInventory buttons that do what they say (QA-268)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('has no "Receive Stock" button that only opened Messages, and says who updates stock', () => {
+    showInventory([item({ id: 'amox', genericName: 'Amoxicillin' })]);
+    renderInventory();
+
+    expect(screen.queryByText('Receive Stock')).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="/pharmacy/messages"]')).toBeNull();
+    expect(screen.getByRole('note')).toHaveTextContent('Stock and batches are updated by a CeenAiX administrator.');
+  });
+
+  it('offers an email reorder draft that names the item as the supplier knows it', () => {
+    showInventory([
+      item({
+        id: '0b7c2f4e-1111-2222-3333-444455556666',
+        sku: 'AMX-500',
+        genericName: 'Amoxicillin',
+        brandName: 'Amoxil',
+        strength: '500 mg',
+        dosageForm: 'Capsules',
+        unit: 'caps',
+        stock: 12,
+        reorderPoint: 40,
+        status: 'low',
+      }),
+    ]);
+    renderInventory();
+
+    const link = within(inventoryRowFor('Amoxicillin 500 mg')).getByRole('link', { name: 'Email reorder' });
+    const href = link.getAttribute('href') ?? '';
+    expect(href.startsWith('mailto:?subject=')).toBe(true);
+    const params = new URLSearchParams(href.slice('mailto:?'.length));
+    expect(params.get('subject')).toBe('Reorder request: Amoxicillin 500 mg Capsules');
+    expect(params.get('body')).toBe(
+      'Medication: Amoxicillin 500 mg Capsules\nBrand: Amoxil\nSKU: AMX-500\nUsable stock: 12 caps\nReorder level: 40 caps\n\nPlease arrange a reorder.'
+    );
+    expect(href).not.toContain('0b7c2f4e');
+    expect(link).toHaveAttribute('title', 'Opens an email draft to send to your supplier');
+  });
+});
