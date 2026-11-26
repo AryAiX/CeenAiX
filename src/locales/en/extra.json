@@ -3552,7 +3552,81 @@
         "near_expiry": "Near expiry",
         "out": "Out"
       },
-      "exportFailed": "Could not create the export. Please try again."
+      "exportFailed": "Could not create the export. Please try again.",
+      "filter": {
+        "all": "All",
+        "in_stock": "In Stock",
+        "low": "Low Stock",
+        "critical": "Critical",
+        "out_of_stock": "Out of Stock",
+        "expiring_soon": "Expiring Soon",
+        "expired": "Expired",
+        "controlled": "Controlled",
+        "dha_formulary": "DHA Formulary"
+      },
+      "stockStatus": {
+        "in_stock": "IN STOCK",
+        "low": "LOW STOCK",
+        "critical": "CRITICAL",
+        "out_of_stock": "OUT OF STOCK"
+      },
+      "pageHeading": "Inventory Management",
+      "pageCaption": "Stock levels · {{pharmacy}} · {{date}}",
+      "exportTitle": "Exports the items shown, with the current filter and search, as a CSV file",
+      "exportButton": "Export Stock Report",
+      "adminNote": "Stock and batches are updated by a CeenAiX administrator. Use \"Email reorder\" to send a reorder request to your supplier.",
+      "kpi": {
+        "total": "Total SKUs",
+        "inStock": "In Stock",
+        "lowCritical": "Low / Critical",
+        "out": "Out of Stock",
+        "expiring": "Expiring Soon",
+        "expired": "Expired Stock"
+      },
+      "clearSearch": "Clear search",
+      "column": {
+        "item": "Item",
+        "category": "Category",
+        "stock": "Usable stock",
+        "reorder": "Reorder level",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "loading": "Loading inventory…",
+      "emptySearch": "No items match your search",
+      "controlledLong": "Controlled substance",
+      "controlledShort": "Controlled",
+      "dhaFormulary": "DHA formulary",
+      "expiredNote": "{{qty}} {{unit}} expired · not counted in stock · remove from the shelf",
+      "flagExpiringSoon": "EXPIRING SOON",
+      "flagExpiredStock": "EXPIRED STOCK",
+      "batchCount_one": "{{count}} batch",
+      "batchCount_other": "{{count}} batches",
+      "batchesButton": "Batches",
+      "emailReorderTitle": "Opens an email draft to send to your supplier",
+      "emailReorder": "Email reorder",
+      "panelHeading": "On-hand batches",
+      "tile": {
+        "current": "Usable stock",
+        "reorder": "Reorder level",
+        "batches": "Batches",
+        "nextExpiry": "Next expiry"
+      },
+      "noBatches": "No batches recorded for this item.",
+      "batchCaption": "Batches of {{item}}",
+      "batchColumn": {
+        "batch": "Batch",
+        "quantity": "Quantity",
+        "expiry": "Expiry",
+        "received": "Received",
+        "state": "State"
+      },
+      "batchState": {
+        "usable": "USABLE",
+        "expiring_soon": "EXPIRING SOON",
+        "expired": "EXPIRED",
+        "empty": "EMPTY"
+      }
     },
     "messages": {
       "title": "Messages",

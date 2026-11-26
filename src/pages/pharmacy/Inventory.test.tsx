@@ -2,7 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 import type { PharmacyInventoryDerivedItem } from '../../hooks';
 
 vi.mock('../../components/OpsShell', () => ({
@@ -294,5 +295,101 @@ describe('PharmacyInventory stock export (QA-270)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not create the export. Please try again.');
     expect(screen.queryByText(/createObjectURL/)).not.toBeInTheDocument();
     warn.mockRestore();
+  });
+});
+
+describe('PharmacyInventory in Arabic, right to left (QA-271)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await i18n.changeLanguage('ar');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  // Arabic test data, so any Latin letter left on screen is an untranslated label.
+  const arabicItem = () =>
+    item({
+      id: 'amox',
+      sku: '١٠١',
+      genericName: 'أموكسيسيلين',
+      strength: '٥٠٠ ملغ',
+      dosageForm: 'كبسولات',
+      unit: 'كبسولة',
+      category: 'مضاد حيوي',
+      stock: 12,
+      reorderPoint: 40,
+      status: 'low',
+      expiredStock: 5,
+      expiringSoon: true,
+      isControlled: true,
+      isDHAFormulary: true,
+      batchCount: 2,
+      batches: [
+        { id: 'b1', batchNumber: '٠١', quantity: 5, expiryDate: '2026-11-01', receivedAt: null, state: 'expired' },
+        { id: 'b2', batchNumber: '٠٢', quantity: 12, expiryDate: '2026-12-20', receivedAt: null, state: 'expiring_soon' },
+      ],
+    });
+  const latin = (text: string | null) => (text ?? '').replace(/CeenAiX|CSV/g, '').match(/[A-Za-z]+/g) ?? [];
+
+  it('shows the whole page and the batches panel in Arabic', async () => {
+    showInventory([arabicItem()]);
+    renderInventory();
+
+    expect(latin(document.body.textContent)).toEqual([]);
+    expect(screen.getByText('إدارة المخزون')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^الكل/ })).toBeInTheDocument();
+    const row = inventoryRowFor('أموكسيسيلين ٥٠٠ ملغ');
+    expect(within(row).getByText('حرج')).toBeInTheDocument();
+    expect(within(row).getByText('قريب الانتهاء')).toBeInTheDocument();
+    expect(within(row).getByText('مخزون منتهي الصلاحية')).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'طلب إعادة التوريد بالبريد' })).toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: /الدفعات/ }));
+    expect(latin(document.body.textContent)).toEqual([]);
+    expect(screen.getByRole('table', { name: 'دفعات أموكسيسيلين ٥٠٠ ملغ' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'الانتهاء' })).toBeInTheDocument();
+  });
+
+  it('uses the Arabic plural forms for the number of batches', () => {
+    showInventory([
+      item({ id: 'one', genericName: 'صنف أ', nextExpiryDate: null, batchCount: 1 }),
+      item({ id: 'two', genericName: 'صنف ب', nextExpiryDate: null, batchCount: 2 }),
+      item({ id: 'five', genericName: 'صنف ج', nextExpiryDate: null, batchCount: 5 }),
+    ]);
+    renderInventory();
+
+    expect(within(inventoryRowFor('صنف أ')).getByText('دفعة واحدة')).toBeInTheDocument();
+    expect(within(inventoryRowFor('صنف ب')).getByText('دفعتان')).toBeInTheDocument();
+    expect(within(inventoryRowFor('صنف ج')).getByText('٥ دفعات')).toBeInTheDocument();
+  });
+
+  it('places the search, the colour bar and the figures for right to left', async () => {
+    showInventory([arabicItem()]);
+    renderInventory();
+
+    await userEvent.type(screen.getByRole('textbox'), 'x');
+    const clear = screen.getByRole('button', { name: 'مسح البحث' });
+    expect(clear.className).toContain('end-3');
+    expect(clear.className).not.toMatch(/\bright-3\b/);
+    await userEvent.clear(screen.getByRole('textbox'));
+
+    const row = inventoryRowFor('أموكسيسيلين ٥٠٠ ملغ');
+    expect(row.className).toContain('border-s-4');
+    expect(row.className).not.toContain('border-l-4');
+    expect(row.getAttribute('style') ?? '').not.toContain('border-left');
+    expect(screen.getByRole('button', { name: /إجمالي الأصناف/ }).className).toContain('text-start');
+  });
+});
+
+describe('PharmacyInventory column headers (QA-271)', () => {
+  it('labels the columns of the stock table', () => {
+    showInventory([item({ id: 'amox', genericName: 'Amoxicillin' })]);
+    renderInventory();
+
+    for (const label of ['Item', 'Category', 'Usable stock', 'Reorder level', 'Status', 'Actions']) {
+      expect(screen.getByText(label, { exact: true })).toBeInTheDocument();
+    }
   });
 });

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -59,7 +60,19 @@ interface InventoryRow {
   batches: PharmacyInventoryBatch[];
 }
 
-const filterLabels: Record<FilterType, string> = {
+// QA-271: every label is translated; the English text is the default.
+const FILTER_KEYS: FilterType[] = [
+  'all',
+  'in_stock',
+  'low',
+  'critical',
+  'out_of_stock',
+  'expiring_soon',
+  'expired',
+  'controlled',
+  'dha_formulary',
+];
+const FILTER_DEFAULTS: Record<FilterType, string> = {
   all: 'All',
   in_stock: 'In Stock',
   low: 'Low Stock',
@@ -70,34 +83,45 @@ const filterLabels: Record<FilterType, string> = {
   controlled: 'Controlled',
   dha_formulary: 'DHA Formulary',
 };
+const filterLabel = (key: FilterType, t: TFunction) =>
+  t(`pharmacy.inventory.filter.${key}`, { defaultValue: FILTER_DEFAULTS[key] });
+
+const STOCK_DEFAULTS: Record<InventoryRow['stockStatus'], string> = {
+  in_stock: 'IN STOCK',
+  low: 'LOW STOCK',
+  critical: 'CRITICAL',
+  out_of_stock: 'OUT OF STOCK',
+};
+const stockLabel = (status: InventoryRow['stockStatus'], t: TFunction) =>
+  t(`pharmacy.inventory.stockStatus.${status}`, { defaultValue: STOCK_DEFAULTS[status] });
 
 const stockConfig: Record<
   InventoryRow['stockStatus'],
-  { label: string; pill: string; dot: string; row: string }
+  { pill: string; dot: string; row: string; border: string }
 > = {
   in_stock: {
-    label: 'IN STOCK',
     pill: 'bg-emerald-50 text-emerald-700',
     dot: 'bg-emerald-500',
     row: 'bg-white',
+    border: 'border-s-green-500',
   },
   low: {
-    label: 'LOW STOCK',
     pill: 'bg-amber-50 text-amber-700',
     dot: 'bg-amber-500',
     row: 'bg-amber-50/30',
+    border: 'border-s-amber-500',
   },
   critical: {
-    label: 'CRITICAL',
     pill: 'bg-orange-50 text-orange-700',
     dot: 'bg-orange-500',
     row: 'bg-orange-50/30',
+    border: 'border-s-orange-500',
   },
   out_of_stock: {
-    label: 'OUT OF STOCK',
     pill: 'bg-red-50 text-red-700',
     dot: 'bg-red-500',
     row: 'bg-red-50/40',
+    border: 'border-s-red-500',
   },
 };
 
@@ -250,20 +274,27 @@ export const PharmacyInventory = () => {
         <div className="flex min-h-full flex-col overflow-y-auto bg-slate-50">
         <div className="mx-6 mb-4 mt-5 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-[20px] font-bold text-slate-900">Inventory Management</h2>
+            <h2 className="text-[20px] font-bold text-slate-900">
+              {t('pharmacy.inventory.pageHeading', { defaultValue: 'Inventory Management' })}
+            </h2>
             <div className="text-[13px] text-slate-400">
-              Stock levels ·{' '}
-              {data?.profile?.displayName ??
-                data?.organization?.name ??
-                t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' })}{' '}
-              · {formatClinicDate(clinicTodayKey(), uiLang)}
+              {t('pharmacy.inventory.pageCaption', {
+                defaultValue: 'Stock levels · {{pharmacy}} · {{date}}',
+                pharmacy:
+                  data?.profile?.displayName ??
+                  data?.organization?.name ??
+                  t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' }),
+                date: formatClinicDate(clinicTodayKey(), uiLang),
+              })}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               disabled={filtered.length === 0}
-              title="Exports the items shown, with the current filter and search, as a CSV file"
+              title={t('pharmacy.inventory.exportTitle', {
+                defaultValue: 'Exports the items shown, with the current filter and search, as a CSV file',
+              })}
               onClick={() => {
                 setExportError(null);
                 try {
@@ -313,14 +344,17 @@ export const PharmacyInventory = () => {
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              Export Stock Report
+              {t('pharmacy.inventory.exportButton', { defaultValue: 'Export Stock Report' })}
             </button>
           </div>
         </div>
 
         {/* QA-268: there is no stock receiving in the portal yet; "Receive Stock" only opened Messages. */}
         <p role="note" className="mx-6 mb-3 text-[12px] text-slate-500">
-          Stock and batches are updated by a CeenAiX administrator. Use "Email reorder" to send a reorder request to your supplier.
+          {t('pharmacy.inventory.adminNote', {
+            defaultValue:
+              'Stock and batches are updated by a CeenAiX administrator. Use "Email reorder" to send a reorder request to your supplier.',
+          })}
         </p>
 
         {exportError ? (
@@ -331,19 +365,19 @@ export const PharmacyInventory = () => {
 
         <section className="mx-6 mb-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[
-            { label: 'Total SKUs', value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
-            { label: 'In Stock', value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
-            { label: 'Low / Critical', value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
-            { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
-            { label: 'Expiring Soon', value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
+            { label: t('pharmacy.inventory.kpi.total', { defaultValue: 'Total SKUs' }), value: rows.length, color: 'text-slate-700', bg: 'bg-slate-50', filterKey: 'all' },
+            { label: t('pharmacy.inventory.kpi.inStock', { defaultValue: 'In Stock' }), value: counts.in_stock, color: 'text-emerald-600', bg: 'bg-emerald-50', filterKey: 'in_stock' },
+            { label: t('pharmacy.inventory.kpi.lowCritical', { defaultValue: 'Low / Critical' }), value: lowOrCritical, color: 'text-amber-600', bg: 'bg-amber-50', filterKey: 'low' },
+            { label: t('pharmacy.inventory.kpi.out', { defaultValue: 'Out of Stock' }), value: counts.out_of_stock, color: 'text-red-700', bg: 'bg-red-50', filterKey: 'out_of_stock' },
+            { label: t('pharmacy.inventory.kpi.expiring', { defaultValue: 'Expiring Soon' }), value: counts.expiring_soon, color: 'text-yellow-800', bg: 'bg-yellow-50', filterKey: 'expiring_soon' },
             // QA-265: items with expired units still on the shelf.
-            { label: 'Expired Stock', value: counts.expired, color: 'text-red-800', bg: 'bg-red-50', filterKey: 'expired' },
+            { label: t('pharmacy.inventory.kpi.expired', { defaultValue: 'Expired Stock' }), value: counts.expired, color: 'text-red-800', bg: 'bg-red-50', filterKey: 'expired' },
           ].map((stat) => (
             <button
-              key={stat.label}
+              key={stat.filterKey + stat.color}
               type="button"
               onClick={() => setFilter(stat.filterKey as FilterType)}
-              className={`rounded-xl border px-4 py-3 shadow-sm text-left transition-all cursor-pointer hover:ring-2 hover:ring-emerald-300 ${stat.bg} ${
+              className={`rounded-xl border px-4 py-3 shadow-sm text-start transition-all cursor-pointer hover:ring-2 hover:ring-emerald-300 ${stat.bg} ${
                 filter === stat.filterKey ? 'ring-2 ring-emerald-500 border-emerald-300' : 'border-slate-100'
               }`}
             >
@@ -357,7 +391,7 @@ export const PharmacyInventory = () => {
 
         <div className="mx-6 mb-4 flex shrink-0 flex-wrap items-center gap-3">
           <div className="relative min-w-[240px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
               type="text"
               value={search}
@@ -366,21 +400,21 @@ export const PharmacyInventory = () => {
               placeholder={t('pharmacy.inventory.searchPh', {
                 defaultValue: 'Drug name, brand, ATC code, category...',
               })}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 ps-9 pe-9 text-sm text-slate-700 transition-colors focus:border-emerald-400 focus:outline-none"
             />
             {search ? (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                aria-label="Clear search"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label={t('pharmacy.inventory.clearSearch', { defaultValue: 'Clear search' })}
               >
                 <X className="h-4 w-4" />
               </button>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {(Object.keys(filterLabels) as FilterType[]).map((key) => (
+            {FILTER_KEYS.map((key) => (
               <button
                 key={key}
                 type="button"
@@ -394,7 +428,7 @@ export const PharmacyInventory = () => {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {filterLabels[key]} ({formatNumber(counts[key], uiLang)})
+                {filterLabel(key, t)} ({formatNumber(counts[key], uiLang)})
               </button>
             ))}
           </div>
@@ -403,10 +437,25 @@ export const PharmacyInventory = () => {
         <section className="mx-6 mb-6 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <div className="min-w-[1120px]">
-              {loading ? <div className="py-12 text-center text-sm text-slate-400">Loading inventory...</div> : null}
+              {/* QA-271: the table had no column headers. */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_100px_160px_160px] border-b border-slate-100 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400 rtl:font-sans rtl:tracking-normal">
+                <div>{t('pharmacy.inventory.column.item', { defaultValue: 'Item' })}</div>
+                <div>{t('pharmacy.inventory.column.category', { defaultValue: 'Category' })}</div>
+                <div>{t('pharmacy.inventory.column.stock', { defaultValue: 'Usable stock' })}</div>
+                <div>{t('pharmacy.inventory.column.reorder', { defaultValue: 'Reorder level' })}</div>
+                <div>{t('pharmacy.inventory.column.status', { defaultValue: 'Status' })}</div>
+                <div>{t('pharmacy.inventory.column.actions', { defaultValue: 'Actions' })}</div>
+              </div>
+              {loading && !data ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {t('pharmacy.inventory.loading', { defaultValue: 'Loading inventory…' })}
+                </div>
+              ) : null}
 
-              {!loading && filtered.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-400">No items match your search</div>
+              {data && filtered.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {t('pharmacy.inventory.emptySearch', { defaultValue: 'No items match your search' })}
+                </div>
               ) : null}
 
               {filtered.map((item, index) => {
@@ -420,31 +469,25 @@ export const PharmacyInventory = () => {
                 return (
                   <Fragment key={item.id}>
                     <div
-                      className={`grid min-h-16 grid-cols-[2fr_1fr_1fr_100px_160px_160px] items-center border-b border-[#F8FAFC] border-l-4 px-5 py-3.5 transition-colors hover:bg-emerald-50 ${cfg.row} ${index === filtered.length - 1 && !isBatchOpen ? 'border-b-0' : ''}`}
-                      style={{
-                        borderLeftColor:
-                          item.stockStatus === 'out_of_stock'
-                            ? '#EF4444'
-                            : item.stockStatus === 'critical'
-                                ? '#F97316'
-                                : item.stockStatus === 'low'
-                                  ? '#F59E0B'
-                                  : '#22C55E',
-                      }}
+                      className={`grid min-h-16 grid-cols-[2fr_1fr_1fr_100px_160px_160px] items-center border-b border-[#F8FAFC] border-s-4 px-5 py-3.5 transition-colors hover:bg-emerald-50 ${cfg.row} ${cfg.border} ${index === filtered.length - 1 && !isBatchOpen ? 'border-b-0' : ''}`}
                     >
-                    <div className="pr-3">
-                      <div className="flex items-center gap-2">
+                    <div className="pe-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[13px] font-semibold text-slate-800">
                           {item.genericName} {item.strength}
                         </span>
                         {item.isControlled ? (
-                          <span className="flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-700">
-                            <Lock className="h-2 w-2" /> CS
+                          <span
+                            title={t('pharmacy.inventory.controlledLong', { defaultValue: 'Controlled substance' })}
+                            className="flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-700"
+                          >
+                            <Lock className="h-2 w-2" aria-hidden="true" />
+                            {t('pharmacy.inventory.controlledShort', { defaultValue: 'Controlled' })}
                           </span>
                         ) : null}
                         {item.isDHAFormulary ? (
-                          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 font-mono text-[9px] text-emerald-700">
-                            DHA formulary
+                          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 font-mono text-[9px] text-emerald-700 rtl:font-sans">
+                            {t('pharmacy.inventory.dhaFormulary', { defaultValue: 'DHA formulary' })}
                           </span>
                         ) : null}
                       </div>
@@ -454,7 +497,11 @@ export const PharmacyInventory = () => {
                       {item.expiredQty > 0 ? (
                         <div role="note" className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-red-800">
                           <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
-                          {formatNumber(item.expiredQty, uiLang)} {item.unit} expired · not counted in stock · remove from the shelf
+                          {t('pharmacy.inventory.expiredNote', {
+                            defaultValue: '{{qty}} {{unit}} expired · not counted in stock · remove from the shelf',
+                            qty: formatNumber(item.expiredQty, uiLang),
+                            unit: item.unit,
+                          })}
                         </div>
                       ) : null}
                     </div>
@@ -489,23 +536,23 @@ export const PharmacyInventory = () => {
                     <div>
                       <div className="flex flex-wrap gap-1">
                         <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.pill}`}>
-                          {cfg.label}
+                          {stockLabel(item.stockStatus, t)}
                         </span>
                         {item.expiringSoon ? (
                           <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRING_SOON_PILL}`}>
-                            EXPIRING SOON
+                            {t('pharmacy.inventory.flagExpiringSoon', { defaultValue: 'EXPIRING SOON' })}
                           </span>
                         ) : null}
                         {item.expiredQty > 0 ? (
                           <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${EXPIRED_PILL}`}>
-                            EXPIRED STOCK
+                            {t('pharmacy.inventory.flagExpiredStock', { defaultValue: 'EXPIRED STOCK' })}
                           </span>
                         ) : null}
                       </div>
                       <div className="mt-0.5 font-mono text-[9px] text-slate-400">
                         {item.nextExpiryDate
                           ? formatClinicDate(item.nextExpiryDate, uiLang)
-                          : `${item.batchCount} batch${item.batchCount === 1 ? '' : 'es'}`}
+                          : t('pharmacy.inventory.batchCount', { count: item.batchCount, defaultValue: '{{count}} batches' })}
                       </div>
                     </div>
 
@@ -522,43 +569,47 @@ export const PharmacyInventory = () => {
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        <Eye className="h-3 w-3" />
-                        Batches
+                        <Eye className="h-3 w-3" aria-hidden="true" />
+                        {t('pharmacy.inventory.batchesButton', { defaultValue: 'Batches' })}
                       </button>
                       <a
                         href={reorderMailto(item)}
-                        title="Opens an email draft to send to your supplier"
+                        title={t('pharmacy.inventory.emailReorderTitle', {
+                          defaultValue: 'Opens an email draft to send to your supplier',
+                        })}
                         className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
                       >
                         <ShoppingCart className="h-3 w-3" aria-hidden="true" />
-                        Email reorder
+                        {t('pharmacy.inventory.emailReorder', { defaultValue: 'Email reorder' })}
                       </a>
                     </div>
                   </div>
                     {isBatchOpen ? (
                       <div className="border-b border-[#F8FAFC] bg-slate-50 px-5 py-4">
-                        <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">On-hand batches</div>
+                        <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 rtl:tracking-normal">
+                          {t('pharmacy.inventory.panelHeading', { defaultValue: 'On-hand batches' })}
+                        </div>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                           <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">Current Stock</div>
+                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.current', { defaultValue: 'Usable stock' })}</div>
                             <div className="font-mono text-[15px] font-bold text-slate-800">
                               {formatNumber(item.stockQty, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
                             </div>
                           </div>
                           <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">Reorder Level</div>
+                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.reorder', { defaultValue: 'Reorder level' })}</div>
                             <div className="font-mono text-[15px] font-bold text-slate-800">
                               {formatNumber(item.reorderLevel, uiLang)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
                             </div>
                           </div>
                           <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">Batches</div>
+                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.batches', { defaultValue: 'Batches' })}</div>
                             <div className="font-mono text-[15px] font-bold text-slate-800">
-                              {item.batchCount} <span className="text-[10px] font-normal text-slate-400">batch{item.batchCount === 1 ? '' : 'es'}</span>
+                              {formatNumber(item.batchCount, uiLang)}
                             </div>
                           </div>
                           <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                            <div className="text-[10px] text-slate-400">Next Expiry</div>
+                            <div className="text-[10px] text-slate-400">{t('pharmacy.inventory.tile.nextExpiry', { defaultValue: 'Next expiry' })}</div>
                             <div className="font-mono text-[15px] font-bold text-slate-800">
                               {item.nextExpiryDate ? formatClinicDate(item.nextExpiryDate, uiLang) : '—'}
                             </div>
@@ -566,17 +617,24 @@ export const PharmacyInventory = () => {
                         </div>
                         {/* QA-267: the batches themselves, earliest expiry first (use that one first). */}
                         {item.batches.length === 0 ? (
-                          <p className="mt-3 text-[12px] text-slate-400">No batches recorded for this item.</p>
+                          <p className="mt-3 text-[12px] text-slate-400">
+                            {t('pharmacy.inventory.noBatches', { defaultValue: 'No batches recorded for this item.' })}
+                          </p>
                         ) : (
                           <table className="mt-3 w-full overflow-hidden rounded-lg bg-white text-start text-[12px] shadow-sm">
-                            <caption className="sr-only">Batches of {item.genericName} {item.strength}</caption>
-                            <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
+                            <caption className="sr-only">
+                              {t('pharmacy.inventory.batchCaption', {
+                                defaultValue: 'Batches of {{item}}',
+                                item: [item.genericName, item.strength].filter(Boolean).join(' '),
+                              })}
+                            </caption>
+                            <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500 rtl:tracking-normal">
                               <tr>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">Batch</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">Quantity</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">Expiry</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">Received</th>
-                                <th scope="col" className="px-3 py-2 text-start font-semibold">State</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.batch', { defaultValue: 'Batch' })}</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.quantity', { defaultValue: 'Quantity' })}</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.expiry', { defaultValue: 'Expiry' })}</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.received', { defaultValue: 'Received' })}</th>
+                                <th scope="col" className="px-3 py-2 text-start font-semibold">{t('pharmacy.inventory.batchColumn.state', { defaultValue: 'State' })}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -594,7 +652,9 @@ export const PharmacyInventory = () => {
                                   </td>
                                   <td className="px-3 py-2">
                                     <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${BATCH_STATE[batch.state].pill}`}>
-                                      {BATCH_STATE[batch.state].label}
+                                      {t(`pharmacy.inventory.batchState.${batch.state}`, {
+                                        defaultValue: BATCH_STATE[batch.state].label,
+                                      })}
                                     </span>
                                   </td>
                                 </tr>

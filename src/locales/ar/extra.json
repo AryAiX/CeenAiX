@@ -3694,7 +3694,85 @@
         "near_expiry": "قرب الانتهاء",
         "out": "نافد"
       },
-      "exportFailed": "تعذّر إنشاء ملف التصدير. يُرجى المحاولة مرة أخرى."
+      "exportFailed": "تعذّر إنشاء ملف التصدير. يُرجى المحاولة مرة أخرى.",
+      "filter": {
+        "all": "الكل",
+        "in_stock": "متوفر",
+        "low": "مخزون منخفض",
+        "critical": "حرج",
+        "out_of_stock": "نفد المخزون",
+        "expiring_soon": "قريب الانتهاء",
+        "expired": "منتهي الصلاحية",
+        "controlled": "أدوية مراقبة",
+        "dha_formulary": "قائمة أدوية هيئة الصحة"
+      },
+      "stockStatus": {
+        "in_stock": "متوفر",
+        "low": "مخزون منخفض",
+        "critical": "حرج",
+        "out_of_stock": "نفد المخزون"
+      },
+      "pageHeading": "إدارة المخزون",
+      "pageCaption": "مستويات المخزون · {{pharmacy}} · {{date}}",
+      "exportTitle": "يصدّر الأصناف المعروضة، حسب التصفية والبحث الحاليين، كملف CSV",
+      "exportButton": "تصدير تقرير المخزون",
+      "adminNote": "يقوم مسؤول CeenAiX بتحديث المخزون والدفعات. استخدم «طلب إعادة التوريد بالبريد» لإرسال طلب إلى المورّد.",
+      "kpi": {
+        "total": "إجمالي الأصناف",
+        "inStock": "متوفر",
+        "lowCritical": "منخفض / حرج",
+        "out": "نفد المخزون",
+        "expiring": "قريب الانتهاء",
+        "expired": "مخزون منتهي الصلاحية"
+      },
+      "clearSearch": "مسح البحث",
+      "column": {
+        "item": "الصنف",
+        "category": "الفئة",
+        "stock": "المخزون الصالح",
+        "reorder": "حد إعادة الطلب",
+        "status": "الحالة",
+        "actions": "الإجراءات"
+      },
+      "loading": "جارٍ تحميل المخزون…",
+      "emptySearch": "لا توجد أصناف تطابق بحثك",
+      "controlledLong": "مادة خاضعة للرقابة",
+      "controlledShort": "مراقب",
+      "dhaFormulary": "ضمن قائمة هيئة الصحة",
+      "expiredNote": "{{qty}} {{unit}} منتهية الصلاحية · غير محسوبة في المخزون · يجب سحبها من الرف",
+      "flagExpiringSoon": "قريب الانتهاء",
+      "flagExpiredStock": "مخزون منتهي الصلاحية",
+      "batchCount_zero": "لا توجد دفعات",
+      "batchCount_one": "دفعة واحدة",
+      "batchCount_two": "دفعتان",
+      "batchCount_few": "{{count}} دفعات",
+      "batchCount_many": "{{count}} دفعة",
+      "batchCount_other": "{{count}} دفعة",
+      "batchesButton": "الدفعات",
+      "emailReorderTitle": "يفتح مسودة بريد إلكتروني لإرسالها إلى المورّد",
+      "emailReorder": "طلب إعادة التوريد بالبريد",
+      "panelHeading": "الدفعات المتوفرة",
+      "tile": {
+        "current": "المخزون الصالح",
+        "reorder": "حد إعادة الطلب",
+        "batches": "الدفعات",
+        "nextExpiry": "أقرب انتهاء"
+      },
+      "noBatches": "لا توجد دفعات مسجّلة لهذا الصنف.",
+      "batchCaption": "دفعات {{item}}",
+      "batchColumn": {
+        "batch": "الدفعة",
+        "quantity": "الكمية",
+        "expiry": "الانتهاء",
+        "received": "الاستلام",
+        "state": "الحالة"
+      },
+      "batchState": {
+        "usable": "صالحة",
+        "expiring_soon": "قريبة الانتهاء",
+        "expired": "منتهية الصلاحية",
+        "empty": "فارغة"
+      }
     },
     "messages": {
       "title": "الرسائل",
