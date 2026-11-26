@@ -260,6 +260,8 @@ export const PharmacyDispensing = () => {
   const [detailsRow, setDetailsRow] = useState<PrescriptionListRow | null>(null);
   const closeDetails = useCallback(() => setDetailsRow(null), []);
   const [dispenseConfirmRow, setDispenseConfirmRow] = useState<PrescriptionListRow | null>(null);
+  // QA-256: the same confirmation is used for "Mark as dispensed" and "Handed to patient".
+  const [confirmKind, setConfirmKind] = useState<'dispense' | 'handover'>('dispense');
   const dispenseCancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -405,6 +407,25 @@ export const PharmacyDispensing = () => {
       console.warn(`[pharmacy] status update failed: ${error instanceof Error ? error.message : String(error)}`);
       setActionError(statusErrorMessage(error));
       // Some medicines may have changed before the error: show what is really saved.
+      refetch();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // QA-256: dispensed -> picked up for the medicines the pharmacy dispensed (allowed by the QA-255 guard).
+  const handleHandover = async (row: PrescriptionListRow) => {
+    const taskIds = row.tasks.filter((item) => item.workflowStatus === 'dispensed').map((item) => item.id);
+    if (taskIds.length === 0) return;
+    setActionError(null);
+    setActionNotice(null);
+    setBusyId(row.id);
+    try {
+      await Promise.all(taskIds.map((taskId) => updatePharmacyDispensingTaskStatus(taskId, 'picked_up')));
+      refetch();
+    } catch (error) {
+      console.warn(`[pharmacy] handover failed: ${error instanceof Error ? error.message : String(error)}`);
+      setActionError(statusErrorMessage(error));
       refetch();
     } finally {
       setBusyId(null);
@@ -659,6 +680,7 @@ export const PharmacyDispensing = () => {
                             setDetailsRow(row);
                           } else if (row.status === 'in_progress') {
                             // QA-252: dispensing tells the patient and cannot be undone, so confirm first.
+                            setConfirmKind('dispense');
                             setDispenseConfirmRow(row);
                           } else {
                             void handleRowAction(row, row.status);
@@ -676,6 +698,20 @@ export const PharmacyDispensing = () => {
                         {!isFinished(row.status) ? <Play className="h-3 w-3" /> : null}
                         {busyId === row.id ? '…' : actionLabel(row.status, t)}
                       </button>
+                      {row.status === 'dispensed' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // QA-256: the pharmacy records that the patient collected the medicines.
+                            setConfirmKind('handover');
+                            setDispenseConfirmRow(row);
+                          }}
+                          disabled={busyId === row.id}
+                          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {t('pharmacy.dispensing.actionHandover', { defaultValue: 'Handed to patient' })}
+                        </button>
+                      ) : null}
                       {!isFinished(row.status) ? (
                         <button
                           type="button"
@@ -738,16 +774,29 @@ export const PharmacyDispensing = () => {
           >
             <div className="border-b border-slate-100 px-6 py-4">
               <h2 id="dispense-confirm-title" className="text-base font-semibold text-slate-900">
-                {t('pharmacy.dispensing.confirmDispenseTitle', { defaultValue: 'Mark as dispensed?' })}
+                {confirmKind === 'handover'
+                  ? t('pharmacy.dispensing.confirmHandoverTitle', { defaultValue: 'Handed to the patient?' })
+                  : t('pharmacy.dispensing.confirmDispenseTitle', { defaultValue: 'Mark as dispensed?' })}
               </h2>
               <p className="mt-0.5 text-xs text-slate-500">
                 {dispenseConfirmRow.patientName} · {prescriptionReference(dispenseConfirmRow.id)}
               </p>
             </div>
             <div className="space-y-3 px-6 py-4">
-              <ul className="space-y-1.5" aria-label={t('pharmacy.dispensing.confirmDispenseListLabel', { defaultValue: 'Medicines to dispense' })}>
+              <ul
+                className="space-y-1.5"
+                aria-label={
+                  confirmKind === 'handover'
+                    ? t('pharmacy.dispensing.confirmHandoverListLabel', { defaultValue: 'Medicines handed over' })
+                    : t('pharmacy.dispensing.confirmDispenseListLabel', { defaultValue: 'Medicines to dispense' })
+                }
+              >
                 {dispenseConfirmRow.tasks
-                  .filter((item) => openDispensingTaskIds([item]).length > 0)
+                  .filter((item) =>
+                    confirmKind === 'handover'
+                      ? item.workflowStatus === 'dispensed'
+                      : openDispensingTaskIds([item]).length > 0
+                  )
                   .map((item) => (
                     <li
                       key={item.id}
@@ -766,10 +815,15 @@ export const PharmacyDispensing = () => {
                   ))}
               </ul>
               <p id="dispense-confirm-body" className="text-sm text-slate-600">
-                {t('pharmacy.dispensing.confirmDispenseBody', {
-                  defaultValue:
-                    "Check the medicines before you confirm. The patient is told their medicines are ready for pickup, and this can't be undone.",
-                })}
+                {confirmKind === 'handover'
+                  ? t('pharmacy.dispensing.confirmHandoverBody', {
+                      defaultValue:
+                        "Confirm that the patient, or someone for them, collected these medicines. This can't be undone.",
+                    })
+                  : t('pharmacy.dispensing.confirmDispenseBody', {
+                      defaultValue:
+                        "Check the medicines before you confirm. The patient is told their medicines are ready for pickup, and this can't be undone.",
+                    })}
               </p>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
@@ -786,13 +840,16 @@ export const PharmacyDispensing = () => {
                 disabled={busyId === dispenseConfirmRow.id}
                 onClick={() => {
                   const row = dispenseConfirmRow;
-                  void handleRowAction(row, row.status).finally(() => setDispenseConfirmRow(null));
+                  const action = confirmKind === 'handover' ? handleHandover(row) : handleRowAction(row, row.status);
+                  void action.finally(() => setDispenseConfirmRow(null));
                 }}
                 className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busyId === dispenseConfirmRow.id
                   ? t('pharmacy.dispensing.confirmDispenseSaving', { defaultValue: 'Saving…' })
-                  : t('pharmacy.dispensing.confirmDispenseConfirm', { defaultValue: 'Confirm dispensed' })}
+                  : confirmKind === 'handover'
+                    ? t('pharmacy.dispensing.confirmHandoverConfirm', { defaultValue: 'Confirm handover' })
+                    : t('pharmacy.dispensing.confirmDispenseConfirm', { defaultValue: 'Confirm dispensed' })}
               </button>
             </div>
           </div>

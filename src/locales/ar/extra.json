@@ -3598,7 +3598,12 @@
       "holdMessageNotSent": "تم تعليق الوصفة وإشعار المريض، لكن تعذّر إرسال الرسالة. يمكنك مراسلته من صفحة الرسائل.",
       "holdNoPatientAccount": "تم تعليق الوصفة. ليس لدى هذا المريض حساب في CeenAiX، لذلك لم يتم إبلاغه.",
       "statusUpdateFailed": "تعذّر تحديث الوصفة. يُرجى المحاولة مرة أخرى.",
-      "statusChangeNotAllowed": "هذا التغيير غير مسموح لهذه الوصفة. تعرض القائمة الآن ما هو محفوظ."
+      "statusChangeNotAllowed": "هذا التغيير غير مسموح لهذه الوصفة. تعرض القائمة الآن ما هو محفوظ.",
+      "actionHandover": "تم التسليم للمريض",
+      "confirmHandoverTitle": "هل تم تسليم الأدوية للمريض؟",
+      "confirmHandoverListLabel": "الأدوية المسلّمة",
+      "confirmHandoverBody": "أكّد أن المريض، أو من ينوب عنه، استلم هذه الأدوية. لا يمكن التراجع عن ذلك.",
+      "confirmHandoverConfirm": "تأكيد التسليم"
     },
     "inventory": {
       "title": "المخزون",

@@ -441,3 +441,57 @@ describe('PharmacyDispensing refused changes (QA-255)', () => {
     expect(refetch).toHaveBeenCalled();
   });
 });
+
+describe('PharmacyDispensing handing medicines to the patient (QA-256)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(updatePharmacyDispensingTaskStatus).mockResolvedValue(undefined);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const dispensedQueue = () => [
+    task({ id: 'task-done', medication: 'Amoxicillin', workflowStatus: 'dispensed', isDispensed: true, quantity: 21 }),
+    task({ id: 'task-picked', medication: 'Paracetamol', workflowStatus: 'picked_up', isDispensed: true }),
+    task({ id: 'task-cancelled', medication: 'Ibuprofen', workflowStatus: 'cancelled' }),
+  ];
+
+  it('lets the pharmacy record the handover of the dispensed medicines, after confirming', async () => {
+    showQueue(dispensedQueue());
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'Handed to patient' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Handed to the patient?' });
+    expect(within(dialog).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['AmoxicillinQty 21']);
+    expect(updatePharmacyDispensingTaskStatus).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm handover' }));
+
+    expect(updatePharmacyDispensingTaskStatus).toHaveBeenCalledTimes(1);
+    expect(updatePharmacyDispensingTaskStatus).toHaveBeenCalledWith('task-done', 'picked_up');
+  });
+
+  it('does not offer a handover before the medicines are dispensed, or after they are picked up', () => {
+    showQueue([
+      task({ id: 'task-new', medication: 'Amoxicillin' }),
+      task({ id: 'task-picked', medication: 'Paracetamol', patientName: 'Picked Patient', prescriptionId: 'rx-2', workflowStatus: 'picked_up', isDispensed: true }),
+    ]);
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: 'Handed to patient' })).not.toBeInTheDocument();
+  });
+
+  it('offers the handover in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showQueue(dispensedQueue());
+    renderPage();
+
+    await userEvent.click(within(rowFor('Test Patient')).getByRole('button', { name: 'تم التسليم للمريض' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'هل تم تسليم الأدوية للمريض؟' });
+    expect(within(dialog).getByRole('button', { name: 'تأكيد التسليم' })).toBeInTheDocument();
+  });
+});

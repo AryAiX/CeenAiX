@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { usePatientPrescriptions } from '../../hooks/use-patient-prescriptions';
+import { markPatientPrescriptionPickedUp, usePatientPrescriptions } from '../../hooks/use-patient-prescriptions';
 import { usePatientPrimaryInsurance } from '../../hooks/use-patient-primary-insurance';
 import { usePatientDashboardAlert } from '../../hooks/use-patient-dashboard-alert';
 import { useAuth } from '../../lib/auth-context';
@@ -19,6 +19,7 @@ vi.mock('../../components/Navigation', () => ({
 
 vi.mock('../../hooks/use-patient-prescriptions', () => ({
   usePatientPrescriptions: vi.fn(),
+  markPatientPrescriptionPickedUp: vi.fn(),
 }));
 
 vi.mock('../../hooks/use-patient-primary-insurance', () => ({
@@ -314,5 +315,61 @@ describe('PatientPrescriptions', () => {
     expect(await screen.findByText('Coverage Breakdown')).toBeInTheDocument();
     expect(screen.getAllByText(/With Enhanced Care/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Medication Coverage Table')).toBeInTheDocument();
+  });
+
+  it('confirms a pickup for the prescription and shows a plain message if it is refused (QA-256)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(markPatientPrescriptionPickedUp).mockRejectedValue(
+      new Error('Nothing from this prescription is ready for pickup.')
+    );
+    usePatientPrescriptionsMock.mockReturnValue({
+      data: [
+        {
+          id: 'prescription-1',
+          patient_id: 'patient-1',
+          doctor_id: 'doctor-1',
+          appointment_id: 'appointment-1',
+          status: 'active',
+          prescribed_at: '2026-02-10T05:15:00Z',
+          is_deleted: false,
+          deleted_at: null,
+          created_at: '2026-02-10T05:15:00Z',
+          updated_at: '2026-02-10T05:15:00Z',
+          doctorName: 'Doctor 1',
+          doctorSpecialty: 'General Surgery',
+          pharmacyStatus: 'dispensed',
+          pharmacyName: 'QA Pharmacy',
+          items: [
+            {
+              id: 'item-1',
+              prescription_id: 'prescription-1',
+              medication_name: 'Losartan',
+              medication_name_ar: null,
+              dosage: '50 mg',
+              frequency: 'Once daily',
+              duration: '30 days',
+              quantity: 30,
+              instructions: 'Take in the morning',
+              is_dispensed: true,
+              created_at: '2026-02-10T05:15:00Z',
+              updated_at: '2026-02-10T05:15:00Z',
+            },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+
+    renderWithRouter(<PatientPrescriptions />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /Mark as Picked Up/ }));
+
+    expect(markPatientPrescriptionPickedUp).toHaveBeenCalledWith('prescription-1');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not mark this prescription as picked up.');
+    expect(alert).not.toHaveTextContent('Nothing from this prescription is ready for pickup.');
+    warn.mockRestore();
   });
 });

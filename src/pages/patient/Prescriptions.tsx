@@ -423,18 +423,17 @@ export const PatientPrescriptions: React.FC = () => {
     }
   };
 
-  const handleMarkPickedUp = async (prescriptionId: string, items: PrescriptionItem[]) => {
+  const handleMarkPickedUp = async (prescriptionId: string) => {
     if (!user?.id) return;
     setActionError(null);
     try {
-      await markPatientPrescriptionPickedUp(
-        prescriptionId,
-        items.map((item) => item.id)
-      );
+      await markPatientPrescriptionPickedUp(prescriptionId);
       setPickedUpIds((prev) => new Set([...prev, prescriptionId]));
       void refetch();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('patient.prescriptions.pickedUpError'));
+      // QA-256: a plain, translated message; the database error is only logged.
+      console.warn(`[patient] pickup confirmation failed: ${err instanceof Error ? err.message : String(err)}`);
+      setActionError(t('patient.prescriptions.pickedUpError'));
     }
   };
 
@@ -1718,7 +1717,7 @@ export const PatientPrescriptions: React.FC = () => {
                 {rx.pharmacyStatus === 'dispensed' && !pickedUpIds.has(rx.id) ? (
                   <button
                     type="button"
-                    onClick={() => void handleMarkPickedUp(rx.id, rx.items)}
+                    onClick={() => void handleMarkPickedUp(rx.id)}
                     className="mt-2 w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                   >
                     ✅ {t('patient.prescriptions.markPickedUp')}

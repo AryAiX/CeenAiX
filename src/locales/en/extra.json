@@ -3456,7 +3456,12 @@
       "holdMessageNotSent": "The prescription is on hold and the patient was notified, but the message could not be sent. You can write to them from Messages.",
       "holdNoPatientAccount": "The prescription is on hold. This patient has no CeenAiX account, so they were not told.",
       "statusUpdateFailed": "Could not update the prescription. Please try again.",
-      "statusChangeNotAllowed": "This change isn't allowed for this prescription. The list now shows what is saved."
+      "statusChangeNotAllowed": "This change isn't allowed for this prescription. The list now shows what is saved.",
+      "actionHandover": "Handed to patient",
+      "confirmHandoverTitle": "Handed to the patient?",
+      "confirmHandoverListLabel": "Medicines handed over",
+      "confirmHandoverBody": "Confirm that the patient, or someone for them, collected these medicines. This can't be undone.",
+      "confirmHandoverConfirm": "Confirm handover"
     },
     "inventory": {
       "title": "Inventory",

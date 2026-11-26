@@ -235,21 +235,16 @@ export async function assignPatientPrescriptionPharmacy(
   if (error) throw error;
 }
 
-export async function markPatientPrescriptionPickedUp(
-  prescriptionId: string,
-  prescriptionItemIds: string[]
-): Promise<void> {
-  const itemUpdates = prescriptionItemIds.map((itemId) =>
-    supabase.from('prescription_items').update({ is_dispensed: true }).eq('id', itemId)
-  );
-  const taskUpdate = supabase
-    .from('pharmacy_dispensing_tasks')
-    .update({ workflow_status: 'picked_up', updated_at: new Date().toISOString() })
-    .eq('prescription_id', prescriptionId);
+/**
+ * QA-256: the patient confirms they collected the medicines the pharmacy dispensed. Patients cannot
+ * write to the pharmacy's tasks (the update used to change nothing, with no error), so the database
+ * does it: only for the patient's own prescription and only for dispensed medicines. The doctor's
+ * lines are marked dispensed by the database too.
+ */
+export async function markPatientPrescriptionPickedUp(prescriptionId: string): Promise<void> {
+  const { error } = await supabase.rpc('patient_confirm_prescription_pickup', {
+    p_prescription_id: prescriptionId,
+  });
 
-  const results = await Promise.all([...itemUpdates, taskUpdate]);
-  const failed = results.find((result) => result.error);
-  if (failed?.error) {
-    throw failed.error;
-  }
+  if (error) throw error;
 }

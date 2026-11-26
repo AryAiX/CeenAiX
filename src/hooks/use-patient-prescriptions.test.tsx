@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { supabase } from '../lib/supabase';
 import { createSupabaseQueryBuilder } from '../test/supabase-mock';
-import { usePatientPrescriptions } from './use-patient-prescriptions';
+import { markPatientPrescriptionPickedUp, usePatientPrescriptions } from './use-patient-prescriptions';
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -164,5 +164,31 @@ describe('usePatientPrescriptions', () => {
     expect(userProfilesBuilder.in).toHaveBeenCalledWith('user_id', ['doctor-1']);
     expect(doctorProfilesBuilder.in).toHaveBeenCalledWith('user_id', ['doctor-1']);
     expect(rpcMock).toHaveBeenCalledWith('list_active_pharmacies');
+  });
+});
+
+describe('markPatientPrescriptionPickedUp (QA-256)', () => {
+  const fromMock = vi.mocked(supabase.from);
+  const rpcMock = vi.mocked(supabase.rpc);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('asks the database to record the pickup instead of writing to tables patients cannot change', async () => {
+    rpcMock.mockResolvedValue({ data: 2, error: null } as never);
+
+    await expect(markPatientPrescriptionPickedUp('prescription-1')).resolves.toBeUndefined();
+
+    expect(rpcMock).toHaveBeenCalledWith('patient_confirm_prescription_pickup', { p_prescription_id: 'prescription-1' });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it('reports a refused pickup instead of pretending it worked', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'Nothing from this prescription is ready for pickup.' } } as never);
+
+    await expect(markPatientPrescriptionPickedUp('prescription-1')).rejects.toMatchObject({
+      message: 'Nothing from this prescription is ready for pickup.',
+    });
   });
 });
