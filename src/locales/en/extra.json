@@ -3776,7 +3776,6 @@
       "fallbackName": "Pharmacy",
       "exportLedger": "Export Dispensing Ledger",
       "dhaMonthly": "DHA Monthly Report",
-      "kpiPrescriptions": "Prescriptions this month",
       "kpiApproval": "Insurance approval rate",
       "volumeHeading": "Dispensing Volume — Current Queue",
       "volumeDispensed": "Dispensed",
@@ -3795,7 +3794,15 @@
       "controlledInStock": "Controlled items in stock",
       "dhaConnection": "DHA connection (from profile)",
       "dhaConnected": "Connected",
-      "dhaNotConnected": "Not connected"
+      "dhaNotConnected": "Not connected",
+      "kpiReceived": "Prescriptions this month",
+      "kpiReceivedHelper": "Received in {{month}}",
+      "kpiDispensed": "Dispensed",
+      "kpiOnHold": "On hold",
+      "kpiOfThisMonth": "Of the prescriptions received this month",
+      "kpiApprovalNone": "No decided claims yet",
+      "kpiApprovalHelper": "All claims: {{paid}} paid · {{denied}} denied",
+      "percent": "{{value}}%"
     }
   },
   "insurance": {

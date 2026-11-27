@@ -3946,7 +3946,6 @@
       "fallbackName": "الصيدلية",
       "exportLedger": "تصدير سجلّ الصرف",
       "dhaMonthly": "تقرير DHA الشهري",
-      "kpiPrescriptions": "الوصفات هذا الشهر",
       "kpiApproval": "نسبة موافقة التأمين",
       "volumeHeading": "حجم الصرف — الطابور الحالي",
       "volumeDispensed": "تم الصرف",
@@ -3965,7 +3964,15 @@
       "controlledInStock": "الأصناف الخاضعة للرقابة في المخزون",
       "dhaConnection": "الاتصال بـ DHA (من الملف التعريفي)",
       "dhaConnected": "متصل",
-      "dhaNotConnected": "غير متصل"
+      "dhaNotConnected": "غير متصل",
+      "kpiReceived": "الوصفات هذا الشهر",
+      "kpiReceivedHelper": "المستلمة في {{month}}",
+      "kpiDispensed": "تم صرفها",
+      "kpiOnHold": "معلّقة",
+      "kpiOfThisMonth": "من الوصفات المستلمة هذا الشهر",
+      "kpiApprovalNone": "لا توجد مطالبات بُتّ فيها بعد",
+      "kpiApprovalHelper": "كل المطالبات: {{paid}} مدفوعة · {{denied}} مرفوضة",
+      "percent": "{{value}}٪"
     }
   },
   "insurance": {

@@ -1,3 +1,6 @@
+// The browser here is NOT in Dubai (and west of UTC): "this month" is the Dubai month.
+process.env.TZ = 'America/New_York';
+
 import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -143,5 +146,80 @@ describe('PharmacyReports DHA card (QA-285)', () => {
     renderPage();
     expect(screen.getByRole('region', { name: 'التقارير إلى DHA' })).toBeInTheDocument();
     expect(screen.getByRole('note')).toHaveTextContent('لا تُسجَّل الإرسالات إلى DHA');
+  });
+});
+
+describe('PharmacyReports this month (QA-286)', () => {
+  const card = (label: string) =>
+    (screen.getByRole('article', { name: label }).textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 1 Dec 2026 01:00 in Dubai; still 30 Nov in New York and UTC.
+    vi.setSystemTime(new Date('2026-11-30T21:00:00.000Z'));
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  const decemberInDubai = '2026-11-30T20:30:00Z'; // 1 Dec 00:30 in Dubai
+  const november = '2026-11-15T08:00:00Z';
+
+  it('counts the prescriptions received this Dubai month by their status now, not every prescription ever', () => {
+    showReports({
+      queue: [
+        // Two medicines of one prescription: one dispensed, one cancelled -> dispensed.
+        task('t1', 'rx-1', 'dispensed', { receivedAt: decemberInDubai }),
+        task('t2', 'rx-1', 'cancelled', { receivedAt: decemberInDubai }),
+        task('t3', 'rx-2', 'on_hold', { receivedAt: decemberInDubai }),
+        task('t4', 'rx-3', 'new', { receivedAt: decemberInDubai }),
+        // November (last month in Dubai): not counted.
+        task('t5', 'rx-4', 'picked_up', { receivedAt: november }),
+        task('t6', 'rx-5', 'on_hold', { receivedAt: november }),
+      ],
+    });
+    renderPage();
+    expect(card('Prescriptions this month')).toBe('3Prescriptions this monthReceived in December 2026');
+    expect(card('Dispensed')).toContain('1');
+    expect(card('On hold')).toContain('1');
+  });
+
+  it('works out the insurance approval rate from paid and denied claims', () => {
+    showReports({
+      claims: [
+        { id: 'c1', status: 'paid' },
+        { id: 'c2', status: 'paid' },
+        { id: 'c3', status: 'paid' },
+        { id: 'c4', status: 'denied' },
+        { id: 'c5', status: 'review' },
+        { id: 'c6', status: 'pending' },
+      ],
+    });
+    renderPage();
+    expect(card('Insurance approval rate')).toBe('75%Insurance approval rateAll claims: 3 paid · 1 denied');
+  });
+
+  it('shows no rate (instead of 100%) when no claim has been decided', () => {
+    showReports({ claims: [{ id: 'c5', status: 'review' }] });
+    renderPage();
+    expect(card('Insurance approval rate')).toBe('—Insurance approval rateNo decided claims yet');
+  });
+
+  it('does not make the cards links', () => {
+    showReports();
+    renderPage();
+    expect(screen.getAllByRole('article', { name: /./ }).filter((el) => el.closest('a'))).toHaveLength(0);
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('shows the cards in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showReports({ claims: [{ id: 'c1', status: 'paid' }] });
+    renderPage();
+    expect(card('الوصفات هذا الشهر')).toContain('المستلمة في');
+    expect(card('نسبة موافقة التأمين')).toContain('كل المطالبات');
   });
 });

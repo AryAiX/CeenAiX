@@ -1,12 +1,19 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download, FileText, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Download, FileText, PackageCheck, PauseCircle, ShieldCheck, TrendingUp } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { clinicTodayKey } from '../../lib/clinic-booking-time';
+import {
+  formatReportMonth,
+  groupReportPrescriptions,
+  isDispensedStatus,
+  summarizeApproval,
+  summarizeMonth,
+} from './report-figures';
 
 const formatNumber = (value: number, language: string) => formatLocaleDigits(value, language);
 
@@ -19,14 +26,14 @@ export const PharmacyReports = () => {
   const unreadMessages = usePharmacyUnreadMessages();
   const queue = useMemo(() => data?.queue ?? [], [data?.queue]);
 
-  const prescriptionIds = useMemo(() => Array.from(new Set(queue.map((item) => item.prescriptionId))), [queue]);
-  const dispensedIds = useMemo(() => {
-    const byRx = new Map<string, boolean[]>();
-    for (const item of queue) {
-      byRx.set(item.prescriptionId, [...(byRx.get(item.prescriptionId) ?? []), item.isDispensed]);
-    }
-    return Array.from(byRx.values()).filter((statuses) => statuses.every(Boolean)).length;
-  }, [queue]);
+  // QA-286: prescriptions with the same status as on Dispensing; "this month" is the Dubai month received.
+  const prescriptions = useMemo(() => groupReportPrescriptions(queue), [queue]);
+  const prescriptionIds = useMemo(() => prescriptions.map((prescription) => prescription.prescriptionId), [prescriptions]);
+  const dispensedIds = prescriptions.filter((prescription) => isDispensedStatus(prescription.status)).length;
+  const monthKey = clinicTodayKey().slice(0, 7);
+  const month = useMemo(() => summarizeMonth(prescriptions, monthKey), [prescriptions, monthKey]);
+  const approval = useMemo(() => summarizeApproval(data?.claims ?? []), [data?.claims]);
+  const monthLabel = formatReportMonth(monthKey, uiLang);
 
   const topDrugs = useMemo(() => {
     const counts = new Map<string, number>();
@@ -41,7 +48,6 @@ export const PharmacyReports = () => {
   }, [queue]);
 
   const totalPrescriptions = prescriptionIds.length;
-  const approvalRate = totalPrescriptions ? Math.round((dispensedIds / totalPrescriptions) * 1000) / 10 : 100;
   const maxDrugCount = Math.max(...topDrugs.map((item) => item.count), 1);
   // QA-285: the real "controlled" flag (the old card counted items named warfarin).
   const controlledInStock = (data?.inventory ?? []).filter((item) => item.isControlled && item.stock > 0).length;
@@ -51,22 +57,54 @@ export const PharmacyReports = () => {
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? pharmacyFallback;
   const monthYear = new Date().toLocaleDateString(uiLang, dateTimeFormatWithNumerals(uiLang, { month: 'long', year: 'numeric' }));
 
+  const waiting = loading && !data;
   const kpis = [
     {
-      label: t('pharmacy.reports.kpiPrescriptions', { defaultValue: 'Prescriptions this month' }),
-      value: loading ? '...' : formatNumber(totalPrescriptions, uiLang),
+      key: 'received',
+      label: t('pharmacy.reports.kpiReceived', { defaultValue: 'Prescriptions this month' }),
+      value: waiting ? '…' : formatNumber(month.received, uiLang),
+      helper: t('pharmacy.reports.kpiReceivedHelper', { month: monthLabel, defaultValue: 'Received in {{month}}' }),
       icon: FileText,
       color: 'text-teal-600',
       bg: 'bg-teal-50',
-      route: '/pharmacy/dispensing',
     },
     {
+      key: 'dispensed',
+      label: t('pharmacy.reports.kpiDispensed', { defaultValue: 'Dispensed' }),
+      value: waiting ? '…' : formatNumber(month.dispensed, uiLang),
+      helper: t('pharmacy.reports.kpiOfThisMonth', { defaultValue: 'Of the prescriptions received this month' }),
+      icon: PackageCheck,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+    },
+    {
+      key: 'on-hold',
+      label: t('pharmacy.reports.kpiOnHold', { defaultValue: 'On hold' }),
+      value: waiting ? '…' : formatNumber(month.onHold, uiLang),
+      helper: t('pharmacy.reports.kpiOfThisMonth', { defaultValue: 'Of the prescriptions received this month' }),
+      icon: PauseCircle,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+    },
+    {
+      key: 'approval',
       label: t('pharmacy.reports.kpiApproval', { defaultValue: 'Insurance approval rate' }),
-      value: loading ? '...' : `${formatLocaleDigits(approvalRate, uiLang)}%`,
+      value: waiting
+        ? '…'
+        : approval.percent === null
+          ? '—'
+          : t('pharmacy.reports.percent', { value: formatLocaleDigits(approval.percent, uiLang), defaultValue: '{{value}}%' }),
+      helper:
+        approval.percent === null
+          ? t('pharmacy.reports.kpiApprovalNone', { defaultValue: 'No decided claims yet' })
+          : t('pharmacy.reports.kpiApprovalHelper', {
+              paid: formatNumber(approval.paid, uiLang),
+              denied: formatNumber(approval.denied, uiLang),
+              defaultValue: 'All claims: {{paid}} paid · {{denied}} denied',
+            }),
       icon: TrendingUp,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
-      route: '/pharmacy/revenue',
     },
   ];
 
@@ -168,14 +206,20 @@ export const PharmacyReports = () => {
         <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {kpis.map((kpi) => {
             const Icon = kpi.icon;
+            // QA-286: plain cards (they were links to other pages).
             return (
-              <Link key={kpi.label} to={kpi.route} className="block rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer">
+              <article
+                key={kpi.key}
+                aria-label={kpi.label}
+                className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm"
+              >
                 <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${kpi.bg}`}>
-                  <Icon className={`h-5 w-5 ${kpi.color}`} />
+                  <Icon className={`h-5 w-5 ${kpi.color}`} aria-hidden="true" />
                 </div>
                 <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{kpi.value}</div>
                 <div className="text-[12px] text-slate-500">{kpi.label}</div>
-              </Link>
+                <div className="mt-0.5 text-xs text-slate-400">{kpi.helper}</div>
+              </article>
             );
           })}
         </section>
