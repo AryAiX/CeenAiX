@@ -3777,10 +3777,7 @@
       "exportLedger": "Export Dispensing Ledger",
       "dhaMonthly": "DHA Monthly Report",
       "kpiPrescriptions": "Prescriptions this month",
-      "kpiAccuracy": "Dispensing accuracy",
-      "kpiAccuracySub": "Computed from pharmacy_dispensing_tasks",
       "kpiApproval": "Insurance approval rate",
-      "kpiCompliance": "Controlled substance compliance",
       "volumeHeading": "Dispensing Volume — Current Queue",
       "volumeDispensed": "Dispensed",
       "volumeQueue": "In queue",
@@ -3791,14 +3788,14 @@
       "riskOut": "Out of stock",
       "riskExpiring": "Expiring soon",
       "topDrugsHeading": "Top Dispensed Drugs — Live Prescription Data",
-      "dhaHeading": "DHA Monthly Dispensing Report",
-      "licensePending": "License pending",
-      "compliant": "Compliant",
-      "totalRecords": "Total dispensing records",
-      "submittedDha": "Submitted to DHA",
-      "controlledRecords": "Controlled substance records",
-      "lastSubmitted": "Last submitted",
-      "noSubmissions": "No submissions"
+      "dhaReportingHeading": "DHA Reporting",
+      "licenseNotOnFile": "Licence number not on file",
+      "dhaNotRecorded": "Submissions to DHA are not recorded in the portal, so this page cannot show what was sent or when.",
+      "dispensedPrescriptions": "Dispensed prescriptions",
+      "controlledInStock": "Controlled items in stock",
+      "dhaConnection": "DHA connection (from profile)",
+      "dhaConnected": "Connected",
+      "dhaNotConnected": "Not connected"
     }
   },
   "insurance": {

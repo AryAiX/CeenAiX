@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download, FileText, ShieldCheck, Target, TrendingUp } from 'lucide-react';
+import { Download, FileText, ShieldCheck, TrendingUp } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
@@ -43,6 +43,10 @@ export const PharmacyReports = () => {
   const totalPrescriptions = prescriptionIds.length;
   const approvalRate = totalPrescriptions ? Math.round((dispensedIds / totalPrescriptions) * 1000) / 10 : 100;
   const maxDrugCount = Math.max(...topDrugs.map((item) => item.count), 1);
+  // QA-285: the real "controlled" flag (the old card counted items named warfarin).
+  const controlledInStock = (data?.inventory ?? []).filter((item) => item.isControlled && item.stock > 0).length;
+  // QA-285: only a real licence number (it used to fall back to the organization's free-text notes).
+  const licenseNumber = data?.profile?.licenseNumber?.trim() || null;
   const pharmacyFallback = t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' });
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? pharmacyFallback;
   const monthYear = new Date().toLocaleDateString(uiLang, dateTimeFormatWithNumerals(uiLang, { month: 'long', year: 'numeric' }));
@@ -57,33 +61,12 @@ export const PharmacyReports = () => {
       route: '/pharmacy/dispensing',
     },
     {
-      label: t('pharmacy.reports.kpiAccuracy', { defaultValue: 'Dispensing accuracy' }),
-      value: loading
-        ? '...'
-        : `${formatLocaleDigits(data?.reportMetrics.dispensingAccuracyPercent ?? 0, uiLang)}%`,
-      sub: t('pharmacy.reports.kpiAccuracySub', { defaultValue: 'Computed from pharmacy_dispensing_tasks' }),
-      icon: Target,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      route: '/pharmacy/dispensing',
-    },
-    {
       label: t('pharmacy.reports.kpiApproval', { defaultValue: 'Insurance approval rate' }),
       value: loading ? '...' : `${formatLocaleDigits(approvalRate, uiLang)}%`,
       icon: TrendingUp,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
       route: '/pharmacy/revenue',
-    },
-    {
-      label: t('pharmacy.reports.kpiCompliance', { defaultValue: 'Controlled substance compliance' }),
-      value: loading
-        ? '...'
-        : `${formatLocaleDigits(data?.reportMetrics.controlledCompliancePercent ?? 0, uiLang)}% ✅`,
-      icon: ShieldCheck,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      route: '/pharmacy/inventory',
     },
   ];
 
@@ -192,7 +175,6 @@ export const PharmacyReports = () => {
                 </div>
                 <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{kpi.value}</div>
                 <div className="text-[12px] text-slate-500">{kpi.label}</div>
-                {kpi.sub ? <div className="mt-0.5 text-xs text-emerald-600">{kpi.sub} ✅</div> : null}
               </Link>
             );
           })}
@@ -300,52 +282,60 @@ export const PharmacyReports = () => {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-[15px] font-bold text-slate-800">
-                  {t('pharmacy.reports.dhaHeading', { defaultValue: 'DHA Monthly Dispensing Report' })}
-                </h3>
-                <div className="text-xs text-slate-400">
-                  {pharmacyName} ·{' '}
-                  {data?.profile?.licenseNumber ??
-                    data?.organization?.notes ??
-                    t('pharmacy.reports.licensePending', { defaultValue: 'License pending' })}
-                </div>
+        {/* QA-285: no made-up compliance or DHA figures. The portal does not send anything to DHA and
+            keeps no controlled-drugs register; the old card showed "100% Compliant", "Submitted to DHA"
+            (= number of tasks), "Last submitted: Today" and counted items named warfarin. */}
+        <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm" aria-labelledby="pharmacy-dha-heading">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100">
+              <ShieldCheck className="h-5 w-5 text-slate-500" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h3 id="pharmacy-dha-heading" className="text-[15px] font-bold text-slate-800">
+                {t('pharmacy.reports.dhaReportingHeading', { defaultValue: 'DHA Reporting' })}
+              </h3>
+              <div className="text-xs text-slate-400">
+                {pharmacyName} ·{' '}
+                {licenseNumber ? (
+                  <bdi>{licenseNumber}</bdi>
+                ) : (
+                  t('pharmacy.reports.licenseNotOnFile', { defaultValue: 'Licence number not on file' })
+                )}
               </div>
             </div>
-            <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">
-              {formatLocaleDigits(data?.reportMetrics.controlledCompliancePercent ?? 0, uiLang)}%{' '}
-              {t('pharmacy.reports.compliant', { defaultValue: 'Compliant' })} ✅
-            </span>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <p role="note" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {t('pharmacy.reports.dhaNotRecorded', {
+              defaultValue:
+                'Submissions to DHA are not recorded in the portal, so this page cannot show what was sent or when.',
+            })}
+          </p>
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
-              [t('pharmacy.reports.totalRecords', { defaultValue: 'Total dispensing records' }), formatNumber(totalPrescriptions, uiLang)],
-              [
-                t('pharmacy.reports.submittedDha', { defaultValue: 'Submitted to DHA' }),
-                `${formatLocaleDigits(data?.reportMetrics.dhaSubmittedCount ?? 0, uiLang)} ✅`,
-              ],
-              [
-                t('pharmacy.reports.controlledRecords', { defaultValue: 'Controlled substance records' }),
-                formatNumber(data?.inventory.filter((item) => /warfarin/i.test(item.name)).length ?? 0, uiLang),
-              ],
-              [
-                t('pharmacy.reports.lastSubmitted', { defaultValue: 'Last submitted' }),
-                data?.reportMetrics.lastSubmittedLabel ??
-                  t('pharmacy.reports.noSubmissions', { defaultValue: 'No submissions' }),
-              ],
-            ].map(([label, value]) => (
-              <div key={label as string} className="rounded-xl bg-slate-50 p-3">
-                <div className="mb-1 text-xs text-slate-400">{label}</div>
-                <div className="font-mono text-sm font-bold text-slate-800">{loading ? '...' : value}</div>
+              {
+                key: 'dispensed',
+                label: t('pharmacy.reports.dispensedPrescriptions', { defaultValue: 'Dispensed prescriptions' }),
+                value: formatNumber(dispensedIds, uiLang),
+              },
+              {
+                key: 'controlled',
+                label: t('pharmacy.reports.controlledInStock', { defaultValue: 'Controlled items in stock' }),
+                value: formatNumber(controlledInStock, uiLang),
+              },
+              {
+                key: 'dha',
+                label: t('pharmacy.reports.dhaConnection', { defaultValue: 'DHA connection (from profile)' }),
+                value: data?.profile?.dhaConnected
+                  ? t('pharmacy.reports.dhaConnected', { defaultValue: 'Connected' })
+                  : t('pharmacy.reports.dhaNotConnected', { defaultValue: 'Not connected' }),
+              },
+            ].map((tile) => (
+              <div key={tile.key} className="rounded-xl bg-slate-50 p-3" data-testid={`dha-${tile.key}`}>
+                <dt className="mb-1 text-xs text-slate-400">{tile.label}</dt>
+                <dd className="font-mono text-sm font-bold text-slate-800">{loading && !data ? '…' : tile.value}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         </section>
       </div>
     </OpsShell>
