@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { CircleDollarSign, CreditCard, Download, FileCheck2, ReceiptText } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 interface RevenuePrescription {
   id: string;
@@ -34,6 +34,7 @@ export const PharmacyRevenue = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(8);
   const rows = useMemo<RevenuePrescription[]>(
@@ -70,11 +71,7 @@ export const PharmacyRevenue = () => {
       title={t('pharmacy.revenue.title', { defaultValue: 'Revenue' })}
       subtitle={t('pharmacy.revenue.subtitle', { defaultValue: 'Claims and dispensing revenue' })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: data?.pendingPrescriptions || undefined,
-        inventory: data?.lowStockAlerts || undefined,
-        messages: data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

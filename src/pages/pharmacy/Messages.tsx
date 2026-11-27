@@ -3,23 +3,20 @@ import { useTranslation } from 'react-i18next';
 import { Lock, MessageSquare } from 'lucide-react';
 import { MessagesWorkspace } from '../../components/MessagesWorkspace';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 export const PharmacyMessages: React.FC = () => {
   const { t } = useTranslation('common');
   const { data } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
 
   return (
     <OpsShell
       title="Messages"
       subtitle="Patient and doctor communications"
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: data?.pendingPrescriptions || undefined,
-        inventory: data?.lowStockAlerts || undefined,
-        messages: data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

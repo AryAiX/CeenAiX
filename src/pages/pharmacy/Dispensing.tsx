@@ -11,6 +11,7 @@ import {
   sendPharmacyHoldNotificationAndMessage,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
+  usePharmacyUnreadMessages,
 } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
@@ -271,6 +272,7 @@ export const PharmacyDispensing = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const isPhone = useIsPhone();
   // QA-258: new prescriptions appear and "x min ago" stays right without reloading the page.
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -693,7 +695,7 @@ export const PharmacyDispensing = () => {
           t('pharmacy.dispensing.pharmacyFallback', { defaultValue: 'your pharmacy' }),
       })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data))}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

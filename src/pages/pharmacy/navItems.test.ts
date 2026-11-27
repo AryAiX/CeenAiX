@@ -28,9 +28,8 @@ describe('pharmacyNavCounts (QA-273)', () => {
           task('rx-picked', 'picked_up'),
           task('rx-cancelled', 'cancelled'),
         ],
-        messages: [{ unreadCount: 2 }, { unreadCount: 0 }, { unreadCount: 3 }],
         lowStockAlerts: 4,
-      })
+      }, 5)
     ).toEqual({ prescriptions: 2, inventory: 4, messages: 5 });
   });
 

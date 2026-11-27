@@ -15,10 +15,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import type { PharmacyQueuePrescriptionItem } from '../../hooks/use-pharmacy-prescription-queue';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { compareStockAlerts } from './stock-alerts';
 import {
   dashboardQueueStatusForWorkflow,
@@ -143,6 +143,7 @@ export const PharmacyDashboard = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const [showDispensed, setShowDispensed] = useState(false);
 
   const prescriptionGroups = useMemo(() => groupPrescriptionItems(data?.queue ?? []), [data?.queue]);
@@ -261,12 +262,7 @@ export const PharmacyDashboard = () => {
       title={t('pharmacy.dashboard.title')}
       subtitle={t('pharmacy.dashboard.subtitle')}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: inQueue.length || undefined,
-        inventory: stockAlerts.length || undefined,
-        messages:
-          data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

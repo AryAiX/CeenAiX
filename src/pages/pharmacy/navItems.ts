@@ -24,14 +24,15 @@ export interface PharmacyNavCounts {
  * page to page, so a badge changed or vanished while moving around):
  *   - Prescriptions: prescriptions (not medicines) that are new or on hold;
  *   - Inventory: stock alerts (low, out, expiring soon, expired units);
- *   - Messages: unread messages.
+ *   - Messages: unread messages in the real conversations (QA-275: from usePharmacyUnreadMessages,
+ *     not the old demo table).
  */
 export const pharmacyNavCounts = (
   data?: {
     queue?: PharmacyQueuePrescriptionItem[];
-    messages?: Array<{ unreadCount: number }>;
     lowStockAlerts?: number;
-  } | null
+  } | null,
+  unreadMessages?: number
 ): PharmacyNavCounts => {
   const byPrescription = new Map<string, PharmacyQueuePrescriptionItem[]>();
   for (const item of data?.queue ?? []) {
@@ -42,11 +43,10 @@ export const pharmacyNavCounts = (
     const status = inferPrescriptionWorkflowStatus(group);
     if (status === 'new' || status === 'on_hold') waiting += 1;
   }
-  const unread = (data?.messages ?? []).reduce((sum, item) => sum + (item.unreadCount || 0), 0);
   return {
     prescriptions: waiting || undefined,
     inventory: data?.lowStockAlerts || undefined,
-    messages: unread || undefined,
+    messages: unreadMessages || undefined,
   };
 };
 

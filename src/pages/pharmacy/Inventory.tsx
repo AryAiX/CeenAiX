@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import type { PharmacyInventoryBatch, PharmacyInventoryDerivedItem } from '../../hooks';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
@@ -203,6 +203,7 @@ export const PharmacyInventory = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const isPhone = useIsPhone();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -452,7 +453,7 @@ export const PharmacyInventory = () => {
         date: formatClinicDate(clinicTodayKey(), uiLang),
       })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data))}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

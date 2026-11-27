@@ -35,10 +35,10 @@ vi.mock('../../components/OpsShell', () => ({
     </div>
   ),
 }));
-vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn() }));
+vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn(), usePharmacyUnreadMessages: vi.fn() }));
 vi.mock('../../lib/csv-export', () => ({ downloadCsv: vi.fn() }));
 
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { downloadCsv } from '../../lib/csv-export';
 import { PharmacyInventory } from './Inventory';
 
@@ -528,6 +528,8 @@ describe('PharmacyInventory small fixes (QA-273)', () => {
   });
 
   it('counts the menu badges like the other pharmacy pages', () => {
+    // QA-275: the real unread count (the demo table below says 9 and is ignored).
+    vi.mocked(usePharmacyUnreadMessages).mockReturnValue(4);
     vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
       data: {
         inventory: [item({ id: 'amox', genericName: 'Amoxicillin' })],
@@ -536,7 +538,7 @@ describe('PharmacyInventory small fixes (QA-273)', () => {
           { id: 't2', prescriptionId: 'rx-1', workflowStatus: 'new', quantity: 1, isDispensed: false },
           { id: 't3', prescriptionId: 'rx-2', workflowStatus: 'picked_up', quantity: 1, isDispensed: true },
         ],
-        messages: [{ unreadCount: 4 }],
+        messages: [{ unreadCount: 9 }],
         pendingPrescriptions: 3,
         lowStockAlerts: 2,
         profile: null,

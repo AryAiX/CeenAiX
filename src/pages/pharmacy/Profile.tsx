@@ -5,11 +5,11 @@ import { Plus, ShieldCheck, Store, Trash2, Upload, UserRound, type LucideIcon } 
 import { Link } from 'react-router-dom';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -18,6 +18,7 @@ export const PharmacyProfile = () => {
   const uiLang = i18n.language ?? 'en';
   const { profile, user } = useAuth();
   const { data, error, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const fallbackName = t('pharmacy.profile.fallbackName', { defaultValue: 'Pharmacy' });
   const pendingLabel = t('pharmacy.profile.fallbackPending', { defaultValue: 'Pending' });
   const displayName =
@@ -249,11 +250,7 @@ export const PharmacyProfile = () => {
       title={t('pharmacy.profile.title', { defaultValue: 'My Pharmacy' })}
       subtitle={`${pharmacyName} ${t('pharmacy.profile.subtitleSuffix', { defaultValue: 'profile' })}`}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: data?.pendingPrescriptions || undefined,
-        inventory: data?.lowStockAlerts || undefined,
-        messages: data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

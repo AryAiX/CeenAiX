@@ -3,12 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { Bell, DatabaseZap, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { setPharmacySettingEnabled, usePharmacyPrescriptionQueue } from '../../hooks';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import {
+  setPharmacySettingEnabled,
+  usePharmacyPrescriptionQueue,
+  usePharmacyUnreadMessages,
+} from '../../hooks';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 export const PharmacySettings = () => {
   const { t } = useTranslation('common');
   const { data, error: loadError, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const settings = data?.settings ?? [];
   const fallbackName = t('pharmacy.settings.fallbackName', { defaultValue: 'Pharmacy' });
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -41,11 +46,7 @@ export const PharmacySettings = () => {
         defaultValue: 'Notification, compliance, and sync preferences',
       })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: data?.pendingPrescriptions || undefined,
-        inventory: data?.lowStockAlerts || undefined,
-        messages: data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Download, FileText, ShieldCheck, Target, TrendingUp } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
-import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
-import { PHARMACY_NAV_ITEMS } from './navItems';
+import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 const formatNumber = (value: number, language: string) => formatLocaleDigits(value, language);
 
@@ -16,6 +16,7 @@ export const PharmacyReports = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
+  const unreadMessages = usePharmacyUnreadMessages();
   const queue = useMemo(() => data?.queue ?? [], [data?.queue]);
 
   const prescriptionIds = useMemo(() => Array.from(new Set(queue.map((item) => item.prescriptionId))), [queue]);
@@ -91,11 +92,7 @@ export const PharmacyReports = () => {
       title={t('pharmacy.reports.title', { defaultValue: 'Reports' })}
       subtitle={`${pharmacyName} · ${t('pharmacy.reports.liveAnalytics', { defaultValue: 'Live analytics' })}`}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
-      navItems={PHARMACY_NAV_ITEMS(t, {
-        prescriptions: data?.pendingPrescriptions || undefined,
-        inventory: data?.lowStockAlerts || undefined,
-        messages: data?.messages.reduce((sum, item) => sum + item.unreadCount, 0) || undefined,
-      })}
+      navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >

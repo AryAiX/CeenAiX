@@ -38,7 +38,7 @@ vi.mock('../../components/OpsShell', () => ({
     </div>
   ),
 }));
-vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn() }));
+vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn(), usePharmacyUnreadMessages: vi.fn() }));
 
 import { usePharmacyPrescriptionQueue } from '../../hooks';
 import { PharmacyInventory } from './Inventory';

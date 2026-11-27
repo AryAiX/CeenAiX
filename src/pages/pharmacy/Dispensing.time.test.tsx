@@ -21,6 +21,7 @@ vi.mock('../../hooks', () => ({
   PharmacyTaskChangeNotAllowedError: class PharmacyTaskChangeNotAllowedError extends Error {},
   fetchPharmacyPrescriptionDetails: vi.fn(),
   usePharmacyPrescriptionQueue: vi.fn(),
+  usePharmacyUnreadMessages: vi.fn(),
   updatePharmacyDispensingTaskStatus: vi.fn(),
   sendPharmacyHoldNotificationAndMessage: vi.fn(),
 }));

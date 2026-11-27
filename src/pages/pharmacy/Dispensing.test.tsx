@@ -41,6 +41,7 @@ vi.mock('../../hooks', () => ({
   PharmacyTaskChangeNotAllowedError: class PharmacyTaskChangeNotAllowedError extends Error {},
   fetchPharmacyPrescriptionDetails: vi.fn(),
   usePharmacyPrescriptionQueue: vi.fn(),
+  usePharmacyUnreadMessages: vi.fn(),
   updatePharmacyDispensingTaskStatus: vi.fn(),
   sendPharmacyHoldNotificationAndMessage: vi.fn(),
 }));
@@ -51,6 +52,7 @@ import {
   sendPharmacyHoldNotificationAndMessage,
   updatePharmacyDispensingTaskStatus,
   usePharmacyPrescriptionQueue,
+  usePharmacyUnreadMessages,
 } from '../../hooks';
 import { PharmacyDispensing } from './Dispensing';
 
@@ -774,10 +776,12 @@ describe('PharmacyDispensing small fixes (QA-262)', () => {
   });
 
   it('shows unread messages on the Messages badge, like the other pharmacy pages', () => {
+    // QA-275: the real unread count, not the demo table.
+    vi.mocked(usePharmacyUnreadMessages).mockReturnValue(3);
     vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
       data: {
         queue: [task({ id: 'task-a', medication: 'Amoxicillin', workflowStatus: 'on_hold' })],
-        messages: [{ unreadCount: 2 }, { unreadCount: 1 }],
+        messages: [{ unreadCount: 9 }],
         profile: null,
         organization: null,
         lowStockAlerts: 0,
