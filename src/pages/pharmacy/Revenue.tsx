@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CircleDollarSign, CreditCard, Download, FileCheck2, ReceiptText } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
@@ -7,6 +6,8 @@ import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { summarizeRevenue } from './revenue-figures';
+import { clinicTodayKey } from '../../lib/clinic-booking-time';
 
 interface RevenuePrescription {
   id: string;
@@ -15,6 +16,7 @@ interface RevenuePrescription {
   amount: number;
   insurer: string;
   status: 'paid' | 'review' | 'pending' | 'denied';
+  paidAt: string | null;
 }
 
 const formatCurrency = (value: number, language: string) => {
@@ -46,16 +48,16 @@ export const PharmacyRevenue = () => {
         amount: claim.amountAed,
         insurer: claim.payerName,
         status: claim.status,
+        paidAt: claim.paidAt,
       })),
     [data?.claims]
   );
   const selectedClaim = rows.find((row) => row.id === selectedClaimId) ?? null;
-  const paid = rows.filter((item) => item.status === 'paid');
-  const review = rows.filter((item) => item.status === 'review');
-  const pending = rows.filter((item) => item.status === 'pending');
-  const revenueToday = paid.reduce((sum, item) => sum + item.amount, 0);
-  const projected = rows.reduce((sum, item) => sum + item.amount, 0);
-  const averageRx = rows.length ? Math.round(projected / rows.length) : 0;
+  // QA-279: figures by what they say (Dubai dates); see summarizeRevenue.
+  const figures = useMemo(
+    () => summarizeRevenue(rows.map((row) => ({ amountAed: row.amount, status: row.status, paidAt: row.paidAt })), clinicTodayKey()),
+    [rows]
+  );
   const insurers = Array.from(new Set(rows.map((row) => row.insurer)));
   const maxChannel = Math.max(...insurers.map((insurer) => rows.filter((item) => item.insurer === insurer).length), 1);
   const pharmacyFallback = t('pharmacy.revenue.fallbackName', { defaultValue: 'Pharmacy' });
@@ -122,61 +124,72 @@ export const PharmacyRevenue = () => {
         <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
-              label: t('pharmacy.revenue.kpiToday', { defaultValue: 'Revenue Today' }),
-              value: formatCurrency(revenueToday, uiLang),
-              helper: t('pharmacy.revenue.kpiTodayHelper', {
-                count: paid.length,
-                defaultValue: `${paid.length} paid prescriptions`,
+              key: 'paid-today',
+              label: t('pharmacy.revenue.kpiPaidToday', { defaultValue: 'Paid Today' }),
+              value: formatCurrency(figures.paidToday.amount, uiLang),
+              helper: t('pharmacy.revenue.kpiPaidTodayHelper', {
+                count: figures.paidToday.count,
+                defaultValue: '{{count}} claims paid today',
               }),
               icon: CircleDollarSign,
               color: 'text-emerald-600',
               bg: 'bg-emerald-50',
-              route: '/pharmacy/revenue',
             },
             {
-              label: t('pharmacy.revenue.kpiProjected', { defaultValue: 'Projected Queue Value' }),
-              value: formatCurrency(projected, uiLang),
-              helper: t('pharmacy.revenue.kpiProjectedHelper', {
-                count: rows.length,
-                defaultValue: `${rows.length} total prescriptions`,
-              }),
-              icon: ReceiptText,
-              color: 'text-teal-600',
-              bg: 'bg-teal-50',
-              route: '/pharmacy/dispensing',
-            },
-            {
-              label: t('pharmacy.revenue.kpiReview', { defaultValue: 'Claims In Review' }),
-              value: loading ? '...' : formatLocaleDigits(review.length, uiLang),
-              helper: t('pharmacy.revenue.kpiReviewHelper', { defaultValue: 'Insurance follow-up needed' }),
-              icon: FileCheck2,
-              color: 'text-amber-600',
-              bg: 'bg-amber-50',
-              route: '/pharmacy/revenue',
-            },
-            {
-              label: t('pharmacy.revenue.kpiAvg', { defaultValue: 'Average Rx Value' }),
-              value: formatCurrency(averageRx, uiLang),
-              helper: t('pharmacy.revenue.kpiAvgHelper', {
-                count: pending.length,
-                defaultValue: `${pending.length} pending payment`,
-              }),
+              key: 'paid-month',
+              label: t('pharmacy.revenue.kpiPaidMonth', { defaultValue: 'Paid This Month' }),
+              value: formatCurrency(figures.paidThisMonth.amount, uiLang),
+              helper: figures.paidThisMonth.count
+                ? t('pharmacy.revenue.kpiPaidMonthHelper', {
+                    amount: formatCurrency(figures.paidThisMonth.average, uiLang),
+                    defaultValue: 'Average paid claim: {{amount}}',
+                  })
+                : t('pharmacy.revenue.kpiPaidMonthNone', { defaultValue: 'No claims paid this month' }),
               icon: CreditCard,
               color: 'text-blue-600',
               bg: 'bg-blue-50',
-              route: '/pharmacy/revenue',
+            },
+            {
+              key: 'outstanding',
+              label: t('pharmacy.revenue.kpiOutstanding', { defaultValue: 'Outstanding' }),
+              value: formatCurrency(figures.outstanding.amount, uiLang),
+              helper: t('pharmacy.revenue.kpiOutstandingHelper', {
+                count: figures.outstanding.count,
+                review: formatLocaleDigits(figures.outstanding.inReview, uiLang),
+                defaultValue: '{{count}} claims · {{review}} in review',
+              }),
+              icon: FileCheck2,
+              color: 'text-amber-600',
+              bg: 'bg-amber-50',
+            },
+            {
+              key: 'denied',
+              label: t('pharmacy.revenue.kpiDenied', { defaultValue: 'Denied' }),
+              value: formatCurrency(figures.denied.amount, uiLang),
+              helper: t('pharmacy.revenue.kpiDeniedHelper', {
+                count: figures.denied.count,
+                defaultValue: '{{count}} claims',
+              }),
+              icon: ReceiptText,
+              color: 'text-red-600',
+              bg: 'bg-red-50',
             },
           ].map((kpi) => {
             const Icon = kpi.icon;
+            // QA-279: plain cards (three of them linked back to this same page).
             return (
-              <Link key={kpi.label} to={kpi.route} className="block rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-emerald-300 cursor-pointer">
+              <article
+                key={kpi.key}
+                aria-label={kpi.label}
+                className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm"
+              >
                 <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${kpi.bg}`}>
-                  <Icon className={`h-5 w-5 ${kpi.color}`} />
+                  <Icon className={`h-5 w-5 ${kpi.color}`} aria-hidden="true" />
                 </div>
-                <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{loading ? '...' : kpi.value}</div>
+                <div className={`mb-1 font-mono text-[22px] font-bold ${kpi.color}`}>{loading && !data ? '…' : kpi.value}</div>
                 <div className="text-[12px] text-slate-500">{kpi.label}</div>
                 <div className="mt-0.5 text-xs text-slate-400">{kpi.helper}</div>
-              </Link>
+              </article>
             );
           })}
         </section>
