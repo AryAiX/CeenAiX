@@ -373,3 +373,30 @@ describe('MessagesWorkspace draft from a link (QA-274)', () => {
     expect(state.ensureDirectConversation).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('MessagesWorkspace contact label for pharmacies (QA-278)', () => {
+  it('calls the other person a contact, not always a patient, since pharmacies also talk to staff', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'pharmacy-1' } } as never);
+    vi.mocked(useMessagingHub).mockReturnValue(hub([{ id: 'm1', sender_id: 'other-1', body: 'Hello' }]) as never);
+
+    renderAs('pharmacy', '/pharmacy/messages/conv-1');
+    // The conversation list does not assume a patient either.
+    expect(screen.queryByText(/No patient email/)).not.toBeInTheDocument();
+    expect(screen.getAllByText('No email on file').length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('messaging.viewProfile') }));
+
+    expect(screen.getAllByText('Contact')).toHaveLength(2);
+    expect(screen.queryByText('Patient')).not.toBeInTheDocument();
+  });
+
+  it('still shows "Patient" for a doctor', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'doctor-1' } } as never);
+    vi.mocked(useMessagingHub).mockReturnValue(hub([{ id: 'm1', sender_id: 'other-1', body: 'Hello' }]) as never);
+
+    renderAs('doctor', '/doctor/messages/conv-1');
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('messaging.viewProfile') }));
+
+    expect(screen.getAllByText('Patient').length).toBeGreaterThan(0);
+  });
+});

@@ -1481,7 +1481,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                       : 'bg-blue-100 text-blue-700'
                   }`}
                 >
-                  {role === 'patient' ? t('messaging.roleDoctor') : role === 'clinic' ? t('messaging.roleContact') : t('messaging.rolePatient')}
+                  {role === 'patient'
+                    ? t('messaging.roleDoctor')
+                    : role === 'clinic' || role === 'pharmacy'
+                      ? t('messaging.roleContact')
+                      : t('messaging.rolePatient')}
                 </span>
               </div>
 
@@ -1500,7 +1504,11 @@ export const MessagesWorkspace = ({ role }: MessagesWorkspaceProps) => {
                   <span className='text-base'>👤</span>
                   <span className='text-gray-500'>{t('messaging.role')}</span>
                   <span className='ms-auto font-medium text-gray-800'>
-                    {role === 'patient' ? t('messaging.roleHealthcareProvider') : role === 'clinic' ? t('messaging.roleContact') : t('messaging.rolePatient')}
+                    {role === 'patient'
+                      ? t('messaging.roleHealthcareProvider')
+                      : role === 'clinic' || role === 'pharmacy'
+                        ? t('messaging.roleContact')
+                        : t('messaging.rolePatient')}
                   </span>
                 </div>
               </div>
