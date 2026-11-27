@@ -44,7 +44,7 @@ const baseProfile = {
   emergencyContact: null,
   dhaConnected: false,
   nabidhConnected: false,
-  workingHoursJson: null,
+  workingHoursJson: null as unknown,
   logoUrl: null as string | null,
 };
 
@@ -202,5 +202,79 @@ describe('PharmacyProfile logo upload (QA-292)', () => {
     showProfile();
     renderPage();
     expect(screen.getByRole('button', { name: 'Change logo' })).toBeInTheDocument();
+  });
+});
+
+describe('PharmacyProfile saving the details (QA-293)', () => {
+  const openDialog = async () => {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Edit pharmacy details' }));
+    return user;
+  };
+
+  it('does not say "saved" when no row was changed', async () => {
+    const profiles = createSupabaseQueryBuilder({ data: [], error: null });
+    vi.mocked(supabase.from).mockReturnValue(profiles as never);
+    showProfile();
+    renderPage();
+    const user = await openDialog();
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(await screen.findByText('This pharmacy has no profile to update yet. Contact CeenAiX support.')).toBeInTheDocument();
+    expect(screen.queryByText(/saved successfully/)).toBeNull();
+    expect(profiles.select).toHaveBeenCalledWith('organization_id');
+  });
+
+  it('shows a plain message for a database error, not the raw text', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(supabase.from).mockReturnValue(
+      createSupabaseQueryBuilder({ data: null, error: { message: 'new row violates row-level security policy' } }) as never
+    );
+    showProfile();
+    renderPage();
+    const user = await openDialog();
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(await screen.findByText('Could not save the changes. Please try again.')).toBeInTheDocument();
+    expect(screen.queryByText(/row-level security/)).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('checks the fields before saving and shows the problems next to them', async () => {
+    const profiles = createSupabaseQueryBuilder({ data: [{ organization_id: ORG }], error: null });
+    vi.mocked(supabase.from).mockReturnValue(profiles as never);
+    showProfile({ displayName: 'QA Test Pharmacy' });
+    renderPage();
+    const user = await openDialog();
+    await user.clear(screen.getByLabelText('Pharmacy Name'));
+    await user.type(screen.getByLabelText('Email'), 'not-an-email');
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(screen.getByLabelText('Pharmacy Name')).toHaveAccessibleDescription('Enter the pharmacy name.');
+    expect(screen.getByLabelText('Email')).toHaveAccessibleDescription('Enter a valid email address.');
+    expect(profiles.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a closing time before the opening time', async () => {
+    const profiles = createSupabaseQueryBuilder({ data: [{ organization_id: ORG }], error: null });
+    vi.mocked(supabase.from).mockReturnValue(profiles as never);
+    showProfile({ workingHoursJson: { Monday: { open: '22:00', close: '08:00', closed: false } } });
+    renderPage();
+    const user = await openDialog();
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(screen.getByTestId('hours-error-Monday')).toHaveTextContent('The closing time must be after the opening time.');
+    expect(profiles.update).not.toHaveBeenCalled();
+  });
+
+  it('opens the dialog even when the stored hours miss days', async () => {
+    showProfile({ workingHoursJson: { Monday: { open: '09:00', close: '17:00', closed: false } } });
+    renderPage();
+    await openDialog();
+    expect(screen.getByTestId('hours-Sunday')).toBeInTheDocument();
+  });
+
+  it('shows the open days in the page language', async () => {
+    showProfile({ workingHoursJson: { Friday: { open: '08:00', close: '22:00', closed: true } } });
+    renderPage();
+    expect(screen.getByText('Open 6 days a week')).toBeInTheDocument();
+    await i18n.changeLanguage('ar');
+    expect(await screen.findByText(/مفتوحة/)).toBeInTheDocument();
   });
 });

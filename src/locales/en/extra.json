@@ -3707,7 +3707,21 @@
       "logoNoProfile": "Save the pharmacy details first, then add a logo.",
       "logoFailed": "Could not upload the logo. Please try again.",
       "changeLogo": "Change logo",
-      "logoUploading": "Uploading…"
+      "logoUploading": "Uploading…",
+      "openDays_one": "Open {{count}} day a week",
+      "openDays_other": "Open {{count}} days a week",
+      "errors": {
+        "fixFields": "Please correct the highlighted fields.",
+        "noProfile": "This pharmacy has no profile to update yet. Contact CeenAiX support.",
+        "saveFailed": "Could not save the changes. Please try again.",
+        "nameRequired": "Enter the pharmacy name.",
+        "tooLong": "Use at most {{max}} characters.",
+        "phoneInvalid": "Enter a valid phone number (7 to 15 digits).",
+        "emailInvalid": "Enter a valid email address.",
+        "websiteInvalid": "Enter a web address such as www.example.ae.",
+        "timeInvalid": "Enter the opening and closing time.",
+        "closeBeforeOpen": "The closing time must be after the opening time."
+      }
     },
     "settings": {
       "title": "Settings",

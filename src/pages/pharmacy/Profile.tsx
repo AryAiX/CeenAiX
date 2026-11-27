@@ -11,8 +11,21 @@ import { supabase } from '../../lib/supabase';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
+import {
+  openDaysCount,
+  parseWorkingHours,
+  PHARMACY_DAYS,
+  PHARMACY_NAME_MAX,
+  PHARMACY_WEBSITE_MAX,
+  validatePharmacyDetails,
+  type FieldError,
+  type PharmacyDetailsErrors,
+  type PharmacyDetailsInput,
+  type WorkingHours,
+} from './profile-rules';
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS = PHARMACY_DAYS;
 
 const LOGO_BUCKET = 'pharmacy-logos';
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
@@ -37,6 +50,7 @@ export const PharmacyProfile = () => {
   const fallbackName = t('pharmacy.profile.fallbackName', { defaultValue: 'Pharmacy' });
   const pendingLabel = t('pharmacy.profile.fallbackPending', { defaultValue: 'Pending' });
   const notOnFile = t('pharmacy.profile.notOnFile', { defaultValue: 'Not on file' });
+  const openDays = openDaysCount(data?.profile?.workingHoursJson);
   const displayName =
     profile?.full_name?.trim() ||
     profile?.first_name?.trim() ||
@@ -44,9 +58,8 @@ export const PharmacyProfile = () => {
     fallbackName;
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? fallbackName;
 
-  const [workingHours, setWorkingHours] = useState<Record<string, { open: string; close: string; closed: boolean }>>(() =>
-    Object.fromEntries(DAYS.map((day) => [day, { open: '08:00', close: '22:00', closed: false }]))
-  );
+  const [workingHours, setWorkingHours] = useState<WorkingHours>(() => parseWorkingHours(null));
+  const [fieldErrors, setFieldErrors] = useState<PharmacyDetailsErrors>({});
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -90,37 +103,55 @@ export const PharmacyProfile = () => {
       website: data?.profile?.website ?? '',
       emergency_contact: data?.profile?.emergencyContact ?? '',
     });
-    if (data?.profile?.workingHoursJson) {
-      setWorkingHours(data.profile.workingHoursJson as Record<string, { open: string; close: string; closed: boolean }>);
-    } else {
-      setWorkingHours(Object.fromEntries(DAYS.map((day) => [day, { open: '08:00', close: '22:00', closed: false }])));
-    }
+    // QA-293: stored hours with a missing or broken day no longer crash the dialog.
+    setWorkingHours(parseWorkingHours(data?.profile?.workingHoursJson));
+    setFieldErrors({});
     setEditError(null);
     setEditSuccess(false);
     setEditModalOpen(true);
   };
 
   const handleSaveProfile = async () => {
+    // QA-293: check the details first, and check that the row was really changed.
+    const checked = validatePharmacyDetails(editForm, workingHours);
+    if (!checked.ok) {
+      setFieldErrors(checked.errors);
+      setEditError(t('pharmacy.profile.errors.fixFields', { defaultValue: 'Please correct the highlighted fields.' }));
+      return;
+    }
+    const orgId = data?.organization?.id;
+    setFieldErrors({});
     setEditSaving(true);
     setEditError(null);
     try {
-      const { error } = await supabase
+      if (!orgId) throw new Error('no organization');
+      const value = checked.value;
+      const { data: updated, error } = await supabase
         .from('pharmacy_facility_profiles')
         .update({
           // QA-291: the licence and the DHA / NABIDH status are set by a CeenAiX administrator (the
           // database refuses changes to them from the portal), so they are not sent.
-          display_name: editForm.display_name,
-          address: editForm.address,
+          display_name: value.display_name,
+          address: value.address,
           operating_hours: editForm.operating_hours,
-          pharmacist_in_charge: editForm.pharmacist_in_charge,
-          phone: editForm.phone || null,
-          email: editForm.email || null,
-          website: editForm.website || null,
-          emergency_contact: editForm.emergency_contact || null,
+          pharmacist_in_charge: value.pharmacist_in_charge || null,
+          phone: value.phone || null,
+          email: value.email || null,
+          website: value.website || null,
+          emergency_contact: value.emergency_contact || null,
           working_hours_json: workingHours,
         })
-        .eq('organization_id', data?.organization?.id);
+        .eq('organization_id', orgId)
+        .select('organization_id');
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        setEditError(
+          t('pharmacy.profile.errors.noProfile', {
+            defaultValue: 'This pharmacy has no profile to update yet. Contact CeenAiX support.',
+          })
+        );
+        return;
+      }
       setEditSuccess(true);
       void refetch();
       setTimeout(() => {
@@ -128,10 +159,44 @@ export const PharmacyProfile = () => {
         setEditSuccess(false);
       }, 1500);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : 'Could not save changes.');
+      console.warn(`[pharmacy] profile save failed: ${err instanceof Error ? err.message : String(err)}`);
+      setEditError(t('pharmacy.profile.errors.saveFailed', { defaultValue: 'Could not save the changes. Please try again.' }));
     } finally {
       setEditSaving(false);
     }
+  };
+
+  const fieldErrorText = (error: FieldError | undefined) =>
+    error ? t(`pharmacy.profile.errors.${error.key}`, { ...error.values, defaultValue: error.key }) : null;
+
+  const renderDetailField = (field: { label: string; key: keyof PharmacyDetailsInput; type: string; placeholder: string; maxLength: number }) => {
+    const error = fieldErrorText(fieldErrors[field.key]);
+    const id = `pharmacy-profile-${field.key}`;
+    return (
+      <div key={field.key}>
+        <label htmlFor={id} className="mb-1 block text-xs font-semibold text-slate-600">
+          {field.label}
+        </label>
+        <input
+          id={id}
+          type={field.type}
+          value={editForm[field.key]}
+          maxLength={field.maxLength}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          onChange={(e) => setEditForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+          placeholder={field.placeholder}
+          className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none ${
+            error ? 'border-red-300' : 'border-slate-200'
+          }`}
+        />
+        {error ? (
+          <p id={`${id}-error`} className="mt-1 text-xs text-red-600">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
   };
 
   const handleOpenStaffModal = () => {
@@ -386,9 +451,10 @@ export const PharmacyProfile = () => {
                 ],
                 [
                   t('pharmacy.profile.fieldHours', { defaultValue: 'Operating Hours' }),
-                  data?.profile?.workingHoursJson
-                    ? `${Object.values(data.profile.workingHoursJson as Record<string, { closed: boolean }>).filter((d) => !d.closed).length} days/week`
-                    : data?.profile?.operatingHours ?? pendingLabel,
+                  // QA-293: counted safely from the stored hours, in the page language.
+                  openDays !== null
+                    ? t('pharmacy.profile.openDays', { count: openDays, defaultValue: 'Open {{count}} days a week' })
+                    : data?.profile?.operatingHours || pendingLabel,
                 ],
                 [
                   t('pharmacy.profile.fieldPicName', { defaultValue: 'Pharmacist-in-Charge' }),
@@ -558,26 +624,18 @@ export const PharmacyProfile = () => {
                   ✅ Changes saved successfully!
                 </div>
               ) : null}
-              {[
-                { label: 'Pharmacy Name', key: 'display_name', type: 'text', placeholder: 'Al Shifa Pharmacy' },
-                { label: 'Address', key: 'address', type: 'text', placeholder: 'Al Barsha 1, Dubai, UAE' },
-              ].map((field) => (
-                <div key={field.key}>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">{field.label}</label>
-                  <input
-                    type={field.type}
-                    value={editForm[field.key as keyof typeof editForm] as string}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                  />
-                </div>
-              ))}
+              {(
+                [
+                  { label: 'Pharmacy Name', key: 'display_name', type: 'text', placeholder: 'Al Shifa Pharmacy', maxLength: PHARMACY_NAME_MAX },
+                  { label: 'Address', key: 'address', type: 'text', placeholder: 'Al Barsha 1, Dubai, UAE', maxLength: FORM_FIELD_LIMITS.address },
+                ] as const
+              ).map(renderDetailField)}
               <div>
                 <label className="mb-2 block text-xs font-semibold text-slate-600">Working Hours</label>
                 <div className="space-y-2">
                   {DAYS.map((day) => (
-                    <div key={day} className="flex items-center gap-2">
+                    <div key={day}>
+                    <div className="flex items-center gap-2" data-testid={`hours-${day}`}>
                       <div className="w-24 text-xs font-medium text-slate-600">{day}</div>
                       <input
                         type="time"
@@ -602,27 +660,24 @@ export const PharmacyProfile = () => {
                         {workingHours[day].closed ? 'Closed' : 'Open'}
                       </button>
                     </div>
+                    {fieldErrors.days?.[day] ? (
+                      <p className="mt-1 text-xs text-red-600" data-testid={`hours-error-${day}`}>
+                        {fieldErrorText(fieldErrors.days[day])}
+                      </p>
+                    ) : null}
+                    </div>
                   ))}
                 </div>
               </div>
-              {[
-                { label: 'Pharmacist-in-Charge', key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan' },
-                { label: 'Phone', key: 'phone', type: 'tel', placeholder: '+971 4 123 4567' },
-                { label: 'Email', key: 'email', type: 'email', placeholder: 'info@alshifapharmacy.ae' },
-                { label: 'Website', key: 'website', type: 'text', placeholder: 'www.alshifapharmacy.ae' },
-                { label: 'Emergency Contact', key: 'emergency_contact', type: 'text', placeholder: '+971 50 999 8888' },
-              ].map((field) => (
-                <div key={field.key}>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">{field.label}</label>
-                  <input
-                    type={field.type}
-                    value={editForm[field.key as keyof typeof editForm] as string}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                  />
-                </div>
-              ))}
+              {(
+                [
+                  { label: 'Pharmacist-in-Charge', key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan', maxLength: FORM_FIELD_LIMITS.personName },
+                  { label: 'Phone', key: 'phone', type: 'tel', placeholder: '+971 4 123 4567', maxLength: FORM_FIELD_LIMITS.phone },
+                  { label: 'Email', key: 'email', type: 'email', placeholder: 'info@alshifapharmacy.ae', maxLength: FORM_FIELD_LIMITS.email },
+                  { label: 'Website', key: 'website', type: 'text', placeholder: 'www.alshifapharmacy.ae', maxLength: PHARMACY_WEBSITE_MAX },
+                  { label: 'Emergency Contact', key: 'emergency_contact', type: 'tel', placeholder: '+971 50 999 8888', maxLength: FORM_FIELD_LIMITS.phone },
+                ] as const
+              ).map(renderDetailField)}
               <p role="note" className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
                 {t('pharmacy.profile.regulatoryNote', {
                   defaultValue:
