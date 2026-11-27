@@ -3349,9 +3349,7 @@
     }
   },
   "pharmacy": {
-    "queue": {
-      "linkedDispensingTask": "Linked dispensing task"
-    },
+    "queue": {},
     "dashboard": {
       "title": "Pharmacy dashboard",
       "subtitle": "Dispensing, inventory, and insurance claims for pharmacy operators.",
@@ -3726,11 +3724,11 @@
       "exportReport": "Export Revenue Report",
       "byPayerHeading": "Revenue By Payer",
       "ledgerHeading": "Recent Revenue Ledger",
-      "ledgerSubtitle": "Generated from pharmacy_claims records",
+      "ledgerSubtitle": "Insurance claims, newest first",
       "view": "View",
       "status": {
         "paid": "Paid",
-        "review": "Review",
+        "review": "In review",
         "pending": "Pending",
         "denied": "Denied"
       },
@@ -3750,7 +3748,26 @@
       "byPayerPaidLegend": "Paid",
       "byPayerOutstandingLegend": "Outstanding",
       "byPayerOutstanding": "Outstanding: {{amount}}",
-      "byPayerEmpty": "No paid or outstanding claims yet."
+      "byPayerEmpty": "No paid or outstanding claims yet.",
+      "ledgerEmpty": "No claims yet.",
+      "notLinked": "Not linked to a prescription",
+      "notRecorded": "Not recorded",
+      "notPaidYet": "Not paid",
+      "submittedOn": "Submitted {{date}}",
+      "hide": "Hide",
+      "viewClaim": "View claim {{reference}}",
+      "hideClaim": "Hide claim {{reference}}",
+      "detailClaim": "Claim reference",
+      "detailPrescription": "Prescription",
+      "detailPatient": "Patient",
+      "detailMedication": "Medicine",
+      "detailPayer": "Payer",
+      "detailAmount": "Amount",
+      "detailStatus": "Status",
+      "detailSubmitted": "Submitted",
+      "detailPaid": "Paid",
+      "showMore_one": "Show more ({{count}} remaining)",
+      "showMore_other": "Show more ({{count}} remaining)"
     },
     "reports": {
       "title": "Reports",

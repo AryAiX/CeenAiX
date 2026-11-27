@@ -7,17 +7,25 @@ import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../h
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { summarizeRevenue, summarizeRevenueByPayer } from './revenue-figures';
-import { clinicTodayKey } from '../../lib/clinic-booking-time';
+import { clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
+import { prescriptionReference } from './prescription-status';
 
 interface RevenuePrescription {
   id: string;
-  patientName: string;
-  medication: string;
+  reference: string;
+  patientName: string | null;
+  medication: string | null;
+  prescriptionId: string | null;
   amount: number;
   insurer: string;
   status: 'paid' | 'review' | 'pending' | 'denied';
+  submittedAt: string | null;
   paidAt: string | null;
 }
+
+/** QA-281: Dubai date and time, e.g. "12 Nov 2026 · 14:05". */
+const formatClaimMoment = (value: string, language: string) =>
+  `${formatClinicDate(value, language)} · ${formatClinicTime(value, language)}`;
 
 const formatCurrency = (value: number, language: string) => {
   const locale = resolveLocale(language);
@@ -42,17 +50,19 @@ export const PharmacyRevenue = () => {
   const rows = useMemo<RevenuePrescription[]>(
     () =>
       (data?.claims ?? []).map((claim) => ({
-        id: claim.externalRef,
+        id: claim.id,
+        reference: claim.externalRef,
         patientName: claim.patientName,
         medication: claim.medication,
+        prescriptionId: claim.prescriptionId,
         amount: claim.amountAed,
         insurer: claim.payerName,
         status: claim.status,
+        submittedAt: claim.submittedAt,
         paidAt: claim.paidAt,
       })),
     [data?.claims]
   );
-  const selectedClaim = rows.find((row) => row.id === selectedClaimId) ?? null;
   // QA-279: figures by what they say (Dubai dates); see summarizeRevenue.
   const figures = useMemo(
     () => summarizeRevenue(rows.map((row) => ({ amountAed: row.amount, status: row.status, paidAt: row.paidAt })), clinicTodayKey()),
@@ -102,7 +112,7 @@ export const PharmacyRevenue = () => {
               };
               const body = [
                 header,
-                ...rows.map((row) => [row.id, row.patientName, row.medication, row.insurer, row.amount, row.status]),
+                ...rows.map((row) => [row.reference, row.patientName, row.medication, row.insurer, row.amount, row.status]),
               ]
                 .map((line) => line.map(escape).join(','))
                 .join('\n');
@@ -262,39 +272,115 @@ export const PharmacyRevenue = () => {
                 {t('pharmacy.revenue.ledgerSubtitle', { defaultValue: 'Generated from pharmacy_claims records' })}
               </div>
             </div>
-            <div className="divide-y divide-slate-100">
-              {rows.slice(0, visibleCount).map((row) => (
-                <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_100px_90px_90px] items-center gap-3 px-5 py-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-800">{row.patientName}</div>
-                    <div className="truncate text-xs text-slate-400">
-                      {row.medication} · {row.insurer}
+            {rows.length === 0 && !loading ? (
+              <p className="px-5 py-6 text-sm text-slate-400">
+                {t('pharmacy.revenue.ledgerEmpty', { defaultValue: 'No claims yet.' })}
+              </p>
+            ) : null}
+            <ul className="divide-y divide-slate-100">
+              {rows.slice(0, visibleCount).map((row) => {
+                const open = selectedClaimId === row.id;
+                const detailsId = `claim-details-${row.id}`;
+                const notRecorded = t('pharmacy.revenue.notRecorded', { defaultValue: 'Not recorded' });
+                return (
+                  <li key={row.id} data-testid="ledger-row">
+                    <div className="grid grid-cols-[minmax(0,1fr)_100px_90px_90px] items-center gap-3 px-5 py-3">
+                      <div className="min-w-0">
+                        <div
+                          className={`truncate text-sm font-semibold ${row.patientName ? 'text-slate-800' : 'italic text-slate-500'}`}
+                        >
+                          {row.patientName ??
+                            t('pharmacy.revenue.notLinked', { defaultValue: 'Not linked to a prescription' })}
+                        </div>
+                        <div className="truncate text-xs text-slate-400">
+                          {row.medication ? `${row.medication} · ${row.insurer}` : row.insurer}
+                        </div>
+                        {row.submittedAt ? (
+                          <div className="truncate text-[11px] text-slate-400">
+                            {t('pharmacy.revenue.submittedOn', {
+                              date: formatClinicDate(row.submittedAt, uiLang),
+                              defaultValue: 'Submitted {{date}}',
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(row.amount, uiLang)}</div>
+                      <span
+                        className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase rtl:tracking-normal ${
+                          row.status === 'paid'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : row.status === 'review'
+                              ? 'bg-amber-50 text-amber-700'
+                              : row.status === 'denied'
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-blue-50 text-blue-700'
+                        }`}
+                      >
+                        {t(`pharmacy.revenue.status.${row.status}`, { defaultValue: row.status })}
+                      </span>
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        aria-controls={detailsId}
+                        aria-label={t(open ? 'pharmacy.revenue.hideClaim' : 'pharmacy.revenue.viewClaim', {
+                          reference: row.reference,
+                          defaultValue: open ? 'Hide claim {{reference}}' : 'View claim {{reference}}',
+                        })}
+                        onClick={() => setSelectedClaimId((current) => (current === row.id ? null : row.id))}
+                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                      >
+                        {open
+                          ? t('pharmacy.revenue.hide', { defaultValue: 'Hide' })
+                          : t('pharmacy.revenue.view', { defaultValue: 'View' })}
+                      </button>
                     </div>
-                  </div>
-                  <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(row.amount, uiLang)}</div>
-                  <span
-                    className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      row.status === 'paid'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : row.status === 'review'
-                          ? 'bg-amber-50 text-amber-700'
-                          : row.status === 'denied'
-                            ? 'bg-red-50 text-red-700'
-                            : 'bg-blue-50 text-blue-700'
-                    }`}
-                  >
-                    {t(`pharmacy.revenue.status.${row.status}`, { defaultValue: row.status })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedClaimId((current) => (current === row.id ? null : row.id))}
-                    className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
-                  >
-                    {t('pharmacy.revenue.view', { defaultValue: 'View' })}
-                  </button>
-                </div>
-              ))}
-            </div>
+                    {open ? (
+                      // QA-281: the claim's details, right under its row (it used to repeat the row at the bottom).
+                      <dl
+                        id={detailsId}
+                        data-testid="claim-details"
+                        className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-slate-100 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-2"
+                      >
+                        {[
+                          [t('pharmacy.revenue.detailClaim', { defaultValue: 'Claim reference' }), row.reference],
+                          [
+                            t('pharmacy.revenue.detailPrescription', { defaultValue: 'Prescription' }),
+                            row.prescriptionId
+                              ? prescriptionReference(row.prescriptionId)
+                              : t('pharmacy.revenue.notLinked', { defaultValue: 'Not linked to a prescription' }),
+                          ],
+                          [t('pharmacy.revenue.detailPatient', { defaultValue: 'Patient' }), row.patientName ?? notRecorded],
+                          [t('pharmacy.revenue.detailMedication', { defaultValue: 'Medicine' }), row.medication ?? notRecorded],
+                          [t('pharmacy.revenue.detailPayer', { defaultValue: 'Payer' }), row.insurer],
+                          [t('pharmacy.revenue.detailAmount', { defaultValue: 'Amount' }), formatCurrency(row.amount, uiLang)],
+                          [
+                            t('pharmacy.revenue.detailStatus', { defaultValue: 'Status' }),
+                            t(`pharmacy.revenue.status.${row.status}`, { defaultValue: row.status }),
+                          ],
+                          [
+                            t('pharmacy.revenue.detailSubmitted', { defaultValue: 'Submitted' }),
+                            row.submittedAt ? formatClaimMoment(row.submittedAt, uiLang) : notRecorded,
+                          ],
+                          [
+                            t('pharmacy.revenue.detailPaid', { defaultValue: 'Paid' }),
+                            row.paidAt
+                              ? formatClaimMoment(row.paidAt, uiLang)
+                              : row.status === 'paid'
+                                ? notRecorded
+                                : t('pharmacy.revenue.notPaidYet', { defaultValue: 'Not paid' }),
+                          ],
+                        ].map(([label, value]) => (
+                          <div key={label} className="min-w-0">
+                            <dt className="text-xs text-slate-400">{label}</dt>
+                            <dd className="break-words font-medium text-slate-800">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
             {rows.length > visibleCount ? (
               <div className="border-t border-slate-100 px-5 py-3 text-center">
                 <button
@@ -302,20 +388,11 @@ export const PharmacyRevenue = () => {
                   onClick={() => setVisibleCount((current) => current + 8)}
                   className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200"
                 >
-                  Show More ({rows.length - visibleCount} remaining)
+                  {t('pharmacy.revenue.showMore', {
+                    count: rows.length - visibleCount,
+                    defaultValue: 'Show more ({{count}} remaining)',
+                  })}
                 </button>
-              </div>
-            ) : null}
-            {selectedClaim ? (
-              <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 text-sm text-slate-700">
-                <p className="font-semibold text-slate-900">{selectedClaim.patientName}</p>
-                <p className="mt-1">
-                  {selectedClaim.id} · {selectedClaim.medication} · {formatCurrency(selectedClaim.amount, uiLang)} ·{' '}
-                  {selectedClaim.insurer}
-                </p>
-                <p className="mt-1 capitalize">
-                  {t(`pharmacy.revenue.status.${selectedClaim.status}`, { defaultValue: selectedClaim.status })}
-                </p>
               </div>
             ) : null}
           </article>

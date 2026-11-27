@@ -204,6 +204,96 @@ describe('usePharmacyPrescriptionQueue grouping key (QA-251)', () => {
   });
 });
 
+describe('usePharmacyPrescriptionQueue claims (QA-281)', () => {
+  const fromMock = vi.mocked(supabase.from);
+  const PRESCRIPTION = '1a2b3c4d-1111-2222-3333-444455556666';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const tables: Record<string, ReturnType<typeof createSupabaseQueryBuilder>> = {
+      organizations: createSupabaseQueryBuilder({
+        data: { id: 'org-1', name: 'QA Pharmacy', slug: 'qa', city: null, notes: null },
+        error: null,
+      }),
+      pharmacy_facility_profiles: createSupabaseQueryBuilder({ data: null, error: null }),
+      organization_staff_members: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_dispensing_tasks: createSupabaseQueryBuilder({
+        data: [
+          {
+            id: 'task-1',
+            prescription_id: PRESCRIPTION,
+            prescription_item_id: 'item-1',
+            external_ref: `rx-${PRESCRIPTION}-item-aaaa`,
+            patient_name: 'Test Patient',
+            prescriber_name: 'Dr Test',
+            medication_name: 'Amoxicillin',
+            quantity: 10,
+            priority: 'routine',
+            workflow_status: 'dispensed',
+            received_at: '2026-11-25T08:00:00.000Z',
+            insurance_provider: 'Daman',
+            copay_aed: 0,
+            allergy_flag: false,
+            assigned_to: null,
+            patient_user_id: 'patient-1',
+          },
+        ],
+        error: null,
+      }),
+      pharmacy_inventory_items: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_claims: createSupabaseQueryBuilder({
+        data: [
+          {
+            id: 'claim-1',
+            dispensing_task_id: 'task-1',
+            external_ref: 'CLM-1',
+            payer_name: 'Daman',
+            amount_aed: '45.50',
+            status: 'paid',
+            submitted_at: '2026-11-25T09:00:00.000Z',
+            paid_at: '2026-11-26T09:00:00.000Z',
+          },
+          {
+            id: 'claim-2',
+            dispensing_task_id: null,
+            external_ref: 'CLM-2',
+            payer_name: 'AXA',
+            amount_aed: '20.00',
+            status: 'pending',
+            submitted_at: '2026-11-25T10:00:00.000Z',
+            paid_at: null,
+          },
+        ],
+        error: null,
+      }),
+      pharmacy_messages: createSupabaseQueryBuilder({ data: [], error: null }),
+      pharmacy_settings: createSupabaseQueryBuilder({ data: [], error: null }),
+    };
+    fromMock.mockImplementation(((table: string) => {
+      const builder = tables[table];
+      if (!builder) throw new Error(`Unexpected table ${table}`);
+      return builder;
+    }) as never);
+  });
+
+  it('links a claim to its prescription, and leaves an unlinked claim without a made-up patient or medicine', async () => {
+    const { result } = renderHook(() => usePharmacyPrescriptionQueue());
+    await waitFor(() => expect(result.current.data?.claims).toHaveLength(2));
+    const [linked, unlinked] = result.current.data?.claims ?? [];
+    expect(linked).toMatchObject({
+      id: 'claim-1',
+      externalRef: 'CLM-1',
+      patientName: 'Test Patient',
+      medication: 'Amoxicillin',
+      prescriptionId: PRESCRIPTION,
+      amountAed: 45.5,
+      submittedAt: '2026-11-25T09:00:00.000Z',
+      paidAt: '2026-11-26T09:00:00.000Z',
+    });
+    expect(unlinked).toMatchObject({ id: 'claim-2', patientName: null, medication: null, prescriptionId: null });
+  });
+});
+
 describe('fetchPharmacyPrescriptionDetails (QA-253)', () => {
   const fromMock = vi.mocked(supabase.from);
 

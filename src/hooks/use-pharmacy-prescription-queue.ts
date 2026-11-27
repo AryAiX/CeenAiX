@@ -5,8 +5,6 @@ import { fetchAllPages, ID_CHUNK_SIZE } from '../lib/supabase-batches';
 import { clinicTodayKey, formatClinicDate } from '../lib/clinic-booking-time';
 import { useQuery } from './use-query';
 
-const linkedDispensingTaskFallback = () =>
-  i18n.t('pharmacy.queue.linkedDispensingTask', { defaultValue: 'Linked dispensing task' });
 
 export interface PharmacyOrganization {
   id: string;
@@ -120,8 +118,10 @@ export interface PharmacyClaimLedgerItem {
   id: string;
   dispensingTaskId: string | null;
   externalRef: string;
-  patientName: string;
-  medication: string;
+  /** QA-281: null when the claim is not linked to a prescription in this pharmacy's queue. */
+  patientName: string | null;
+  medication: string | null;
+  prescriptionId: string | null;
   payerName: string;
   amountAed: number;
   status: 'paid' | 'review' | 'pending' | 'denied';
@@ -862,8 +862,10 @@ export function usePharmacyPrescriptionQueue() {
         id: claim.id,
         dispensingTaskId: claim.dispensing_task_id,
         externalRef: claim.external_ref,
-        patientName: task?.patientName ?? linkedDispensingTaskFallback(),
-        medication: task?.medication ?? claim.external_ref,
+        // QA-281: no made-up "Linked dispensing task" patient, and no claim reference shown as the medicine.
+        patientName: task?.patientName ?? null,
+        medication: task?.medication ?? null,
+        prescriptionId: task?.prescriptionId ?? null,
         payerName: claim.payer_name,
         amountAed: toNumber(claim.amount_aed),
         status: claim.status,

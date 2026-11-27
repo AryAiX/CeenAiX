@@ -2,6 +2,7 @@
 process.env.TZ = 'America/New_York';
 
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,6 +42,7 @@ const claim = (
     paidAt,
     patientName: 'Test Patient',
     medication: 'Amoxicillin',
+    prescriptionId: null,
   }) as PharmacyClaimLedgerItem;
 
 const claims: PharmacyClaimLedgerItem[] = [
@@ -183,5 +185,93 @@ describe('PharmacyRevenue by payer (QA-280)', () => {
     setClaims([claim('A-2', 'review', 100, null, 'AXA')]);
     renderPage();
     expect(normalize(screen.getByTestId('payer-row').textContent)).toMatch(/المستحق:/);
+  });
+});
+
+describe('PharmacyRevenue ledger (QA-281)', () => {
+  const PRESCRIPTION = '1a2b3c4d-1111-2222-3333-444455556666';
+  const setClaims = (list: PharmacyClaimLedgerItem[]) =>
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { claims: list, profile: null, organization: null, lowStockAlerts: 0 },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+  const linked: PharmacyClaimLedgerItem = {
+    ...claim('CLM-1', 'paid', 45, '2026-11-26T21:00:00Z'),
+    prescriptionId: PRESCRIPTION,
+    // 26 Nov 2026 01:30 in Dubai, still 25 Nov in New York.
+    submittedAt: '2026-11-25T21:30:00Z',
+  };
+  const unlinked: PharmacyClaimLedgerItem = {
+    ...claim('CLM-2', 'review', 20, null, 'AXA'),
+    patientName: null,
+    medication: null,
+    submittedAt: '2026-11-20T08:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the Dubai submitted date, a plain subtitle, and "Not linked" instead of made-up names', () => {
+    setClaims([linked, unlinked]);
+    renderPage();
+    expect(screen.getByText('Insurance claims, newest first')).toBeInTheDocument();
+    expect(screen.queryByText(/pharmacy_claims/)).toBeNull();
+    const [first, second] = screen.getAllByTestId('ledger-row').map((row) => normalize(row.textContent));
+    expect(first).toContain('Submitted Nov 26, 2026');
+    expect(second).toContain('Not linked to a prescription');
+    expect(second).not.toContain('Linked dispensing task');
+    expect(second).not.toContain('CLM-2 ·');
+    expect(second).toContain('In review');
+  });
+
+  it('"View" opens the claim details under its row, with dates, and closes again', async () => {
+    const user = userEvent.setup();
+    setClaims([linked, unlinked]);
+    renderPage();
+    const viewButton = screen.getByRole('button', { name: 'View claim CLM-1' });
+    expect(viewButton).toHaveAttribute('aria-expanded', 'false');
+    await user.click(viewButton);
+    const details = screen.getByTestId('claim-details');
+    const text = normalize(details.textContent);
+    expect(text).toContain('Claim referenceCLM-1');
+    expect(text).toContain('PrescriptionRX-1A2B3C4D');
+    expect(text).toContain('PatientTest Patient');
+    expect(text).toContain('MedicineAmoxicillin');
+    expect(text).toContain('SubmittedNov 26, 2026 · 01:30');
+    expect(text).toContain('PaidNov 27, 2026 · 01:00');
+    expect(within(screen.getAllByTestId('ledger-row')[0]).getByTestId('claim-details')).toBe(details);
+    const hideButton = screen.getByRole('button', { name: 'Hide claim CLM-1' });
+    expect(hideButton).toHaveAttribute('aria-expanded', 'true');
+    await user.click(hideButton);
+    expect(screen.queryByTestId('claim-details')).toBeNull();
+  });
+
+  it('shows "Not paid" and "Not linked" in the details of an unlinked claim', async () => {
+    const user = userEvent.setup();
+    setClaims([unlinked]);
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'View claim CLM-2' }));
+    const text = normalize(screen.getByTestId('claim-details').textContent);
+    expect(text).toContain('PrescriptionNot linked to a prescription');
+    expect(text).toContain('PatientNot recorded');
+    expect(text).toContain('PaidNot paid');
+  });
+
+  it('translates "Show more" with the number left', async () => {
+    const user = userEvent.setup();
+    setClaims(Array.from({ length: 11 }, (_, index) => claim(`CLM-${index + 1}`, 'pending', 10)));
+    renderPage();
+    expect(screen.getAllByTestId('ledger-row')).toHaveLength(8);
+    await i18n.changeLanguage('ar');
+    expect(await screen.findByRole('button', { name: 'عرض المزيد (٣ متبقية)' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'عرض المزيد (٣ متبقية)' }));
+    expect(screen.getAllByTestId('ledger-row')).toHaveLength(11);
   });
 });

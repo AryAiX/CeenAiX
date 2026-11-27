@@ -3491,9 +3491,7 @@
     }
   },
   "pharmacy": {
-    "queue": {
-      "linkedDispensingTask": "مهمة صرف مرتبطة"
-    },
+    "queue": {},
     "dashboard": {
       "title": "لوحة تحكم الصيدلية",
       "subtitle": "الصرف والمخزون ومطالبات التأمين لمشغلي الصيدلية.",
@@ -3880,11 +3878,11 @@
       "exportReport": "تصدير تقرير الإيرادات",
       "byPayerHeading": "الإيرادات حسب الدافع",
       "ledgerHeading": "سجل الإيرادات الأخير",
-      "ledgerSubtitle": "مولد من سجلات pharmacy_claims",
+      "ledgerSubtitle": "مطالبات التأمين، الأحدث أولاً",
       "view": "عرض",
       "status": {
         "paid": "مدفوع",
-        "review": "مراجعة",
+        "review": "قيد المراجعة",
         "pending": "قيد الانتظار",
         "denied": "مرفوض"
       },
@@ -3916,7 +3914,30 @@
       "byPayerPaidLegend": "مدفوع",
       "byPayerOutstandingLegend": "مستحق",
       "byPayerOutstanding": "المستحق: {{amount}}",
-      "byPayerEmpty": "لا توجد مطالبات مدفوعة أو مستحقة بعد."
+      "byPayerEmpty": "لا توجد مطالبات مدفوعة أو مستحقة بعد.",
+      "ledgerEmpty": "لا توجد مطالبات بعد.",
+      "notLinked": "غير مرتبطة بوصفة طبية",
+      "notRecorded": "غير مسجل",
+      "notPaidYet": "لم تُدفع",
+      "submittedOn": "قُدمت في {{date}}",
+      "hide": "إخفاء",
+      "viewClaim": "عرض المطالبة {{reference}}",
+      "hideClaim": "إخفاء المطالبة {{reference}}",
+      "detailClaim": "مرجع المطالبة",
+      "detailPrescription": "الوصفة الطبية",
+      "detailPatient": "المريض",
+      "detailMedication": "الدواء",
+      "detailPayer": "الدافع",
+      "detailAmount": "المبلغ",
+      "detailStatus": "الحالة",
+      "detailSubmitted": "تاريخ التقديم",
+      "detailPaid": "تاريخ الدفع",
+      "showMore_zero": "عرض المزيد",
+      "showMore_one": "عرض المزيد (متبقية واحدة)",
+      "showMore_two": "عرض المزيد (متبقيتان)",
+      "showMore_few": "عرض المزيد ({{count}} متبقية)",
+      "showMore_many": "عرض المزيد ({{count}} متبقية)",
+      "showMore_other": "عرض المزيد ({{count}} متبقية)"
     },
     "reports": {
       "title": "التقارير",
