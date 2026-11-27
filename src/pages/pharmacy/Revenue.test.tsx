@@ -28,12 +28,13 @@ const claim = (
   externalRef: string,
   status: PharmacyClaimLedgerItem['status'],
   amountAed: number,
-  paidAt: string | null = null
+  paidAt: string | null = null,
+  payerName = 'Daman'
 ): PharmacyClaimLedgerItem =>
   ({
     id: `id-${externalRef}`,
     externalRef,
-    payerName: 'Daman',
+    payerName,
     amountAed,
     status,
     submittedAt: '2026-11-01T08:00:00Z',
@@ -120,5 +121,67 @@ describe('PharmacyRevenue figures (QA-279)', () => {
     expect(card('المستحق')).toContain('مطالبتان');
     expect(card('المرفوض')).toContain('مطالبة واحدة');
     expect(card('المدفوع هذا الشهر')).toContain('متوسط المطالبة المدفوعة');
+  });
+});
+
+describe('PharmacyRevenue by payer (QA-280)', () => {
+  const setClaims = (list: PharmacyClaimLedgerItem[]) =>
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { claims: list, profile: null, organization: null, lowStockAlerts: 0 },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const payerRows = () =>
+    screen.getAllByTestId('payer-row').map((row) => ({
+      text: normalize(row.textContent),
+      paid: (within(row).getByTestId('payer-bar-paid') as HTMLElement).style.width,
+      outstanding: (within(row).getByTestId('payer-bar-outstanding') as HTMLElement).style.width,
+    }));
+
+  it('sizes the bars by money, not by number of claims, and leaves denied claims out', () => {
+    setClaims([
+      // Daman: three small paid claims. AXA: one big paid claim, one in review, one big denied claim.
+      claim('D-1', 'paid', 50, '2026-11-01T08:00:00Z', 'Daman'),
+      claim('D-2', 'paid', 50, '2026-11-01T08:00:00Z', 'Daman'),
+      claim('D-3', 'paid', 50, '2026-11-01T08:00:00Z', 'Daman'),
+      claim('A-1', 'paid', 900, '2026-11-01T08:00:00Z', 'AXA'),
+      claim('A-2', 'review', 100, null, 'AXA'),
+      claim('A-3', 'denied', 5000, null, 'AXA'),
+      claim('N-1', 'denied', 70, null, 'NAS'),
+    ]);
+    renderPage();
+    const rows = payerRows();
+    expect(rows).toHaveLength(2);
+    expect(rows[0].text).toMatch(/^AXA\s?Paid: AED\s?900\s?Outstanding: AED\s?100$/);
+    expect(rows[0].paid).toBe('90%');
+    expect(rows[0].outstanding).toBe('10%');
+    expect(rows[1].text).toMatch(/^Daman\s?Paid: AED\s?150$/);
+    expect(rows[1].paid).toBe('15%');
+    expect(rows[1].outstanding).toBe('0%');
+    expect(screen.queryByText('NAS')).toBeNull();
+  });
+
+  it('says so when there is nothing paid or outstanding', () => {
+    setClaims([claim('N-1', 'denied', 70, null, 'NAS')]);
+    renderPage();
+    expect(screen.getByText('No paid or outstanding claims yet.')).toBeInTheDocument();
+    expect(screen.queryAllByTestId('payer-row')).toHaveLength(0);
+  });
+
+  it('shows the payer texts in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    setClaims([claim('A-2', 'review', 100, null, 'AXA')]);
+    renderPage();
+    expect(normalize(screen.getByTestId('payer-row').textContent)).toMatch(/المستحق:/);
   });
 });

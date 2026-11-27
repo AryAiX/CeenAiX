@@ -3746,7 +3746,11 @@
       "kpiOutstandingHelper_other": "{{count}} claims · {{review}} in review",
       "kpiDenied": "Denied",
       "kpiDeniedHelper_one": "{{count}} claim",
-      "kpiDeniedHelper_other": "{{count}} claims"
+      "kpiDeniedHelper_other": "{{count}} claims",
+      "byPayerPaidLegend": "Paid",
+      "byPayerOutstandingLegend": "Outstanding",
+      "byPayerOutstanding": "Outstanding: {{amount}}",
+      "byPayerEmpty": "No paid or outstanding claims yet."
     },
     "reports": {
       "title": "Reports",

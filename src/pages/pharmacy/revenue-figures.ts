@@ -55,3 +55,31 @@ export const summarizeRevenue = (
     : 0;
   return figures;
 };
+
+export interface PayerRevenue {
+  payer: string;
+  paid: number;
+  outstanding: number;
+}
+
+/**
+ * QA-280: Revenue By Payer, by money. Paid and outstanding (pending + review) amounts per payer;
+ * denied claims are left out (they are not revenue). Payers with only denied claims are not listed.
+ * Biggest paid first, then biggest outstanding, then name.
+ */
+export const summarizeRevenueByPayer = (
+  claims: ReadonlyArray<Pick<PharmacyClaimLedgerItem, 'amountAed' | 'status' | 'payerName'>>
+): PayerRevenue[] => {
+  const byPayer = new Map<string, PayerRevenue>();
+  for (const claim of claims) {
+    if (claim.status === 'denied') continue;
+    const amount = Number.isFinite(claim.amountAed) ? claim.amountAed : 0;
+    const entry = byPayer.get(claim.payerName) ?? { payer: claim.payerName, paid: 0, outstanding: 0 };
+    if (claim.status === 'paid') entry.paid += amount;
+    else entry.outstanding += amount;
+    byPayer.set(claim.payerName, entry);
+  }
+  return Array.from(byPayer.values()).sort(
+    (a, b) => b.paid - a.paid || b.outstanding - a.outstanding || a.payer.localeCompare(b.payer)
+  );
+};

@@ -3912,7 +3912,11 @@
       "kpiDeniedHelper_two": "مطالبتان",
       "kpiDeniedHelper_few": "{{count}} مطالبات",
       "kpiDeniedHelper_many": "{{count}} مطالبة",
-      "kpiDeniedHelper_other": "{{count}} مطالبة"
+      "kpiDeniedHelper_other": "{{count}} مطالبة",
+      "byPayerPaidLegend": "مدفوع",
+      "byPayerOutstandingLegend": "مستحق",
+      "byPayerOutstanding": "المستحق: {{amount}}",
+      "byPayerEmpty": "لا توجد مطالبات مدفوعة أو مستحقة بعد."
     },
     "reports": {
       "title": "التقارير",

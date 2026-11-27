@@ -2,7 +2,7 @@
 process.env.TZ = 'America/New_York';
 
 import { describe, expect, it } from 'vitest';
-import { summarizeRevenue } from './revenue-figures';
+import { summarizeRevenue, summarizeRevenueByPayer } from './revenue-figures';
 
 const claim = (status: 'paid' | 'review' | 'pending' | 'denied', amountAed: number, paidAt: string | null = null) => ({
   status,
@@ -43,5 +43,25 @@ describe('summarizeRevenue (QA-279)', () => {
       outstanding: { amount: 0, count: 0, inReview: 0 },
       denied: { amount: 0, count: 0 },
     });
+  });
+});
+
+describe('summarizeRevenueByPayer (QA-280)', () => {
+  it('adds up paid and outstanding money per payer, leaves denied claims out, biggest paid first', () => {
+    const rows = summarizeRevenueByPayer([
+      { payerName: 'Daman', status: 'paid', amountAed: 50 },
+      { payerName: 'Daman', status: 'paid', amountAed: 50 },
+      { payerName: 'Daman', status: 'paid', amountAed: 50 },
+      { payerName: 'AXA', status: 'paid', amountAed: 900 },
+      { payerName: 'AXA', status: 'review', amountAed: 30 },
+      { payerName: 'AXA', status: 'denied', amountAed: 5000 },
+      { payerName: 'Thiqa', status: 'pending', amountAed: 40 },
+      { payerName: 'NAS', status: 'denied', amountAed: 70 },
+    ]);
+    expect(rows).toEqual([
+      { payer: 'AXA', paid: 900, outstanding: 30 },
+      { payer: 'Daman', paid: 150, outstanding: 0 },
+      { payer: 'Thiqa', paid: 0, outstanding: 40 },
+    ]);
   });
 });

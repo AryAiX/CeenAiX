@@ -6,7 +6,7 @@ import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
-import { summarizeRevenue } from './revenue-figures';
+import { summarizeRevenue, summarizeRevenueByPayer } from './revenue-figures';
 import { clinicTodayKey } from '../../lib/clinic-booking-time';
 
 interface RevenuePrescription {
@@ -58,8 +58,9 @@ export const PharmacyRevenue = () => {
     () => summarizeRevenue(rows.map((row) => ({ amountAed: row.amount, status: row.status, paidAt: row.paidAt })), clinicTodayKey()),
     [rows]
   );
-  const insurers = Array.from(new Set(rows.map((row) => row.insurer)));
-  const maxChannel = Math.max(...insurers.map((insurer) => rows.filter((item) => item.insurer === insurer).length), 1);
+  // QA-280: bars by money (paid, then outstanding); denied claims are not revenue.
+  const payers = useMemo(() => summarizeRevenueByPayer(data?.claims ?? []), [data?.claims]);
+  const maxPayerTotal = Math.max(...payers.map((payer) => payer.paid + payer.outstanding), 1);
   const pharmacyFallback = t('pharmacy.revenue.fallbackName', { defaultValue: 'Pharmacy' });
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? pharmacyFallback;
   const todayLabel = new Date().toLocaleDateString(uiLang, dateTimeFormatWithNumerals(uiLang, {
@@ -199,27 +200,57 @@ export const PharmacyRevenue = () => {
             <h3 className="mb-4 text-[15px] font-bold text-slate-800">
               {t('pharmacy.revenue.byPayerHeading', { defaultValue: 'Revenue By Payer' })}
             </h3>
-            <div className="space-y-3">
-              {insurers.map((insurer) => {
-                const count = rows.filter((item) => item.insurer === insurer).length;
-                const amount = rows
-                  .filter((item) => item.insurer === insurer)
-                  .reduce((sum, item) => sum + item.amount, 0);
-                return (
-                  <div key={insurer}>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-600">{insurer}</span>
-                      <span className="font-mono text-slate-500">
-                        {loading ? '...' : formatCurrency(amount, uiLang)}
+            <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-slate-500" aria-hidden="true">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                {t('pharmacy.revenue.byPayerPaidLegend', { defaultValue: 'Paid' })}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
+                {t('pharmacy.revenue.byPayerOutstandingLegend', { defaultValue: 'Outstanding' })}
+              </span>
+            </div>
+            {loading && !data ? (
+              <p className="text-sm text-slate-400">…</p>
+            ) : payers.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                {t('pharmacy.revenue.byPayerEmpty', { defaultValue: 'No paid or outstanding claims yet.' })}
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {payers.map((payer) => (
+                  <li key={payer.payer} data-testid="payer-row">
+                    <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                      <span className="truncate font-medium text-slate-600">{payer.payer}</span>
+                      <span className="shrink-0 font-mono text-slate-700">
+                        <span className="sr-only">{t('pharmacy.revenue.byPayerPaidLegend', { defaultValue: 'Paid' })}: </span>
+                        {formatCurrency(payer.paid, uiLang)}
                       </span>
                     </div>
-                    <div className="h-3 rounded-full bg-slate-100">
-                      <div className="h-3 rounded-full bg-emerald-600" style={{ width: `${(count / maxChannel) * 100}%` }} />
+                    <div className="flex h-3 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                      <div
+                        data-testid="payer-bar-paid"
+                        className="h-3 bg-emerald-600"
+                        style={{ width: `${(payer.paid / maxPayerTotal) * 100}%` }}
+                      />
+                      <div
+                        data-testid="payer-bar-outstanding"
+                        className="h-3 bg-amber-300"
+                        style={{ width: `${(payer.outstanding / maxPayerTotal) * 100}%` }}
+                      />
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                    {payer.outstanding > 0 ? (
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        {t('pharmacy.revenue.byPayerOutstanding', {
+                          amount: formatCurrency(payer.outstanding, uiLang),
+                          defaultValue: 'Outstanding: {{amount}}',
+                        })}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
 
           <article className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
