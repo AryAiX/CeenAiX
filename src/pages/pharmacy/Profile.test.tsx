@@ -45,7 +45,7 @@ const baseProfile = {
   dhaConnected: false,
   nabidhConnected: false,
   workingHoursJson: null,
-  logoUrl: null,
+  logoUrl: null as string | null,
 };
 
 const showProfile = (profile: Partial<typeof baseProfile> | null = {}, extra: Record<string, unknown> = {}) =>
@@ -130,5 +130,77 @@ describe('PharmacyProfile licence and DHA status (QA-291)', () => {
     showProfile();
     renderPage();
     expect(screen.getByTestId('badge-dha')).toHaveTextContent('ترخيص DHA غير مؤكد');
+  });
+});
+
+describe('PharmacyProfile logo upload (QA-292)', () => {
+  const storage = () => {
+    const bucket = {
+      upload: vi.fn().mockResolvedValue({ data: { path: 'x' }, error: null }),
+      getPublicUrl: vi.fn((path: string) => ({ data: { publicUrl: `https://cdn.test/storage/v1/object/public/pharmacy-logos/${path}` } })),
+      remove: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    vi.mocked(supabase.storage.from).mockReturnValue(bucket as never);
+    return bucket;
+  };
+  const pick = async (file: File) => {
+    const user = userEvent.setup({ applyAccept: false });
+    await user.upload(screen.getByTestId('logo-input'), file);
+  };
+  const png = () => new File(['x'], 'my logo.PNG', { type: 'image/png' });
+
+  it('uploads a PNG as a new file in the pharmacy folder, saves the link and removes the old logo', async () => {
+    const bucket = storage();
+    const profiles = createSupabaseQueryBuilder({ data: [{ organization_id: ORG }], error: null });
+    vi.mocked(supabase.from).mockReturnValue(profiles as never);
+    showProfile({ logoUrl: `https://cdn.test/storage/v1/object/public/pharmacy-logos/${ORG}/logo-1.png` });
+    renderPage();
+    await pick(png());
+    await vi.waitFor(() => expect(profiles.update).toHaveBeenCalled());
+    expect(supabase.storage.from).toHaveBeenCalledWith('pharmacy-logos');
+    const [path, , options] = bucket.upload.mock.calls[0];
+    expect(path).toMatch(new RegExp(`^${ORG}/logo-\\d+\\.png$`));
+    expect(options).toEqual({ contentType: 'image/png', upsert: false });
+    expect(profiles.update).toHaveBeenCalledWith({ logo_url: `https://cdn.test/storage/v1/object/public/pharmacy-logos/${path}` });
+    expect(profiles.select).toHaveBeenCalledWith('organization_id');
+    await vi.waitFor(() => expect(bucket.remove).toHaveBeenCalledWith([`${ORG}/logo-1.png`]));
+  });
+
+  it('refuses SVG and other types before uploading', async () => {
+    const bucket = storage();
+    showProfile();
+    renderPage();
+    await pick(new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Choose a JPEG, PNG or WebP image.');
+    expect(bucket.upload).not.toHaveBeenCalled();
+  });
+
+  it('shows a plain message when the upload is refused, not the storage error', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const bucket = storage();
+    bucket.upload.mockResolvedValue({ data: null, error: { message: 'Bucket not found' } });
+    showProfile();
+    renderPage();
+    await pick(png());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not upload the logo. Please try again.');
+    expect(screen.queryByText(/Bucket not found/)).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('says so when the link was not saved (0 rows changed)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    storage();
+    vi.mocked(supabase.from).mockReturnValue(createSupabaseQueryBuilder({ data: [], error: null }) as never);
+    showProfile();
+    renderPage();
+    await pick(png());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not upload the logo.');
+    warn.mockRestore();
+  });
+
+  it('has a keyboard-reachable button with a name', () => {
+    showProfile();
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Change logo' })).toBeInTheDocument();
   });
 });

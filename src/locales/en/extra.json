@@ -3701,7 +3701,13 @@
       "nabidhNotConnected": "NABIDH not connected",
       "notOnFile": "Not on file",
       "editDetails": "Edit pharmacy details",
-      "regulatoryNote": "The licence number, its expiry date and the DHA / NABIDH status are set by a CeenAiX administrator. Contact CeenAiX support to change them."
+      "regulatoryNote": "The licence number, its expiry date and the DHA / NABIDH status are set by a CeenAiX administrator. Contact CeenAiX support to change them.",
+      "logoWrongType": "Choose a JPEG, PNG or WebP image.",
+      "logoTooBig": "The image must be 2 MB or smaller.",
+      "logoNoProfile": "Save the pharmacy details first, then add a logo.",
+      "logoFailed": "Could not upload the logo. Please try again.",
+      "changeLogo": "Change logo",
+      "logoUploading": "Uploading…"
     },
     "settings": {
       "title": "Settings",

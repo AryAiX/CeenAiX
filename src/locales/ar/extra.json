@@ -3855,7 +3855,13 @@
       "nabidhNotConnected": "غير متصل بـ NABIDH",
       "notOnFile": "غير مسجل",
       "editDetails": "تعديل بيانات الصيدلية",
-      "regulatoryNote": "يحدد مسؤول CeenAiX رقم الترخيص وتاريخ انتهائه وحالة DHA / NABIDH. تواصل مع دعم CeenAiX لتغييرها."
+      "regulatoryNote": "يحدد مسؤول CeenAiX رقم الترخيص وتاريخ انتهائه وحالة DHA / NABIDH. تواصل مع دعم CeenAiX لتغييرها.",
+      "logoWrongType": "اختر صورة بصيغة JPEG أو PNG أو WebP.",
+      "logoTooBig": "يجب ألا يتجاوز حجم الصورة 2 ميغابايت.",
+      "logoNoProfile": "احفظ بيانات الصيدلية أولاً، ثم أضف الشعار.",
+      "logoFailed": "تعذّر رفع الشعار. يُرجى المحاولة مرة أخرى.",
+      "changeLogo": "تغيير الشعار",
+      "logoUploading": "جارٍ الرفع…"
     },
     "settings": {
       "title": "الإعدادات",

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, ShieldCheck, Store, Trash2, Upload, UserRound, type LucideIcon } from 'lucide-react';
@@ -13,6 +13,20 @@ import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const LOGO_BUCKET = 'pharmacy-logos';
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+/** The storage path of the current logo, when it is a file in this pharmacy's own folder. */
+const previousLogoPath = (logoUrl: string | null | undefined, orgId: string): string | null => {
+  if (!logoUrl) return null;
+  const marker = `/${LOGO_BUCKET}/`;
+  const at = logoUrl.indexOf(marker);
+  if (at < 0) return null;
+  const path = decodeURIComponent(logoUrl.slice(at + marker.length).split('?')[0]);
+  return path.startsWith(`${orgId}/`) ? path : null;
+};
 
 export const PharmacyProfile = () => {
   const { t, i18n } = useTranslation('common');
@@ -51,6 +65,7 @@ export const PharmacyProfile = () => {
 
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffSaving, setStaffSaving] = useState(false);
@@ -189,36 +204,46 @@ export const PharmacyProfile = () => {
     }
   };
 
+  // QA-292: JPEG, PNG or WebP up to 2 MB (the storage bucket allows only these), saved as a new file
+  // in the pharmacy's own folder each time, so the browser shows the new logo at once.
   const handleLogoUpload = async (file: File) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setLogoError('Please upload an image file.');
+    const orgId = data?.organization?.id;
+    const extension = LOGO_TYPES[file.type];
+    if (!extension) {
+      setLogoError(t('pharmacy.profile.logoWrongType', { defaultValue: 'Choose a JPEG, PNG or WebP image.' }));
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setLogoError('Image must be under 2MB.');
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError(t('pharmacy.profile.logoTooBig', { defaultValue: 'The image must be 2 MB or smaller.' }));
+      return;
+    }
+    if (!orgId || !data?.profile) {
+      setLogoError(t('pharmacy.profile.logoNoProfile', { defaultValue: 'Save the pharmacy details first, then add a logo.' }));
       return;
     }
     setLogoUploading(true);
     setLogoError(null);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `pharmacy-logo-${data?.organization?.id}.${fileExt}`;
+      const path = `${orgId}/logo-${Date.now()}.${extension}`;
       const { error: uploadError } = await supabase.storage
-        .from('pharmacy-logos')
-        .upload(fileName, file, { upsert: true });
+        .from(LOGO_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage
-        .from('pharmacy-logos')
-        .getPublicUrl(fileName);
-      const { error: updateError } = await supabase
+      const { data: urlData } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+      const { data: updated, error: updateError } = await supabase
         .from('pharmacy_facility_profiles')
         .update({ logo_url: urlData.publicUrl })
-        .eq('organization_id', data?.organization?.id);
+        .eq('organization_id', orgId)
+        .select('organization_id');
       if (updateError) throw updateError;
+      if (!updated || updated.length === 0) throw new Error('logo_url not saved (0 rows)');
+      // Remove the previous logo of this pharmacy (best effort: an old file left behind is harmless).
+      const previous = previousLogoPath(data.profile.logoUrl, orgId);
+      if (previous) void supabase.storage.from(LOGO_BUCKET).remove([previous]);
       void refetch();
     } catch (err) {
-      setLogoError(err instanceof Error ? err.message : 'Could not upload logo.');
+      console.warn(`[pharmacy] logo upload failed: ${err instanceof Error ? err.message : String(err)}`);
+      setLogoError(t('pharmacy.profile.logoFailed', { defaultValue: 'Could not upload the logo. Please try again.' }));
     } finally {
       setLogoUploading(false);
     }
@@ -273,24 +298,39 @@ export const PharmacyProfile = () => {
                         .toUpperCase()}
                     </div>
                   )}
-                  <label className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-emerald-600 shadow-md transition hover:bg-emerald-700">
-                    <Upload className="h-3 w-3 text-white" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleLogoUpload(file);
-                      }}
-                    />
-                  </label>
+                  {/* QA-292: a real button (the label could not be reached with the keyboard). */}
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={logoUploading}
+                    aria-label={t('pharmacy.profile.changeLogo', { defaultValue: 'Change logo' })}
+                    title={t('pharmacy.profile.changeLogo', { defaultValue: 'Change logo' })}
+                    className="absolute -bottom-1 -end-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 shadow-md transition hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    <Upload className="h-3 w-3 text-white" aria-hidden="true" />
+                  </button>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    data-testid="logo-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) void handleLogoUpload(file);
+                    }}
+                  />
                 </div>
                 {logoUploading ? (
-                  <div className="text-xs text-emerald-600">Uploading...</div>
+                  <div className="text-xs text-emerald-600" role="status">
+                    {t('pharmacy.profile.logoUploading', { defaultValue: 'Uploading…' })}
+                  </div>
                 ) : null}
                 {logoError ? (
-                  <div className="text-xs text-red-500">{logoError}</div>
+                  <div className="max-w-[10rem] text-center text-xs text-red-600" role="alert">
+                    {logoError}
+                  </div>
                 ) : null}
               </div>
               <div>
