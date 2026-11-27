@@ -10,6 +10,7 @@ import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '.
 import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { ProfileDialog } from './ProfileDialog';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { groupReportPrescriptions } from './report-figures';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import {
@@ -53,6 +54,7 @@ export const PharmacyProfile = () => {
   const uiLang = i18n.language ?? 'en';
   const { data, error, refetch } = usePharmacyPrescriptionQueue();
   const unreadMessages = usePharmacyUnreadMessages();
+  const isPhone = useIsPhone();
   const fallbackName = t('pharmacy.profile.fallbackName', { defaultValue: 'Pharmacy' });
   const notOnFile = t('pharmacy.profile.notOnFile', { defaultValue: 'Not on file' });
   const openDays = openDaysCount(data?.profile?.workingHoursJson);
@@ -375,11 +377,11 @@ export const PharmacyProfile = () => {
       variant="pharmacy"
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
-      <div className="min-h-full bg-slate-50 p-6">
+      <div className="min-h-full bg-slate-50 p-4 sm:p-6">
         <div className="w-full">
           {/* QA-296: the title is in the top bar only (it was shown twice). */}
 
-          <section className="mb-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
+          <section className="mb-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
             <div className="mb-5 flex items-center gap-5">
               <div className="flex flex-col items-center gap-1">
                 <div className="relative">
@@ -472,6 +474,7 @@ export const PharmacyProfile = () => {
                 [
                   t('pharmacy.profile.fieldLicense', { defaultValue: 'DHA License' }),
                   data?.profile?.licenseNumber?.trim() || notOnFile,
+                  true,
                 ],
                 [
                   t('pharmacy.profile.fieldLicenseValid', { defaultValue: 'License Valid Until' }),
@@ -497,30 +500,38 @@ export const PharmacyProfile = () => {
                 [
                   t('pharmacy.profile.fieldPhone', { defaultValue: 'Phone' }),
                   stored(data?.profile?.phone),
+                  true,
                 ],
                 [
                   t('pharmacy.profile.fieldEmail', { defaultValue: 'Email' }),
                   stored(data?.profile?.email),
+                  true,
                 ],
                 [
                   t('pharmacy.profile.fieldWebsite', { defaultValue: 'Website' }),
                   stored(data?.profile?.website),
+                  true,
                 ],
                 [
                   t('pharmacy.profile.fieldEmergencyContact', { defaultValue: 'Emergency Contact' }),
                   stored(data?.profile?.emergencyContact),
+                  true,
                 ],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg bg-slate-50 p-3">
+              ].map(([label, value, latin]) => (
+                <div key={label as string} className="min-w-0 rounded-lg bg-slate-50 p-3" data-testid="profile-field">
                   <div className="mb-0.5 text-xs text-slate-400">{label}</div>
-                  <div className="font-semibold text-slate-800">{value}</div>
+                  {/* QA-297: long values wrap (an email or website ran out of the box on a phone), and
+                      numbers, emails and web addresses keep left-to-right order in Arabic. */}
+                  <div className="break-words font-semibold text-slate-800">
+                    {latin && value !== notOnFile ? <bdi dir="ltr">{value}</bdi> : value}
+                  </div>
                 </div>
               ))}
             </div>
           </section>
 
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_0.8fr]">
-          <article className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm" aria-labelledby="pharmacy-staff-heading">
+          <article className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="pharmacy-staff-heading">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h4 id="pharmacy-staff-heading" className="text-[15px] font-bold text-slate-800">
                 {t('pharmacy.profile.staffHeading', { defaultValue: 'Staff' })}
@@ -558,60 +569,86 @@ export const PharmacyProfile = () => {
             <ul>
               {(data?.staff ?? []).map((staff) => {
                 const confirming = confirmRemoveId === staff.id;
+                const avatar = (
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700"
+                    aria-hidden="true"
+                  >
+                    {staff.fullName
+                      .split(/\s+/)
+                      .map((part) => part[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </div>
+                );
+                const nameBlock = (
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-slate-800">{staff.fullName}</div>
+                    <div className="truncate text-xs text-slate-500">
+                      {staff.roleTitle} ·{' '}
+                      <span className="font-mono">
+                        {staff.credentialNumber ??
+                          t('pharmacy.profile.credentialPending', { defaultValue: 'Credential pending' })}
+                      </span>
+                    </div>
+                  </div>
+                );
+                const shiftSelect = (
+                  <select
+                    value={staff.shiftStatus}
+                    disabled={updatingStaffId === staff.id}
+                    aria-label={t('pharmacy.profile.shiftFor', { name: staff.fullName, defaultValue: 'Shift for {{name}}' })}
+                    onChange={(e) => void handleUpdateShiftStatus(staff.id, e.target.value)}
+                    className={`rounded-full border-0 px-2 py-0.5 text-xs font-semibold focus:outline-none disabled:opacity-60 ${
+                      staff.shiftStatus === 'on_shift'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : staff.shiftStatus === 'on_call'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {SHIFT_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {shiftLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                );
+                const removeButton = (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemoveId(staff.id)}
+                    disabled={deletingStaffId === staff.id || confirming}
+                    aria-label={t('pharmacy.profile.removeStaff', { name: staff.fullName, defaultValue: 'Remove {{name}}' })}
+                    title={t('pharmacy.profile.removeStaff', { name: staff.fullName, defaultValue: 'Remove {{name}}' })}
+                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                );
                 return (
                   <li key={staff.id} data-testid="staff-row" className="border-b border-slate-100 py-3 last:border-0">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700"
-                        aria-hidden="true"
-                      >
-                        {staff.fullName
-                          .split(/\s+/)
-                          .map((part) => part[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-800">{staff.fullName}</div>
-                        <div className="truncate text-xs text-slate-500">
-                          {staff.roleTitle} ·{' '}
-                          <span className="font-mono">
-                            {staff.credentialNumber ??
-                              t('pharmacy.profile.credentialPending', { defaultValue: 'Credential pending' })}
-                          </span>
+                    {/* QA-297: on a phone the shift and remove controls go under the name (the row was too narrow). */}
+                    {isPhone ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          {avatar}
+                          {nameBlock}
                         </div>
+                        <div className="mt-2 flex items-center justify-between gap-3 ps-12" data-testid="staff-controls-phone">
+                          {shiftSelect}
+                          {removeButton}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        {avatar}
+                        {nameBlock}
+                        {shiftSelect}
+                        {removeButton}
                       </div>
-                      <select
-                        value={staff.shiftStatus}
-                        disabled={updatingStaffId === staff.id}
-                        aria-label={t('pharmacy.profile.shiftFor', { name: staff.fullName, defaultValue: 'Shift for {{name}}' })}
-                        onChange={(e) => void handleUpdateShiftStatus(staff.id, e.target.value)}
-                        className={`rounded-full border-0 px-2 py-0.5 text-xs font-semibold focus:outline-none disabled:opacity-60 ${
-                          staff.shiftStatus === 'on_shift'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : staff.shiftStatus === 'on_call'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {SHIFT_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            {shiftLabel(option)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmRemoveId(staff.id)}
-                        disabled={deletingStaffId === staff.id || confirming}
-                        aria-label={t('pharmacy.profile.removeStaff', { name: staff.fullName, defaultValue: 'Remove {{name}}' })}
-                        title={t('pharmacy.profile.removeStaff', { name: staff.fullName, defaultValue: 'Remove {{name}}' })}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    </div>
+                    )}
                     {confirming ? (
                       // QA-294: ask before removing (it used to remove at once).
                       <div
@@ -645,7 +682,7 @@ export const PharmacyProfile = () => {
             </ul>
             </article>
 
-            <article className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
+            <article className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
                   <Store className="h-5 w-5 text-emerald-600" />

@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { createSupabaseQueryBuilder } from '../../test/supabase-mock';
+import { mockScreen } from '../../test/phone-screen';
 
 vi.mock('../../components/OpsShell', () => ({
   OpsShell: ({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) => (
@@ -38,10 +39,10 @@ const baseProfile = {
   address: 'Al Barsha 1',
   operatingHours: '',
   pharmacistInCharge: 'Test Pharmacist',
-  phone: null,
-  email: null,
-  website: null,
-  emergencyContact: null,
+  phone: null as string | null,
+  email: null as string | null,
+  website: null as string | null,
+  emergencyContact: null as string | null,
   dhaConnected: false,
   nabidhConnected: false,
   workingHoursJson: null as unknown,
@@ -449,5 +450,44 @@ describe('PharmacyProfile dialogs and language (QA-296)', () => {
     await user.click(screen.getByRole('button', { name: 'إضافة موظف' }));
     const staffDialog = screen.getByRole('dialog', { name: 'إضافة موظف' });
     expect(within(staffDialog).queryByText(/Full Name|Role Title|Shift Status/)).toBeNull();
+  });
+});
+
+describe('PharmacyProfile on a phone and right to left (QA-297)', () => {
+  let restoreScreen: () => void = () => undefined;
+  const staff = [
+    { id: 's1', fullName: 'Rania Hassan', roleTitle: 'Head Pharmacist', credentialNumber: 'DHA-1', shiftStatus: 'on_shift' },
+  ];
+
+  afterEach(() => {
+    restoreScreen();
+  });
+
+  it('puts the shift and remove controls under the name on a phone', () => {
+    restoreScreen = mockScreen(true);
+    showProfile({}, { staff });
+    renderPage();
+    const controls = screen.getByTestId('staff-controls-phone');
+    expect(within(controls).getByRole('combobox', { name: 'Shift for Rania Hassan' })).toBeInTheDocument();
+    expect(within(controls).getByRole('button', { name: 'Remove Rania Hassan' })).toBeInTheDocument();
+  });
+
+  it('keeps one row on a wide screen', () => {
+    restoreScreen = mockScreen(false);
+    showProfile({}, { staff });
+    renderPage();
+    expect(screen.queryByTestId('staff-controls-phone')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Shift for Rania Hassan' })).toBeInTheDocument();
+  });
+
+  it('wraps long values and keeps phone numbers, emails and websites left to right in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showProfile({ phone: '+971 4 123 4567', email: 'a.very.long.address@example-pharmacy.ae', licenseNumber: 'DHA-P-1' });
+    renderPage();
+    const phone = screen.getByText('+971 4 123 4567');
+    expect(phone.tagName).toBe('BDI');
+    expect(phone).toHaveAttribute('dir', 'ltr');
+    expect(screen.getByText('a.very.long.address@example-pharmacy.ae').parentElement).toHaveClass('break-words');
+    expect(screen.getByText('DHA-P-1').tagName).toBe('BDI');
   });
 });
