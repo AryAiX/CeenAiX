@@ -6,6 +6,7 @@ import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { summarizeInventoryRisk } from './inventory-status';
 import { clinicTodayKey } from '../../lib/clinic-booking-time';
 import {
   formatReportMonth,
@@ -38,6 +39,7 @@ export const PharmacyReports = () => {
   const topDrugs = useMemo(() => topDispensedMedicines(prescriptions, monthKey), [prescriptions, monthKey]);
 
   const maxDrugCount = Math.max(...topDrugs.map((item) => item.count), 1);
+  const risk = useMemo(() => summarizeInventoryRisk(data?.inventory ?? []), [data?.inventory]);
   // QA-285: the real "controlled" flag (the old card counted items named warfarin).
   const controlledInStock = (data?.inventory ?? []).filter((item) => item.isControlled && item.stock > 0).length;
   // QA-285: only a real licence number (it used to fall back to the organization's free-text notes).
@@ -271,41 +273,58 @@ export const PharmacyReports = () => {
             <h3 className="mb-4 text-[15px] font-bold text-slate-800">
               {t('pharmacy.reports.riskHeading', { defaultValue: 'Inventory Risk Breakdown' })}
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            {/* QA-288: the same counts and names as the Inventory figures. */}
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
-                [
-                  t('pharmacy.reports.riskHealthy', { defaultValue: 'Healthy SKUs' }),
-                  data?.inventory.filter((item) => item.status === 'healthy').length ?? 0,
-                  'text-emerald-600',
-                  'bg-emerald-50',
-                ],
-                [
-                  t('pharmacy.reports.riskLow', { defaultValue: 'Low stock' }),
-                  data?.inventory.filter((item) => item.status === 'low').length ?? 0,
-                  'text-amber-600',
-                  'bg-amber-50',
-                ],
-                [
-                  t('pharmacy.reports.riskOut', { defaultValue: 'Out of stock' }),
-                  data?.inventory.filter((item) => item.status === 'out').length ?? 0,
-                  'text-red-700',
-                  'bg-red-50',
-                ],
-                [
-                  t('pharmacy.reports.riskExpiring', { defaultValue: 'Expiring soon' }),
-                  data?.inventory.filter((item) => item.status === 'near_expiry').length ?? 0,
-                  'text-yellow-800',
-                  'bg-yellow-50',
-                ],
-              ].map(([label, value, color, bg]) => (
-                <div key={label as string} className={`rounded-xl p-4 ${bg}`}>
-                  <div className={`font-mono text-2xl font-bold ${color}`}>
-                    {loading ? '...' : formatNumber(Number(value) || 0, uiLang)}
-                  </div>
-                  <div className="text-xs text-slate-500">{label}</div>
+                {
+                  key: 'in-stock',
+                  label: t('pharmacy.inventory.kpi.inStock', { defaultValue: 'In Stock' }),
+                  value: risk.inStock,
+                  color: 'text-emerald-600',
+                  bg: 'bg-emerald-50',
+                },
+                {
+                  key: 'low',
+                  label: t('pharmacy.inventory.kpi.lowCritical', { defaultValue: 'Low / Critical' }),
+                  value: risk.lowOrCritical,
+                  color: 'text-amber-600',
+                  bg: 'bg-amber-50',
+                },
+                {
+                  key: 'out',
+                  label: t('pharmacy.inventory.kpi.out', { defaultValue: 'Out of Stock' }),
+                  value: risk.outOfStock,
+                  color: 'text-red-700',
+                  bg: 'bg-red-50',
+                },
+                {
+                  key: 'expiring',
+                  label: t('pharmacy.inventory.kpi.expiring', { defaultValue: 'Expiring Soon' }),
+                  value: risk.expiringSoon,
+                  color: 'text-yellow-800',
+                  bg: 'bg-yellow-50',
+                },
+                {
+                  key: 'expired',
+                  label: t('pharmacy.inventory.kpi.expired', { defaultValue: 'Expired Stock' }),
+                  value: risk.expired,
+                  color: 'text-red-800',
+                  bg: 'bg-red-50',
+                },
+              ].map((tile) => (
+                // Label first for screen readers; the number is shown on top.
+                <div
+                  key={tile.key}
+                  className={`flex flex-col-reverse rounded-xl p-4 ${tile.bg}`}
+                  data-testid={`risk-${tile.key}`}
+                >
+                  <dt className="text-xs text-slate-500">{tile.label}</dt>
+                  <dd className={`font-mono text-2xl font-bold ${tile.color}`}>
+                    {loading && !data ? '…' : formatNumber(tile.value, uiLang)}
+                  </dd>
                 </div>
               ))}
-            </div>
+            </dl>
           </article>
         </section>
 

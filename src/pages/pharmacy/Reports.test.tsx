@@ -293,3 +293,45 @@ describe('PharmacyReports status chart and top medicines (QA-287)', () => {
     expect(screen.getByText('أكثر الأدوية صرفاً هذا الشهر')).toBeInTheDocument();
   });
 });
+
+describe('PharmacyReports inventory risk (QA-288)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const tile = (key: string) => (screen.getByTestId(`risk-${key}`).textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  it('counts like the Inventory figures: an item can be low and expiring, and expired stock is shown', () => {
+    showReports({
+      inventory: [
+        stockItem('healthy', { stock: 100, reorderPoint: 20 }),
+        // Low and expiring soon (the loader calls it "low", so the old page did not count it as expiring).
+        stockItem('low-expiring', { stock: 15, reorderPoint: 20, status: 'low', expiringSoon: true }),
+        // Critical, with expired units on the shelf.
+        stockItem('critical-expired', { stock: 5, reorderPoint: 20, status: 'low', expiredStock: 30 }),
+        // Out of usable stock (only expired units left).
+        stockItem('out', { stock: 0, reorderPoint: 20, status: 'out', expiredStock: 4 }),
+        // In stock and expiring soon (the loader calls it "near_expiry").
+        stockItem('expiring', { stock: 60, reorderPoint: 20, status: 'near_expiry', expiringSoon: true }),
+      ],
+    });
+    renderPage();
+    expect(tile('in-stock')).toBe('In Stock2');
+    expect(tile('low')).toBe('Low / Critical2');
+    expect(tile('out')).toBe('Out of Stock1');
+    expect(tile('expiring')).toBe('Expiring Soon2');
+    expect(tile('expired')).toBe('Expired Stock2');
+  });
+
+  it('shows the same names as Inventory in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showReports({ inventory: [stockItem('healthy', { stock: 100, reorderPoint: 20 })] });
+    renderPage();
+    expect(tile('expired')).toContain(i18n.t('pharmacy.inventory.kpi.expired'));
+    expect(tile('in-stock')).toContain(i18n.t('pharmacy.inventory.kpi.inStock'));
+  });
+});

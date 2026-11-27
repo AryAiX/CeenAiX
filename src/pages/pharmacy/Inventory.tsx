@@ -21,6 +21,7 @@ import { useIsPhone } from '../../hooks/use-is-phone';
 import { clinicTodayKey, formatClinicDate } from '../../lib/clinic-booking-time';
 import { downloadCsv } from '../../lib/csv-export';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { inventoryStockStatus } from './inventory-status';
 
 type FilterType =
   | 'all'
@@ -133,13 +134,8 @@ const stockConfig: Record<
 const EXPIRING_SOON_PILL = 'bg-yellow-50 text-yellow-800';
 const EXPIRED_PILL = 'bg-red-100 text-red-800';
 
-const statusForInventory = (item: PharmacyInventoryDerivedItem): InventoryRow['stockStatus'] => {
-  if (item.stock <= 0) return 'out_of_stock';
-  if (item.stock < item.reorderPoint) {
-    return item.stock <= Math.max(1, Math.floor(item.reorderPoint / 2)) ? 'critical' : 'low';
-  }
-  return 'in_stock';
-};
+// QA-288: shared with Reports.
+const statusForInventory = inventoryStockStatus;
 
 const BATCH_STATE: Record<PharmacyInventoryBatch['state'], { label: string; pill: string }> = {
   usable: { label: 'USABLE', pill: 'bg-emerald-50 text-emerald-700' },
