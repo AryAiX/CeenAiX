@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
 
 vi.mock('../../components/OpsShell', () => ({
   OpsShell: ({
@@ -85,5 +86,45 @@ describe('PharmacyMessages menu badges (QA-275)', () => {
     renderPage();
 
     expect(screen.getByTestId('badge-/pharmacy/messages')).toHaveTextContent('');
+  });
+});
+
+describe('PharmacyMessages header (QA-276, QA-277)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(usePharmacyUnreadMessages).mockReturnValue(undefined);
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({ data: null, loading: false, error: null, refetch: vi.fn() } as never);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('makes no "Encrypted" claim and has no decorative chips', () => {
+    renderPage();
+
+    expect(screen.queryByText(/Encrypted/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Patient Communications')).not.toBeInTheDocument();
+  });
+
+  it('shows one heading, in the top bar, with one subtitle', () => {
+    renderPage();
+
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getAllByText('Messages')).toHaveLength(1);
+    const header = screen.getByTestId('shell-header');
+    expect(header).toHaveTextContent('Messages');
+    expect(header).toHaveTextContent('Conversations with patients and care teams');
+    expect(screen.queryByText(/Communicate with patients/)).not.toBeInTheDocument();
+  });
+
+  it('shows the heading in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    renderPage();
+
+    const header = screen.getByTestId('shell-header');
+    expect(header).toHaveTextContent('الرسائل');
+    expect(header).toHaveTextContent('المحادثات مع المرضى وفرق الرعاية');
+    expect((header.textContent ?? '').match(/[A-Za-z]+/g)).toBeNull();
   });
 });

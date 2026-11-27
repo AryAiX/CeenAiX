@@ -3672,7 +3672,8 @@
       "selectBody": "Open a patient conversation from the list.",
       "selectTitle": "Choose a patient conversation",
       "threadEmptyBody": "Use this space to answer questions about the patient's prescriptions.",
-      "threadError": "The selected conversation could not be loaded."
+      "threadError": "The selected conversation could not be loaded.",
+      "pageSubtitle": "Conversations with patients and care teams"
     },
     "profile": {
       "title": "My Pharmacy",
