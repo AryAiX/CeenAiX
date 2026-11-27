@@ -394,3 +394,60 @@ describe('PharmacyProfile values as stored (QA-295)', () => {
     expect(screen.queryByText(/Live from pharmacy queue/)).toBeNull();
   });
 });
+
+describe('PharmacyProfile dialogs and language (QA-296)', () => {
+  it('opens the edit dialog as a named modal dialog that closes on Escape and gives focus back', async () => {
+    const user = userEvent.setup();
+    showProfile();
+    renderPage();
+    const opener = screen.getByRole('button', { name: 'Edit pharmacy details' });
+    await user.click(opener);
+    const dialog = screen.getByRole('dialog', { name: 'Edit pharmacy details' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+
+  it('names every working-hours control by its day', async () => {
+    const user = userEvent.setup();
+    showProfile();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Edit pharmacy details' }));
+    expect(screen.getByRole('group', { name: 'Working Hours' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Opening time, Monday')).toBeInTheDocument();
+    const closed = screen.getByRole('button', { name: 'Closed on Friday' });
+    expect(closed).toHaveAttribute('aria-pressed', 'false');
+    await user.click(closed);
+    expect(closed).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('links the Add Staff labels to their fields', async () => {
+    const user = userEvent.setup();
+    showProfile();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Add Staff' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add Staff Member' });
+    expect(within(dialog).getByLabelText(/Full Name/)).toBeRequired();
+    expect(within(dialog).getByLabelText(/Role Title/)).toBeRequired();
+    expect(within(dialog).getByLabelText(/Shift Status/)).toBeInTheDocument();
+  });
+
+  it('shows both dialogs in Arabic, with Arabic day names, and the title once', async () => {
+    const user = userEvent.setup();
+    await i18n.changeLanguage('ar');
+    showProfile();
+    renderPage();
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'تعديل بيانات الصيدلية' }));
+    const dialog = screen.getByRole('dialog', { name: 'تعديل بيانات الصيدلية' });
+    expect(within(dialog).getByRole('button', { name: 'حفظ التغييرات' })).toBeInTheDocument();
+    expect(within(dialog).getByText('الاثنين')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Working Hours|Cancel|Monday/)).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'إغلاق' }));
+    await user.click(screen.getByRole('button', { name: 'إضافة موظف' }));
+    const staffDialog = screen.getByRole('dialog', { name: 'إضافة موظف' });
+    expect(within(staffDialog).queryByText(/Full Name|Role Title|Shift Status/)).toBeNull();
+  });
+});

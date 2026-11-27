@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, ShieldCheck, Store, Trash2, Upload, UserRound, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -7,9 +6,10 @@ import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
 import { supabase } from '../../lib/supabase';
-import { formatLocaleDigits } from '../../lib/i18n-ui';
+import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { ProfileDialog } from './ProfileDialog';
 import { groupReportPrescriptions } from './report-figures';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import {
@@ -209,6 +209,12 @@ export const PharmacyProfile = () => {
     );
   };
 
+  // QA-296: day names in the page language (the stored keys stay English).
+  const weekdayName = (index: number) =>
+    new Intl.DateTimeFormat(resolveLocale(uiLang), { ...dateTimeFormatWithNumerals(uiLang, { weekday: 'long' }), timeZone: 'UTC' }).format(
+      new Date(Date.UTC(2026, 10, 29 + index, 12))
+    );
+
   const shiftLabel = (status: (typeof SHIFT_OPTIONS)[number]) =>
     t(`pharmacy.profile.shift.${status}`, { defaultValue: SHIFT_DEFAULTS[status] });
 
@@ -362,7 +368,7 @@ export const PharmacyProfile = () => {
   return (
     <OpsShell
       title={t('pharmacy.profile.title', { defaultValue: 'My Pharmacy' })}
-      subtitle={`${pharmacyName} ${t('pharmacy.profile.subtitleSuffix', { defaultValue: 'profile' })}`}
+      subtitle={t('pharmacy.profile.pageCaption', { pharmacy: pharmacyName, defaultValue: '{{pharmacy}} · Profile and staff' })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
       navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
@@ -371,9 +377,7 @@ export const PharmacyProfile = () => {
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">
         <div className="w-full">
-          <h2 className="mb-5 text-[20px] font-bold text-slate-900">
-            {t('pharmacy.profile.title', { defaultValue: 'My Pharmacy' })}
-          </h2>
+          {/* QA-296: the title is in the top bar only (it was shown twice). */}
 
           <section className="mb-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-5">
@@ -684,103 +688,16 @@ export const PharmacyProfile = () => {
           </section>
         </div>
       </div>
-      {editModalOpen ? createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">
-                  {t('pharmacy.profile.editDetails', { defaultValue: 'Edit pharmacy details' })}
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-500">{pharmacyName}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-4 px-6 py-4">
-              {editError ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {editError}
-                </div>
-              ) : null}
-              {editSuccess ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  ✅ Changes saved successfully!
-                </div>
-              ) : null}
-              {(
-                [
-                  { label: 'Pharmacy Name', key: 'display_name', type: 'text', placeholder: 'Al Shifa Pharmacy', maxLength: PHARMACY_NAME_MAX },
-                  { label: 'Address', key: 'address', type: 'text', placeholder: 'Al Barsha 1, Dubai, UAE', maxLength: FORM_FIELD_LIMITS.address },
-                ] as const
-              ).map(renderDetailField)}
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-600">Working Hours</label>
-                <div className="space-y-2">
-                  {DAYS.map((day) => (
-                    <div key={day}>
-                    <div className="flex items-center gap-2" data-testid={`hours-${day}`}>
-                      <div className="w-24 text-xs font-medium text-slate-600">{day}</div>
-                      <input
-                        type="time"
-                        value={workingHours[day].open}
-                        disabled={workingHours[day].closed}
-                        onChange={(e) => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
-                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:border-emerald-400 focus:outline-none disabled:opacity-40"
-                      />
-                      <span className="text-xs text-slate-400">to</span>
-                      <input
-                        type="time"
-                        value={workingHours[day].close}
-                        disabled={workingHours[day].closed}
-                        onChange={(e) => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
-                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:border-emerald-400 focus:outline-none disabled:opacity-40"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], closed: !prev[day].closed } }))}
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${workingHours[day].closed ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}
-                      >
-                        {workingHours[day].closed ? 'Closed' : 'Open'}
-                      </button>
-                    </div>
-                    {fieldErrors.days?.[day] ? (
-                      <p className="mt-1 text-xs text-red-600" data-testid={`hours-error-${day}`}>
-                        {fieldErrorText(fieldErrors.days[day])}
-                      </p>
-                    ) : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {(
-                [
-                  { label: 'Pharmacist-in-Charge', key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan', maxLength: FORM_FIELD_LIMITS.personName },
-                  { label: 'Phone', key: 'phone', type: 'tel', placeholder: '+971 4 123 4567', maxLength: FORM_FIELD_LIMITS.phone },
-                  { label: 'Email', key: 'email', type: 'email', placeholder: 'info@alshifapharmacy.ae', maxLength: FORM_FIELD_LIMITS.email },
-                  { label: 'Website', key: 'website', type: 'text', placeholder: 'www.alshifapharmacy.ae', maxLength: PHARMACY_WEBSITE_MAX },
-                  { label: 'Emergency Contact', key: 'emergency_contact', type: 'tel', placeholder: '+971 50 999 8888', maxLength: FORM_FIELD_LIMITS.phone },
-                ] as const
-              ).map(renderDetailField)}
-              <p role="note" className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                {t('pharmacy.profile.regulatoryNote', {
-                  defaultValue:
-                    'The licence number, its expiry date and the DHA / NABIDH status are set by a CeenAiX administrator. Contact CeenAiX support to change them.',
-                })}
-              </p>
-            </div>
-            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setEditModalOpen(false)}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancel
+      {editModalOpen ? (
+        <ProfileDialog
+          id="pharmacy-edit-details"
+          title={t('pharmacy.profile.editDetails', { defaultValue: 'Edit pharmacy details' })}
+          subtitle={pharmacyName}
+          onClose={() => setEditModalOpen(false)}
+          footer={
+            <>
+              <button type="button" onClick={() => setEditModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                {t('pharmacy.profile.cancel', { defaultValue: 'Cancel' })}
               </button>
               <button
                 type="button"
@@ -788,95 +705,108 @@ export const PharmacyProfile = () => {
                 onClick={() => void handleSaveProfile()}
                 className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {editSaving ? 'Saving...' : 'Save Changes'}
+                {editSaving
+                  ? t('pharmacy.profile.saving', { defaultValue: 'Saving…' })
+                  : t('pharmacy.profile.saveChanges', { defaultValue: 'Save Changes' })}
               </button>
+            </>
+          }
+        >
+          {editError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              {editError}
             </div>
-          </div>
-        </div>,
-        document.body
+          ) : null}
+          {editSuccess ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700" role="status">
+              {t('pharmacy.profile.detailsSaved', { defaultValue: 'Changes saved.' })}
+            </div>
+          ) : null}
+          {(
+            [
+              { label: t('pharmacy.profile.fieldName', { defaultValue: 'Pharmacy Name' }), key: 'display_name', type: 'text', placeholder: 'Al Shifa Pharmacy', maxLength: PHARMACY_NAME_MAX },
+              { label: t('pharmacy.profile.fieldLocation', { defaultValue: 'Location' }), key: 'address', type: 'text', placeholder: 'Al Barsha 1, Dubai, UAE', maxLength: FORM_FIELD_LIMITS.address },
+            ] as const
+          ).map(renderDetailField)}
+          <fieldset>
+            <legend className="mb-2 block text-xs font-semibold text-slate-600">
+              {t('pharmacy.profile.workingHours', { defaultValue: 'Working Hours' })}
+            </legend>
+            <div className="space-y-2">
+              {DAYS.map((day, index) => {
+                const dayName = weekdayName(index);
+                const hours = workingHours[day];
+                return (
+                  <div key={day}>
+                    <div className="flex flex-wrap items-center gap-2" data-testid={`hours-${day}`}>
+                      <div className="w-24 text-xs font-medium text-slate-600">{dayName}</div>
+                      <input
+                        type="time"
+                        value={hours.open}
+                        disabled={hours.closed}
+                        aria-label={t('pharmacy.profile.openingTime', { day: dayName, defaultValue: 'Opening time, {{day}}' })}
+                        onChange={(e) => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
+                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:border-emerald-400 focus:outline-none disabled:opacity-40"
+                      />
+                      <span className="text-xs text-slate-400">{t('pharmacy.profile.timeTo', { defaultValue: 'to' })}</span>
+                      <input
+                        type="time"
+                        value={hours.close}
+                        disabled={hours.closed}
+                        aria-label={t('pharmacy.profile.closingTime', { day: dayName, defaultValue: 'Closing time, {{day}}' })}
+                        onChange={(e) => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
+                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:border-emerald-400 focus:outline-none disabled:opacity-40"
+                      />
+                      <button
+                        type="button"
+                        aria-pressed={hours.closed}
+                        aria-label={t('pharmacy.profile.closedOn', { day: dayName, defaultValue: 'Closed on {{day}}' })}
+                        onClick={() => setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], closed: !prev[day].closed } }))}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${hours.closed ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}
+                      >
+                        {hours.closed
+                          ? t('pharmacy.profile.dayClosed', { defaultValue: 'Closed' })
+                          : t('pharmacy.profile.dayOpen', { defaultValue: 'Open' })}
+                      </button>
+                    </div>
+                    {fieldErrors.days?.[day] ? (
+                      <p className="mt-1 text-xs text-red-600" data-testid={`hours-error-${day}`}>
+                        {fieldErrorText(fieldErrors.days[day])}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+          {(
+            [
+              { label: t('pharmacy.profile.fieldPicName', { defaultValue: 'Pharmacist-in-Charge' }), key: 'pharmacist_in_charge', type: 'text', placeholder: 'Rania Hassan', maxLength: FORM_FIELD_LIMITS.personName },
+              { label: t('pharmacy.profile.fieldPhone', { defaultValue: 'Phone' }), key: 'phone', type: 'tel', placeholder: '+971 4 123 4567', maxLength: FORM_FIELD_LIMITS.phone },
+              { label: t('pharmacy.profile.fieldEmail', { defaultValue: 'Email' }), key: 'email', type: 'email', placeholder: 'info@alshifapharmacy.ae', maxLength: FORM_FIELD_LIMITS.email },
+              { label: t('pharmacy.profile.fieldWebsite', { defaultValue: 'Website' }), key: 'website', type: 'text', placeholder: 'www.alshifapharmacy.ae', maxLength: PHARMACY_WEBSITE_MAX },
+              { label: t('pharmacy.profile.fieldEmergencyContact', { defaultValue: 'Emergency Contact' }), key: 'emergency_contact', type: 'tel', placeholder: '+971 50 999 8888', maxLength: FORM_FIELD_LIMITS.phone },
+            ] as const
+          ).map(renderDetailField)}
+          <p role="note" className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            {t('pharmacy.profile.regulatoryNote', {
+              defaultValue:
+                'The licence number, its expiry date and the DHA / NABIDH status are set by a CeenAiX administrator. Contact CeenAiX support to change them.',
+            })}
+          </p>
+        </ProfileDialog>
       ) : null}
-      {staffModalOpen ? createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Add Staff Member</h2>
-                <p className="mt-0.5 text-xs text-slate-500">{pharmacyName}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStaffModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-4 px-6 py-4">
-              {staffError ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {staffError}
-                </div>
-              ) : null}
-              {staffSuccess ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  ✅ Staff member added successfully!
-                </div>
-              ) : null}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Full Name <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={staffForm.full_name}
-                  maxLength={FORM_FIELD_LIMITS.personName}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Rania Hassan"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Role Title <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={staffForm.role_title}
-                  maxLength={FORM_FIELD_LIMITS.shortText}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, role_title: e.target.value }))}
-                  placeholder="Head Pharmacist"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Credential Number <span className="text-slate-400 font-normal">(optional)</span></label>
-                <input
-                  type="text"
-                  value={staffForm.credential_number}
-                  maxLength={FORM_FIELD_LIMITS.licenseNumber}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, credential_number: e.target.value }))}
-                  placeholder="DHA-PHAR-2017-001294"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Shift Status</label>
-                <select
-                  value={staffForm.shift_status}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, shift_status: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                >
-                  {SHIFT_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {shiftLabel(option)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setStaffModalOpen(false)}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancel
+      {staffModalOpen ? (
+        <ProfileDialog
+          id="pharmacy-add-staff"
+          title={t('pharmacy.profile.addStaffTitle', { defaultValue: 'Add Staff Member' })}
+          subtitle={pharmacyName}
+          maxWidthClass="max-w-md"
+          onClose={() => setStaffModalOpen(false)}
+          footer={
+            <>
+              <button type="button" onClick={() => setStaffModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                {t('pharmacy.profile.cancel', { defaultValue: 'Cancel' })}
               </button>
               <button
                 type="button"
@@ -884,12 +814,86 @@ export const PharmacyProfile = () => {
                 onClick={() => void handleAddStaff()}
                 className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {staffSaving ? 'Adding...' : 'Add Staff Member'}
+                {staffSaving
+                  ? t('pharmacy.profile.adding', { defaultValue: 'Adding…' })
+                  : t('pharmacy.profile.addStaffTitle', { defaultValue: 'Add Staff Member' })}
               </button>
+            </>
+          }
+        >
+          {staffError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              {staffError}
             </div>
+          ) : null}
+          {staffSuccess ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700" role="status">
+              {t('pharmacy.profile.staffAdded', { defaultValue: 'Staff member added.' })}
+            </div>
+          ) : null}
+          <div>
+            <label htmlFor="pharmacy-staff-name" className="mb-1 block text-xs font-semibold text-slate-600">
+              {t('pharmacy.profile.staffName', { defaultValue: 'Full Name' })} <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="pharmacy-staff-name"
+              type="text"
+              required
+              value={staffForm.full_name}
+              maxLength={FORM_FIELD_LIMITS.personName}
+              onChange={(e) => setStaffForm((prev) => ({ ...prev, full_name: e.target.value }))}
+              placeholder="Rania Hassan"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+            />
           </div>
-        </div>,
-        document.body
+          <div>
+            <label htmlFor="pharmacy-staff-role" className="mb-1 block text-xs font-semibold text-slate-600">
+              {t('pharmacy.profile.staffRole', { defaultValue: 'Role Title' })} <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="pharmacy-staff-role"
+              type="text"
+              required
+              value={staffForm.role_title}
+              maxLength={FORM_FIELD_LIMITS.shortText}
+              onChange={(e) => setStaffForm((prev) => ({ ...prev, role_title: e.target.value }))}
+              placeholder={t('pharmacy.profile.staffRolePlaceholder', { defaultValue: 'Head Pharmacist' })}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="pharmacy-staff-credential" className="mb-1 block text-xs font-semibold text-slate-600">
+              {t('pharmacy.profile.staffCredential', { defaultValue: 'Credential Number' })}{' '}
+              <span className="font-normal text-slate-400">{t('pharmacy.profile.optional', { defaultValue: '(optional)' })}</span>
+            </label>
+            <input
+              id="pharmacy-staff-credential"
+              type="text"
+              value={staffForm.credential_number}
+              maxLength={FORM_FIELD_LIMITS.licenseNumber}
+              onChange={(e) => setStaffForm((prev) => ({ ...prev, credential_number: e.target.value }))}
+              placeholder="DHA-PHAR-2017-001294"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="pharmacy-staff-shift" className="mb-1 block text-xs font-semibold text-slate-600">
+              {t('pharmacy.profile.staffShift', { defaultValue: 'Shift Status' })}
+            </label>
+            <select
+              id="pharmacy-staff-shift"
+              value={staffForm.shift_status}
+              onChange={(e) => setStaffForm((prev) => ({ ...prev, shift_status: e.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+            >
+              {SHIFT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {shiftLabel(option)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </ProfileDialog>
       ) : null}
     </OpsShell>
   );
