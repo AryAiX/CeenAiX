@@ -343,3 +343,54 @@ describe('PharmacyProfile staff (QA-294)', () => {
     expect(screen.getByRole('option', { name: 'تحت الطلب' })).toBeInTheDocument();
   });
 });
+
+describe('PharmacyProfile values as stored (QA-295)', () => {
+  const field = (label: string) => (screen.getByText(label).parentElement as HTMLElement).textContent?.replace(label, '');
+
+  it('shows "Not on file" for missing details, never the signed-in user, "Pending" or "UAE"', () => {
+    showProfile(
+      { pharmacistInCharge: null as never, phone: null, email: null, website: null, emergencyContact: null, address: '', operatingHours: '' },
+      { organization: { id: ORG, name: 'QA Org', city: null, notes: null } }
+    );
+    renderPage();
+    expect(field('Pharmacist-in-Charge')).toBe('Not on file');
+    expect(field('Phone')).toBe('Not on file');
+    expect(field('Location')).toBe('Not on file');
+    expect(field('Operating Hours')).toBe('Not on file');
+    expect(screen.queryByText('Logged In User')).toBeNull();
+    expect(screen.queryByText('Pending')).toBeNull();
+    expect(screen.queryByText('UAE')).toBeNull();
+  });
+
+  it('counts open prescriptions like Dispensing, and has no "DHA sync" row', () => {
+    const line = (id: string, prescriptionId: string, workflowStatus: string) => ({
+      id,
+      prescriptionId,
+      workflowStatus,
+      isDispensed: workflowStatus === 'dispensed' || workflowStatus === 'picked_up',
+      receivedAt: '2026-11-20T08:00:00Z',
+      medication: 'Amoxicillin',
+      quantity: 10,
+    });
+    showProfile(
+      { dhaConnected: true },
+      {
+        pendingPrescriptions: 99,
+        lowStockAlerts: 2,
+        queue: [
+          line('t1', 'rx-1', 'new'),
+          line('t2', 'rx-1', 'new'),
+          line('t3', 'rx-2', 'on_hold'),
+          line('t4', 'rx-3', 'picked_up'),
+          line('t5', 'rx-4', 'dispensed'),
+          line('t6', 'rx-5', 'cancelled'),
+        ],
+      }
+    );
+    renderPage();
+    const rows = screen.getAllByTestId('operation-row').map((row) => row.textContent);
+    expect(rows).toEqual(['Prescriptions to dispense2', 'Inventory alerts2']);
+    expect(screen.queryByText('DHA sync')).toBeNull();
+    expect(screen.queryByText(/Live from pharmacy queue/)).toBeNull();
+  });
+});

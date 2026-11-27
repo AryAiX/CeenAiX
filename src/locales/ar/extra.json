@@ -3831,8 +3831,6 @@
       "title": "صيدليتي",
       "subtitleSuffix": "الملف الشخصي",
       "fallbackName": "الصيدلية",
-      "fallbackLocation": "الإمارات",
-      "fallbackPending": "قيد الانتظار",
       "dhaLicensed": "مرخّصة من DHA",
       "nabidhConnected": "متصل بـ NABIDH",
       "fieldLicense": "ترخيص DHA",
@@ -3845,12 +3843,7 @@
       "shiftOn": "في الوردية",
       "shiftOff": "خارج الوردية",
       "operationsHeading": "حالة العمليات",
-      "operationsSubtitle": "مباشر من طابور الصيدلية",
-      "opPending": "وصفات قيد الانتظار",
       "opAlerts": "تنبيهات المخزون",
-      "opDhaSync": "مزامنة DHA",
-      "ready": "جاهز",
-      "needsSetup": "يحتاج إعداد",
       "dhaNotConfirmed": "ترخيص DHA غير مؤكد",
       "nabidhNotConnected": "غير متصل بـ NABIDH",
       "notOnFile": "غير مسجل",
@@ -3898,7 +3891,9 @@
         "addFailed": "تعذّر إضافة الموظف. يُرجى المحاولة مرة أخرى.",
         "shiftFailed": "تعذّر تغيير المناوبة. يُرجى المحاولة مرة أخرى.",
         "removeFailed": "تعذّر إزالة الموظف. يُرجى المحاولة مرة أخرى."
-      }
+      },
+      "opOpenPrescriptions": "وصفات بانتظار الصرف",
+      "operationsCaption": "من صفحتي الصرف والمخزون"
     },
     "settings": {
       "title": "الإعدادات",

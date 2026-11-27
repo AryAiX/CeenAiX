@@ -3677,8 +3677,6 @@
       "title": "My Pharmacy",
       "subtitleSuffix": "profile",
       "fallbackName": "Pharmacy",
-      "fallbackLocation": "UAE",
-      "fallbackPending": "Pending",
       "dhaLicensed": "DHA Licensed",
       "nabidhConnected": "NABIDH Connected",
       "fieldLicense": "DHA License",
@@ -3691,12 +3689,7 @@
       "shiftOn": "on shift",
       "shiftOff": "off shift",
       "operationsHeading": "Operations Status",
-      "operationsSubtitle": "Live from pharmacy queue",
-      "opPending": "Pending prescriptions",
       "opAlerts": "Inventory alerts",
-      "opDhaSync": "DHA sync",
-      "ready": "Ready",
-      "needsSetup": "Needs setup",
       "dhaNotConfirmed": "DHA licence not confirmed",
       "nabidhNotConnected": "NABIDH not connected",
       "notOnFile": "Not on file",
@@ -3740,7 +3733,9 @@
         "addFailed": "Could not add the staff member. Please try again.",
         "shiftFailed": "Could not change the shift. Please try again.",
         "removeFailed": "Could not remove the staff member. Please try again."
-      }
+      },
+      "opOpenPrescriptions": "Prescriptions to dispense",
+      "operationsCaption": "From the Dispensing and Inventory pages"
     },
     "settings": {
       "title": "Settings",

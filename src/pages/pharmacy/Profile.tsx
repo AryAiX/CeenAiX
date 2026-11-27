@@ -6,11 +6,11 @@ import { Link } from 'react-router-dom';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
-import { useAuth } from '../../lib/auth-context';
 import { supabase } from '../../lib/supabase';
 import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { formatClinicDate } from '../../lib/clinic-booking-time';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
+import { groupReportPrescriptions } from './report-figures';
 import { FORM_FIELD_LIMITS } from '../../lib/form-field-limits';
 import {
   openDaysCount,
@@ -51,18 +51,18 @@ const previousLogoPath = (logoUrl: string | null | undefined, orgId: string): st
 export const PharmacyProfile = () => {
   const { t, i18n } = useTranslation('common');
   const uiLang = i18n.language ?? 'en';
-  const { profile, user } = useAuth();
   const { data, error, refetch } = usePharmacyPrescriptionQueue();
   const unreadMessages = usePharmacyUnreadMessages();
   const fallbackName = t('pharmacy.profile.fallbackName', { defaultValue: 'Pharmacy' });
-  const pendingLabel = t('pharmacy.profile.fallbackPending', { defaultValue: 'Pending' });
   const notOnFile = t('pharmacy.profile.notOnFile', { defaultValue: 'Not on file' });
   const openDays = openDaysCount(data?.profile?.workingHoursJson);
-  const displayName =
-    profile?.full_name?.trim() ||
-    profile?.first_name?.trim() ||
-    user?.email?.split('@')[0] ||
-    fallbackName;
+  // QA-295: values as stored, or "Not on file" (no "Pending", no "UAE", and the pharmacist in
+  // charge was the name of whoever was signed in).
+  const stored = (value: string | null | undefined) => value?.trim() || notOnFile;
+  // QA-295: open prescriptions as on Dispensing (the old number counted medicine lines, picked-up ones too).
+  const openPrescriptions = groupReportPrescriptions(data?.queue ?? []).filter((prescription) =>
+    ['new', 'in_progress', 'on_hold'].includes(prescription.status)
+  ).length;
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? fallbackName;
 
   const [workingHours, setWorkingHours] = useState<WorkingHours>(() => parseWorkingHours(null));
@@ -349,17 +349,14 @@ export const PharmacyProfile = () => {
     }
   };
 
-  const operationRows: Array<[string, string | number, LucideIcon, string]> = [
-    [t('pharmacy.profile.opPending', { defaultValue: 'Pending prescriptions' }), formatLocaleDigits(data?.pendingPrescriptions ?? 0, uiLang), UserRound, '/pharmacy/dispensing'],
-    [t('pharmacy.profile.opAlerts', { defaultValue: 'Inventory alerts' }), formatLocaleDigits(data?.lowStockAlerts ?? 0, uiLang), ShieldCheck, '/pharmacy/inventory'],
+  const operationRows: Array<[string, string, LucideIcon, string]> = [
     [
-      t('pharmacy.profile.opDhaSync', { defaultValue: 'DHA sync' }),
-      data?.profile?.dhaConnected
-        ? t('pharmacy.profile.ready', { defaultValue: 'Ready' })
-        : t('pharmacy.profile.needsSetup', { defaultValue: 'Needs setup' }),
-      ShieldCheck,
-      '/pharmacy/reports',
+      t('pharmacy.profile.opOpenPrescriptions', { defaultValue: 'Prescriptions to dispense' }),
+      formatLocaleDigits(openPrescriptions, uiLang),
+      UserRound,
+      '/pharmacy/dispensing',
     ],
+    [t('pharmacy.profile.opAlerts', { defaultValue: 'Inventory alerts' }), formatLocaleDigits(data?.lowStockAlerts ?? 0, uiLang), ShieldCheck, '/pharmacy/inventory'],
   ];
 
   return (
@@ -435,9 +432,9 @@ export const PharmacyProfile = () => {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">{pharmacyName}</h3>
-                <div className="text-sm text-slate-500">
-                  {data?.organization?.city ?? t('pharmacy.profile.fallbackLocation', { defaultValue: 'UAE' })}
-                </div>
+                {data?.organization?.city?.trim() ? (
+                  <div className="text-sm text-slate-500">{data.organization.city}</div>
+                ) : null}
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   {/* QA-291: the stored status (the "DHA Licensed" badge was always shown). */}
                   <span
@@ -480,36 +477,34 @@ export const PharmacyProfile = () => {
                 ],
                 [
                   t('pharmacy.profile.fieldLocation', { defaultValue: 'Location' }),
-                  data?.profile?.address ??
-                    data?.organization?.city ??
-                    t('pharmacy.profile.fallbackLocation', { defaultValue: 'UAE' }),
+                  data?.profile?.address?.trim() || stored(data?.organization?.city),
                 ],
                 [
                   t('pharmacy.profile.fieldHours', { defaultValue: 'Operating Hours' }),
                   // QA-293: counted safely from the stored hours, in the page language.
                   openDays !== null
                     ? t('pharmacy.profile.openDays', { count: openDays, defaultValue: 'Open {{count}} days a week' })
-                    : data?.profile?.operatingHours || pendingLabel,
+                    : stored(data?.profile?.operatingHours),
                 ],
                 [
                   t('pharmacy.profile.fieldPicName', { defaultValue: 'Pharmacist-in-Charge' }),
-                  data?.profile?.pharmacistInCharge ?? displayName,
+                  stored(data?.profile?.pharmacistInCharge),
                 ],
                 [
                   t('pharmacy.profile.fieldPhone', { defaultValue: 'Phone' }),
-                  data?.profile?.phone ?? pendingLabel,
+                  stored(data?.profile?.phone),
                 ],
                 [
                   t('pharmacy.profile.fieldEmail', { defaultValue: 'Email' }),
-                  data?.profile?.email ?? pendingLabel,
+                  stored(data?.profile?.email),
                 ],
                 [
                   t('pharmacy.profile.fieldWebsite', { defaultValue: 'Website' }),
-                  data?.profile?.website ?? pendingLabel,
+                  stored(data?.profile?.website),
                 ],
                 [
                   t('pharmacy.profile.fieldEmergencyContact', { defaultValue: 'Emergency Contact' }),
-                  data?.profile?.emergencyContact ?? pendingLabel,
+                  stored(data?.profile?.emergencyContact),
                 ],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-slate-50 p-3">
@@ -656,18 +651,23 @@ export const PharmacyProfile = () => {
                     {t('pharmacy.profile.operationsHeading', { defaultValue: 'Operations Status' })}
                   </h4>
                   <div className="text-xs text-slate-400">
-                    {t('pharmacy.profile.operationsSubtitle', { defaultValue: 'Live from pharmacy queue' })}
+                    {t('pharmacy.profile.operationsCaption', { defaultValue: 'From the Dispensing and Inventory pages' })}
                   </div>
                 </div>
               </div>
               <div className="space-y-3">
                 {operationRows.map(([label, value, Icon, route]) => (
-                  <Link key={label as string} to={route as string} className="flex items-center justify-between rounded-xl bg-slate-50 p-3 transition hover:ring-2 hover:ring-emerald-300">
+                  <Link
+                    key={label}
+                    to={route}
+                    data-testid="operation-row"
+                    className="flex items-center justify-between rounded-xl bg-slate-50 p-3 transition hover:ring-2 hover:ring-emerald-300"
+                  >
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-                      <Icon className="h-4 w-4 text-emerald-600" />
-                      {label as string}
+                      <Icon className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                      {label}
                     </div>
-                    <div className="font-mono text-sm font-bold text-slate-800">{value as string | number}</div>
+                    <div className="font-mono text-sm font-bold text-slate-800">{value}</div>
                   </Link>
                 ))}
               </div>
