@@ -347,3 +347,41 @@ describe('PharmacyRevenue export (QA-282)', () => {
     expect(screen.getByText('No claims yet.')).toBeInTheDocument();
   });
 });
+
+describe('PharmacyRevenue header (QA-283)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 27 Nov 2026 01:30 in Dubai, still 26 Nov in New York.
+    vi.setSystemTime(new Date('2026-11-26T21:30:00.000Z'));
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { claims, profile: { displayName: 'QA Test Pharmacy' }, organization: null, lowStockAlerts: 0 },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the Dubai date and says the page counts insurance claims, once, in the top bar', () => {
+    renderPage();
+    const header = normalize(screen.getByTestId('shell-header').textContent);
+    expect(header).toContain('Insurance claims and payments · QA Test Pharmacy · Nov 27, 2026');
+    expect(header).not.toMatch(/dispensing revenue/i);
+    expect(screen.queryByRole('heading', { level: 2, name: 'Revenue' })).toBeNull();
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Shows insurance claims only. Cash sales and copays are not recorded in the portal yet.'
+    );
+  });
+
+  it('shows the header in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    renderPage();
+    expect(normalize(screen.getByTestId('shell-header').textContent)).toContain('مطالبات التأمين والمدفوعات · QA Test Pharmacy');
+    expect(screen.getByRole('note')).toHaveTextContent('مطالبات التأمين فقط');
+  });
+});

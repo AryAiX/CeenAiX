@@ -4,7 +4,7 @@ import { CircleDollarSign, CreditCard, Download, FileCheck2, ReceiptText } from 
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
-import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
+import { formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { summarizeRevenue, summarizeRevenueByPayer } from './revenue-figures';
 import { clinicDateKey, clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
@@ -78,16 +78,16 @@ export const PharmacyRevenue = () => {
   const maxPayerTotal = Math.max(...payers.map((payer) => payer.paid + payer.outstanding), 1);
   const pharmacyFallback = t('pharmacy.revenue.fallbackName', { defaultValue: 'Pharmacy' });
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? pharmacyFallback;
-  const todayLabel = new Date().toLocaleDateString(uiLang, dateTimeFormatWithNumerals(uiLang, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }));
 
   return (
     <OpsShell
       title={t('pharmacy.revenue.title', { defaultValue: 'Revenue' })}
-      subtitle={t('pharmacy.revenue.subtitle', { defaultValue: 'Claims and dispensing revenue' })}
+      subtitle={t('pharmacy.revenue.pageCaption', {
+        defaultValue: 'Insurance claims and payments · {{pharmacy}} · {{date}}',
+        pharmacy: pharmacyName,
+        // QA-283: the Dubai date (it was the browser's date).
+        date: formatClinicDate(clinicTodayKey(), uiLang),
+      })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
       navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
@@ -95,15 +95,14 @@ export const PharmacyRevenue = () => {
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
       <div className="min-h-full bg-slate-50 p-6">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-[20px] font-bold text-slate-900">
-              {t('pharmacy.revenue.heading', { defaultValue: 'Revenue' })}
-            </h2>
-            <div className="text-[13px] text-slate-400">
-              {t('pharmacy.revenue.caption', { defaultValue: 'Claims and payments' })} · {pharmacyName} · {todayLabel}
-            </div>
-          </div>
+        {/* QA-283: the title and caption are in the top bar only (they were shown twice, and the top bar
+            said "dispensing revenue" although only insurance claims are counted). */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p role="note" className="text-[12px] text-slate-500">
+            {t('pharmacy.revenue.claimsOnlyNote', {
+              defaultValue: 'Shows insurance claims only. Cash sales and copays are not recorded in the portal yet.',
+            })}
+          </p>
           <button
             type="button"
             disabled={rows.length === 0}

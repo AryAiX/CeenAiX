@@ -3718,9 +3718,6 @@
     },
     "revenue": {
       "title": "Revenue",
-      "subtitle": "Claims and dispensing revenue",
-      "heading": "Revenue",
-      "caption": "Claims and payments",
       "exportReport": "Export Revenue Report",
       "byPayerHeading": "Revenue By Payer",
       "ledgerHeading": "Recent Revenue Ledger",
@@ -3768,7 +3765,9 @@
       "detailPaid": "Paid",
       "showMore_one": "Show more ({{count}} remaining)",
       "showMore_other": "Show more ({{count}} remaining)",
-      "exportFailed": "Could not create the export. Please try again."
+      "exportFailed": "Could not create the export. Please try again.",
+      "pageCaption": "Insurance claims and payments · {{pharmacy}} · {{date}}",
+      "claimsOnlyNote": "Shows insurance claims only. Cash sales and copays are not recorded in the portal yet."
     },
     "reports": {
       "title": "Reports",
