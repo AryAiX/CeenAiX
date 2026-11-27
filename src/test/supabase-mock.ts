@@ -23,6 +23,7 @@ export interface MockSupabaseQueryBuilder<T> extends PromiseLike<MockSupabaseRes
   range: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
   single: ReturnType<typeof vi.fn>;
 }
@@ -49,6 +50,7 @@ export const createSupabaseQueryBuilder = <T>(
   builder.range = vi.fn(() => builder);
   builder.update = vi.fn(() => builder);
   builder.insert = vi.fn(() => builder);
+  builder.delete = vi.fn(() => builder);
   builder.maybeSingle = vi.fn(() => promise);
   builder.single = vi.fn(() => promise);
   builder.then = promise.then.bind(promise);

@@ -3879,6 +3879,25 @@
         "websiteInvalid": "أدخل عنوان موقع مثل www.example.ae.",
         "timeInvalid": "أدخل وقت الفتح ووقت الإغلاق.",
         "closeBeforeOpen": "يجب أن يكون وقت الإغلاق بعد وقت الفتح."
+      },
+      "addStaff": "إضافة موظف",
+      "staffEmpty": "لم تتم إضافة موظفين بعد",
+      "staffEmptyHint": "استخدم \"إضافة موظف\" لإدراج الصيادلة والموظفين العاملين هنا.",
+      "shiftFor": "مناوبة {{name}}",
+      "removeStaff": "إزالة {{name}}",
+      "removeStaffQuestion": "إزالة {{name}} من قائمة الموظفين؟",
+      "keepStaff": "إبقاء",
+      "confirmRemove": "إزالة",
+      "shift": {
+        "on_shift": "في المناوبة",
+        "off_shift": "خارج المناوبة",
+        "on_call": "تحت الطلب"
+      },
+      "staffErrors": {
+        "required": "أدخل الاسم والدور.",
+        "addFailed": "تعذّر إضافة الموظف. يُرجى المحاولة مرة أخرى.",
+        "shiftFailed": "تعذّر تغيير المناوبة. يُرجى المحاولة مرة أخرى.",
+        "removeFailed": "تعذّر إزالة الموظف. يُرجى المحاولة مرة أخرى."
       }
     },
     "settings": {

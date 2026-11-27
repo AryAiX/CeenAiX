@@ -278,3 +278,68 @@ describe('PharmacyProfile saving the details (QA-293)', () => {
     expect(await screen.findByText(/مفتوحة/)).toBeInTheDocument();
   });
 });
+
+describe('PharmacyProfile staff (QA-294)', () => {
+  const staff = [
+    { id: 's1', fullName: 'Rania Hassan', roleTitle: 'Head Pharmacist', credentialNumber: 'DHA-1', shiftStatus: 'on_shift' },
+  ];
+
+  it('asks before removing, and removes only after "Remove"', async () => {
+    const user = userEvent.setup();
+    const rows = createSupabaseQueryBuilder({ data: [{ id: 's1' }], error: null });
+    vi.mocked(supabase.from).mockReturnValue(rows as never);
+    showProfile({}, { staff });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Remove Rania Hassan' }));
+    expect(rows.delete).not.toHaveBeenCalled();
+    const question = screen.getByRole('group', { name: 'Remove Rania Hassan from the staff list?' });
+    await user.click(within(question).getByRole('button', { name: 'Keep' }));
+    expect(screen.queryByRole('group', { name: /from the staff list/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Remove Rania Hassan' }));
+    await user.click(within(screen.getByRole('group', { name: /from the staff list/ })).getByRole('button', { name: 'Remove' }));
+    expect(rows.delete).toHaveBeenCalledTimes(1);
+    expect(rows.eq).toHaveBeenCalledWith('id', 's1');
+    expect(rows.select).toHaveBeenCalledWith('id');
+  });
+
+  it('says so when a removal is refused (0 rows), instead of failing silently', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    vi.mocked(supabase.from).mockReturnValue(createSupabaseQueryBuilder({ data: [], error: null }) as never);
+    showProfile({}, { staff });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Remove Rania Hassan' }));
+    await user.click(within(screen.getByRole('group', { name: /from the staff list/ })).getByRole('button', { name: 'Remove' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove the staff member. Please try again.');
+    warn.mockRestore();
+  });
+
+  it('says so when a shift change is refused', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    const rows = createSupabaseQueryBuilder({ data: null, error: { message: 'permission denied' } });
+    vi.mocked(supabase.from).mockReturnValue(rows as never);
+    showProfile({}, { staff });
+    renderPage();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Shift for Rania Hassan' }), 'on_call');
+    expect(rows.update).toHaveBeenCalledWith({ shift_status: 'on_call' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not change the shift. Please try again.');
+    expect(screen.queryByText(/permission denied/)).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('shows an empty list text that matches the Add Staff button', () => {
+    showProfile({}, { staff: [] });
+    renderPage();
+    expect(screen.getByText('No staff added yet')).toBeInTheDocument();
+    expect(screen.queryByText(/once added by an admin/)).toBeNull();
+  });
+
+  it('shows the staff list in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showProfile({}, { staff });
+    renderPage();
+    expect(screen.getByRole('button', { name: 'إضافة موظف' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'تحت الطلب' })).toBeInTheDocument();
+  });
+});

@@ -3721,6 +3721,25 @@
         "websiteInvalid": "Enter a web address such as www.example.ae.",
         "timeInvalid": "Enter the opening and closing time.",
         "closeBeforeOpen": "The closing time must be after the opening time."
+      },
+      "addStaff": "Add Staff",
+      "staffEmpty": "No staff added yet",
+      "staffEmptyHint": "Use \"Add Staff\" to list the pharmacists and staff who work here.",
+      "shiftFor": "Shift for {{name}}",
+      "removeStaff": "Remove {{name}}",
+      "removeStaffQuestion": "Remove {{name}} from the staff list?",
+      "keepStaff": "Keep",
+      "confirmRemove": "Remove",
+      "shift": {
+        "on_shift": "On Shift",
+        "off_shift": "Off Shift",
+        "on_call": "On Call"
+      },
+      "staffErrors": {
+        "required": "Enter the name and the role.",
+        "addFailed": "Could not add the staff member. Please try again.",
+        "shiftFailed": "Could not change the shift. Please try again.",
+        "removeFailed": "Could not remove the staff member. Please try again."
       }
     },
     "settings": {

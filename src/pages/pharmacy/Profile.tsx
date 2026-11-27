@@ -27,6 +27,13 @@ import {
 
 const DAYS = PHARMACY_DAYS;
 
+const SHIFT_OPTIONS = ['on_shift', 'off_shift', 'on_call'] as const;
+const SHIFT_DEFAULTS: Record<(typeof SHIFT_OPTIONS)[number], string> = {
+  on_shift: 'On Shift',
+  off_shift: 'Off Shift',
+  on_call: 'On Call',
+};
+
 const LOGO_BUCKET = 'pharmacy-logos';
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 const LOGO_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -85,6 +92,9 @@ export const PharmacyProfile = () => {
   const [staffError, setStaffError] = useState<string | null>(null);
   const [staffSuccess, setStaffSuccess] = useState(false);
   const [deletingStaffId, setDeletingStaffId] = useState<string | null>(null);
+  const [updatingStaffId, setUpdatingStaffId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [staffListError, setStaffListError] = useState<string | null>(null);
   const [staffForm, setStaffForm] = useState({
     full_name: '',
     role_title: '',
@@ -199,6 +209,9 @@ export const PharmacyProfile = () => {
     );
   };
 
+  const shiftLabel = (status: (typeof SHIFT_OPTIONS)[number]) =>
+    t(`pharmacy.profile.shift.${status}`, { defaultValue: SHIFT_DEFAULTS[status] });
+
   const handleOpenStaffModal = () => {
     setStaffForm({
       full_name: '',
@@ -211,24 +224,31 @@ export const PharmacyProfile = () => {
     setStaffModalOpen(true);
   };
 
+  // QA-294: plain messages, and every change checked (a refused change used to fail silently).
   const handleAddStaff = async () => {
-    if (!staffForm.full_name.trim() || !staffForm.role_title.trim()) {
-      setStaffError('Name and role are required.');
+    const fullName = staffForm.full_name.trim().replace(/\s+/g, ' ');
+    const roleTitle = staffForm.role_title.trim().replace(/\s+/g, ' ');
+    if (!fullName || !roleTitle) {
+      setStaffError(t('pharmacy.profile.staffErrors.required', { defaultValue: 'Enter the name and the role.' }));
       return;
     }
+    const orgId = data?.organization?.id;
     setStaffSaving(true);
     setStaffError(null);
     try {
-      const { error } = await supabase
+      if (!orgId) throw new Error('no organization');
+      const { data: added, error } = await supabase
         .from('organization_staff_members')
         .insert({
-          organization_id: data?.organization?.id,
-          full_name: staffForm.full_name.trim(),
-          role_title: staffForm.role_title.trim(),
+          organization_id: orgId,
+          full_name: fullName,
+          role_title: roleTitle,
           credential_number: staffForm.credential_number.trim() || null,
           shift_status: staffForm.shift_status,
-        });
+        })
+        .select('id');
       if (error) throw error;
+      if (!added || added.length === 0) throw new Error('staff member not added (0 rows)');
       setStaffSuccess(true);
       void refetch();
       setTimeout(() => {
@@ -236,34 +256,49 @@ export const PharmacyProfile = () => {
         setStaffSuccess(false);
       }, 1500);
     } catch (err) {
-      setStaffError(err instanceof Error ? err.message : 'Could not add staff member.');
+      console.warn(`[pharmacy] add staff failed: ${err instanceof Error ? err.message : String(err)}`);
+      setStaffError(t('pharmacy.profile.staffErrors.addFailed', { defaultValue: 'Could not add the staff member. Please try again.' }));
     } finally {
       setStaffSaving(false);
     }
   };
 
   const handleUpdateShiftStatus = async (staffId: string, newStatus: string) => {
+    setStaffListError(null);
+    setUpdatingStaffId(staffId);
     try {
-      await supabase
+      const { data: changed, error } = await supabase
         .from('organization_staff_members')
         .update({ shift_status: newStatus })
-        .eq('id', staffId);
+        .eq('id', staffId)
+        .select('id');
+      if (error) throw error;
+      if (!changed || changed.length === 0) throw new Error('shift not changed (0 rows)');
       void refetch();
-    } catch {
-      // silent fail
+    } catch (err) {
+      console.warn(`[pharmacy] shift change failed: ${err instanceof Error ? err.message : String(err)}`);
+      setStaffListError(t('pharmacy.profile.staffErrors.shiftFailed', { defaultValue: 'Could not change the shift. Please try again.' }));
+    } finally {
+      setUpdatingStaffId(null);
     }
   };
 
   const handleDeleteStaff = async (staffId: string) => {
+    setStaffListError(null);
     setDeletingStaffId(staffId);
     try {
-      await supabase
+      const { data: removed, error } = await supabase
         .from('organization_staff_members')
         .delete()
-        .eq('id', staffId);
+        .eq('id', staffId)
+        .select('id');
+      if (error) throw error;
+      if (!removed || removed.length === 0) throw new Error('staff member not removed (0 rows)');
+      setConfirmRemoveId(null);
       void refetch();
-    } catch {
-      // silent fail
+    } catch (err) {
+      console.warn(`[pharmacy] remove staff failed: ${err instanceof Error ? err.message : String(err)}`);
+      setStaffListError(t('pharmacy.profile.staffErrors.removeFailed', { defaultValue: 'Could not remove the staff member. Please try again.' }));
     } finally {
       setDeletingStaffId(null);
     }
@@ -486,75 +521,129 @@ export const PharmacyProfile = () => {
           </section>
 
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_0.8fr]">
-<article className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h4 className="text-[15px] font-bold text-slate-800">
-              {t('pharmacy.profile.staffHeading', { defaultValue: 'Staff' })}
-            </h4>
-            <button
-              type="button"
-              onClick={handleOpenStaffModal}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Staff
-            </button>
-          </div>
-          {(data?.staff ?? []).length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                <UserRound className="h-6 w-6 text-slate-400" />
-              </div>
-              <p className="mt-3 text-sm font-semibold text-slate-600">No staff members found</p>
-              <p className="mt-1 text-xs text-slate-400">Staff will appear here once added by an admin</p>
+          <article className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm" aria-labelledby="pharmacy-staff-heading">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h4 id="pharmacy-staff-heading" className="text-[15px] font-bold text-slate-800">
+                {t('pharmacy.profile.staffHeading', { defaultValue: 'Staff' })}
+              </h4>
+              <button
+                type="button"
+                onClick={handleOpenStaffModal}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('pharmacy.profile.addStaff', { defaultValue: 'Add Staff' })}
+              </button>
             </div>
-          ) : null}
-          {(data?.staff ?? []).map((staff) => (
-                <div key={staff.id} className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-0">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                    {staff.fullName
-                      .split(/\s+/)
-                      .map((part) => part[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-slate-800">{staff.fullName}</div>
-                    <div className="truncate text-xs text-slate-500">
-                      {staff.roleTitle} ·{' '}
-                      <span className="font-mono">
-                        {staff.credentialNumber ??
-                          t('pharmacy.profile.credentialPending', { defaultValue: 'Credential pending' })}
-                      </span>
-                    </div>
-                  </div>
-                  <select
-                    value={staff.shiftStatus}
-                    onChange={(e) => void handleUpdateShiftStatus(staff.id, e.target.value)}
-                    className={`rounded-full border-0 px-2 py-0.5 text-xs font-semibold focus:outline-none ${
-                      staff.shiftStatus === 'on_shift'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : staff.shiftStatus === 'on_call'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    <option value="on_shift">On Shift</option>
-                    <option value="off_shift">Off Shift</option>
-                    <option value="on_call">On Call</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteStaff(staff.id)}
-                    disabled={deletingStaffId === staff.id}
-                    className="rounded-lg p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                    title="Remove staff member"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+            {staffListError ? (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                {staffListError}
+              </div>
+            ) : null}
+            {(data?.staff ?? []).length === 0 ? (
+              // QA-294: the old text said staff "will appear here once added by an admin", next to an Add button.
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                  <UserRound className="h-6 w-6 text-slate-400" aria-hidden="true" />
                 </div>
-              ))}
+                <p className="mt-3 text-sm font-semibold text-slate-600">
+                  {t('pharmacy.profile.staffEmpty', { defaultValue: 'No staff added yet' })}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {t('pharmacy.profile.staffEmptyHint', {
+                    defaultValue: 'Use "Add Staff" to list the pharmacists and staff who work here.',
+                  })}
+                </p>
+              </div>
+            ) : null}
+            <ul>
+              {(data?.staff ?? []).map((staff) => {
+                const confirming = confirmRemoveId === staff.id;
+                return (
+                  <li key={staff.id} data-testid="staff-row" className="border-b border-slate-100 py-3 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700"
+                        aria-hidden="true"
+                      >
+                        {staff.fullName
+                          .split(/\s+/)
+                          .map((part) => part[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-slate-800">{staff.fullName}</div>
+                        <div className="truncate text-xs text-slate-500">
+                          {staff.roleTitle} ·{' '}
+                          <span className="font-mono">
+                            {staff.credentialNumber ??
+                              t('pharmacy.profile.credentialPending', { defaultValue: 'Credential pending' })}
+                          </span>
+                        </div>
+                      </div>
+                      <select
+                        value={staff.shiftStatus}
+                        disabled={updatingStaffId === staff.id}
+                        aria-label={t('pharmacy.profile.shiftFor', { name: staff.fullName, defaultValue: 'Shift for {{name}}' })}
+                        onChange={(e) => void handleUpdateShiftStatus(staff.id, e.target.value)}
+                        className={`rounded-full border-0 px-2 py-0.5 text-xs font-semibold focus:outline-none disabled:opacity-60 ${
+                          staff.shiftStatus === 'on_shift'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : staff.shiftStatus === 'on_call'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {SHIFT_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {shiftLabel(option)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRemoveId(staff.id)}
+                        disabled={deletingStaffId === staff.id || confirming}
+                        aria-label={t('pharmacy.profile.removeStaff', { name: staff.fullName, defaultValue: 'Remove {{name}}' })}
+                        title={t('pharmacy.profile.removeStaff', { name: staff.fullName, defaultValue: 'Remove {{name}}' })}
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                    {confirming ? (
+                      // QA-294: ask before removing (it used to remove at once).
+                      <div
+                        role="group"
+                        aria-label={t('pharmacy.profile.removeStaffQuestion', { name: staff.fullName, defaultValue: 'Remove {{name}} from the staff list?' })}
+                        className="mt-2 flex flex-wrap items-center justify-end gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800"
+                      >
+                        <span className="me-auto">
+                          {t('pharmacy.profile.removeStaffQuestion', { name: staff.fullName, defaultValue: 'Remove {{name}} from the staff list?' })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRemoveId(null)}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          {t('pharmacy.profile.keepStaff', { defaultValue: 'Keep' })}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingStaffId === staff.id}
+                          onClick={() => void handleDeleteStaff(staff.id)}
+                          className="rounded-lg bg-red-600 px-3 py-1 font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                        >
+                          {t('pharmacy.profile.confirmRemove', { defaultValue: 'Remove' })}
+                        </button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
             </article>
 
             <article className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -738,6 +827,7 @@ export const PharmacyProfile = () => {
                 <input
                   type="text"
                   value={staffForm.full_name}
+                  maxLength={FORM_FIELD_LIMITS.personName}
                   onChange={(e) => setStaffForm((prev) => ({ ...prev, full_name: e.target.value }))}
                   placeholder="Rania Hassan"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
@@ -748,6 +838,7 @@ export const PharmacyProfile = () => {
                 <input
                   type="text"
                   value={staffForm.role_title}
+                  maxLength={FORM_FIELD_LIMITS.shortText}
                   onChange={(e) => setStaffForm((prev) => ({ ...prev, role_title: e.target.value }))}
                   placeholder="Head Pharmacist"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
@@ -758,6 +849,7 @@ export const PharmacyProfile = () => {
                 <input
                   type="text"
                   value={staffForm.credential_number}
+                  maxLength={FORM_FIELD_LIMITS.licenseNumber}
                   onChange={(e) => setStaffForm((prev) => ({ ...prev, credential_number: e.target.value }))}
                   placeholder="DHA-PHAR-2017-001294"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
@@ -770,9 +862,11 @@ export const PharmacyProfile = () => {
                   onChange={(e) => setStaffForm((prev) => ({ ...prev, shift_status: e.target.value }))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
                 >
-                  <option value="on_shift">On Shift</option>
-                  <option value="off_shift">Off Shift</option>
-                  <option value="on_call">On Call</option>
+                  {SHIFT_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {shiftLabel(option)}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
