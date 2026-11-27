@@ -9,6 +9,7 @@ import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { summarizeRevenue, summarizeRevenueByPayer } from './revenue-figures';
 import { clinicDateKey, clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
 import { downloadCsv } from '../../lib/csv-export';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { prescriptionReference } from './prescription-status';
 
 interface RevenuePrescription {
@@ -49,6 +50,7 @@ export const PharmacyRevenue = () => {
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const unreadMessages = usePharmacyUnreadMessages();
+  const isPhone = useIsPhone();
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(8);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export const PharmacyRevenue = () => {
       variant="pharmacy"
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
-      <div className="min-h-full bg-slate-50 p-6">
+      <div className="min-h-full bg-slate-50 p-4 sm:p-6">
         {/* QA-283: the title and caption are in the top bar only (they were shown twice, and the top bar
             said "dispensing revenue" although only insurance claims are counted). */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -304,58 +306,85 @@ export const PharmacyRevenue = () => {
                 const open = selectedClaimId === row.id;
                 const detailsId = `claim-details-${row.id}`;
                 const notRecorded = t('pharmacy.revenue.notRecorded', { defaultValue: 'Not recorded' });
+                const claimSummary = (
+                  <div className="min-w-0">
+                    <div
+                      className={`truncate text-sm font-semibold ${row.patientName ? 'text-slate-800' : 'italic text-slate-500'}`}
+                    >
+                      {row.patientName ?? t('pharmacy.revenue.notLinked', { defaultValue: 'Not linked to a prescription' })}
+                    </div>
+                    <div className="truncate text-xs text-slate-400">
+                      {row.medication ? `${row.medication} · ${row.insurer}` : row.insurer}
+                    </div>
+                    {row.submittedAt ? (
+                      <div className="truncate text-[11px] text-slate-400">
+                        {t('pharmacy.revenue.submittedOn', {
+                          date: formatClinicDate(row.submittedAt, uiLang),
+                          defaultValue: 'Submitted {{date}}',
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+                const amountLabel = (
+                  <div className="shrink-0 font-mono text-sm font-bold text-slate-800">
+                    {formatCurrency(row.amount, uiLang)}
+                  </div>
+                );
+                const statusBadge = (
+                  <span
+                    className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase rtl:tracking-normal ${
+                      row.status === 'paid'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : row.status === 'review'
+                          ? 'bg-amber-50 text-amber-700'
+                          : row.status === 'denied'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-blue-50 text-blue-700'
+                    }`}
+                  >
+                    {t(`pharmacy.revenue.status.${row.status}`, { defaultValue: row.status })}
+                  </span>
+                );
+                const viewButton = (
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={detailsId}
+                    aria-label={t(open ? 'pharmacy.revenue.hideClaim' : 'pharmacy.revenue.viewClaim', {
+                      reference: row.reference,
+                      defaultValue: open ? 'Hide claim {{reference}}' : 'View claim {{reference}}',
+                    })}
+                    onClick={() => setSelectedClaimId((current) => (current === row.id ? null : row.id))}
+                    className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                  >
+                    {open
+                      ? t('pharmacy.revenue.hide', { defaultValue: 'Hide' })
+                      : t('pharmacy.revenue.view', { defaultValue: 'View' })}
+                  </button>
+                );
                 return (
                   <li key={row.id} data-testid="ledger-row">
-                    <div className="grid grid-cols-[minmax(0,1fr)_100px_90px_90px] items-center gap-3 px-5 py-3">
-                      <div className="min-w-0">
-                        <div
-                          className={`truncate text-sm font-semibold ${row.patientName ? 'text-slate-800' : 'italic text-slate-500'}`}
-                        >
-                          {row.patientName ??
-                            t('pharmacy.revenue.notLinked', { defaultValue: 'Not linked to a prescription' })}
+                    {/* QA-284: on a phone, a card (the 4-column row did not fit). */}
+                    {isPhone ? (
+                      <div className="space-y-2 px-4 py-3" data-testid="ledger-card">
+                        <div className="flex items-start justify-between gap-3">
+                          {claimSummary}
+                          {amountLabel}
                         </div>
-                        <div className="truncate text-xs text-slate-400">
-                          {row.medication ? `${row.medication} · ${row.insurer}` : row.insurer}
+                        <div className="flex items-center justify-between gap-3">
+                          {statusBadge}
+                          {viewButton}
                         </div>
-                        {row.submittedAt ? (
-                          <div className="truncate text-[11px] text-slate-400">
-                            {t('pharmacy.revenue.submittedOn', {
-                              date: formatClinicDate(row.submittedAt, uiLang),
-                              defaultValue: 'Submitted {{date}}',
-                            })}
-                          </div>
-                        ) : null}
                       </div>
-                      <div className="font-mono text-sm font-bold text-slate-800">{formatCurrency(row.amount, uiLang)}</div>
-                      <span
-                        className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase rtl:tracking-normal ${
-                          row.status === 'paid'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : row.status === 'review'
-                              ? 'bg-amber-50 text-amber-700'
-                              : row.status === 'denied'
-                                ? 'bg-red-50 text-red-700'
-                                : 'bg-blue-50 text-blue-700'
-                        }`}
-                      >
-                        {t(`pharmacy.revenue.status.${row.status}`, { defaultValue: row.status })}
-                      </span>
-                      <button
-                        type="button"
-                        aria-expanded={open}
-                        aria-controls={detailsId}
-                        aria-label={t(open ? 'pharmacy.revenue.hideClaim' : 'pharmacy.revenue.viewClaim', {
-                          reference: row.reference,
-                          defaultValue: open ? 'Hide claim {{reference}}' : 'View claim {{reference}}',
-                        })}
-                        onClick={() => setSelectedClaimId((current) => (current === row.id ? null : row.id))}
-                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
-                      >
-                        {open
-                          ? t('pharmacy.revenue.hide', { defaultValue: 'Hide' })
-                          : t('pharmacy.revenue.view', { defaultValue: 'View' })}
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="grid grid-cols-[minmax(0,1fr)_100px_110px_90px] items-center gap-3 px-5 py-3">
+                        {claimSummary}
+                        {amountLabel}
+                        {statusBadge}
+                        {viewButton}
+                      </div>
+                    )}
                     {open ? (
                       // QA-281: the claim's details, right under its row (it used to repeat the row at the bottom).
                       <dl

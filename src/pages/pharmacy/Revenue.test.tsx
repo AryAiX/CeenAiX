@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PharmacyClaimLedgerItem } from '../../hooks';
 import i18n from '../../i18n';
+import { mockScreen } from '../../test/phone-screen';
 
 vi.mock('../../components/OpsShell', () => ({
   OpsShell: ({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) => (
@@ -383,5 +384,59 @@ describe('PharmacyRevenue header (QA-283)', () => {
     renderPage();
     expect(normalize(screen.getByTestId('shell-header').textContent)).toContain('مطالبات التأمين والمدفوعات · QA Test Pharmacy');
     expect(screen.getByRole('note')).toHaveTextContent('مطالبات التأمين فقط');
+  });
+});
+
+describe('PharmacyRevenue on a phone (QA-284)', () => {
+  let restoreScreen: () => void = () => undefined;
+  const ledger: PharmacyClaimLedgerItem[] = [
+    { ...claim('CLM-1', 'review', 45), submittedAt: '2026-11-25T21:30:00Z' },
+    { ...claim('CLM-2', 'paid', 20, '2026-11-26T21:00:00Z', 'AXA'), patientName: null, medication: null },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { claims: ledger, profile: null, organization: null, lowStockAlerts: 0 },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+  });
+
+  afterEach(async () => {
+    restoreScreen();
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows a card per claim with the amount, status and View, and the details still open', async () => {
+    const user = userEvent.setup();
+    restoreScreen = mockScreen(true);
+    renderPage();
+    const cards = screen.getAllByTestId('ledger-card');
+    expect(cards).toHaveLength(2);
+    const first = within(cards[0]);
+    expect(first.getByText('Test Patient')).toBeInTheDocument();
+    expect(first.getByText(/AED\s?45/)).toBeInTheDocument();
+    expect(first.getByText('In review')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('Not linked to a prescription')).toBeInTheDocument();
+    await user.click(first.getByRole('button', { name: 'View claim CLM-1' }));
+    expect(screen.getByTestId('claim-details')).toBeInTheDocument();
+  });
+
+  it('keeps the 4-column rows on a wide screen', () => {
+    restoreScreen = mockScreen(false);
+    renderPage();
+    expect(screen.queryAllByTestId('ledger-card')).toHaveLength(0);
+    expect(screen.getAllByTestId('ledger-row')).toHaveLength(2);
+  });
+
+  it('shows the phone cards in Arabic', async () => {
+    restoreScreen = mockScreen(true);
+    await i18n.changeLanguage('ar');
+    renderPage();
+    const card = within(screen.getAllByTestId('ledger-card')[0]);
+    expect(card.getByText('قيد المراجعة')).toBeInTheDocument();
+    expect(card.getByRole('button', { name: 'عرض المطالبة CLM-1' })).toHaveTextContent('عرض');
   });
 });
