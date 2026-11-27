@@ -1,7 +1,7 @@
 // The browser here is NOT in Dubai (and west of UTC): "this month" is the Dubai month.
 process.env.TZ = 'America/New_York';
 
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,8 +19,10 @@ vi.mock('../../components/OpsShell', () => ({
   ),
 }));
 vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn(), usePharmacyUnreadMessages: vi.fn() }));
+vi.mock('../../lib/csv-export', () => ({ downloadCsv: vi.fn() }));
 
 import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { downloadCsv } from '../../lib/csv-export';
 import { PharmacyReports } from './Reports';
 
 type Task = {
@@ -333,5 +335,90 @@ describe('PharmacyReports inventory risk (QA-288)', () => {
     renderPage();
     expect(tile('expired')).toContain(i18n.t('pharmacy.inventory.kpi.expired'));
     expect(tile('in-stock')).toContain(i18n.t('pharmacy.inventory.kpi.inStock'));
+  });
+});
+
+describe('PharmacyReports exports (QA-289)', () => {
+  const PRESCRIPTION = '1a2b3c4d-1111-2222-3333-444455556666';
+  const decemberInDubai = '2026-11-30T20:30:00Z'; // 1 Dec 00:30 in Dubai
+  const november = '2026-11-15T08:00:00Z';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 1 Dec 2026 01:00 in Dubai; still 30 Nov in New York and UTC.
+    vi.setSystemTime(new Date('2026-11-30T21:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const click = (name: RegExp) => act(() => screen.getByRole('button', { name }).click());
+
+  it('exports this Dubai month\'s dispensing through the shared CSV helper, with prescription references and Dubai times', () => {
+    showReports({
+      queue: [
+        task('t1', PRESCRIPTION, 'dispensed', { receivedAt: decemberInDubai, patientName: 'مريم' }),
+        task('t2', 'rx-old', 'dispensed', { receivedAt: november }),
+      ],
+    });
+    renderPage();
+    click(/Export This Month/);
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    const [fileName, rows] = vi.mocked(downloadCsv).mock.calls[0];
+    expect(fileName).toBe('pharmacy-dispensing-2026-12.csv');
+    expect(rows).toEqual([
+      ['prescription', 'medicine', 'patient_name', 'prescriber', 'status', 'received_at_dubai', 'priority'],
+      ['RX-1A2B3C4D', 'Amoxicillin 500 mg', 'مريم', 'Dr Test', 'dispensed', '2026-12-01 00:30', 'routine'],
+    ]);
+  });
+
+  it('cannot export the dispensing file when nothing was received this month', () => {
+    showReports({ queue: [task('t2', 'rx-old', 'dispensed', { receivedAt: november })] });
+    renderPage();
+    expect(screen.getByRole('button', { name: /Export This Month/ })).toBeDisabled();
+  });
+
+  it('exports a monthly summary CSV that says it is not a DHA submission (no "DHA Monthly Report" .txt)', () => {
+    showReports({
+      queue: [task('t1', PRESCRIPTION, 'dispensed', { receivedAt: decemberInDubai })],
+      claims: [{ id: 'c1', status: 'paid' }, { id: 'c2', status: 'denied' }],
+      profile: { displayName: 'QA Test Pharmacy', licenseNumber: 'DHA-P-1', dhaConnected: false },
+    });
+    renderPage();
+    expect(screen.queryByRole('button', { name: /DHA Monthly Report/ })).toBeNull();
+    click(/Monthly Summary \(CSV\)/);
+    const [fileName, rows] = vi.mocked(downloadCsv).mock.calls[0];
+    expect(fileName).toBe('pharmacy-monthly-summary-2026-12.csv');
+    expect(rows).toEqual([
+      ['item', 'value'],
+      ['month', '2026-12'],
+      ['pharmacy', 'QA Test Pharmacy'],
+      ['licence_number', 'DHA-P-1'],
+      ['prescriptions_received', 1],
+      ['dispensed_or_picked_up', 1],
+      ['new_or_in_progress', 0],
+      ['on_hold', 0],
+      ['cancelled', 0],
+      ['controlled_items_in_stock', 0],
+      ['claims_paid_all_time', 1],
+      ['claims_denied_all_time', 1],
+      ['insurance_approval_rate_percent', 50],
+      ['note', 'Summary from the CeenAiX portal. Not a DHA submission.'],
+    ]);
+  });
+
+  it('shows a plain message when an export fails', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(downloadCsv).mockImplementation(() => {
+      throw new Error('Failed to execute createObjectURL');
+    });
+    showReports();
+    renderPage();
+    click(/Monthly Summary/);
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not create the export. Please try again.');
+    expect(screen.queryByText(/createObjectURL/)).toBeNull();
+    warn.mockRestore();
   });
 });

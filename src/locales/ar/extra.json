@@ -3944,8 +3944,6 @@
       "heading": "التقارير والتحليلات",
       "liveAnalytics": "تحليلات مباشرة",
       "fallbackName": "الصيدلية",
-      "exportLedger": "تصدير سجلّ الصرف",
-      "dhaMonthly": "تقرير DHA الشهري",
       "kpiApproval": "نسبة موافقة التأمين",
       "riskHeading": "تحليل مخاطر المخزون",
       "dhaReportingHeading": "التقارير إلى DHA",
@@ -3970,7 +3968,10 @@
       "statusCancelled": "ملغاة",
       "topMedicinesHeading": "أكثر الأدوية صرفاً هذا الشهر",
       "topMedicinesCaption": "عدد مرات الصرف من الوصفات المستلمة هذا الشهر",
-      "topMedicinesEmpty": "لم يُصرف أي دواء هذا الشهر بعد."
+      "topMedicinesEmpty": "لم يُصرف أي دواء هذا الشهر بعد.",
+      "exportMonthLedger": "تصدير صرف هذا الشهر",
+      "monthlySummary": "الملخص الشهري (CSV)",
+      "exportFailed": "تعذّر إنشاء ملف التصدير. يُرجى المحاولة مرة أخرى."
     }
   },
   "insurance": {

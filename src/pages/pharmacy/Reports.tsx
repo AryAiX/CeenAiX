@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileText, PackageCheck, PauseCircle, ShieldCheck, TrendingUp } from 'lucide-react';
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
@@ -7,7 +7,9 @@ import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../h
 import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { summarizeInventoryRisk } from './inventory-status';
-import { clinicTodayKey } from '../../lib/clinic-booking-time';
+import { clinicDateKey, clinicTodayKey, formatClinicTime } from '../../lib/clinic-booking-time';
+import { downloadCsv } from '../../lib/csv-export';
+import { prescriptionReference } from './prescription-status';
 import {
   formatReportMonth,
   groupReportPrescriptions,
@@ -49,6 +51,21 @@ export const PharmacyReports = () => {
   const monthYear = new Date().toLocaleDateString(uiLang, dateTimeFormatWithNumerals(uiLang, { month: 'long', year: 'numeric' }));
 
   const waiting = loading && !data;
+  // QA-289: the medicine lines of this month's prescriptions, for the dispensing file.
+  const monthLines = useMemo(
+    () => prescriptions.filter((prescription) => prescription.monthKey === monthKey).flatMap((prescription) => prescription.items),
+    [prescriptions, monthKey]
+  );
+  const [exportError, setExportError] = useState<string | null>(null);
+  const runExport = (build: () => void) => {
+    setExportError(null);
+    try {
+      build();
+    } catch (err) {
+      console.warn(`[pharmacy] reports export failed: ${err instanceof Error ? err.message : String(err)}`);
+      setExportError(t('pharmacy.reports.exportFailed', { defaultValue: 'Could not create the export. Please try again.' }));
+    }
+  };
   const kpis = [
     {
       key: 'received',
@@ -120,79 +137,68 @@ export const PharmacyReports = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* QA-289: both files through the shared CSV helper (Arabic opens correctly in Excel, no
+                formulas can run), for this Dubai month, with Dubai dates. The second one used to be an
+                English .txt called "DHA Monthly Report" although nothing is sent to DHA. */}
             <button
               type="button"
-              onClick={() => {
-                const queue = data?.queue ?? [];
-                const header = ['rx_id', 'patient_name', 'prescriber', 'medication', 'workflow_status', 'received_at', 'priority'];
-                const escape = (v: string | number | null | undefined) => {
-                  if (v === null || v === undefined) return '';
-                  const s = String(v);
-                  return s.includes(',') || s.includes('"') || s.includes('\n')
-                    ? `"${s.replace(/"/g, '""')}"`
-                    : s;
-                };
-                const body = [
-                  header,
-                  ...queue.map((item) => [
-                    item.id,
-                    item.patientName,
-                    item.prescriber,
-                    item.medication,
-                    item.workflowStatus,
-                    item.receivedAt,
-                    item.priority,
-                  ]),
-                ]
-                  .map((line) => line.map(escape).join(','))
-                  .join('\n');
-                const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `pharmacy-dispensing-${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-              }}
-              className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+              disabled={monthLines.length === 0}
+              onClick={() =>
+                runExport(() =>
+                  downloadCsv(`pharmacy-dispensing-${monthKey}.csv`, [
+                    ['prescription', 'medicine', 'patient_name', 'prescriber', 'status', 'received_at_dubai', 'priority'],
+                    ...monthLines.map((item) => [
+                      prescriptionReference(item.prescriptionId),
+                      item.medication,
+                      item.patientName,
+                      item.prescriber,
+                      item.workflowStatus,
+                      `${clinicDateKey(item.receivedAt)} ${formatClinicTime(item.receivedAt, 'en')}`,
+                      item.priority,
+                    ]),
+                  ])
+                )
+              }
+              className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Download className="h-4 w-4" /> {t('pharmacy.reports.exportLedger', { defaultValue: 'Export Dispensing Ledger' })}
+              <Download className="h-4 w-4" aria-hidden="true" />{' '}
+              {t('pharmacy.reports.exportMonthLedger', { defaultValue: 'Export This Month’s Dispensing' })}
             </button>
             <button
               type="button"
-              onClick={() => {
-                const queue = data?.queue ?? [];
-                const summary = [
-                  `DHA Monthly Pharmacy Report — ${monthYear}`,
-                  `Pharmacy: ${pharmacyName}`,
-                  '',
-                  `Total prescriptions handled: ${queue.length}`,
-                  `Dispensed: ${queue.filter((item) => item.workflowStatus === 'dispensed').length}`,
-                  `On hold: ${queue.filter((item) => item.workflowStatus === 'on_hold').length}`,
-                  `Cancelled: ${queue.filter((item) => item.workflowStatus === 'cancelled').length}`,
-                  '',
-                  'Source: live pharmacy_dispensing_tasks (canonical CeenAiX schema).',
-                ];
-                const blob = new Blob([summary.join('\n')], {
-                  type: 'text/plain;charset=utf-8',
-                });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `dha-monthly-${new Date().toISOString().slice(0, 7)}.txt`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-              }}
+              onClick={() =>
+                runExport(() =>
+                  downloadCsv(`pharmacy-monthly-summary-${monthKey}.csv`, [
+                    ['item', 'value'],
+                    ['month', monthKey],
+                    ['pharmacy', pharmacyName],
+                    ['licence_number', licenseNumber ?? ''],
+                    ['prescriptions_received', month.received],
+                    ['dispensed_or_picked_up', month.dispensed],
+                    ['new_or_in_progress', month.open],
+                    ['on_hold', month.onHold],
+                    ['cancelled', month.cancelled],
+                    ['controlled_items_in_stock', controlledInStock],
+                    ['claims_paid_all_time', approval.paid],
+                    ['claims_denied_all_time', approval.denied],
+                    ['insurance_approval_rate_percent', approval.percent ?? ''],
+                    ['note', 'Summary from the CeenAiX portal. Not a DHA submission.'],
+                  ])
+                )
+              }
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
-              <Download className="h-4 w-4" /> {t('pharmacy.reports.dhaMonthly', { defaultValue: 'DHA Monthly Report' })}
+              <Download className="h-4 w-4" aria-hidden="true" />{' '}
+              {t('pharmacy.reports.monthlySummary', { defaultValue: 'Monthly Summary (CSV)' })}
             </button>
           </div>
         </div>
+
+        {exportError ? (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {exportError}
+          </div>
+        ) : null}
 
         <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {kpis.map((kpi) => {

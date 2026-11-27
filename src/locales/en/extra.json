@@ -3774,8 +3774,6 @@
       "heading": "Reports & Analytics",
       "liveAnalytics": "Live analytics",
       "fallbackName": "Pharmacy",
-      "exportLedger": "Export Dispensing Ledger",
-      "dhaMonthly": "DHA Monthly Report",
       "kpiApproval": "Insurance approval rate",
       "riskHeading": "Inventory Risk Breakdown",
       "dhaReportingHeading": "DHA Reporting",
@@ -3800,7 +3798,10 @@
       "statusCancelled": "Cancelled",
       "topMedicinesHeading": "Top Dispensed Medicines This Month",
       "topMedicinesCaption": "Times dispensed, from the prescriptions received this month",
-      "topMedicinesEmpty": "No medicines dispensed this month yet."
+      "topMedicinesEmpty": "No medicines dispensed this month yet.",
+      "exportMonthLedger": "Export This Month’s Dispensing",
+      "monthlySummary": "Monthly Summary (CSV)",
+      "exportFailed": "Could not create the export. Please try again."
     }
   },
   "insurance": {
