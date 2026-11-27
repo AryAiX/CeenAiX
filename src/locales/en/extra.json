@@ -3771,8 +3771,6 @@
     },
     "reports": {
       "title": "Reports",
-      "heading": "Reports & Analytics",
-      "liveAnalytics": "Live analytics",
       "fallbackName": "Pharmacy",
       "kpiApproval": "Insurance approval rate",
       "riskHeading": "Inventory Risk Breakdown",
@@ -3801,7 +3799,8 @@
       "topMedicinesEmpty": "No medicines dispensed this month yet.",
       "exportMonthLedger": "Export This Month’s Dispensing",
       "monthlySummary": "Monthly Summary (CSV)",
-      "exportFailed": "Could not create the export. Please try again."
+      "exportFailed": "Could not create the export. Please try again.",
+      "pageCaption": "{{month}} · {{pharmacy}}"
     }
   },
   "insurance": {

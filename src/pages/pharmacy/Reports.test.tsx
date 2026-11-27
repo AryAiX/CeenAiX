@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
+import { mockScreen } from '../../test/phone-screen';
 
 vi.mock('../../components/OpsShell', () => ({
   OpsShell: ({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) => (
@@ -420,5 +421,53 @@ describe('PharmacyReports exports (QA-289)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not create the export. Please try again.');
     expect(screen.queryByText(/createObjectURL/)).toBeNull();
     warn.mockRestore();
+  });
+});
+
+describe('PharmacyReports header and phone (QA-290)', () => {
+  let restoreScreen: () => void = () => undefined;
+  const decemberInDubai = '2026-11-30T20:30:00Z'; // 1 Dec 00:30 in Dubai
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 1 Dec 2026 01:00 in Dubai; still November in New York and UTC.
+    vi.setSystemTime(new Date('2026-11-30T21:00:00.000Z'));
+  });
+
+  afterEach(async () => {
+    restoreScreen();
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the Dubai month and the pharmacy once, in the top bar', () => {
+    showReports();
+    renderPage();
+    const header = (screen.getByTestId('shell-header').textContent ?? '').replace(/\s+/g, ' ');
+    expect(header).toContain('December 2026 · QA Test Pharmacy');
+    expect(header).not.toMatch(/Live analytics/);
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
+    expect(screen.queryByText('Reports & Analytics')).toBeNull();
+  });
+
+  it('shows the month in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showReports();
+    renderPage();
+    expect(screen.getByTestId('shell-header')).toHaveTextContent('ديسمبر');
+  });
+
+  it('on a phone, shows the full medicine name with its count, and the bar under it', () => {
+    restoreScreen = mockScreen(true);
+    showReports({
+      queue: [
+        task('t1', 'rx-1', 'dispensed', { receivedAt: decemberInDubai, medication: 'Amoxicillin and clavulanic acid 875 mg / 125 mg' }),
+      ],
+    });
+    renderPage();
+    const row = screen.getByTestId('top-medicine');
+    expect(row.className).not.toMatch(/grid-cols-\[140px/);
+    expect(within(row).getByText('Amoxicillin and clavulanic acid 875 mg / 125 mg').className).not.toMatch(/truncate/);
   });
 });

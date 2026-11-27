@@ -4,11 +4,12 @@ import { Download, FileText, PackageCheck, PauseCircle, ShieldCheck, TrendingUp 
 import { PortalQueryBanner } from '../../components/PortalQueryBanner';
 import { OpsShell } from '../../components/OpsShell';
 import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../hooks';
-import { formatLocaleDigits, dateTimeFormatWithNumerals } from '../../lib/i18n-ui';
+import { formatLocaleDigits } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { summarizeInventoryRisk } from './inventory-status';
 import { clinicDateKey, clinicTodayKey, formatClinicTime } from '../../lib/clinic-booking-time';
 import { downloadCsv } from '../../lib/csv-export';
+import { useIsPhone } from '../../hooks/use-is-phone';
 import { prescriptionReference } from './prescription-status';
 import {
   formatReportMonth,
@@ -27,6 +28,7 @@ export const PharmacyReports = () => {
   const uiLang = i18n.language ?? 'en';
   const { data, loading, error, refetch } = usePharmacyPrescriptionQueue();
   const unreadMessages = usePharmacyUnreadMessages();
+  const isPhone = useIsPhone();
   const queue = useMemo(() => data?.queue ?? [], [data?.queue]);
 
   // QA-286: prescriptions with the same status as on Dispensing; "this month" is the Dubai month received.
@@ -48,7 +50,6 @@ export const PharmacyReports = () => {
   const licenseNumber = data?.profile?.licenseNumber?.trim() || null;
   const pharmacyFallback = t('pharmacy.reports.fallbackName', { defaultValue: 'Pharmacy' });
   const pharmacyName = data?.profile?.displayName ?? data?.organization?.name ?? pharmacyFallback;
-  const monthYear = new Date().toLocaleDateString(uiLang, dateTimeFormatWithNumerals(uiLang, { month: 'long', year: 'numeric' }));
 
   const waiting = loading && !data;
   // QA-289: the medicine lines of this month's prescriptions, for the dispensing file.
@@ -119,23 +120,21 @@ export const PharmacyReports = () => {
   return (
     <OpsShell
       title={t('pharmacy.reports.title', { defaultValue: 'Reports' })}
-      subtitle={`${pharmacyName} · ${t('pharmacy.reports.liveAnalytics', { defaultValue: 'Live analytics' })}`}
+      subtitle={t('pharmacy.reports.pageCaption', {
+        // QA-290: the Dubai month (it was the browser's month), once, in the top bar.
+        month: monthLabel,
+        pharmacy: pharmacyName,
+        defaultValue: '{{month}} · {{pharmacy}}',
+      })}
       eyebrow={t('pharmacy.dashboard.eyebrow')}
       navItems={PHARMACY_NAV_ITEMS(t, pharmacyNavCounts(data, unreadMessages))}
       accent="emerald"
       variant="pharmacy"
     >
       <PortalQueryBanner error={error} onRetry={() => void refetch()} />
-      <div className="min-h-full bg-slate-50 p-6">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-[20px] font-bold text-slate-900">
-              {t('pharmacy.reports.heading', { defaultValue: 'Reports & Analytics' })}
-            </h2>
-            <div className="text-[13px] text-slate-400">
-              {monthYear} · {pharmacyName}
-            </div>
-          </div>
+      <div className="min-h-full bg-slate-50 p-4 sm:p-6">
+        {/* QA-290: the title and caption are in the top bar only (they were shown twice). */}
+        <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
           <div className="flex flex-wrap gap-2">
             {/* QA-289: both files through the shared CSV helper (Arabic opens correctly in Excel, no
                 formulas can run), for this Dubai month, with Dubai dates. The second one used to be an
@@ -349,19 +348,39 @@ export const PharmacyReports = () => {
             </p>
           ) : (
             <ul className="space-y-3">
-              {topDrugs.map((item) => (
-                <li
-                  key={item.medicine}
-                  data-testid="top-medicine"
-                  className="grid grid-cols-[140px_minmax(0,1fr)_48px] items-center gap-3"
-                >
-                  <div className="truncate text-xs font-medium text-slate-600">{item.medicine}</div>
+              {topDrugs.map((item) => {
+                const bar = (
                   <div className="h-3 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
                     <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(item.count / maxDrugCount) * 100}%` }} />
                   </div>
-                  <div className="text-end font-mono text-xs font-bold text-slate-600">{formatNumber(item.count, uiLang)}</div>
-                </li>
-              ))}
+                );
+                const count = (
+                  <div className="shrink-0 text-end font-mono text-xs font-bold text-slate-600">{formatNumber(item.count, uiLang)}</div>
+                );
+                // QA-290: on a phone, the name and count on one line and the bar under them (the
+                // 140 px name column cut most names off).
+                return isPhone ? (
+                  <li key={item.medicine} data-testid="top-medicine" className="space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 break-words text-xs font-medium text-slate-600">{item.medicine}</div>
+                      {count}
+                    </div>
+                    {bar}
+                  </li>
+                ) : (
+                  <li
+                    key={item.medicine}
+                    data-testid="top-medicine"
+                    className="grid grid-cols-[180px_minmax(0,1fr)_48px] items-center gap-3"
+                  >
+                    <div className="truncate text-xs font-medium text-slate-600" title={item.medicine}>
+                      {item.medicine}
+                    </div>
+                    {bar}
+                    {count}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
