@@ -223,3 +223,73 @@ describe('PharmacyReports this month (QA-286)', () => {
     expect(card('نسبة موافقة التأمين')).toContain('كل المطالبات');
   });
 });
+
+describe('PharmacyReports status chart and top medicines (QA-287)', () => {
+  const decemberInDubai = '2026-11-30T20:30:00Z'; // 1 Dec 00:30 in Dubai
+  const november = '2026-11-15T08:00:00Z';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 1 Dec 2026 01:00 in Dubai.
+    vi.setSystemTime(new Date('2026-11-30T21:00:00.000Z'));
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  const row = (key: string) => (screen.getByTestId(`status-${key}`).textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  it('shows this month\'s prescriptions by status on one scale, without claims, cancelled apart', () => {
+    showReports({
+      claimsInReview: 7,
+      queue: [
+        task('t1', 'rx-1', 'dispensed', { receivedAt: decemberInDubai }),
+        task('t2', 'rx-2', 'picked_up', { receivedAt: decemberInDubai }),
+        task('t3', 'rx-3', 'new', { receivedAt: decemberInDubai }),
+        task('t4', 'rx-4', 'cancelled', { receivedAt: decemberInDubai }),
+        task('t5', 'rx-5', 'new', { receivedAt: november }),
+      ],
+    });
+    renderPage();
+    expect(row('dispensed')).toBe('Dispensed or picked up2');
+    expect(row('open')).toBe('New or in progress1');
+    expect(row('on-hold')).toBe('On hold0');
+    expect(row('cancelled')).toBe('Cancelled1');
+    expect((screen.getByTestId('status-bar-dispensed') as HTMLElement).style.width).toBe('50%');
+    expect(screen.queryByText('Claims in review')).toBeNull();
+  });
+
+  it('lists only dispensed medicines of this month, with their strength, most often first', () => {
+    showReports({
+      queue: [
+        task('t1', 'rx-1', 'dispensed', { receivedAt: decemberInDubai, medication: 'Metformin 500 mg' }),
+        task('t2', 'rx-2', 'picked_up', { receivedAt: decemberInDubai, medication: 'Metformin 500 mg' }),
+        task('t3', 'rx-3', 'dispensed', { receivedAt: decemberInDubai, medication: 'Metformin 850 mg' }),
+        // Not dispensed, cancelled, or last month: left out.
+        task('t4', 'rx-4', 'new', { receivedAt: decemberInDubai, medication: 'Ibuprofen 400 mg' }),
+        task('t5', 'rx-5', 'cancelled', { receivedAt: decemberInDubai, medication: 'Ibuprofen 400 mg' }),
+        task('t6', 'rx-6', 'dispensed', { receivedAt: november, medication: 'Atorvastatin 20 mg' }),
+      ],
+    });
+    renderPage();
+    const rows = screen.getAllByTestId('top-medicine').map((el) => (el.textContent ?? '').replace(/\s+/g, ' ').trim());
+    expect(rows).toEqual(['Metformin 500 mg2', 'Metformin 850 mg1']);
+  });
+
+  it('says when nothing was dispensed this month', () => {
+    showReports({ queue: [task('t4', 'rx-4', 'new', { receivedAt: decemberInDubai })] });
+    renderPage();
+    expect(screen.getByText('No medicines dispensed this month yet.')).toBeInTheDocument();
+  });
+
+  it('shows the chart texts in Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    showReports();
+    renderPage();
+    expect(screen.getByText('وصفات هذا الشهر حسب الحالة')).toBeInTheDocument();
+    expect(screen.getByText('أكثر الأدوية صرفاً هذا الشهر')).toBeInTheDocument();
+  });
+});

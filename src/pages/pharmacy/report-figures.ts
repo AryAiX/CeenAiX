@@ -78,3 +78,29 @@ export const formatReportMonth = (monthKey: string, language: string): string =>
     ...dateTimeFormatWithNumerals(language, { month: 'long', year: 'numeric' }),
     timeZone: CLINIC_TIME_ZONE,
   }).format(new Date(`${monthKey}-15T12:00:00+04:00`));
+
+/**
+ * QA-287: the medicines dispensed (or picked up) from the prescriptions received in a Dubai month,
+ * most often first. Counts medicine lines; cancelled and not-yet-dispensed medicines are left out,
+ * and the full name (with strength) is kept, as two strengths are two different products.
+ */
+export const topDispensedMedicines = (
+  prescriptions: ReadonlyArray<ReportPrescription>,
+  monthKey: string,
+  limit = 7
+): Array<{ medicine: string; count: number }> => {
+  const counts = new Map<string, number>();
+  for (const prescription of prescriptions) {
+    if (prescription.monthKey !== monthKey) continue;
+    for (const item of prescription.items) {
+      if (item.workflowStatus !== 'dispensed' && item.workflowStatus !== 'picked_up') continue;
+      const medicine = item.medication.trim();
+      if (!medicine) continue;
+      counts.set(medicine, (counts.get(medicine) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([medicine, count]) => ({ medicine, count }))
+    .sort((a, b) => b.count - a.count || a.medicine.localeCompare(b.medicine))
+    .slice(0, limit);
+};

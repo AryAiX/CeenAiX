@@ -13,11 +13,11 @@ import {
   isDispensedStatus,
   summarizeApproval,
   summarizeMonth,
+  topDispensedMedicines,
 } from './report-figures';
 
 const formatNumber = (value: number, language: string) => formatLocaleDigits(value, language);
 
-const cleanMedication = (name: string) => name.replace(/\s+\d+\s?(?:mg|iu|mcg|g)\b/i, '').trim();
 
 export const PharmacyReports = () => {
   const { t, i18n } = useTranslation('common');
@@ -28,26 +28,15 @@ export const PharmacyReports = () => {
 
   // QA-286: prescriptions with the same status as on Dispensing; "this month" is the Dubai month received.
   const prescriptions = useMemo(() => groupReportPrescriptions(queue), [queue]);
-  const prescriptionIds = useMemo(() => prescriptions.map((prescription) => prescription.prescriptionId), [prescriptions]);
   const dispensedIds = prescriptions.filter((prescription) => isDispensedStatus(prescription.status)).length;
   const monthKey = clinicTodayKey().slice(0, 7);
   const month = useMemo(() => summarizeMonth(prescriptions, monthKey), [prescriptions, monthKey]);
   const approval = useMemo(() => summarizeApproval(data?.claims ?? []), [data?.claims]);
   const monthLabel = formatReportMonth(monthKey, uiLang);
 
-  const topDrugs = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of queue) {
-      const key = cleanMedication(item.medication || 'Medication');
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .map(([drug, count]) => ({ drug, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 7);
-  }, [queue]);
+  // QA-287: dispensed medicines of this month's prescriptions only.
+  const topDrugs = useMemo(() => topDispensedMedicines(prescriptions, monthKey), [prescriptions, monthKey]);
 
-  const totalPrescriptions = prescriptionIds.length;
   const maxDrugCount = Math.max(...topDrugs.map((item) => item.count), 1);
   // QA-285: the real "controlled" flag (the old card counted items named warfarin).
   const controlledInStock = (data?.inventory ?? []).filter((item) => item.isControlled && item.stock > 0).length;
@@ -226,43 +215,56 @@ export const PharmacyReports = () => {
 
         <section className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <article className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-[15px] font-bold text-slate-800">
-              {t('pharmacy.reports.volumeHeading', { defaultValue: 'Dispensing Volume — Current Queue' })}
+            <h3 className="mb-1 text-[15px] font-bold text-slate-800">
+              {t('pharmacy.reports.statusHeading', { defaultValue: 'Prescriptions This Month by Status' })}
             </h3>
-            <div className="space-y-3">
+            <p className="mb-4 text-xs text-slate-400">
+              {t('pharmacy.reports.kpiReceivedHelper', { month: monthLabel, defaultValue: 'Received in {{month}}' })}
+            </p>
+            {/* QA-287: only this month's prescriptions, on one scale (claims were mixed in before, and
+                "In queue" included cancelled prescriptions). */}
+            <ul className="space-y-3">
               {[
                 {
-                  label: t('pharmacy.reports.volumeDispensed', { defaultValue: 'Dispensed' }),
-                  value: dispensedIds,
+                  key: 'dispensed',
+                  label: t('pharmacy.reports.statusDispensed', { defaultValue: 'Dispensed or picked up' }),
+                  value: month.dispensed,
                   color: 'bg-emerald-500',
                 },
                 {
-                  label: t('pharmacy.reports.volumeQueue', { defaultValue: 'In queue' }),
-                  value: Math.max(totalPrescriptions - dispensedIds, 0),
+                  key: 'open',
+                  label: t('pharmacy.reports.statusOpen', { defaultValue: 'New or in progress' }),
+                  value: month.open,
                   color: 'bg-blue-500',
                 },
                 {
-                  label: t('pharmacy.reports.volumeClaims', { defaultValue: 'Claims in review' }),
-                  value: data?.claimsInReview ?? 0,
+                  key: 'on-hold',
+                  label: t('pharmacy.reports.kpiOnHold', { defaultValue: 'On hold' }),
+                  value: month.onHold,
                   color: 'bg-amber-500',
                 },
+                {
+                  key: 'cancelled',
+                  label: t('pharmacy.reports.statusCancelled', { defaultValue: 'Cancelled' }),
+                  value: month.cancelled,
+                  color: 'bg-slate-400',
+                },
               ].map((item) => (
-                <div key={item.label}>
+                <li key={item.key} data-testid={`status-${item.key}`}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="font-medium text-slate-600">{item.label}</span>
-                    <span className="font-mono text-slate-500">
-                      {loading ? '...' : formatNumber(item.value, uiLang)}
-                    </span>
+                    <span className="font-mono text-slate-500">{loading && !data ? '…' : formatNumber(item.value, uiLang)}</span>
                   </div>
-                  <div className="h-3 rounded-full bg-slate-100">
+                  <div className="flex h-3 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
                     <div
+                      data-testid={`status-bar-${item.key}`}
                       className={`h-3 rounded-full ${item.color}`}
-                      style={{ width: `${Math.min(100, (item.value / Math.max(totalPrescriptions, 1)) * 100)}%` }}
+                      style={{ width: `${(item.value / Math.max(month.received, 1)) * 100}%` }}
                     />
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </article>
 
           <article className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -308,22 +310,35 @@ export const PharmacyReports = () => {
         </section>
 
         <section className="mb-5 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-[15px] font-bold text-slate-800">
-            {t('pharmacy.reports.topDrugsHeading', { defaultValue: 'Top Dispensed Drugs — Live Prescription Data' })}
+          <h3 className="mb-1 text-[15px] font-bold text-slate-800">
+            {t('pharmacy.reports.topMedicinesHeading', { defaultValue: 'Top Dispensed Medicines This Month' })}
           </h3>
-          <div className="space-y-3">
-            {topDrugs.map((item) => (
-              <div key={item.drug} className="grid grid-cols-[140px_minmax(0,1fr)_48px] items-center gap-3">
-                <div className="truncate text-xs font-medium text-slate-600">{item.drug}</div>
-                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(item.count / maxDrugCount) * 100}%` }} />
-                </div>
-                <div className="text-right font-mono text-xs font-bold text-slate-600">
-                  {formatNumber(item.count, uiLang)}
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="mb-4 text-xs text-slate-400">
+            {t('pharmacy.reports.topMedicinesCaption', {
+              defaultValue: 'Times dispensed, from the prescriptions received this month',
+            })}
+          </p>
+          {topDrugs.length === 0 && !(loading && !data) ? (
+            <p className="text-sm text-slate-400">
+              {t('pharmacy.reports.topMedicinesEmpty', { defaultValue: 'No medicines dispensed this month yet.' })}
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {topDrugs.map((item) => (
+                <li
+                  key={item.medicine}
+                  data-testid="top-medicine"
+                  className="grid grid-cols-[140px_minmax(0,1fr)_48px] items-center gap-3"
+                >
+                  <div className="truncate text-xs font-medium text-slate-600">{item.medicine}</div>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                    <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(item.count / maxDrugCount) * 100}%` }} />
+                  </div>
+                  <div className="text-end font-mono text-xs font-bold text-slate-600">{formatNumber(item.count, uiLang)}</div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* QA-285: no made-up compliance or DHA figures. The portal does not send anything to DHA and

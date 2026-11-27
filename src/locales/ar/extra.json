@@ -3947,16 +3947,11 @@
       "exportLedger": "تصدير سجلّ الصرف",
       "dhaMonthly": "تقرير DHA الشهري",
       "kpiApproval": "نسبة موافقة التأمين",
-      "volumeHeading": "حجم الصرف — الطابور الحالي",
-      "volumeDispensed": "تم الصرف",
-      "volumeQueue": "في الانتظار",
-      "volumeClaims": "مطالبات قيد المراجعة",
       "riskHeading": "تحليل مخاطر المخزون",
       "riskHealthy": "أصناف بحالة جيدة",
       "riskLow": "مخزون منخفض",
       "riskOut": "نفد المخزون",
       "riskExpiring": "قرب الانتهاء",
-      "topDrugsHeading": "أكثر الأدوية صرفاً — بيانات الوصفات المباشرة",
       "dhaReportingHeading": "التقارير إلى DHA",
       "licenseNotOnFile": "رقم الترخيص غير مسجل",
       "dhaNotRecorded": "لا تُسجَّل الإرسالات إلى DHA في البوابة، لذلك لا يمكن لهذه الصفحة عرض ما أُرسل أو متى.",
@@ -3972,7 +3967,14 @@
       "kpiOfThisMonth": "من الوصفات المستلمة هذا الشهر",
       "kpiApprovalNone": "لا توجد مطالبات بُتّ فيها بعد",
       "kpiApprovalHelper": "كل المطالبات: {{paid}} مدفوعة · {{denied}} مرفوضة",
-      "percent": "{{value}}٪"
+      "percent": "{{value}}٪",
+      "statusHeading": "وصفات هذا الشهر حسب الحالة",
+      "statusDispensed": "تم صرفها أو استلامها",
+      "statusOpen": "جديدة أو قيد التنفيذ",
+      "statusCancelled": "ملغاة",
+      "topMedicinesHeading": "أكثر الأدوية صرفاً هذا الشهر",
+      "topMedicinesCaption": "عدد مرات الصرف من الوصفات المستلمة هذا الشهر",
+      "topMedicinesEmpty": "لم يُصرف أي دواء هذا الشهر بعد."
     }
   },
   "insurance": {
