@@ -1,7 +1,7 @@
 // The browser here is NOT in Dubai (and west of UTC): Revenue days and months are Dubai days.
 process.env.TZ = 'America/New_York';
 
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -21,8 +21,10 @@ vi.mock('../../components/OpsShell', () => ({
   ),
 }));
 vi.mock('../../hooks', () => ({ usePharmacyPrescriptionQueue: vi.fn(), usePharmacyUnreadMessages: vi.fn() }));
+vi.mock('../../lib/csv-export', () => ({ downloadCsv: vi.fn() }));
 
 import { usePharmacyPrescriptionQueue } from '../../hooks';
+import { downloadCsv } from '../../lib/csv-export';
 import { PharmacyRevenue } from './Revenue';
 
 const claim = (
@@ -273,5 +275,75 @@ describe('PharmacyRevenue ledger (QA-281)', () => {
     expect(await screen.findByRole('button', { name: 'عرض المزيد (٣ متبقية)' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'عرض المزيد (٣ متبقية)' }));
     expect(screen.getAllByTestId('ledger-row')).toHaveLength(11);
+  });
+});
+
+describe('PharmacyRevenue export (QA-282)', () => {
+  const PRESCRIPTION = '1a2b3c4d-1111-2222-3333-444455556666';
+  const setClaims = (list: PharmacyClaimLedgerItem[]) =>
+    vi.mocked(usePharmacyPrescriptionQueue).mockReturnValue({
+      data: { claims: list, profile: null, organization: null, lowStockAlerts: 0 },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as never);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 27 Nov 2026 01:30 in Dubai, still 26 Nov in New York and UTC.
+    vi.setSystemTime(new Date('2026-11-26T21:30:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('exports through the shared CSV helper, with the prescription and Dubai dates, and a Dubai file date', async () => {
+    setClaims([
+      {
+        ...claim('CLM-1', 'paid', 45, '2026-11-26T21:00:00Z'),
+        prescriptionId: PRESCRIPTION,
+        submittedAt: '2026-11-25T21:30:00Z',
+        patientName: '=HYPERLINK("x")',
+      },
+      { ...claim('CLM-2', 'pending', 20, null, 'AXA'), patientName: null, medication: null, submittedAt: null },
+    ]);
+    renderPage();
+    act(() => screen.getByRole('button', { name: /Export Revenue Report/ }).click());
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    const [fileName, rows] = vi.mocked(downloadCsv).mock.calls[0];
+    expect(fileName).toBe('pharmacy-revenue-2026-11-27.csv');
+    expect(rows).toEqual([
+      [
+        'claim_reference', 'prescription', 'patient_name', 'medication', 'payer',
+        'amount_aed', 'status', 'submitted_at_dubai', 'paid_at_dubai',
+      ],
+      // The helper itself makes a cell starting with "=" safe (see csv-export.test.ts).
+      ['CLM-1', 'RX-1A2B3C4D', '=HYPERLINK("x")', 'Amoxicillin', 'Daman', 45, 'paid', '2026-11-26 01:30', '2026-11-27 01:00'],
+      ['CLM-2', '', null, null, 'AXA', 20, 'pending', '', ''],
+    ]);
+  });
+
+  it('shows a plain message when the export fails, not the browser error', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(downloadCsv).mockImplementation(() => {
+      throw new Error('Failed to execute createObjectURL');
+    });
+    setClaims([claim('CLM-1', 'paid', 45, '2026-11-26T21:00:00Z')]);
+    renderPage();
+    act(() => screen.getByRole('button', { name: /Export Revenue Report/ }).click());
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not create the export. Please try again.');
+    expect(screen.queryByText(/createObjectURL/)).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('cannot export when there are no claims', () => {
+    setClaims([]);
+    renderPage();
+    expect(screen.getByRole('button', { name: /Export Revenue Report/ })).toBeDisabled();
+    expect(screen.getByText('No claims yet.')).toBeInTheDocument();
   });
 });

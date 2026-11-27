@@ -3937,7 +3937,8 @@
       "showMore_two": "عرض المزيد (متبقيتان)",
       "showMore_few": "عرض المزيد ({{count}} متبقية)",
       "showMore_many": "عرض المزيد ({{count}} متبقية)",
-      "showMore_other": "عرض المزيد ({{count}} متبقية)"
+      "showMore_other": "عرض المزيد ({{count}} متبقية)",
+      "exportFailed": "تعذّر إنشاء ملف التصدير. يُرجى المحاولة مرة أخرى."
     },
     "reports": {
       "title": "التقارير",

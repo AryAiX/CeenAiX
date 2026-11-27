@@ -3767,7 +3767,8 @@
       "detailSubmitted": "Submitted",
       "detailPaid": "Paid",
       "showMore_one": "Show more ({{count}} remaining)",
-      "showMore_other": "Show more ({{count}} remaining)"
+      "showMore_other": "Show more ({{count}} remaining)",
+      "exportFailed": "Could not create the export. Please try again."
     },
     "reports": {
       "title": "Reports",

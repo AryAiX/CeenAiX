@@ -7,7 +7,8 @@ import { usePharmacyPrescriptionQueue, usePharmacyUnreadMessages } from '../../h
 import { dateTimeFormatWithNumerals, formatLocaleDigits, resolveLocale } from '../../lib/i18n-ui';
 import { PHARMACY_NAV_ITEMS, pharmacyNavCounts } from './navItems';
 import { summarizeRevenue, summarizeRevenueByPayer } from './revenue-figures';
-import { clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
+import { clinicDateKey, clinicTodayKey, formatClinicDate, formatClinicTime } from '../../lib/clinic-booking-time';
+import { downloadCsv } from '../../lib/csv-export';
 import { prescriptionReference } from './prescription-status';
 
 interface RevenuePrescription {
@@ -22,6 +23,9 @@ interface RevenuePrescription {
   submittedAt: string | null;
   paidAt: string | null;
 }
+
+/** QA-282: Dubai date and time for the CSV file, e.g. "2026-11-12 14:05". */
+const csvClaimMoment = (value: string) => `${clinicDateKey(value)} ${formatClinicTime(value, 'en')}`;
 
 /** QA-281: Dubai date and time, e.g. "12 Nov 2026 · 14:05". */
 const formatClaimMoment = (value: string, language: string) =>
@@ -47,6 +51,7 @@ export const PharmacyRevenue = () => {
   const unreadMessages = usePharmacyUnreadMessages();
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(8);
+  const [exportError, setExportError] = useState<string | null>(null);
   const rows = useMemo<RevenuePrescription[]>(
     () =>
       (data?.claims ?? []).map((claim) => ({
@@ -101,36 +106,54 @@ export const PharmacyRevenue = () => {
           </div>
           <button
             type="button"
+            disabled={rows.length === 0}
             onClick={() => {
-              const header = ['claim_id', 'patient_name', 'medication', 'insurer', 'amount_aed', 'status'];
-              const escape = (v: string | number | null | undefined) => {
-                if (v === null || v === undefined) return '';
-                const s = String(v);
-                return s.includes(',') || s.includes('"') || s.includes('\n')
-                  ? `"${s.replace(/"/g, '""')}"`
-                  : s;
-              };
-              const body = [
-                header,
-                ...rows.map((row) => [row.reference, row.patientName, row.medication, row.insurer, row.amount, row.status]),
-              ]
-                .map((line) => line.map(escape).join(','))
-                .join('\n');
-              const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `pharmacy-revenue-${new Date().toISOString().slice(0, 10)}.csv`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
+              setExportError(null);
+              try {
+                // QA-282: the shared CSV helper (Arabic opens correctly in Excel, no formulas can run),
+                // with the prescription and the Dubai submitted / paid date and time, and a Dubai file date.
+                downloadCsv(`pharmacy-revenue-${clinicTodayKey()}.csv`, [
+                  [
+                    'claim_reference',
+                    'prescription',
+                    'patient_name',
+                    'medication',
+                    'payer',
+                    'amount_aed',
+                    'status',
+                    'submitted_at_dubai',
+                    'paid_at_dubai',
+                  ],
+                  ...rows.map((row) => [
+                    row.reference,
+                    row.prescriptionId ? prescriptionReference(row.prescriptionId) : '',
+                    row.patientName,
+                    row.medication,
+                    row.insurer,
+                    row.amount,
+                    row.status,
+                    row.submittedAt ? csvClaimMoment(row.submittedAt) : '',
+                    row.paidAt ? csvClaimMoment(row.paidAt) : '',
+                  ]),
+                ]);
+              } catch (err) {
+                console.warn(`[pharmacy] revenue export failed: ${err instanceof Error ? err.message : String(err)}`);
+                setExportError(
+                  t('pharmacy.revenue.exportFailed', { defaultValue: 'Could not create the export. Please try again.' })
+                );
+              }
             }}
-            className="flex w-fit items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            className="flex w-fit items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Download className="h-4 w-4" /> {t('pharmacy.revenue.exportReport', { defaultValue: 'Export Revenue Report' })}
+            <Download className="h-4 w-4" aria-hidden="true" /> {t('pharmacy.revenue.exportReport', { defaultValue: 'Export Revenue Report' })}
           </button>
         </div>
+
+        {exportError ? (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {exportError}
+          </div>
+        ) : null}
 
         <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
